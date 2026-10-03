@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use crate::art::Art;
-use crate::config::{GameConfig, ModeKind};
+use crate::config::{GameConfig, ModeKind, SpellKind};
 use crate::gameplay::piece_def;
 use crate::gameplay::{
     ActiveBrick, Brick, BrickBag, MAX_TOWERS, Match, Phase, Platform, Tower, TowerState,
@@ -40,6 +40,7 @@ impl Plugin for VisualsPlugin {
                     update_next_preview,
                     frame_towers,
                     update_hud,
+                    update_panels,
                     update_lines,
                     update_mist,
                 ),
@@ -49,6 +50,10 @@ impl Plugin for VisualsPlugin {
 
 #[derive(Component)]
 struct Hud;
+
+/// The row of player panels along the bottom: portrait, hearts and spell slots.
+#[derive(Component)]
+struct PanelRow;
 
 #[derive(Component)]
 struct DropGuide;
@@ -81,6 +86,17 @@ struct NextPreview {
 struct CellSprite;
 
 fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
+    commands.spawn((
+        PanelRow,
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(10.0),
+            width: Val::Percent(100.0),
+            justify_content: JustifyContent::SpaceEvenly,
+            align_items: AlignItems::FlexEnd,
+            ..default()
+        },
+    ));
     commands.spawn((Camera2d, Transform::from_xyz(0.0, config.cells(6.0), 0.0)));
     let guide = match art.image("drop_guide") {
         Some(image) => Sprite { image, ..default() },
@@ -313,7 +329,7 @@ fn dress_life_orbs(
 struct Background;
 
 /// A background layer placed in a tower's lane (manifest entries with `position`).
-/// `parallax` 1 moves with the tower; 0 stays fixed on screen.
+/// `parallax` 1 moves with the tower; 0 stays at the same height on screen.
 #[derive(Component)]
 struct LaneLayer {
     offset: Vec2,
@@ -454,10 +470,10 @@ fn scroll_lane_layers(
         let Ok(platform) = platforms.get(child_of.parent()) else {
             continue;
         };
-        let lag = camera.translation.truncate() - platform.translation().truncate();
-        let at = layer.offset + lag * (1.0 - layer.parallax);
-        transform.translation.x = at.x;
-        transform.translation.y = at.y;
+        // Vertical only: lanes stay side by side as the camera climbs.
+        let lag = camera.translation.y - platform.translation().y;
+        transform.translation.x = layer.offset.x;
+        transform.translation.y = layer.offset.y + lag * (1.0 - layer.parallax);
     }
 }
 
@@ -727,6 +743,193 @@ fn frame_towers(
     }
 }
 
+/// What one player's panel shows; the panels are rebuilt when any of it changes.
+#[derive(PartialEq, Clone, Debug)]
+struct PanelState {
+    lane: usize,
+    name: String,
+    lives: Option<u32>,
+    light: Option<SpellKind>,
+    dark: Vec<SpellKind>,
+    status: TowerStatus,
+}
+
+const PANEL_ICON: f32 = 44.0;
+
+/// One panel per tower, in lane order: the wizard portrait (`wizard_<lane>`), hearts
+/// for lives (`heart`), and the light and dark spell slots (`spell_icon_<Spell>` in
+/// `spell_slot_light` / `spell_slot_dark`). Text stands in for missing art.
+fn update_panels(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    art: Res<Art>,
+    towers: Query<(&Tower, &TowerState)>,
+    row: Query<Entity, With<PanelRow>>,
+    mut shown: Local<Option<Vec<PanelState>>>,
+) {
+    let Ok(row) = row.single() else {
+        return;
+    };
+    let mut panels: Vec<PanelState> = towers
+        .iter()
+        .filter(|_| game.phase != Phase::Menu)
+        .map(|(tower, state)| PanelState {
+            lane: tower.index,
+            name: match tower.player {
+                Some(p) => format!("Player {}", p + 1),
+                None => format!("Wizard {}", tower.index),
+            },
+            lives: state.lives,
+            light: state.light_spell.filter(|_| config.magic.enabled),
+            dark: state
+                .dark_spell
+                .as_ref()
+                .filter(|_| config.magic.enabled)
+                .map(|c| c.spells.clone())
+                .unwrap_or_default(),
+            status: state.status,
+        })
+        .collect();
+    panels.sort_by_key(|p| p.lane);
+    if shown.as_ref() == Some(&panels) && !art.is_changed() {
+        return;
+    }
+    commands.entity(row).despawn_children();
+    commands.entity(row).with_children(|row| {
+        for panel in &panels {
+            spawn_panel(row, &art, config.magic.enabled, panel);
+        }
+    });
+    *shown = Some(panels);
+}
+
+fn spawn_panel(row: &mut ChildSpawnerCommands, art: &Art, magic: bool, panel: &PanelState) {
+    let label = |text: String, size: f32| {
+        (
+            Text::new(text),
+            TextFont {
+                font_size: FontSize::Px(size),
+                ..default()
+            },
+        )
+    };
+    let icon = |image: Handle<Image>, size: f32| {
+        (
+            ImageNode::new(image),
+            Node {
+                width: Val::Px(size),
+                height: Val::Px(size),
+                ..default()
+            },
+        )
+    };
+    let faded = panel.status == TowerStatus::Out;
+    row.spawn((
+        Node {
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            row_gap: Val::Px(4.0),
+            padding: UiRect::all(Val::Px(6.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, if faded { 0.15 } else { 0.35 })),
+    ))
+    .with_children(|panel_ui| {
+        panel_ui
+            .spawn(Node {
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(6.0),
+                ..default()
+            })
+            .with_children(|top| {
+                if let Some(image) = art.image(&format!("wizard_{}", panel.lane + 1)) {
+                    top.spawn(icon(image, 56.0));
+                }
+                let status = match panel.status {
+                    TowerStatus::Building => "",
+                    TowerStatus::Won => " - won",
+                    TowerStatus::Out => " - out",
+                };
+                top.spawn(label(format!("{}{status}", panel.name), 16.0));
+            });
+        if let Some(lives) = panel.lives {
+            panel_ui
+                .spawn(Node {
+                    column_gap: Val::Px(2.0),
+                    ..default()
+                })
+                .with_children(|hearts| match art.image("heart") {
+                    Some(image) => {
+                        for _ in 0..lives {
+                            hearts.spawn(icon(image.clone(), 22.0));
+                        }
+                    }
+                    None => {
+                        hearts.spawn((
+                            label("♥ ".repeat(lives as usize).trim_end().to_string(), 18.0),
+                            TextColor(Color::srgb(1.0, 0.35, 0.45)),
+                        ));
+                    }
+                });
+        }
+        if !magic {
+            return;
+        }
+        panel_ui
+            .spawn(Node {
+                column_gap: Val::Px(8.0),
+                ..default()
+            })
+            .with_children(|slots| {
+                let slot_list = [
+                    (
+                        "spell_slot_light",
+                        panel.light.into_iter().collect::<Vec<_>>(),
+                        Color::srgb(1.0, 0.95, 0.55),
+                    ),
+                    (
+                        "spell_slot_dark",
+                        panel.dark.clone(),
+                        Color::srgb(0.7, 0.45, 1.0),
+                    ),
+                ];
+                for (frame, spells, color) in slot_list {
+                    let mut slot = slots.spawn((
+                        Node {
+                            min_width: Val::Px(PANEL_ICON),
+                            height: Val::Px(PANEL_ICON),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            padding: UiRect::horizontal(Val::Px(4.0)),
+                            border: UiRect::all(Val::Px(2.0)),
+                            ..default()
+                        },
+                        BorderColor::all(color),
+                    ));
+                    if let Some(image) = art.image(frame) {
+                        slot.insert((ImageNode::new(image), BorderColor::all(Color::NONE)));
+                    }
+                    slot.with_children(|slot| {
+                        for spell in spells {
+                            match art.image(&format!("spell_icon_{spell:?}")) {
+                                Some(image) => {
+                                    slot.spawn(icon(image, PANEL_ICON - 8.0));
+                                }
+                                None => {
+                                    slot.spawn((
+                                        label(spell.name().into(), 13.0),
+                                        TextColor(color),
+                                    ));
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+    });
+}
+
 fn update_hud(
     config: Res<GameConfig>,
     game: Res<Match>,
@@ -760,10 +963,9 @@ fn update_hud(
             )
         }
         ModeKind::Survival => format!(
-            "SURVIVAL  bricks {} / {}  lives {}",
+            "SURVIVAL  bricks {} / {}",
             you.bricks_used(),
             config.survival.bricks_to_place,
-            you.lives.unwrap_or(0)
         ),
         ModeKind::Puzzle => format!(
             "PUZZLE  bricks {} / {}  stay under the laser ({:.1})",
@@ -773,13 +975,9 @@ fn update_hud(
         ),
     };
     let spell = if config.magic.enabled {
-        let light = you.light_spell.map_or("-", |s| s.name());
-        let dark = you.dark_spell.as_ref().map_or("-".into(), |c| c.name());
-        let line = you
-            .spell_line
-            .map(|h| format!("   spell line at {h:.1}"))
-            .unwrap_or_default();
-        format!("light [Q]: {light}   dark [E]: {dark}{line}")
+        you.spell_line
+            .map(|h| format!("spell line at {h:.1}"))
+            .unwrap_or_default()
     } else {
         String::new()
     };
@@ -800,12 +998,8 @@ fn update_hud(
             TowerStatus::Won => " (won)".into(),
             TowerStatus::Out => " (out)".into(),
         };
-        let lives = state
-            .lives
-            .map(|l| format!(" lives {l}"))
-            .unwrap_or_default();
         lines.push(format!(
-            "{}: height {:.1}{lives}{status}",
+            "{}: height {:.1}{status}",
             name(tower),
             state.height
         ));

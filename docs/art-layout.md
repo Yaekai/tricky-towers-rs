@@ -40,7 +40,8 @@ Background layers take four more optional fields:
   `pixels_per_unit`. A layer without one is stretched to cover the whole window.
 - `z`: draw order, back to front (the layer number if left out). Every background is behind the
   bricks.
-- `parallax`: 1 (default) moves with the tower, 0 stays fixed on screen, 0.5 moves half as fast.
+- `parallax`: how the layer follows the camera climbing: 1 (default) moves with the tower, 0 stays
+  at the same height on screen, 0.5 moves half as fast. Lanes never shift sideways.
 - `scale`: extra size factor (1 if left out).
 
 ## Names the game looks up
@@ -58,15 +59,17 @@ Background layers take four more optional fields:
 | `spell_orb_light`, `spell_orb_dark` | The light and dark pickups at the ends of the spell line |
 | `water` | Water under all lanes, repeated sideways; pivot at the middle of its top edge (sits at the depth where dropped bricks are lost) |
 | `drop_guide` | The beam under your brick, stretched to the brick's width and drop distance |
+| `wizard_1` ... `wizard_4` | Portrait in each lane's player panel, left to right |
+| `heart` | One per life in a player panel |
+| `spell_slot_light`, `spell_slot_dark` | Frames of the two spell slots in a player panel |
+| `spell_icon_<Spell>` | Spell icon in a slot, for Ivy, Petrify, Undo, ExtraLife, Minibase, AutoBuild, Large, Fast, NoRotate, AutoRotate, Ice, Mist, Slow, Mystery, Bubble, Grassy, Ghost |
 | `life_orb` | Extra Life's heart orb |
 | `music_menu`, `music_race`, `music_survival`, `music_puzzle` | Looping music |
 | `sfx_land`, `sfx_move`, `sfx_nudge`, `sfx_rotate`, `sfx_drop_lost`, `sfx_line_collect` | Your brick and tower |
 | `sfx_cast_light`, `sfx_cast_dark`, `sfx_countdown`, `sfx_win`, `sfx_lose` | Spells and match events |
 
 Still to be wired up (stage them if found; the game will use them later): `vine_overlay`,
-`grass_overlay`, `heart`, `bubble`, `balloon`, `mist`, `minibase`, `wizard_<n>`, and
-`spell_icon_<Spell>` for each spell (Ivy, Petrify, Undo, ExtraLife, Minibase, AutoBuild, Large, Fast, NoRotate, AutoRotate,
-Ice, Mist, Slow, Mystery, Bubble, Grassy).
+`grass_overlay`, `bubble`, `balloon`, `mist` and `minibase`.
 
 ## extracted/notes.md
 One line per entry saying what it is and its pixel size, plus anything useful that has no name
