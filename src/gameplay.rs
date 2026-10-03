@@ -210,6 +210,8 @@ pub struct TowerState {
     pub last_placed: Option<Entity>,
     /// Seconds of Mist left over this tower.
     pub mist_timer: f32,
+    /// Seconds before a dropped brick can cost another life.
+    pub invincible: f32,
     /// Spell effects waiting for the coming bricks, next brick first.
     pub next_mods: Vec<BrickMod>,
     /// Mystery shapes still in the bag.
@@ -242,6 +244,7 @@ impl TowerState {
             last_light: None,
             last_placed: None,
             mist_timer: 0.0,
+            invincible: 0.0,
             next_mods: Vec::new(),
             mystery_bag: Vec::new(),
             rng: seed.max(1),
@@ -272,11 +275,26 @@ impl TowerState {
         Some(self.mystery_bag.swap_remove(pick))
     }
 
-    fn lose_brick(&mut self) {
+    /// A brick fell off. In Survival it costs a life, then a moment of grace.
+    fn lose_brick(&mut self, config: &GameConfig) {
         self.bricks_dropped += 1;
+        if self.invincible > 0.0 {
+            return;
+        }
         if let Some(lives) = self.lives.as_mut() {
             *lives = lives.saturating_sub(1);
+            self.invincible = config.survival.invincible_seconds;
         }
+    }
+
+    /// Bricks used so far, placed or dropped.
+    pub fn bricks_used(&self) -> u32 {
+        self.bricks_placed + self.bricks_dropped
+    }
+
+    /// Puzzle laser height for this tower: each dropped brick brings it lower.
+    pub fn laser(&self, config: &GameConfig) -> f32 {
+        config.puzzle.line_height - config.puzzle.drop_penalty * self.bricks_dropped as f32
     }
 }
 
@@ -566,9 +584,12 @@ fn spawn_next_brick(
         if state.status != TowerStatus::Building || state.active.is_some() {
             continue;
         }
-        if game.mode == ModeKind::Puzzle
-            && state.bricks_placed + state.bricks_dropped >= config.puzzle.bricks
-        {
+        let limit = match game.mode {
+            ModeKind::Puzzle => Some(config.puzzle.bricks),
+            ModeKind::Survival => Some(config.survival.bricks_to_place),
+            ModeKind::Race => None,
+        };
+        if limit.is_some_and(|n| state.bricks_used() >= n) {
             continue;
         }
         let modifier = if state.next_mods.is_empty() {
@@ -926,7 +947,7 @@ fn control_active_brick(
         if position.0.y < -config.cells(config.kill_depth) {
             commands.entity(entity).despawn();
             state.active = None;
-            state.lose_brick();
+            state.lose_brick(&config);
             continue;
         }
 
@@ -977,7 +998,7 @@ fn track_towers(
                 }
             }
             commands.entity(entity).despawn();
-            state.lose_brick();
+            state.lose_brick(&config);
             continue;
         }
         let on_tower = (position.0.x - tower.origin_x).abs()
@@ -1029,19 +1050,24 @@ fn judge_match(
                 }
             }
             ModeKind::Survival => {
+                state.invincible = (state.invincible - dt).max(0.0);
                 if state.lives == Some(0) {
                     state.status = TowerStatus::Out;
-                } else if state.bricks_placed >= config.survival.bricks_to_place {
-                    state.status = TowerStatus::Won;
+                } else if state.bricks_used() >= config.survival.bricks_to_place
+                    && state.active.is_none()
+                {
+                    // Out of bricks: a short countdown, then the roof goes on.
+                    state.settle_timer += dt;
+                    if state.settle_timer >= config.survival.finish_countdown {
+                        state.status = TowerStatus::Won;
+                    }
                 }
             }
             ModeKind::Puzzle => {
                 let rules = &config.puzzle;
-                if state.bricks_dropped > 0
-                    || (state.all_settled && state.height > rules.line_height + 0.05)
-                {
+                if state.all_settled && state.height > state.laser(&config) + 0.05 {
                     state.status = TowerStatus::Out;
-                } else if state.bricks_placed >= rules.bricks
+                } else if state.bricks_used() >= rules.bricks
                     && state.active.is_none()
                     && state.all_settled
                 {

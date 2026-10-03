@@ -141,9 +141,14 @@ impl Default for RaceRules {
 #[serde(default)]
 pub struct SurvivalRules {
     pub lives: u32,
+    /// Bricks each player gets; dropped ones count too.
     pub bricks_to_place: u32,
     /// Base drop speed, in cells/s.
     pub drop_speed: f32,
+    /// After losing a life, seconds before another brick can cost one.
+    pub invincible_seconds: f32,
+    /// Seconds after the last brick before the tower is finished.
+    pub finish_countdown: f32,
 }
 
 impl Default for SurvivalRules {
@@ -152,6 +157,8 @@ impl Default for SurvivalRules {
             lives: 3,
             bricks_to_place: 66,
             drop_speed: 2.0,
+            invincible_seconds: 1.5,
+            finish_countdown: 3.0,
         }
     }
 }
@@ -169,6 +176,8 @@ pub struct PuzzleRules {
     pub drop_speed: f32,
     /// The light spell every player starts with; there are no spell lines.
     pub start_spell: Option<SpellKind>,
+    /// A dropped brick costs no life; the laser comes this much lower instead.
+    pub drop_penalty: f32,
 }
 
 impl Default for PuzzleRules {
@@ -179,6 +188,7 @@ impl Default for PuzzleRules {
             settle_seconds: 2.0,
             drop_speed: 3.0,
             start_spell: Some(SpellKind::Ivy),
+            drop_penalty: 0.5,
         }
     }
 }

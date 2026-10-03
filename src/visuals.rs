@@ -58,9 +58,11 @@ struct SpellLine {
     tower: Entity,
 }
 
-/// The race finish line over a tower; it comes down late in a race.
+/// The race finish line or puzzle laser over a tower; both can come down.
 #[derive(Component)]
-struct FinishLine;
+struct FinishLine {
+    tower: Entity,
+}
 
 /// Fog over a tower hit by Mist.
 #[derive(Component)]
@@ -369,9 +371,9 @@ fn dress_platforms(
                     ),
                     Transform::from_xyz(0.0, config.cells(height) + c * 0.5, -1.0),
                 ));
-                if game.mode == ModeKind::Race {
-                    line.insert(FinishLine);
-                }
+                line.insert(FinishLine {
+                    tower: platform.tower,
+                });
             }
             if config.magic.enabled {
                 // A faint line with an orb at each end: one light, one dark.
@@ -575,13 +577,15 @@ fn update_hud(
         }
         ModeKind::Survival => format!(
             "SURVIVAL  bricks {} / {}  lives {}",
-            you.bricks_placed,
+            you.bricks_used(),
             config.survival.bricks_to_place,
             you.lives.unwrap_or(0)
         ),
         ModeKind::Puzzle => format!(
-            "PUZZLE  bricks {} / {}  stay under the laser ({:.0})",
-            you.bricks_placed, config.puzzle.bricks, config.puzzle.line_height
+            "PUZZLE  bricks {} / {}  stay under the laser ({:.1})",
+            you.bricks_used(),
+            config.puzzle.bricks,
+            you.laser(&config)
         ),
     };
     let spell = if config.magic.enabled {
@@ -655,11 +659,17 @@ fn update_lines(
     game: Res<Match>,
     towers: Query<&TowerState>,
     mut lines: Query<(&SpellLine, &mut Transform, &mut Visibility), Without<FinishLine>>,
-    mut finish: Query<&mut Transform, With<FinishLine>>,
+    mut finish: Query<(&FinishLine, &mut Transform)>,
 ) {
     let c = config.cell_size;
-    for mut transform in &mut finish {
-        transform.translation.y = config.cells(game.finish_height) + c * 0.5;
+    for (line, mut transform) in &mut finish {
+        let height = match game.mode {
+            ModeKind::Puzzle => towers
+                .get(line.tower)
+                .map_or(config.puzzle.line_height, |s| s.laser(&config)),
+            _ => game.finish_height,
+        };
+        transform.translation.y = config.cells(height) + c * 0.5;
     }
     for (line, mut transform, mut visibility) in &mut lines {
         let height = towers.get(line.tower).ok().and_then(|s| s.spell_line);

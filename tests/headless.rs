@@ -76,6 +76,7 @@ fn fast_config() -> GameConfig {
             lives: 3,
             bricks_to_place: 100,
             drop_speed: 8.0,
+            ..default()
         },
         ..default()
     };
@@ -139,6 +140,50 @@ fn losing_every_life_ends_survival() {
     let game = app.world().resource::<Match>();
     assert_eq!(game.phase, Phase::Over);
     assert_eq!(game.winner, None);
+}
+
+#[test]
+fn a_lost_life_gives_a_moment_of_grace() {
+    let mut config = fast_config();
+    config.survival.invincible_seconds = 1000.0;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 12.0, |app| human_input(app).left_held = true);
+    let state = tower(&mut app, 0);
+    assert!(state.bricks_dropped >= 2, "{state:?}");
+    assert_eq!(state.lives, Some(2), "only the first drop costs a life");
+}
+
+#[test]
+fn survival_ends_after_the_last_brick_and_a_countdown() {
+    let mut config = fast_config();
+    config.survival.bricks_to_place = 3;
+    config.survival.finish_countdown = 1.0;
+    let mut app = headless_app(config);
+    let finished = run_until(&mut app, 10.0, |app| {
+        tower(app, 0).status == TowerStatus::Won
+    });
+    let state = tower(&mut app, 0);
+    assert!(finished, "{state:?}");
+    assert_eq!(state.bricks_used(), 3, "{state:?}");
+}
+
+#[test]
+fn a_dropped_puzzle_brick_lowers_the_laser() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.puzzle.line_height = 20.0;
+    let mut app = headless_app(config);
+    run_until(&mut app, 8.0, |app| {
+        human_input(app).left_held = true;
+        tower(app, 0).bricks_dropped >= 1
+    });
+    let state = tower(&mut app, 0);
+    assert_eq!(
+        state.status,
+        TowerStatus::Building,
+        "a drop ended the puzzle"
+    );
+    assert!(state.laser(app.world().resource::<GameConfig>()) < 20.0);
 }
 
 #[test]
