@@ -67,9 +67,9 @@ pub struct SpellCast {
     pub target: usize,
 }
 
-/// The last few spells cast, newest last.
+/// The last few spells cast, newest last, and how many were cast in all.
 #[derive(Resource, Debug, Default)]
-pub struct SpellLog(pub Vec<SpellCast>);
+pub struct SpellLog(pub Vec<SpellCast>, pub u64);
 
 /// Places each tower's spell line, slides it down in a race, and hands out a
 /// spell pair when the tower reaches it. Also counts down Mist.
@@ -307,6 +307,7 @@ pub(crate) fn cast_spells(
                     caster: caster_index,
                     target: target_index,
                 });
+                log.1 += 1;
             }
         }
     }

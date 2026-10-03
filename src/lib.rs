@@ -8,6 +8,7 @@
 //! - [`visuals::VisualsPlugin`]: placeholder sprites, camera and HUD.
 
 pub mod ai;
+pub mod art;
 pub mod config;
 pub mod gameplay;
 pub mod input;

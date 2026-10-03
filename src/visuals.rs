@@ -1,22 +1,27 @@
-//! Placeholder visuals: coloured squares, goal lines, a drop guide, a preview
+//! Visuals: bricks, platforms, goal and spell lines, a drop guide, a preview
 //! of the next brick, a camera that keeps every tower in view, and a text HUD.
-//! No original game art is used; this is the layer an asset mod (or a loader
-//! for your own installed copy's assets) would replace.
+//! Bricks, platforms and backgrounds use the original's art when it has been
+//! extracted from your own install (see [`crate::art`]); otherwise everything
+//! is drawn as plain coloured shapes.
 
 use avian2d::prelude::*;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 
+use crate::art::Art;
 use crate::config::{GameConfig, ModeKind};
+use crate::gameplay::piece_def;
 use crate::gameplay::{
     ActiveBrick, Brick, BrickBag, Match, Phase, Platform, Tower, TowerState, TowerStatus,
 };
-use crate::spells::{SpellLog, Stone, Vined};
+use crate::spells::{Bubbled, Grassy, LifeOrb, SpellLog, Stone, Vined, Zapped};
 
 pub struct VisualsPlugin;
 
 impl Plugin for VisualsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ClearColor(Color::srgb(0.12, 0.14, 0.22)))
+            .init_resource::<Art>()
             .add_systems(Startup, setup_scene)
             .add_systems(
                 Update,
@@ -24,6 +29,11 @@ impl Plugin for VisualsPlugin {
                     dress_bricks,
                     tint_stone,
                     tint_vines,
+                    tint_grass,
+                    flicker_effects,
+                    dress_life_orbs,
+                    spawn_backgrounds,
+                    fit_backgrounds,
                     dress_platforms,
                     update_drop_guide,
                     update_next_preview,
@@ -106,18 +116,78 @@ fn cell_sprites(parent: &mut ChildSpawnerCommands, cells: &[Vec2], cell: f32, co
     }
 }
 
-/// Gives every new brick one sprite per cell.
+const STONE: Color = Color::srgb(0.45, 0.45, 0.48);
+const VINES: Color = Color::srgb(0.2, 0.7, 0.25);
+const GRASS: Color = Color::srgb(0.35, 0.8, 0.2);
+
+/// A sprite from the extracted art, anchored at its pivot and scaled from its
+/// pixels to cells.
+fn art_sprite(art: &Art, name: &str, cell: f32) -> Option<(Sprite, Anchor, Transform)> {
+    let image = art.image(name)?;
+    let entry = art.entries.get(name)?;
+    let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
+    let scale = cell / entry.pixels_per_unit.unwrap_or(100.0).max(1.0);
+    Some((
+        Sprite::from_image(image),
+        Anchor(Vec2::new(px - 0.5, py - 0.5)),
+        Transform::from_scale(Vec3::splat(scale)),
+    ))
+}
+
+/// Draws every new or changed brick: the original's sprite for its shape if
+/// extracted, else one square per cell.
+#[allow(clippy::type_complexity)]
 fn dress_bricks(
     mut commands: Commands,
     config: Res<GameConfig>,
-    bricks: Query<(Entity, &Brick), Added<Brick>>,
+    art: Res<Art>,
+    bricks: Query<(Entity, &Brick, Has<Stone>, Has<Vined>), Changed<Brick>>,
 ) {
-    for (entity, brick) in &bricks {
+    for (entity, brick, stone, vined) in &bricks {
         let cell = config.cell_size * brick.scale;
-        commands
-            .entity(entity)
-            .insert(Visibility::default())
-            .with_children(|parent| cell_sprites(parent, &brick.cells, cell, brick.color));
+        let def = piece_def(&config, brick.piece);
+        let key = if brick.piece < config.pieces.len() {
+            format!("brick_{}", def.name)
+        } else {
+            format!("mystery_{}", def.name.to_lowercase())
+        };
+        // Spells that recolour a brick (Ice) still tint the original sprite.
+        let def_color = Color::srgb(def.color[0], def.color[1], def.color[2]);
+        let image = art
+            .image(&key)
+            .filter(|_| brick.cells.len() == def.cells.len());
+        let mut color = match image {
+            Some(_) if brick.color == def_color => Color::WHITE,
+            _ => brick.color,
+        };
+        if stone {
+            color = color.mix(&STONE, 0.75);
+        }
+        if vined {
+            color = color.mix(&VINES, 0.4);
+        }
+        let mut entity = commands.entity(entity);
+        entity.insert(Visibility::default()).despawn_children();
+        match image {
+            Some(image) => {
+                let min = brick.cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
+                let max = brick.cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
+                let size = (max - min + Vec2::ONE) * cell;
+                entity.with_child((
+                    CellSprite,
+                    Sprite {
+                        image,
+                        color,
+                        custom_size: Some(size),
+                        ..default()
+                    },
+                    Transform::from_translation(((min + max) * 0.5 * cell).extend(0.0)),
+                ));
+            }
+            None => {
+                entity.with_children(|parent| cell_sprites(parent, &brick.cells, cell, color));
+            }
+        }
     }
 }
 
@@ -138,9 +208,7 @@ fn tint_stone(
     mut sprites: Query<&mut Sprite, With<CellSprite>>,
 ) {
     for children in &bricks {
-        recolor(children, &mut sprites, |c| {
-            c.mix(&Color::srgb(0.45, 0.45, 0.48), 0.75)
-        });
+        recolor(children, &mut sprites, |c| c.mix(&STONE, 0.75));
     }
 }
 
@@ -149,9 +217,108 @@ fn tint_vines(
     mut sprites: Query<&mut Sprite, With<CellSprite>>,
 ) {
     for children in &bricks {
-        recolor(children, &mut sprites, |c| {
-            c.mix(&Color::srgb(0.2, 0.7, 0.25), 0.4)
-        });
+        recolor(children, &mut sprites, |c| c.mix(&VINES, 0.4));
+    }
+}
+
+fn tint_grass(
+    bricks: Query<&Children, Added<Grassy>>,
+    mut sprites: Query<&mut Sprite, With<CellSprite>>,
+) {
+    for children in &bricks {
+        recolor(children, &mut sprites, |c| c.mix(&GRASS, 0.5));
+    }
+}
+
+/// Undo's zap flickers the brick; a bubbled brick is drawn pale.
+fn flicker_effects(
+    time: Res<Time>,
+    zapped: Query<&Children, With<Zapped>>,
+    bubbled: Query<&Children, With<Bubbled>>,
+    mut sprites: Query<&mut Sprite, With<CellSprite>>,
+) {
+    let on = (time.elapsed_secs() * 20.0).sin() > 0.0;
+    for children in &zapped {
+        for &child in children {
+            if let Ok(mut sprite) = sprites.get_mut(child) {
+                sprite.color = sprite.color.with_alpha(if on { 1.0 } else { 0.2 });
+            }
+        }
+    }
+    for children in &bubbled {
+        for &child in children {
+            if let Ok(mut sprite) = sprites.get_mut(child) {
+                sprite.color = sprite.color.with_alpha(0.6);
+            }
+        }
+    }
+}
+
+/// Draws Extra Life's heart orb.
+fn dress_life_orbs(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    orbs: Query<Entity, Added<LifeOrb>>,
+) {
+    for entity in &orbs {
+        let mut orb = commands.entity(entity);
+        orb.insert(Visibility::default());
+        match art_sprite(&art, "life_orb", config.cell_size) {
+            Some(parts) => {
+                orb.with_child(parts);
+            }
+            None => {
+                orb.insert(Sprite::from_color(
+                    Color::srgb(1.0, 0.3, 0.4),
+                    Vec2::splat(config.cell_size * 0.8),
+                ));
+            }
+        }
+    }
+}
+
+/// Background layers from the extracted art, behind everything and filling the view.
+#[derive(Component)]
+struct Background;
+
+fn spawn_backgrounds(
+    mut commands: Commands,
+    art: Res<Art>,
+    camera: Query<Entity, Added<Camera2d>>,
+) {
+    let Ok(camera) = camera.single() else {
+        return;
+    };
+    for layer in 0..8 {
+        let Some(image) = art.image(&format!("background_{layer}")) else {
+            break;
+        };
+        commands.entity(camera).with_child((
+            Background,
+            Sprite::from_image(image),
+            Transform::from_xyz(0.0, 0.0, -900.0 + layer as f32),
+        ));
+    }
+}
+
+fn fit_backgrounds(
+    windows: Query<&Window>,
+    images: Res<Assets<Image>>,
+    camera: Query<&Projection, With<Camera2d>>,
+    mut layers: Query<(&Sprite, &mut Transform), With<Background>>,
+) {
+    let (Ok(window), Ok(Projection::Orthographic(ortho))) = (windows.single(), camera.single())
+    else {
+        return;
+    };
+    for (sprite, mut transform) in &mut layers {
+        let Some(image) = images.get(&sprite.image) else {
+            continue;
+        };
+        let size = image.size_f32();
+        let cover = (window.width() / size.x).max(window.height() / size.y);
+        transform.scale = Vec3::splat(cover * ortho.scale);
     }
 }
 
@@ -160,87 +327,98 @@ fn dress_platforms(
     mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
+    art: Res<Art>,
     platforms: Query<(Entity, &Platform), Added<Platform>>,
 ) {
     let c = config.cell_size;
+    let art_name = match game.mode {
+        ModeKind::Race => "platform_race",
+        ModeKind::Survival => "platform_survival",
+        ModeKind::Puzzle => "platform_puzzle",
+    };
     for (entity, platform) in &platforms {
-        commands
-            .entity(entity)
-            .insert(Sprite::from_color(
-                Color::srgb(0.55, 0.50, 0.45),
-                Vec2::new(config.cells(config.platform_width), c),
-            ))
-            .with_children(|parent| {
-                let line = match game.mode {
-                    ModeKind::Race => {
-                        Some((config.race.finish_height, Color::srgba(1.0, 1.0, 1.0, 0.6)))
-                    }
-                    ModeKind::Puzzle => {
-                        Some((config.puzzle.line_height, Color::srgba(1.0, 0.2, 0.2, 0.8)))
-                    }
-                    ModeKind::Survival => None,
-                };
-                if let Some((height, color)) = line {
-                    // The platform's centre is half a cell below its top.
-                    let mut line = parent.spawn((
-                        Sprite::from_color(
-                            color,
-                            Vec2::new(config.cells(config.platform_width + 4.0), 3.0),
-                        ),
-                        Transform::from_xyz(0.0, config.cells(height) + c * 0.5, -1.0),
-                    ));
-                    if game.mode == ModeKind::Race {
-                        line.insert(FinishLine);
-                    }
-                }
-                if config.magic.enabled {
-                    // A faint line with an orb at each end: one light, one dark.
-                    parent
-                        .spawn((
-                            SpellLine {
-                                tower: platform.tower,
-                            },
-                            Sprite::from_color(
-                                Color::srgba(1.0, 0.95, 0.7, 0.25),
-                                Vec2::new(config.cells(config.platform_width + 2.0), 2.0),
-                            ),
-                            Transform::from_xyz(0.0, 0.0, -1.5),
-                            Visibility::Hidden,
-                        ))
-                        .with_children(|line| {
-                            let orbs = [
-                                (-1.0, Color::srgb(1.0, 0.95, 0.55)),
-                                (1.0, Color::srgb(0.65, 0.3, 0.95)),
-                            ];
-                            for (side, color) in orbs {
-                                line.spawn((
-                                    Sprite::from_color(color, Vec2::splat(c * 0.6)),
-                                    Transform::from_xyz(
-                                        side * config.cells(config.platform_width * 0.5 + 1.5),
-                                        0.0,
-                                        0.5,
-                                    )
-                                    .with_rotation(
-                                        Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
-                                    ),
-                                ));
-                            }
-                        });
-                }
-                parent.spawn((
-                    MistCloud {
-                        tower: platform.tower,
-                    },
-                    Sprite::from_color(
-                        Color::srgba(0.85, 0.88, 0.95, 0.0),
-                        Vec2::new(
-                            config.cells(config.platform_width + 6.0),
-                            config.cells(40.0),
-                        ),
-                    ),
-                    Transform::from_xyz(0.0, config.cells(20.0), 5.0),
+        let mut base = commands.entity(entity);
+        match art_sprite(&art, art_name, c) {
+            // A child, so the sprite's scale never touches the platform's collider.
+            Some(parts) => {
+                base.insert(Visibility::default()).with_child(parts);
+            }
+            None => {
+                base.insert(Sprite::from_color(
+                    Color::srgb(0.55, 0.50, 0.45),
+                    Vec2::new(config.cells(config.platform_width), c),
                 ));
-            });
+            }
+        }
+        base.with_children(|parent| {
+            let line = match game.mode {
+                ModeKind::Race => {
+                    Some((config.race.finish_height, Color::srgba(1.0, 1.0, 1.0, 0.6)))
+                }
+                ModeKind::Puzzle => {
+                    Some((config.puzzle.line_height, Color::srgba(1.0, 0.2, 0.2, 0.8)))
+                }
+                ModeKind::Survival => None,
+            };
+            if let Some((height, color)) = line {
+                // The platform's centre is half a cell below its top.
+                let mut line = parent.spawn((
+                    Sprite::from_color(
+                        color,
+                        Vec2::new(config.cells(config.platform_width + 4.0), 3.0),
+                    ),
+                    Transform::from_xyz(0.0, config.cells(height) + c * 0.5, -1.0),
+                ));
+                if game.mode == ModeKind::Race {
+                    line.insert(FinishLine);
+                }
+            }
+            if config.magic.enabled {
+                // A faint line with an orb at each end: one light, one dark.
+                parent
+                    .spawn((
+                        SpellLine {
+                            tower: platform.tower,
+                        },
+                        Sprite::from_color(
+                            Color::srgba(1.0, 0.95, 0.7, 0.25),
+                            Vec2::new(config.cells(config.platform_width + 2.0), 2.0),
+                        ),
+                        Transform::from_xyz(0.0, 0.0, -1.5),
+                        Visibility::Hidden,
+                    ))
+                    .with_children(|line| {
+                        let orbs = [
+                            (-1.0, Color::srgb(1.0, 0.95, 0.55)),
+                            (1.0, Color::srgb(0.65, 0.3, 0.95)),
+                        ];
+                        for (side, color) in orbs {
+                            line.spawn((
+                                Sprite::from_color(color, Vec2::splat(c * 0.6)),
+                                Transform::from_xyz(
+                                    side * config.cells(config.platform_width * 0.5 + 1.5),
+                                    0.0,
+                                    0.5,
+                                )
+                                .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_4)),
+                            ));
+                        }
+                    });
+            }
+            parent.spawn((
+                MistCloud {
+                    tower: platform.tower,
+                },
+                Sprite::from_color(
+                    Color::srgba(0.85, 0.88, 0.95, 0.0),
+                    Vec2::new(
+                        config.cells(config.platform_width + 6.0),
+                        config.cells(40.0),
+                    ),
+                ),
+                Transform::from_xyz(0.0, config.cells(20.0), 5.0),
+            ));
+        });
     }
 }
 
@@ -341,10 +519,10 @@ fn frame_towers(
         max_x = max_x.max(tower.origin_x);
         top = top.max(state.stack_top);
     }
+    // Follow the tower tops; the race finish only comes into view as towers near it.
     let goal = match game.mode {
-        ModeKind::Race => game.finish_height,
         ModeKind::Puzzle => config.puzzle.line_height,
-        ModeKind::Survival => 0.0,
+        _ => 0.0,
     };
     let c = config.cell_size;
     let view_top = (top.max(goal) + config.spawn_gap + 3.0).max(16.0);

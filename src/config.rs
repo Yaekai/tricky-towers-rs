@@ -822,10 +822,13 @@ mod tests {
     }
 
     /// Rewrites the shipped config from the defaults:
-    /// `cargo test -- --ignored write_shipped_config`.
+    /// `TT_WRITE_CONFIG=1 cargo test write_shipped_config`. Does nothing otherwise,
+    /// so `cargo test -- --ignored` never touches the file.
     #[test]
-    #[ignore = "rewrites assets/config/game.ron"]
     fn write_shipped_config() {
+        if std::env::var_os("TT_WRITE_CONFIG").is_none() {
+            return;
+        }
         let pretty = ron::ser::PrettyConfig::new()
             .depth_limit(3)
             .struct_names(false)
