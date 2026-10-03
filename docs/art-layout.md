@@ -108,3 +108,12 @@ Bricks are drawn as staged, with no colour on top. To place the background layer
 original, give each one the `position`, `z` and `parallax` the original uses for a lane (the
 values are plain numbers about where a picture sits, not code). The camera shows each tower from
 just below the water line up to a few cells above the spawn point.
+
+## Inventory (for the extract step on Max's PC)
+Write `extracted/inventory.md`: every sprite, texture, font and sound in the original, grouped by
+what it is for (menus and title, HUD, wizards and their animations, bricks and spell effects,
+backgrounds per mode, match moments such as countdown, win and lose, particles, audio). For each,
+give its size and the logical name it is staged under, or `-` if it is not staged yet, and
+suggest a logical name for the unstaged ones following the patterns above. Animations: list the
+frames in order and the frame rate. This is the checklist the game's art work follows; plain
+descriptions only, no code.
