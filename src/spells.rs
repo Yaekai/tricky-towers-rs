@@ -380,6 +380,7 @@ fn curse_bricks(
             brick.color = tint;
         }
         if let Some(friction) = effect.friction {
+            brick.ice = true;
             commands.entity(entity).insert(Friction::new(friction));
         }
         remaining -= 1;
@@ -458,6 +459,7 @@ fn cast_on_tower(
                 color: Color::srgb(0.5, 0.5, 0.52),
                 scale: 1.0,
                 mass: 1.0,
+                ice: false,
             };
             let (collider, _) = brick_body(config, &ledge);
             let position = Vec2::new(tower.origin_x + config.cells(offset), config.cells(y));

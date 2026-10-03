@@ -18,11 +18,31 @@ use crate::spells::SpellLog;
 /// Asset source name for the extracted folder: `extracted://bricks/I.png`.
 pub const SOURCE: &str = "extracted";
 
-/// Folder holding the extracted files; `TT_EXTRACTED` overrides it.
+/// Folder holding the extracted files, as an absolute path so the game finds it
+/// whatever folder it is started from. `TT_EXTRACTED` wins; otherwise the first
+/// `extracted/` holding a `manifest.ron` in the working folder or next to the
+/// executable or any folder above it (so `target/debug/game.exe` finds the one
+/// beside `Cargo.toml`).
 pub fn extracted_dir() -> PathBuf {
-    std::env::var_os("TT_EXTRACTED")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("extracted"))
+    if let Some(dir) = std::env::var_os("TT_EXTRACTED") {
+        return absolute(PathBuf::from(dir));
+    }
+    let mut candidates = Vec::new();
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("extracted"));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        candidates.extend(exe.ancestors().skip(1).map(|d| d.join("extracted")));
+    }
+    candidates
+        .iter()
+        .find(|d| d.join("manifest.ron").is_file())
+        .cloned()
+        .unwrap_or_else(|| absolute(PathBuf::from("extracted")))
+}
+
+fn absolute(path: PathBuf) -> PathBuf {
+    std::path::absolute(&path).unwrap_or(path)
 }
 
 /// Registers the `extracted://` asset source. Must run before `DefaultPlugins`.
@@ -44,6 +64,20 @@ pub struct ArtEntry {
     /// Pivot in 0..1 from the bottom left; the centre if left out.
     #[serde(default)]
     pub pivot: Option<(f32, f32)>,
+    /// Background layers only: where the pivot sits, in cells from the middle of
+    /// the platform's top. A layer with a position is drawn once per tower lane;
+    /// one without fills the whole view.
+    #[serde(default)]
+    pub position: Option<(f32, f32)>,
+    /// Background layers only: draw order, back to front (the layer number if left out).
+    #[serde(default)]
+    pub z: Option<f32>,
+    /// Background layers only: 1 moves with the tower (default), 0 stays on screen.
+    #[serde(default)]
+    pub parallax: Option<f32>,
+    /// Extra size factor on top of `pixels_per_unit` (1 if left out).
+    #[serde(default)]
+    pub scale: Option<f32>,
 }
 
 /// Images and sounds found in the extracted folder, by logical name.
@@ -89,7 +123,7 @@ impl Plugin for ArtPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Art>()
             .add_systems(PreStartup, load_art)
-            .add_systems(Update, (play_music, play_sounds));
+            .add_systems(Update, (drop_failed_art, play_music, play_sounds));
     }
 }
 
@@ -117,6 +151,40 @@ fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
             art.sounds.len(),
             dir.display()
         );
+    }
+}
+
+/// Forgets images and sounds that failed to load, so whatever used them falls
+/// back to plain shapes instead of drawing nothing.
+fn drop_failed_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
+    let failed = |id: bevy::asset::UntypedAssetId| {
+        matches!(
+            assets.get_load_state(id),
+            Some(bevy::asset::LoadState::Failed(_))
+        )
+    };
+    let bad_images: Vec<String> = art
+        .images
+        .iter()
+        .filter(|(_, h)| failed(h.id().untyped()))
+        .map(|(n, _)| n.clone())
+        .collect();
+    let bad_sounds: Vec<String> = art
+        .sounds
+        .iter()
+        .filter(|(_, h)| failed(h.id().untyped()))
+        .map(|(n, _)| n.clone())
+        .collect();
+    if bad_images.is_empty() && bad_sounds.is_empty() {
+        return;
+    }
+    for name in bad_images {
+        warn!("{name}: failed to load; drawing plain shapes instead");
+        art.images.remove(&name);
+    }
+    for name in bad_sounds {
+        warn!("{name}: failed to load");
+        art.sounds.remove(&name);
     }
 }
 
@@ -245,4 +313,32 @@ fn play_sounds(
     heard.lines = you.lines_reached;
     heard.casts = log.1;
     heard.phase = Some(game.phase);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn manifest_reads_layer_fields() {
+        let dir = std::env::temp_dir().join(format!("tt_manifest_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("manifest.ron"),
+            r#"{
+                "background_0": (file: "bg/sky.png"),
+                "background_1": (file: "bg/hill.png", pixels_per_unit: 50.0, pivot: (0.5, 1.0),
+                    position: (0, -1), z: 3, parallax: 0.5, scale: 2.0),
+            }"#,
+        )
+        .unwrap();
+        let entries = read_manifest(&dir);
+        std::fs::remove_dir_all(&dir).ok();
+        assert!(entries["background_0"].position.is_none());
+        let hill = &entries["background_1"];
+        assert_eq!(hill.position, Some((0.0, -1.0)));
+        assert_eq!(hill.z, Some(3.0));
+        assert_eq!(hill.parallax, Some(0.5));
+        assert_eq!(hill.scale, Some(2.0));
+    }
 }

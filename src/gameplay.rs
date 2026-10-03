@@ -400,6 +400,8 @@ pub struct Brick {
     pub scale: f32,
     /// Mass relative to a normal brick.
     pub mass: f32,
+    /// Iced by the Ice curse (slippery, drawn as ice).
+    pub ice: bool,
 }
 
 /// The brick a player is currently steering.
@@ -644,6 +646,7 @@ fn spawn_next_brick(
                 .unwrap_or(Color::srgb(def.color[0], def.color[1], def.color[2])),
             scale: modifier.scale(&config),
             mass: def.mass,
+            ice: modifier.friction.is_some(),
         };
         let query_shape = steer_shape(&config, &brick);
         let (body, density) = brick_body(&config, &brick);

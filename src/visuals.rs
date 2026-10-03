@@ -12,7 +12,8 @@ use crate::art::Art;
 use crate::config::{GameConfig, ModeKind};
 use crate::gameplay::piece_def;
 use crate::gameplay::{
-    ActiveBrick, Brick, BrickBag, Match, Phase, Platform, Tower, TowerState, TowerStatus,
+    ActiveBrick, Brick, BrickBag, MAX_TOWERS, Match, Phase, Platform, Tower, TowerState,
+    TowerStatus,
 };
 use crate::spells::{Bubbled, Grassy, LifeOrb, SpellLog, Stone, Vined, Zapped};
 
@@ -27,13 +28,13 @@ impl Plugin for VisualsPlugin {
                 Update,
                 (
                     dress_bricks,
-                    tint_stone,
-                    tint_vines,
-                    tint_grass,
                     flicker_effects,
                     dress_life_orbs,
                     spawn_backgrounds,
                     fit_backgrounds,
+                    scroll_lane_layers,
+                    fit_strips,
+                    redress_on_art_change,
                     dress_platforms,
                     update_drop_guide,
                     update_next_preview,
@@ -79,14 +80,24 @@ struct NextPreview {
 #[derive(Component)]
 struct CellSprite;
 
-fn setup_scene(mut commands: Commands, config: Res<GameConfig>) {
+fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
     commands.spawn((Camera2d, Transform::from_xyz(0.0, config.cells(6.0), 0.0)));
+    let guide = match art.image("drop_guide") {
+        Some(image) => Sprite { image, ..default() },
+        None => Sprite::from_color(Color::srgba(0.7, 0.85, 1.0, 0.035), Vec2::ONE),
+    };
     commands.spawn((
         DropGuide,
-        Sprite::from_color(Color::srgba(0.7, 0.85, 1.0, 0.035), Vec2::ONE),
+        guide,
         Transform::from_xyz(0.0, 0.0, -2.0),
         Visibility::Hidden,
     ));
+    // Water under every lane, its top at the depth where dropped bricks are lost.
+    let depth = Vec3::new(0.0, -config.cells(config.kill_depth), -800.0);
+    let width = config.cells(config.tower_spacing * (MAX_TOWERS as f32 + 2.0));
+    if let Some(water) = art_strip(&art, "water", config.cell_size, width, depth) {
+        commands.spawn(water);
+    }
     commands.spawn((
         NextPreview { piece: None },
         Transform::default(),
@@ -124,6 +135,44 @@ const GRASS: Color = Color::srgb(0.35, 0.8, 0.2);
 
 /// A sprite from the extracted art, anchored at its pivot and scaled from its
 /// pixels to cells.
+/// An art sprite repeated sideways to a set width (lines, water). Its height is
+/// the image's own, at `pixels_per_unit`.
+#[derive(Component)]
+struct Strip {
+    width: f32,
+}
+
+/// An art sprite for a strip `width` world units wide, or `None` without the art.
+fn art_strip(art: &Art, name: &str, cell: f32, width: f32, at: Vec3) -> Option<impl Bundle> {
+    let (sprite, anchor, transform) = art_sprite(art, name, cell)?;
+    Some((
+        Strip { width },
+        sprite,
+        anchor,
+        transform.with_translation(at),
+    ))
+}
+
+/// Sizes strips once their image is loaded: the image repeats at its own size.
+fn fit_strips(images: Res<Assets<Image>>, mut strips: Query<(&Strip, &mut Sprite, &Transform)>) {
+    for (strip, mut sprite, transform) in &mut strips {
+        let Some(image) = images.get(&sprite.image) else {
+            continue;
+        };
+        if sprite.custom_size.is_some() {
+            continue;
+        }
+        let size = image.size_f32();
+        let scale = transform.scale.x.max(f32::EPSILON);
+        sprite.custom_size = Some(Vec2::new(strip.width / scale, size.y));
+        sprite.image_mode = SpriteImageMode::Tiled {
+            tile_x: true,
+            tile_y: false,
+            stretch_value: 1.0,
+        };
+    }
+}
+
 fn art_sprite(art: &Art, name: &str, cell: f32) -> Option<(Sprite, Anchor, Transform)> {
     let image = art.image(name)?;
     let entry = art.entries.get(name)?;
@@ -136,16 +185,20 @@ fn art_sprite(art: &Art, name: &str, cell: f32) -> Option<(Sprite, Anchor, Trans
     ))
 }
 
-/// Draws every new or changed brick: the original's sprite for its shape if
-/// extracted, else one square per cell.
+/// Draws each brick: the original's sprite when one is staged (untinted, with its
+/// stone or ice version when the brick is petrified or iced), else coloured cells.
+/// Runs again when a brick changes, turns to stone, or gets vines or grass.
 #[allow(clippy::type_complexity)]
 fn dress_bricks(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
-    bricks: Query<(Entity, &Brick, Has<Stone>, Has<Vined>), Changed<Brick>>,
+    bricks: Query<
+        (Entity, &Brick, Has<Stone>, Has<Vined>, Has<Grassy>),
+        Or<(Changed<Brick>, Added<Stone>, Added<Vined>, Added<Grassy>)>,
+    >,
 ) {
-    for (entity, brick, stone, vined) in &bricks {
+    for (entity, brick, stone, vined, grassy) in &bricks {
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
         let key = if brick.piece < config.pieces.len() {
@@ -153,20 +206,34 @@ fn dress_bricks(
         } else {
             format!("mystery_{}", def.name.to_lowercase())
         };
-        // Spells that recolour a brick (Ice) still tint the original sprite.
-        let def_color = Color::srgb(def.color[0], def.color[1], def.color[2]);
-        let image = art
-            .image(&key)
-            .filter(|_| brick.cells.len() == def.cells.len());
-        let mut color = match image {
-            Some(_) if brick.color == def_color => Color::WHITE,
-            _ => brick.color,
+        let whole = brick.cells.len() == def.cells.len();
+        let variant = |suffix: &str| art.image(&format!("{key}_{suffix}"));
+        // The plain sprite stands in for a missing stone or ice version, tinted.
+        let (image, mut color) = match (whole, stone, brick.ice) {
+            (false, ..) => (None, brick.color),
+            (true, true, _) => match variant("stone") {
+                Some(image) => (Some(image), Color::WHITE),
+                None => (art.image(&key), Color::WHITE.mix(&STONE, 0.75)),
+            },
+            (true, false, true) => match variant("ice") {
+                Some(image) => (Some(image), Color::WHITE),
+                None => (art.image(&key), brick.color),
+            },
+            (true, false, false) => (art.image(&key), Color::WHITE),
         };
-        if stone {
-            color = color.mix(&STONE, 0.75);
+        if image.is_none() {
+            color = if stone {
+                brick.color.mix(&STONE, 0.75)
+            } else {
+                brick.color
+            };
         }
+        let art_drawn = image.is_some();
         if vined {
-            color = color.mix(&VINES, 0.4);
+            color = color.mix(&VINES, if art_drawn { 0.25 } else { 0.4 });
+        }
+        if grassy {
+            color = color.mix(&GRASS, if art_drawn { 0.3 } else { 0.5 });
         }
         let mut entity = commands.entity(entity);
         entity.insert(Visibility::default()).despawn_children();
@@ -190,45 +257,6 @@ fn dress_bricks(
                 entity.with_children(|parent| cell_sprites(parent, &brick.cells, cell, color));
             }
         }
-    }
-}
-
-fn recolor(
-    children: &Children,
-    sprites: &mut Query<&mut Sprite, With<CellSprite>>,
-    f: impl Fn(Color) -> Color,
-) {
-    for &child in children {
-        if let Ok(mut sprite) = sprites.get_mut(child) {
-            sprite.color = f(sprite.color);
-        }
-    }
-}
-
-fn tint_stone(
-    bricks: Query<&Children, Added<Stone>>,
-    mut sprites: Query<&mut Sprite, With<CellSprite>>,
-) {
-    for children in &bricks {
-        recolor(children, &mut sprites, |c| c.mix(&STONE, 0.75));
-    }
-}
-
-fn tint_vines(
-    bricks: Query<&Children, Added<Vined>>,
-    mut sprites: Query<&mut Sprite, With<CellSprite>>,
-) {
-    for children in &bricks {
-        recolor(children, &mut sprites, |c| c.mix(&VINES, 0.4));
-    }
-}
-
-fn tint_grass(
-    bricks: Query<&Children, Added<Grassy>>,
-    mut sprites: Query<&mut Sprite, With<CellSprite>>,
-) {
-    for children in &bricks {
-        recolor(children, &mut sprites, |c| c.mix(&GRASS, 0.5));
     }
 }
 
@@ -280,26 +308,87 @@ fn dress_life_orbs(
     }
 }
 
-/// Background layers from the extracted art, behind everything and filling the view.
+/// A background layer that fills the view (manifest entries without `position`).
 #[derive(Component)]
 struct Background;
+
+/// A background layer placed in a tower's lane (manifest entries with `position`).
+/// `parallax` 1 moves with the tower; 0 stays fixed on screen.
+#[derive(Component)]
+struct LaneLayer {
+    offset: Vec2,
+    parallax: f32,
+}
+
+/// Background layer names for this mode, back to front: `background_<mode>_N`
+/// when staged for the mode, else `background_N`.
+fn background_names(art: &Art, mode: ModeKind) -> Vec<String> {
+    let mode = match mode {
+        ModeKind::Race => "race",
+        ModeKind::Survival => "survival",
+        ModeKind::Puzzle => "puzzle",
+    };
+    let layers = |prefix: &str| {
+        let mut found: Vec<(f32, u32, String)> = art
+            .entries
+            .iter()
+            .filter(|(name, _)| art.images.contains_key(*name))
+            .filter_map(|(name, entry)| {
+                let n = name.strip_prefix(prefix)?.parse::<u32>().ok()?;
+                Some((entry.z.unwrap_or(n as f32), n, name.clone()))
+            })
+            .collect();
+        found.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        found.into_iter().map(|(.., name)| name).collect::<Vec<_>>()
+    };
+    let own = layers(&format!("background_{mode}_"));
+    if own.is_empty() {
+        layers("background_")
+    } else {
+        own
+    }
+}
+
+fn layer_z(art: &Art, name: &str, order: usize) -> f32 {
+    let z = art
+        .entries
+        .get(name)
+        .and_then(|e| e.z)
+        .unwrap_or(order as f32);
+    -900.0 + z
+}
 
 fn spawn_backgrounds(
     mut commands: Commands,
     art: Res<Art>,
-    camera: Query<Entity, Added<Camera2d>>,
+    game: Res<Match>,
+    camera: Query<Entity, With<Camera2d>>,
+    existing: Query<Entity, With<Background>>,
+    mut shown: Local<Option<ModeKind>>,
 ) {
     let Ok(camera) = camera.single() else {
         return;
     };
-    for layer in 0..8 {
-        let Some(image) = art.image(&format!("background_{layer}")) else {
-            break;
+    if *shown == Some(game.mode) && !art.is_changed() {
+        return;
+    }
+    *shown = Some(game.mode);
+    for entity in &existing {
+        commands.entity(entity).despawn();
+    }
+    for (order, name) in background_names(&art, game.mode).iter().enumerate() {
+        let Some(entry) = art.entries.get(name) else {
+            continue;
         };
+        if entry.position.is_some() {
+            continue;
+        }
+        let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
         commands.entity(camera).with_child((
             Background,
-            Sprite::from_image(image),
-            Transform::from_xyz(0.0, 0.0, -900.0 + layer as f32),
+            Sprite::from_image(art.images[name].clone()),
+            Anchor(Vec2::new(px - 0.5, py - 0.5)),
+            Transform::from_xyz(0.0, 0.0, layer_z(&art, name, order)),
         ));
     }
 }
@@ -324,6 +413,77 @@ fn fit_backgrounds(
     }
 }
 
+/// Spawns the positioned background layers into a new platform's lane.
+fn spawn_lane_layers(parent: &mut ChildSpawnerCommands, art: &Art, mode: ModeKind, cell: f32) {
+    for (order, name) in background_names(art, mode).iter().enumerate() {
+        let Some(entry) = art.entries.get(name) else {
+            continue;
+        };
+        let Some((x, y)) = entry.position else {
+            continue;
+        };
+        let Some((sprite, anchor, mut transform)) = art_sprite(art, name, cell) else {
+            continue;
+        };
+        transform.scale *= entry.scale.unwrap_or(1.0);
+        // The platform's centre is half a cell below its top, where positions start.
+        let offset = Vec2::new(x, y + 0.5) * cell;
+        transform.translation = offset.extend(layer_z(art, name, order));
+        parent.spawn((
+            LaneLayer {
+                offset,
+                parallax: entry.parallax.unwrap_or(1.0),
+            },
+            sprite,
+            anchor,
+            transform,
+        ));
+    }
+}
+
+/// Moves lane layers with less than full parallax towards the camera.
+fn scroll_lane_layers(
+    camera: Query<&Transform, (With<Camera2d>, Without<LaneLayer>)>,
+    platforms: Query<&GlobalTransform, With<Platform>>,
+    mut layers: Query<(&LaneLayer, &ChildOf, &mut Transform)>,
+) {
+    let Ok(camera) = camera.single() else {
+        return;
+    };
+    for (layer, child_of, mut transform) in &mut layers {
+        let Ok(platform) = platforms.get(child_of.parent()) else {
+            continue;
+        };
+        let lag = camera.translation.truncate() - platform.translation().truncate();
+        let at = layer.offset + lag * (1.0 - layer.parallax);
+        transform.translation.x = at.x;
+        transform.translation.y = at.y;
+    }
+}
+
+/// Redraws bricks and platforms when art drops out (an image failed to load).
+fn redress_on_art_change(
+    mut commands: Commands,
+    art: Res<Art>,
+    mut bricks: Query<&mut Brick>,
+    platforms: Query<(Entity, &Platform)>,
+) {
+    if !art.is_changed() || art.is_added() {
+        return;
+    }
+    for mut brick in &mut bricks {
+        brick.set_changed();
+    }
+    for (entity, platform) in &platforms {
+        let tower = platform.tower;
+        commands
+            .entity(entity)
+            .despawn_children()
+            .remove::<(Platform, Sprite)>()
+            .insert(Platform { tower });
+    }
+}
+
 /// Draws each new platform and its goal line (race finish or puzzle laser).
 fn dress_platforms(
     mut commands: Commands,
@@ -342,8 +502,11 @@ fn dress_platforms(
         let mut base = commands.entity(entity);
         match art_sprite(&art, art_name, c) {
             // A child, so the sprite's scale never touches the platform's collider.
-            Some(parts) => {
-                base.insert(Visibility::default()).with_child(parts);
+            // Its pivot sits on the platform's top, half a cell above the centre.
+            Some((sprite, anchor, mut transform)) => {
+                transform.translation.y = c * 0.5;
+                base.insert(Visibility::default())
+                    .with_child((sprite, anchor, transform));
             }
             None => {
                 base.insert(Sprite::from_color(
@@ -353,59 +516,78 @@ fn dress_platforms(
             }
         }
         base.with_children(|parent| {
+            spawn_lane_layers(parent, &art, game.mode, c);
+            let lane = config.cells(config.platform_width + 4.0);
             let line = match game.mode {
-                ModeKind::Race => {
-                    Some((config.race.finish_height, Color::srgba(1.0, 1.0, 1.0, 0.6)))
-                }
-                ModeKind::Puzzle => {
-                    Some((config.puzzle.line_height, Color::srgba(1.0, 0.2, 0.2, 0.8)))
-                }
+                ModeKind::Race => Some((
+                    config.race.finish_height,
+                    "finish_line",
+                    Color::srgba(1.0, 1.0, 1.0, 0.6),
+                )),
+                ModeKind::Puzzle => Some((
+                    config.puzzle.line_height,
+                    "laser",
+                    Color::srgba(1.0, 0.2, 0.2, 0.8),
+                )),
                 ModeKind::Survival => None,
             };
-            if let Some((height, color)) = line {
+            if let Some((height, name, color)) = line {
                 // The platform's centre is half a cell below its top.
                 let mut line = parent.spawn((
-                    Sprite::from_color(
-                        color,
-                        Vec2::new(config.cells(config.platform_width + 4.0), 3.0),
-                    ),
+                    FinishLine {
+                        tower: platform.tower,
+                    },
                     Transform::from_xyz(0.0, config.cells(height) + c * 0.5, -1.0),
+                    Visibility::default(),
                 ));
-                line.insert(FinishLine {
-                    tower: platform.tower,
-                });
+                match art_strip(&art, name, c, lane, Vec3::ZERO) {
+                    Some(strip) => line.with_child(strip),
+                    None => line.with_child(Sprite::from_color(color, Vec2::new(lane, 3.0))),
+                };
             }
             if config.magic.enabled {
-                // A faint line with an orb at each end: one light, one dark.
-                parent
-                    .spawn((
-                        SpellLine {
-                            tower: platform.tower,
-                        },
-                        Sprite::from_color(
-                            Color::srgba(1.0, 0.95, 0.7, 0.25),
-                            Vec2::new(config.cells(config.platform_width + 2.0), 2.0),
-                        ),
-                        Transform::from_xyz(0.0, 0.0, -1.5),
-                        Visibility::Hidden,
-                    ))
-                    .with_children(|line| {
-                        let orbs = [
-                            (-1.0, Color::srgb(1.0, 0.95, 0.55)),
-                            (1.0, Color::srgb(0.65, 0.3, 0.95)),
-                        ];
-                        for (side, color) in orbs {
-                            line.spawn((
-                                Sprite::from_color(color, Vec2::splat(c * 0.6)),
-                                Transform::from_xyz(
-                                    side * config.cells(config.platform_width * 0.5 + 1.5),
-                                    0.0,
-                                    0.5,
-                                )
-                                .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_4)),
-                            ));
+                // A line with an orb at each end: one light, one dark.
+                let width = config.cells(config.platform_width + 2.0);
+                let mut line = parent.spawn((
+                    SpellLine {
+                        tower: platform.tower,
+                    },
+                    Transform::from_xyz(0.0, 0.0, -1.5),
+                    Visibility::Hidden,
+                ));
+                match art_strip(&art, "spell_line", c, width, Vec3::ZERO) {
+                    Some(strip) => line.with_child(strip),
+                    None => line.with_child(Sprite::from_color(
+                        Color::srgba(1.0, 0.95, 0.7, 0.25),
+                        Vec2::new(width, 2.0),
+                    )),
+                };
+                line.with_children(|line| {
+                    let orbs = [
+                        (-1.0, "spell_orb_light", Color::srgb(1.0, 0.95, 0.55)),
+                        (1.0, "spell_orb_dark", Color::srgb(0.65, 0.3, 0.95)),
+                    ];
+                    for (side, name, color) in orbs {
+                        let x = side * config.cells(config.platform_width * 0.5 + 1.5);
+                        match art_sprite(&art, name, c) {
+                            Some((sprite, anchor, transform)) => {
+                                line.spawn((
+                                    sprite,
+                                    anchor,
+                                    transform.with_translation(Vec3::new(x, 0.0, 0.5)),
+                                ));
+                            }
+                            None => {
+                                line.spawn((
+                                    Sprite::from_color(color, Vec2::splat(c * 0.6)),
+                                    Transform::from_xyz(x, 0.0, 0.5).with_rotation(
+                                        Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+                                    ),
+                                ));
+                            }
                         }
-                    });
+                    }
+                });
             }
             parent.spawn((
                 MistCloud {
@@ -527,14 +709,15 @@ fn frame_towers(
         ModeKind::Puzzle => config.puzzle.line_height + config.puzzle.line_random,
         _ => 0.0,
     };
-    let c = config.cell_size;
     let view_top = (top.max(goal) + config.spawn_gap + 3.0).max(16.0);
-    let height = config.cells(view_top + 3.0);
+    // Just past the water line, so the whole base and what hangs under it stay in view.
+    let below = config.kill_depth + 1.5;
+    let height = config.cells(view_top + below);
     let width = max_x - min_x + config.cells(config.platform_width + 10.0);
     let scale = (width / window.width())
         .max(height / window.height())
         .max(0.5);
-    let target = Vec2::new((min_x + max_x) * 0.5, height * 0.5 - c * 3.0);
+    let target = Vec2::new((min_x + max_x) * 0.5, height * 0.5 - config.cells(below));
 
     let t = 1.0 - (-3.0 * time.delta_secs()).exp();
     let current = transform.translation.truncate();
