@@ -99,6 +99,17 @@ pub struct ArtEntry {
     /// for the red areas and the yellow areas. Shades in between blend.
     #[serde(default)]
     pub mask: Option<[(f32, f32, f32); 2]>,
+    /// An animation instead of a file: `(seconds, image name)` pairs in order, each
+    /// image shown from its time until the next.
+    #[serde(default)]
+    pub frames: Option<Vec<(f32, String)>>,
+    /// Animation length in seconds (the last frame's time plus the step before it,
+    /// if left out).
+    #[serde(default)]
+    pub length: Option<f32>,
+    /// Whether the animation repeats (true if left out); otherwise it holds the last frame.
+    #[serde(default)]
+    pub looping: Option<bool>,
 }
 
 impl ArtEntry {
@@ -122,8 +133,42 @@ pub struct Art {
 }
 
 impl Art {
+    /// An image by name; for an animation, its first frame.
     pub fn image(&self, name: &str) -> Option<Handle<Image>> {
-        self.images.get(name).cloned()
+        self.images
+            .get(name)
+            .cloned()
+            .or_else(|| self.frame(name, 0.0))
+    }
+
+    /// Whether `name` is a staged animation.
+    pub fn is_animation(&self, name: &str) -> bool {
+        self.entries
+            .get(name)
+            .is_some_and(|e| e.frames.as_ref().is_some_and(|f| !f.is_empty()))
+    }
+
+    /// The frame of animation `name` to show `t` seconds after it started.
+    pub fn frame(&self, name: &str, t: f32) -> Option<Handle<Image>> {
+        let entry = self.entries.get(name)?;
+        let frames = entry.frames.as_ref().filter(|f| !f.is_empty())?;
+        let last = frames.last()?.0;
+        let step = match frames.len() {
+            1 => 0.1,
+            n => (last - frames[n - 2].0).max(0.01),
+        };
+        let length = entry.length.unwrap_or(last + step).max(0.01);
+        let t = if entry.looping.unwrap_or(true) {
+            t.rem_euclid(length)
+        } else {
+            t
+        };
+        let (_, image) = frames
+            .iter()
+            .rev()
+            .find(|(at, _)| *at <= t)
+            .unwrap_or(&frames[0]);
+        self.images.get(image).cloned()
     }
 
     pub fn has_any(&self) -> bool {
@@ -161,6 +206,7 @@ impl Plugin for ArtPlugin {
                 (
                     drop_failed_art,
                     recolor_masks,
+                    play_animations,
                     apply_font,
                     play_music,
                     play_sounds,
@@ -291,6 +337,46 @@ fn recolor_masks(
         }
         let recolored = images.add(image);
         art.images.insert(name, recolored);
+    }
+}
+
+/// Plays animation `name` (a manifest entry with `frames`) on this entity's
+/// `Sprite` or `ImageNode`.
+#[derive(Component, Debug, Clone)]
+pub struct Animated {
+    pub name: String,
+    pub time: f32,
+}
+
+impl Animated {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            time: 0.0,
+        }
+    }
+}
+
+fn play_animations(
+    time: Res<Time>,
+    art: Res<Art>,
+    mut sprites: Query<(&mut Animated, Option<&mut Sprite>, Option<&mut ImageNode>)>,
+) {
+    for (mut anim, sprite, node) in &mut sprites {
+        anim.time += time.delta_secs();
+        let Some(frame) = art.frame(&anim.name, anim.time) else {
+            continue;
+        };
+        if let Some(mut sprite) = sprite
+            && sprite.image != frame
+        {
+            sprite.image = frame.clone();
+        }
+        if let Some(mut node) = node
+            && node.image != frame
+        {
+            node.image = frame;
+        }
     }
 }
 
@@ -460,5 +546,38 @@ mod tests {
         assert_eq!(hill.z, Some(3.0));
         assert_eq!(hill.parallax, Some(0.5));
         assert_eq!(hill.scale, Some(2.0));
+    }
+
+    #[test]
+    fn animation_frames_follow_their_times() {
+        let handle = |n: u128| {
+            Handle::<Image>::Uuid(bevy::asset::uuid::Uuid::from_u128(n), Default::default())
+        };
+        let mut art = Art::default();
+        for (n, name) in ["a", "b", "c"].iter().enumerate() {
+            art.images.insert(name.to_string(), handle(n as u128 + 1));
+        }
+        let entry = |looping| ArtEntry {
+            frames: Some(vec![
+                (0.0, "a".into()),
+                (0.2, "b".into()),
+                (0.43, "c".into()),
+            ]),
+            looping,
+            ..read_entry("(file: \"\")")
+        };
+        art.entries.insert("wave".into(), entry(None));
+        art.entries.insert("once".into(), entry(Some(false)));
+        assert_eq!(art.frame("wave", 0.1), Some(handle(1)));
+        assert_eq!(art.frame("wave", 0.3), Some(handle(2)));
+        assert_eq!(art.frame("wave", 0.5), Some(handle(3)));
+        // Length is 0.43 + 0.23, so 0.7 wraps to the first frame.
+        assert_eq!(art.frame("wave", 0.7), Some(handle(1)));
+        assert_eq!(art.frame("once", 5.0), Some(handle(3)));
+        assert_eq!(art.image("wave"), Some(handle(1)));
+    }
+
+    fn read_entry(text: &str) -> ArtEntry {
+        ron::from_str(text).unwrap()
     }
 }

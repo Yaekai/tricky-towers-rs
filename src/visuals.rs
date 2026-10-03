@@ -8,7 +8,7 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use crate::art::Art;
+use crate::art::{Animated, Art};
 use crate::config::{GameConfig, ModeKind, SpellKind};
 use crate::gameplay::piece_def;
 use crate::gameplay::{
@@ -1149,8 +1149,12 @@ fn spawn_panel(row: &mut ChildSpawnerCommands, art: &Art, magic: bool, panel: &P
                 ..default()
             })
             .with_children(|top| {
-                if let Some(image) = art.image(&format!("wizard_{}", panel.lane + 1)) {
-                    top.spawn(icon(image, 56.0));
+                let portrait = format!("wizard_{}", panel.lane + 1);
+                if let Some(image) = art.image(&portrait) {
+                    let mut wizard = top.spawn(icon(image, 56.0));
+                    if art.is_animation(&portrait) {
+                        wizard.insert(Animated::new(portrait));
+                    }
                 }
                 let status = match panel.status {
                     TowerStatus::Building => "",

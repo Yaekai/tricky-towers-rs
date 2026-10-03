@@ -72,6 +72,11 @@ islands on the water band), by adding `screen`:
   Red areas take the first colour, yellow areas the second, shades in between blend, and the
   mask's brightness and alpha are kept.
 - `font_main`: a .ttf or .otf used for all text.
+- Animations are entries with no file: `"wizard_1": (frames: [(0.0, "wizard_1_idle_0"),
+  (0.2, "wizard_1_idle_1")], length: 0.6, looping: true)`. Each frame names a staged image and
+  shows from its time until the next. Any name the game looks up can be an animation and will
+  play (for example `wizard_1` in the player panel). `looping` is true if left out; `length` is
+  the last time plus the step before it if left out.
 - Sounds and fonts are told apart from images by file type (.ogg, .wav, .mp3, .flac; .ttf,
   .otf), so their names are free.
 
