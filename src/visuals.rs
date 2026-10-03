@@ -29,6 +29,8 @@ impl Plugin for VisualsPlugin {
                     update_next_preview,
                     frame_towers,
                     update_hud,
+                    update_lines,
+                    update_mist,
                 ),
             );
     }
@@ -39,6 +41,22 @@ struct Hud;
 
 #[derive(Component)]
 struct DropGuide;
+
+/// A tower's spell line.
+#[derive(Component)]
+struct SpellLine {
+    tower: Entity,
+}
+
+/// The race finish line over a tower; it comes down late in a race.
+#[derive(Component)]
+struct FinishLine;
+
+/// Fog over a tower hit by Mist.
+#[derive(Component)]
+struct MistCloud {
+    tower: Entity,
+}
 
 #[derive(Component)]
 struct NextPreview {
@@ -142,10 +160,10 @@ fn dress_platforms(
     mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
-    platforms: Query<Entity, Added<Platform>>,
+    platforms: Query<(Entity, &Platform), Added<Platform>>,
 ) {
     let c = config.cell_size;
-    for entity in &platforms {
+    for (entity, platform) in &platforms {
         commands
             .entity(entity)
             .insert(Sprite::from_color(
@@ -164,14 +182,64 @@ fn dress_platforms(
                 };
                 if let Some((height, color)) = line {
                     // The platform's centre is half a cell below its top.
-                    parent.spawn((
+                    let mut line = parent.spawn((
                         Sprite::from_color(
                             color,
                             Vec2::new(config.cells(config.platform_width + 4.0), 3.0),
                         ),
                         Transform::from_xyz(0.0, config.cells(height) + c * 0.5, -1.0),
                     ));
+                    if game.mode == ModeKind::Race {
+                        line.insert(FinishLine);
+                    }
                 }
+                if config.magic.enabled {
+                    // A faint line with an orb at each end: one light, one dark.
+                    parent
+                        .spawn((
+                            SpellLine {
+                                tower: platform.tower,
+                            },
+                            Sprite::from_color(
+                                Color::srgba(1.0, 0.95, 0.7, 0.25),
+                                Vec2::new(config.cells(config.platform_width + 2.0), 2.0),
+                            ),
+                            Transform::from_xyz(0.0, 0.0, -1.5),
+                            Visibility::Hidden,
+                        ))
+                        .with_children(|line| {
+                            let orbs = [
+                                (-1.0, Color::srgb(1.0, 0.95, 0.55)),
+                                (1.0, Color::srgb(0.65, 0.3, 0.95)),
+                            ];
+                            for (side, color) in orbs {
+                                line.spawn((
+                                    Sprite::from_color(color, Vec2::splat(c * 0.6)),
+                                    Transform::from_xyz(
+                                        side * config.cells(config.platform_width * 0.5 + 1.5),
+                                        0.0,
+                                        0.5,
+                                    )
+                                    .with_rotation(
+                                        Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+                                    ),
+                                ));
+                            }
+                        });
+                }
+                parent.spawn((
+                    MistCloud {
+                        tower: platform.tower,
+                    },
+                    Sprite::from_color(
+                        Color::srgba(0.85, 0.88, 0.95, 0.0),
+                        Vec2::new(
+                            config.cells(config.platform_width + 6.0),
+                            config.cells(40.0),
+                        ),
+                    ),
+                    Transform::from_xyz(0.0, config.cells(20.0), 5.0),
+                ));
             });
     }
 }
@@ -274,7 +342,7 @@ fn frame_towers(
         top = top.max(state.stack_top);
     }
     let goal = match game.mode {
-        ModeKind::Race => config.race.finish_height,
+        ModeKind::Race => game.finish_height,
         ModeKind::Puzzle => config.puzzle.line_height,
         ModeKind::Survival => 0.0,
     };
@@ -324,7 +392,7 @@ fn update_hud(
             };
             format!(
                 "RACE  height {:.1} / {:.0}{hold}",
-                you.height, config.race.finish_height
+                you.height, game.finish_height
             )
         }
         ModeKind::Survival => format!(
@@ -338,18 +406,22 @@ fn update_hud(
             you.bricks_placed, config.puzzle.bricks, config.puzzle.line_height
         ),
     };
-    let spell = match you.spell {
-        Some(s) => format!("spell: {} (E to cast)", s.name()),
-        None if config.magic.enabled => format!(
-            "spell in {} bricks",
-            config
-                .magic
-                .bricks_per_spell
-                .saturating_sub(you.spell_progress)
-        ),
-        None => String::new(),
+    let spell = if config.magic.enabled {
+        let light = you.light_spell.map_or("-", |s| s.name());
+        let dark = you.dark_spell.as_ref().map_or("-".into(), |c| c.name());
+        let line = you
+            .spell_line
+            .map(|h| format!("   spell line at {h:.1}"))
+            .unwrap_or_default();
+        format!("light [Q]: {light}   dark [E]: {dark}{line}")
+    } else {
+        String::new()
     };
-    let mut lines = vec![goal, format!("dropped {}   {spell}", you.bricks_dropped)];
+    let mist = if you.mist_timer > 0.0 { "   MIST!" } else { "" };
+    let mut lines = vec![
+        goal,
+        format!("dropped {}   {spell}{mist}", you.bricks_dropped),
+    ];
 
     for (tower, state) in sorted.iter().filter(|(t, _)| !t.human) {
         let status = match state.status {
@@ -385,7 +457,7 @@ fn update_hud(
             last.spell.name()
         ));
     }
-    lines.push("Left/Right move  Up/Space rotate  Down drop  E spell  R restart  Esc menu".into());
+    lines.push("Left/Right move  Shift+Left/Right nudge  Up/Z rotate  Down drop  Q light  E dark  R restart  Esc menu".into());
     if game.phase == Phase::Over {
         lines.push(match game.winner {
             Some(0) => "YOU WIN! Press R to play again".into(),
@@ -397,4 +469,55 @@ fn update_hud(
         });
     }
     text.0 = lines.join("\n");
+}
+
+/// Moves each tower's spell line and the race finish line to where they are now.
+fn update_lines(
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    towers: Query<&TowerState>,
+    mut lines: Query<(&SpellLine, &mut Transform, &mut Visibility), Without<FinishLine>>,
+    mut finish: Query<&mut Transform, With<FinishLine>>,
+) {
+    let c = config.cell_size;
+    for mut transform in &mut finish {
+        transform.translation.y = config.cells(game.finish_height) + c * 0.5;
+    }
+    for (line, mut transform, mut visibility) in &mut lines {
+        let height = towers.get(line.tower).ok().and_then(|s| s.spell_line);
+        // Lines right under the finish are hidden, like the original.
+        let near_finish = game.mode == ModeKind::Race
+            && height.is_some_and(|h| h > game.finish_height - config.magic.line_hide_near_finish);
+        match height {
+            Some(h) if !near_finish => {
+                transform.translation.y = config.cells(h) + c * 0.5;
+                visibility.set_if_neq(Visibility::Inherited);
+            }
+            _ => {
+                visibility.set_if_neq(Visibility::Hidden);
+            }
+        }
+    }
+}
+
+/// Fog over the top of a tower while Mist lasts, fading out at the end.
+fn update_mist(
+    config: Res<GameConfig>,
+    towers: Query<&TowerState>,
+    mut clouds: Query<(&MistCloud, &mut Sprite, &mut Transform)>,
+) {
+    let c = config.cell_size;
+    for (cloud, mut sprite, mut transform) in &mut clouds {
+        let Ok(state) = towers.get(cloud.tower) else {
+            continue;
+        };
+        let height = config.magic.mist_height;
+        transform.translation.y = config.cells(state.height + height * 0.5) + c * 0.5;
+        sprite.custom_size = Some(Vec2::new(
+            config.cells(config.platform_width + 6.0),
+            config.cells(height * 2.0),
+        ));
+        let fade = (state.mist_timer / 1.5).min(1.0);
+        sprite.color = sprite.color.with_alpha(fade * 0.92);
+    }
 }

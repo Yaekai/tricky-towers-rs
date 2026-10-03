@@ -20,7 +20,11 @@ const LEFT: [KeyCode; 2] = [KeyCode::ArrowLeft, KeyCode::KeyA];
 const RIGHT: [KeyCode; 2] = [KeyCode::ArrowRight, KeyCode::KeyD];
 const DOWN: [KeyCode; 2] = [KeyCode::ArrowDown, KeyCode::KeyS];
 const ROTATE: [KeyCode; 3] = [KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Space];
-const CAST: [KeyCode; 2] = [KeyCode::KeyE, KeyCode::ShiftLeft];
+const ROTATE_CCW: [KeyCode; 1] = [KeyCode::KeyZ];
+const CAST_LIGHT: [KeyCode; 1] = [KeyCode::KeyQ];
+const CAST_DARK: [KeyCode; 1] = [KeyCode::KeyE];
+/// Held with a move key, makes it a nudge instead.
+const NUDGE: [KeyCode; 2] = [KeyCode::ShiftLeft, KeyCode::ShiftRight];
 const RESTART: [KeyCode; 1] = [KeyCode::KeyR];
 
 fn read_keyboard(
@@ -38,13 +42,21 @@ fn read_keyboard(
     let Some((_, mut input)) = towers.iter_mut().find(|(tower, _)| tower.human) else {
         return;
     };
-    input.left_held = keys.any_pressed(LEFT);
-    input.right_held = keys.any_pressed(RIGHT);
+    let nudge = keys.any_pressed(NUDGE);
+    input.left_held = !nudge && keys.any_pressed(LEFT);
+    input.right_held = !nudge && keys.any_pressed(RIGHT);
     input.fast_fall_held = keys.any_pressed(DOWN);
     // Presses accumulate until a fixed step consumes them, so quick taps
     // between steps are never lost.
-    input.left_pressed |= keys.any_just_pressed(LEFT);
-    input.right_pressed |= keys.any_just_pressed(RIGHT);
+    if nudge {
+        input.nudge_left_pressed |= keys.any_just_pressed(LEFT);
+        input.nudge_right_pressed |= keys.any_just_pressed(RIGHT);
+    } else {
+        input.left_pressed |= keys.any_just_pressed(LEFT);
+        input.right_pressed |= keys.any_just_pressed(RIGHT);
+    }
     input.rotate_pressed |= keys.any_just_pressed(ROTATE);
-    input.cast_pressed |= keys.any_just_pressed(CAST);
+    input.rotate_ccw_pressed |= keys.any_just_pressed(ROTATE_CCW);
+    input.cast_light_pressed |= keys.any_just_pressed(CAST_LIGHT);
+    input.cast_dark_pressed |= keys.any_just_pressed(CAST_DARK);
 }

@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use crate::config::GameConfig;
 use crate::gameplay::{
     ActiveBrick, AiControlled, Brick, GameplaySystems, Match, Phase, PlayerInput, Tower,
-    TowerState, TowerStatus, xorshift,
+    TowerState, TowerStatus, brick_collider, xorshift,
 };
 
 pub struct AiPlugin;
@@ -54,7 +54,7 @@ fn drive_ai(
     game: Res<Match>,
     spatial: SpatialQuery,
     mut towers: Query<(&Tower, &TowerState, &mut PlayerInput, &mut AiBrain)>,
-    bricks: Query<(&Brick, &ActiveBrick, &Position, &Rotation)>,
+    bricks: Query<(&Brick, &Position, &Rotation), With<ActiveBrick>>,
 ) {
     if game.phase != Phase::Playing {
         return;
@@ -68,17 +68,20 @@ fn drive_ai(
         if state.status != TowerStatus::Building {
             continue;
         }
-        if state.spell.is_some() {
-            input.cast_pressed = true;
+        // Curse the others when there's a curse to cast, now and then help yourself.
+        if state.dark_spell.is_some() && !xorshift(&mut brain.rng).is_multiple_of(3) {
+            input.cast_dark_pressed = true;
+        } else if state.light_spell.is_some() {
+            input.cast_light_pressed = true;
         }
         let Some(entity) = state.active else { continue };
-        let Ok((brick, active, position, rotation)) = bricks.get(entity) else {
+        let Ok((brick, position, rotation)) = bricks.get(entity) else {
             continue;
         };
 
         if brain.brick != Some(entity) {
             let (rotations, target_x) = plan(
-                &config, &spatial, tower, entity, brick, active, position.0, *rotation,
+                &config, &spatial, tower, entity, brick, position.0, *rotation,
             );
             brain.brick = Some(entity);
             brain.rotations_left = rotations;
@@ -105,7 +108,7 @@ fn drive_ai(
             continue;
         }
         let dx = brain.target_x - position.0.x;
-        if dx.abs() > config.cells(config.nudge_step) * 0.5 {
+        if dx.abs() > config.cells(config.move_step) * 0.5 {
             if dx > 0.0 {
                 input.right_pressed = true;
             } else {
@@ -128,15 +131,17 @@ fn plan(
     tower: &Tower,
     entity: Entity,
     brick: &Brick,
-    active: &ActiveBrick,
     start: Vec2,
     rotation: Rotation,
 ) -> (u32, f32) {
     let c = config.cell_size;
     let cell = c * brick.scale;
-    let step = config.cells(config.nudge_step);
+    let step = config.cells(config.move_step);
     let half = config.cells(config.platform_width * 0.5);
     let filter = SpatialQueryFilter::from_excluded_entities([entity]);
+    // Plan with the brick's real size: the shrunk steering shape would happily
+    // squeeze it into spots where it overlaps its neighbours once placed.
+    let probe = brick_collider(&brick.cells, cell, config.collider_scale);
     let mut best = (f32::MAX, 0, tower.origin_x);
 
     for turns in 0..4u32 {
@@ -153,13 +158,13 @@ fn plan(
             }
             let from = Vec2::new(x, start.y);
             if !spatial
-                .shape_intersections(&active.query_shape, from, rot.as_radians(), &filter)
+                .shape_intersections(&probe, from, rot.as_radians(), &filter)
                 .is_empty()
             {
                 continue;
             }
             let Some(hit) = spatial.cast_shape(
-                &active.query_shape,
+                &probe,
                 from,
                 rot.as_radians(),
                 Dir2::NEG_Y,

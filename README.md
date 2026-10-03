@@ -9,31 +9,37 @@ cargo run                          # play with assets/config/game.ron
 cargo run -- my_mod.ron            # play with another config
 cargo test                         # config + headless gameplay tests
 ```
-Controls: arrows or WASD to move, Up/W/Space to rotate, Down/S to drop faster, E to cast your
-spell, R to restart, Esc for the menu. In the menu: Up/Down picks the mode, Left/Right the
+Controls: arrows or A/D to move, Shift + Left/Right to nudge, Up/W/Space to rotate clockwise and
+Z anticlockwise, Down/S to drop faster, Q to cast your light spell and E your dark one, R to
+restart, Esc for the menu. In the menu: Up/Down picks the mode, Left/Right the
 number of AI wizards (0 to 3), Enter starts.
 
 ![A race against three AI wizards](docs/screenshot.png)
 
 ## What works
-- Bricks fall under player control, move in half-cell steps and rotate 90 degrees with wall kicks.
-- On touching the tower a brick is handed to the physics engine (avian2d), so towers wobble and topple.
-- A drop guide under your brick and a preview of the next one.
-- Up to 3 AI wizards, each on its own tower, getting the same bricks as you in the same order.
-- Race: first tower to stay past the finish line for 3 seconds wins.
-- Survival: place N bricks; each dropped brick costs a life; last one standing wins.
-- Puzzle: place a set number of bricks without anything resting above the laser line.
-- Spells, earned every 5 bricks, one held at a time:
-  - light (on yourself): Vines bind touching bricks together, Stone freezes your resting bricks, Shrink halves your next brick;
-  - dark (on the tallest opponent): Enlarge makes their next brick bigger, Slippery makes it icy.
-- Mode menu, HUD with every tower's height and the last spell cast.
-- Seeded 7-bag randomizer, so runs are reproducible.
-- Everything tunable (physics feel, brick shapes, mode rules, spells, AI skill) is in `assets/config/game.ron`.
+Values below come from reading Max's own copy of the original; the notes are in `docs/research/`.
+- Controls like the original: half-cell moves (first repeat after 0.2 s, then every 0.05 s), a
+  separate one-cell nudge that shoves what it hits, 90° turns both ways with no wall kicks (a
+  blocked turn places the brick), and a drop that accelerates while held.
+- The steered brick is moved directly and shrunk slightly; its first contact places it, at rest,
+  as a normal physics body (avian2d). Gravity, friction, mass and damping match the original.
+- The drop speed rises with the tallest tower and with each player who is out.
+- Race (finish 45 cells up, coming down after 120 s), Survival (66 bricks, 3 lives) and Puzzle.
+- Spells as the original awards them: each tower has a spell line, and reaching it gives a pair,
+  one light spell and one dark curse; casting either throws the other away. Rubber-banding rules
+  give players who are behind stronger spells.
+  - Light (on yourself): Ivy, Petrify, Undo, Minibase, Auto Build, Extra Life (Survival).
+  - Dark (on everyone else): Large, Fast, Ice, No Rotate, Auto Rotate, Mystery, Bubble, Balloon
+    (Slow), Mist, Grassy, and their combinations.
+- Optional AI wizards on their own towers. The original has none in battles; they're an extra.
+- Mode menu, HUD, drop guide, next-brick preview, seeded 7-bag randomizer.
+- Everything tunable (controls, physics, mode rules, spell weights, AI skill) is in
+  `assets/config/game.ron`.
 
 ## What's missing
-See `PLAN.md`. In short: the original's full spell list and how spells are earned,
-trials/campaign levels, local multiplayer, original art and sound loaded from your own
-install, and tuning against the real game.
+See `PLAN.md`. In short: original art and sound loaded from your own install, local multiplayer
+with gamepads, the Ghost spell, Survival curse waves and Puzzle floors, Trials and Endless, and
+difficulty levels (the defaults are Normal).
 
 ## Modding
 Copy `assets/config/game.ron`, change what you want (any field can be left out),

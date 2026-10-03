@@ -7,7 +7,9 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use tricky_towers::TowerCorePlugin;
-use tricky_towers::config::{GameConfig, ModeKind, PuzzleRules, SpellKind, SurvivalRules};
+use tricky_towers::config::{
+    AwardRule, Curse, DarkSet, GameConfig, ModeKind, PuzzleRules, SpellKind, SurvivalRules,
+};
 use tricky_towers::gameplay::{
     ActiveBrick, Brick, Match, Phase, PlayerInput, Tower, TowerState, TowerStatus,
 };
@@ -68,14 +70,17 @@ fn human_input(app: &mut App) -> Mut<'_, PlayerInput> {
 
 fn fast_config() -> GameConfig {
     let mut config = GameConfig {
-        fall_speed: 8.0,
         mode: ModeKind::Survival,
+        spawn_gap: 6.0,
         survival: SurvivalRules {
             lives: 3,
             bricks_to_place: 100,
+            drop_speed: 8.0,
         },
         ..default()
     };
+    config.race.drop_speed = 8.0;
+    config.puzzle.drop_speed = 8.0;
     config.magic.enabled = false;
     config
 }
@@ -158,6 +163,7 @@ fn puzzle_is_won_by_staying_under_the_line() {
         bricks: 2,
         line_height: 6.0,
         settle_seconds: 1.0,
+        ..config.puzzle.clone()
     };
     let mut app = headless_app(config);
     // Put the first brick on the left and the second on the right.
@@ -191,6 +197,7 @@ fn puzzle_fails_when_crossing_the_line() {
         bricks: 10,
         line_height: 3.0,
         settle_seconds: 1.0,
+        ..config.puzzle.clone()
     };
     let mut app = headless_app(config);
     run_seconds(&mut app, 20.0, |_| {});
@@ -203,6 +210,8 @@ fn ai_opponents_build_towers() {
     let mut config = fast_config();
     config.mode = ModeKind::Race;
     config.opponents = 2;
+    // The real drop speed; at test speed the AI can't steer in time.
+    config.race.drop_speed = 3.0;
     let mut app = headless_app(config);
     run_seconds(&mut app, 20.0, |_| {});
 
@@ -223,57 +232,139 @@ fn ai_opponents_build_towers() {
     }
 }
 
-#[test]
-fn spells_are_granted_and_cast() {
+/// Magic where every spell line is one cell apart and always offers `light`
+/// and the curse `dark`.
+fn magic_config(light: SpellKind, dark: &[SpellKind]) -> GameConfig {
     let mut config = fast_config();
     config.magic.enabled = true;
-    config.magic.bricks_per_spell = 2;
-    config.magic.light = vec![SpellKind::Stone];
-    let mut app = headless_app(config);
-    let mut cast = false;
-    run_seconds(&mut app, 8.0, |app| {
-        if tower(app, 0).spell.is_some() && !cast {
-            cast = true;
-            human_input(app).cast_pressed = true;
-        }
-    });
-    assert!(cast, "no spell was granted");
-    let world = app.world_mut();
-    let stones = world
-        .query_filtered::<(), With<Stone>>()
-        .iter(world)
-        .count();
-    assert!(stones >= 1, "Stone spell turned nothing to stone");
+    config.magic.line_spacing = 1.0;
+    config.magic.award_rules = vec![AwardRule {
+        light: vec![(light, 1)],
+        dark: Some("test".into()),
+        ..default()
+    }];
+    config.magic.dark_sets = vec![DarkSet {
+        name: "test".into(),
+        curses: vec![Curse::new(dark, 1, None)],
+    }];
+    config
 }
 
-#[test]
-fn vines_join_touching_bricks() {
-    let mut config = fast_config();
-    config.magic.enabled = true;
-    config.magic.bricks_per_spell = 3;
-    config.magic.light = vec![SpellKind::Vines];
-    let mut app = headless_app(config);
-    // Cast as soon as the spell arrives.
-    for _ in 0..(8.0 / STEP) as usize {
-        if tower(&mut app, 0).spell.is_some() {
-            break;
+/// Steps until `done` holds, for at most `seconds`; returns whether it did.
+fn run_until(app: &mut App, seconds: f32, mut done: impl FnMut(&mut App) -> bool) -> bool {
+    for _ in 0..(seconds / STEP) as usize {
+        if done(app) {
+            return true;
         }
         app.update();
     }
-    assert!(tower(&mut app, 0).spell.is_some(), "no spell was granted");
-    human_input(&mut app).cast_pressed = true;
-    app.update();
-    // The vines must hold the bricks where they are, not fling them about.
+    done(app)
+}
+
+/// Steps until your light slot holds `spell`.
+fn wait_for_light(app: &mut App, spell: SpellKind) {
+    for _ in 0..(10.0 / STEP) as usize {
+        if tower(app, 0).light_spell == Some(spell) {
+            return;
+        }
+        app.update();
+    }
+    panic!("{spell:?} was never granted: {:?}", tower(app, 0));
+}
+
+/// Steps until a new brick is in your hands.
+fn wait_for_next_brick(app: &mut App) {
+    let first = tower(app, 0).active;
+    for _ in 0..(10.0 / STEP) as usize {
+        if tower(app, 0).active.is_some_and(|a| Some(a) != first) {
+            return;
+        }
+        app.update();
+    }
+    panic!("no new brick: {:?}", tower(app, 0));
+}
+
+fn count<F: bevy::ecs::query::QueryFilter>(app: &mut App) -> usize {
+    let world = app.world_mut();
+    world.query_filtered::<(), F>().iter(world).count()
+}
+
+fn log(app: &App) -> Vec<tricky_towers::spells::SpellCast> {
+    app.world()
+        .resource::<tricky_towers::spells::SpellLog>()
+        .0
+        .clone()
+}
+
+fn your_tower_mut(app: &mut App) -> Mut<'_, TowerState> {
+    let world = app.world_mut();
+    let entity = world
+        .query::<(Entity, &Tower)>()
+        .iter(world)
+        .find(|(_, t)| t.human)
+        .unwrap()
+        .0;
+    world.get_mut::<TowerState>(entity).unwrap()
+}
+
+#[test]
+fn petrify_turns_the_brick_in_hand_to_stone() {
+    let mut app = headless_app(magic_config(SpellKind::Petrify, &[]));
+    wait_for_light(&mut app, SpellKind::Petrify);
+    human_input(&mut app).cast_light_pressed = true;
+    run_seconds(&mut app, 0.1, |_| {});
+    assert_eq!(tower(&mut app, 0).light_spell, None, "slot not emptied");
+    assert!(
+        run_until(&mut app, 3.0, |app| count::<With<Stone>>(app) >= 1),
+        "nothing turned to stone"
+    );
+}
+
+#[test]
+fn a_spell_line_gives_a_pair_and_casting_one_drops_the_other() {
+    let mut config = magic_config(SpellKind::Undo, &[SpellKind::Large]);
+    config.mode = ModeKind::Race;
+    config.opponents = 1;
+    let mut app = headless_app(config);
+    wait_for_light(&mut app, SpellKind::Undo);
+    let you = tower(&mut app, 0);
+    assert_eq!(
+        you.dark_spell.map(|c| c.spells),
+        Some(vec![SpellKind::Large])
+    );
+    human_input(&mut app).cast_light_pressed = true;
+    run_seconds(&mut app, 0.05, |_| {});
+    let you = tower(&mut app, 0);
+    assert!(
+        you.light_spell.is_none() && you.dark_spell.is_none(),
+        "{you:?}"
+    );
+}
+
+#[test]
+fn no_curses_without_opponents() {
+    let mut app = headless_app(magic_config(SpellKind::Ivy, &[SpellKind::Fast]));
+    wait_for_light(&mut app, SpellKind::Ivy);
+    assert!(tower(&mut app, 0).dark_spell.is_none());
+}
+
+#[test]
+fn ivy_vines_the_brick_to_what_it_lands_on() {
+    let mut app = headless_app(magic_config(SpellKind::Ivy, &[]));
+    wait_for_light(&mut app, SpellKind::Ivy);
+    human_input(&mut app).cast_light_pressed = true;
     let dropped = tower(&mut app, 0).bricks_dropped;
-    run_seconds(&mut app, 2.0, |_| {});
+    assert!(
+        run_until(&mut app, 3.0, |app| count::<With<VineJoint>>(app) >= 1),
+        "Ivy joined nothing"
+    );
+    run_seconds(&mut app, 1.0, |_| {});
     let state = tower(&mut app, 0);
     assert_eq!(
         state.bricks_dropped, dropped,
         "vined tower fell apart: {state:?}"
     );
     let world = app.world_mut();
-    let vines = world.query::<&VineJoint>().iter(world).count();
-    assert!(vines >= 1, "Vines joined nothing");
     let fastest = world
         .query::<&avian2d::prelude::LinearVelocity>()
         .iter(world)
@@ -286,69 +377,331 @@ fn vines_join_touching_bricks() {
 }
 
 #[test]
-fn dark_spells_hit_an_opponent() {
+fn ivy_onto_stone_petrifies_the_cluster() {
+    // Regression: joining a stone (static) brick panicked inside avian
+    // ("Neither body ... is in an island").
+    let mut app = headless_app(magic_config(SpellKind::Petrify, &[]));
+    wait_for_light(&mut app, SpellKind::Petrify);
+    human_input(&mut app).cast_light_pressed = true;
+    assert!(
+        run_until(&mut app, 3.0, |app| count::<With<Stone>>(app) >= 1),
+        "the petrified brick is not stone"
+    );
+    let stones = count::<With<Stone>>(&mut app);
+    let ivy = tricky_towers::gameplay::BrickMod {
+        ivy: true,
+        ..default()
+    };
+    your_tower_mut(&mut app).queue_mod(0, &ivy);
+    assert!(
+        run_until(&mut app, 4.0, |app| count::<With<Stone>>(app) > stones),
+        "the Ivy brick on stone did not petrify"
+    );
+    run_seconds(&mut app, 0.5, |_| {});
+}
+
+#[test]
+fn curses_hit_every_opponent() {
+    let mut config = magic_config(SpellKind::Ivy, &[SpellKind::Large]);
+    config.mode = ModeKind::Race;
+    config.opponents = 2;
+    let mut app = headless_app(config);
+    for _ in 0..(10.0 / STEP) as usize {
+        if tower(&mut app, 0).dark_spell.is_some() {
+            human_input(&mut app).cast_dark_pressed = true;
+            run_seconds(&mut app, 0.05, |_| {});
+            break;
+        }
+        app.update();
+    }
+    for target in [1, 2] {
+        assert!(
+            log(&app)
+                .iter()
+                .any(|c| c.caster == 0 && c.target == target && c.spell == SpellKind::Large),
+            "expected Large on wizard {target}, log: {:?}",
+            log(&app)
+        );
+    }
+    let world = app.world_mut();
+    let big = world.query::<&Brick>().iter(world).any(|b| b.scale > 1.0);
+    assert!(big, "no large brick appeared");
+}
+
+/// Casts `spell` on your own tower directly, as if from a spell line.
+fn cast_now(app: &mut App, light: SpellKind, dark: Option<SpellKind>) {
+    {
+        let mut state = your_tower_mut(app);
+        state.light_spell = Some(light);
+        state.dark_spell = dark.map(|s| Curse::new(&[s], 1, None));
+    }
+    let mut input = human_input(app);
+    if dark.is_some() {
+        input.cast_dark_pressed = true;
+    } else {
+        input.cast_light_pressed = true;
+    }
+    // Let one fixed step run.
+    run_seconds(app, 0.03, |_| {});
+}
+
+#[test]
+fn undo_zaps_your_last_brick() {
+    let mut config = fast_config();
+    config.magic.enabled = true;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 2.0, |_| {});
+    let before = tower(&mut app, 0);
+    let last = before.last_placed.expect("a brick was placed");
+    cast_now(&mut app, SpellKind::Undo, None);
+    assert!(app.world().get_entity(last).is_ok(), "gone before the zap");
+    run_seconds(&mut app, 1.0, |_| {});
+    let after = tower(&mut app, 0);
+    assert!(
+        app.world().get_entity(last).is_err(),
+        "last brick still there"
+    );
+    assert_eq!(
+        after.bricks_dropped, before.bricks_dropped,
+        "Undo counted as a drop"
+    );
+}
+
+#[test]
+fn extra_life_orb_gives_a_life() {
+    let mut config = fast_config();
+    config.magic.enabled = true;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 0.5, |_| {});
+    let lives = tower(&mut app, 0).lives.unwrap();
+    cast_now(&mut app, SpellKind::ExtraLife, None);
+    // Move the orb into the falling brick's path.
+    let active = tower(&mut app, 0).active.unwrap();
+    let at = app
+        .world()
+        .get::<avian2d::prelude::Position>(active)
+        .unwrap()
+        .0;
+    let world = app.world_mut();
+    let mut orb = world
+        .query_filtered::<&mut Transform, With<tricky_towers::spells::LifeOrb>>()
+        .single_mut(world)
+        .expect("an orb appeared");
+    orb.translation = at.extend(0.0);
+    run_seconds(&mut app, 0.1, |_| {});
+    assert_eq!(tower(&mut app, 0).lives, Some(lives + 1));
+    assert_eq!(count::<With<tricky_towers::spells::LifeOrb>>(&mut app), 0);
+}
+
+#[test]
+fn minibase_adds_a_stone_ledge() {
+    let mut config = fast_config();
+    config.magic.enabled = true;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 0.5, |_| {});
+    cast_now(&mut app, SpellKind::Minibase, None);
+    run_seconds(&mut app, 0.1, |_| {});
+    assert_eq!(count::<(With<Stone>, With<Brick>)>(&mut app), 1);
+}
+
+#[test]
+fn auto_build_places_stone_bricks_by_itself() {
+    let mut config = fast_config();
+    config.magic.enabled = true;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 0.2, |_| {});
+    cast_now(&mut app, SpellKind::AutoBuild, None);
+    wait_for_next_brick(&mut app);
+    run_seconds(&mut app, 0.5, |_| {});
+    let state = tower(&mut app, 0);
+    assert!(state.bricks_placed >= 6, "{state:?}");
+    assert_eq!(count::<With<Stone>>(&mut app), 5);
+}
+
+#[test]
+fn large_grows_the_brick_in_hand() {
     let mut config = fast_config();
     config.mode = ModeKind::Race;
     config.opponents = 1;
     config.magic.enabled = true;
-    config.magic.bricks_per_spell = 2;
-    config.magic.light = vec![];
-    config.magic.dark = vec![SpellKind::Enlarge];
     let mut app = headless_app(config);
-    run_seconds(&mut app, 10.0, |app| {
-        if tower(app, 0).spell.is_some() {
-            human_input(app).cast_pressed = true;
-        }
-    });
-    let log = app.world().resource::<tricky_towers::spells::SpellLog>();
-    assert!(
-        log.0
-            .iter()
-            .any(|c| c.caster == 0 && c.target == 1 && c.spell == SpellKind::Enlarge),
-        "expected you to cast Enlarge on wizard 1, log: {:?}",
-        log.0
-    );
-    let world = app.world_mut();
-    let big = world.query::<&Brick>().iter(world).any(|b| b.scale > 1.0);
-    assert!(big, "no enlarged brick appeared");
+    run_seconds(&mut app, 0.1, |_| {});
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Large));
+    // The curse lands on wizard 1's brick in hand.
+    let theirs = tower(&mut app, 1).active.unwrap();
+    assert_eq!(app.world().get::<Brick>(theirs).unwrap().scale, 2.0);
 }
 
 #[test]
-fn vines_after_stone_do_not_crash() {
-    // Regression: joining two Stone (static) bricks panicked inside avian
-    // ("Neither body ... is in an island").
+fn mystery_reshapes_the_brick_in_hand() {
     let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    config.opponents = 1;
     config.magic.enabled = true;
-    config.magic.bricks_per_spell = 4;
-    config.magic.light = vec![SpellKind::Stone];
     let mut app = headless_app(config);
-    for _ in 0..(8.0 / STEP) as usize {
-        if tower(&mut app, 0).spell.is_some() {
-            break;
-        }
-        app.update();
-    }
-    human_input(&mut app).cast_pressed = true;
     run_seconds(&mut app, 0.1, |_| {});
-    let world = app.world_mut();
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Mystery));
+    let theirs = tower(&mut app, 1).active.unwrap();
+    let brick = app.world().get::<Brick>(theirs).unwrap();
+    assert!(brick.cells.len() >= 8, "not a Mystery shape: {brick:?}");
+    assert!(brick.mass > 1.0);
+}
+
+#[test]
+fn bubble_lifts_the_last_brick() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    config.opponents = 1;
+    config.magic.enabled = true;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 2.5, |_| {});
+    let last = tower(&mut app, 1)
+        .last_placed
+        .expect("wizard 1 placed a brick");
+    let y = |app: &App| {
+        app.world()
+            .get::<avian2d::prelude::Position>(last)
+            .unwrap()
+            .0
+            .y
+    };
+    let before = y(&app);
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Bubble));
     assert!(
-        world.query::<&Stone>().iter(world).count() >= 2,
-        "need touching stones"
+        app.world()
+            .get::<tricky_towers::spells::Bubbled>(last)
+            .is_some()
     );
-    app.world_mut().resource_mut::<GameConfig>().magic.light = vec![SpellKind::Vines];
-    for _ in 0..(8.0 / STEP) as usize {
-        if tower(&mut app, 0).spell == Some(SpellKind::Vines) {
-            break;
-        }
-        app.update();
-    }
-    human_input(&mut app).cast_pressed = true;
-    run_seconds(&mut app, 2.0, |_| {});
-    let log = app.world().resource::<tricky_towers::spells::SpellLog>();
+    let rose = run_until(&mut app, 1.0, |app| y(app) > before + 4.0);
+    assert!(rose, "bubble did not lift: {before} -> {}", y(&app));
+}
+
+/// Angle of your falling brick, in degrees.
+fn active_angle(app: &mut App) -> Option<f32> {
+    let active = tower(app, 0).active?;
+    app.world()
+        .get::<avian2d::prelude::Rotation>(active)
+        .map(|r| r.as_degrees())
+}
+
+#[test]
+fn bricks_rotate_both_ways() {
+    let mut app = headless_app(fast_config());
+    run_seconds(&mut app, 0.05, |_| {});
+    human_input(&mut app).rotate_pressed = true;
+    run_seconds(&mut app, 0.05, |_| {});
+    let cw = active_angle(&mut app).unwrap();
+    assert!((cw + 90.0).abs() < 1.0, "clockwise turn gave {cw}");
+    human_input(&mut app).rotate_ccw_pressed = true;
+    run_seconds(&mut app, 0.05, |_| {});
+    let back = active_angle(&mut app).unwrap();
+    assert!(back.abs() < 1.0, "turning back gave {back}");
+}
+
+#[test]
+fn no_rotate_and_auto_rotate_curses() {
+    let mut app = headless_app(fast_config());
+    let curse = tricky_towers::gameplay::BrickMod {
+        no_rotate: true,
+        auto_rotate: Some(0.2),
+        ..default()
+    };
+    your_tower_mut(&mut app).queue_mod(0, &curse);
+    wait_for_next_brick(&mut app);
+    let start = active_angle(&mut app).unwrap();
+    human_input(&mut app).rotate_pressed = true;
+    run_seconds(&mut app, 0.1, |_| {});
     assert!(
-        log.0.iter().any(|c| c.spell == SpellKind::Vines),
-        "Vines was never cast"
+        (active_angle(&mut app).unwrap() - start).abs() < 1.0,
+        "a cursed brick turned by hand"
     );
+    run_seconds(&mut app, 0.15, |_| {});
+    assert!(
+        (active_angle(&mut app).unwrap() - start).abs() > 45.0,
+        "Auto Rotate brick did not turn"
+    );
+}
+
+#[test]
+fn holding_down_accelerates() {
+    let mut config = fast_config();
+    config.survival.drop_speed = 1.0;
+    config.spawn_gap = 40.0;
+    let mut app = headless_app(config);
+    let y = |app: &mut App| {
+        let active = tower(app, 0).active.unwrap();
+        app.world()
+            .get::<avian2d::prelude::Position>(active)
+            .unwrap()
+            .0
+            .y
+    };
+    let fall = |app: &mut App| {
+        let a = y(app);
+        run_seconds(app, 0.1, |app| human_input(app).fast_fall_held = true);
+        a - y(app)
+    };
+    let first = fall(&mut app);
+    let second = fall(&mut app);
+    let third = fall(&mut app);
+    assert!(
+        second > first && third > second,
+        "no speed-up: {first} {second} {third}"
+    );
+}
+
+#[test]
+fn moves_repeat_after_a_delay() {
+    let mut config = fast_config();
+    config.survival.drop_speed = 0.5;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 0.05, |_| {});
+    let x = |app: &mut App| {
+        let active = tower(app, 0).active.unwrap();
+        app.world()
+            .get::<avian2d::prelude::Position>(active)
+            .unwrap()
+            .0
+            .x
+    };
+    let start = x(&mut app);
+    human_input(&mut app).right_pressed = true;
+    run_seconds(&mut app, 0.15, |app| human_input(app).right_held = true);
+    assert_eq!(
+        x(&mut app) - start,
+        16.0,
+        "one half-cell step before the repeat"
+    );
+    run_seconds(&mut app, 0.2, |app| human_input(app).right_held = true);
+    assert!(x(&mut app) - start >= 48.0, "held move never repeated");
+}
+
+#[test]
+fn race_finish_comes_down_late_in_the_race() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    config.race.finish_drop_after = 0.5;
+    config.race.finish_drop_speed = 4.0;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 1.5, |_| {});
+    let game = app.world().resource::<Match>();
+    assert!(game.finish_height < 45.0 - 2.0, "{game:?}");
+}
+
+#[test]
+fn race_spell_line_slides_down_after_waiting() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    config.magic.enabled = true;
+    config.magic.line_wait = 0.2;
+    config.magic.line_spacing = 20.0;
+    config.magic.line_rush_beyond = 100.0;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 0.1, |_| {});
+    let first = tower(&mut app, 0).spell_line.expect("a spell line");
+    run_seconds(&mut app, 1.0, |_| {});
+    let later = tower(&mut app, 0).spell_line.expect("a spell line");
+    assert!(later < first, "line stayed at {first}");
 }
 
 #[test]
@@ -356,7 +709,8 @@ fn vines_after_stone_do_not_crash() {
 fn stress_ai_spells() {
     for seed in 1..13u64 {
         let mut config = fast_config();
-        config.fall_speed = 4.0;
+        config.race.drop_speed = 4.0;
+        config.survival.drop_speed = 4.0;
         config.seed = seed * 7777;
         config.mode = if seed % 2 == 0 {
             ModeKind::Survival
@@ -365,7 +719,7 @@ fn stress_ai_spells() {
         };
         config.opponents = 3;
         config.magic.enabled = true;
-        config.magic.bricks_per_spell = 2;
+        config.magic.line_spacing = 2.0;
         let mut app = headless_app(config);
         run_seconds(&mut app, 90.0, |app| {
             if app.world().resource::<Match>().phase == Phase::Over {

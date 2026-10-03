@@ -37,11 +37,14 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    race finish line with hold timer, survival lives, dropped-brick detection, restart.
 2. **Opponents, spells, puzzle, menu** (done): towers side by side with AI wizards, five spells,
    puzzle mode with a laser line, mode menu, drop guide, next-brick preview.
-3. **Match the original** (needs Max's copy): side-by-side tuning of fall speed, nudge timing,
-   friction and wobble; check which spells exist, what each does exactly and how they are earned
-   (currently every 5 bricks), and add the missing ones. Rebuild from observed behaviour.
+3. **Match the original** (in progress, from Max's copy, notes in `docs/research/`): controls,
+   physics and spell awards done; still to do: Ghost, the 0.3 s Large grow and Auto Rotate
+   wind-up animations, the rising balloon, Survival lost-brick invincibility, the 3 s roof
+   countdown and Pro curse waves, Puzzle random lasers, floors and most-bricks scoring,
+   brick respawn for cursed bricks, difficulty levels.
 4. **Trials/campaign** levels described in RON files.
-5. **Local multiplayer:** 2 to 4 players on gamepads, each driving a tower's `PlayerInput`.
+5. **Local multiplayer:** 2 to 4 players on gamepads, each driving a tower's `PlayerInput`. This
+   is the original's main way to play; it has no AI in battles.
 6. **Presentation:** wizard characters, sound, themes. Optional loader for art and sound from
    your own install into the gitignored `extracted/` folder.
 7. **Mod loading:** a `mods/` folder of RON configs and asset packs, merged at startup.
