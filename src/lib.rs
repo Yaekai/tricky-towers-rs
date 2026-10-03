@@ -12,6 +12,7 @@ pub mod art;
 pub mod config;
 pub mod gameplay;
 pub mod input;
+pub mod letters;
 pub mod menu;
 pub mod spells;
 pub mod visuals;

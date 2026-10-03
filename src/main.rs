@@ -4,6 +4,7 @@ use tricky_towers::TowerCorePlugin;
 use tricky_towers::art::ArtPlugin;
 use tricky_towers::config::{DEFAULT_CONFIG_PATH, GameConfig, ModeKind};
 use tricky_towers::input::KeyboardInputPlugin;
+use tricky_towers::letters::LettersPlugin;
 use tricky_towers::menu::MenuPlugin;
 use tricky_towers::visuals::VisualsPlugin;
 
@@ -52,6 +53,7 @@ fn main() {
         MenuPlugin,
         VisualsPlugin,
         ArtPlugin,
+        LettersPlugin,
     ))
     .run();
 }

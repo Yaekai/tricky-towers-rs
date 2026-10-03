@@ -34,6 +34,7 @@ and nothing gets installed without Max's own go-ahead.
 - Per-mode skies, water bands and mask recolouring are in the game since 0febbb8: stage
   `sky_survival`, `sky_puzzle`, `water_band_survival: (colors: [])` (no water there) and `mask`
   on the ruins, then check the screenshots.
-- If Max picks the original letters for the font: write `extracted\fonts\main.ron` with the
+- Max picked the original letters for the font (2026-10-03 23:34): write `extracted\fonts\main.ron` with the
   letter picture's file, and for each character its rectangle in the picture, offset and
-  advance, plus line height and base line (plain numbers), and stage the picture.
+  advance, plus line height and base line (plain numbers), and stage the picture. The format
+  is in `docs/art-layout.md` under "The original's letters"; point `font_main` at that file.

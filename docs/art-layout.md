@@ -134,3 +134,27 @@ give its size and the logical name it is staged under, or `-` if it is not stage
 suggest a logical name for the unstaged ones following the patterns above. Animations: list the
 frames in order and the frame rate. This is the checklist the game's art work follows; plain
 descriptions only, no code.
+
+## The original's letters
+The original's font is only in the install as a picture of its letters. Stage that picture and
+a letter sheet next to it, and point `font_main` at the sheet: `"font_main": (file:
+"fonts/main.ron")`. All text in the game is then drawn with those letters. The sheet is plain
+numbers, in the picture's pixels:
+
+```ron
+(
+    image: "fonts/main.png",  // the letter picture, inside extracted/
+    size: 64.0,               // the text size these numbers are measured at
+    line_height: 80.0,        // from one line's top to the next
+    ascender: 60.0,           // from a line's top down to the base line
+    glyphs: {
+        'A': (rect: (0, 0, 40, 52), offset: (1, 50), advance: 42),
+        ' ': (rect: (0, 0, 0, 0), offset: (0, 0), advance: 18),
+    },
+)
+```
+
+- `rect`: the letter's `(x, y, width, height)` in the picture, from its top left.
+- `offset`: from the pen on the base line to the letter's top left, y up.
+- `advance`: how far the pen moves after the letter.
+- A letter missing from the sheet falls back to its capital, then to a gap.

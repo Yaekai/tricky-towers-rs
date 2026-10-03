@@ -129,6 +129,9 @@ pub struct Art {
     pub images: HashMap<String, Handle<Image>>,
     pub sounds: HashMap<String, Handle<AudioSource>>,
     pub fonts: HashMap<String, Handle<Font>>,
+    /// Fonts the original only has as a picture of its letters (`font_*` entries
+    /// pointing at a `.ron` letter sheet).
+    pub letters: HashMap<String, Letters>,
     pub entries: HashMap<String, ArtEntry>,
 }
 
@@ -174,6 +177,35 @@ impl Art {
     pub fn has_any(&self) -> bool {
         !self.images.is_empty() || !self.sounds.is_empty()
     }
+}
+
+/// A font drawn from a picture of its letters, as the original stores it. Every
+/// number is in the picture's pixels.
+#[derive(Deserialize, Clone, Debug)]
+pub struct Letters {
+    /// The letter picture, inside the extracted folder.
+    pub image: String,
+    /// The text size the numbers below are measured at.
+    pub size: f32,
+    /// Distance from one line's top to the next.
+    pub line_height: f32,
+    /// Distance from a line's top down to its base line.
+    pub ascender: f32,
+    pub glyphs: HashMap<char, Glyph>,
+    /// The loaded picture.
+    #[serde(skip)]
+    pub handle: Handle<Image>,
+}
+
+/// One letter in a [`Letters`] picture.
+#[derive(Deserialize, Clone, Copy, Debug)]
+pub struct Glyph {
+    /// `(x, y, width, height)` in the picture, from its top left.
+    pub rect: (f32, f32, f32, f32),
+    /// `(x, y)`: from the pen on the base line to the letter's top left, y up.
+    pub offset: (f32, f32),
+    /// How far the pen moves on after this letter.
+    pub advance: f32,
 }
 
 /// Reads the manifest. Missing or broken manifests leave the game on plain shapes.
@@ -232,11 +264,23 @@ fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
             .extension()
             .map(|e| e.to_string_lossy().to_lowercase())
             .unwrap_or_default();
-        let is_font = matches!(ext.as_str(), "ttf" | "otf") || name.starts_with("font_");
+        let is_font = matches!(ext.as_str(), "ttf" | "otf");
         let is_sound = matches!(ext.as_str(), "ogg" | "wav" | "mp3" | "flac")
             || name.starts_with("sfx_")
             || name.starts_with("music_");
-        if is_font {
+        if ext == "ron" && name.starts_with("font_") {
+            let sheet = std::fs::read_to_string(dir.join(&entry.file))
+                .map_err(|e| e.to_string())
+                .and_then(|text| ron::from_str::<Letters>(&text).map_err(|e| e.to_string()));
+            match sheet {
+                Ok(mut letters) if dir.join(&letters.image).is_file() => {
+                    letters.handle = assets.load(format!("{SOURCE}://{}", letters.image));
+                    art.letters.insert(name.clone(), letters);
+                }
+                Ok(letters) => warn!("{name}: {} is missing", letters.image),
+                Err(err) => warn!("{name}: invalid letter sheet: {err}"),
+            }
+        } else if is_font {
             art.fonts.insert(name.clone(), assets.load(path));
         } else if is_sound {
             art.sounds.insert(name.clone(), assets.load(path));
