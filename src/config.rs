@@ -232,6 +232,8 @@ pub enum SpellKind {
     Bubble,
     /// Dark: grass covers the top of the tower (looks only).
     Grassy,
+    /// Dark: skulls carry off the last placed brick and drop it beside the tower.
+    Ghost,
 }
 
 impl SpellKind {
@@ -265,6 +267,7 @@ impl SpellKind {
             SpellKind::Mystery => "Mystery",
             SpellKind::Bubble => "Bubble",
             SpellKind::Grassy => "Grassy",
+            SpellKind::Ghost => "Ghost",
         }
     }
 }
@@ -392,6 +395,10 @@ pub struct MagicRules {
     /// Height of the fog over the tower top, in cells.
     pub mist_height: f32,
     pub grassy_radius: f32,
+    /// Ghost: seconds the brick is held, and how far up and outward it is carried.
+    pub ghost_seconds: f32,
+    pub ghost_lift: f32,
+    pub ghost_carry: f32,
 }
 
 impl Default for MagicRules {
@@ -487,13 +494,14 @@ impl Default for MagicRules {
                         c(&[Mist], 3, None),
                     ],
                 ),
-                // Ghost (10) and three rare combos still to come.
+                // Three rare combos still to come.
                 set(
                     "survival_stone",
                     vec![
                         c(&[NoRotate], 7, None),
                         c(&[Mist], 10, None),
                         c(&[Fast], 10, None),
+                        c(&[Ghost], 10, None),
                     ],
                 ),
                 set(
@@ -545,6 +553,9 @@ impl Default for MagicRules {
             mist_seconds: 15.0,
             mist_height: 5.0,
             grassy_radius: 5.0,
+            ghost_seconds: 4.0,
+            ghost_lift: 3.0,
+            ghost_carry: 3.0,
         }
     }
 }

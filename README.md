@@ -33,7 +33,7 @@ Values below come from reading Max's own copy of the original; the notes are in 
   give players who are behind stronger spells.
   - Light (on yourself): Ivy, Petrify, Undo, Minibase, Auto Build, Extra Life (Survival).
   - Dark (on everyone else): Large, Fast, Ice, No Rotate, Auto Rotate, Mystery, Bubble, Balloon
-    (Slow), Mist, Grassy, and their combinations.
+    (Slow), Mist, Grassy, Ghost, and their combinations.
 - Local multiplayer for up to 4 players, the original's main way to play: keyboard for player 1,
   gamepads for the rest.
 - Optional AI wizards on their own towers. The original has none in battles; they're an extra.
@@ -43,7 +43,7 @@ Values below come from reading Max's own copy of the original; the notes are in 
 
 ## What's missing
 See `PLAN.md`. In short: original art and sound loaded from your own install (the loader is in, see
-`docs/art-layout.md`), the Ghost spell, Survival curse waves and Puzzle floors, Trials and Endless, and
+`docs/art-layout.md`), Survival curse waves and Puzzle floors, Trials and Endless, and
 difficulty levels (the defaults are Normal).
 
 ## Modding

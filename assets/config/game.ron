@@ -81,7 +81,7 @@
             (name: "normal", curses: [(spells: [Large], weight: 10, bricks: None), (spells: [Grassy], weight: 10, bricks: None), (spells: [Bubble], weight: 10, bricks: None), (spells: [Mystery], weight: 10, bricks: None), (spells: [AutoRotate], weight: 10, bricks: None), (spells: [Slow], weight: 6, bricks: None)]),
             (name: "stone", curses: [(spells: [Slow], weight: 10, bricks: None), (spells: [Ice], weight: 10, bricks: None)]),
             (name: "survival", curses: [(spells: [Large], weight: 10, bricks: None), (spells: [Mystery], weight: 10, bricks: None), (spells: [NoRotate], weight: 5, bricks: None), (spells: [Mist], weight: 3, bricks: None)]),
-            (name: "survival_stone", curses: [(spells: [NoRotate], weight: 7, bricks: None), (spells: [Mist], weight: 10, bricks: None), (spells: [Fast], weight: 10, bricks: None)]),
+            (name: "survival_stone", curses: [(spells: [NoRotate], weight: 7, bricks: None), (spells: [Mist], weight: 10, bricks: None), (spells: [Fast], weight: 10, bricks: None), (spells: [Ghost], weight: 10, bricks: None)]),
             (name: "behind", curses: [(spells: [Slow], weight: 10, bricks: None), (spells: [Ice], weight: 10, bricks: None), (spells: [Large, Mystery], weight: 4, bricks: None), (spells: [Large, AutoRotate], weight: 4, bricks: None), (spells: [Large, Ice], weight: 4, bricks: Some(1))]),
             (name: "far_behind", curses: [(spells: [Slow], weight: 4, bricks: None), (spells: [Ice], weight: 4, bricks: None), (spells: [Large, Mystery], weight: 10, bricks: None), (spells: [Large, AutoRotate], weight: 10, bricks: None), (spells: [Large, Ice], weight: 10, bricks: Some(1)), (spells: [Ice, AutoRotate, Mystery], weight: 3, bricks: Some(4))]),
         ],
@@ -116,6 +116,9 @@
         mist_seconds: 15.0,
         mist_height: 5.0,
         grassy_radius: 5.0,
+        ghost_seconds: 4.0,
+        ghost_lift: 3.0,
+        ghost_carry: 3.0,
     ),
     ai: (
         think_delay: 0.4,

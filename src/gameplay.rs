@@ -35,6 +35,7 @@ impl Plugin for GameplayPlugin {
                         crate::spells::grow_ivy,
                         crate::spells::zap_bricks,
                         crate::spells::float_bubbles,
+                        crate::spells::carry_ghosts,
                         crate::spells::collect_life_orbs,
                     )
                         .chain(),
@@ -986,6 +987,7 @@ fn track_towers(
             &LinearVelocity,
             &ColliderAabb,
             Has<crate::spells::Bubbled>,
+            Has<crate::spells::Ghosted>,
         ),
         Without<ActiveBrick>,
     >,
@@ -1002,7 +1004,7 @@ fn track_towers(
         state.stack_top = 0.0;
         state.all_settled = true;
     }
-    for (entity, brick, position, velocity, aabb, bubbled) in &bricks {
+    for (entity, brick, position, velocity, aabb, bubbled, ghosted) in &bricks {
         let Ok((tower, mut state)) = towers.get_mut(brick.tower) else {
             continue;
         };
@@ -1018,7 +1020,8 @@ fn track_towers(
         }
         let on_tower = (position.0.x - tower.origin_x).abs()
             <= config.cells(config.platform_width * 0.5 + 2.0);
-        if !on_tower || aabb.min.y <= -config.cell_size || bubbled {
+        // Bricks held up by a bubble or a ghost don't count toward the height.
+        if !on_tower || aabb.min.y <= -config.cell_size || bubbled || ghosted {
             continue;
         }
         let settled = velocity.0.x.abs() < settled_speed && velocity.0.y.abs() < settled_speed;

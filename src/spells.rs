@@ -49,6 +49,14 @@ pub struct Bubbled {
     touching: Option<Vec<Entity>>,
 }
 
+/// A brick carried off by Ghost; it doesn't count toward the tower's height.
+#[derive(Component, Debug)]
+pub struct Ghosted {
+    pub timer: f32,
+    /// Where the skulls carry it to.
+    pub to: Vec2,
+}
+
 /// A brick covered in grass (looks only).
 #[derive(Component, Debug)]
 pub struct Grassy;
@@ -487,6 +495,27 @@ fn cast_on_tower(
                 commands.queue_silenced(WakeBody(entity));
             }
         }
+        SpellKind::Ghost => {
+            // Only a loose brick can be carried off.
+            if let Some((entity, _, at, RigidBody::Dynamic, false, false)) = last {
+                let outward = if at.0.x >= tower.origin_x { 1.0 } else { -1.0 };
+                let to = at.0
+                    + Vec2::new(
+                        outward * config.cells(magic.ghost_carry),
+                        config.cells(magic.ghost_lift),
+                    );
+                commands.entity(entity).insert((
+                    Ghosted {
+                        timer: magic.ghost_seconds,
+                        to,
+                    },
+                    RigidBody::Kinematic,
+                    LinearVelocity::ZERO,
+                    AngularVelocity::ZERO,
+                ));
+                state.last_placed = None;
+            }
+        }
         SpellKind::Grassy => {
             if let Some((_, _, centre, ..)) = last {
                 let reach = config.cells(magic.grassy_radius);
@@ -711,6 +740,28 @@ pub(crate) fn float_bubbles(
             rest
         };
         gravity.0 = 1.0 - lift / config.gravity.max(f32::EPSILON);
+    }
+}
+
+/// Carries Ghost's brick to its spot, then lets it fall.
+pub(crate) fn carry_ghosts(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut ghosts: Query<(Entity, &mut Ghosted, &Position, &mut LinearVelocity)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut ghost, position, mut velocity) in &mut ghosts {
+        ghost.timer -= dt;
+        if ghost.timer <= 0.0 {
+            commands
+                .entity(entity)
+                .remove::<Ghosted>()
+                .insert(RigidBody::Dynamic);
+            velocity.0 = Vec2::ZERO;
+            continue;
+        }
+        // Ease toward the spot over the first second or so.
+        velocity.0 = (ghost.to - position.0) * 2.0;
     }
 }
 

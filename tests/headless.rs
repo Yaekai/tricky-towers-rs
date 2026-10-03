@@ -661,6 +661,46 @@ fn bubble_lifts_the_last_brick() {
     assert!(rose, "bubble did not lift: {before} -> {}", y(&app));
 }
 
+#[test]
+fn ghost_carries_off_the_last_brick() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    config.opponents = 1;
+    config.magic.enabled = true;
+    config.magic.ghost_seconds = 1.0;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 2.5, |_| {});
+    let last = tower(&mut app, 1)
+        .last_placed
+        .expect("wizard 1 placed a brick");
+    let x = |app: &App| {
+        app.world()
+            .get::<avian2d::prelude::Position>(last)
+            .unwrap()
+            .0
+            .x
+    };
+    let before = x(&app);
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Ghost));
+    assert!(
+        app.world()
+            .get::<tricky_towers::spells::Ghosted>(last)
+            .is_some()
+    );
+    run_seconds(&mut app, 0.9, |_| {});
+    assert!(
+        (x(&app) - before).abs() > 32.0,
+        "the brick was not carried sideways"
+    );
+    run_seconds(&mut app, 0.3, |_| {});
+    assert!(
+        app.world()
+            .get::<tricky_towers::spells::Ghosted>(last)
+            .is_none(),
+        "never dropped"
+    );
+}
+
 /// Angle of your falling brick, in degrees.
 fn active_angle(app: &mut App) -> Option<f32> {
     let active = tower(app, 0).active?;
