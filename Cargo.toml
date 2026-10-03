@@ -1,0 +1,20 @@
+[package]
+name = "tricky_towers"
+version = "0.1.0"
+edition = "2024"
+description = "Clean-room, moddable reimplementation of a physics brick-stacking game, built on Bevy"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+bevy = "0.19"
+avian2d = "0.7"
+serde = { version = "1", features = ["derive"] }
+ron = "0.10"
+
+# Compile dependencies with optimizations so physics runs at full speed in dev builds.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

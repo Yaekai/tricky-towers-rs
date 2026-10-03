@@ -1,0 +1,34 @@
+// Game configuration. Every field is optional: anything left out uses the
+// built-in default. Lengths are in brick cells unless noted.
+(
+    cell_size: 32.0,          // world units per cell
+    gravity: 30.0,            // cells / s^2
+    fall_speed: 2.5,          // cells / s while you control the brick
+    fast_fall_multiplier: 6.0,
+    nudge_step: 0.5,          // half-cell steps, like the original
+    nudge_repeat_delay: 0.18,
+    nudge_repeat_interval: 0.05,
+    platform_width: 9.0,
+    spawn_gap: 8.0,
+    kill_depth: 12.0,
+    collider_scale: 0.98,
+    brick_friction: 0.8,
+    brick_restitution: 0.0,
+    brick_density: 1.0,
+    seed: 1951876434,
+
+    // Race(finish_height: 20.0, hold_seconds: 3.0)
+    // Survival(lives: 3, bricks_to_place: 30)
+    mode: Race(finish_height: 20.0, hold_seconds: 3.0),
+
+    // Any polyomino works. Add a pentomino here to try it out.
+    pieces: [
+        (name: "I", color: (0.30, 0.80, 0.95), cells: [(0, 0), (1, 0), (2, 0), (3, 0)]),
+        (name: "O", color: (0.95, 0.85, 0.30), cells: [(0, 0), (1, 0), (0, 1), (1, 1)]),
+        (name: "T", color: (0.70, 0.40, 0.90), cells: [(0, 0), (1, 0), (2, 0), (1, 1)]),
+        (name: "S", color: (0.45, 0.85, 0.40), cells: [(0, 0), (1, 0), (1, 1), (2, 1)]),
+        (name: "Z", color: (0.95, 0.40, 0.40), cells: [(0, 1), (1, 1), (1, 0), (2, 0)]),
+        (name: "J", color: (0.35, 0.50, 0.95), cells: [(0, 0), (1, 0), (2, 0), (0, 1)]),
+        (name: "L", color: (0.95, 0.60, 0.25), cells: [(0, 0), (1, 0), (2, 0), (2, 1)]),
+    ],
+)

@@ -1,0 +1,20 @@
+# Whitelist: ignore everything, then allow only our own source.
+# This keeps extracted game files, decompiled code and research databases out
+# of the repo even if they end up in this folder by accident.
+*
+!*/
+!.gitignore
+!Cargo.toml
+!Cargo.lock
+!*.md
+!docs/*.png
+!src/**/*.rs
+!tests/**/*.rs
+!assets/config/*.ron
+!tools/**/*.py
+
+# Never commit these, even if they match a rule above.
+/target/
+/extracted/
+/research/
+/game/
