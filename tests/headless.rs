@@ -82,6 +82,7 @@ fn fast_config() -> GameConfig {
     };
     config.race.drop_speed = 8.0;
     config.puzzle.drop_speed = 8.0;
+    config.puzzle.line_random = 0.0;
     config.magic.enabled = false;
     config
 }
@@ -184,6 +185,27 @@ fn a_dropped_puzzle_brick_lowers_the_laser() {
         "a drop ended the puzzle"
     );
     assert!(state.laser(app.world().resource::<GameConfig>()) < 20.0);
+}
+
+#[test]
+fn puzzle_laser_is_shared_and_changes_each_round() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.opponents = 1;
+    config.puzzle.line_random = 4.0;
+    let mut app = headless_app(config);
+    let first = (tower(&mut app, 0).laser_base, tower(&mut app, 1).laser_base);
+    assert_eq!(first.0, first.1, "everyone gets the same laser");
+    assert!((3.2..=7.2).contains(&first.0), "{first:?}");
+    app.world_mut()
+        .resource_mut::<tricky_towers::gameplay::MatchRequest>()
+        .pending = true;
+    run_seconds(&mut app, 0.1, |_| {});
+    assert_ne!(
+        tower(&mut app, 0).laser_base,
+        first.0,
+        "same laser two rounds running"
+    );
 }
 
 #[test]

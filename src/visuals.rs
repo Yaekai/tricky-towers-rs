@@ -477,7 +477,7 @@ fn update_next_preview(
     }
     *visibility = Visibility::Visible;
     let floor = if game.mode == ModeKind::Puzzle {
-        state.stack_top.max(config.puzzle.line_height)
+        state.stack_top.max(state.laser(&config))
     } else {
         state.stack_top
     };
@@ -524,7 +524,7 @@ fn frame_towers(
     }
     // Follow the tower tops; the race finish only comes into view as towers near it.
     let goal = match game.mode {
-        ModeKind::Puzzle => config.puzzle.line_height,
+        ModeKind::Puzzle => config.puzzle.line_height + config.puzzle.line_random,
         _ => 0.0,
     };
     let c = config.cell_size;

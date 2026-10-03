@@ -52,7 +52,8 @@
     ),
     puzzle: (
         bricks: 10,
-        line_height: 6.0,
+        line_height: 3.2,
+        line_random: 4.0,
         settle_seconds: 2.0,
         drop_speed: 3.0,
         start_spell: Some(Ivy),

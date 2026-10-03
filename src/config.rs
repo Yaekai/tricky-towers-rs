@@ -171,8 +171,10 @@ impl Default for SurvivalRules {
 pub struct PuzzleRules {
     /// Bricks to place.
     pub bricks: u32,
-    /// Height of the laser line, in cells. Any settled brick above it fails the puzzle.
+    /// Lowest laser height, in cells. Any settled brick above it ends your round.
     pub line_height: f32,
+    /// Each round the laser is up to this much higher, at random (the same for everyone).
+    pub line_random: f32,
     /// Seconds everything must rest below the line after the last brick lands.
     pub settle_seconds: f32,
     /// Base drop speed, in cells/s (?).
@@ -187,7 +189,8 @@ impl Default for PuzzleRules {
     fn default() -> Self {
         Self {
             bricks: 10,
-            line_height: 6.0,
+            line_height: 3.2,
+            line_random: 4.0,
             settle_seconds: 2.0,
             drop_speed: 3.0,
             start_spell: Some(SpellKind::Ivy),

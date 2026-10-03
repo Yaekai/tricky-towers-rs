@@ -78,6 +78,8 @@ pub struct Match {
     pub finish_height: f32,
     /// Towers in the match.
     pub players: usize,
+    /// Matches started so far, so each round can differ.
+    pub round: u64,
 }
 
 impl Default for Match {
@@ -89,6 +91,7 @@ impl Default for Match {
             elapsed: 0.0,
             finish_height: 0.0,
             players: 1,
+            round: 0,
         }
     }
 }
@@ -225,6 +228,8 @@ pub struct TowerState {
     pub mist_timer: f32,
     /// Seconds before a dropped brick can cost another life.
     pub invincible: f32,
+    /// This round's puzzle laser height, before dropped bricks lower it.
+    pub laser_base: f32,
     /// Spell effects waiting for the coming bricks, next brick first.
     pub next_mods: Vec<BrickMod>,
     /// Mystery shapes still in the bag.
@@ -258,6 +263,7 @@ impl TowerState {
             last_placed: None,
             mist_timer: 0.0,
             invincible: 0.0,
+            laser_base: config.puzzle.line_height,
             next_mods: Vec::new(),
             mystery_bag: Vec::new(),
             rng: seed.max(1),
@@ -307,7 +313,7 @@ impl TowerState {
 
     /// Puzzle laser height for this tower: each dropped brick brings it lower.
     pub fn laser(&self, config: &GameConfig) -> f32 {
-        config.puzzle.line_height - config.puzzle.drop_penalty * self.bricks_dropped as f32
+        self.laser_base - config.puzzle.drop_penalty * self.bricks_dropped as f32
     }
 }
 
@@ -540,6 +546,11 @@ fn start_match(
         commands.entity(entity).despawn();
     }
 
+    // The puzzle laser is the same for everyone, and new each round.
+    let round = game.round + 1;
+    let mut roll = config.seed ^ round.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    let laser = config.puzzle.line_height
+        + (xorshift(&mut roll) % 1001) as f32 / 1000.0 * config.puzzle.line_random;
     let humans = config.players.clamp(1, MAX_TOWERS as u32) as usize;
     let count = (humans + config.opponents as usize).min(MAX_TOWERS);
     let c = config.cell_size;
@@ -555,7 +566,10 @@ fn start_match(
                 human,
                 player: human.then_some(index),
             },
-            TowerState::new(&config, config.seed.wrapping_add(index as u64 * 7919)),
+            TowerState {
+                laser_base: laser,
+                ..TowerState::new(&config, config.seed.wrapping_add(index as u64 * 7919))
+            },
             BrickBag::new(config.seed, config.pieces.len()),
             PlayerInput::default(),
         ));
@@ -582,6 +596,7 @@ fn start_match(
         elapsed: 0.0,
         finish_height: config.race.finish_height,
         players: count,
+        round,
     };
 }
 
@@ -671,7 +686,7 @@ fn spawn_next_brick(
 
         let floor = match game.mode {
             // Puzzle bricks come from above the laser line.
-            ModeKind::Puzzle => state.stack_top.max(config.puzzle.line_height),
+            ModeKind::Puzzle => state.stack_top.max(state.laser(&config)),
             _ => state.stack_top,
         };
         let mut position = Vec2::new(tower.origin_x, config.cells(floor + config.spawn_gap));
@@ -1119,7 +1134,16 @@ fn judge_match(
             humans_building += (state.status == TowerStatus::Building) as usize;
         }
     }
-    if winner.is_none() && count > 1 && building.len() == 1 && game.mode != ModeKind::Puzzle {
+    if game.mode == ModeKind::Puzzle && count > 1 {
+        // Everyone plays out their bricks; the tallest pile of bricks wins.
+        winner = None;
+        if building.is_empty() {
+            winner = towers
+                .iter()
+                .max_by_key(|(t, s)| (s.bricks_placed, std::cmp::Reverse(t.index)))
+                .map(|(t, _)| t.index);
+        }
+    } else if winner.is_none() && count > 1 && building.len() == 1 {
         // Last tower standing.
         winner = Some(building[0]);
     }
