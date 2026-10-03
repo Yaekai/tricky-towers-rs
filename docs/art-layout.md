@@ -67,7 +67,7 @@ islands on the water band), by adding `screen`:
   bottom, `position: (0, height)` in screen units (6 if left out), with `view_height`, `z` and
   `parallax` as above.
 - `sky_race`, `sky_survival`, `sky_puzzle` and `water_band_<mode>` replace `sky` and
-  `water_band` in that mode.
+  `water_band` in that mode; `water_band_survival: (colors: [])` turns the band off there.
 - `mask: [(r, g, b), (r, g, b)]` on any image: it is a two-colour mask the original recolours.
   Red areas take the first colour, yellow areas the second, shades in between blend, and the
   mask's brightness and alpha are kept.

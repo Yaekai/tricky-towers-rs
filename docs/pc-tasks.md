@@ -31,3 +31,9 @@ and nothing gets installed without Max's own go-ahead.
   `inventory.md`, one group per report, starting with wizards: the logical names, what each is
   for, animation frames in order with times, and where and when the original shows them. Then
   the Puzzle floor rule (the 3 piece types), spell effects, match moments, menus and results.
+- Per-mode skies, water bands and mask recolouring are in the game since 0febbb8: stage
+  `sky_survival`, `sky_puzzle`, `water_band_survival: (colors: [])` (no water there) and `mask`
+  on the ruins, then check the screenshots.
+- If Max picks the original letters for the font: write `extracted\fonts\main.ron` with the
+  letter picture's file, and for each character its rectangle in the picture, offset and
+  advance, plus line height and base line (plain numbers), and stage the picture.

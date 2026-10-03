@@ -1080,31 +1080,50 @@ fn update_panels(
 }
 
 /// Puts each panel beside its lane, just under the right end of the tower's base.
+#[allow(clippy::too_many_arguments)]
 fn place_panels(
     config: Res<GameConfig>,
+    game: Res<Match>,
+    art: Res<Art>,
+    images: Res<Assets<Image>>,
+    windows: Query<&Window>,
     camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     towers: Query<&Tower>,
     mut panels: Query<(&PanelLane, &mut Node, &ComputedNode)>,
 ) {
-    let Ok((camera, eye)) = camera.single() else {
+    let (Ok(window), Ok((camera, eye))) = (windows.single(), camera.single()) else {
         return;
     };
+    // How far the base's art reaches below its top surface, in cells.
+    let platform = match game.mode {
+        ModeKind::Race => "platform_race",
+        ModeKind::Survival => "platform_survival",
+        ModeKind::Puzzle => "platform_puzzle",
+    };
+    let depth = art
+        .entries
+        .get(platform)
+        .zip(art.image(platform).and_then(|h| images.get(&h)))
+        .map_or(1.0, |(entry, image)| {
+            let pivot_y = entry.pivot.map_or(0.5, |p| p.1);
+            image.size_f32().y * pivot_y / entry.pixels_per_unit.unwrap_or(100.0).max(1.0)
+        });
     for (lane, mut node, computed) in &mut panels {
         let Some(tower) = towers.iter().find(|t| t.index == lane.0) else {
             continue;
         };
         let corner = Vec3::new(
             tower.origin_x + config.cells(config.platform_width * 0.5),
-            -config.cell_size,
+            -config.cells(depth),
             0.0,
         );
         let Ok(at) = camera.world_to_viewport(eye, corner) else {
             continue;
         };
-        // Right-aligned to the base's right end, hanging below it.
-        let width = computed.size().x * computed.inverse_scale_factor();
-        node.left = Val::Px(at.x - width);
-        node.top = Val::Px(at.y);
+        // Right-aligned to the base's right end, hanging below the base, on screen.
+        let size = computed.size() * computed.inverse_scale_factor();
+        node.left = Val::Px((at.x - size.x).clamp(0.0, (window.width() - size.x).max(0.0)));
+        node.top = Val::Px(at.y.min(window.height() - size.y - 4.0).max(0.0));
     }
 }
 
