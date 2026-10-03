@@ -79,16 +79,16 @@ fn menu_keys(
         .position(|&m| m == config.mode)
         .unwrap_or(0);
     let count = ModeKind::ALL.len();
-    if keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW]) {
+    if keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Numpad8]) {
         config.mode = ModeKind::ALL[(index + count - 1) % count];
     }
-    if keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS]) {
+    if keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS, KeyCode::Numpad2]) {
         config.mode = ModeKind::ALL[(index + 1) % count];
     }
-    if keys.any_just_pressed([KeyCode::ArrowLeft, KeyCode::KeyA]) {
+    if keys.any_just_pressed([KeyCode::ArrowLeft, KeyCode::KeyA, KeyCode::Numpad4]) {
         config.opponents = config.opponents.saturating_sub(1);
     }
-    if keys.any_just_pressed([KeyCode::ArrowRight, KeyCode::KeyD]) {
+    if keys.any_just_pressed([KeyCode::ArrowRight, KeyCode::KeyD, KeyCode::Numpad6]) {
         config.opponents = (config.opponents + 1).min(MAX_TOWERS - config.players);
     }
     // Number keys pick how many people play (players 2 to 4 use gamepads).
