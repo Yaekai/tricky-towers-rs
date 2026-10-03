@@ -113,6 +113,7 @@ impl ArtEntry {
 pub struct Art {
     pub images: HashMap<String, Handle<Image>>,
     pub sounds: HashMap<String, Handle<AudioSource>>,
+    pub fonts: HashMap<String, Handle<Font>>,
     pub entries: HashMap<String, ArtEntry>,
 }
 
@@ -151,7 +152,10 @@ impl Plugin for ArtPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Art>()
             .add_systems(PreStartup, load_art)
-            .add_systems(Update, (drop_failed_art, play_music, play_sounds));
+            .add_systems(
+                Update,
+                (drop_failed_art, apply_font, play_music, play_sounds),
+            );
     }
 }
 
@@ -168,7 +172,9 @@ fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
         }
         let path = format!("{SOURCE}://{}", entry.file);
         let is_sound = name.starts_with("sfx_") || name.starts_with("music_");
-        if is_sound {
+        if name.starts_with("font_") {
+            art.fonts.insert(name.clone(), assets.load(path));
+        } else if is_sound {
             art.sounds.insert(name.clone(), assets.load(path));
         } else {
             art.images.insert(name.clone(), assets.load(path));
@@ -216,6 +222,20 @@ fn drop_failed_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
     for name in bad_sounds {
         warn!("{name}: failed to load");
         art.sounds.remove(&name);
+    }
+}
+
+/// Sets every text to the original's font (`font_main`) when one is staged.
+fn apply_font(art: Res<Art>, mut texts: Query<&mut TextFont>) {
+    let Some(font) = art.fonts.get("font_main") else {
+        return;
+    };
+    let all = art.is_changed();
+    for mut text in &mut texts {
+        let current = matches!(&text.font, FontSource::Handle(h) if h == font);
+        if (all || text.is_added()) && !current {
+            text.font = font.clone().into();
+        }
     }
 }
 

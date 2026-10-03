@@ -42,6 +42,7 @@ impl Plugin for VisualsPlugin {
                     frame_towers,
                     update_hud,
                     update_panels,
+                    place_panels.after(update_panels).after(frame_towers),
                     update_lines,
                     update_mist,
                 ),
@@ -51,6 +52,10 @@ impl Plugin for VisualsPlugin {
 
 #[derive(Component)]
 struct Hud;
+
+/// A player panel, kept beside its tower's base by `place_panels`.
+#[derive(Component)]
+struct PanelLane(usize);
 
 /// The row of player panels along the bottom: portrait, hearts and spell slots.
 #[derive(Component)]
@@ -91,10 +96,8 @@ fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
         PanelRow,
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
             width: Val::Percent(100.0),
-            justify_content: JustifyContent::SpaceEvenly,
-            align_items: AlignItems::FlexEnd,
+            height: Val::Percent(100.0),
             ..default()
         },
     ));
@@ -452,6 +455,14 @@ struct ScreenLayer {
 #[derive(Component)]
 struct Sky;
 
+/// The background scene's water band along the bottom of the screen.
+#[derive(Component)]
+struct WaterBand {
+    height: f32,
+    view_height: f32,
+    parallax: f32,
+}
+
 /// A tall gradient image from `colors`, top to bottom.
 fn gradient_image(colors: &[Color]) -> Image {
     use bevy::asset::RenderAssetUsages;
@@ -486,7 +497,15 @@ fn spawn_backgrounds(
     game: Res<Match>,
     mut images: ResMut<Assets<Image>>,
     camera: Query<Entity, With<Camera2d>>,
-    existing: Query<Entity, Or<(With<Background>, With<ScreenLayer>, With<Sky>)>>,
+    existing: Query<
+        Entity,
+        Or<(
+            With<Background>,
+            With<ScreenLayer>,
+            With<Sky>,
+            With<WaterBand>,
+        )>,
+    >,
     mut shown: Local<Option<ModeKind>>,
 ) {
     let Ok(camera) = camera.single() else {
@@ -506,6 +525,21 @@ fn spawn_backgrounds(
                 Sky,
                 Sprite::from_image(images.add(gradient_image(&colors))),
                 Transform::from_xyz(0.0, 0.0, -950.0),
+            ));
+        }
+    }
+    if let Some(band) = art.entries.get("water_band") {
+        let colors = band.colors();
+        if !colors.is_empty() {
+            commands.entity(camera).with_child((
+                WaterBand {
+                    height: band.position.map_or(6.0, |p| p.1),
+                    view_height: band.view_height.unwrap_or(10.0).max(0.01),
+                    parallax: band.parallax.unwrap_or(0.0),
+                },
+                Sprite::from_image(images.add(gradient_image(&colors))),
+                Anchor::BOTTOM_CENTER,
+                Transform::from_xyz(0.0, 0.0, -900.0 + band.z.unwrap_or(-0.5)),
             ));
         }
     }
@@ -543,7 +577,7 @@ fn spawn_backgrounds(
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn fit_backgrounds(
     windows: Query<&Window>,
     images: Res<Assets<Image>>,
@@ -561,6 +595,15 @@ fn fit_backgrounds(
     mut screen: Query<
         (&ScreenLayer, &mut Transform),
         (Without<Background>, Without<Camera2d>, Without<Sky>),
+    >,
+    mut bands: Query<
+        (&WaterBand, &mut Sprite, &mut Transform),
+        (
+            Without<Background>,
+            Without<Camera2d>,
+            Without<Sky>,
+            Without<ScreenLayer>,
+        ),
     >,
     mut lowest: Local<Option<f32>>,
 ) {
@@ -592,6 +635,11 @@ fn fit_backgrounds(
         transform.translation.x = at.x;
         transform.translation.y = at.y;
         transform.scale = Vec3::splat(unit / layer.pixels_per_unit * layer.scale);
+    }
+    for (band, mut sprite, mut transform) in &mut bands {
+        let unit = view.y / band.view_height;
+        sprite.custom_size = Some(Vec2::new(view.x, band.height * unit));
+        transform.translation.y = -view.y * 0.5 - climb * band.parallax;
     }
 }
 
@@ -854,6 +902,7 @@ fn update_next_preview(
     mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
+    art: Res<Art>,
     mut towers: Query<(&Tower, &TowerState, &mut BrickBag)>,
     mut preview: Query<(Entity, &mut NextPreview, &mut Transform, &mut Visibility)>,
 ) {
@@ -889,12 +938,28 @@ fn update_next_preview(
     }
     preview.piece = Some(next);
     let def = &config.pieces[next];
-    let color = Color::srgba(def.color[0], def.color[1], def.color[2], 0.6);
     let cells = def.centered_cells();
-    commands
-        .entity(entity)
-        .despawn_children()
-        .with_children(|parent| cell_sprites(parent, &cells, config.cell_size * 0.6, color));
+    let cell = config.cell_size * 0.8;
+    let mut preview = commands.entity(entity);
+    preview.despawn_children();
+    match art.image(&format!("brick_{}", def.name)) {
+        Some(image) => {
+            let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
+            let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
+            preview.with_child((
+                Sprite {
+                    image,
+                    custom_size: Some((max - min + Vec2::ONE) * cell),
+                    ..default()
+                },
+                Transform::from_translation(((min + max) * 0.5 * cell).extend(0.0)),
+            ));
+        }
+        None => {
+            let color = Color::srgb(def.color[0], def.color[1], def.color[2]);
+            preview.with_children(|parent| cell_sprites(parent, &cells, cell, color));
+        }
+    }
 }
 
 /// Keeps every tower, from the platforms to the top of the highest one, in view.
@@ -1003,6 +1068,35 @@ fn update_panels(
     *shown = Some(panels);
 }
 
+/// Puts each panel beside its lane, just under the right end of the tower's base.
+fn place_panels(
+    config: Res<GameConfig>,
+    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    towers: Query<&Tower>,
+    mut panels: Query<(&PanelLane, &mut Node, &ComputedNode)>,
+) {
+    let Ok((camera, eye)) = camera.single() else {
+        return;
+    };
+    for (lane, mut node, computed) in &mut panels {
+        let Some(tower) = towers.iter().find(|t| t.index == lane.0) else {
+            continue;
+        };
+        let corner = Vec3::new(
+            tower.origin_x + config.cells(config.platform_width * 0.5),
+            -config.cell_size,
+            0.0,
+        );
+        let Ok(at) = camera.world_to_viewport(eye, corner) else {
+            continue;
+        };
+        // Right-aligned to the base's right end, hanging below it.
+        let width = computed.size().x * computed.inverse_scale_factor();
+        node.left = Val::Px(at.x - width);
+        node.top = Val::Px(at.y);
+    }
+}
+
 fn spawn_panel(row: &mut ChildSpawnerCommands, art: &Art, magic: bool, panel: &PanelState) {
     let label = |text: String, size: f32| {
         (
@@ -1025,7 +1119,9 @@ fn spawn_panel(row: &mut ChildSpawnerCommands, art: &Art, magic: bool, panel: &P
     };
     let faded = panel.status == TowerStatus::Out;
     row.spawn((
+        PanelLane(panel.lane),
         Node {
+            position_type: PositionType::Absolute,
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             row_gap: Val::Px(4.0),

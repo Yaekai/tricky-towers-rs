@@ -63,6 +63,10 @@ islands on the water band), by adding `screen`:
 - `parallax`: how far the layer slides down as the camera climbs the tower, as a share of the
   climb (0, fixed, if left out).
 - `sky` has no file: `colors` are the gradient behind everything, top to bottom, 0 to 255.
+- `water_band` has no file either: a gradient along the bottom of the screen, `colors` top to
+  bottom, `position: (0, height)` in screen units (6 if left out), with `view_height`, `z` and
+  `parallax` as above.
+- `font_main`: a .ttf or .otf used for all text.
 
 ## Names the game looks up
 | Name | What |
