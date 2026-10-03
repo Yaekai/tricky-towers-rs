@@ -34,6 +34,7 @@
     seed: 1951876434,
     start_in_menu: false,
     mode: Race,
+    players: 1,
     opponents: 0,
     race: (
         finish_height: 45.0,

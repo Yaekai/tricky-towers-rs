@@ -76,6 +76,9 @@ pub struct GameConfig {
     pub start_in_menu: bool,
     /// Mode of the next match.
     pub mode: ModeKind,
+    /// Human players in the next match (1 to 4); player 1 uses the keyboard,
+    /// the others gamepads.
+    pub players: u32,
     /// Number of AI opponents in the next match.
     pub opponents: u32,
     pub race: RaceRules,
@@ -751,6 +754,7 @@ impl Default for GameConfig {
             seed: 0x7457_4552,
             start_in_menu: false,
             mode: ModeKind::Race,
+            players: 1,
             opponents: 0,
             race: RaceRules::default(),
             survival: SurvivalRules::default(),

@@ -1,5 +1,5 @@
-//! The mode menu: pick Race, Survival or Puzzle and how many AI wizards to
-//! play against.
+//! The mode menu: pick Race, Survival or Puzzle, how many people play, and
+//! how many AI wizards join.
 
 use bevy::prelude::*;
 
@@ -11,11 +11,11 @@ pub struct MenuPlugin;
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_menu)
-            .add_systems(Update, (menu_keys, show_menu).chain());
+            .add_systems(Update, (menu_keys, menu_gamepads, show_menu).chain());
     }
 }
 
-const MAX_OPPONENTS: u32 = 3;
+const MAX_TOWERS: u32 = crate::gameplay::MAX_TOWERS as u32;
 
 #[derive(Component)]
 struct MenuText;
@@ -89,11 +89,50 @@ fn menu_keys(
         config.opponents = config.opponents.saturating_sub(1);
     }
     if keys.any_just_pressed([KeyCode::ArrowRight, KeyCode::KeyD]) {
-        config.opponents = (config.opponents + 1).min(MAX_OPPONENTS);
+        config.opponents = (config.opponents + 1).min(MAX_TOWERS - config.players);
+    }
+    // Number keys pick how many people play (players 2 to 4 use gamepads).
+    let digits = [
+        KeyCode::Digit1,
+        KeyCode::Digit2,
+        KeyCode::Digit3,
+        KeyCode::Digit4,
+    ];
+    if let Some(n) = digits.iter().position(|&k| keys.just_pressed(k)) {
+        config.players = n as u32 + 1;
+        config.opponents = config.opponents.min(MAX_TOWERS - config.players);
     }
     if keys.any_just_pressed([KeyCode::Enter, KeyCode::Space]) {
         request.pending = true;
         *left_from = None;
+    }
+}
+
+/// Any gamepad can pick the mode (d-pad) and start (A or Start).
+fn menu_gamepads(
+    mut config: ResMut<GameConfig>,
+    game: Res<Match>,
+    mut request: ResMut<MatchRequest>,
+    gamepads: Query<&Gamepad>,
+) {
+    if game.phase != Phase::Menu {
+        return;
+    }
+    let count = ModeKind::ALL.len();
+    for pad in &gamepads {
+        let index = ModeKind::ALL
+            .iter()
+            .position(|&m| m == config.mode)
+            .unwrap_or(0);
+        if pad.just_pressed(GamepadButton::DPadUp) {
+            config.mode = ModeKind::ALL[(index + count - 1) % count];
+        }
+        if pad.just_pressed(GamepadButton::DPadDown) {
+            config.mode = ModeKind::ALL[(index + 1) % count];
+        }
+        if pad.any_just_pressed([GamepadButton::South, GamepadButton::Start]) {
+            request.pending = true;
+        }
     }
 }
 
@@ -142,8 +181,9 @@ fn show_menu(
         "\nEsc: back to the game"
     };
     let text = format!(
-        "TRICKY TOWERS\n\n{}\n\nOpponents: < {} >\n\nUp/Down: mode   Left/Right: opponents   Enter: play{resume}",
+        "TRICKY TOWERS\n\n{}\n\nPlayers: {}   AI wizards: < {} >\n\nUp/Down: mode   1-4: players   Left/Right: AI wizards   Enter: play\nPlayer 1: keyboard   Players 2-4: gamepads{resume}",
         modes.join("\n"),
+        config.players,
         config.opponents
     );
     if let Some(&child) = children.first()

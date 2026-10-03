@@ -251,6 +251,46 @@ fn puzzle_fails_when_crossing_the_line() {
 }
 
 #[test]
+fn several_players_get_their_own_towers() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    config.players = 2;
+    config.opponents = 1;
+    let mut app = headless_app(config);
+    let world = app.world_mut();
+    let mut towers: Vec<(usize, Option<usize>)> = world
+        .query::<&Tower>()
+        .iter(world)
+        .map(|t| (t.index, t.player))
+        .collect();
+    towers.sort();
+    assert_eq!(towers, vec![(0, Some(0)), (1, Some(1)), (2, None)]);
+    // Player 2 steers their own brick through their own input.
+    run_seconds(&mut app, 0.1, |_| {});
+    let world = app.world_mut();
+    let (entity, active) = world
+        .query::<(Entity, &Tower, &TowerState)>()
+        .iter(world)
+        .find(|(_, t, _)| t.player == Some(1))
+        .map(|(e, _, s)| (e, s.active.unwrap()))
+        .unwrap();
+    let x = |app: &App| {
+        app.world()
+            .get::<avian2d::prelude::Position>(active)
+            .unwrap()
+            .0
+            .x
+    };
+    let start = x(&app);
+    app.world_mut()
+        .get_mut::<PlayerInput>(entity)
+        .unwrap()
+        .right_pressed = true;
+    run_seconds(&mut app, 0.05, |_| {});
+    assert!(x(&app) > start, "player 2's brick did not move");
+}
+
+#[test]
 fn ai_opponents_build_towers() {
     let mut config = fast_config();
     config.mode = ModeKind::Race;

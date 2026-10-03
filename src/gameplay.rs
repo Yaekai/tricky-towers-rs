@@ -47,6 +47,9 @@ impl Plugin for GameplayPlugin {
     }
 }
 
+/// Most towers in one match, as in the original.
+pub const MAX_TOWERS: usize = 4;
+
 /// System set for the fixed-step gameplay systems, so mods can order around it.
 /// Anything that writes [`PlayerInput`] in `FixedUpdate` should run before it.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -103,6 +106,15 @@ pub struct Tower {
     /// World x of the platform centre.
     pub origin_x: f32,
     pub human: bool,
+    /// Which human player steers it (0 = player 1), if any.
+    pub player: Option<usize>,
+}
+
+impl Tower {
+    /// Player 1's tower: the keyboard's, and the one the HUD follows.
+    pub fn is_first_player(&self) -> bool {
+        self.player == Some(0)
+    }
 }
 
 /// Marks towers driven by the computer.
@@ -527,17 +539,20 @@ fn start_match(
         commands.entity(entity).despawn();
     }
 
-    let count = 1 + config.opponents as usize;
+    let humans = config.players.clamp(1, MAX_TOWERS as u32) as usize;
+    let count = (humans + config.opponents as usize).min(MAX_TOWERS);
     let c = config.cell_size;
     for index in 0..count {
         let origin_x =
             config.cells(config.tower_spacing) * (index as f32 - (count - 1) as f32 * 0.5);
-        let human = index == 0;
+        // Human players first, then the AI wizards.
+        let human = index < humans;
         let mut tower = commands.spawn((
             Tower {
                 index,
                 origin_x,
                 human,
+                player: human.then_some(index),
             },
             TowerState::new(&config, config.seed.wrapping_add(index as u64 * 7919)),
             BrickBag::new(config.seed, config.pieces.len()),
@@ -1084,7 +1099,8 @@ fn judge_match(
 
     let mut winner = None;
     let mut building = Vec::new();
-    let mut human_out = false;
+    let mut humans_building = 0;
+    let mut humans = 0;
     let mut count = 0;
     for (tower, state) in &towers {
         count += 1;
@@ -1093,14 +1109,19 @@ fn judge_match(
                 winner = Some(winner.map_or(tower.index, |w: usize| w.min(tower.index)))
             }
             TowerStatus::Building => building.push(tower.index),
-            TowerStatus::Out => human_out |= tower.human,
+            TowerStatus::Out => {}
+        }
+        if tower.human {
+            humans += 1;
+            humans_building += (state.status == TowerStatus::Building) as usize;
         }
     }
     if winner.is_none() && count > 1 && building.len() == 1 && game.mode != ModeKind::Puzzle {
         // Last tower standing.
         winner = Some(building[0]);
     }
-    if winner.is_some() || building.is_empty() || human_out {
+    // Over when someone wins, nobody is left, or every human is out.
+    if winner.is_some() || building.is_empty() || (humans > 0 && humans_building == 0) {
         game.phase = Phase::Over;
         game.winner = winner;
     }

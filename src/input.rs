@@ -1,4 +1,6 @@
-//! Keyboard input for your tower. Translates keys into that tower's
+//! Keyboard and gamepad input. Player 1 uses the keyboard; gamepads drive
+//! players 2 to 4 in the order they were connected (with one player, the first
+//! gamepad drives player 1 too). Input is written into each tower's
 //! [`PlayerInput`] once per frame; the fixed-step gameplay systems consume it.
 
 use bevy::prelude::*;
@@ -11,7 +13,12 @@ impl Plugin for KeyboardInputPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PreUpdate,
-            read_keyboard.run_if(resource_exists::<ButtonInput<KeyCode>>),
+            (
+                read_keyboard.run_if(resource_exists::<ButtonInput<KeyCode>>),
+                read_gamepads,
+            )
+                .chain()
+                .after(bevy::input::InputSystems),
         );
     }
 }
@@ -39,7 +46,7 @@ fn read_keyboard(
     if keys.any_just_pressed(RESTART) {
         request.pending = true;
     }
-    let Some((_, mut input)) = towers.iter_mut().find(|(tower, _)| tower.human) else {
+    let Some((_, mut input)) = towers.iter_mut().find(|(tower, _)| tower.is_first_player()) else {
         return;
     };
     let nudge = keys.any_pressed(NUDGE);
@@ -59,4 +66,55 @@ fn read_keyboard(
     input.rotate_ccw_pressed |= keys.any_just_pressed(ROTATE_CCW);
     input.cast_light_pressed |= keys.any_just_pressed(CAST_LIGHT);
     input.cast_dark_pressed |= keys.any_just_pressed(CAST_DARK);
+}
+
+/// Stick or d-pad direction last frame, to turn holds into presses.
+#[derive(Default)]
+struct PadState {
+    left: bool,
+    right: bool,
+}
+
+fn read_gamepads(
+    game: Res<Match>,
+    mut request: ResMut<MatchRequest>,
+    gamepads: Query<(Entity, &Gamepad)>,
+    mut towers: Query<(&Tower, &mut PlayerInput)>,
+    mut last: Local<bevy::platform::collections::HashMap<Entity, PadState>>,
+) {
+    let mut pads: Vec<_> = gamepads.iter().collect();
+    pads.sort_by_key(|(e, _)| *e);
+    let players = towers.iter().filter(|(t, _)| t.human).count();
+    for (slot, (entity, pad)) in pads.into_iter().enumerate() {
+        if game.phase == Phase::Over && pad.just_pressed(GamepadButton::Start) {
+            request.pending = true;
+        }
+        if game.phase == Phase::Menu {
+            continue;
+        }
+        // Pads drive players 2, 3, 4; alone, the first pad drives player 1.
+        let player = if players <= 1 { slot } else { slot + 1 };
+        let Some((_, mut input)) = towers.iter_mut().find(|(t, _)| t.player == Some(player)) else {
+            continue;
+        };
+        let stick = pad.left_stick();
+        let left = stick.x < -0.5 || pad.pressed(GamepadButton::DPadLeft);
+        let right = stick.x > 0.5 || pad.pressed(GamepadButton::DPadRight);
+        let down = stick.y < -0.5 || pad.pressed(GamepadButton::DPadDown);
+        let before = last.entry(entity).or_default();
+        // Player 1 shares with the keyboard, which already set the holds this frame.
+        let shared = player == 0;
+        input.left_held = left || (shared && input.left_held);
+        input.right_held = right || (shared && input.right_held);
+        input.fast_fall_held = down || (shared && input.fast_fall_held);
+        input.left_pressed |= left && !before.left;
+        input.right_pressed |= right && !before.right;
+        input.nudge_left_pressed |= pad.just_pressed(GamepadButton::LeftTrigger);
+        input.nudge_right_pressed |= pad.just_pressed(GamepadButton::RightTrigger);
+        input.rotate_pressed |= pad.just_pressed(GamepadButton::South);
+        input.rotate_ccw_pressed |= pad.just_pressed(GamepadButton::East);
+        input.cast_light_pressed |= pad.just_pressed(GamepadButton::West);
+        input.cast_dark_pressed |= pad.just_pressed(GamepadButton::North);
+        *before = PadState { left, right };
+    }
 }

@@ -181,7 +181,7 @@ fn play_sounds(
             commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
         }
     };
-    let Some((_, you)) = towers.iter().find(|(t, _)| t.human) else {
+    let Some((_, you)) = towers.iter().find(|(t, _)| t.is_first_player()) else {
         return;
     };
     if game.phase == Phase::Playing {

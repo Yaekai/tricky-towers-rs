@@ -11,8 +11,11 @@ cargo test                         # config + headless gameplay tests
 ```
 Controls: arrows or A/D to move, Shift + Left/Right to nudge, Up/W/Space to rotate clockwise and
 Z anticlockwise, Down/S to drop faster, Q to cast your light spell and E your dark one, R to
-restart, Esc for the menu. In the menu: Up/Down picks the mode, Left/Right the
-number of AI wizards (0 to 3), Enter starts.
+restart, Esc for the menu. In the menu: Up/Down picks the mode, 1 to 4 how many people play,
+Left/Right the number of AI wizards, Enter starts.
+
+Players 2 to 4 use gamepads: stick or d-pad to move, down to drop, LT/RT to nudge, A/B to rotate,
+X for the light spell and Y for the dark one. With one player, a gamepad works for player 1 too.
 
 ![A race against three AI wizards](docs/screenshot.png)
 
@@ -31,14 +34,16 @@ Values below come from reading Max's own copy of the original; the notes are in 
   - Light (on yourself): Ivy, Petrify, Undo, Minibase, Auto Build, Extra Life (Survival).
   - Dark (on everyone else): Large, Fast, Ice, No Rotate, Auto Rotate, Mystery, Bubble, Balloon
     (Slow), Mist, Grassy, and their combinations.
+- Local multiplayer for up to 4 players, the original's main way to play: keyboard for player 1,
+  gamepads for the rest.
 - Optional AI wizards on their own towers. The original has none in battles; they're an extra.
 - Mode menu, HUD, drop guide, next-brick preview, seeded 7-bag randomizer.
 - Everything tunable (controls, physics, mode rules, spell weights, AI skill) is in
   `assets/config/game.ron`.
 
 ## What's missing
-See `PLAN.md`. In short: original art and sound loaded from your own install, local multiplayer
-with gamepads, the Ghost spell, Survival curse waves and Puzzle floors, Trials and Endless, and
+See `PLAN.md`. In short: original art and sound loaded from your own install (the loader is in, see
+`docs/art-layout.md`), the Ghost spell, Survival curse waves and Puzzle floors, Trials and Endless, and
 difficulty levels (the defaults are Normal).
 
 ## Modding

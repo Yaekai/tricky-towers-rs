@@ -435,7 +435,7 @@ fn update_drop_guide(
     };
     let active = towers
         .iter()
-        .find(|(tower, _)| tower.human)
+        .find(|(tower, _)| tower.is_first_player())
         .and_then(|(_, state)| state.active)
         .and_then(|entity| bricks.get(entity).ok());
     let Some((active, aabb)) = active else {
@@ -464,7 +464,8 @@ fn update_next_preview(
     let Ok((entity, mut preview, mut transform, mut visibility)) = preview.single_mut() else {
         return;
     };
-    let Some((tower, state, mut bag)) = towers.iter_mut().find(|(t, _, _)| t.human) else {
+    let Some((tower, state, mut bag)) = towers.iter_mut().find(|(t, _, _)| t.is_first_player())
+    else {
         *visibility = Visibility::Hidden;
         return;
     };
@@ -555,7 +556,7 @@ fn update_hud(
     };
     let mut sorted: Vec<_> = towers.iter().collect();
     sorted.sort_by_key(|(t, _)| t.index);
-    let Some((_, you)) = sorted.iter().find(|(t, _)| t.human) else {
+    let Some((_, you)) = sorted.iter().find(|(t, _)| t.is_first_player()) else {
         text.0.clear();
         return;
     };
@@ -605,7 +606,12 @@ fn update_hud(
         format!("dropped {}   {spell}{mist}", you.bricks_dropped),
     ];
 
-    for (tower, state) in sorted.iter().filter(|(t, _)| !t.human) {
+    let name = |tower: &Tower| match tower.player {
+        Some(p) => format!("Player {}", p + 1),
+        None => format!("Wizard {}", tower.index),
+    };
+    let names: Vec<String> = sorted.iter().map(|(t, _)| name(t)).collect();
+    for (tower, state) in sorted.iter().filter(|(t, _)| !t.is_first_player()) {
         let status = match state.status {
             TowerStatus::Building => String::new(),
             TowerStatus::Won => " (won)".into(),
@@ -616,8 +622,9 @@ fn update_hud(
             .map(|l| format!(" lives {l}"))
             .unwrap_or_default();
         lines.push(format!(
-            "Wizard {}: height {:.1}{lives}{status}",
-            tower.index, state.height
+            "{}: height {:.1}{lives}{status}",
+            name(tower),
+            state.height
         ));
     }
     if let Some(last) = log.0.last() {
@@ -625,7 +632,7 @@ fn update_hud(
             if i == 0 {
                 "You".to_string()
             } else {
-                format!("Wizard {i}")
+                names.get(i).cloned().unwrap_or_default()
             }
         };
         let on = if last.caster == last.target {
@@ -643,7 +650,10 @@ fn update_hud(
     if game.phase == Phase::Over {
         lines.push(match game.winner {
             Some(0) => "YOU WIN! Press R to play again".into(),
-            Some(i) => format!("Wizard {i} wins. Press R to try again"),
+            Some(i) => format!(
+                "{} wins. Press R to try again",
+                names.get(i).cloned().unwrap_or_default()
+            ),
             None => match game.mode {
                 ModeKind::Puzzle => "PUZZLE FAILED. Press R to try again".into(),
                 _ => "OUT OF LIVES. Press R to try again".into(),
