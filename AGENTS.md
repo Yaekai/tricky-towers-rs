@@ -31,3 +31,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-03: screen-pinned background layers and sky gradient, blue drop guide, rainbow spell-line pickups, vine/grass/bubble/mist art, controls moved to the menu, next preview lowered.
 - 2026-10-03: `--play <mode>` skips the menu for scripted screenshots; the menu also takes numpad arrows (scripted key presses on Windows can arrive as those).
 - 2026-10-03: water band gradient, player panels beside each base, bigger next preview using brick art, font_main support.
+- 2026-10-03: sounds and fonts recognised by file type, mask recolouring for two-colour sprites, per-mode sky and water band.

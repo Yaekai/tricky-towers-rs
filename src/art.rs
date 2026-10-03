@@ -95,6 +95,10 @@ pub struct ArtEntry {
     /// How many pieces make up the `spell_line` (16 if left out).
     #[serde(default)]
     pub count: Option<u32>,
+    /// For two-colour mask sprites the original recolours: the colours, 0 to 255,
+    /// for the red areas and the yellow areas. Shades in between blend.
+    #[serde(default)]
+    pub mask: Option<[(f32, f32, f32); 2]>,
 }
 
 impl ArtEntry {
@@ -154,7 +158,13 @@ impl Plugin for ArtPlugin {
             .add_systems(PreStartup, load_art)
             .add_systems(
                 Update,
-                (drop_failed_art, apply_font, play_music, play_sounds),
+                (
+                    drop_failed_art,
+                    recolor_masks,
+                    apply_font,
+                    play_music,
+                    play_sounds,
+                ),
             );
     }
 }
@@ -171,8 +181,16 @@ fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
             continue;
         }
         let path = format!("{SOURCE}://{}", entry.file);
-        let is_sound = name.starts_with("sfx_") || name.starts_with("music_");
-        if name.starts_with("font_") {
+        // The file type decides what it is; the name prefix covers odd extensions.
+        let ext = Path::new(&entry.file)
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        let is_font = matches!(ext.as_str(), "ttf" | "otf") || name.starts_with("font_");
+        let is_sound = matches!(ext.as_str(), "ogg" | "wav" | "mp3" | "flac")
+            || name.starts_with("sfx_")
+            || name.starts_with("music_");
+        if is_font {
             art.fonts.insert(name.clone(), assets.load(path));
         } else if is_sound {
             art.sounds.insert(name.clone(), assets.load(path));
@@ -222,6 +240,57 @@ fn drop_failed_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
     for name in bad_sounds {
         warn!("{name}: failed to load");
         art.sounds.remove(&name);
+    }
+}
+
+/// Recolours mask sprites once loaded: red areas take the first `mask` colour,
+/// yellow areas the second, keeping the mask's brightness and alpha.
+fn recolor_masks(
+    mut art: ResMut<Art>,
+    mut images: ResMut<Assets<Image>>,
+    mut done: Local<std::collections::HashSet<String>>,
+) {
+    let ready: Vec<(String, [Color; 2], Handle<Image>)> = art
+        .entries
+        .iter()
+        .filter(|(name, _)| !done.contains(*name))
+        .filter_map(|(name, entry)| {
+            let [a, b] = entry.mask?;
+            let handle = art.images.get(name)?.clone();
+            images.get(&handle)?;
+            let color = |(r, g, b): (f32, f32, f32)| Color::srgb_u8(r as u8, g as u8, b as u8);
+            Some((name.clone(), [color(a), color(b)], handle))
+        })
+        .collect();
+    for (name, [red, yellow], handle) in ready {
+        done.insert(name.clone());
+        let Some(mut image) = images.get(&handle).cloned() else {
+            continue;
+        };
+        let size = image.size();
+        for y in 0..size.y {
+            for x in 0..size.x {
+                let Ok(pixel) = image.get_color_at(x, y) else {
+                    continue;
+                };
+                let p = pixel.to_srgba();
+                let strength = p.red.max(p.green);
+                if strength <= 0.0 {
+                    continue;
+                }
+                let t = (p.green / strength).clamp(0.0, 1.0);
+                let mixed = red.mix(&yellow, t).to_srgba();
+                let out = Color::srgba(
+                    mixed.red * strength,
+                    mixed.green * strength,
+                    mixed.blue * strength,
+                    p.alpha,
+                );
+                let _ = image.set_color_at(x, y, out);
+            }
+        }
+        let recolored = images.add(image);
+        art.images.insert(name, recolored);
     }
 }
 

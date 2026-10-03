@@ -66,7 +66,14 @@ islands on the water band), by adding `screen`:
 - `water_band` has no file either: a gradient along the bottom of the screen, `colors` top to
   bottom, `position: (0, height)` in screen units (6 if left out), with `view_height`, `z` and
   `parallax` as above.
+- `sky_race`, `sky_survival`, `sky_puzzle` and `water_band_<mode>` replace `sky` and
+  `water_band` in that mode.
+- `mask: [(r, g, b), (r, g, b)]` on any image: it is a two-colour mask the original recolours.
+  Red areas take the first colour, yellow areas the second, shades in between blend, and the
+  mask's brightness and alpha are kept.
 - `font_main`: a .ttf or .otf used for all text.
+- Sounds and fonts are told apart from images by file type (.ogg, .wav, .mp3, .flac; .ttf,
+  .otf), so their names are free.
 
 ## Names the game looks up
 | Name | What |

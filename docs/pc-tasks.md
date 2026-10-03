@@ -24,5 +24,10 @@ and nothing gets installed without Max's own go-ahead.
 - Stage `water_band` with the measured colours and height, and `font_main` if the original's
   font exists as a .ttf or .otf (or can be found as one).
 - Stage `menu_background` and `logo` from the original's title screen.
-- Push nothing; when `extracted\inventory.md` is written, say so in your report with a short
-  summary per group so the cloud session can plan the code for each.
+- Stage `sky_survival` and `sky_puzzle` (and `water_band_<mode>`), and `mask` colours on the
+  Puzzle ruins from your notes. Check the mask rule above against the original's shader and
+  say in your report if it differs.
+- In your next reports, send the cloud session the plain facts it needs to code each group in
+  `inventory.md`, one group per report, starting with wizards: the logical names, what each is
+  for, animation frames in order with times, and where and when the original shows them. Then
+  the Puzzle floor rule (the 3 piece types), spell effects, match moments, menus and results.
