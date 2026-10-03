@@ -96,9 +96,14 @@ pub struct ArtEntry {
     #[serde(default)]
     pub count: Option<u32>,
     /// For two-colour mask sprites the original recolours: the colours, 0 to 255,
-    /// for the red areas and the yellow areas. Shades in between blend.
+    /// for the red areas and the yellow areas. Shades in between blend. Written as
+    /// a list `[(r, g, b), (r, g, b)]` or a pair `((r, g, b), (r, g, b))`.
     #[serde(default)]
-    pub mask: Option<[(f32, f32, f32); 2]>,
+    pub mask: Option<Pair<(f32, f32, f32)>>,
+    /// Mask sprites only: the blue outline's colour at the top and at the bottom,
+    /// `(r, g, b, a)` 0 to 255. Transparent if left out, like the original's ruins.
+    #[serde(default)]
+    pub outline: Option<Pair<(f32, f32, f32, f32)>>,
     /// An animation instead of a file: `(seconds, image name)` pairs in order, each
     /// image shown from its time until the next.
     #[serde(default)]
@@ -110,6 +115,25 @@ pub struct ArtEntry {
     /// Whether the animation repeats (true if left out); otherwise it holds the last frame.
     #[serde(default)]
     pub looping: Option<bool>,
+}
+
+/// Two values, written as a two-item list or a pair.
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum Pair<T> {
+    List(Vec<T>),
+    Tuple((T, T)),
+}
+
+impl<T: Clone> Pair<T> {
+    /// The two values, or `None` for a list that doesn't hold exactly two.
+    pub fn get(&self) -> Option<(T, T)> {
+        match self {
+            Pair::List(v) if v.len() == 2 => Some((v[0].clone(), v[1].clone())),
+            Pair::List(_) => None,
+            Pair::Tuple(t) => Some(t.clone()),
+        }
+    }
 }
 
 impl ArtEntry {
@@ -333,48 +357,69 @@ fn drop_failed_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
     }
 }
 
-/// Recolours mask sprites once loaded: red areas take the first `mask` colour,
-/// yellow areas the second, keeping the mask's brightness and alpha.
+/// Recolours mask sprites once loaded, like the original's mask shader: red areas
+/// take the first `mask` colour, yellow areas the second, and blue outlines the
+/// `outline` colours graded from top to bottom (transparent if left out).
 fn recolor_masks(
     mut art: ResMut<Art>,
     mut images: ResMut<Assets<Image>>,
     mut done: Local<std::collections::HashSet<String>>,
 ) {
-    let ready: Vec<(String, [Color; 2], Handle<Image>)> = art
+    type Ready = (String, [Color; 2], [Color; 2], Handle<Image>);
+    let ready: Vec<Ready> = art
         .entries
         .iter()
         .filter(|(name, _)| !done.contains(*name))
         .filter_map(|(name, entry)| {
-            let [a, b] = entry.mask?;
+            let (a, b) = entry.mask.as_ref()?.get()?;
             let handle = art.images.get(name)?.clone();
             images.get(&handle)?;
             let color = |(r, g, b): (f32, f32, f32)| Color::srgb_u8(r as u8, g as u8, b as u8);
-            Some((name.clone(), [color(a), color(b)], handle))
+            let rgba = |(r, g, b, a): (f32, f32, f32, f32)| {
+                Color::srgba_u8(r as u8, g as u8, b as u8, a as u8)
+            };
+            let (top, bottom) = entry
+                .outline
+                .as_ref()
+                .and_then(Pair::get)
+                .map_or((Color::NONE, Color::NONE), |(t, b)| (rgba(t), rgba(b)));
+            Some((name.clone(), [color(a), color(b)], [top, bottom], handle))
         })
         .collect();
-    for (name, [red, yellow], handle) in ready {
+    for (name, [red, yellow], [top, bottom], handle) in ready {
         done.insert(name.clone());
         let Some(mut image) = images.get(&handle).cloned() else {
             continue;
         };
         let size = image.size();
         for y in 0..size.y {
+            let edge = top
+                .mix(&bottom, y as f32 / (size.y.max(2) - 1) as f32)
+                .to_srgba();
             for x in 0..size.x {
                 let Ok(pixel) = image.get_color_at(x, y) else {
                     continue;
                 };
                 let p = pixel.to_srgba();
-                let strength = p.red.max(p.green);
-                if strength <= 0.0 {
+                let body = p.red.max(p.green);
+                let line = p.blue;
+                if body + line <= 0.0 {
                     continue;
                 }
-                let t = (p.green / strength).clamp(0.0, 1.0);
-                let mixed = red.mix(&yellow, t).to_srgba();
+                let t = if body > 0.0 {
+                    (p.green / body).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let fill = red.mix(&yellow, t).to_srgba();
+                // Body and outline share the pixel by how much of each the mask has.
+                let total = body + line;
+                let mix = |f: f32, e: f32| (f * body + e * line) / total;
                 let out = Color::srgba(
-                    mixed.red * strength,
-                    mixed.green * strength,
-                    mixed.blue * strength,
-                    p.alpha,
+                    mix(fill.red * body, edge.red),
+                    mix(fill.green * body, edge.green),
+                    mix(fill.blue * body, edge.blue),
+                    p.alpha * (body + line * edge.alpha) / total,
                 );
                 let _ = image.set_color_at(x, y, out);
             }
@@ -622,6 +667,20 @@ mod tests {
     }
 
     fn read_entry(text: &str) -> ArtEntry {
-        ron::from_str(text).unwrap()
+        ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .from_str(text)
+            .unwrap()
+    }
+
+    #[test]
+    fn mask_reads_as_list_or_pair() {
+        let list = read_entry(r#"(file: "a.png", mask: [(1, 2, 3), (4, 5, 6)])"#);
+        let pair = read_entry(r#"(file: "a.png", mask: ((1, 2, 3), (4, 5, 6)))"#);
+        let want = Some(((1.0, 2.0, 3.0), (4.0, 5.0, 6.0)));
+        assert_eq!(list.mask.unwrap().get(), want);
+        assert_eq!(pair.mask.unwrap().get(), want);
+        let outline = read_entry(r#"(file: "a.png", outline: [(1, 2, 3, 0), (4, 5, 6, 255)])"#);
+        assert!(outline.outline.unwrap().get().is_some());
     }
 }

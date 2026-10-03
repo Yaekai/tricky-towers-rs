@@ -68,9 +68,11 @@ islands on the water band), by adding `screen`:
   `parallax` as above.
 - `sky_race`, `sky_survival`, `sky_puzzle` and `water_band_<mode>` replace `sky` and
   `water_band` in that mode; `water_band_survival: (colors: [])` turns the band off there.
-- `mask: [(r, g, b), (r, g, b)]` on any image: it is a two-colour mask the original recolours.
-  Red areas take the first colour, yellow areas the second, shades in between blend, and the
-  mask's brightness and alpha are kept.
+- `mask: [(r, g, b), (r, g, b)]` (or the pair form `((r, g, b), (r, g, b))`) on any image: it
+  is a mask the original recolours. Red areas take the first colour, yellow areas the second,
+  shades in between blend, and the mask's brightness and alpha are kept. Blue areas are the
+  outline: `outline: [(r, g, b, a), (r, g, b, a)]` gives its colour at the top and the bottom
+  (0 to 255, alpha included); without it the outline is transparent.
 - `font_main`: a .ttf or .otf used for all text.
 - Animations are entries with no file: `"wizard_1": (frames: [(0.0, "wizard_1_idle_0"),
   (0.2, "wizard_1_idle_1")], length: 0.6, looping: true)`. Each frame names a staged image and
