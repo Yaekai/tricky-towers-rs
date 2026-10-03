@@ -181,7 +181,7 @@ fn show_menu(
         "\nEsc: back to the game"
     };
     let text = format!(
-        "TRICKY TOWERS\n\n{}\n\nPlayers: {}   AI wizards: < {} >\n\nUp/Down: mode   1-4: players   Left/Right: AI wizards   Enter: play\nPlayer 1: keyboard   Players 2-4: gamepads{resume}",
+        "TRICKY TOWERS\n\n{}\n\nPlayers: {}   AI wizards: < {} >\n\nUp/Down: mode   1-4: players   Left/Right: AI wizards   Enter: play\nPlayer 1: keyboard   Players 2-4: gamepads\n\nIn game: Left/Right move   Shift+Left/Right nudge   Up/Z rotate   Down drop\nQ light spell   E dark spell   R restart   Esc menu{resume}",
         modes.join("\n"),
         config.players,
         config.opponents

@@ -57,7 +57,9 @@ pub fn register_source(app: &mut App) {
 /// One entry of `extracted/manifest.ron`.
 #[derive(Deserialize, Clone, Debug)]
 pub struct ArtEntry {
-    /// Path inside the extracted folder.
+    /// Path inside the extracted folder. Left out for entries that are only
+    /// numbers, such as `sky`.
+    #[serde(default)]
     pub file: String,
     #[serde(default)]
     pub pixels_per_unit: Option<f32>,
@@ -78,6 +80,32 @@ pub struct ArtEntry {
     /// Extra size factor on top of `pixels_per_unit` (1 if left out).
     #[serde(default)]
     pub scale: Option<f32>,
+    /// Background layers only: pin the layer to the screen instead of a lane. The
+    /// point of the screen, 0 to 1 from its bottom left, that `position` counts from.
+    #[serde(default)]
+    pub screen: Option<(f32, f32)>,
+    /// Screen layers only: how many units tall the screen is, for `position` and
+    /// `pixels_per_unit` (10 if left out).
+    #[serde(default)]
+    pub view_height: Option<f32>,
+    /// Colours, 0 to 255: the `sky` gradient top to bottom, or the tints the
+    /// `spell_line` pieces cycle through.
+    #[serde(default)]
+    pub colors: Option<Vec<(f32, f32, f32)>>,
+    /// How many pieces make up the `spell_line` (16 if left out).
+    #[serde(default)]
+    pub count: Option<u32>,
+}
+
+impl ArtEntry {
+    /// `colors` as Bevy colours.
+    pub fn colors(&self) -> Vec<Color> {
+        self.colors
+            .iter()
+            .flatten()
+            .map(|&(r, g, b)| Color::srgb_u8(r as u8, g as u8, b as u8))
+            .collect()
+    }
 }
 
 /// Images and sounds found in the extracted folder, by logical name.
@@ -131,6 +159,9 @@ fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
     let dir = extracted_dir();
     let entries = read_manifest(&dir);
     for (name, entry) in &entries {
+        if entry.file.is_empty() {
+            continue;
+        }
         if !dir.join(&entry.file).is_file() {
             warn!("{name}: {} is missing", entry.file);
             continue;

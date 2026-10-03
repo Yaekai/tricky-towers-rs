@@ -44,6 +44,26 @@ Background layers take four more optional fields:
   at the same height on screen, 0.5 moves half as fast. Lanes never shift sideways.
 - `scale`: extra size factor (1 if left out).
 
+A layer can instead be pinned to the screen, like the original's background scene (sky, clouds,
+islands on the water band), by adding `screen`:
+
+```ron
+"background_5": (file: "bg/island_left.png", pixels_per_unit: 100.0, pivot: (0.0, 0.0),
+    screen: (0.0, 0.0), position: (0.4, 0.6), view_height: 10.0),
+"background_8": (file: "bg/cloud_2.png", pixels_per_unit: 100.0,
+    screen: (0.5, 0.7), position: (-3.0, 0.0), parallax: 0.4),
+"sky": (colors: [(66, 133, 230), (120, 180, 245), (200, 230, 255)]),
+```
+
+- `screen`: the point of the window the layer counts from, 0 to 1 from its bottom left
+  ((0, 0) bottom-left corner, (0.5, 0) bottom middle, (1, 0) bottom-right corner).
+- `position`: offset from that point, in screen units (0 if left out).
+- `view_height`: how many units tall the window is; `position` and `pixels_per_unit` use these
+  units (10 if left out). Use the original background camera's height.
+- `parallax`: how far the layer slides down as the camera climbs the tower, as a share of the
+  climb (0, fixed, if left out).
+- `sky` has no file: `colors` are the gradient behind everything, top to bottom, 0 to 255.
+
 ## Names the game looks up
 | Name | What |
 |---|---|
@@ -55,10 +75,13 @@ Background layers take four more optional fields:
 | `background_0`, `background_1`, ... | Background layers, back to front (fields above) |
 | `background_race_0`, `background_survival_0`, `background_puzzle_0`, ... | Layers for one mode only; when any exist for a mode they replace the plain `background_N` set |
 | `finish_line`, `laser` | Race finish and Puzzle laser, repeated sideways across the lane; pivot on the line |
-| `spell_line` | The spell line, repeated sideways; pivot on the line |
+| `spell_line` | One pickup of the spell line; `count` of them (16 if left out) are spread across the lane, tinted in turn with `colors` (0 to 255; a 9-colour rainbow if left out) |
 | `spell_orb_light`, `spell_orb_dark` | The light and dark pickups at the ends of the spell line |
 | `water` | Water under all lanes, repeated sideways; pivot at the middle of its top edge (sits at the depth where dropped bricks are lost) |
-| `drop_guide` | The beam under your brick, stretched to the brick's width and drop distance |
+| `drop_guide` | The beam under your brick, stretched to the brick's width and drop distance and tinted blue (133, 177, 255) at 75% |
+| `vine_overlay`, `grass_overlay` | Drawn over a brick's sprite when it has vines or grass, stretched to the brick (a green tint if left out) |
+| `bubble` | Drawn around a brick lifted by Bubble |
+| `mist` | The Mist fog over a tower, faded in and out |
 | `wizard_1` ... `wizard_4` | Portrait in each lane's player panel, left to right |
 | `heart` | One per life in a player panel |
 | `spell_slot_light`, `spell_slot_dark` | Frames of the two spell slots in a player panel |
@@ -68,8 +91,8 @@ Background layers take four more optional fields:
 | `sfx_land`, `sfx_move`, `sfx_nudge`, `sfx_rotate`, `sfx_drop_lost`, `sfx_line_collect` | Your brick and tower |
 | `sfx_cast_light`, `sfx_cast_dark`, `sfx_countdown`, `sfx_win`, `sfx_lose` | Spells and match events |
 
-Still to be wired up (stage them if found; the game will use them later): `vine_overlay`,
-`grass_overlay`, `bubble`, `balloon`, `mist` and `minibase`.
+Still to be wired up (stage them if found; the game will use them later): `balloon` and
+`minibase`.
 
 ## extracted/notes.md
 One line per entry saying what it is and its pixel size, plus anything useful that has no name

@@ -29,6 +29,7 @@ impl Plugin for VisualsPlugin {
                 (
                     dress_bricks,
                     flicker_effects,
+                    dress_bubbles,
                     dress_life_orbs,
                     spawn_backgrounds,
                     fit_backgrounds,
@@ -98,9 +99,14 @@ fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
         },
     ));
     commands.spawn((Camera2d, Transform::from_xyz(0.0, config.cells(6.0), 0.0)));
+    // A translucent blue column under the brick, like the original.
     let guide = match art.image("drop_guide") {
-        Some(image) => Sprite { image, ..default() },
-        None => Sprite::from_color(Color::srgba(0.7, 0.85, 1.0, 0.035), Vec2::ONE),
+        Some(image) => Sprite {
+            image,
+            color: DROP_GUIDE,
+            ..default()
+        },
+        None => Sprite::from_color(DROP_GUIDE.with_alpha(0.2), Vec2::ONE),
     };
     commands.spawn((
         DropGuide,
@@ -145,6 +151,7 @@ fn cell_sprites(parent: &mut ChildSpawnerCommands, cells: &[Vec2], cell: f32, co
     }
 }
 
+const DROP_GUIDE: Color = Color::srgba(133.0 / 255.0, 177.0 / 255.0, 1.0, 0.75);
 const STONE: Color = Color::srgb(0.45, 0.45, 0.48);
 const VINES: Color = Color::srgb(0.2, 0.7, 0.25);
 const GRASS: Color = Color::srgb(0.35, 0.8, 0.2);
@@ -245,10 +252,13 @@ fn dress_bricks(
             };
         }
         let art_drawn = image.is_some();
-        if vined {
+        // Vines and grass are drawn over the sprite when staged, else tint it.
+        let vine_art = art.image("vine_overlay").filter(|_| art_drawn && vined);
+        let grass_art = art.image("grass_overlay").filter(|_| art_drawn && grassy);
+        if vined && vine_art.is_none() {
             color = color.mix(&VINES, if art_drawn { 0.25 } else { 0.4 });
         }
-        if grassy {
+        if grassy && grass_art.is_none() {
             color = color.mix(&GRASS, if art_drawn { 0.3 } else { 0.5 });
         }
         let mut entity = commands.entity(entity);
@@ -258,6 +268,7 @@ fn dress_bricks(
                 let min = brick.cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
                 let max = brick.cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
                 let size = (max - min + Vec2::ONE) * cell;
+                let center = (min + max) * 0.5 * cell;
                 entity.with_child((
                     CellSprite,
                     Sprite {
@@ -266,11 +277,63 @@ fn dress_bricks(
                         custom_size: Some(size),
                         ..default()
                     },
-                    Transform::from_translation(((min + max) * 0.5 * cell).extend(0.0)),
+                    Transform::from_translation(center.extend(0.0)),
                 ));
+                for (z, overlay) in [(0.1, vine_art), (0.2, grass_art)] {
+                    if let Some(overlay) = overlay {
+                        entity.with_child((
+                            Sprite {
+                                image: overlay,
+                                custom_size: Some(size),
+                                ..default()
+                            },
+                            Transform::from_translation(center.extend(z)),
+                        ));
+                    }
+                }
             }
             None => {
                 entity.with_children(|parent| cell_sprites(parent, &brick.cells, cell, color));
+            }
+        }
+    }
+}
+
+/// The bubble drawn around a brick lifted by the Bubble spell.
+#[derive(Component)]
+struct BubbleSprite;
+
+fn dress_bubbles(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    added: Query<(Entity, &Brick), Added<Bubbled>>,
+    mut popped: RemovedComponents<Bubbled>,
+    children: Query<&Children>,
+    bubbles: Query<(), With<BubbleSprite>>,
+) {
+    if let Some(image) = art.image("bubble") {
+        for (entity, brick) in &added {
+            let max = brick
+                .cells
+                .iter()
+                .fold(0.0f32, |a, b| a.max(b.abs().max_element()));
+            let size = (max + 1.0) * 2.0 * config.cell_size * brick.scale;
+            commands.entity(entity).with_child((
+                BubbleSprite,
+                Sprite {
+                    image: image.clone(),
+                    custom_size: Some(Vec2::splat(size)),
+                    ..default()
+                },
+                Transform::from_xyz(0.0, 0.0, 0.5),
+            ));
+        }
+    }
+    for entity in popped.read() {
+        for child in children.iter_descendants(entity) {
+            if bubbles.contains(child) {
+                commands.entity(child).despawn();
             }
         }
     }
@@ -374,12 +437,56 @@ fn layer_z(art: &Art, name: &str, order: usize) -> f32 {
     -900.0 + z
 }
 
+/// A background layer pinned to the screen (manifest entries with `screen`).
+#[derive(Component)]
+struct ScreenLayer {
+    anchor: Vec2,
+    position: Vec2,
+    view_height: f32,
+    pixels_per_unit: f32,
+    scale: f32,
+    parallax: f32,
+}
+
+/// The sky gradient behind every other layer.
+#[derive(Component)]
+struct Sky;
+
+/// A tall gradient image from `colors`, top to bottom.
+fn gradient_image(colors: &[Color]) -> Image {
+    use bevy::asset::RenderAssetUsages;
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    const ROWS: usize = 256;
+    let mut data = Vec::with_capacity(ROWS * 4);
+    for row in 0..ROWS {
+        // Image rows run top to bottom, like `colors`.
+        let t = row as f32 / (ROWS - 1) as f32 * (colors.len() - 1) as f32;
+        let i = (t.floor() as usize).min(colors.len() - 1);
+        let next = (i + 1).min(colors.len() - 1);
+        let color = colors[i].mix(&colors[next], t - i as f32);
+        data.extend_from_slice(&color.to_srgba().to_u8_array());
+    }
+    Image::new(
+        Extent3d {
+            width: 1,
+            height: ROWS as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::RENDER_WORLD,
+    )
+}
+
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn spawn_backgrounds(
     mut commands: Commands,
     art: Res<Art>,
     game: Res<Match>,
+    mut images: ResMut<Assets<Image>>,
     camera: Query<Entity, With<Camera2d>>,
-    existing: Query<Entity, With<Background>>,
+    existing: Query<Entity, Or<(With<Background>, With<ScreenLayer>, With<Sky>)>>,
     mut shown: Local<Option<ModeKind>>,
 ) {
     let Ok(camera) = camera.single() else {
@@ -392,33 +499,77 @@ fn spawn_backgrounds(
     for entity in &existing {
         commands.entity(entity).despawn();
     }
+    if let Some(sky) = art.entries.get("sky") {
+        let colors = sky.colors();
+        if !colors.is_empty() {
+            commands.entity(camera).with_child((
+                Sky,
+                Sprite::from_image(images.add(gradient_image(&colors))),
+                Transform::from_xyz(0.0, 0.0, -950.0),
+            ));
+        }
+    }
     for (order, name) in background_names(&art, game.mode).iter().enumerate() {
         let Some(entry) = art.entries.get(name) else {
             continue;
         };
-        if entry.position.is_some() {
-            continue;
-        }
         let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
-        commands.entity(camera).with_child((
-            Background,
+        let base = (
             Sprite::from_image(art.images[name].clone()),
             Anchor(Vec2::new(px - 0.5, py - 0.5)),
             Transform::from_xyz(0.0, 0.0, layer_z(&art, name, order)),
-        ));
+        );
+        match (entry.screen, entry.position) {
+            (Some((ax, ay)), position) => {
+                let (x, y) = position.unwrap_or_default();
+                commands.entity(camera).with_child((
+                    ScreenLayer {
+                        anchor: Vec2::new(ax, ay),
+                        position: Vec2::new(x, y),
+                        view_height: entry.view_height.unwrap_or(10.0).max(0.01),
+                        pixels_per_unit: entry.pixels_per_unit.unwrap_or(100.0).max(1.0),
+                        scale: entry.scale.unwrap_or(1.0),
+                        parallax: entry.parallax.unwrap_or(0.0),
+                    },
+                    base,
+                ));
+            }
+            // Drawn in each lane by `spawn_lane_layers`.
+            (None, Some(_)) => {}
+            (None, None) => {
+                commands.entity(camera).with_child((Background, base));
+            }
+        }
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn fit_backgrounds(
     windows: Query<&Window>,
     images: Res<Assets<Image>>,
-    camera: Query<&Projection, With<Camera2d>>,
-    mut layers: Query<(&Sprite, &mut Transform), With<Background>>,
+    camera: Query<(&Projection, &Transform), (With<Camera2d>, Without<Background>)>,
+    mut layers: Query<(&Sprite, &mut Transform), (With<Background>, Without<Camera2d>)>,
+    mut sky: Query<
+        &mut Sprite,
+        (
+            With<Sky>,
+            Without<Background>,
+            Without<ScreenLayer>,
+            Without<Camera2d>,
+        ),
+    >,
+    mut screen: Query<
+        (&ScreenLayer, &mut Transform),
+        (Without<Background>, Without<Camera2d>, Without<Sky>),
+    >,
+    mut lowest: Local<Option<f32>>,
 ) {
-    let (Ok(window), Ok(Projection::Orthographic(ortho))) = (windows.single(), camera.single())
+    let (Ok(window), Ok((Projection::Orthographic(ortho), camera))) =
+        (windows.single(), camera.single())
     else {
         return;
     };
+    let view = Vec2::new(window.width(), window.height()) * ortho.scale;
     for (sprite, mut transform) in &mut layers {
         let Some(image) = images.get(&sprite.image) else {
             continue;
@@ -426,6 +577,21 @@ fn fit_backgrounds(
         let size = image.size_f32();
         let cover = (window.width() / size.x).max(window.height() / size.y);
         transform.scale = Vec3::splat(cover * ortho.scale);
+    }
+    for mut sprite in &mut sky {
+        sprite.custom_size = Some(view);
+    }
+    // How far the camera has climbed above the lowest it has been.
+    let low = lowest.get_or_insert(camera.translation.y);
+    *low = low.min(camera.translation.y);
+    let climb = camera.translation.y - *low;
+    for (layer, mut transform) in &mut screen {
+        let unit = view.y / layer.view_height;
+        let at = (layer.anchor - Vec2::splat(0.5)) * view + layer.position * unit
+            - Vec2::Y * climb * layer.parallax;
+        transform.translation.x = at.x;
+        transform.translation.y = at.y;
+        transform.scale = Vec3::splat(unit / layer.pixels_per_unit * layer.scale);
     }
 }
 
@@ -435,7 +601,7 @@ fn spawn_lane_layers(parent: &mut ChildSpawnerCommands, art: &Art, mode: ModeKin
         let Some(entry) = art.entries.get(name) else {
             continue;
         };
-        let Some((x, y)) = entry.position else {
+        let Some((x, y)) = entry.position.filter(|_| entry.screen.is_none()) else {
             continue;
         };
         let Some((sprite, anchor, mut transform)) = art_sprite(art, name, cell) else {
@@ -571,13 +737,38 @@ fn dress_platforms(
                     Transform::from_xyz(0.0, 0.0, -1.5),
                     Visibility::Hidden,
                 ));
-                match art_strip(&art, "spell_line", c, width, Vec3::ZERO) {
-                    Some(strip) => line.with_child(strip),
-                    None => line.with_child(Sprite::from_color(
-                        Color::srgba(1.0, 0.95, 0.7, 0.25),
-                        Vec2::new(width, 2.0),
-                    )),
-                };
+                match art_sprite(&art, "spell_line", c) {
+                    // The original's line is a row of pickups in rainbow colours.
+                    Some((sprite, anchor, transform)) => {
+                        let entry = &art.entries["spell_line"];
+                        let mut colors = entry.colors();
+                        if colors.is_empty() {
+                            colors = (0..9)
+                                .map(|i| Color::hsl(i as f32 * 40.0, 0.9, 0.65))
+                                .collect();
+                        }
+                        let count = entry.count.unwrap_or(16).max(1);
+                        line.with_children(|line| {
+                            for i in 0..count {
+                                let x = width * ((i as f32 + 0.5) / count as f32 - 0.5);
+                                line.spawn((
+                                    Sprite {
+                                        color: colors[i as usize % colors.len()],
+                                        ..sprite.clone()
+                                    },
+                                    anchor,
+                                    transform.with_translation(Vec3::new(x, 0.0, 0.0)),
+                                ));
+                            }
+                        });
+                    }
+                    None => {
+                        line.with_child(Sprite::from_color(
+                            Color::srgba(1.0, 0.95, 0.7, 0.25),
+                            Vec2::new(width, 2.0),
+                        ));
+                    }
+                }
                 line.with_children(|line| {
                     let orbs = [
                         (-1.0, "spell_orb_light", Color::srgb(1.0, 0.95, 0.55)),
@@ -609,13 +800,20 @@ fn dress_platforms(
                 MistCloud {
                     tower: platform.tower,
                 },
-                Sprite::from_color(
-                    Color::srgba(0.85, 0.88, 0.95, 0.0),
-                    Vec2::new(
+                // The staged fog picture if there is one; its alpha fades in and out.
+                Sprite {
+                    image: art.image("mist").unwrap_or_default(),
+                    color: if art.image("mist").is_some() {
+                        Color::WHITE.with_alpha(0.0)
+                    } else {
+                        Color::srgba(0.85, 0.88, 0.95, 0.0)
+                    },
+                    custom_size: Some(Vec2::new(
                         config.cells(config.platform_width + 6.0),
                         config.cells(40.0),
-                    ),
-                ),
+                    )),
+                    ..default()
+                },
                 Transform::from_xyz(0.0, config.cells(20.0), 5.0),
             ));
         });
@@ -681,7 +879,8 @@ fn update_next_preview(
     };
     transform.translation = Vec3::new(
         tower.origin_x + config.cells(config.platform_width * 0.5 + 3.0),
-        config.cells(floor + config.spawn_gap),
+        // A few cells under the spawn point, clear of the text at the top.
+        config.cells(floor + config.spawn_gap - 4.0),
         0.0,
     );
     let next = bag.peek();
@@ -992,18 +1191,6 @@ fn update_hud(
         None => format!("Wizard {}", tower.index),
     };
     let names: Vec<String> = sorted.iter().map(|(t, _)| name(t)).collect();
-    for (tower, state) in sorted.iter().filter(|(t, _)| !t.is_first_player()) {
-        let status = match state.status {
-            TowerStatus::Building => String::new(),
-            TowerStatus::Won => " (won)".into(),
-            TowerStatus::Out => " (out)".into(),
-        };
-        lines.push(format!(
-            "{}: height {:.1}{status}",
-            name(tower),
-            state.height
-        ));
-    }
     if let Some(last) = log.0.last() {
         let who = |i: usize| {
             if i == 0 {
@@ -1023,7 +1210,6 @@ fn update_hud(
             last.spell.name()
         ));
     }
-    lines.push("Left/Right move  Shift+Left/Right nudge  Up/Z rotate  Down drop  Q light  E dark  R restart  Esc menu".into());
     if game.phase == Phase::Over {
         lines.push(match game.winner {
             Some(0) => "YOU WIN! Press R to play again".into(),
