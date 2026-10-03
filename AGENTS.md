@@ -24,3 +24,4 @@ Read `PLAN.md` first, then `README.md` for what works today.
 Append a short dated line here after each working session: what changed, what broke.
 - 2026-10-03: scaffold. Controlled brick, physics hand-off, race and survival rules, placeholder visuals.
 - 2026-10-03: multiple towers, AI wizards, spells (Vines, Stone, Shrink, Enlarge, Slippery), puzzle mode, menu, drop guide, next preview. Vines need a global joint basis or bricks snap to one angle and explode.
+- 2026-10-03: fixed Vines crashes in avian islands: only join bricks that have a BodyIslandNode, cut vines before a brick turns to Stone, and despawn joints before their bodies. `cargo test -- --ignored` runs a 2-minute AI stress test.

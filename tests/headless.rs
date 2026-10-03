@@ -312,3 +312,74 @@ fn dark_spells_hit_an_opponent() {
     let big = world.query::<&Brick>().iter(world).any(|b| b.scale > 1.0);
     assert!(big, "no enlarged brick appeared");
 }
+
+#[test]
+fn vines_after_stone_do_not_crash() {
+    // Regression: joining two Stone (static) bricks panicked inside avian
+    // ("Neither body ... is in an island").
+    let mut config = fast_config();
+    config.magic.enabled = true;
+    config.magic.bricks_per_spell = 4;
+    config.magic.light = vec![SpellKind::Stone];
+    let mut app = headless_app(config);
+    for _ in 0..(8.0 / STEP) as usize {
+        if tower(&mut app, 0).spell.is_some() {
+            break;
+        }
+        app.update();
+    }
+    human_input(&mut app).cast_pressed = true;
+    run_seconds(&mut app, 0.1, |_| {});
+    let world = app.world_mut();
+    assert!(
+        world.query::<&Stone>().iter(world).count() >= 2,
+        "need touching stones"
+    );
+    app.world_mut().resource_mut::<GameConfig>().magic.light = vec![SpellKind::Vines];
+    for _ in 0..(8.0 / STEP) as usize {
+        if tower(&mut app, 0).spell == Some(SpellKind::Vines) {
+            break;
+        }
+        app.update();
+    }
+    human_input(&mut app).cast_pressed = true;
+    run_seconds(&mut app, 2.0, |_| {});
+    let log = app.world().resource::<tricky_towers::spells::SpellLog>();
+    assert!(
+        log.0.iter().any(|c| c.spell == SpellKind::Vines),
+        "Vines was never cast"
+    );
+}
+
+#[test]
+#[ignore = "slow: about two minutes of AI matches"]
+fn stress_ai_spells() {
+    for seed in 1..13u64 {
+        let mut config = fast_config();
+        config.fall_speed = 4.0;
+        config.seed = seed * 7777;
+        config.mode = if seed % 2 == 0 {
+            ModeKind::Survival
+        } else {
+            ModeKind::Race
+        };
+        config.opponents = 3;
+        config.magic.enabled = true;
+        config.magic.bricks_per_spell = 2;
+        let mut app = headless_app(config);
+        run_seconds(&mut app, 90.0, |app| {
+            if app.world().resource::<Match>().phase == Phase::Over {
+                app.world_mut()
+                    .resource_mut::<tricky_towers::gameplay::MatchRequest>()
+                    .pending = true;
+            }
+        });
+        eprintln!(
+            "seed {seed} ok, spells {:?}",
+            app.world()
+                .resource::<tricky_towers::spells::SpellLog>()
+                .0
+                .len()
+        );
+    }
+}

@@ -4,6 +4,7 @@
 //! The behaviour of each spell is rebuilt from what the original visibly does;
 //! numbers live in `MagicRules` so they can be tuned against the real game.
 
+use avian2d::dynamics::solver::islands::BodyIslandNode;
 use avian2d::prelude::*;
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
@@ -71,7 +72,7 @@ pub(crate) fn grant_spells(
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(crate) fn cast_spells(
     mut commands: Commands,
     config: Res<GameConfig>,
@@ -79,6 +80,7 @@ pub(crate) fn cast_spells(
     spatial: SpatialQuery,
     mut log: ResMut<SpellLog>,
     mut towers: Query<(Entity, &Tower, &mut TowerState, &mut PlayerInput)>,
+    joints: Query<(Entity, &VineJoint)>,
     bricks: Query<
         (
             Entity,
@@ -87,6 +89,7 @@ pub(crate) fn cast_spells(
             &Rotation,
             &LinearVelocity,
             Has<Stone>,
+            Has<BodyIslandNode>,
         ),
         Without<ActiveBrick>,
     >,
@@ -131,8 +134,16 @@ pub(crate) fn cast_spells(
             }
             SpellKind::Stone => {
                 let settled = config.cells(0.5);
-                for (entity, brick, _, _, velocity, stone) in &bricks {
+                let mut cut: HashSet<Entity> = HashSet::default();
+                for (entity, brick, _, _, velocity, stone, _) in &bricks {
                     if brick.tower == target && !stone && velocity.0.length() < settled {
+                        // Stone replaces vines: avian's islands break if a
+                        // jointed body turns static.
+                        for (joint, vine) in &joints {
+                            if (vine.a == entity || vine.b == entity) && cut.insert(joint) {
+                                commands.entity(joint).despawn();
+                            }
+                        }
                         commands.entity(entity).insert((
                             RigidBody::Static,
                             Stone,
@@ -168,22 +179,31 @@ fn grow_vines(
             &Rotation,
             &LinearVelocity,
             Has<Stone>,
+            Has<BodyIslandNode>,
         ),
         Without<ActiveBrick>,
     >,
     tower: Entity,
 ) {
     let mut joined: HashSet<(Entity, Entity)> = HashSet::default();
-    for (entity, brick, position, rotation, _, _) in bricks.iter().filter(|b| b.1.tower == tower) {
+    for (entity, brick, position, rotation, _, _, in_island) in
+        bricks.iter().filter(|b| b.1.tower == tower)
+    {
+        // Avian can only join bodies that are already in its island graph: not
+        // stone (static) bricks, nor one released this step.
+        if !in_island {
+            continue;
+        }
         // Slightly oversized, so bricks resting against each other count as touching.
         let reach = brick_collider(&brick.cells, config.cell_size * brick.scale, 1.12);
         let filter = SpatialQueryFilter::from_excluded_entities([entity]);
         for other in spatial.shape_intersections(&reach, position.0, rotation.as_radians(), &filter)
         {
-            let Ok((_, other_brick, other_position, _, _, _)) = bricks.get(other) else {
+            let Ok((_, other_brick, other_position, _, _, _, other_in_island)) = bricks.get(other)
+            else {
                 continue;
             };
-            if other_brick.tower != tower {
+            if other_brick.tower != tower || !other_in_island {
                 continue;
             }
             let pair = if entity < other {

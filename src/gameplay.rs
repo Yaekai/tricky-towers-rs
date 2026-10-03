@@ -320,18 +320,16 @@ fn start_match(
     mut game: ResMut<Match>,
     config: Res<GameConfig>,
     mut log: ResMut<crate::spells::SpellLog>,
-    old: Query<
-        Entity,
-        Or<(
-            With<Tower>,
-            With<Brick>,
-            With<Platform>,
-            With<crate::spells::VineJoint>,
-        )>,
-    >,
+    old: Query<Entity, Or<(With<Tower>, With<Brick>, With<Platform>)>>,
+    joints: Query<(Entity, &crate::spells::VineJoint)>,
 ) {
     if !std::mem::take(&mut request.pending) {
         return;
+    }
+    // Joints go before the bricks they hold; avian's island bookkeeping
+    // breaks if a jointed body disappears first.
+    for (entity, _) in &joints {
+        commands.entity(entity).despawn();
     }
     for entity in &old {
         commands.entity(entity).despawn();
@@ -598,6 +596,8 @@ fn track_towers(
     joints: Query<(Entity, &crate::spells::VineJoint)>,
 ) {
     let kill_y = -config.cells(config.kill_depth);
+    // Two dropped bricks can share a vine; despawn it once.
+    let mut cut: bevy::platform::collections::HashSet<Entity> = default();
     let settled_speed = config.cells(0.5);
     let mut tops: Vec<(Entity, f32, f32, bool)> = Vec::new();
 
@@ -611,12 +611,12 @@ fn track_towers(
             continue;
         };
         if position.0.y < kill_y {
-            commands.entity(entity).despawn();
             for (joint, vine) in &joints {
-                if vine.a == entity || vine.b == entity {
+                if (vine.a == entity || vine.b == entity) && cut.insert(joint) {
                     commands.entity(joint).despawn();
                 }
             }
+            commands.entity(entity).despawn();
             state.lose_brick();
             continue;
         }
