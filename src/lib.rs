@@ -1,13 +1,18 @@
 //! A clean-room, moddable reimplementation of a physics brick-stacking game.
 //!
 //! The game is split into plugins so each layer can be swapped by a mod:
-//! - [`TowerCorePlugin`]: config, physics and the gameplay loop (headless-safe).
-//! - [`input::KeyboardInputPlugin`]: keyboard to [`gameplay::PlayerInput`].
+//! - [`TowerCorePlugin`]: config, physics, the gameplay loop, spells and AI
+//!   opponents (headless-safe).
+//! - [`input::KeyboardInputPlugin`]: keyboard to your tower's [`gameplay::PlayerInput`].
+//! - [`menu::MenuPlugin`]: mode and opponent selection.
 //! - [`visuals::VisualsPlugin`]: placeholder sprites, camera and HUD.
 
+pub mod ai;
 pub mod config;
 pub mod gameplay;
 pub mod input;
+pub mod menu;
+pub mod spells;
 pub mod visuals;
 
 use avian2d::prelude::*;
@@ -28,6 +33,7 @@ impl Plugin for TowerCorePlugin {
         app.add_plugins((
             PhysicsPlugins::default().with_length_unit(cell),
             gameplay::GameplayPlugin,
+            ai::AiPlugin,
         ));
     }
 }

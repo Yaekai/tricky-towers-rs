@@ -1,15 +1,18 @@
-//! Keyboard input. Translates keys into [`PlayerInput`] once per frame; the
-//! fixed-step gameplay systems consume it.
+//! Keyboard input for your tower. Translates keys into that tower's
+//! [`PlayerInput`] once per frame; the fixed-step gameplay systems consume it.
 
 use bevy::prelude::*;
 
-use crate::gameplay::PlayerInput;
+use crate::gameplay::{Match, MatchRequest, Phase, PlayerInput, Tower};
 
 pub struct KeyboardInputPlugin;
 
 impl Plugin for KeyboardInputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, read_keyboard.run_if(resource_exists::<ButtonInput<KeyCode>>));
+        app.add_systems(
+            PreUpdate,
+            read_keyboard.run_if(resource_exists::<ButtonInput<KeyCode>>),
+        );
     }
 }
 
@@ -17,9 +20,24 @@ const LEFT: [KeyCode; 2] = [KeyCode::ArrowLeft, KeyCode::KeyA];
 const RIGHT: [KeyCode; 2] = [KeyCode::ArrowRight, KeyCode::KeyD];
 const DOWN: [KeyCode; 2] = [KeyCode::ArrowDown, KeyCode::KeyS];
 const ROTATE: [KeyCode; 3] = [KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Space];
+const CAST: [KeyCode; 2] = [KeyCode::KeyE, KeyCode::ShiftLeft];
 const RESTART: [KeyCode; 1] = [KeyCode::KeyR];
 
-fn read_keyboard(keys: Res<ButtonInput<KeyCode>>, mut input: ResMut<PlayerInput>) {
+fn read_keyboard(
+    keys: Res<ButtonInput<KeyCode>>,
+    game: Res<Match>,
+    mut request: ResMut<MatchRequest>,
+    mut towers: Query<(&Tower, &mut PlayerInput)>,
+) {
+    if game.phase == Phase::Menu {
+        return;
+    }
+    if keys.any_just_pressed(RESTART) {
+        request.pending = true;
+    }
+    let Some((_, mut input)) = towers.iter_mut().find(|(tower, _)| tower.human) else {
+        return;
+    };
     input.left_held = keys.any_pressed(LEFT);
     input.right_held = keys.any_pressed(RIGHT);
     input.fast_fall_held = keys.any_pressed(DOWN);
@@ -28,5 +46,5 @@ fn read_keyboard(keys: Res<ButtonInput<KeyCode>>, mut input: ResMut<PlayerInput>
     input.left_pressed |= keys.any_just_pressed(LEFT);
     input.right_pressed |= keys.any_just_pressed(RIGHT);
     input.rotate_pressed |= keys.any_just_pressed(ROTATE);
-    input.restart_pressed |= keys.any_just_pressed(RESTART);
+    input.cast_pressed |= keys.any_just_pressed(CAST);
 }

@@ -9,6 +9,7 @@
     nudge_repeat_delay: 0.18,
     nudge_repeat_interval: 0.05,
     platform_width: 9.0,
+    tower_spacing: 20.0,      // distance between towers
     spawn_gap: 8.0,
     kill_depth: 12.0,
     collider_scale: 0.98,
@@ -17,9 +18,26 @@
     brick_density: 1.0,
     seed: 1951876434,
 
-    // Race(finish_height: 20.0, hold_seconds: 3.0)
-    // Survival(lives: 3, bricks_to_place: 30)
-    mode: Race(finish_height: 20.0, hold_seconds: 3.0),
+    // The game binary opens the menu regardless; this matters for mods/tests.
+    start_in_menu: false,
+    mode: Race,               // Race, Survival or Puzzle
+    opponents: 0,             // AI wizards next to you
+
+    race: (finish_height: 20.0, hold_seconds: 3.0),
+    survival: (lives: 3, bricks_to_place: 30),
+    puzzle: (bricks: 10, line_height: 6.0, settle_seconds: 2.0),
+
+    magic: (
+        enabled: true,
+        bricks_per_spell: 5,
+        light: [Vines, Stone, Shrink],
+        dark: [Enlarge, Slippery],
+        shrink_scale: 0.5,
+        enlarge_scale: 1.5,
+        slippery_friction: 0.02,
+    ),
+
+    ai: (think_delay: 0.4, step_interval: 0.08, mistake_chance: 0.15),
 
     // Any polyomino works. Add a pentomino here to try it out.
     pieces: [

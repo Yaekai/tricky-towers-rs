@@ -33,23 +33,15 @@ Physics: avian2d (Bevy-native, deterministic fixed step). The controlled brick i
 moved with shape queries for crisp control; on contact it becomes dynamic.
 
 ## Milestones
-1. **Core loop** (done in the scaffold): spawn, steer, rotate, land, physics hand-off, camera,
+1. **Core loop** (done): spawn, steer, rotate, land, physics hand-off, camera,
    race finish line with hold timer, survival lives, dropped-brick detection, restart.
-2. **Feel pass:** side-by-side tuning against the original; brick outline/rounded colliders to
-   avoid snagging; ghost/drop guide line; "next brick" preview box.
-3. **Spells.** Light magic helps you, dark magic hinders opponents. Rebuild from observed
-   behaviour, verify each against the game before calling it done. From memory (unverified):
-   light examples are vines that bind nearby bricks and a spell that turns a brick solid;
-   dark examples are an oversized next brick, a slippery brick, and fog over the tower.
-   Each spell is a plugin + a data entry, so mods can add more.
-4. **Puzzle mode:** fit a set of bricks under a line without falling below/above it.
-5. **Opponents:** local split-screen first (2 to 4 towers side by side), then simple AI
-   opponents driving `PlayerInput`.
-6. **Presentation:** menus, wizard characters (original art only), sound, themes.
-7. **Trials/campaign** levels described in RON files.
-8. **Mod loading:** a `mods/` folder of RON configs and asset packs, merged at startup.
-
-## Open questions for Max
-- Where should the code live (new GitHub repo under your account, or an existing one)?
-- Do you own the game on PC and want to measure or extract from your install? That decides
-  whether milestone 2 can be tuned against the real thing.
+2. **Opponents, spells, puzzle, menu** (done): towers side by side with AI wizards, five spells,
+   puzzle mode with a laser line, mode menu, drop guide, next-brick preview.
+3. **Match the original** (needs Max's copy): side-by-side tuning of fall speed, nudge timing,
+   friction and wobble; check which spells exist, what each does exactly and how they are earned
+   (currently every 5 bricks), and add the missing ones. Rebuild from observed behaviour.
+4. **Trials/campaign** levels described in RON files.
+5. **Local multiplayer:** 2 to 4 players on gamepads, each driving a tower's `PlayerInput`.
+6. **Presentation:** wizard characters, sound, themes. Optional loader for art and sound from
+   your own install into the gitignored `extracted/` folder.
+7. **Mod loading:** a `mods/` folder of RON configs and asset packs, merged at startup.
