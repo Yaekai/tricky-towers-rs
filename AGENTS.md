@@ -34,3 +34,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-03: sounds and fonts recognised by file type, mask recolouring for two-colour sprites, per-mode sky and water band.
 - 2026-10-03: manifest animations (frames with times) play on any looked-up name; panel wizards animate.
 - 2026-10-03: text drawn with the original's letters when a letter sheet is staged as font_main (src/letters.rs mirrors every UI Text).
+- 2026-10-03: wizards float beside each tower from staged parts and clips, react to bricks, lines, spells, lost lives and going out (src/wizards.rs, wizards in game.ron). Masks read as list or pair, blue outlines transparent by default.

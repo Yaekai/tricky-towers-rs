@@ -126,6 +126,15 @@
         step_interval: 0.08,
         mistake_chance: 0.15,
     ),
+    wizards: (
+        offset_x: 5.5,
+        solo_offset_x: -11.0,
+        lift: 4.0,
+        bob: (0.5, 0.55),
+        action_every: (3, 8),
+        reaction_cooldown: 7.0,
+        shake: (0.1, 0.13, 0.2),
+    ),
     pieces: [
         (
             name: "I",

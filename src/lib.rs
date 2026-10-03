@@ -16,6 +16,7 @@ pub mod letters;
 pub mod menu;
 pub mod spells;
 pub mod visuals;
+pub mod wizards;
 
 use avian2d::prelude::*;
 use bevy::prelude::*;

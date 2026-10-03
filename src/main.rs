@@ -7,6 +7,7 @@ use tricky_towers::input::KeyboardInputPlugin;
 use tricky_towers::letters::LettersPlugin;
 use tricky_towers::menu::MenuPlugin;
 use tricky_towers::visuals::VisualsPlugin;
+use tricky_towers::wizards::WizardsPlugin;
 
 fn main() {
     // An alternative config (a mod) can be passed as an argument, and
@@ -54,6 +55,7 @@ fn main() {
         VisualsPlugin,
         ArtPlugin,
         LettersPlugin,
+        WizardsPlugin,
     ))
     .run();
 }

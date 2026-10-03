@@ -115,6 +115,10 @@ pub struct ArtEntry {
     /// Whether the animation repeats (true if left out); otherwise it holds the last frame.
     #[serde(default)]
     pub looping: Option<bool>,
+    /// A character built from parts (`wizard<n>`): the part names, back to front.
+    /// Each part is the entry `<this name>_<part>`, its clips `<this name>_<part>_<clip>`.
+    #[serde(default)]
+    pub parts: Option<Vec<String>>,
 }
 
 /// Two values, written as a two-item list or a pair.
@@ -177,6 +181,12 @@ impl Art {
 
     /// The frame of animation `name` to show `t` seconds after it started.
     pub fn frame(&self, name: &str, t: f32) -> Option<Handle<Image>> {
+        let image = self.frame_name(name, t)?;
+        self.images.get(image).cloned()
+    }
+
+    /// Seconds animation `name` lasts, if it is one.
+    pub fn length(&self, name: &str) -> Option<f32> {
         let entry = self.entries.get(name)?;
         let frames = entry.frames.as_ref().filter(|f| !f.is_empty())?;
         let last = frames.last()?.0;
@@ -184,7 +194,14 @@ impl Art {
             1 => 0.1,
             n => (last - frames[n - 2].0).max(0.01),
         };
-        let length = entry.length.unwrap_or(last + step).max(0.01);
+        Some(entry.length.unwrap_or(last + step).max(0.01))
+    }
+
+    /// The image name of the frame of animation `name` at `t` seconds.
+    pub fn frame_name(&self, name: &str, t: f32) -> Option<&str> {
+        let entry = self.entries.get(name)?;
+        let frames = entry.frames.as_ref().filter(|f| !f.is_empty())?;
+        let length = self.length(name)?;
         let t = if entry.looping.unwrap_or(true) {
             t.rem_euclid(length)
         } else {
@@ -195,7 +212,7 @@ impl Art {
             .rev()
             .find(|(at, _)| *at <= t)
             .unwrap_or(&frames[0]);
-        self.images.get(image).cloned()
+        Some(image)
     }
 
     pub fn has_any(&self) -> bool {

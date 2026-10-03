@@ -86,6 +86,8 @@ pub struct GameConfig {
     pub puzzle: PuzzleRules,
     pub magic: MagicRules,
     pub ai: AiRules,
+    #[serde(default)]
+    pub wizards: WizardLook,
     pub pieces: Vec<PieceDef>,
 }
 
@@ -671,6 +673,40 @@ impl Default for AiRules {
     }
 }
 
+/// Where the wizards float and how lively they are (see docs/research/wizards.md).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct WizardLook {
+    /// Cells right of the lane centre the wizard floats at.
+    pub offset_x: f32,
+    /// The same with one tower: further out on the left, facing the tower.
+    pub solo_offset_x: f32,
+    /// Cells above the tower's height.
+    pub lift: f32,
+    /// Bob sideways and up and down, in cells (sideways at 1×time, up at 2×time).
+    pub bob: (f32, f32),
+    /// The wizard plays Action on every n-th placed brick, n drawn from this range.
+    pub action_every: (u32, u32),
+    /// Seconds before another Laugh or Startle may play.
+    pub reaction_cooldown: f32,
+    /// Shake on losing a life: cells sideways and up, and seconds.
+    pub shake: (f32, f32, f32),
+}
+
+impl Default for WizardLook {
+    fn default() -> Self {
+        Self {
+            offset_x: 5.5,
+            solo_offset_x: -11.0,
+            lift: 4.0,
+            bob: (0.5, 0.55),
+            action_every: (3, 8),
+            reaction_cooldown: 7.0,
+            shake: (0.1, 0.13, 0.2),
+        }
+    }
+}
+
 /// One brick shape: a set of unit cells on a grid.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 pub struct PieceDef {
@@ -775,6 +811,7 @@ impl Default for GameConfig {
             puzzle: PuzzleRules::default(),
             magic: MagicRules::default(),
             ai: AiRules::default(),
+            wizards: WizardLook::default(),
             pieces: default_pieces(),
         }
     }

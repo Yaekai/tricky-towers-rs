@@ -38,3 +38,8 @@ and nothing gets installed without Max's own go-ahead.
   letter picture's file, and for each character its rectangle in the picture, offset and
   advance, plus line height and base line (plain numbers), and stage the picture. The format
   is in `docs/art-layout.md` under "The original's letters"; point `font_main` at that file.
+- Wizards are in the game (see "Wizards" in `docs/art-layout.md`): stage `wizard1` to
+  `wizard4` as Wizard01–04 with their parts, part positions and pivots, each clip's part
+  animations from the clips you listed, and `wizard<n>_say_<clip>` voice lines. Screenshot a
+  match with 2 or more towers so the wizards show.
+- Masks now read in both forms, and blue outlines take `outline` (transparent if left out).

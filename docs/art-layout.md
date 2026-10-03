@@ -160,3 +160,26 @@ numbers, in the picture's pixels:
 - `offset`: from the pen on the base line to the letter's top left, y up.
 - `advance`: how far the pen moves after the letter.
 - A letter missing from the sheet falls back to its capital, then to a gap.
+
+## Wizards
+Each tower's wizard floats beside it (`wizards` in `game.ron` sets where; see
+`docs/research/wizards.md`). Lane `n` (1 to 4, left to right) draws the character staged as
+`wizard<n>`:
+
+```ron
+"wizard1": (parts: ["cloud", "cape", "arm_back", "body", "face", "hat", "arm_front", "cloud_front"]),
+"wizard1_body": (file: "wizards/w01/body.png", pixels_per_unit: 100.0, pivot: (0.5, 0.0), position: (0.0, -0.4)),
+"wizard1_body_action": (frames: [(0.0, "wizard1_body"), (0.2, "wizard1_body_preaction"), (0.433, "wizard1_body_action")], length: 0.9, looping: false),
+"wizard1_face_idle": (frames: [(0.0, "wizard1_face_idle01"), (2.5, "wizard1_face_idle02")]),
+"wizard1_say_cheer": (file: "audio/voice/w01_cheer_1.ogg"),
+```
+
+- `parts`: the part names, back to front. Each part is the image `wizard<n>_<part>`; its
+  `position` (cells from the wizard's centre) places it and its `pivot` is the joint.
+- Clips: `idle`, `action`, `cheer`, `cast_self`, `casting`, `laugh_evil`, `startle`, `dying`.
+  A part's clip is the animation `wizard<n>_<part>_<clip>`; a part without one keeps its idle
+  animation (`wizard<n>_<part>_idle`) or its plain image. Frames are images with their own
+  pivots, so pose variants can sit differently on the joint. A clip lasts as long as its
+  longest part animation; then the wizard goes back to idle (`dying` holds its last frame).
+- `wizard<n>_say_<clip>`: the voice line played when that clip starts (optional).
+- The panel portrait is still `wizard_<n>`.
