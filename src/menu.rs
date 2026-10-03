@@ -3,6 +3,7 @@
 
 use bevy::prelude::*;
 
+use crate::art::Art;
 use crate::config::{GameConfig, ModeKind};
 use crate::gameplay::{Match, MatchRequest, Phase, TowerState};
 
@@ -20,31 +21,53 @@ const MAX_TOWERS: u32 = crate::gameplay::MAX_TOWERS as u32;
 #[derive(Component)]
 struct MenuText;
 
-fn spawn_menu(mut commands: Commands) {
-    commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.05, 0.06, 0.12, 0.85)),
-            GlobalZIndex(10),
-            MenuText,
-        ))
-        .with_children(|parent| {
+/// The menu screen: the original's title art when staged (`menu_background`
+/// filling the screen, `logo` above the options), else a dark panel.
+fn spawn_menu(mut commands: Commands, art: Option<Res<Art>>) {
+    let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
+    let mut root = commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            row_gap: Val::Px(20.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.05, 0.06, 0.12, 0.85)),
+        GlobalZIndex(10),
+        MenuText,
+    ));
+    if let Some(background) = image("menu_background") {
+        root.insert((ImageNode::new(background), BackgroundColor(Color::NONE)));
+    }
+    root.with_children(|parent| {
+        if let Some(logo) = image("logo") {
             parent.spawn((
-                Text::new(""),
-                TextFont {
-                    font_size: FontSize::Px(26.0),
+                ImageNode::new(logo),
+                Node {
+                    max_width: Val::Percent(50.0),
+                    max_height: Val::Percent(30.0),
                     ..default()
                 },
-                TextLayout::justify(Justify::Center),
             ));
-        });
+        }
+        parent.spawn((
+            Text::new(""),
+            TextFont {
+                font_size: FontSize::Px(26.0),
+                ..default()
+            },
+            TextLayout::justify(Justify::Center),
+            MenuLabel,
+        ));
+    });
 }
+
+/// The menu's options text.
+#[derive(Component)]
+struct MenuLabel;
 
 fn menu_keys(
     keys: Option<Res<ButtonInput<KeyCode>>>,
@@ -141,7 +164,7 @@ fn show_menu(
     game: Res<Match>,
     towers: Query<(), With<TowerState>>,
     mut menu: Query<(&mut Node, &Children), With<MenuText>>,
-    mut texts: Query<&mut Text>,
+    mut texts: Query<&mut Text, With<MenuLabel>>,
 ) {
     let Ok((mut node, children)) = menu.single_mut() else {
         return;
@@ -186,9 +209,9 @@ fn show_menu(
         config.players,
         config.opponents
     );
-    if let Some(&child) = children.first()
-        && let Ok(mut t) = texts.get_mut(child)
-    {
-        t.0 = text;
+    for &child in children {
+        if let Ok(mut t) = texts.get_mut(child) {
+            t.0 = text.clone();
+        }
     }
 }

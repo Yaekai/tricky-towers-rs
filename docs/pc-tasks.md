@@ -23,3 +23,6 @@ and nothing gets installed without Max's own go-ahead.
   if needed, say so).
 - Stage `water_band` with the measured colours and height, and `font_main` if the original's
   font exists as a .ttf or .otf (or can be found as one).
+- Stage `menu_background` and `logo` from the original's title screen.
+- Push nothing; when `extracted\inventory.md` is written, say so in your report with a short
+  summary per group so the cloud session can plan the code for each.

@@ -91,6 +91,7 @@ islands on the water band), by adding `screen`:
 | `spell_slot_light`, `spell_slot_dark` | Frames of the two spell slots in a player panel |
 | `spell_icon_<Spell>` | Spell icon in a slot, for Ivy, Petrify, Undo, ExtraLife, Minibase, AutoBuild, Large, Fast, NoRotate, AutoRotate, Ice, Mist, Slow, Mystery, Bubble, Grassy, Ghost |
 | `life_orb` | Extra Life's heart orb |
+| `menu_background`, `logo` | Title screen: a picture filling the menu, and the game's logo above the options |
 | `music_menu`, `music_race`, `music_survival`, `music_puzzle` | Looping music |
 | `sfx_land`, `sfx_move`, `sfx_nudge`, `sfx_rotate`, `sfx_drop_lost`, `sfx_line_collect` | Your brick and tower |
 | `sfx_cast_light`, `sfx_cast_dark`, `sfx_countdown`, `sfx_win`, `sfx_lose` | Spells and match events |
