@@ -16,6 +16,7 @@ pub mod input;
 pub mod letters;
 pub mod menu;
 pub mod offscreen;
+pub mod popup;
 pub mod results;
 pub mod spells;
 pub mod visuals;

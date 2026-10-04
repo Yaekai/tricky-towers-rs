@@ -47,3 +47,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-04: src/effects.rs: Slow balloon on a string, Ghost skulls flying in to the brick's outline; bubbles pick the size/look variant and wobble ±2.5%.
 - 2026-10-04: from the PC's win screenshot: no cup after a single match, WINNER! kept on screen through its bounce (and hidden until laid out), loser veils drawn dark.
 - 2026-10-04: title screen of tiles like the original (`MenuScreen::Main`, `TILES` in src/menu.rs); Local Battle opens the mode menu, Esc goes back. Letter text takes `FontSize::Vh`. Tile centres are laid out from the sizes until the anchors are read.
+- 2026-10-04: pause menu (`MenuScreen::Pause`: Resume, Retry, Quit; Esc or Start) and the "Game Completed" popup (src/popup.rs: place from `gameplay::placings`, Next match, Rematch, Main menu; no XP yet). Systems that change `MenuScreen` on a key press run after `MenuSystems`, or Enter gets read twice.

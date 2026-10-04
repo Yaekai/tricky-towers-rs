@@ -325,6 +325,8 @@ pub struct TowerState {
     pub mist_timer: f32,
     /// Seconds before a dropped brick can cost another life.
     pub invincible: f32,
+    /// Match time when the tower went out, for the final placings.
+    pub out_at: Option<f32>,
     /// This round's puzzle laser height, before dropped bricks lower it.
     pub laser_base: f32,
     /// Spell effects waiting for the coming bricks, next brick first.
@@ -381,6 +383,7 @@ impl TowerState {
             last_placed: None,
             mist_timer: 0.0,
             invincible: 0.0,
+            out_at: None,
             laser_base: config.puzzle.line_height,
             next_mods: Vec::new(),
             respawn: None,
@@ -1497,6 +1500,9 @@ fn judge_match(
                 }
             }
         }
+        if state.status == TowerStatus::Out && state.out_at.is_none() {
+            state.out_at = Some(game.elapsed);
+        }
     }
 
     let mut winner = None;
@@ -1536,4 +1542,31 @@ fn judge_match(
         game.phase = Phase::Over;
         game.winner = winner;
     }
+}
+
+/// Final placings, first place first: the winner, then towers still standing
+/// (by height in Race, lives then bricks in Survival, bricks in Puzzle, best
+/// height in Endless), then towers that went out, the last to go out first.
+pub fn placings(game: &Match, towers: &[(usize, &TowerState)]) -> Vec<usize> {
+    let mut order: Vec<(usize, &TowerState)> = towers.to_vec();
+    let score = |s: &TowerState| match game.mode {
+        ModeKind::Race => s.height,
+        ModeKind::Survival => s.lives.unwrap_or(0) as f32 * 1000.0 + s.bricks_placed as f32,
+        ModeKind::Puzzle => s.bricks_placed as f32,
+        ModeKind::Endless => s.best_height,
+    };
+    let key = |(index, s): &(usize, &TowerState)| {
+        let won = game.winner == Some(*index);
+        let standing = s.status != TowerStatus::Out;
+        (won, standing, s.out_at.unwrap_or(0.0), score(s))
+    };
+    order.sort_by(|a, b| {
+        let (ka, kb) = (key(a), key(b));
+        kb.0.cmp(&ka.0)
+            .then(kb.1.cmp(&ka.1))
+            .then(kb.2.total_cmp(&ka.2))
+            .then(kb.3.total_cmp(&ka.3))
+            .then(a.0.cmp(&b.0))
+    });
+    order.into_iter().map(|(i, _)| i).collect()
 }

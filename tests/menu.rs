@@ -80,3 +80,83 @@ fn arrows_walk_the_title_tiles_and_escape_comes_back() {
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
     assert_eq!(app.world().resource::<Match>().phase, Phase::Menu);
 }
+
+#[test]
+fn escape_pauses_and_the_pause_menu_resumes_retries_or_quits() {
+    let mut app = app();
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
+    let screen = |app: &App| *app.world().resource::<MenuScreen>();
+    let phase = |app: &App| app.world().resource::<Match>().phase;
+
+    tap(&mut app, KeyCode::Escape);
+    assert_eq!(
+        (phase(&app), screen(&app)),
+        (Phase::Menu, MenuScreen::Pause)
+    );
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(phase(&app), Phase::Playing, "Resume");
+
+    tap(&mut app, KeyCode::Escape);
+    let round = app.world().resource::<Match>().round;
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    let game = app.world().resource::<Match>();
+    assert_eq!(game.phase, Phase::Playing, "Retry");
+    assert_ne!(game.round, round, "Retry starts a new round");
+
+    tap(&mut app, KeyCode::Escape);
+    tap(&mut app, KeyCode::ArrowUp);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(
+        (phase(&app), screen(&app)),
+        (Phase::Menu, MenuScreen::Main),
+        "Quit"
+    );
+    tap(&mut app, KeyCode::Escape);
+    assert_eq!(
+        phase(&app),
+        Phase::Menu,
+        "Esc on the title screen doesn't resume"
+    );
+}
+
+#[test]
+fn game_completed_popup_rematches_or_goes_to_the_title() {
+    use tricky_towers::popup::Popup;
+    let mut app = app();
+    app.world_mut()
+        .resource_mut::<GameConfig>()
+        .moments
+        .popup_after = 0.1;
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
+    let end = |app: &mut App| {
+        let mut game = app.world_mut().resource_mut::<Match>();
+        game.phase = Phase::Over;
+        game.winner = Some(0);
+        for _ in 0..12 {
+            app.update();
+        }
+        assert!(app.world().resource::<Popup>().shown);
+    };
+    end(&mut app);
+    let round = app.world().resource::<Match>().round;
+    tap(&mut app, KeyCode::ArrowRight);
+    tap(&mut app, KeyCode::Enter);
+    let game = app.world().resource::<Match>();
+    assert_eq!(game.phase, Phase::Playing, "Rematch");
+    assert_ne!(game.round, round);
+    assert!(!app.world().resource::<Popup>().shown);
+
+    end(&mut app);
+    tap(&mut app, KeyCode::ArrowLeft);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(
+        app.world().resource::<Match>().phase,
+        Phase::Menu,
+        "Main menu"
+    );
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
+}

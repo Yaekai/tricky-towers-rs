@@ -98,3 +98,8 @@ and nothing gets installed without Max's own go-ahead.
   `--shots 2`) and compare.
 - Veils over losers' lanes still show light bands between them. Read the original's lane spacing
   for 2, 3 and 4 players and how wide a loser's veil is compared with its lane.
+- The pause menu and the "Game Completed" popup are in as plain text on dark panels (src/menu.rs,
+  src/popup.rs). Read their art (panel, button frames, the selected look) and stage it with
+  names to suggest, and read how long after a match ends the popup appears (we guess 4 s,
+  `moments.popup_after`) and whether WINNER! stays under it. Also read how XP per match is worked
+  out and how many XP each wizard level needs, so levels can be added.

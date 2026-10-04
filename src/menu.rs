@@ -6,26 +6,31 @@ use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::config::{Difficulty, GameConfig, ModeKind};
-use crate::gameplay::{Match, MatchRequest, Phase, TowerState};
+use crate::gameplay::{Match, MatchRequest, Phase};
 
 pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<MenuScreen>()
+        app.add_plugins(crate::popup::PopupPlugin)
+            .init_resource::<MenuScreen>()
             .init_resource::<MainMenu>()
-            .add_systems(Startup, (spawn_menu, spawn_main_menu))
+            .init_resource::<PauseMenu>()
+            .add_systems(Startup, (spawn_menu, spawn_main_menu, spawn_pause_menu))
             .add_systems(
                 Update,
                 (
                     menu_keys,
                     menu_gamepads,
                     main_menu_input,
+                    pause_input,
                     show_menu,
+                    show_pause_menu,
                     show_main_menu,
                     spin_tile_rays,
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(MenuSystems),
             );
     }
 }
@@ -94,26 +99,33 @@ fn menu_keys(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     mut config: ResMut<GameConfig>,
     mut game: ResMut<Match>,
-    towers: Query<(), With<TowerState>>,
     mut request: ResMut<MatchRequest>,
     mut screen: ResMut<MenuScreen>,
-    mut left_from: Local<Option<Phase>>,
+    mut pause: ResMut<PauseMenu>,
 ) {
     let Some(keys) = keys else { return };
     if keys.just_pressed(KeyCode::Escape) {
-        match game.phase {
-            Phase::Playing | Phase::Over => {
-                *left_from = Some(game.phase);
+        match (game.phase, *screen) {
+            // Pause the match.
+            (Phase::Playing, _) => {
+                pause.resume_to = Some(Phase::Playing);
+                pause.selected = 0;
                 game.phase = Phase::Menu;
+                *screen = MenuScreen::Pause;
             }
-            // Back to the match we left.
-            Phase::Menu if !towers.is_empty() => {
-                if let Some(phase) = left_from.take() {
+            // Back to the match we paused.
+            (Phase::Menu, MenuScreen::Pause) => {
+                if let Some(phase) = pause.resume_to.take() {
                     game.phase = phase;
                 }
             }
-            // Back to the title tiles.
-            Phase::Menu => *screen = MenuScreen::Main,
+            // Leave a finished match, or step back from the mode menu.
+            (Phase::Over, _) | (Phase::Menu, MenuScreen::Modes) => {
+                pause.resume_to = None;
+                game.phase = Phase::Menu;
+                *screen = MenuScreen::Main;
+            }
+            (Phase::Menu, MenuScreen::Main) => {}
         }
         return;
     }
@@ -153,7 +165,6 @@ fn menu_keys(
     }
     if keys.any_just_pressed([KeyCode::Enter, KeyCode::Space]) {
         request.pending = true;
-        *left_from = None;
     }
 }
 
@@ -193,7 +204,6 @@ fn show_menu(
     config: Res<GameConfig>,
     game: Res<Match>,
     screen: Res<MenuScreen>,
-    towers: Query<(), With<TowerState>>,
     mut menu: Query<(&mut Node, &Children), With<MenuText>>,
     mut texts: Query<&mut Text, With<MenuLabel>>,
 ) {
@@ -230,11 +240,7 @@ fn show_menu(
             }
         })
         .collect();
-    let resume = if towers.is_empty() {
-        ""
-    } else {
-        "\nEsc: back to the game"
-    };
+    let resume = "\nEsc: back";
     let text = format!(
         "TRICKY TOWERS\n\n{}\n\nDifficulty: {}\nPlayers: {}   AI wizards: < {} >\n\nUp/Down: mode   Tab: difficulty   1-4: players   Left/Right: AI wizards   Enter: play\nPlayer 1: keyboard   Players 2-4: gamepads\n\nIn game: Left/Right move   Shift+Left/Right nudge   Up/Z rotate   Down drop\nQ light spell   E dark spell   R restart   Esc menu{resume}",
         modes.join("\n"),
@@ -249,6 +255,11 @@ fn show_menu(
     }
 }
 
+/// The menu systems. Anything else that changes [`MenuScreen`] on a key
+/// press runs after them, so the same press isn't read twice.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct MenuSystems;
+
 /// Which menu screen is up while the game is in the menu.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MenuScreen {
@@ -257,6 +268,161 @@ pub enum MenuScreen {
     Main,
     /// Mode, players, AI wizards and difficulty.
     Modes,
+    /// "Game Paused" over a match: Resume, Retry, Quit.
+    Pause,
+}
+
+/// The pause menu's highlighted option and the phase Resume goes back to.
+#[derive(Resource, Default)]
+pub struct PauseMenu {
+    pub selected: usize,
+    pub resume_to: Option<Phase>,
+}
+
+/// The original's pause options, top to bottom.
+pub const PAUSE_OPTIONS: [&str; 3] = ["Resume", "Retry", "Quit"];
+
+#[derive(Component)]
+struct PauseRoot;
+#[derive(Component)]
+struct PauseOption(usize);
+
+/// "Game Paused" and its options over a dimmed match.
+fn spawn_pause_menu(mut commands: Commands) {
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: Val::Vh(2.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
+            GlobalZIndex(12),
+            Visibility::Hidden,
+            PauseRoot,
+        ))
+        .with_children(|root| {
+            root.spawn((
+                Text::new("Game Paused"),
+                TextFont {
+                    font_size: FontSize::Vh(7.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                TextLayout::justify(Justify::Center),
+            ));
+            for (i, option) in PAUSE_OPTIONS.iter().enumerate() {
+                root.spawn((
+                    Text::new(*option),
+                    TextFont {
+                        font_size: FontSize::Vh(4.5),
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                    TextLayout::justify(Justify::Center),
+                    PauseOption(i),
+                ));
+            }
+        });
+}
+
+/// Up/Down pick an option, Enter or A takes it. Resume goes back to the
+/// match, Retry starts it again, Quit leaves for the title tiles.
+fn pause_input(
+    keys: Option<Res<ButtonInput<KeyCode>>>,
+    gamepads: Query<&Gamepad>,
+    mut game: ResMut<Match>,
+    mut screen: ResMut<MenuScreen>,
+    mut pause: ResMut<PauseMenu>,
+    mut request: ResMut<MatchRequest>,
+) {
+    // Start on any pad pauses, as Esc does.
+    if game.phase == Phase::Playing
+        && gamepads
+            .iter()
+            .any(|pad| pad.just_pressed(GamepadButton::Start))
+    {
+        pause.resume_to = Some(Phase::Playing);
+        pause.selected = 0;
+        game.phase = Phase::Menu;
+        *screen = MenuScreen::Pause;
+        return;
+    }
+    if game.phase != Phase::Menu || *screen != MenuScreen::Pause {
+        return;
+    }
+    let count = PAUSE_OPTIONS.len();
+    let (mut up, mut down, mut pick) = (false, false, false);
+    if let Some(keys) = keys {
+        up |= keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Numpad8]);
+        down |= keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS, KeyCode::Numpad2]);
+        pick |= keys.any_just_pressed([KeyCode::Enter, KeyCode::Space, KeyCode::NumpadEnter]);
+    }
+    for pad in &gamepads {
+        up |= pad.just_pressed(GamepadButton::DPadUp);
+        down |= pad.just_pressed(GamepadButton::DPadDown);
+        pick |= pad.just_pressed(GamepadButton::South);
+        // Start resumes, as Esc does.
+        if pad.just_pressed(GamepadButton::Start) {
+            pause.selected = 0;
+            pick = true;
+        }
+    }
+    if up {
+        pause.selected = (pause.selected + count - 1) % count;
+    }
+    if down {
+        pause.selected = (pause.selected + 1) % count;
+    }
+    if !pick {
+        return;
+    }
+    match PAUSE_OPTIONS[pause.selected] {
+        "Resume" => {
+            if let Some(phase) = pause.resume_to.take() {
+                game.phase = phase;
+            }
+        }
+        "Retry" => {
+            pause.resume_to = None;
+            request.pending = true;
+        }
+        _ => {
+            pause.resume_to = None;
+            *screen = MenuScreen::Main;
+        }
+    }
+}
+
+fn show_pause_menu(
+    game: Res<Match>,
+    screen: Res<MenuScreen>,
+    pause: Res<PauseMenu>,
+    mut root: Query<&mut Visibility, With<PauseRoot>>,
+    mut options: Query<(&PauseOption, &mut TextColor)>,
+) {
+    let shown = game.phase == Phase::Menu && *screen == MenuScreen::Pause;
+    for mut v in &mut root {
+        v.set_if_neq(if shown {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+    }
+    for (option, mut color) in &mut options {
+        let want = if option.0 == pause.selected {
+            Color::srgb(1.0, 0.82, 0.25)
+        } else {
+            Color::WHITE
+        };
+        if color.0 != want {
+            color.0 = want;
+        }
+    }
 }
 
 /// The highlighted title tile.

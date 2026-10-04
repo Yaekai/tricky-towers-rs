@@ -245,6 +245,7 @@
         veil_alpha: 0.1,
         trophy_pop: (0.4, 0.6),
         sunray_spin: 20.0,
+        popup_after: 4.0,
     ),
     pieces: [
         (

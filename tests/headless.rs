@@ -1038,3 +1038,22 @@ fn race_pro_wind_blows_one_way_and_puzzle_lanes_are_wider() {
     assert!((config.lane_reach(0.0) - 8.4).abs() < 1e-4);
     assert_eq!(config.lane_reach(10.0), 11.5);
 }
+
+#[test]
+fn placings_put_the_winner_first_and_the_first_out_last() {
+    use tricky_towers::gameplay::{TowerStatus, placings};
+    let config = GameConfig::default();
+    let game = Match {
+        mode: ModeKind::Race,
+        winner: Some(2),
+        ..default()
+    };
+    let mut states: Vec<TowerState> = (0..4).map(|i| TowerState::new(&config, i)).collect();
+    states[0].status = TowerStatus::Out;
+    states[0].out_at = Some(10.0);
+    states[1].height = 4.0;
+    states[3].status = TowerStatus::Out;
+    states[3].out_at = Some(20.0);
+    let list: Vec<_> = states.iter().enumerate().collect();
+    assert_eq!(placings(&game, &list), vec![2, 1, 3, 0]);
+}

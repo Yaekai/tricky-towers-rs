@@ -15,7 +15,9 @@ Controls: arrows or A/D to move, Shift + Left/Right to nudge, Up/W/Space to rota
 Z anticlockwise, Down/S to drop faster, Q to cast your light spell and E your dark one, R to
 restart, Esc for the menu. The title screen's tiles are picked with the arrows and Enter: Local
 Battle opens the mode menu, Single Player opens it on Endless Race, Quit closes the game, and Esc
-goes back. In the mode menu: Up/Down picks the mode, Tab the difficulty (Easy, Normal,
+goes back. Esc (or Start) during a match opens "Game Paused" with Resume, Retry and Quit. A
+few seconds after a match ends, "Game Completed" shows your place with Next match, Rematch and
+Main menu. In the mode menu: Up/Down picks the mode, Tab the difficulty (Easy, Normal,
 Pro), 1 to 4 how many people play, Left/Right the number of AI wizards, Enter starts.
 
 Players 2 to 4 use gamepads: stick or d-pad to move, down to drop, LT/RT to nudge, A/B to rotate,
@@ -70,7 +72,7 @@ Values below come from reading Max's own copy of the original; the notes are in 
 ## What's missing
 See `PLAN.md`. In short: Trials, Online, Shop, Help and Settings tiles, player and mode select
 screens like the original's, spell effect animations (Large grow, Auto Rotate wind-up, cast
-beams), and the end-of-match popup with XP and levels.
+beams), and the XP and wizard levels in the end-of-match popup.
 
 ## Modding
 Copy `assets/config/game.ron`, change what you want (any field can be left out),

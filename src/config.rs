@@ -1065,6 +1065,8 @@ pub struct MatchMoments {
     pub trophy_pop: (f32, f32),
     /// Degrees a second the sunrays behind WINNER! turn (?).
     pub sunray_spin: f32,
+    /// Seconds after a match ends before the "Game Completed" popup (?).
+    pub popup_after: f32,
 }
 
 impl Default for MatchMoments {
@@ -1084,6 +1086,7 @@ impl Default for MatchMoments {
             veil_alpha: 0.1,
             trophy_pop: (0.4, 0.6),
             sunray_spin: 20.0,
+            popup_after: 4.0,
         }
     }
 }
