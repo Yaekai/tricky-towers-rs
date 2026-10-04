@@ -1,12 +1,15 @@
 //! The menus: the original's title screen of tiles (Local Battle, Single
-//! Player, ...) and behind it the mode menu, where you pick the mode, how many
-//! people play and how many AI wizards join.
+//! Player, ...), the pause menu, and the way between them and the player and
+//! mode select screens (src/select.rs).
 
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::config::{Difficulty, GameConfig, ModeKind};
+use crate::config::GameConfig;
 use crate::gameplay::{Match, MatchRequest, Phase};
+use crate::select::{
+    Lobby, back_from_modes, modes_input, players_input, show_select_screens, spawn_select_screens,
+};
 
 pub struct MenuPlugin;
 
@@ -16,15 +19,22 @@ impl Plugin for MenuPlugin {
             .init_resource::<MenuScreen>()
             .init_resource::<MainMenu>()
             .init_resource::<PauseMenu>()
-            .add_systems(Startup, (spawn_menu, spawn_main_menu, spawn_pause_menu))
+            .init_resource::<Lobby>()
+            .add_systems(
+                Startup,
+                (spawn_main_menu, spawn_select_screens, spawn_pause_menu),
+            )
             .add_systems(
                 Update,
                 (
-                    menu_keys,
-                    menu_gamepads,
+                    // Each screen reads its keys before the screen that leads to it,
+                    // so one press never acts on two screens.
+                    menu_escape,
+                    modes_input,
+                    players_input,
                     main_menu_input,
                     pause_input,
-                    show_menu,
+                    show_select_screens,
                     show_pause_menu,
                     show_main_menu,
                     spin_tile_rays,
@@ -35,223 +45,39 @@ impl Plugin for MenuPlugin {
     }
 }
 
-const MAX_TOWERS: u32 = crate::gameplay::MAX_TOWERS as u32;
-
-#[derive(Component)]
-struct MenuText;
-
-/// The menu screen: the original's title art when staged (`menu_background`
-/// filling the screen, `logo` above the options), else a dark panel.
-fn spawn_menu(mut commands: Commands, art: Option<Res<Art>>) {
-    let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
-    let mut root = commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            row_gap: Val::Px(20.0),
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.05, 0.06, 0.12, 0.85)),
-        GlobalZIndex(10),
-        MenuText,
-    ));
-    if let Some(background) = image("menu_background") {
-        root.insert((ImageNode::new(background), BackgroundColor(Color::NONE)));
-    }
-    root.with_children(|parent| {
-        if let Some(logo) = image("logo") {
-            parent.spawn((
-                ImageNode::new(logo),
-                Node {
-                    max_width: Val::Percent(50.0),
-                    max_height: Val::Percent(30.0),
-                    ..default()
-                },
-            ));
-        }
-        parent.spawn((
-            Text::new(""),
-            TextFont {
-                font_size: FontSize::Px(26.0),
-                ..default()
-            },
-            TextLayout::justify(Justify::Center),
-            MenuLabel,
-        ));
-    });
-}
-
-/// The menu's options text.
-#[derive(Component)]
-struct MenuLabel;
-
-/// Steps Easy, Normal, Pro, then round again.
-fn next_difficulty(config: &mut GameConfig) {
-    let now = config.difficulty.unwrap_or_default();
-    let at = Difficulty::ALL.iter().position(|&d| d == now).unwrap_or(1);
-    config.difficulty = Some(Difficulty::ALL[(at + 1) % Difficulty::ALL.len()]);
-}
-
-fn menu_keys(
+fn menu_escape(
     keys: Option<Res<ButtonInput<KeyCode>>>,
-    mut config: ResMut<GameConfig>,
     mut game: ResMut<Match>,
-    mut request: ResMut<MatchRequest>,
     mut screen: ResMut<MenuScreen>,
     mut pause: ResMut<PauseMenu>,
+    lobby: Res<Lobby>,
 ) {
     let Some(keys) = keys else { return };
-    if keys.just_pressed(KeyCode::Escape) {
-        match (game.phase, *screen) {
-            // Pause the match.
-            (Phase::Playing, _) => {
-                pause.resume_to = Some(Phase::Playing);
-                pause.selected = 0;
-                game.phase = Phase::Menu;
-                *screen = MenuScreen::Pause;
+    if !keys.just_pressed(KeyCode::Escape) {
+        return;
+    }
+    match (game.phase, *screen) {
+        // Pause the match.
+        (Phase::Playing, _) => {
+            pause.resume_to = Some(Phase::Playing);
+            pause.selected = 0;
+            game.phase = Phase::Menu;
+            *screen = MenuScreen::Pause;
+        }
+        // Back to the match we paused.
+        (Phase::Menu, MenuScreen::Pause) => {
+            if let Some(phase) = pause.resume_to.take() {
+                game.phase = phase;
             }
-            // Back to the match we paused.
-            (Phase::Menu, MenuScreen::Pause) => {
-                if let Some(phase) = pause.resume_to.take() {
-                    game.phase = phase;
-                }
-            }
-            // Leave a finished match, or step back from the mode menu.
-            (Phase::Over, _) | (Phase::Menu, MenuScreen::Modes) => {
-                pause.resume_to = None;
-                game.phase = Phase::Menu;
-                *screen = MenuScreen::Main;
-            }
-            (Phase::Menu, MenuScreen::Main) => {}
         }
-        return;
-    }
-    if game.phase != Phase::Menu || *screen != MenuScreen::Modes {
-        return;
-    }
-    let index = ModeKind::ALL
-        .iter()
-        .position(|&m| m == config.mode)
-        .unwrap_or(0);
-    let count = ModeKind::ALL.len();
-    if keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Numpad8]) {
-        config.mode = ModeKind::ALL[(index + count - 1) % count];
-    }
-    if keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS, KeyCode::Numpad2]) {
-        config.mode = ModeKind::ALL[(index + 1) % count];
-    }
-    if keys.any_just_pressed([KeyCode::ArrowLeft, KeyCode::KeyA, KeyCode::Numpad4]) {
-        config.opponents = config.opponents.saturating_sub(1);
-    }
-    if keys.any_just_pressed([KeyCode::ArrowRight, KeyCode::KeyD, KeyCode::Numpad6]) {
-        config.opponents = (config.opponents + 1).min(MAX_TOWERS - config.players);
-    }
-    // Number keys pick how many people play (players 2 to 4 use gamepads).
-    let digits = [
-        KeyCode::Digit1,
-        KeyCode::Digit2,
-        KeyCode::Digit3,
-        KeyCode::Digit4,
-    ];
-    if let Some(n) = digits.iter().position(|&k| keys.just_pressed(k)) {
-        config.players = n as u32 + 1;
-        config.opponents = config.opponents.min(MAX_TOWERS - config.players);
-    }
-    if keys.just_pressed(KeyCode::Tab) {
-        next_difficulty(&mut config);
-    }
-    if keys.any_just_pressed([KeyCode::Enter, KeyCode::Space]) {
-        request.pending = true;
-    }
-}
-
-/// Any gamepad can pick the mode (d-pad) and start (A or Start).
-fn menu_gamepads(
-    mut config: ResMut<GameConfig>,
-    game: Res<Match>,
-    mut request: ResMut<MatchRequest>,
-    screen: Res<MenuScreen>,
-    gamepads: Query<&Gamepad>,
-) {
-    if game.phase != Phase::Menu || *screen != MenuScreen::Modes {
-        return;
-    }
-    let count = ModeKind::ALL.len();
-    for pad in &gamepads {
-        let index = ModeKind::ALL
-            .iter()
-            .position(|&m| m == config.mode)
-            .unwrap_or(0);
-        if pad.just_pressed(GamepadButton::DPadUp) {
-            config.mode = ModeKind::ALL[(index + count - 1) % count];
+        // Leave a finished match, or step back a screen.
+        (Phase::Over, _) | (Phase::Menu, MenuScreen::Players) => {
+            pause.resume_to = None;
+            game.phase = Phase::Menu;
+            *screen = MenuScreen::Main;
         }
-        if pad.just_pressed(GamepadButton::DPadDown) {
-            config.mode = ModeKind::ALL[(index + 1) % count];
-        }
-        if pad.just_pressed(GamepadButton::West) {
-            next_difficulty(&mut config);
-        }
-        if pad.any_just_pressed([GamepadButton::South, GamepadButton::Start]) {
-            request.pending = true;
-        }
-    }
-}
-
-fn show_menu(
-    config: Res<GameConfig>,
-    game: Res<Match>,
-    screen: Res<MenuScreen>,
-    mut menu: Query<(&mut Node, &Children), With<MenuText>>,
-    mut texts: Query<&mut Text, With<MenuLabel>>,
-) {
-    let Ok((mut node, children)) = menu.single_mut() else {
-        return;
-    };
-    let visible = game.phase == Phase::Menu && *screen == MenuScreen::Modes;
-    node.display = if visible {
-        Display::Flex
-    } else {
-        Display::None
-    };
-    if !visible {
-        return;
-    }
-    let modes: Vec<String> = ModeKind::ALL
-        .iter()
-        .map(|&m| {
-            let detail = match m {
-                ModeKind::Race => {
-                    format!("reach the line {:.0} bricks up", config.race.finish_height)
-                }
-                ModeKind::Survival => format!(
-                    "place {} bricks, {} lives",
-                    config.survival.bricks_to_place, config.survival.lives
-                ),
-                ModeKind::Puzzle => format!("fit {} bricks under the laser", config.puzzle.bricks),
-                ModeKind::Endless => "stay above the rising line".into(),
-            };
-            if m == config.mode {
-                format!("> {}  ({detail}) <", m.name())
-            } else {
-                format!("{}  ({detail})", m.name())
-            }
-        })
-        .collect();
-    let resume = "\nEsc: back";
-    let text = format!(
-        "TRICKY TOWERS\n\n{}\n\nDifficulty: {}\nPlayers: {}   AI wizards: < {} >\n\nUp/Down: mode   Tab: difficulty   1-4: players   Left/Right: AI wizards   Enter: play\nPlayer 1: keyboard   Players 2-4: gamepads\n\nIn game: Left/Right move   Shift+Left/Right nudge   Up/Z rotate   Down drop\nQ light spell   E dark spell   R restart   Esc menu{resume}",
-        modes.join("\n"),
-        config.difficulty.unwrap_or_default().name(),
-        config.players,
-        config.opponents
-    );
-    for &child in children {
-        if let Ok(mut t) = texts.get_mut(child) {
-            t.0 = text.clone();
-        }
+        (Phase::Menu, MenuScreen::Modes) => *screen = back_from_modes(&lobby),
+        (Phase::Menu, MenuScreen::Main) => {}
     }
 }
 
@@ -266,7 +92,9 @@ pub enum MenuScreen {
     /// The title tiles.
     #[default]
     Main,
-    /// Mode, players, AI wizards and difficulty.
+    /// "Select Players": seats for people and AI wizards.
+    Players,
+    /// "Select Mode": mode tiles with their difficulty.
     Modes,
     /// "Game Paused" over a match: Resume, Retry, Quit.
     Pause,
@@ -743,8 +571,8 @@ fn tile_towards(from: usize, dir: Vec2) -> usize {
 }
 
 /// Arrows or a d-pad move between the tiles; Enter, Space or A picks one.
-/// Local Battle opens the mode menu, Single Player opens it on Endless Race
-/// and Quit closes the game. The other tiles aren't built yet.
+/// Local Battle opens player select, Single Player the mode select with
+/// Endless Race, and Quit closes the game. The other tiles aren't built yet.
 #[allow(clippy::too_many_arguments)]
 fn main_menu_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
@@ -752,7 +580,7 @@ fn main_menu_input(
     game: Res<Match>,
     mut screen: ResMut<MenuScreen>,
     mut menu: ResMut<MainMenu>,
-    mut config: ResMut<GameConfig>,
+    mut lobby: ResMut<Lobby>,
     mut exit: MessageWriter<AppExit>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Main {
@@ -797,9 +625,13 @@ fn main_menu_input(
         return;
     }
     match TILES[menu.selected].key {
-        "local" => *screen = MenuScreen::Modes,
+        "local" => {
+            lobby.single = false;
+            *screen = MenuScreen::Players;
+        }
         "single" => {
-            config.mode = ModeKind::Endless;
+            lobby.single = true;
+            lobby.mode = 0;
             *screen = MenuScreen::Modes;
         }
         "quit" => {

@@ -18,6 +18,7 @@ pub mod menu;
 pub mod offscreen;
 pub mod popup;
 pub mod results;
+pub mod select;
 pub mod spells;
 pub mod visuals;
 pub mod wizards;

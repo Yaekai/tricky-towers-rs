@@ -1,4 +1,4 @@
-//! Drives the mode menu with simulated key presses.
+//! Drives the menus with simulated key presses.
 
 use std::time::Duration;
 
@@ -6,9 +6,10 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use tricky_towers::TowerCorePlugin;
-use tricky_towers::config::{GameConfig, ModeKind};
+use tricky_towers::config::{Difficulty, GameConfig, ModeKind};
 use tricky_towers::gameplay::{Match, Phase};
 use tricky_towers::menu::{MainMenu, MenuPlugin, MenuScreen};
+use tricky_towers::select::{Lobby, Seat};
 
 fn app() -> App {
     let mut app = App::new();
@@ -41,19 +42,57 @@ fn tap(app: &mut App, key: KeyCode) {
     }
 }
 
+/// Local Battle, join with the keyboard, on to the modes, play the first one.
+fn start(app: &mut App) {
+    for _ in 0..4 {
+        tap(app, KeyCode::Enter);
+    }
+}
+
 #[test]
-fn enter_starts_the_highlighted_mode() {
+fn local_battle_seats_players_then_starts_the_picked_mode() {
     let mut app = app();
+    let screen = |app: &App| *app.world().resource::<MenuScreen>();
     assert_eq!(app.world().resource::<Match>().phase, Phase::Menu);
-    // Local Battle is the highlighted title tile; it opens the mode menu.
+    // Local Battle is the highlighted title tile; it opens player select.
     tap(&mut app, KeyCode::Enter);
-    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
-    tap(&mut app, KeyCode::ArrowDown);
-    tap(&mut app, KeyCode::ArrowDown);
-    assert_eq!(app.world().resource::<GameConfig>().mode, ModeKind::Puzzle);
+    assert_eq!(screen(&app), MenuScreen::Players);
+    // Enter seats the keyboard player, Tab adds an AI wizard.
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Tab);
+    tap(&mut app, KeyCode::Tab);
+    tap(&mut app, KeyCode::Backspace);
+    assert_eq!(
+        app.world().resource::<Lobby>().seats[..2],
+        [Seat::Keyboard, Seat::Ai]
+    );
+    assert_eq!(screen(&app), MenuScreen::Players);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Modes);
+    // Race, Survival, Puzzle; Up raises its difficulty from Normal.
+    tap(&mut app, KeyCode::ArrowRight);
+    tap(&mut app, KeyCode::ArrowRight);
+    tap(&mut app, KeyCode::ArrowUp);
     tap(&mut app, KeyCode::Enter);
     let game = app.world().resource::<Match>();
     assert_eq!((game.phase, game.mode), (Phase::Playing, ModeKind::Puzzle));
+    let config = app.world().resource::<GameConfig>();
+    assert_eq!((config.players, config.opponents), (1, 1));
+    assert_eq!(config.difficulty, Some(Difficulty::Pro));
+}
+
+#[test]
+fn single_player_goes_straight_to_endless() {
+    let mut app = app();
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
+    tap(&mut app, KeyCode::Escape);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
+    let game = app.world().resource::<Match>();
+    assert_eq!((game.phase, game.mode), (Phase::Playing, ModeKind::Endless));
 }
 
 #[test]
@@ -75,7 +114,7 @@ fn arrows_walk_the_title_tiles_and_escape_comes_back() {
     tap(&mut app, KeyCode::ArrowUp);
     assert_eq!(selected(&app), 0);
     tap(&mut app, KeyCode::Enter);
-    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Players);
     tap(&mut app, KeyCode::Escape);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
     assert_eq!(app.world().resource::<Match>().phase, Phase::Menu);
@@ -84,8 +123,7 @@ fn arrows_walk_the_title_tiles_and_escape_comes_back() {
 #[test]
 fn escape_pauses_and_the_pause_menu_resumes_retries_or_quits() {
     let mut app = app();
-    tap(&mut app, KeyCode::Enter);
-    tap(&mut app, KeyCode::Enter);
+    start(&mut app);
     assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
     let screen = |app: &App| *app.world().resource::<MenuScreen>();
     let phase = |app: &App| app.world().resource::<Match>().phase;
@@ -130,8 +168,7 @@ fn game_completed_popup_rematches_or_goes_to_the_title() {
         .resource_mut::<GameConfig>()
         .moments
         .popup_after = 0.1;
-    tap(&mut app, KeyCode::Enter);
-    tap(&mut app, KeyCode::Enter);
+    start(&mut app);
     let end = |app: &mut App| {
         let mut game = app.world_mut().resource_mut::<Match>();
         game.phase = Phase::Over;

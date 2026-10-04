@@ -105,3 +105,9 @@ and nothing gets installed without Max's own go-ahead.
   names to suggest, and read how long after a match ends the popup appears (we guess 4 s,
   `moments.popup_after`) and whether WINNER! stays under it. Also read how XP per match is worked
   out and how many XP each wizard level needs, so levels can be added.
+- Select Players and Select Mode are in (src/select.rs) with colour fallbacks. Stage their art
+  under the names in docs/art-layout.md (`menu_header`, `menu_player_select_*`,
+  `menu_mode_title_*`), plus each mode tile's own background if it has one (say its name and
+  size). Read where the 318×500 wizard panel's centre sits (we guess y +60), the mode tiles'
+  size and spacing, and whether the third difficulty reads "Pro" or "Special" on screen.
+  Offscreen pictures: `--menu players --offscreen <dir> --shots 2`, and the same with `modes`.

@@ -34,7 +34,7 @@ fn main() {
                 && (*i == 0
                     || !matches!(
                         args[i - 1].as_str(),
-                        "--play" | "--difficulty" | "--offscreen" | "--shots"
+                        "--play" | "--difficulty" | "--offscreen" | "--shots" | "--menu"
                     ))
         })
         .map_or_else(|| DEFAULT_CONFIG_PATH.to_string(), |(_, a)| a.clone());
@@ -116,6 +116,26 @@ fn main() {
         ResultsPlugin,
         EffectsPlugin,
     ));
+    // `--menu players|modes|single` opens on that menu screen, for scripted pictures.
+    // Player select shows the keyboard player and one AI wizard seated.
+    if let Some(menu) = value("--menu") {
+        use tricky_towers::menu::MenuScreen;
+        use tricky_towers::select::{Lobby, Seat};
+        let mut lobby = Lobby::default();
+        let screen = match menu.as_str() {
+            "players" => {
+                lobby.seats[0] = Seat::Keyboard;
+                lobby.seats[1] = Seat::Ai;
+                MenuScreen::Players
+            }
+            "single" => {
+                lobby.single = true;
+                MenuScreen::Modes
+            }
+            _ => MenuScreen::Modes,
+        };
+        app.insert_resource(lobby).insert_resource(screen);
+    }
     if let Some(dir) = offscreen {
         app.add_plugins(tricky_towers::offscreen::OffscreenPlugin {
             dir,

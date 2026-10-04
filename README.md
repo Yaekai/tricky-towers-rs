@@ -13,16 +13,18 @@ cargo test                         # config + headless gameplay tests
 ```
 Controls: arrows or A/D to move, Shift + Left/Right to nudge, Up/W/Space to rotate clockwise and
 Z anticlockwise, Down/S to drop faster, Q to cast your light spell and E your dark one, R to
-restart, Esc for the menu. The title screen's tiles are picked with the arrows and Enter: Local
-Battle opens the mode menu, Single Player opens it on Endless Race, Quit closes the game, and Esc
-goes back. Esc (or Start) during a match opens "Game Paused" with Resume, Retry and Quit. A
-few seconds after a match ends, "Game Completed" shows your place with Next match, Rematch and
-Main menu. In the mode menu: Up/Down picks the mode, Tab the difficulty (Easy, Normal,
-Pro), 1 to 4 how many people play, Left/Right the number of AI wizards, Enter starts.
+restart, Esc to pause (Resume, Retry, Quit).
+
+Menus follow the original: on the title tiles, the arrows and Enter pick. Local Battle opens
+"Select Players": Enter (or A on a pad) takes a seat, Tab (X) adds an AI wizard, Backspace (Y)
+removes one, and Enter again goes on to "Select Mode", where Left/Right pick Race, Survival,
+Puzzle or Random and Up/Down its difficulty (Easy, Normal, Pro or Random). Single Player goes
+straight to Endless Race. Esc (B) steps back. A few seconds after a match ends, "Game
+Completed" shows your place with Next match, Rematch and Main menu. `--menu players|modes|single`
+opens on a menu screen, for scripted pictures.
 
 Players 2 to 4 use gamepads: stick or d-pad to move, down to drop, LT/RT to nudge, A/B to rotate,
 X for the light spell and Y for the dark one. With one player, a gamepad works for player 1 too.
-In the menu, X changes the difficulty.
 
 ![A race against three AI wizards](docs/screenshot.png)
 
