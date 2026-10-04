@@ -24,3 +24,5 @@ Delete `extracted\` before re-running step 3 so stale entries don't linger.
 `extracted\fonts\main.png` plus the letter sheet `extracted\fonts\main.ron`.
 `prefab_tree.ps1 -Prefab <file> -GuidIndex research\guid_index.tsv` prints every sprite in a
 prefab with its path and position summed through its parents.
+6. Spell-effect animations that reuse inventory frames (vine_overlay_<shape>), after step 4:
+   `powershell -File tools\extract\effects.ps1 -Repo .`
