@@ -62,6 +62,8 @@ pub struct GameConfig {
     pub splash: SplashLook,
     /// Cast beams, lightning, spell clouds and the Large grow.
     pub casts: CastLook,
+    /// Experience per match and the wizard levels it buys.
+    pub xp: XpRules,
     /// What the water does to a lost brick.
     pub water: WaterRules,
     /// Each base's collider, as read from the original.
@@ -1268,6 +1270,100 @@ impl Default for WaterRules {
 /// The splash a lost brick makes in the water, from the original
 /// (docs/research/controls-physics.md): a front layer of splash pictures that
 /// grow in and vanish, and white drops thrown up behind them. Lengths in cells.
+/// Experience, from the original (docs/research/match-moments.md). Only online
+/// matches and cups give any; a single local match gives none.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct XpRules {
+    /// The winner's XP on Easy, Normal and Pro.
+    pub winner: (u32, u32, u32),
+    /// Last place's XP.
+    pub last: u32,
+    /// Second and third to last get these shares of the winner's XP.
+    pub second_to_last: f32,
+    pub third_to_last: f32,
+    /// XP lost for quitting a match.
+    pub quit: u32,
+    /// XP needed to reach each level, level 1 first.
+    pub levels: Vec<u32>,
+    /// XP for each level after the last listed one.
+    pub level_step: u32,
+    /// Level names, level 1 first; past them, `master` with the count of levels
+    /// beyond the named ones (?).
+    pub names: Vec<String>,
+    pub master: String,
+}
+
+impl Default for XpRules {
+    fn default() -> Self {
+        Self {
+            winner: (600, 800, 1000),
+            last: 100,
+            second_to_last: 0.25,
+            third_to_last: 0.5,
+            quit: 250,
+            levels: vec![
+                0, 500, 2_500, 10_000, 25_000, 45_000, 75_000, 112_500, 162_500, 225_000, 300_000,
+            ],
+            level_step: 75_000,
+            names: [
+                "Rookie Magician",
+                "Apprentice Magician",
+                "Magician",
+                "Rookie Sorcerer",
+                "Apprentice Sorcerer",
+                "Sorcerer",
+                "Rookie Wizard",
+                "Apprentice Wizard",
+                "Wizard",
+                "Expert Wizard",
+            ]
+            .map(String::from)
+            .to_vec(),
+            master: "Master Wizard Level".into(),
+        }
+    }
+}
+
+impl XpRules {
+    /// XP for finishing in `place` (0 = winner) of `players` on `difficulty`.
+    pub fn for_place(&self, place: usize, players: usize, difficulty: Difficulty) -> u32 {
+        let winner = match difficulty {
+            Difficulty::Easy => self.winner.0,
+            Difficulty::Normal => self.winner.1,
+            Difficulty::Pro => self.winner.2,
+        };
+        if place == 0 {
+            return winner;
+        }
+        match players.saturating_sub(place + 1) {
+            0 => self.last,
+            1 => (winner as f32 * self.second_to_last).round() as u32,
+            2 => (winner as f32 * self.third_to_last).round() as u32,
+            _ => 0,
+        }
+    }
+
+    /// The level (1 up) reached with `xp`.
+    pub fn level(&self, xp: u32) -> u32 {
+        let listed = self.levels.iter().filter(|&&need| xp >= need).count().max(1) as u32;
+        let top = self.levels.last().copied().unwrap_or(0);
+        if listed as usize == self.levels.len() && self.level_step > 0 {
+            listed + (xp - top) / self.level_step
+        } else {
+            listed
+        }
+    }
+
+    /// The name shown for a level.
+    pub fn name(&self, level: u32) -> String {
+        match self.names.get(level.saturating_sub(1) as usize) {
+            Some(name) => name.clone(),
+            None => format!("{} {}", self.master, level as usize - self.names.len()),
+        }
+    }
+}
+
 /// How casting looks, from the PC's readout of the original (tools/extract notes,
 /// "Cast beams" and "Spell clouds"). Lengths in cells, times in seconds; `(?)` marks
 /// guesses.
@@ -1559,6 +1655,7 @@ impl Default for GameConfig {
             menu: MenuLook::default(),
             splash: SplashLook::default(),
             casts: CastLook::default(),
+            xp: XpRules::default(),
             water: WaterRules::default(),
             bases: Bases::default(),
             spawn_gap: 17.0,
@@ -1739,6 +1836,27 @@ mod tests {
             text,
         )
         .unwrap();
+    }
+
+    #[test]
+    fn xp_per_place_and_levels() {
+        let xp = XpRules::default();
+        // Four players on Normal: 800, half, quarter, 100.
+        let four: Vec<u32> = (0..4).map(|p| xp.for_place(p, 4, Difficulty::Normal)).collect();
+        assert_eq!(four, vec![800, 400, 200, 100]);
+        // Two players: the winner keeps the full amount, last gets 100.
+        assert_eq!(xp.for_place(0, 2, Difficulty::Pro), 1000);
+        assert_eq!(xp.for_place(1, 2, Difficulty::Pro), 100);
+        assert_eq!(xp.for_place(1, 3, Difficulty::Easy), 150);
+        assert_eq!(xp.level(0), 1);
+        assert_eq!(xp.level(499), 1);
+        assert_eq!(xp.level(500), 2);
+        assert_eq!(xp.level(299_999), 10);
+        assert_eq!(xp.level(300_000), 11);
+        assert_eq!(xp.level(375_000), 12);
+        assert_eq!(xp.name(1), "Rookie Magician");
+        assert_eq!(xp.name(10), "Expert Wizard");
+        assert_eq!(xp.name(11), "Master Wizard Level 1");
     }
 
     #[test]
