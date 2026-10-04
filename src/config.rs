@@ -58,6 +58,8 @@ pub struct GameConfig {
     pub lanes: Lanes,
     /// How the title tiles move.
     pub menu: MenuLook,
+    /// How the start screen's logo comes in.
+    pub start: StartLook,
     /// The splash when a brick is lost in the water.
     pub splash: SplashLook,
     /// Cast beams, lightning, spell clouds and the Large grow.
@@ -1869,6 +1871,67 @@ impl Default for SplashLook {
     }
 }
 
+/// The start screen's intro, from the original's MoveIn clip (docs/research/
+/// menus.md). Offsets are in the logo's units (26 px at 1080 high), y up; keys
+/// are (seconds, value).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct StartLook {
+    /// The logo's resting centre above the screen centre, in pixels.
+    pub logo_y: f32,
+    /// The logo dropping in and bouncing.
+    pub drop: Vec<(f32, f32)>,
+    /// The dip when the brick lands on it.
+    pub dip: Vec<(f32, f32)>,
+    /// The logo's tilt in degrees, clockwise positive, as the brick lands.
+    pub tilt: Vec<(f32, f32)>,
+    /// The rubble hopping up as the brick lands.
+    pub debris_hop: Vec<(f32, f32)>,
+    /// The brick falls from this many units above its spot, from this second,
+    /// and lands at this second (the fall's start and height are guesses).
+    pub brick_fall: (f32, f32, f32),
+    /// Seconds before the prompt shows, and its blink: seconds on, seconds off.
+    pub prompt_after: f32,
+    pub blink: (f32, f32),
+}
+
+impl Default for StartLook {
+    fn default() -> Self {
+        Self {
+            logo_y: 182.0,
+            drop: vec![
+                (0.0, 22.39),
+                (0.38, -2.41),
+                (0.466, -1.26),
+                (0.552, 0.64),
+                (0.638, 1.47),
+                (0.724, 0.15),
+                (0.81, 0.0),
+            ],
+            dip: vec![
+                (1.63, 0.0),
+                (1.92, -2.24),
+                (2.1, 0.33),
+                (2.3, -0.21),
+                (2.48, 0.0),
+            ],
+            tilt: vec![
+                (1.63, 0.0),
+                (1.69, 3.05),
+                (1.87, -1.87),
+                (1.97, 0.82),
+                (2.05, 0.32),
+                (2.11, -0.18),
+                (2.17, 0.0),
+            ],
+            debris_hop: vec![(1.63, 0.0), (1.8, 2.3), (2.04, 0.0)],
+            brick_fall: (20.0, 1.2, 1.63),
+            prompt_after: 2.62,
+            blink: (0.5, 0.5),
+        }
+    }
+}
+
 /// How the picked title tile moves (docs/research/menus.md).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
@@ -2046,6 +2109,7 @@ impl Default for GameConfig {
             platform_width: 9.0,
             lanes: Lanes::default(),
             menu: MenuLook::default(),
+            start: StartLook::default(),
             splash: SplashLook::default(),
             casts: CastLook::default(),
             xp: XpRules::default(),
