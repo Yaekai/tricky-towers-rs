@@ -26,6 +26,10 @@ fn app() -> App {
     app.finish();
     app.cleanup();
     app.update();
+    // Past "Press Enter to start" to the title tiles.
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Start);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
     app
 }
 

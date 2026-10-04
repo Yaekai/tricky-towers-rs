@@ -22,7 +22,12 @@ impl Plugin for MenuPlugin {
             .init_resource::<Lobby>()
             .add_systems(
                 Startup,
-                (spawn_main_menu, spawn_select_screens, spawn_pause_menu),
+                (
+                    spawn_start_screen,
+                    spawn_main_menu,
+                    spawn_select_screens,
+                    spawn_pause_menu,
+                ),
             )
             .add_systems(
                 Update,
@@ -33,7 +38,9 @@ impl Plugin for MenuPlugin {
                     modes_input,
                     players_input,
                     main_menu_input,
+                    start_input,
                     pause_input,
+                    show_start_screen,
                     show_select_screens,
                     show_pause_menu,
                     show_main_menu,
@@ -77,7 +84,8 @@ fn menu_escape(
             *screen = MenuScreen::Main;
         }
         (Phase::Menu, MenuScreen::Modes) => *screen = back_from_modes(&lobby),
-        (Phase::Menu, MenuScreen::Main) => {}
+        (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
+        (Phase::Menu, MenuScreen::Start) => {}
     }
 }
 
@@ -89,8 +97,10 @@ pub struct MenuSystems;
 /// Which menu screen is up while the game is in the menu.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MenuScreen {
-    /// The title tiles.
+    /// "Press Enter to start" under the logo, before the title tiles.
     #[default]
+    Start,
+    /// The title tiles.
     Main,
     /// "Select Players": seats for people and AI wizards.
     Players,
@@ -98,6 +108,120 @@ pub enum MenuScreen {
     Modes,
     /// "Game Paused" over a match: Resume, Retry, Quit.
     Pause,
+}
+
+#[derive(Component)]
+struct StartRoot;
+#[derive(Component)]
+struct StartPrompt;
+
+/// The screen before the title tiles: the backdrop, the logo and a blinking
+/// "Press Enter to start".
+fn spawn_start_screen(mut commands: Commands, art: Option<Res<Art>>) {
+    let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
+    let mut root = commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::SpaceEvenly,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(Color::srgb(0.05, 0.06, 0.12)),
+        GlobalZIndex(11),
+        Visibility::Hidden,
+        StartRoot,
+    ));
+    if let Some(background) = image("menu_background") {
+        root.insert((ImageNode::new(background), BackgroundColor(Color::NONE)));
+    }
+    root.with_children(|root| {
+        match image("logo") {
+            // The staged logo is 818×420 at 1920×1080.
+            Some(logo) => {
+                root.spawn((
+                    ImageNode::new(logo),
+                    Node {
+                        width: Val::Vh(818.0 / 10.8),
+                        height: Val::Vh(420.0 / 10.8),
+                        ..default()
+                    },
+                ));
+            }
+            None => {
+                root.spawn((
+                    Text::new("Tricky Towers"),
+                    TextFont {
+                        font_size: FontSize::Vh(12.0),
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                ));
+            }
+        }
+        // In a box of its own, so blinking hides the letter-drawn copy too.
+        root.spawn((Node::default(), Visibility::Inherited, StartPrompt))
+            .with_child((
+                Text::new("Press Enter to start"),
+                TextFont {
+                    font_size: FontSize::Vh(4.5),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                TextLayout::justify(Justify::Center),
+            ));
+    });
+}
+
+/// Enter, Space, A or Start goes on to the title tiles.
+fn start_input(
+    keys: Option<Res<ButtonInput<KeyCode>>>,
+    gamepads: Query<&Gamepad>,
+    game: Res<Match>,
+    mut screen: ResMut<MenuScreen>,
+) {
+    if game.phase != Phase::Menu || *screen != MenuScreen::Start {
+        return;
+    }
+    let key = keys.is_some_and(|k| {
+        k.any_just_pressed([KeyCode::Enter, KeyCode::Space, KeyCode::NumpadEnter])
+    });
+    let pad = gamepads
+        .iter()
+        .any(|p| p.any_just_pressed([GamepadButton::South, GamepadButton::Start]));
+    if key || pad {
+        *screen = MenuScreen::Main;
+    }
+}
+
+fn show_start_screen(
+    time: Res<Time>,
+    game: Res<Match>,
+    screen: Res<MenuScreen>,
+    mut root: Query<&mut Visibility, With<StartRoot>>,
+    mut prompt: Query<&mut Visibility, (With<StartPrompt>, Without<StartRoot>)>,
+) {
+    let shown = game.phase == Phase::Menu && *screen == MenuScreen::Start;
+    for mut v in &mut root {
+        v.set_if_neq(if shown {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+    }
+    if !shown {
+        return;
+    }
+    // The prompt blinks once a second (a guess).
+    let on = time.elapsed_secs().fract() < 0.75;
+    for mut v in &mut prompt {
+        v.set_if_neq(if on {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+    }
 }
 
 /// The pause menu's highlighted option and the phase Resume goes back to.
@@ -710,7 +834,8 @@ fn spin_tile_rays(
         transform.rotation = Rot2::degrees(degrees * loop_at);
     }
     let (reach, seconds) = look.corner_pulse;
-    let out = reach * (0.5 - 0.5 * (t / seconds.max(0.01) * std::f32::consts::TAU).cos());
+    // Out at the start of each loop, back at rest halfway, out again: linear.
+    let out = reach * (2.0 * (t / seconds.max(0.01)).fract() - 1.0).abs();
     // Pixels of a 1080-high screen, as a share of the view height.
     let vh = out / SCREEN.1 * 100.0;
     for (corner, mut transform) in &mut corners {

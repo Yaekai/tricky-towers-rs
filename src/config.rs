@@ -1107,8 +1107,8 @@ pub struct MenuLook {
     /// For each ray layer from the first: degrees it turns, and over how many seconds,
     /// before it starts again. Layers past the list stay still.
     pub ray_turns: Vec<(f32, f32)>,
-    /// The corners move out this many pixels (of a 1080-high screen) and back over
-    /// this many seconds (the reach is a guess).
+    /// The corners are this many pixels (of a 1080-high screen) out at the start of
+    /// each loop of this many seconds and at rest halfway through.
     pub corner_pulse: (f32, f32),
 }
 
@@ -1116,7 +1116,7 @@ impl Default for MenuLook {
     fn default() -> Self {
         Self {
             ray_turns: vec![(180.0, 2.0), (-90.0, 2.0)],
-            corner_pulse: (8.0, 1.0),
+            corner_pulse: (5.0, 1.0),
         }
     }
 }

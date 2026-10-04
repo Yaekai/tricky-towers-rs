@@ -110,4 +110,8 @@ and nothing gets installed without Max's own go-ahead.
   `menu_mode_title_*`), plus each mode tile's own background if it has one (say its name and
   size). Read where the 318×500 wizard panel's centre sits (we guess y +60), the mode tiles'
   size and spacing, and whether the third difficulty reads "Pro" or "Special" on screen.
-  Offscreen pictures: `--menu players --offscreen <dir> --shots 2`, and the same with `modes`.
+  Offscreen pictures: `--menu players --offscreen <dir> --shots 2`, and the same with `modes`
+  and `title` (without `--menu` the game now opens on the new "Press Enter to start" screen).
+- "Press Enter to start" shows the staged `logo` at 818×420 above a blinking prompt. Read the
+  original's layout of that screen (logo place and size, its debris and plants if they move,
+  the prompt's exact words, place and blink) so it can match.

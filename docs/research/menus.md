@@ -25,7 +25,8 @@ picked show a grey version of it.
 A picked tile has a coloured background, its art in colour, a frame over it, a header
 bar, four corners (69×68 on big tiles, 38×34 on small ones) and five sun-ray layers
 (556×556). There is no scale change. Ray layer 1 turns from 0 to 180° and layer 2
-from 0 to −90° every 2 s, looping. The corners pulse outward and back every second.
+from 0 to −90° every 2 s, looping. The corners pulse linearly: 5 px out at 0 s and 1 s, at rest at 0.5 s (on small
+tiles too).
 Text is white on the picked tile.
 
 ## Player select ("Select Players")

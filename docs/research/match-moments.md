@@ -25,7 +25,9 @@ Plain-language notes from Max's installed copy.
 - The veil once someone wins: not one per losing lane but two mirrored gradient strips that
   start 8 units left and right of the winner's lane centre, each the 387-pixel sprite
   stretched 5 times outward (about 60 units), at opacity 0.1. Only a 16-unit gap around the
-  winner stays clear. When the computer beats a lone player, one strip stretched 10 times
+  winner stays clear. The sprite is dark along its length and fades out at its right end
+  (its pivot): the left strip is drawn as it is, the right one mirrored, so both fades face
+  the winner. When the computer beats a lone player, one strip stretched 10 times
   covers the screen.
 - Trophy (cups only): pops from 40% to full size over 0.6 s with an elastic bounce.
 - No cup after a single match: cups show only at the end of a cup, sized Tiny, Big, Super or

@@ -15,12 +15,12 @@ Controls: arrows or A/D to move, Shift + Left/Right to nudge, Up/W/Space to rota
 Z anticlockwise, Down/S to drop faster, Q to cast your light spell and E your dark one, R to
 restart, Esc to pause (Resume, Retry, Quit).
 
-Menus follow the original: on the title tiles, the arrows and Enter pick. Local Battle opens
+Menus follow the original: "Press Enter to start" under the logo, then the title tiles, where the arrows and Enter pick. Local Battle opens
 "Select Players": Enter (or A on a pad) takes a seat, Tab (X) adds an AI wizard, Backspace (Y)
 removes one, and Enter again goes on to "Select Mode", where Left/Right pick Race, Survival,
 Puzzle or Random and Up/Down its difficulty (Easy, Normal, Pro or Random). Single Player goes
 straight to Endless Race. Esc (B) steps back. A few seconds after a match ends, "Game
-Completed" shows your place with Next match, Rematch and Main menu. `--menu players|modes|single`
+Completed" shows your place with Next match, Rematch and Main menu. `--menu title|players|modes|single`
 opens on a menu screen, for scripted pictures.
 
 Players 2 to 4 use gamepads: stick or d-pad to move, down to drop, LT/RT to nudge, A/B to rotate,

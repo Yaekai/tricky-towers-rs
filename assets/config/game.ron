@@ -32,7 +32,7 @@
             (180.0, 2.0),
             (-90.0, 2.0),
         ],
-        corner_pulse: (8.0, 1.0),
+        corner_pulse: (5.0, 1.0),
     ),
     spawn_gap: 17.0,
     kill_depth: 8.5,

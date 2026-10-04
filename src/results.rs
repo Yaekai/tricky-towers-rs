@@ -340,8 +340,10 @@ fn spawn_light(
         },
         None => Sprite::from_color(fallback.with_alpha(0.0), Vec2::ONE),
     };
-    // The left strip is the right one mirrored.
-    sprite.flip_x = strip.side < 0.0;
+    // The art is dark along its length and fades out at its right end, so the
+    // left strip is drawn as it is and the right one mirrored: both fade toward
+    // the winner.
+    sprite.flip_x = strip.side > 0.0;
     let anchor = if strip.side < 0.0 {
         bevy::sprite::Anchor::BOTTOM_RIGHT
     } else if strip.side > 0.0 {
