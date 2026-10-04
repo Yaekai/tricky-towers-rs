@@ -364,6 +364,18 @@ foreach ($k in $icons.Keys) { Add-Sprite "spell_icon_$k" $icons[$k] "icons\$k.pn
 Add-Sprite 'spell_slot_light' 'gph_spellBackground_white' 'icons\slot_light.png' 'Light spell slot background'
 Add-Sprite 'spell_slot_dark'  'gph_spellBackground_black' 'icons\slot_dark.png'  'Dark spell slot background'
 
+# --- Brick packs (BrickPack folders; picked per player on Select Players) ---
+foreach ($pk in @(@('candy','candy'), @('christmas','christmas'), @('diamond','diamond'), @('spring','easter'), @('halloween','halloween'))) {
+  foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_$($pk[0])_$s" "gph_brick$($s)_$($pk[1])_texture.png" "bricks\$($pk[0])\$s.png" "Brick $s, $($pk[0]) pack" }
+}
+foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_christmas_lights_$s" "gph_brick$($s)_christmas_lightsTexture03.png" "bricks\christmas\lights_$s.png" "Christmas pack: blinking lights layer for brick $s" }
+foreach ($pk in 'default','candy','christmas','diamond','easter','galaxy','halloween','hologram') { Add-Texture "brick_pack_icon_$pk" "icn_brickPack_$pk.png" "bricks\icons\pack_$pk.png" "Select Players: brick pack icon ($pk)" }
+foreach ($pk in @(@('candy','Candy'), @('christmas','Christmas'), @('diamond','Diamond'), @('spring','Easter'), @('galaxy','Galaxy'), @('halloween','Halloween'), @('hologram','Hologram'))) { foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "next_brick_$($pk[0])_$s" "icn_nextBrick$($pk[1])_$s.png" "bricks\icons\next_$($pk[0])_$s.png" "Next brick card icon, $($pk[0]) pack" } }
+Add-Texture 'brick_galaxy_background' 'gph_galaxy_background.png' 'bricks\galaxy\background.png' 'Galaxy pack: scrolling starfield drawn inside every brick'
+Add-Texture 'brick_galaxy_star' 'gph_star.png' 'bricks\galaxy\star.png' 'Galaxy pack: twinkling star (one twirls every 2..6 s)'
+foreach ($i in 1..3) { Add-Texture "brick_christmas_snow_$i" "gph_snow_var0$i.png" "bricks\christmas\snow_$i.png" "Christmas pack: snow cap on brick edges" }
+foreach ($d in 'Bat01','Spider01','Pumpkin01','Spiderweb') { Add-Sprite "brick_halloween_$($d.ToLower())" "gph_brick_halloween_decorations_$d" "bricks\halloween\$($d.ToLower()).png" "Halloween pack: front decoration" }
+
 # --- Settings and Trials screens (Settings / SinglePlayerGameModeSelect scenes) ---
 Add-Sprite 'settings_slider_empty' 'gph_settingsVolumeSliderEmpty' 'menu\settings_slider_empty.png' 'Settings volume slider, empty bar (190x40)'
 Add-Sprite 'settings_slider_fill' 'gph_settingsVolumeSlider' 'menu\settings_slider_fill.png' 'Settings volume slider, filled bar (190x40), cut to the value'

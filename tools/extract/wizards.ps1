@@ -1,5 +1,5 @@
 param([string]$Repo)
-# Stages wizard1..4 (the original's Wizard01..04) per "Wizards" in docs/art-layout.md: parts in
+# Stages wizard1..14 (the original's Wizard01..04, WizardAnimal01..04, WizardIndie01..06) per "Wizards" in docs/art-layout.md: parts in
 # drawing order with positions and pivots, each clip's frame animations, the cape wave and voice
 # lines. Appends to extracted\manifest.ron and extracted\staged.tsv. Run after stage.ps1.
 Add-Type -AssemblyName System.Drawing
@@ -78,6 +78,16 @@ function Read-Clip($name) {
 $clipMap = @{
   1 = [ordered]@{ idle = 'Idle'; action = 'Action'; cheer = 'Cheer'; cast_self = 'CastSelf'; casting = 'Casting'; laugh_evil = 'Wizard01Laugh'; startle = 'Wizard01Startle'; dying = 'Wizard01Dying' }
 }
+# The original's 14 characters: Wizard01-04, the Animal pack (WizardAnimal01-04, ids 5-8 here)
+# and the Indie pack (WizardIndie01-06, ids 9-14).
+$prefabName = @{}
+foreach ($w in 1..4) { $prefabName[$w] = "Wizard0$w" }
+foreach ($w in 5..8) { $prefabName[$w] = "WizardAnimal0$($w - 4)" }
+foreach ($w in 9..14) { $prefabName[$w] = "WizardIndie0$($w - 8)" }
+foreach ($w in 5..14) {
+  $pn = $prefabName[$w]
+  $clipMap[$w] = [ordered]@{ idle = "$($pn)Idle"; action = "$($pn)Action"; cheer = "$($pn)Cheer"; cast_self = "$($pn)CastSelf"; casting = "$($pn)Casting"; laugh_evil = "$($pn)Laugh"; startle = "$($pn)Startle"; dying = "$($pn)Dying" }
+}
 foreach ($w in 2..4) {
   $clipMap[$w] = [ordered]@{ idle = "Wizard0$($w)Idle"; action = "Wizard0$($w)Action"; cheer = "Wizard0$($w)Cheer"; cast_self = "Wizard0$($w)CastSelf"; casting = "Wizard0$($w)Casting"; laugh_evil = "Wizard0$($w)Laugh"; startle = "Wizard0$($w)Startle"; dying = $(if ($w -eq 4) { 'Wizard04SDying' } else { "Wizard0$($w)Dying" }) }
 }
@@ -85,8 +95,8 @@ foreach ($w in 2..4) {
 # stages the first line of each pool.
 $say = [ordered]@{ action = 'wizard_cast_3'; cheer = 'yay_02'; cast_self = 'wizard_cast_1'; casting = 'cast_02'; laugh_evil = 'laugh_evil_short01'; startle = 'sad_01'; dying = 'sad_02' }
 
-foreach ($n in 1..4) {
-  $prefab = Join-Path $A "Resources\game\wizards\Wizard0$n.prefab"
+foreach ($n in 1..14) {
+  $prefab = Join-Path $A "Resources\game\wizards\$($prefabName[$n]).prefab"
   $rows = & (Join-Path $PSScriptRoot 'prefab_tree.ps1') -Prefab $prefab -GuidIndex $G | Where-Object { $_ -match '^WizardObject/' }
   $parts = @()
   foreach ($row in $rows) {
@@ -103,7 +113,7 @@ foreach ($n in 1..4) {
     foreach ($part in $c.tracks.Keys) {
       if (-not ($parts | Where-Object name -eq $part)) { continue }
       $frames = foreach ($k in $c.tracks[$part]) {
-        $short = Snake (($k[1] -replace '^(gph_|anim_)', '') -replace '(?i)^wizard0\d', '')
+        $short = Snake (($k[1] -replace '^(gph_|anim_)', '') -replace '(?i)^wizard(animal|indie)?0\d', '')
         $key = Stage-Image $n $k[1] "wizard$($n)_img_$short"
         [string]::Format($inv, '({0:0.0###}, "{1}")', $k[0], $key)
       }
@@ -113,7 +123,7 @@ foreach ($n in 1..4) {
     }
   }
   # The cape waves on its own animator.
-  $cape = Read-Clip "Wizard0$($n)CapeWave"
+  $cape = Read-Clip "$($prefabName[$n])CapeWave"
   if ($cape -and $cape.tracks.Count -gt 0 -and ($parts | Where-Object name -eq 'cape')) {
     $tr = $cape.tracks.Values | Select-Object -First 1
     $frames = foreach ($k in $tr) { $key = Stage-Image $n $k[1] ("wizard$($n)_img_" + (Snake ($k[1] -replace '^(gph_|anim_)', ''))); [string]::Format($inv, '({0:0.0###}, "{1}")', $k[0], $key) }
