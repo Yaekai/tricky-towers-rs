@@ -692,8 +692,9 @@ fn grow_large_bricks(
             *entry = (brick.scale, brick.scale, 1.0);
         }
         let (from, to, progress) = *entry;
-        // No Rotate refusing a turn shakes the brick sideways.
-        let shaking = control.refused > 0.0;
+        // No Rotate refusing a turn shakes the brick sideways; a curse wave's lift
+        // makes its picture jump about.
+        let shaking = control.refused > 0.0 || control.picture_shake > 0.0;
         let was_shaking = if shaking {
             !shook.insert(entity)
         } else {
@@ -708,11 +709,21 @@ fn grow_large_bricks(
         entry.2 = progress;
         let factor = (from + (to - from) * progress) / to;
         let (reach, rate) = config.magic.no_rotate_reach;
-        let wobble = if shaking {
+        let wobble = if control.picture_shake > 0.0 {
+            // A fresh random jump every frame, ±reach on each axis.
+            let mut seed = (time.elapsed_secs().to_bits() ^ entity.index_u32()) | 1;
+            let mut unit = || {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                (seed % 2001) as f32 / 1000.0 - 1.0
+            };
+            Vec2::new(unit(), unit()) * control.picture_shake
+        } else if shaking {
             let t = time.elapsed_secs() * rate * std::f32::consts::TAU;
-            config.cells(reach) * t.sin()
+            Vec2::X * config.cells(reach) * t.sin()
         } else {
-            0.0
+            Vec2::ZERO
         };
         let Some(children) = children else {
             continue;
@@ -728,8 +739,8 @@ fn grow_large_bricks(
                     *transform
                 }
             };
-            transform.translation = (base.translation.truncate() * factor + Vec2::X * wobble)
-                .extend(base.translation.z);
+            transform.translation =
+                (base.translation.truncate() * factor + wobble).extend(base.translation.z);
             transform.scale = base.scale * factor;
         }
     }

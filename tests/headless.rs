@@ -1177,6 +1177,13 @@ fn a_curse_wave_holds_the_brick_in_hand_for_a_moment() {
         (later - top).abs() <= cell * shake + 0.01,
         "the held brick moved from {y} to {later}"
     );
+    // Only the picture shakes: the body sits exactly at the top, still.
+    assert_eq!(later, top, "the body itself shook");
+    let control = app.world().get::<ActiveBrick>(brick).unwrap();
+    assert!(
+        control.picture_shake > 0.0,
+        "the picture should shake while held"
+    );
 }
 
 #[test]
