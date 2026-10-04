@@ -233,3 +233,6 @@ and nothing gets installed without Max's own go-ahead.
      the leaderboard per mode (we keep one per mode, 10 rows)?
   Then offscreen screenshots: `--play endless-survival` and `--play endless-puzzle`
   (`--offscreen screenshots --shots 5,20`), and say what differs.
+- Controller rumble is in (src/input.rs `rumble_losers`): a losing player's pad rumbles 2 s when
+  their end sequence starts and 2.5 s with the rumble after the blasts. The strength (0.6 on
+  the strong motor) is a guess: read the original's rumble strength (both motors) for each.

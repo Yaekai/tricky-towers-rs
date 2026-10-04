@@ -373,6 +373,8 @@
         blast_gap_cap: 10,
         blast_shake: (0.2, 0.26, 0.05),
         rumble: (0.1, 0.13, 2.5),
+        pad_rumble: (2.0, 2.5),
+        pad_rumble_strength: 0.6,
         popup_after: 0.0,
         popup_slide: 0.25,
     ),
