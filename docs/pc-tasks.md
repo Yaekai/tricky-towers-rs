@@ -253,3 +253,18 @@ and nothing gets installed without Max's own go-ahead.
      down onto your brick), and whether light spell lines appear in trials.
   6. What the game saves for trials (we save the names beaten, in `trials.ron` next to the
      leaderboard).
+- **Cups are now playable on GUESSES** (src/cups.rs, src/cups_menu.rs, `GameConfig::cups`).
+  On Select Mode, C (or the pad's Select) cycles Single match / Tiny Cup / Big Cup / Super
+  Cup; a cup is a series of matches of the picked mode, the popup's first item reads "Next
+  match" until the last one, the standings line runs along the top, and the winner gets the
+  cup's trophy and everyone XP by cup place (saved per player seat in `xp.ron`). Please read
+  and correct, in docs/research/:
+  1. How a local cup is picked in the original (screen, wording, art) and how long each is.
+  2. Points per place (ours: 3, 2, 1, 0), tie-breaks (ours: better place in the last match),
+     and whether modes rotate or come from several picked modes ("Next match" appears "when
+     more than one mode was picked" in your popup notes, so a cup may BE the mode list).
+  3. Which trophy goes with which cup, where it is shown and how it animates (ours: centred,
+     the existing 0.6 s pop).
+  4. When XP is given in a cup (per match or at the end) and how it is shown and saved
+     (ours: at the end, by cup place, with `XpRules::for_place`).
+  5. What the screen between cup matches shows (standings? a scoreboard screen?).

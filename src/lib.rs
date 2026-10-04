@@ -12,6 +12,8 @@ pub mod art;
 pub mod casts;
 pub mod collapse;
 pub mod config;
+pub mod cups;
+pub mod cups_menu;
 pub mod effects;
 pub mod gameplay;
 pub mod input;
@@ -49,6 +51,7 @@ impl Plugin for TowerCorePlugin {
             gameplay::GameplayPlugin,
             collapse::CollapsePlugin,
             trials::TrialsPlugin,
+            cups::CupsPlugin,
             ai::AiPlugin,
         ));
     }

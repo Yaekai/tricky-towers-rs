@@ -22,7 +22,9 @@ Puzzle or Random) then the difficulty (Easy, Normal, Special or Random), Up/Down
 Enter to move on. Single Player shows your seat over Trials and Endless; Endless offers Race,
 Survival and Puzzle beside the best scores (kept between runs). Esc (B) steps back. Once the
 losing towers have fallen apart after a match, "Game Completed" slides up in the bottom-right
-corner with Rematch, Select Mode and Main menu. `--menu title|players|modes|single|endless|pause`
+corner with Rematch, Select Mode and Main menu. On Select Mode, C (or the pad's Select) picks a
+cup: a series of matches with points per place, a trophy and XP at the end (rules guessed until
+read from the original). `--menu title|players|modes|single|endless|pause`
 opens on a menu screen, for scripted pictures.
 
 Players 2 to 4 use gamepads: stick or d-pad to move, down to drop, LT/RT to nudge, A/B to rotate,

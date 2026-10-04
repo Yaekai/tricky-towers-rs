@@ -126,6 +126,8 @@ fn main() {
     if offscreen.is_none() {
         let file = tricky_towers::single::save_dir().join("leaderboard.ron");
         app.insert_resource(tricky_towers::single::Leaderboard::load(file));
+        let file = tricky_towers::single::save_dir().join("xp.ron");
+        app.insert_resource(tricky_towers::cups::XpBook::load(file));
         let file = tricky_towers::single::save_dir().join("trials.ron");
         app.insert_resource(tricky_towers::trials::TrialProgress::load(file));
     }

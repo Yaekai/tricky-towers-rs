@@ -64,6 +64,8 @@ pub struct GameConfig {
     pub casts: CastLook,
     /// Experience per match and the wizard levels it buys.
     pub xp: XpRules,
+    /// Local cups (guesses until read).
+    pub cups: CupRules,
     /// What the water does to a lost brick.
     pub water: WaterRules,
     /// Each base's collider, as read from the original.
@@ -1522,6 +1524,46 @@ impl Default for WaterRules {
 /// The splash a lost brick makes in the water, from the original
 /// (docs/research/controls-physics.md): a front layer of splash pictures that
 /// grow in and vanish, and white drops thrown up behind them. Lengths in cells.
+/// Local cups: a series of matches with points per place, a trophy for the cup
+/// winner, and XP (the original gives XP only in cups and online). Built from
+/// public descriptions and the trophy names read so far; the series length,
+/// points and tie rule are guesses `(?)` until read on the PC.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct CupRules {
+    /// Points for 1st, 2nd, 3rd and 4th place in each match (?).
+    pub points: Vec<u32>,
+    /// The cups to pick from on Select Mode, smallest first (?).
+    pub sizes: Vec<CupSize>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+pub struct CupSize {
+    pub name: String,
+    /// Matches in the cup (?).
+    pub matches: u32,
+    /// The trophy picture shown to the cup winner.
+    pub trophy: String,
+}
+
+impl Default for CupRules {
+    fn default() -> Self {
+        let size = |name: &str, matches, trophy: &str| CupSize {
+            name: name.into(),
+            matches,
+            trophy: trophy.into(),
+        };
+        Self {
+            points: vec![3, 2, 1, 0],
+            sizes: vec![
+                size("Tiny Cup", 3, "trophy"),
+                size("Big Cup", 5, "trophy_big"),
+                size("Super Cup", 7, "trophy_super"),
+            ],
+        }
+    }
+}
+
 /// Experience, from the original (docs/research/match-moments.md). Only online
 /// matches and cups give any; a single local match gives none.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
@@ -1913,6 +1955,7 @@ impl Default for GameConfig {
             splash: SplashLook::default(),
             casts: CastLook::default(),
             xp: XpRules::default(),
+            cups: CupRules::default(),
             water: WaterRules::default(),
             bases: Bases::default(),
             spawn_gap: 17.0,

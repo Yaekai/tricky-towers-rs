@@ -1,7 +1,7 @@
 //! The "Game Completed" popup after a match. Like the original it slides up
 //! into the bottom-right corner, beside WINNER! rather than over it, with a
-//! right-aligned list: Rematch, Select Mode, Main menu (and Next match when
-//! more than one mode was picked, which isn't possible here yet).
+//! right-aligned list: Rematch, Select Mode, Main menu. While a cup runs (src/cups.rs)
+//! the first item reads Next match instead (?).
 //!
 //! The original also counts up XP, but only online and in cups; local matches
 //! give none (docs/research/match-moments.md).
@@ -92,6 +92,9 @@ struct PopupRoot;
 /// The bar behind an item, shown on the picked one.
 #[derive(Component)]
 struct PopupBar(usize);
+/// The words of the first item: Rematch, or Next match during a cup.
+#[derive(Component)]
+struct FirstItem;
 
 fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
@@ -150,7 +153,7 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
                 row.insert(node);
             }
             row.with_children(|r| {
-                r.spawn((
+                let mut text = r.spawn((
                     Text::new(*item),
                     TextFont {
                         font_size: FontSize::Vh(LABEL.1 / 10.8),
@@ -159,6 +162,9 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
                     TextColor(Color::WHITE),
                     TextLayout::justify(Justify::Right),
                 ));
+                if i == 0 {
+                    text.insert(FirstItem);
+                }
             });
         }
     });
@@ -196,6 +202,7 @@ fn time_popup(
 /// Up/Down (or the d-pad) pick an item, Enter or A takes it. Rematch plays the
 /// same mode again, Select Mode goes back to the mode tiles (or the Endless
 /// screen after Endless Race), Main menu to the title tiles.
+#[allow(clippy::too_many_arguments)]
 fn popup_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     gamepads: Query<&Gamepad>,
@@ -204,6 +211,7 @@ fn popup_input(
     mut game: ResMut<Match>,
     mut screen: ResMut<MenuScreen>,
     mut request: ResMut<MatchRequest>,
+    mut cup: ResMut<crate::cups::Cup>,
 ) {
     if !popup.shown || game.phase != Phase::Over {
         return;
@@ -244,7 +252,14 @@ fn popup_input(
                 MenuScreen::Modes
             };
         }
-        _ => request.pending = true,
+        _ => {
+            // Next match carries on a running cup; after its last match (or with
+            // no cup) Rematch starts the same again from scratch.
+            if !cup.in_progress() {
+                cup.begin();
+            }
+            request.pending = true;
+        }
     }
     popup.shown = false;
 }
@@ -254,7 +269,19 @@ fn show_popup(
     popup: Res<Popup>,
     mut root: Query<(&mut Visibility, &mut Node), With<PopupRoot>>,
     mut bars: Query<(&PopupBar, Option<&mut ImageNode>, &mut BackgroundColor)>,
+    cup: Res<crate::cups::Cup>,
+    mut first: Query<&mut Text, With<FirstItem>>,
 ) {
+    let words = if cup.in_progress() {
+        "Next match"
+    } else {
+        POPUP_ITEMS[0]
+    };
+    for mut text in &mut first {
+        if text.0 != words {
+            text.0 = words.into();
+        }
+    }
     // Slides up from below the bottom edge, easing out.
     let t = if config.moments.popup_slide > 0.0 {
         ((popup.clock - config.moments.popup_after) / config.moments.popup_slide).clamp(0.0, 1.0)

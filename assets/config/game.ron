@@ -111,6 +111,19 @@
         ],
         master: "Master Wizard Level",
     ),
+    cups: (
+        points: [
+            3,
+            2,
+            1,
+            0,
+        ],
+        sizes: [
+            (name: "Tiny Cup", matches: 3, trophy: "trophy"),
+            (name: "Big Cup", matches: 5, trophy: "trophy_big"),
+            (name: "Super Cup", matches: 7, trophy: "trophy_super"),
+        ],
+    ),
     water: (
         stop: 0.9,
         spin_damp: 0.25,

@@ -19,7 +19,7 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(crate::popup::PopupPlugin)
+        app.add_plugins((crate::popup::PopupPlugin, crate::cups_menu::CupsMenuPlugin))
             .init_resource::<MenuScreen>()
             .init_resource::<MainMenu>()
             .init_resource::<PauseMenu>()

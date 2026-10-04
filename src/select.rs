@@ -671,6 +671,7 @@ pub(crate) fn modes_input(
     mut lobby: ResMut<Lobby>,
     mut config: ResMut<GameConfig>,
     mut request: ResMut<MatchRequest>,
+    mut cup: ResMut<crate::cups::Cup>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Modes {
         return;
@@ -725,6 +726,8 @@ pub(crate) fn modes_input(
     }
     lobby.column = 0;
     config.trial = None;
+    // The picked cup (or single matches) starts afresh.
+    cup.begin();
     request.pending = true;
 }
 

@@ -1412,3 +1412,49 @@ fn winning_a_trial_marks_it_done() {
     let progress = app.world().resource::<TrialProgress>();
     assert!(progress.is_done("short puzzle"));
 }
+
+#[test]
+fn a_two_match_cup_scores_both_matches_and_gives_xp() {
+    use tricky_towers::config::CupSize;
+    use tricky_towers::cups::{Cup, XpBook};
+    use tricky_towers::gameplay::MatchRequest;
+    let mut config = fast_config();
+    config.opponents = 1;
+    config.survival.drop_speed = 3.0;
+    config.cups.sizes = vec![CupSize {
+        name: "Test Cup".into(),
+        matches: 2,
+        trophy: "trophy".into(),
+    }];
+    let mut app = headless_app(config);
+    {
+        let mut cup = app.world_mut().resource_mut::<Cup>();
+        cup.pick = Some(0);
+        cup.begin();
+    }
+    // You throw every brick away, so the computer wizard wins both matches.
+    for round in 1..=2 {
+        assert!(run_until(&mut app, 40.0, |app| {
+            human_input(app).left_held = true;
+            app.world().resource::<Match>().phase == Phase::Over
+        }));
+        run_seconds(&mut app, 0.1, |_| {});
+        let cup = app.world().resource::<Cup>().clone();
+        assert_eq!(cup.played, round);
+        if round == 1 {
+            assert!(cup.in_progress());
+            app.world_mut().resource_mut::<MatchRequest>().pending = true;
+            run_seconds(&mut app, 0.1, |_| {});
+        }
+    }
+    let cup = app.world().resource::<Cup>().clone();
+    assert!(!cup.in_progress());
+    assert_eq!(
+        cup.points,
+        vec![4, 6],
+        "2 + 2 for you, 3 + 3 for the wizard"
+    );
+    assert_eq!(cup.standings, Some(vec![1, 0]));
+    // Last of two on Normal: 100 XP, kept for player 1.
+    assert_eq!(app.world().resource::<XpBook>().players, vec![100]);
+}

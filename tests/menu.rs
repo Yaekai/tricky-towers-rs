@@ -282,3 +282,26 @@ fn trials_list_plays_the_picked_trial() {
         config.trials[1].bricks.unwrap()
     );
 }
+
+#[test]
+fn c_picks_a_cup_on_select_mode_and_starting_begins_it() {
+    use tricky_towers::cups::Cup;
+    let mut app = app();
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Tab);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
+    // Single match → Tiny → Big → Super → single match → Tiny.
+    let count = app.world().resource::<GameConfig>().cups.sizes.len();
+    for _ in 0..count + 2 {
+        tap(&mut app, KeyCode::KeyC);
+    }
+    assert_eq!(app.world().resource::<Cup>().pick, Some(0));
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
+    let cup = app.world().resource::<Cup>();
+    assert_eq!((cup.size, cup.played), (Some(0), 0));
+    assert!(cup.in_progress());
+}
