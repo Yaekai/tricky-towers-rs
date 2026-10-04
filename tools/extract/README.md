@@ -26,3 +26,4 @@ Delete `extracted\` before re-running step 3 so stale entries don't linger.
 prefab with its path and position summed through its parents.
 6. Spell-effect animations that reuse inventory frames (vine_overlay_<shape>), after step 4:
    `powershell -File tools\extract\effects.ps1 -Repo .`
+`ui_tree.ps1 -Scene <file.unity> -GuidIndex research\guid_index.tsv [-Under <text>]` lists a menu's UI images with their layout rectangles.
