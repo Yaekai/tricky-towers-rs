@@ -76,6 +76,12 @@ pub struct GameConfig {
     pub start_in_menu: bool,
     /// Mode of the next match.
     pub mode: ModeKind,
+    /// The difficulty the menu picked; when set, its values from `levels` replace the
+    /// mode rules at the start of each match. Left out, the rules are used as written.
+    #[serde(default)]
+    pub difficulty: Option<Difficulty>,
+    #[serde(default)]
+    pub levels: Levels,
     /// Human players in the next match (1 to 4); player 1 uses the keyboard,
     /// the others gamepads.
     pub players: u32,
@@ -127,6 +133,10 @@ pub struct RaceRules {
     pub finish_drop_speed: f32,
     /// Base drop speed, in cells/s.
     pub drop_speed: f32,
+    /// Everyone gets the same bricks in the same order (Pro).
+    pub same_bricks: bool,
+    /// Spell lines also hand out dark spells (not on Easy).
+    pub dark_magic: bool,
 }
 
 impl Default for RaceRules {
@@ -138,6 +148,8 @@ impl Default for RaceRules {
             finish_drop_after: 120.0,
             finish_drop_speed: 0.2,
             drop_speed: 3.0,
+            same_bricks: false,
+            dark_magic: true,
         }
     }
 }
@@ -154,6 +166,13 @@ pub struct SurvivalRules {
     pub invincible_seconds: f32,
     /// Seconds after the last brick before the tower is finished.
     pub finish_countdown: f32,
+    /// Everyone gets the same bricks in the same order (Pro).
+    pub same_bricks: bool,
+    /// Spell lines also hand out dark spells (Normal only).
+    pub dark_magic: bool,
+    /// Curse waves hit everyone instead of dark spells (Pro, "Magic Waves").
+    pub curse_waves: bool,
+    pub waves: WaveRules,
 }
 
 impl Default for SurvivalRules {
@@ -164,6 +183,10 @@ impl Default for SurvivalRules {
             drop_speed: 2.0,
             invincible_seconds: 1.5,
             finish_countdown: 3.0,
+            same_bricks: false,
+            dark_magic: true,
+            curse_waves: false,
+            waves: WaveRules::default(),
         }
     }
 }
@@ -185,6 +208,16 @@ pub struct PuzzleRules {
     pub start_spell: Option<SpellKind>,
     /// A dropped brick costs no life; the laser comes this much lower instead.
     pub drop_penalty: f32,
+    /// The floor each round is built on, in place of a flat base.
+    pub floor: PuzzleFloor,
+    /// How far down the floor's columns reach, in cells.
+    pub floor_depth: f32,
+    /// Easy and Normal floors: columns, chance (%) a middle column is missing, and
+    /// how many cells lower than the top a column can be.
+    pub easy_floor: (u32, u32, u32),
+    pub normal_floor: (u32, u32, u32),
+    /// Pro floor: a pillar this wide, with a 1-cell ledge on this share (%) of rows.
+    pub pro_floor: (u32, u32),
 }
 
 impl Default for PuzzleRules {
@@ -197,6 +230,11 @@ impl Default for PuzzleRules {
             drop_speed: 3.0,
             start_spell: Some(SpellKind::Ivy),
             drop_penalty: 0.5,
+            floor: PuzzleFloor::Normal,
+            floor_depth: 6.0,
+            easy_floor: (5, 0, 2),
+            normal_floor: (6, 40, 4),
+            pro_floor: (3, 70),
         }
     }
 }
@@ -374,6 +412,8 @@ pub struct MagicRules {
     pub life_orb_lift: f32,
     pub life_orb_floor: f32,
     pub auto_build_bricks: u32,
+    /// Times a cursed or Mystery brick that is lost comes back where it fell.
+    pub respawn_limit: u32,
     /// Size of a Large brick, and how much each further Large adds.
     pub large_scale: f32,
     pub large_stack: f32,
@@ -541,6 +581,7 @@ impl Default for MagicRules {
             life_orb_lift: 3.0,
             life_orb_floor: 10.0,
             auto_build_bricks: 5,
+            respawn_limit: 3,
             large_scale: 2.0,
             large_stack: 0.5,
             fast_bricks: 5,
@@ -669,6 +710,179 @@ impl Default for AiRules {
             think_delay: 0.4,
             step_interval: 0.08,
             mistake_chance: 0.15,
+        }
+    }
+}
+
+/// The original's three difficulties. Each sets the values in [`Levels`].
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Difficulty {
+    Easy,
+    #[default]
+    Normal,
+    Pro,
+}
+
+impl Difficulty {
+    pub const ALL: [Difficulty; 3] = [Difficulty::Easy, Difficulty::Normal, Difficulty::Pro];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Difficulty::Easy => "Easy",
+            Difficulty::Normal => "Normal",
+            Difficulty::Pro => "Pro",
+        }
+    }
+}
+
+/// How the Puzzle floor is built each round (see docs/research/modes.md).
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PuzzleFloor {
+    /// Just the base.
+    Plain,
+    /// 5 columns, each up to 2 cells lower than the top.
+    Easy,
+    /// 6 columns, 40% of them missing, each up to 4 cells lower.
+    #[default]
+    Normal,
+    /// A 3-wide pillar with 1-cell ledges sticking out on 70% of the rows.
+    Pro,
+}
+
+/// The values one difficulty changes, per mode.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+pub struct Level {
+    pub race_finish_height: f32,
+    pub race_finish_drop_after: f32,
+    pub race_drop_speed: f32,
+    pub race_same_bricks: bool,
+    pub race_dark_magic: bool,
+    pub survival_bricks: u32,
+    pub survival_drop_speed: f32,
+    pub survival_dark_magic: bool,
+    pub survival_same_bricks: bool,
+    pub survival_curse_waves: bool,
+    /// Lowest laser height and how much higher it can be.
+    pub puzzle_laser: (f32, f32),
+    pub puzzle_start_spell: Option<SpellKind>,
+    pub puzzle_floor: PuzzleFloor,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct Levels {
+    pub easy: Level,
+    pub normal: Level,
+    pub pro: Level,
+}
+
+impl Default for Levels {
+    /// The original's values (docs/research/modes.md and spell-awards.md).
+    fn default() -> Self {
+        let normal = Level {
+            race_finish_height: 45.0,
+            race_finish_drop_after: 120.0,
+            race_drop_speed: 3.0,
+            race_same_bricks: false,
+            race_dark_magic: true,
+            survival_bricks: 66,
+            survival_drop_speed: 2.0,
+            survival_dark_magic: true,
+            survival_same_bricks: false,
+            survival_curse_waves: false,
+            puzzle_laser: (3.2, 4.0),
+            puzzle_start_spell: Some(SpellKind::Ivy),
+            puzzle_floor: PuzzleFloor::Normal,
+        };
+        Self {
+            easy: Level {
+                race_finish_height: 26.0,
+                race_finish_drop_after: 90.0,
+                race_drop_speed: 2.0,
+                race_dark_magic: false,
+                survival_bricks: 33,
+                survival_dark_magic: false,
+                puzzle_laser: (5.2, 2.0),
+                puzzle_start_spell: Some(SpellKind::Undo),
+                puzzle_floor: PuzzleFloor::Easy,
+                ..normal.clone()
+            },
+            pro: Level {
+                race_finish_height: 38.0,
+                race_drop_speed: 4.0,
+                race_same_bricks: true,
+                survival_drop_speed: 4.0,
+                survival_dark_magic: false,
+                survival_same_bricks: true,
+                survival_curse_waves: true,
+                puzzle_start_spell: None,
+                puzzle_floor: PuzzleFloor::Pro,
+                ..normal.clone()
+            },
+            normal,
+        }
+    }
+}
+
+/// Survival Pro's curse waves: every so often a curse hits everyone for a while.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct WaveRules {
+    /// Seconds between waves, random in this range.
+    pub every: (f32, f32),
+    /// Waves before the next level applies.
+    pub waves_per_level: u32,
+    /// Harder and harder levels; the last one stays.
+    pub levels: Vec<WaveLevel>,
+    /// The curses a wave can bring, and the shortest and longest each lasts, in seconds.
+    pub curses: Vec<(SpellKind, f32, f32)>,
+}
+
+/// One level of curse waves.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+pub struct WaveLevel {
+    /// How many different curses a wave brings at once.
+    pub curses: u32,
+    /// Seconds each wave lasts is its curse's range times this.
+    pub length_scale: f32,
+}
+
+impl Default for WaveRules {
+    /// Every 12 to 18 s; every 2 waves the next of 4 levels, with longer waves and
+    /// double or triple curses. The per-level numbers are a guess (?) until read
+    /// from the original.
+    fn default() -> Self {
+        Self {
+            every: (12.0, 18.0),
+            waves_per_level: 2,
+            levels: vec![
+                WaveLevel {
+                    curses: 1,
+                    length_scale: 1.0,
+                },
+                WaveLevel {
+                    curses: 1,
+                    length_scale: 1.25,
+                },
+                WaveLevel {
+                    curses: 2,
+                    length_scale: 1.25,
+                },
+                WaveLevel {
+                    curses: 3,
+                    length_scale: 1.5,
+                },
+            ],
+            // Large and Mist are the original's; the rest are a guess (?).
+            curses: vec![
+                (SpellKind::Large, 6.0, 8.0),
+                (SpellKind::Mist, 14.0, 14.0),
+                (SpellKind::Fast, 6.0, 8.0),
+                (SpellKind::Ice, 6.0, 8.0),
+                (SpellKind::NoRotate, 6.0, 8.0),
+                (SpellKind::AutoRotate, 6.0, 8.0),
+                (SpellKind::Mystery, 6.0, 8.0),
+            ],
         }
     }
 }
@@ -804,6 +1018,8 @@ impl Default for GameConfig {
             seed: 0x7457_4552,
             start_in_menu: false,
             mode: ModeKind::Race,
+            difficulty: None,
+            levels: Levels::default(),
             players: 1,
             opponents: 0,
             race: RaceRules::default(),
@@ -818,6 +1034,50 @@ impl Default for GameConfig {
 }
 
 impl GameConfig {
+    /// Copies the picked difficulty's values into the mode rules (nothing if none
+    /// is picked).
+    pub fn apply_difficulty(&mut self) {
+        let Some(difficulty) = self.difficulty else {
+            return;
+        };
+        let level = match difficulty {
+            Difficulty::Easy => self.levels.easy.clone(),
+            Difficulty::Normal => self.levels.normal.clone(),
+            Difficulty::Pro => self.levels.pro.clone(),
+        };
+        self.race.finish_height = level.race_finish_height;
+        self.race.finish_drop_after = level.race_finish_drop_after;
+        self.race.drop_speed = level.race_drop_speed;
+        self.race.same_bricks = level.race_same_bricks;
+        self.race.dark_magic = level.race_dark_magic;
+        self.survival.bricks_to_place = level.survival_bricks;
+        self.survival.drop_speed = level.survival_drop_speed;
+        self.survival.dark_magic = level.survival_dark_magic;
+        self.survival.same_bricks = level.survival_same_bricks;
+        self.survival.curse_waves = level.survival_curse_waves;
+        (self.puzzle.line_height, self.puzzle.line_random) = level.puzzle_laser;
+        self.puzzle.start_spell = level.puzzle_start_spell;
+        self.puzzle.floor = level.puzzle_floor;
+    }
+
+    /// Whether spell lines hand out dark spells in `mode`.
+    pub fn dark_magic(&self, mode: ModeKind) -> bool {
+        match mode {
+            ModeKind::Race => self.race.dark_magic,
+            ModeKind::Survival => self.survival.dark_magic,
+            ModeKind::Puzzle => false,
+        }
+    }
+
+    /// Whether everyone gets the same bricks in `mode`.
+    pub fn same_bricks(&self, mode: ModeKind) -> bool {
+        match mode {
+            ModeKind::Race => self.race.same_bricks,
+            ModeKind::Survival => self.survival.same_bricks,
+            ModeKind::Puzzle => true,
+        }
+    }
+
     /// Base drop speed of the current mode, in cells/s.
     pub fn drop_speed(&self) -> f32 {
         match self.mode {

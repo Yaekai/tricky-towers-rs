@@ -142,7 +142,112 @@ pub(crate) fn update_spell_lines(
         else {
             continue;
         };
-        award(&mut state, magic, rule, opponents);
+        award(
+            &mut state,
+            magic,
+            rule,
+            opponents && config.dark_magic(game.mode),
+        );
+    }
+}
+
+/// Survival Pro's curse waves: every so often a few curses hit every tower for a
+/// while, cursing each new brick (or fogging the tower, for Mist).
+#[derive(Default)]
+pub(crate) struct WaveClock {
+    round: u64,
+    next_in: f32,
+    waves: u32,
+    rng: u64,
+}
+
+impl WaveClock {
+    fn random(&mut self) -> f32 {
+        self.rng ^= self.rng << 13;
+        self.rng ^= self.rng >> 7;
+        self.rng ^= self.rng << 17;
+        (self.rng % 10_001) as f32 / 10_000.0
+    }
+}
+
+pub(crate) fn run_curse_waves(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    mut clock: Local<WaveClock>,
+    mut towers: Query<&mut TowerState>,
+) {
+    let dt = time.delta_secs();
+    for mut state in &mut towers {
+        if state.wave_left > 0.0 {
+            state.wave_left -= dt;
+            if state.wave_left <= 0.0 {
+                state.wave_mod = None;
+            }
+        }
+    }
+    let rules = &config.survival.waves;
+    let on = game.phase == Phase::Playing
+        && game.mode == ModeKind::Survival
+        && config.survival.curse_waves
+        && !rules.curses.is_empty();
+    if !on {
+        return;
+    }
+    if clock.round != game.round {
+        *clock = WaveClock {
+            round: game.round,
+            rng: config.seed ^ 0xC0FF_EE00 ^ (game.round).wrapping_mul(0x9E37_79B9),
+            ..default()
+        };
+        clock.rng |= 1;
+        let t = clock.random();
+        clock.next_in = rules.every.0 + (rules.every.1 - rules.every.0) * t;
+    }
+    clock.next_in -= dt;
+    if clock.next_in > 0.0 {
+        return;
+    }
+    let t = clock.random();
+    clock.next_in = rules.every.0 + (rules.every.1 - rules.every.0) * t;
+    let level_index = (clock.waves / rules.waves_per_level.max(1)) as usize;
+    clock.waves += 1;
+    let Some(level) = rules
+        .levels
+        .get(level_index.min(rules.levels.len().saturating_sub(1)))
+    else {
+        return;
+    };
+    // Pick distinct curses for this wave.
+    let mut pool = rules.curses.clone();
+    let mut wave = BrickMod::default();
+    let mut longest = 0.0f32;
+    let mut mist = None;
+    for _ in 0..level.curses.max(1) {
+        if pool.is_empty() {
+            break;
+        }
+        let pick = ((clock.random() * pool.len() as f32) as usize).min(pool.len() - 1);
+        let (spell, lo, hi) = pool.remove(pick);
+        let length = (lo + (hi - lo) * clock.random()) * level.length_scale;
+        longest = longest.max(length);
+        match brick_effect(spell, &config.magic) {
+            Some(effect) => wave.merge(&effect),
+            None if spell == SpellKind::Mist => mist = Some(length),
+            None => {}
+        }
+    }
+    for mut state in &mut towers {
+        if state.status != TowerStatus::Building {
+            continue;
+        }
+        if let Some(length) = mist {
+            state.mist_timer = state.mist_timer.max(length);
+        }
+        if wave != BrickMod::default() {
+            state.wave_mod = Some(wave);
+            state.wave_left = longest;
+        }
     }
 }
 
@@ -324,7 +429,7 @@ pub(crate) fn cast_spells(
 }
 
 /// What a spell does to a brick, for spells that change bricks.
-fn brick_effect(spell: SpellKind, magic: &MagicRules) -> Option<BrickMod> {
+pub(crate) fn brick_effect(spell: SpellKind, magic: &MagicRules) -> Option<BrickMod> {
     let mut m = BrickMod::default();
     match spell {
         SpellKind::Ivy => m.ivy = true,

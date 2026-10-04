@@ -10,7 +10,7 @@ use avian2d::dynamics::solver::islands::WakeBody;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 
-use crate::config::{Curse, GameConfig, ModeKind, PieceDef, SpellKind};
+use crate::config::{Curse, GameConfig, ModeKind, PieceDef, PuzzleFloor, SpellKind};
 
 pub struct GameplayPlugin;
 
@@ -29,6 +29,7 @@ impl Plugin for GameplayPlugin {
                     control_active_brick,
                     track_towers,
                     crate::spells::update_spell_lines,
+                    crate::spells::run_curse_waves,
                     crate::spells::cast_spells,
                     (
                         crate::spells::reshape_active_bricks,
@@ -133,6 +134,71 @@ pub enum TowerStatus {
     Out,
 }
 
+/// A block of the Puzzle floor (static, part of no one's tower count).
+#[derive(Component, Debug)]
+pub struct FloorBlock;
+
+/// The Puzzle floor's columns for one round: each is (x of its centre, top, bottom),
+/// in cells from the middle of the base's top. The same for every tower.
+pub fn puzzle_floor(config: &GameConfig, roll: &mut u64) -> Vec<(f32, f32, f32)> {
+    let depth = config.puzzle.floor_depth.max(1.0).round();
+    fn chance(roll: &mut u64, percent: u32) -> bool {
+        xorshift(roll) % 100 < percent as u64
+    }
+    let mut columns = Vec::new();
+    match config.puzzle.floor {
+        PuzzleFloor::Plain => {}
+        PuzzleFloor::Easy | PuzzleFloor::Normal => {
+            let (width, gaps, lowest) = if config.puzzle.floor == PuzzleFloor::Easy {
+                config.puzzle.easy_floor
+            } else {
+                config.puzzle.normal_floor
+            };
+            for i in 0..width {
+                let x = i as f32 - (width - 1) as f32 * 0.5;
+                // The outer columns always stand, so there is something to build on.
+                if i != 0 && i != width - 1 && chance(roll, gaps) {
+                    continue;
+                }
+                let drop = (xorshift(roll) % (lowest as u64 + 1)) as f32;
+                columns.push((x, -drop, -depth));
+            }
+        }
+        PuzzleFloor::Pro => {
+            let (width, ledges) = config.puzzle.pro_floor;
+            let width = width.max(1);
+            for i in 0..width {
+                columns.push((i as f32 - (width - 1) as f32 * 0.5, 0.0, -depth));
+            }
+            let edge = (width + 1) as f32 * 0.5;
+            for row in 1..depth as i32 {
+                if chance(roll, ledges) {
+                    let side = if chance(roll, 50) { -edge } else { edge };
+                    let top = -(row as f32);
+                    columns.push((side, top, top - 1.0));
+                }
+            }
+        }
+    }
+    columns
+}
+
+/// A lost cursed brick on its way back.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Respawn {
+    pub piece: usize,
+    pub mods: BrickMod,
+    pub times: u32,
+    pub x: f32,
+}
+
+/// On a placed brick that carries a curse: what it would come back as if lost.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Cursed {
+    pub mods: BrickMod,
+    pub times: u32,
+}
+
 /// Spell effects on one brick. They stack: two Large curses make it larger.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct BrickMod {
@@ -160,6 +226,17 @@ pub struct BrickMod {
 }
 
 impl BrickMod {
+    /// Whether a lost brick with these effects comes back (curses and Mystery do).
+    pub fn comes_back(&self) -> bool {
+        self.large > 0
+            || self.fast > 0.0
+            || self.friction.is_some()
+            || self.no_rotate
+            || self.auto_rotate.is_some()
+            || self.slow
+            || self.mystery
+    }
+
     pub fn merge(&mut self, other: &BrickMod) {
         self.large += other.large;
         self.friction = match (self.friction, other.friction) {
@@ -234,6 +311,12 @@ pub struct TowerState {
     pub next_mods: Vec<BrickMod>,
     /// Mystery shapes still in the bag.
     pub mystery_bag: Vec<usize>,
+    /// A lost cursed brick coming back next: its piece, effects, how many times it
+    /// has come back, and the x it was lost at.
+    pub respawn: Option<Respawn>,
+    /// A curse wave's effect on every new brick, and seconds it still lasts.
+    pub wave_mod: Option<BrickMod>,
+    pub wave_left: f32,
     pub rng: u64,
 }
 
@@ -265,6 +348,9 @@ impl TowerState {
             invincible: 0.0,
             laser_base: config.puzzle.line_height,
             next_mods: Vec::new(),
+            respawn: None,
+            wave_mod: None,
+            wave_left: 0.0,
             mystery_bag: Vec::new(),
             rng: seed.max(1),
         }
@@ -415,6 +501,8 @@ pub struct ActiveBrick {
     pub mods: BrickMod,
     /// Set when a spell changed the brick's shape or size while it was steered.
     pub reshape: bool,
+    /// Times this brick has already come back after being lost.
+    pub comebacks: u32,
     repeat_timer: f32,
     repeating: bool,
     /// Current fall speed, in cells per second.
@@ -431,6 +519,7 @@ impl ActiveBrick {
             drop_distance: None,
             mods,
             reshape: false,
+            comebacks: 0,
             repeat_timer: 0.0,
             repeating: false,
             speed: 0.0,
@@ -523,7 +612,7 @@ fn start_match(
     mut commands: Commands,
     mut request: ResMut<MatchRequest>,
     mut game: ResMut<Match>,
-    config: Res<GameConfig>,
+    mut config: ResMut<GameConfig>,
     mut log: ResMut<crate::spells::SpellLog>,
     old: Query<
         Entity,
@@ -539,6 +628,9 @@ fn start_match(
     if !std::mem::take(&mut request.pending) {
         return;
     }
+    // The picked difficulty's values replace the mode rules.
+    config.apply_difficulty();
+    let config = &*config;
     // Joints go before the bricks they hold; avian's island bookkeeping
     // breaks if a jointed body disappears first.
     for (entity, _) in &joints {
@@ -553,6 +645,11 @@ fn start_match(
     let mut roll = config.seed ^ round.wrapping_mul(0x9E37_79B9_7F4A_7C15);
     let laser = config.puzzle.line_height
         + (xorshift(&mut roll) % 1001) as f32 / 1000.0 * config.puzzle.line_random;
+    let floor = if config.mode == ModeKind::Puzzle {
+        puzzle_floor(config, &mut roll)
+    } else {
+        Vec::new()
+    };
     let humans = config.players.clamp(1, MAX_TOWERS as u32) as usize;
     let count = (humans + config.opponents as usize).min(MAX_TOWERS);
     let c = config.cell_size;
@@ -570,9 +667,19 @@ fn start_match(
             },
             TowerState {
                 laser_base: laser,
-                ..TowerState::new(&config, config.seed.wrapping_add(index as u64 * 7919))
+                ..TowerState::new(config, config.seed.wrapping_add(index as u64 * 7919))
             },
-            BrickBag::new(config.seed, config.pieces.len()),
+            // Everyone shares one brick order on Pro and in Puzzle, else each their own.
+            BrickBag::new(
+                if config.same_bricks(config.mode) {
+                    config.seed
+                } else {
+                    config
+                        .seed
+                        .wrapping_add((index as u64 + 1) * 0x2545_F491_4F6C_DD1D)
+                },
+                config.pieces.len(),
+            ),
             PlayerInput::default(),
         ));
         if !human {
@@ -580,14 +687,47 @@ fn start_match(
         }
         let tower = tower.id();
 
-        // The platform's top surface sits at y = 0.
-        commands.spawn((
+        // The platform's top surface sits at y = 0. In Puzzle the round's floor
+        // takes its place.
+        let mut platform = commands.spawn((
             Platform { tower },
-            RigidBody::Static,
-            Collider::rectangle(config.cells(config.platform_width), c),
-            Friction::new(config.brick_friction),
             Transform::from_xyz(origin_x, -c * 0.5, 0.0),
         ));
+        if floor.is_empty() {
+            platform.insert((
+                RigidBody::Static,
+                Collider::rectangle(config.cells(config.platform_width), c),
+                Friction::new(config.brick_friction),
+            ));
+        }
+        for &(x, top, bottom) in &floor {
+            let rows = (top - bottom).round().max(1.0) as i32;
+            let cells: Vec<Vec2> = (0..rows)
+                .map(|i| Vec2::new(0.0, (rows - 1) as f32 * 0.5 - i as f32))
+                .collect();
+            let block = Brick {
+                tower,
+                piece: 0,
+                cells,
+                color: Color::srgb(0.62, 0.52, 0.40),
+                scale: 1.0,
+                mass: 1.0,
+                ice: false,
+            };
+            let (collider, _) = brick_body(config, &block);
+            let centre = Vec2::new(
+                origin_x + config.cells(x),
+                config.cells((top + bottom) * 0.5),
+            );
+            commands.spawn((
+                block,
+                FloorBlock,
+                RigidBody::Static,
+                collider,
+                Friction::new(config.brick_friction),
+                Transform::from_translation(centre.extend(0.0)),
+            ));
+        }
     }
 
     log.0.clear();
@@ -625,17 +765,30 @@ fn spawn_next_brick(
         if limit.is_some_and(|n| state.bricks_used() >= n) {
             continue;
         }
-        let modifier = if state.next_mods.is_empty() {
-            BrickMod::default()
-        } else {
-            state.next_mods.remove(0)
+        let respawn = state.respawn.take();
+        let (mut modifier, piece) = match respawn {
+            // A lost cursed brick comes back as it was.
+            Some(back) => (back.mods, back.piece),
+            None => {
+                let mut modifier = if state.next_mods.is_empty() {
+                    BrickMod::default()
+                } else {
+                    state.next_mods.remove(0)
+                };
+                if let Some(wave) = &state.wave_mod {
+                    modifier.merge(wave);
+                }
+                let mut piece = bag.draw();
+                if modifier.mystery
+                    && let Some(shape) = state.draw_mystery(config.magic.mystery_pieces.len())
+                {
+                    piece = config.pieces.len() + shape;
+                }
+                (modifier, piece)
+            }
         };
-        let mut piece = bag.draw();
-        if modifier.mystery
-            && let Some(shape) = state.draw_mystery(config.magic.mystery_pieces.len())
-        {
-            piece = config.pieces.len() + shape;
-        }
+        // A Mystery piece is a curse of its own when it comes back.
+        modifier.mystery |= piece >= config.pieces.len();
         let def = piece_def(&config, piece);
         let brick = Brick {
             tower: tower_entity,
@@ -692,7 +845,12 @@ fn spawn_next_brick(
             ModeKind::Puzzle => state.stack_top.max(state.laser(&config)),
             _ => state.stack_top,
         };
-        let mut position = Vec2::new(tower.origin_x, config.cells(floor + config.spawn_gap));
+        // A returning brick comes back above where it was lost, within the lane.
+        let x = respawn.map_or(tower.origin_x, |back| {
+            let reach = config.cells(config.lane_half_width);
+            back.x.clamp(tower.origin_x - reach, tower.origin_x + reach)
+        });
+        let mut position = Vec2::new(x, config.cells(floor + config.spawn_gap));
         // Bricks flying around can still be in the way; spawn above them.
         for _ in 0..32 {
             let hits = spatial.shape_intersections(
@@ -710,7 +868,10 @@ fn spawn_next_brick(
         let entity = commands
             .spawn((
                 brick,
-                ActiveBrick::new(query_shape.clone(), modifier),
+                ActiveBrick {
+                    comebacks: respawn.map_or(0, |back| back.times),
+                    ..ActiveBrick::new(query_shape.clone(), modifier)
+                },
                 RigidBody::Kinematic,
                 // While steered, the brick is its shrunk self.
                 query_shape,
@@ -960,6 +1121,12 @@ fn control_active_brick(
             if control.mods.ivy {
                 placed_brick.insert(crate::spells::IvyPending);
             }
+            if control.mods.comes_back() {
+                placed_brick.insert(Cursed {
+                    mods: control.mods,
+                    times: control.comebacks,
+                });
+            }
             for shove in shoves {
                 let velocity = shove.velocity * c;
                 if shove.entity == entity {
@@ -982,6 +1149,14 @@ fn control_active_brick(
             commands.entity(entity).despawn();
             state.active = None;
             state.lose_brick(&config);
+            if control.mods.comes_back() && control.comebacks < config.magic.respawn_limit {
+                state.respawn = Some(Respawn {
+                    piece: brick.piece,
+                    mods: control.mods,
+                    times: control.comebacks + 1,
+                    x: position.0.x,
+                });
+            }
             continue;
         }
 
@@ -1006,6 +1181,7 @@ fn track_towers(
             &ColliderAabb,
             Has<crate::spells::Bubbled>,
             Has<crate::spells::Ghosted>,
+            Option<&Cursed>,
         ),
         Without<ActiveBrick>,
     >,
@@ -1022,7 +1198,7 @@ fn track_towers(
         state.stack_top = 0.0;
         state.all_settled = true;
     }
-    for (entity, brick, position, velocity, aabb, bubbled, ghosted) in &bricks {
+    for (entity, brick, position, velocity, aabb, bubbled, ghosted, cursed) in &bricks {
         let Ok((tower, mut state)) = towers.get_mut(brick.tower) else {
             continue;
         };
@@ -1034,6 +1210,14 @@ fn track_towers(
             }
             commands.entity(entity).despawn();
             state.lose_brick(&config);
+            if let Some(cursed) = cursed.filter(|c| c.times < config.magic.respawn_limit) {
+                state.respawn = Some(Respawn {
+                    piece: brick.piece,
+                    mods: cursed.mods,
+                    times: cursed.times + 1,
+                    x: position.0.x,
+                });
+            }
             continue;
         }
         let on_tower = (position.0.x - tower.origin_x).abs()

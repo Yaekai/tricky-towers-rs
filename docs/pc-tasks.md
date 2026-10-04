@@ -43,3 +43,8 @@ and nothing gets installed without Max's own go-ahead.
   animations from the clips you listed, and `wizard<n>_say_<clip>` voice lines. Screenshot a
   match with 2 or more towers so the wizards show.
 - Masks now read in both forms, and blue outlines take `outline` (transparent if left out).
+- Difficulty levels are in (menu Tab, or `--difficulty easy|normal|pro`). Screenshot Puzzle on
+  each difficulty to compare the floors with the original, and read the original's exact curse
+  wave levels (which curses, how many at once, how long) and Race Pro wind, for the notes.
+- Send the remaining inventory groups: Puzzle floor art (the 3 piece types and how they are
+  laid out), spell effects, match moments, menus and results.

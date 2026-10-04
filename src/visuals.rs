@@ -741,13 +741,19 @@ fn dress_platforms(
     };
     for (entity, platform) in &platforms {
         let mut base = commands.entity(entity);
-        match art_sprite(&art, art_name, c) {
+        // In Puzzle the floor blocks stand in for the base.
+        let floor = game.mode == ModeKind::Puzzle
+            && config.puzzle.floor != crate::config::PuzzleFloor::Plain;
+        match art_sprite(&art, art_name, c).filter(|_| !floor) {
             // A child, so the sprite's scale never touches the platform's collider.
             // Its pivot sits on the platform's top, half a cell above the centre.
             Some((sprite, anchor, mut transform)) => {
                 transform.translation.y = c * 0.5;
                 base.insert(Visibility::default())
                     .with_child((sprite, anchor, transform));
+            }
+            None if floor => {
+                base.insert(Visibility::default());
             }
             None => {
                 base.insert(Sprite::from_color(

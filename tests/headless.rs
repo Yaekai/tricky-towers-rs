@@ -659,6 +659,8 @@ fn bubble_lifts_the_last_brick() {
     let mut config = fast_config();
     config.mode = ModeKind::Race;
     config.opponents = 1;
+    // A brick order where the wizard's last brick is free to rise.
+    config.race.same_bricks = true;
     config.magic.enabled = true;
     let mut app = headless_app(config);
     run_seconds(&mut app, 2.5, |_| {});
@@ -883,4 +885,61 @@ fn stress_ai_spells() {
                 .len()
         );
     }
+}
+
+#[test]
+fn difficulty_sets_the_originals_values() {
+    use tricky_towers::config::{Difficulty, PuzzleFloor};
+    let mut config = GameConfig {
+        difficulty: Some(Difficulty::Easy),
+        ..GameConfig::default()
+    };
+    config.apply_difficulty();
+    assert_eq!(config.race.finish_height, 26.0);
+    assert_eq!(config.survival.bricks_to_place, 33);
+    assert!(!config.race.dark_magic);
+    assert_eq!(config.puzzle.start_spell, Some(SpellKind::Undo));
+    config.difficulty = Some(Difficulty::Pro);
+    config.apply_difficulty();
+    assert_eq!(config.race.finish_height, 38.0);
+    assert!(config.survival.curse_waves && config.race.same_bricks);
+    assert_eq!(config.puzzle.floor, PuzzleFloor::Pro);
+}
+
+#[test]
+fn puzzle_floors_follow_each_difficulty() {
+    use tricky_towers::config::PuzzleFloor;
+    use tricky_towers::gameplay::puzzle_floor;
+    let mut config = GameConfig::default();
+    for seed in 1..20u64 {
+        let mut roll = seed;
+        config.puzzle.floor = PuzzleFloor::Easy;
+        let easy = puzzle_floor(&config, &mut roll);
+        assert_eq!(easy.len(), 5);
+        assert!(easy.iter().all(|&(_, top, _)| (-2.0..=0.0).contains(&top)));
+        config.puzzle.floor = PuzzleFloor::Normal;
+        let normal = puzzle_floor(&config, &mut roll);
+        assert!((2..=6).contains(&normal.len()));
+        assert!(normal.iter().all(|&(_, top, _)| (-4.0..=0.0).contains(&top)));
+        config.puzzle.floor = PuzzleFloor::Pro;
+        let pro = puzzle_floor(&config, &mut roll);
+        assert_eq!(pro.iter().filter(|c| c.1 == 0.0).count(), 3);
+        assert!(pro.iter().all(|c| c.0.abs() <= 2.0));
+    }
+}
+
+#[test]
+fn survival_pro_waves_curse_new_bricks() {
+    let mut config = fast_config();
+    config.survival.curse_waves = true;
+    config.survival.dark_magic = false;
+    config.survival.waves.every = (0.5, 0.5);
+    let mut app = headless_app(config);
+    let cursed = run_until(&mut app, 3.0, |app| {
+        let mut towers = app.world_mut().query::<&tricky_towers::gameplay::TowerState>();
+        towers
+            .iter(app.world())
+            .any(|s| s.wave_mod.is_some() || s.mist_timer > 0.0)
+    });
+    assert!(cursed, "no curse wave arrived");
 }

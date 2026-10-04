@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::config::{GameConfig, ModeKind};
+use crate::config::{Difficulty, GameConfig, ModeKind};
 use crate::gameplay::{Match, MatchRequest, Phase, TowerState};
 
 pub struct MenuPlugin;
@@ -69,6 +69,13 @@ fn spawn_menu(mut commands: Commands, art: Option<Res<Art>>) {
 #[derive(Component)]
 struct MenuLabel;
 
+/// Steps Easy, Normal, Pro, then round again.
+fn next_difficulty(config: &mut GameConfig) {
+    let now = config.difficulty.unwrap_or_default();
+    let at = Difficulty::ALL.iter().position(|&d| d == now).unwrap_or(1);
+    config.difficulty = Some(Difficulty::ALL[(at + 1) % Difficulty::ALL.len()]);
+}
+
 fn menu_keys(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     mut config: ResMut<GameConfig>,
@@ -125,6 +132,9 @@ fn menu_keys(
         config.players = n as u32 + 1;
         config.opponents = config.opponents.min(MAX_TOWERS - config.players);
     }
+    if keys.just_pressed(KeyCode::Tab) {
+        next_difficulty(&mut config);
+    }
     if keys.any_just_pressed([KeyCode::Enter, KeyCode::Space]) {
         request.pending = true;
         *left_from = None;
@@ -152,6 +162,9 @@ fn menu_gamepads(
         }
         if pad.just_pressed(GamepadButton::DPadDown) {
             config.mode = ModeKind::ALL[(index + 1) % count];
+        }
+        if pad.just_pressed(GamepadButton::West) {
+            next_difficulty(&mut config);
         }
         if pad.any_just_pressed([GamepadButton::South, GamepadButton::Start]) {
             request.pending = true;
@@ -204,8 +217,9 @@ fn show_menu(
         "\nEsc: back to the game"
     };
     let text = format!(
-        "TRICKY TOWERS\n\n{}\n\nPlayers: {}   AI wizards: < {} >\n\nUp/Down: mode   1-4: players   Left/Right: AI wizards   Enter: play\nPlayer 1: keyboard   Players 2-4: gamepads\n\nIn game: Left/Right move   Shift+Left/Right nudge   Up/Z rotate   Down drop\nQ light spell   E dark spell   R restart   Esc menu{resume}",
+        "TRICKY TOWERS\n\n{}\n\nDifficulty: {}\nPlayers: {}   AI wizards: < {} >\n\nUp/Down: mode   Tab: difficulty   1-4: players   Left/Right: AI wizards   Enter: play\nPlayer 1: keyboard   Players 2-4: gamepads\n\nIn game: Left/Right move   Shift+Left/Right nudge   Up/Z rotate   Down drop\nQ light spell   E dark spell   R restart   Esc menu{resume}",
         modes.join("\n"),
+        config.difficulty.unwrap_or_default().name(),
         config.players,
         config.opponents
     );

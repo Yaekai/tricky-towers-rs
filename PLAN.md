@@ -33,18 +33,27 @@ Physics: avian2d (Bevy-native, deterministic fixed step). The controlled brick i
 moved with shape queries for crisp control; on contact it becomes dynamic.
 
 ## Milestones
-1. **Core loop** (done): spawn, steer, rotate, land, physics hand-off, camera,
-   race finish line with hold timer, survival lives, dropped-brick detection, restart.
-2. **Opponents, spells, puzzle, menu** (done): towers side by side with AI wizards, five spells,
-   puzzle mode with a laser line, mode menu, drop guide, next-brick preview.
-3. **Match the original** (in progress, from Max's copy, notes in `docs/research/`): controls,
-   physics and spell awards done; still to do: Ghost, the 0.3 s Large grow and Auto Rotate
-   wind-up animations, the rising balloon, Survival lost-brick invincibility, the 3 s roof
-   countdown and Pro curse waves, Puzzle random lasers, floors and most-bricks scoring,
-   brick respawn for cursed bricks, difficulty levels.
-4. **Trials/campaign** levels described in RON files.
-5. **Local multiplayer:** 2 to 4 players on gamepads, each driving a tower's `PlayerInput`. This
-   is the original's main way to play; it has no AI in battles.
-6. **Presentation:** wizard characters, sound, themes. Optional loader for art and sound from
-   your own install into the gitignored `extracted/` folder.
+1. **Core loop** (done): spawn, steer, rotate, land, physics hand-off, camera, race finish,
+   survival lives, dropped bricks, restart.
+2. **Opponents, spells, puzzle, menu** (done).
+3. **Match the original's rules** (mostly done, notes in `docs/research/`): controls, physics,
+   spell awards and all 17 spells, Survival grace and countdown, Puzzle lasers, floors and
+   scoring, difficulty levels, Survival Pro curse waves, cursed-brick respawn. Still to do:
+   Endless Race (the chasing line), Race Pro wind (strength 3 to 4, details to read from the
+   original), exact curse-wave levels (the per-level curses are a guess, marked `(?)` in
+   `config.rs`), the wider Puzzle lane.
+4. **Local multiplayer** (done): up to 4 players, keyboard and gamepads.
+5. **The original's look and sound** (in progress): loaded at runtime from the player's own
+   install via the gitignored `extracted/` folder (`docs/art-layout.md`). Done: bricks, bases,
+   backgrounds, skies, water, lines, panels, letters, animated wizards, music and sounds. To do,
+   in order: stage the wizards on Max's PC and check them, spell effect animations (Large grow,
+   Auto Rotate wind-up, rising balloon, vines growing, stone and ice transitions, particles),
+   countdown and win/lose screens, the lost-brick splash, the title menu's layout.
+6. **Trials/campaign** levels described in RON files, with the scripted enemy wizard.
 7. **Mod loading:** a `mods/` folder of RON configs and asset packs, merged at startup.
+
+## How work is split
+- Code is written in the cloud and pushed to PR #1.
+- A Claude session on Max's PC follows `docs/pc-tasks.md` after every pull: build, test,
+  re-stage `extracted\` from the install, screenshot each mode with `--play`, and report. Queue
+  PC work by adding to that file.

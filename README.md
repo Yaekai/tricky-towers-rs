@@ -7,15 +7,17 @@ written so it is easy to mod. It contains no code or assets from the original ga
 ```
 cargo run                          # play with assets/config/game.ron
 cargo run -- my_mod.ron            # play with another config
+cargo run -- --play survival --difficulty pro   # skip the menu
 cargo test                         # config + headless gameplay tests
 ```
 Controls: arrows or A/D to move, Shift + Left/Right to nudge, Up/W/Space to rotate clockwise and
 Z anticlockwise, Down/S to drop faster, Q to cast your light spell and E your dark one, R to
-restart, Esc for the menu. In the menu: Up/Down picks the mode, 1 to 4 how many people play,
-Left/Right the number of AI wizards, Enter starts.
+restart, Esc for the menu. In the menu: Up/Down picks the mode, Tab the difficulty (Easy, Normal,
+Pro), 1 to 4 how many people play, Left/Right the number of AI wizards, Enter starts.
 
 Players 2 to 4 use gamepads: stick or d-pad to move, down to drop, LT/RT to nudge, A/B to rotate,
 X for the light spell and Y for the dark one. With one player, a gamepad works for player 1 too.
+In the menu, X changes the difficulty.
 
 ![A race against three AI wizards](docs/screenshot.png)
 
@@ -27,7 +29,14 @@ Values below come from reading Max's own copy of the original; the notes are in 
 - The steered brick is moved directly and shrunk slightly; its first contact places it, at rest,
   as a normal physics body (avian2d). Gravity, friction, mass and damping match the original.
 - The drop speed rises with the tallest tower and with each player who is out.
-- Race (finish 45 cells up, coming down after 120 s), Survival (66 bricks, 3 lives) and Puzzle.
+- Race, Survival and Puzzle at the original's three difficulties, with their finish heights,
+  drop speeds, brick counts, lasers and start spells. Pro gives everyone the same bricks; Easy
+  has no dark spells.
+- Survival: lives with a moment of grace after each loss, a 3 s finish countdown, and on Pro the
+  "Magic Waves" that curse everyone every 12 to 18 s.
+- Puzzle: a shared random laser each round, a floor per difficulty (flat-ish, gappy, or a pillar
+  with ledges), dropped bricks lowering the laser, most bricks wins.
+- Cursed and Mystery bricks that are lost come back where they fell, up to 3 times.
 - Spells as the original awards them: each tower has a spell line, and reaching it gives a pair,
   one light spell and one dark curse; casting either throws the other away. Rubber-banding rules
   give players who are behind stronger spells.
@@ -38,13 +47,18 @@ Values below come from reading Max's own copy of the original; the notes are in 
   gamepads for the rest.
 - Optional AI wizards on their own towers. The original has none in battles; they're an extra.
 - Mode menu, HUD, drop guide, next-brick preview, seeded 7-bag randomizer.
+- The original's art, sound and letters, loaded at runtime from your own install once extracted
+  (see `docs/art-layout.md`): bricks with stone and ice versions, bases, the full-screen
+  backgrounds with sky, clouds, islands and water per mode, lines, spell icons, player panels,
+  animated wizards beside each tower that react to the game, music and sounds. Nothing from the
+  original is in this repo; without the extracted folder the game draws plain shapes.
 - Everything tunable (controls, physics, mode rules, spell weights, AI skill) is in
   `assets/config/game.ron`.
 
 ## What's missing
-See `PLAN.md`. In short: original art and sound loaded from your own install (the loader is in, see
-`docs/art-layout.md`), Survival curse waves and Puzzle floors, Trials and Endless, and
-difficulty levels (the defaults are Normal).
+See `PLAN.md`. In short: Endless Race and Trials, Race Pro wind, spell effect animations (Large
+grow, Auto Rotate wind-up, rising balloon, vines growing), countdown and results screens, and the
+title menu in the original's layout.
 
 ## Modding
 Copy `assets/config/game.ron`, change what you want (any field can be left out),

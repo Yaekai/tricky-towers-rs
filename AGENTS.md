@@ -35,3 +35,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-03: manifest animations (frames with times) play on any looked-up name; panel wizards animate.
 - 2026-10-03: text drawn with the original's letters when a letter sheet is staged as font_main (src/letters.rs mirrors every UI Text).
 - 2026-10-03: wizards float beside each tower from staged parts and clips, react to bricks, lines, spells, lost lives and going out (src/wizards.rs, wizards in game.ron). Masks read as list or pair, blue outlines transparent by default.
+- 2026-10-04: difficulty levels (menu Tab, --difficulty), Puzzle floors per difficulty, Survival Pro curse waves, cursed and Mystery bricks come back up to 3 times, per-player brick order except on Pro and in Puzzle. README and PLAN brought up to date.
