@@ -70,3 +70,15 @@ every spell once), Speed. Precision. (win a normal race within 80 s without drop
   "Level 3" and so on. Confirms `XpRules::name` (level 11 = Master Wizard Level 1).
 - The tournament kit ("tournament roster with official rules", papercraft crowns, a printable
   Super Cup) is for players running their own events; its rules weren't quoted.
+
+## WeirdBeard press kit (weirdbeard.nl/presskit, via search quotes; the site is blocked here)
+- Official feature list: physics puzzle gameplay; local and online multiplayer for 2 to 4
+  players; three multiplayer modes (Race, Survival, Puzzle); challenging single-player trials
+  (50); a leaderboard mode ("endless", how long you survive); 17 light and dark spells; full
+  controller support; music by Jonathan vd Wijngaarden.
+- Modes in their words, summarised: Race, beat the others to a soaring finish line; Survival,
+  place a set number of bricks before everyone else without dropping too many and losing your
+  health; Puzzle, place as many bricks as possible below a cutoff.
+- Casting a light spell gives up the chance to cast the dark one "for a while": you choose
+  between helping your own tower and hurting the others. (Matches the spell pair rule.)
+- Nothing in the feature list about local cups, mods or settings beyond the above.
