@@ -27,6 +27,7 @@ pub mod select;
 pub mod settings;
 pub mod single;
 pub mod spells;
+pub mod start;
 pub mod trials;
 pub mod trials_menu;
 pub mod visuals;

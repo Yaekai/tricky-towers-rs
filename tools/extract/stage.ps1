@@ -246,6 +246,7 @@ $notes.Add('- Select Mode: columns of 480x800 panels, 540 px apart, centred on x
 
 # --- "Press to start" screen (Start scene; logo pieces are world sprites at 26 px/unit) ---
 Add-Sprite 'start_message_background' 'gph_menuStartMessageBackground' 'menu\start_message_background.png' 'Bar behind "Press [continue] to start" (63 px high, sized to the text)'
+Add-Sprite 'logo_plain' 'gph_logo' 'menu\logo_plain.png' 'Logo alone (818x294), for the animated start screen'
 Add-Sprite 'logo_brick' 'gph_logoBrick' 'menu\logo_brick.png' 'Brick that drops onto the logo at 1.63 s'
 foreach ($i in 1..8) { Add-Sprite "logo_debris_$i" "gph_logoDebris0$i" "menu\logo_debris_$i.png" "Rubble piece $i under the logo" }
 foreach ($i in 1..4) { Add-Sprite "logo_plants_$i" "gph_logoPlants0$i" "menu\logo_plants_$i.png" "Plants growing on top of the logo, piece $i" }

@@ -338,3 +338,7 @@ and nothing gets installed without Max's own go-ahead.
   4. Endless Puzzle: bricks come in groups; the laser rises once a whole group is placed. We
      guess groups of 10 and a 1-cell rise (`EndlessPlay::laser_every`, `laser_rise`): read the
      real group size, the rise, and how the score ("conserve as many bricks as possible") counts.
+- The start screen animates from the MoveIn readout (src/start.rs, `GameConfig::start`). Stage
+  `logo_plain` (gph_logo, added to stage.ps1) with the `logo_brick`, `logo_debris_*` and
+  `logo_plants_*` pieces, take offscreen pictures at 0.4, 1.7 and 3 s (`--shots`, no `--play`),
+  and compare with your video frames. The brick's fall before 1.63 s is a guess: read it.
