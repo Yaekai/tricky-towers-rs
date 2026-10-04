@@ -1920,34 +1920,35 @@ impl Default for WeatherLook {
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct CupRules {
-    /// Points for 1st, 2nd, 3rd and 4th place in each match (?).
+    /// Points for 1st, 2nd, 3rd and 4th place in each match (4 − place).
     pub points: Vec<u32>,
-    /// The cups to pick from on Select Mode, smallest first (?).
+    /// The local cups to pick from on Select Mode, smallest first.
     pub sizes: Vec<CupSize>,
 }
 
+/// A cup is first to `target` points; a tie on the most points at or above it
+/// goes to overtime until one player leads alone (docs/research/match-moments.md).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 pub struct CupSize {
     pub name: String,
-    /// Matches in the cup (?).
-    pub matches: u32,
+    pub target: u32,
     /// The trophy picture shown to the cup winner.
     pub trophy: String,
 }
 
 impl Default for CupRules {
     fn default() -> Self {
-        let size = |name: &str, matches, trophy: &str| CupSize {
+        let size = |name: &str, target, trophy: &str| CupSize {
             name: name.into(),
-            matches,
+            target,
             trophy: trophy.into(),
         };
         Self {
             points: vec![3, 2, 1, 0],
             sizes: vec![
-                size("Tiny Cup", 3, "trophy"),
-                size("Big Cup", 5, "trophy_big"),
-                size("Super Cup", 7, "trophy_super"),
+                size("Tiny Cup", 6, "trophy"),
+                size("Big Cup", 12, "trophy_big"),
+                size("Super Cup", 18, "trophy_super"),
             ],
         }
     }

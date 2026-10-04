@@ -1607,7 +1607,7 @@ fn winning_a_trial_marks_it_done() {
 }
 
 #[test]
-fn a_two_match_cup_scores_both_matches_and_gives_xp() {
+fn a_cup_plays_matches_until_someone_reaches_the_target() {
     use tricky_towers::config::CupSize;
     use tricky_towers::cups::{Cup, XpBook};
     use tricky_towers::gameplay::MatchRequest;
@@ -1616,7 +1616,7 @@ fn a_two_match_cup_scores_both_matches_and_gives_xp() {
     config.survival.drop_speed = 3.0;
     config.cups.sizes = vec![CupSize {
         name: "Test Cup".into(),
-        matches: 2,
+        target: 6,
         trophy: "trophy".into(),
     }];
     let mut app = headless_app(config);
@@ -1648,8 +1648,8 @@ fn a_two_match_cup_scores_both_matches_and_gives_xp() {
         "2 + 2 for you, 3 + 3 for the wizard"
     );
     assert_eq!(cup.standings, Some(vec![1, 0]));
-    // Last of two on Normal: 100 XP, kept for player 1.
-    assert_eq!(app.world().resource::<XpBook>().players, vec![100]);
+    // Local cups give no XP.
+    assert!(app.world().resource::<XpBook>().players.is_empty());
 }
 
 #[test]
