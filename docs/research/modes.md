@@ -1,0 +1,111 @@
+# Survival and Puzzle in the original
+
+Plain-language notes from Max's installed copy. Units are brick cells.
+
+## Shared
+- Drop speed = base + highest tower / 10 + 2 per eliminated player.
+- Easy modes have no dark magic.
+- Race base: a 6-wide "house" platform with a small ledge on its right. Bricks that reach the
+  water line at −8.5 are removed.
+
+## Survival (Easy / Normal / Pro "Magic Waves")
+- 3 lives on every difficulty. Bricks to place: 33 / 66 / 66. Base drop speed: 2 / 2 / 4. Pro
+  gives everyone the same bricks.
+- A lost brick (one that falls out of view) costs 1 life, then 1.5 s of invincibility.
+- Used bricks = placed + discarded. At the limit a 3 s countdown runs, then a roof goes on and
+  that player is done. First to finish wins, otherwise the last wizard standing.
+- Light spells: when hurt, Extra life 4, Ivy 3, Minibase 1, Petrify 1, Undo 2. At full health,
+  the same without Extra life.
+- Normal dark sets: after Ivy or Undo, Large 10, Mystery 10, No-rotate 5, Mist 3. After Petrify or
+  Minibase, No-rotate 7, Mist 10, Fast 10, Ghost 10, plus 3 rare combos. After Extra life, harsher
+  combos.
+- Pro has no dark spells. Curse waves hit everyone every 12 to 18 s; each lasts its own random time
+  (for example Large 6 to 8 s, Mist 14 s) and curses every new brick meanwhile. Every 2 waves the
+  next of 4 levels applies, with longer waves and double or triple curses.
+
+## Puzzle (Easy / Normal / Pro "Nudge Required")
+- Laser height: random 5 to 7 / 3 to 7 / 3 to 7, each +0.2. Everyone gets the same bricks.
+- No spell lines; only a start spell: Undo / Ivy / none.
+- Floor: Easy is 5 wide and flat-ish (pieces up to 2 lower). Normal is 6 wide with 40% gaps, pieces
+  up to 4 lower. Pro is a 3-wide pillar with random 1-cell side ledges (70% per row).
+- The lane is 1.2× wider. The steering limit is the larger of the usual limit × 1.2 and the
+  tower's half width plus 1.5, measured from the widest settled brick either side of the centre.
+- A brick above the laser is zapped and that player's round ends.
+- A dropped brick costs no life; the laser effectively moves 0.5 lower.
+- When everyone has finished, the most bricks in the tower wins.
+
+## Computer opponents
+- Battles in Race, Survival and Puzzle are human-only: 2 to 4 local players, one controller or
+  keyboard each, or online. The only computer player that drops bricks is the menu's attract demo,
+  which follows a fixed loop of moves at speed 50 without looking at the tower.
+- Single player is Trials, where an "enemy wizard" who doesn't build casts dark spells from a
+  per-level script (every N seconds, at set times, or as your remaining bricks pass fractions of
+  the target), plus Endless modes.
+- Endless Race: a pacer line chases your tower. It slides in from height −15 to −5 over 1 s, then
+  rises at 0.2 cells/s. Spell lines sit at fixed heights: 10, then every 10 up to 150, then each
+  gap one longer (161, 173, ...). Each line you pick up is a checkpoint: the pacer stops, eases
+  2 cells down over 1 s, waits 2 s, then rises faster by a step that starts at 0.05 and grows
+  0.01 per checkpoint up to 0.1 (top speed 1.5). You lose when it reaches your tower top. Score
+  is 10 × height, rounded up. Light spells only, drawn from Ivy, Undo, Ivy, Undo, Petrify. No
+  lives: lost bricks are just gone. It has its own versions of the race islands and a tint
+  under the pacer line.
+- Our AI opponents are an extra beyond the original, not its main mode.
+
+## Survival Pro curse waves, exact (read from the PC install, 2026-10-04)
+
+Timing
+- Times are whole seconds, picked with an integer random that excludes the top value. So "12 to 18" really means 12 to 17 s, and a wave listed "6 to 8" lasts 6 or 7 s.
+- The first wave comes 12 to 17 s after the start. Each next wave comes 12 to 17 s after the previous one ends. The gap is counted from the end of a wave, not from its start.
+- All players share one random seed, so everyone gets the same waves at the same times.
+
+Levels
+- There are 4 levels. Within a level, waves are drawn at random without repeats.
+- After 2 waves (or sooner, if the level's list runs out) the next level starts. Level 4 then repeats, with a fresh copy of its list each time.
+
+When a wave starts
+- The current brick is paused and shakes.
+- It is moved to the top, the game waits 1 s, then control comes back.
+- The wave's curses hit that brick, and then every new brick while the wave lasts. Mist is the exception: it is applied once, at the start.
+
+The 7 curses
+- **Large**: the brick grows, with a camera shake and a rumble sound.
+- **No rotate.**
+- **Fast.**
+- **Ice.**
+- **Mist**: spawned over the top of the tower, once per wave.
+- **Ghost**: the last brick placed on the tower turns ghost for 1.5. It skips bricks that are already ghost, stone or ivy.
+- **Mystery**: the current brick becomes a Mystery brick.
+
+Waves per level (curses, length in s; the top value is excluded)
+
+| Level | Waves |
+|---|---|
+| 1 | Large 6-8; Mist 14-14 (14 s); Mystery 6-8; Fast 6-8; No rotate 6-8 |
+| 2 | Large 8-11; Mystery 8-11; Ice 6-8; Fast 8-11; No rotate 8-11; Fast+Large 4-6; Mystery+No rotate 4-6; Mist+Large 6-8 |
+| 3 | Large 12-16; Ice 8-11; No rotate 11-15; Ghost 6-8; Mist+No rotate 8-11; Mystery+Ice 6-8; No rotate+Fast 8-11; No rotate+Large 8-11 |
+| 4 | Fast 12-16; No rotate 12-16; Ice 11-15; Mystery 12-16; Ghost+Fast 6-8; Ice+Large 6-8; Mystery+Ice 8-11; Large+Large 6-8; Mist+Mystery 8-11; Large+Ghost 7-10; Mystery+Large+No rotate 6-8; Large+Fast+No rotate 6-8 |
+
+`WaveRules` now holds these four tables (src/config.rs). At a wave's start the brick in hand is lifted to the spawn height and held, shaking, for `WaveRules::hold` (1 s); the shake's reach and speed (`WaveRules::shake`) are guesses. Ghost strikes with the brick in hand and again with every new brick during the wave.
+
+## Base shapes (read from the PC install, 2026-10-04)
+
+Cells. x is measured from the base centre and y from the base top (the y = 0 line the bricks rest on). Every collider is a plain box.
+
+**Race, all difficulties** (FLOOR_RACE, picture `platform_race` = gph_house02). Endless Race uses the same shapes (FLOOR_RACE_ENDLESS) with the Endless reflection art.
+- Body: x -3..3, y -9..0. The top is 6 cells wide.
+- Chimney bump: x -1..0, y 0..1. One cell sticks up, just left of the centre.
+- Side ledges lower down, under the water: x -4..-3, y -9..-5.57 and x 3..4, y -9..-5.
+
+**Survival, all difficulties, Endless Survival too** (FLOOR_LWS, picture `platform_survival` = gph_house01_world02, the castle).
+- Merlons on top, each 1 cell high (y -1..0): x -3..-2, x -1..1, x 2..3.
+- That leaves two holes, each 1 cell wide and 1 deep: x -2..-1 and x 1..2. The tops of the merlons are the y = 0 line.
+- Body under the merlons: x -3..3, y -5..-1.
+- Wider band: x -3.5..3.5, y -7..-5.
+- Foot: x -2.5..3, y -11..-7.
+- A challenge variant (FLOOR_LWS_PETRIFIED_BRICK) adds a stone I brick lying at x 2..6, y 0..1.
+
+**Puzzle.** The floors are built from pieces that are single columns. All pieces are 13 tall (y -13..0) unless noted.
+- Easy and Normal use FLOOR_PUZZLE: piece 1 (gph_house01_world03) is 1 wide, piece 2 (gph_house02_world03) is 2 wide, piece 3 (gph_house03_world03) is 1 wide.
+- Pro uses FLOOR_PUZZLE_PRO: a centre column (gph_house03_world03) 1 wide, x -0.5..0.5. Pro pieces 1-12 and the top piece (gph_house08/11_world03 …) are 1×1 cells, x -0.5..0.5, y -1..0.
+
+In the rewrite these boxes are `GameConfig::bases` (src/config.rs); the AI, Auto Build and the on-tower check use the top's half width (`base_half_width`, 3 cells for both houses). The petrified-brick challenge variant isn't built (Trials aren't in yet).
