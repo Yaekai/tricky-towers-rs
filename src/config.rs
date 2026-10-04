@@ -1346,7 +1346,12 @@ impl XpRules {
 
     /// The level (1 up) reached with `xp`.
     pub fn level(&self, xp: u32) -> u32 {
-        let listed = self.levels.iter().filter(|&&need| xp >= need).count().max(1) as u32;
+        let listed = self
+            .levels
+            .iter()
+            .filter(|&&need| xp >= need)
+            .count()
+            .max(1) as u32;
         let top = self.levels.last().copied().unwrap_or(0);
         if listed as usize == self.levels.len() && self.level_step > 0 {
             listed + (xp - top) / self.level_step
@@ -1842,7 +1847,9 @@ mod tests {
     fn xp_per_place_and_levels() {
         let xp = XpRules::default();
         // Four players on Normal: 800, half, quarter, 100.
-        let four: Vec<u32> = (0..4).map(|p| xp.for_place(p, 4, Difficulty::Normal)).collect();
+        let four: Vec<u32> = (0..4)
+            .map(|p| xp.for_place(p, 4, Difficulty::Normal))
+            .collect();
         assert_eq!(four, vec![800, 400, 200, 100]);
         // Two players: the winner keeps the full amount, last gets 100.
         assert_eq!(xp.for_place(0, 2, Difficulty::Pro), 1000);

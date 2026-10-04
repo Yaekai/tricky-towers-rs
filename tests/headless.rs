@@ -1182,7 +1182,11 @@ fn a_losing_tower_falls_apart_before_the_popup() {
     // Build a little, then steer every brick off the edge until the lives run out.
     run_seconds(&mut app, 3.0, |_| {});
     let built = tower(&mut app, 0).bricks_placed;
-    assert!(built >= 2, "expected a few bricks first: {:?}", tower(&mut app, 0));
+    assert!(
+        built >= 2,
+        "expected a few bricks first: {:?}",
+        tower(&mut app, 0)
+    );
     assert!(run_until(&mut app, 30.0, |app| {
         human_input(app).left_held = true;
         app.world().resource::<Match>().phase == Phase::Over
@@ -1202,7 +1206,10 @@ fn a_losing_tower_falls_apart_before_the_popup() {
     human_input(&mut app).left_held = false;
 
     // Wait, blasts, rumble: about 1.5 + a little + 2.5 seconds.
-    assert!(run_until(&mut app, 8.0, |app| done(app)), "the collapse never finished");
+    assert!(
+        run_until(&mut app, 8.0, |app| done(app)),
+        "the collapse never finished"
+    );
     let world = app.world_mut();
     let stage = world.query::<&Collapse>().single(world).unwrap().stage;
     assert_eq!(stage, CollapseStage::Done);
@@ -1212,4 +1219,39 @@ fn a_losing_tower_falls_apart_before_the_popup() {
     let after = tower(&mut app, 0);
     assert_eq!(after.lives, at_end.lives);
     assert_eq!(after.bricks_dropped, at_end.bricks_dropped);
+}
+
+#[test]
+fn the_winner_keeps_its_tower_while_the_loser_falls_apart() {
+    use tricky_towers::collapse::{Collapse, CollapseStage};
+    let mut config = fast_config();
+    config.opponents = 1;
+    config.survival.drop_speed = 3.0;
+    let mut app = headless_app(config);
+    // You throw every brick away; the computer wizard is the last one standing.
+    assert!(run_until(&mut app, 40.0, |app| {
+        human_input(app).left_held = true;
+        app.world().resource::<Match>().phase == Phase::Over
+    }));
+    assert_eq!(app.world().resource::<Match>().winner, Some(1));
+    human_input(&mut app).left_held = false;
+    run_seconds(&mut app, 8.0, |_| {});
+
+    let world = app.world_mut();
+    let towers: Vec<(usize, Entity, Option<CollapseStage>)> = world
+        .query::<(Entity, &Tower, Option<&Collapse>)>()
+        .iter(world)
+        .map(|(e, t, c)| (t.index, e, c.map(|c| c.stage)))
+        .collect();
+    let (_, winner, winner_stage) = towers.iter().find(|t| t.0 == 1).copied().unwrap();
+    let (_, _, loser_stage) = towers.iter().find(|t| t.0 == 0).copied().unwrap();
+    assert_eq!(winner_stage, None, "the winner plays no end sequence");
+    assert_eq!(loser_stage, Some(CollapseStage::Done));
+    // The winner's bricks are all still there and solid.
+    let standing = world
+        .query_filtered::<&Brick, Without<avian2d::prelude::Sensor>>()
+        .iter(world)
+        .filter(|b| b.tower == winner)
+        .count();
+    assert!(standing >= 3, "the winner's tower should stand: {standing} bricks");
 }

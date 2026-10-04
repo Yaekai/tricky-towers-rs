@@ -53,7 +53,11 @@ fn wizard_spot(
         return (at.translation().truncate(), solo);
     }
     let look = &config.wizards;
-    let x = if solo { look.solo_offset_x } else { look.offset_x };
+    let x = if solo {
+        look.solo_offset_x
+    } else {
+        look.offset_x
+    };
     (
         Vec2::new(
             tower.origin_x + config.cells(x),
@@ -130,11 +134,27 @@ fn start_casts(
         if cast.spell.is_dark() {
             if !beamed_up.contains(&cast.caster) {
                 beamed_up.push(cast.caster);
-                spawn_beam(&mut commands, &config, &art, BeamKind::Up, from, caster.origin_x, cast.caster);
+                spawn_beam(
+                    &mut commands,
+                    &config,
+                    &art,
+                    BeamKind::Up,
+                    from,
+                    caster.origin_x,
+                    cast.caster,
+                );
             }
             if let Some((_, victim, victim_state)) = find(cast.target) {
                 let foot = brick_at(victim_state, victim);
-                let beam = spawn_beam(&mut commands, &config, &art, BeamKind::Down, foot, victim.origin_x, cast.target);
+                let beam = spawn_beam(
+                    &mut commands,
+                    &config,
+                    &art,
+                    BeamKind::Down,
+                    foot,
+                    victim.origin_x,
+                    cast.target,
+                );
                 // The down beam waits for the up beam to grow in.
                 commands
                     .entity(beam)
@@ -254,7 +274,8 @@ fn run_beams(
         .unwrap_or((0.0, 2000.0));
     let width = config.cells(look.beam_width);
     let reach = config.cells(look.beam_reach);
-    for (entity, mut beam, mut sprite, mut transform, mut visibility, delay, children) in &mut beams {
+    for (entity, mut beam, mut sprite, mut transform, mut visibility, delay, children) in &mut beams
+    {
         if let Some(mut delay) = delay {
             delay.0 -= dt;
             if delay.0 > 0.0 {
@@ -283,7 +304,14 @@ fn run_beams(
             }
             let lane = config.cells(config.lane_half_width * 2.0 + 2.0);
             sprite.custom_size = Some(Vec2::new(lane, view_h));
-            sprite.color.set_alpha(alpha.clamp(0.0, 1.0) * if art.image("cast_lane_beam").is_some() { 1.0 } else { 0.35 });
+            sprite.color.set_alpha(
+                alpha.clamp(0.0, 1.0)
+                    * if art.image("cast_lane_beam").is_some() {
+                        1.0
+                    } else {
+                        0.35
+                    },
+            );
             transform.translation = Vec2::new(beam.lane_x, view_y).extend(15.0);
             continue;
         }
@@ -293,7 +321,15 @@ fn run_beams(
         if squeeze >= 1.0 {
             if beam.kind == BeamKind::Down {
                 // The lane wave follows the beam down.
-                spawn_beam(&mut commands, &config, &art, BeamKind::Lane, beam.foot, beam.lane_x, beam.target);
+                spawn_beam(
+                    &mut commands,
+                    &config,
+                    &art,
+                    BeamKind::Lane,
+                    beam.foot,
+                    beam.lane_x,
+                    beam.target,
+                );
             }
             commands.entity(entity).despawn();
             continue;
@@ -448,7 +484,11 @@ fn track_clouds(
                         && cloud.dark == dark
                         && matches!(cloud.stage, CloudStage::Show | CloudStage::Float)
                     {
-                        cloud.stage = if used { CloudStage::Used } else { CloudStage::Hide };
+                        cloud.stage = if used {
+                            CloudStage::Used
+                        } else {
+                            CloudStage::Hide
+                        };
                         cloud.time = 0.0;
                     }
                 }
@@ -576,7 +616,11 @@ fn animate_clouds(
             CloudStage::Used => {
                 // Swells, then pops away, rising as the spell leaves it (?).
                 let s = (t / look.cloud_used).min(1.0);
-                let size = if s < 0.3 { 1.0 + s } else { 1.3 * (1.0 - (s - 0.3) / 0.7) };
+                let size = if s < 0.3 {
+                    1.0 + s
+                } else {
+                    1.3 * (1.0 - (s - 0.3) / 0.7)
+                };
                 (size, 0.5 * s)
             }
             CloudStage::Hide => (1.0 - (t / look.cloud_hide).min(1.0), 0.0),
@@ -597,7 +641,7 @@ fn animate_clouds(
 
 /// Grows the brick in hand when Large makes it bigger: its cells are drawn at
 /// the new size at once, so they are scaled down to the old size and eased up.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn grow_large_bricks(
     time: Res<Time>,
     config: Res<GameConfig>,
@@ -612,12 +656,16 @@ fn grow_large_bricks(
     let dt = time.delta_secs();
     sizes.retain(|entity, _| bricks.contains(*entity));
     for (entity, brick, children) in &bricks {
-        let entry = sizes.entry(entity).or_insert((brick.scale, brick.scale, 1.0));
+        let entry = sizes
+            .entry(entity)
+            .or_insert((brick.scale, brick.scale, 1.0));
         // A bigger brick than last seen: start growing from the old size.
         if brick.scale > entry.1 + 1e-4 {
             *entry = (entry.1, brick.scale, 0.0);
             let (x, y, seconds) = look.large_shake;
-            shake.kicks.push((Vec2::new(x, y) * config.cell_size, seconds));
+            shake
+                .kicks
+                .push((Vec2::new(x, y) * config.cell_size, seconds));
             if let Some(sound) = art.sounds.get("sfx_large") {
                 commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
             }
@@ -646,7 +694,8 @@ fn grow_large_bricks(
                     *transform
                 }
             };
-            transform.translation = (base.translation.truncate() * factor).extend(base.translation.z);
+            transform.translation =
+                (base.translation.truncate() * factor).extend(base.translation.z);
             transform.scale = base.scale * factor;
         }
     }
@@ -724,7 +773,10 @@ mod tests {
         assert_eq!(count::<SpellCloud>(&mut app), 2, "one cloud per held spell");
 
         // Casting light throws the dark half away: lightning, one Used, one Hide.
-        app.world_mut().get_mut::<PlayerInput>(tower).unwrap().cast_light_pressed = true;
+        app.world_mut()
+            .get_mut::<PlayerInput>(tower)
+            .unwrap()
+            .cast_light_pressed = true;
         step(&mut app, 3);
         assert_eq!(count::<Lightning>(&mut app), 1);
         let world = app.world_mut();
@@ -734,7 +786,10 @@ mod tests {
             .map(|c| (c.dark, c.stage))
             .collect();
         stages.sort_by_key(|s| s.0);
-        assert_eq!(stages, vec![(false, CloudStage::Used), (true, CloudStage::Hide)]);
+        assert_eq!(
+            stages,
+            vec![(false, CloudStage::Used), (true, CloudStage::Hide)]
+        );
         // Everything is gone after its clip.
         step(&mut app, 100);
         assert_eq!(count::<SpellCloud>(&mut app), 0);
@@ -747,7 +802,10 @@ mod tests {
             state.dark_spell = Some(Curse::new(&[SpellKind::Large], 1, None));
         }
         step(&mut app, 2);
-        app.world_mut().get_mut::<PlayerInput>(tower).unwrap().cast_dark_pressed = true;
+        app.world_mut()
+            .get_mut::<PlayerInput>(tower)
+            .unwrap()
+            .cast_dark_pressed = true;
         step(&mut app, 3);
         let world = app.world_mut();
         let kinds: Vec<bool> = world
@@ -761,7 +819,10 @@ mod tests {
         for _ in 0..200 {
             app.update();
             let world = app.world_mut();
-            saw_wave |= world.query::<&Beam>().iter(world).any(|b| b.kind == BeamKind::Lane);
+            saw_wave |= world
+                .query::<&Beam>()
+                .iter(world)
+                .any(|b| b.kind == BeamKind::Lane);
         }
         assert!(saw_wave);
         assert_eq!(count::<Beam>(&mut app), 0);
