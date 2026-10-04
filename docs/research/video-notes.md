@@ -97,6 +97,30 @@ So the whole cast reads in about 1.1 s, and both lanes show it at the same momen
   tower, for about 0.4 s, with a white flash at the top. The bubbles then slide to the
   wizard's other side, shrink and pop.
 
+## Press kit screenshots against our build
+Max's 2017 press kit (kept in the gitignored `research/images presskit/`) has promo shots of
+every mode at 1080p. Set beside our offscreen pictures at the same size (2-player Race, 25 s,
+1 AI), these differ:
+1. **Camera zoom.** The original is about 2.2× closer: a cell is about 36 px tall at 1080p
+   against about 16 px in ours. The camera follows the tower top, so in a tall match the base
+   and water are off screen. Ours always shows the base and water at the bottom.
+2. **Bottom panels.** Ours draws a portrait, name and spell slots under each base. The
+   original has none (see the HUD section above).
+3. **Next brick card.** It's missing in ours: the next brick floats unframed near the top
+   instead of sitting in the white card hanging from the top edge.
+4. **Drop guide.** Ours is a short box topped with a strip in the brick's colour. The original
+   is a plain pale column from the top edge to the tower.
+5. **Spell lines.** Ours is a rainbow line with round orbs at both ends. The original's is one
+   colour, with the two spell bubbles (icon inside) beside the wizard.
+6. **Place labels.** 1ST / 2ND under the wizards are missing in ours.
+7. **Race Special (Pro)** is shown at night in heavy rain, with a dark blue sky, rain streaks
+   and a bright white lightning column on the cast. Ours uses the day race look on Pro.
+8. **Survival** shows each player's brick count in yellow beside their card, and "WIZARD
+   OUT!" in pink over an out player's lane; a Puzzle start shows a big yellow 3-2-1 over the
+   middle.
+Ours matches on the sky, clouds, islands, the house base, the brick art and the wizard on
+the cloud.
+
 ## Still to measure
 The curse-wave start shake (no Survival Pro wave in these videos) and the explosion's frames:
 both are to be read from the install instead.
