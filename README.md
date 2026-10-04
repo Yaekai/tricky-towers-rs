@@ -8,6 +8,7 @@ written so it is easy to mod. It contains no code or assets from the original ga
 cargo run                          # play with assets/config/game.ron
 cargo run -- my_mod.ron            # play with another config
 cargo run -- --play survival --difficulty pro   # skip the menu
+cargo run -- --play race --offscreen shots --shots 5,20   # no window or sound; saves pictures
 cargo test                         # config + headless gameplay tests
 ```
 Controls: arrows or A/D to move, Shift + Left/Right to nudge, Up/W/Space to rotate clockwise and
@@ -39,6 +40,8 @@ Values below come from reading Max's own copy of the original; the notes are in 
 - Endless Race: a line rises from below and chases your tower top, speeding up from 0.2 to 1.5
   cells/s, pausing 2 s and dropping back 2 cells every 10 cells. Your best height is the score.
   (`--play endless`; the speed step per stage is a guess until it's read from the original.)
+- Race Pro wind pushes loose bricks one way each match (strength 3 to 4, from the original;
+  how strongly that pushes is a guess for now). Puzzle lanes are 1.2× wider, as in the original.
 - Cursed and Mystery bricks that are lost come back where they fell, up to 3 times.
 - Spells as the original awards them: each tower has a spell line, and reaching it gives a pair,
   one light spell and one dark curse; casting either throws the other away. Rubber-banding rules

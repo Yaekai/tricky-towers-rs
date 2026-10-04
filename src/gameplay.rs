@@ -27,6 +27,7 @@ impl Plugin for GameplayPlugin {
                     start_match,
                     spawn_next_brick,
                     control_active_brick,
+                    blow_wind,
                     track_towers,
                     crate::spells::update_spell_lines,
                     crate::spells::run_curse_waves,
@@ -81,6 +82,8 @@ pub struct Match {
     pub players: usize,
     /// Matches started so far, so each round can differ.
     pub round: u64,
+    /// Race Pro wind: sideways push on loose bricks in cells/s², positive to the right.
+    pub wind: f32,
 }
 
 impl Default for Match {
@@ -93,6 +96,7 @@ impl Default for Match {
             finish_height: 0.0,
             players: 1,
             round: 0,
+            wind: 0.0,
         }
     }
 }
@@ -656,6 +660,15 @@ fn start_match(
     let mut roll = config.seed ^ round.wrapping_mul(0x9E37_79B9_7F4A_7C15);
     let laser = config.puzzle.line_height
         + (xorshift(&mut roll) % 1001) as f32 / 1000.0 * config.puzzle.line_random;
+    // Race wind: a random strength in its range, blowing to a random side.
+    let wind = match config.race.wind {
+        Some((low, high)) if config.mode == ModeKind::Race => {
+            let strength = low + (xorshift(&mut roll) % 1001) as f32 / 1000.0 * (high - low);
+            let side = if xorshift(&mut roll).is_multiple_of(2) { 1.0 } else { -1.0 };
+            side * strength * config.race.wind_push
+        }
+        _ => 0.0,
+    };
     let floor = if config.mode == ModeKind::Puzzle {
         puzzle_floor(config, &mut roll)
     } else {
@@ -665,8 +678,12 @@ fn start_match(
     let count = (humans + config.opponents as usize).min(MAX_TOWERS);
     let c = config.cell_size;
     for index in 0..count {
-        let origin_x =
-            config.cells(config.tower_spacing) * (index as f32 - (count - 1) as f32 * 0.5);
+        // Puzzle lanes are wider, so the towers stand further apart.
+        let spacing = match config.mode {
+            ModeKind::Puzzle => config.tower_spacing * config.puzzle.lane_scale,
+            _ => config.tower_spacing,
+        };
+        let origin_x = config.cells(spacing) * (index as f32 - (count - 1) as f32 * 0.5);
         // Human players first, then the AI wizards.
         let human = index < humans;
         let mut tower = commands.spawn((
@@ -750,6 +767,7 @@ fn start_match(
         finish_height: config.race.finish_height,
         players: count,
         round,
+        wind,
     };
 }
 
@@ -858,7 +876,7 @@ fn spawn_next_brick(
         };
         // A returning brick comes back above where it was lost, within the lane.
         let x = respawn.map_or(tower.origin_x, |back| {
-            let reach = config.cells(config.lane_half_width);
+            let reach = config.cells(config.lane_reach(state.height));
             back.x.clamp(tower.origin_x - reach, tower.origin_x + reach)
         });
         let mut position = Vec2::new(x, config.cells(floor + config.spawn_gap));
@@ -965,7 +983,8 @@ fn control_active_brick(
                 &filter,
             )
         };
-        let in_lane = |x: f32| (x - tower.origin_x).abs() <= config.cells(config.lane_half_width);
+        let reach = config.cells(config.lane_reach(state.height));
+        let in_lane = |x: f32| (x - tower.origin_x).abs() <= reach;
         let mut placed = false;
         let mut shoves: Vec<Shove> = Vec::new();
 
@@ -1174,6 +1193,25 @@ fn control_active_brick(
         control.drop_distance =
             cast(position.0, rotation, Dir2::NEG_Y, config.cells(200.0)).map(|hit| hit.distance);
         commands.entity(entity).insert((position, rotation));
+    }
+}
+
+/// Race Pro wind pushes every loose brick sideways.
+#[allow(clippy::type_complexity)]
+fn blow_wind(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    mut bricks: Query<(&RigidBody, &mut LinearVelocity), (With<Brick>, Without<ActiveBrick>)>,
+) {
+    if game.wind == 0.0 || game.phase == Phase::Menu {
+        return;
+    }
+    let push = config.cells(game.wind) * time.delta_secs();
+    for (body, mut velocity) in &mut bricks {
+        if body.is_dynamic() {
+            velocity.0.x += push;
+        }
     }
 }
 

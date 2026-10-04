@@ -155,6 +155,12 @@ pub struct RaceRules {
     pub same_bricks: bool,
     /// Spell lines also hand out dark spells (not on Easy).
     pub dark_magic: bool,
+    /// Wind (Pro): a sideways push on the tower's loose bricks, its strength random in
+    /// this range and its side random each match. Left out, there is no wind.
+    pub wind: Option<(f32, f32)>,
+    /// Sideways acceleration per point of wind strength, in cells/s² (?). How the
+    /// original turns strength into a push is not read yet.
+    pub wind_push: f32,
 }
 
 impl Default for RaceRules {
@@ -168,6 +174,8 @@ impl Default for RaceRules {
             drop_speed: 3.0,
             same_bricks: false,
             dark_magic: true,
+            wind: None,
+            wind_push: 0.1,
         }
     }
 }
@@ -281,6 +289,16 @@ pub struct PuzzleRules {
     pub normal_floor: (u32, u32, u32),
     /// Pro floor: a pillar this wide, with a 1-cell ledge on this share (%) of rows.
     pub pro_floor: (u32, u32),
+    /// The lane is this much wider than in the other modes...
+    #[serde(default = "default_puzzle_lane_scale")]
+    pub lane_scale: f32,
+    /// ...and the steering limit grows by this many cells per cell of tower (?).
+    #[serde(default)]
+    pub lane_growth: f32,
+}
+
+fn default_puzzle_lane_scale() -> f32 {
+    1.2
 }
 
 impl Default for PuzzleRules {
@@ -298,6 +316,8 @@ impl Default for PuzzleRules {
             easy_floor: (5, 0, 2),
             normal_floor: (6, 40, 4),
             pro_floor: (3, 70),
+            lane_scale: 1.2,
+            lane_growth: 0.1,
         }
     }
 }
@@ -820,6 +840,9 @@ pub struct Level {
     pub race_drop_speed: f32,
     pub race_same_bricks: bool,
     pub race_dark_magic: bool,
+    /// Race wind strength range, if any.
+    #[serde(default)]
+    pub race_wind: Option<(f32, f32)>,
     pub survival_bricks: u32,
     pub survival_drop_speed: f32,
     pub survival_dark_magic: bool,
@@ -848,6 +871,7 @@ impl Default for Levels {
             race_drop_speed: 3.0,
             race_same_bricks: false,
             race_dark_magic: true,
+            race_wind: None,
             survival_bricks: 66,
             survival_drop_speed: 2.0,
             survival_dark_magic: true,
@@ -874,6 +898,7 @@ impl Default for Levels {
                 race_finish_height: 38.0,
                 race_drop_speed: 4.0,
                 race_same_bricks: true,
+                race_wind: Some((3.0, 4.0)),
                 survival_drop_speed: 4.0,
                 survival_dark_magic: false,
                 survival_same_bricks: true,
@@ -1114,6 +1139,7 @@ impl GameConfig {
         self.race.drop_speed = level.race_drop_speed;
         self.race.same_bricks = level.race_same_bricks;
         self.race.dark_magic = level.race_dark_magic;
+        self.race.wind = level.race_wind;
         self.survival.bricks_to_place = level.survival_bricks;
         self.survival.drop_speed = level.survival_drop_speed;
         self.survival.dark_magic = level.survival_dark_magic;
@@ -1139,6 +1165,18 @@ impl GameConfig {
             ModeKind::Race => self.race.same_bricks,
             ModeKind::Survival => self.survival.same_bricks,
             ModeKind::Puzzle | ModeKind::Endless => true,
+        }
+    }
+
+    /// How far either side of its lane centre a steered brick may go in the current
+    /// mode, in cells, with the tower `height` cells tall.
+    pub fn lane_reach(&self, height: f32) -> f32 {
+        match self.mode {
+            ModeKind::Puzzle => {
+                self.lane_half_width * self.puzzle.lane_scale
+                    + self.puzzle.lane_growth * height.max(0.0)
+            }
+            _ => self.lane_half_width,
         }
     }
 

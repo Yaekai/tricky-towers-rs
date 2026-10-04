@@ -40,6 +40,9 @@ Dark sets:
 - Base drop speed: 2 / 3 / 4 cells/s.
 - Pro only: every player gets the same bricks, and wind of strength 3 to 4 starting in a random
   direction.
+  - In our build the wind pushes every loose (placed, moving) brick sideways at 0.1 cells/s² per
+    point of strength, always the same way for the whole match. What the original's wind acts
+    on, how hard, and whether it turns are guesses until read.
 
 Drop speed during a match is the base, plus a tenth of the highest tower's height, plus 2 for
 each player who is out.

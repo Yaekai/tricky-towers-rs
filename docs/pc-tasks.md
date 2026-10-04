@@ -10,11 +10,13 @@ and nothing gets installed without Max's own go-ahead.
 2. Re-stage `extracted\` per `docs/art-layout.md`, filling in any newly documented names or
    fields from the original. Keep `extracted\inventory.md` (see the Inventory section)
    current.
-3. **On hold:** Max asked on 2026-10-04 at 11:55Z not to open the game while he's watching
-   something. Don't launch the game, take screenshots or open any window until Max says so
-   himself. List screenshot items as pending in your report. When he does, take screenshots of each mode started with
-   `target\debug\tricky_towers.exe --play race` (and `survival`, `puzzle`). If windows get
-   closed from outside, stop and wait for the next pull.
+3. Screenshots, offscreen only. Max uses the PC while this runs (2026-10-04 12:05Z: "you can
+   run the test on my pc but i need to see and hear nothing"). So never start the game with a
+   window, and never play sound. Use only
+   `target\debug\tricky_towers.exe --play race --offscreen screenshots --shots 5,20`
+   (and `survival`, `puzzle`, `endless`, plus `--difficulty pro` where a check needs it). It
+   opens no window, plays no sound, saves `screenshots\<mode>_<t>s.png` and quits by itself.
+   Don't steal focus or open the pictures on screen; read them yourself.
 4. Report what changed, what is still missing against the original, and anything only Max
    can decide.
 
@@ -53,3 +55,7 @@ and nothing gets installed without Max's own go-ahead.
 - Endless Race is in (`--play endless`). Screenshot it, stage the original's pacer line art as
   `pacer_line` (and any Endless-only background), and read from the original: the pacer's speed
   at each stage, where it starts, and whether Endless has spell lines and lives.
+- Race Pro wind is in as a guess (see `docs/research/spell-awards.md`). Read from the original
+  what the wind pushes (the steered brick, placed bricks, or both), how its strength turns into
+  a push, and whether it changes direction during a match. Also how the Puzzle steering limit
+  grows with the tower.

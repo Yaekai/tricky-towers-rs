@@ -288,7 +288,11 @@ impl Plugin for ArtPlugin {
     }
 }
 
-fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
+/// No sound at all: set by the offscreen mode, so a scripted run is silent.
+#[derive(Resource, Default)]
+pub struct Silent;
+
+fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>, silent: Option<Res<Silent>>) {
     let dir = extracted_dir();
     let entries = read_manifest(&dir);
     for (name, entry) in &entries {
@@ -324,6 +328,9 @@ fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>) {
         } else if is_font {
             art.fonts.insert(name.clone(), assets.load(path));
         } else if is_sound {
+            if silent.is_some() {
+                continue;
+            }
             art.sounds.insert(name.clone(), assets.load(path));
         } else {
             art.images.insert(name.clone(), assets.load(path));

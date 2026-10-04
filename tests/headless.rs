@@ -979,3 +979,27 @@ fn endless_race_ends_when_the_line_catches_the_tower() {
     assert_eq!(tower(&mut app, 0).status, TowerStatus::Out);
     assert_eq!(app.world().resource::<Match>().phase, Phase::Over);
 }
+
+#[test]
+fn race_pro_wind_blows_one_way_and_puzzle_lanes_are_wider() {
+    use tricky_towers::config::Difficulty;
+    let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    config.difficulty = Some(Difficulty::Pro);
+    let app = headless_app(config.clone());
+    let wind = app.world().resource::<Match>().wind;
+    let push = config.race.wind_push;
+    assert!(
+        (3.0 * push..=4.0 * push).contains(&wind.abs()),
+        "wind {wind}"
+    );
+
+    config.difficulty = Some(Difficulty::Normal);
+    let app = headless_app(config.clone());
+    assert_eq!(app.world().resource::<Match>().wind, 0.0);
+
+    config.mode = ModeKind::Puzzle;
+    let base = config.lane_half_width;
+    assert!(config.lane_reach(0.0) > base * 1.19);
+    assert!(config.lane_reach(10.0) > config.lane_reach(0.0));
+}

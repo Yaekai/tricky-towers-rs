@@ -23,6 +23,7 @@ impl Plugin for VisualsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ClearColor(Color::srgb(0.12, 0.14, 0.22)))
             .init_resource::<Art>()
+            .init_resource::<ViewSize>()
             .add_systems(Startup, setup_scene)
             .add_systems(
                 Update,
@@ -31,6 +32,7 @@ impl Plugin for VisualsPlugin {
                     flicker_effects,
                     dress_bubbles,
                     dress_life_orbs,
+                    track_view_size.before(fit_backgrounds).before(frame_towers),
                     spawn_backgrounds,
                     fit_backgrounds,
                     scroll_lane_layers,
@@ -47,6 +49,25 @@ impl Plugin for VisualsPlugin {
                     update_mist,
                 ),
             );
+    }
+}
+
+/// Size of the view in logical pixels: the window's, or the offscreen picture's.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct ViewSize(pub Vec2);
+
+impl Default for ViewSize {
+    fn default() -> Self {
+        Self(Vec2::new(1280.0, 720.0))
+    }
+}
+
+fn track_view_size(windows: Query<&Window>, mut view: ResMut<ViewSize>) {
+    if let Ok(window) = windows.single() {
+        let size = Vec2::new(window.width(), window.height());
+        if view.0 != size {
+            view.0 = size;
+        }
     }
 }
 
@@ -591,7 +612,7 @@ fn spawn_backgrounds(
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn fit_backgrounds(
-    windows: Query<&Window>,
+    view_size: Res<ViewSize>,
     images: Res<Assets<Image>>,
     camera: Query<(&Projection, &Transform), (With<Camera2d>, Without<Background>)>,
     mut layers: Query<(&Sprite, &mut Transform), (With<Background>, Without<Camera2d>)>,
@@ -619,18 +640,17 @@ fn fit_backgrounds(
     >,
     mut lowest: Local<Option<f32>>,
 ) {
-    let (Ok(window), Ok((Projection::Orthographic(ortho), camera))) =
-        (windows.single(), camera.single())
-    else {
+    let Ok((Projection::Orthographic(ortho), camera)) = camera.single() else {
         return;
     };
-    let view = Vec2::new(window.width(), window.height()) * ortho.scale;
+    let window = view_size.0;
+    let view = window * ortho.scale;
     for (sprite, mut transform) in &mut layers {
         let Some(image) = images.get(&sprite.image) else {
             continue;
         };
         let size = image.size_f32();
-        let cover = (window.width() / size.x).max(window.height() / size.y);
+        let cover = (window.x / size.x).max(window.y / size.y);
         transform.scale = Vec3::splat(cover * ortho.scale);
     }
     for mut sprite in &mut sky {
@@ -988,14 +1008,14 @@ fn frame_towers(
     time: Res<Time>,
     config: Res<GameConfig>,
     game: Res<Match>,
-    windows: Query<&Window>,
+    view_size: Res<ViewSize>,
     towers: Query<(&Tower, &TowerState)>,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
 ) {
-    let (Ok(window), Ok((mut transform, mut projection))) = (windows.single(), camera.single_mut())
-    else {
+    let Ok((mut transform, mut projection)) = camera.single_mut() else {
         return;
     };
+    let window = view_size.0;
     if towers.is_empty() {
         return;
     }
@@ -1015,8 +1035,8 @@ fn frame_towers(
     let below = config.kill_depth + 1.5;
     let height = config.cells(view_top + below);
     let width = max_x - min_x + config.cells(config.platform_width + 10.0);
-    let scale = (width / window.width())
-        .max(height / window.height())
+    let scale = (width / window.x)
+        .max(height / window.y)
         .max(0.5);
     let target = Vec2::new((min_x + max_x) * 0.5, height * 0.5 - config.cells(below));
 
@@ -1096,14 +1116,15 @@ fn place_panels(
     game: Res<Match>,
     art: Res<Art>,
     images: Res<Assets<Image>>,
-    windows: Query<&Window>,
+    view_size: Res<ViewSize>,
     camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     towers: Query<&Tower>,
     mut panels: Query<(&PanelLane, &mut Node, &ComputedNode)>,
 ) {
-    let (Ok(window), Ok((camera, eye))) = (windows.single(), camera.single()) else {
+    let Ok((camera, eye)) = camera.single() else {
         return;
     };
+    let window = view_size.0;
     // How far the base's art reaches below its top surface, in cells.
     let platform = format!("platform_{}", mode_key(game.mode));
     let platform = platform.as_str();
@@ -1129,8 +1150,8 @@ fn place_panels(
         };
         // Right-aligned to the base's right end, hanging below the base, on screen.
         let size = computed.size() * computed.inverse_scale_factor();
-        node.left = Val::Px((at.x - size.x).clamp(0.0, (window.width() - size.x).max(0.0)));
-        node.top = Val::Px(at.y.min(window.height() - size.y - 4.0).max(0.0));
+        node.left = Val::Px((at.x - size.x).clamp(0.0, (window.x - size.x).max(0.0)));
+        node.top = Val::Px(at.y.min(window.y - size.y - 4.0).max(0.0));
     }
 }
 

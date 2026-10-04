@@ -29,7 +29,11 @@ fn main() {
         .enumerate()
         .find(|(i, a)| {
             !a.starts_with("--")
-                && (*i == 0 || (args[i - 1] != "--play" && args[i - 1] != "--difficulty"))
+                && (*i == 0
+                    || !matches!(
+                        args[i - 1].as_str(),
+                        "--play" | "--difficulty" | "--offscreen" | "--shots"
+                    ))
         })
         .map_or_else(|| DEFAULT_CONFIG_PATH.to_string(), |(_, a)| a.clone());
     let mut config = GameConfig {
@@ -54,18 +58,52 @@ fn main() {
         config.difficulty = difficulty;
     }
 
+    // `--offscreen <folder>`: no window, no sound; save pictures at the `--shots`
+    // seconds (default 5 and 20) into the folder, then quit.
+    let value = |flag: &str| {
+        args.iter()
+            .position(|a| a == flag)
+            .and_then(|i| args.get(i + 1))
+            .cloned()
+    };
+    let offscreen = value("--offscreen").map(std::path::PathBuf::from);
+    let shots: Vec<f32> = value("--shots")
+        .map(|s| s.split(',').filter_map(|t| t.trim().parse().ok()).collect())
+        .unwrap_or_else(|| vec![5.0, 20.0]);
+
     let mut app = App::new();
     // Original art and sound from your own install, if extracted (see docs/art-layout.md).
     tricky_towers::art::register_source(&mut app);
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "Tricky Towers (Rust + Bevy rewrite)".into(),
-            resolution: (1280, 720).into(),
-            ..default()
-        }),
-        ..default()
-    }))
-    .insert_resource(config)
+    match &offscreen {
+        Some(dir) => {
+            let _ = std::fs::create_dir_all(dir);
+            app.add_plugins(
+                DefaultPlugins
+                    .set(WindowPlugin {
+                        primary_window: None,
+                        exit_condition: bevy::window::ExitCondition::DontExit,
+                        ..default()
+                    })
+                    .disable::<bevy::winit::WinitPlugin>()
+                    .disable::<bevy::audio::AudioPlugin>(),
+            )
+            .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
+                std::time::Duration::from_secs_f64(1.0 / 60.0),
+            ))
+            .insert_resource(tricky_towers::art::Silent);
+        }
+        None => {
+            app.add_plugins(DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Tricky Towers (Rust + Bevy rewrite)".into(),
+                    resolution: (1280, 720).into(),
+                    ..default()
+                }),
+                ..default()
+            }));
+        }
+    }
+    app.insert_resource(config)
     .add_plugins((
         TowerCorePlugin,
         KeyboardInputPlugin,
@@ -74,6 +112,13 @@ fn main() {
         ArtPlugin,
         LettersPlugin,
         WizardsPlugin,
-    ))
-    .run();
+    ));
+    if let Some(dir) = offscreen {
+        app.add_plugins(tricky_towers::offscreen::OffscreenPlugin {
+            dir,
+            shots,
+            size: UVec2::new(1280, 720),
+        });
+    }
+    app.run();
 }
