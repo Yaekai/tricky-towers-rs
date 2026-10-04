@@ -211,26 +211,19 @@ and nothing gets installed without Max's own go-ahead.
      level select layout and art names.
   5. **Endless Survival and Endless Puzzle:** what ends a run, how the score counts, and any
      speed-up or rule change over time (already asked above; listed here so it isn't missed).
-- **Endless Survival and Endless Puzzle are now playable, built on GUESSES** (public
-  descriptions only; src/config.rs `EndlessPlay` and `ModeKind::EndlessSurvival` /
-  `EndlessPuzzle`). Please read the original and correct each of these, writing the real
-  values in docs/research/modes.md (replace the "public descriptions only" section):
-  1. Endless Survival score: we give 10 per brick placed. Is it bricks, height, or something
-     else? How is it rounded and shown?
-  2. Endless Survival lives (we use Survival's 3), the grace time after a lost life (we use
-     Survival's 1.5 s) and drop speed (we use Survival Normal's 2 + the usual height bonus).
-     Does it speed up over time?
-  3. Endless Survival spells: we hand out Survival's light spells on spell lines, no dark ones.
-     Are there spell lines at all, which spells, and are there curse waves?
-  4. Endless Puzzle laser: we start at Puzzle Normal's height (3.2 + random 0..4) and raise it 1
-     cell every 3 bricks placed. How does the original move the laser (per brick, per height,
-     over time, by stages)?
-  5. Endless Puzzle failing: we end the run on any dropped brick or a brick settled above the
-     laser. Is a drop a fail, or does it lower the laser like battle Puzzle?
-  6. Endless Puzzle score: we give 10 per brick placed. What does the original count?
-  7. Endless Puzzle start spell (we give Puzzle Normal's Ivy) and floor (Puzzle Normal's).
-  8. Both: do they use a difficulty (we force Normal), which base and background, and is
-     the leaderboard per mode (we keep one per mode, 10 rows)?
+- **Endless Survival and Endless Puzzle now follow your readout** (modes.md, 2026-10-05;
+  `EndlessPlay` in src/config.rs, `EndlessPlay::apply` in `start_match`). Done: Survival drop
+  speed 4, light spells Ivy/Minibase/Petrify only, the 4 wave tables counted in bricks, waves
+  15-29 s apart; Puzzle one life, drop speed 2, laser from 6.2, levels of 6, 8, 10 ... 26
+  bricks, level-up wait 0.3 s / rise 4 cells over 0.5 s / wait 0.3 s, one Undo each level;
+  score = bricks in the tower for both. Still guessed (?): Endless Survival lives (the max
+  health setting, we use 5); whether the wave gap counts from a wave's start (we do) or its
+  end; how many waves before the next wave level (we use Survival Pro's 2); the lift, hold and
+  shake at a wave's start (Survival Pro's); how long a counted Mist wave fogs (Mist's 15 s).
+  Not done: Endless Puzzle obstacle blocks at level-ups (their placement needs the code that
+  picks them), its 1.2× camera zoom, removing bricks 4 cells above the view, the cream drop
+  guide, the level-up sounds, the Large wave's camera shake, the end countdown after a zap,
+  roof pieces (Puzzle roof / ROOF_02).
   Then offscreen screenshots: `--play endless-survival` and `--play endless-puzzle`
   (`--offscreen screenshots --shots 5,20`), and say what differs.
 - Controller rumble is in (src/input.rs `rumble_losers`): a losing player's pad rumbles 2 s when

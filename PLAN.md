@@ -44,8 +44,9 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    values from the original). Race Pro wind and the wider Puzzle lane, from the original.
    Survival Pro curse waves follow the original's four tables. Losing towers fall apart before
    the popup (`src/collapse.rs`). XP and wizard levels are in as data (`XpRules`) for when cups
-   exist. Still to do: Endless Survival and Endless Puzzle, cups, the Survival roof (all wait on
-   readouts queued in `docs/pc-tasks.md`).
+   exist. The 50 original trials and the Endless Survival/Puzzle rules follow the PC readouts.
+   Still to do: trial floors and rival towers, Endless Puzzle obstacle blocks, cups, the
+   Survival roof (all wait on readouts queued in `docs/pc-tasks.md`).
 4. **Local multiplayer** (done): up to 4 players, keyboard and gamepads.
 5. **The original's look and sound** (in progress): loaded at runtime from the player's own
    install via the gitignored `extracted/` folder (`docs/art-layout.md`). Done: bricks, bases,

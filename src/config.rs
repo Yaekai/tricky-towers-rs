@@ -357,32 +357,132 @@ impl EndlessRules {
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct EndlessPlay {
-    /// Endless Survival: score per brick placed (?). Lives and drop speed are
-    /// Survival's (?).
-    pub survival_score_per_brick: u32,
-    /// Endless Survival hands out light spells like Survival does (?).
-    pub survival_spells: bool,
-    /// Endless Puzzle: bricks come in groups of `laser_every`; the laser starts at
-    /// Puzzle's height and rises `laser_rise` cells once every brick of a group is
-    /// placed (fan wiki; the group size and rise are guesses, ?).
+    /// Endless Survival (docs/research/modes.md): lives are the game's maximum
+    /// health setting, which the scripts don't hold (?).
+    pub survival_lives: u32,
+    pub survival_drop_speed: f32,
+    /// Spell lines give one of these at random, light only.
+    pub survival_light: Vec<SpellKind>,
+    /// Curse waves 15 to 29 s apart, each lasting a number of bricks.
+    pub survival_waves: WaveRules,
+    /// Endless Puzzle: one life, drop speed 2, the laser starts at 6.2.
+    pub puzzle_drop_speed: f32,
+    pub laser_start: f32,
+    /// Level 1 allows `first_bricks`; each level after allows
+    /// min(`most_bricks`, `first_bricks` + `bricks_per_level` × level) more.
+    pub first_bricks: u32,
+    pub bricks_per_level: u32,
+    pub most_bricks: u32,
+    /// A level-up: wait, the laser rises `laser_rise` cells over `rise_seconds`,
+    /// wait again, then the laser zaps and `level_spell` is given.
     pub laser_rise: f32,
-    pub laser_every: u32,
-    /// Endless Puzzle: score per brick placed (?).
-    pub puzzle_score_per_brick: u32,
-    /// Endless Puzzle: a dropped brick ends the run, as in puzzle trials (?), instead
-    /// of lowering the laser.
-    pub puzzle_drop_ends_run: bool,
+    pub rise_seconds: f32,
+    pub level_wait: (f32, f32),
+    pub level_spell: Option<SpellKind>,
 }
 
 impl Default for EndlessPlay {
     fn default() -> Self {
+        use SpellKind::{Fast, Ghost, Ice, Large, Mist, Mystery, NoRotate as NoTurn};
+        let w = Wave::bricks;
         Self {
-            survival_score_per_brick: 10,
-            survival_spells: true,
-            laser_rise: 1.0,
-            laser_every: 10,
-            puzzle_score_per_brick: 10,
-            puzzle_drop_ends_run: true,
+            survival_lives: crate::trial_list::MAX_TRIAL_LIVES,
+            survival_drop_speed: 4.0,
+            survival_light: vec![SpellKind::Ivy, SpellKind::Minibase, SpellKind::Petrify],
+            survival_waves: WaveRules {
+                gap: (15, 30),
+                levels: vec![
+                    vec![
+                        w(&[Large], 2),
+                        w(&[Mist], 3),
+                        w(&[Mystery], 2),
+                        w(&[Fast], 4),
+                        w(&[NoTurn], 3),
+                    ],
+                    vec![
+                        w(&[Large], 3),
+                        w(&[Mystery], 3),
+                        w(&[Ice], 3),
+                        w(&[Fast], 5),
+                        w(&[NoTurn], 4),
+                        w(&[Fast, Large], 2),
+                        w(&[Mystery, NoTurn], 2),
+                        w(&[Mist, Large], 2),
+                    ],
+                    vec![
+                        w(&[Large], 4),
+                        w(&[Ice], 4),
+                        w(&[NoTurn], 5),
+                        w(&[Ghost], 2),
+                        w(&[Mist, NoTurn], 4),
+                        w(&[Mystery, Ice], 3),
+                        w(&[NoTurn, Fast], 4),
+                        w(&[NoTurn, Large], 3),
+                    ],
+                    vec![
+                        w(&[Fast], 5),
+                        w(&[Large], 7),
+                        w(&[NoTurn], 6),
+                        w(&[Ice], 5),
+                        w(&[Mystery], 6),
+                        w(&[Ghost, Fast], 3),
+                        w(&[Ice, Large], 4),
+                        w(&[Mystery, Ice], 5),
+                        w(&[Mist, Mystery], 5),
+                        w(&[Large, Ghost], 5),
+                        w(&[Mystery, Large, NoTurn], 4),
+                        w(&[Large, Fast, NoTurn], 5),
+                    ],
+                ],
+                // Lift, hold, shake and waves per level as in Survival Pro (?).
+                ..WaveRules::default()
+            },
+            puzzle_drop_speed: 2.0,
+            laser_start: 6.2,
+            first_bricks: 6,
+            bricks_per_level: 2,
+            most_bricks: 26,
+            laser_rise: 4.0,
+            rise_seconds: 0.5,
+            level_wait: (0.3, 0.3),
+            level_spell: Some(SpellKind::Undo),
+        }
+    }
+}
+
+impl EndlessPlay {
+    /// Bricks allowed in Endless Puzzle level `level` (1 is the first).
+    pub fn level_bricks(&self, level: u32) -> u32 {
+        if level <= 1 {
+            return self.first_bricks;
+        }
+        (self.first_bricks + self.bricks_per_level * (level - 1)).min(self.most_bricks)
+    }
+
+    /// Puts Endless Survival's or Endless Puzzle's rules over the battle mode's.
+    pub fn apply(&self, config: &mut GameConfig) {
+        match config.mode {
+            ModeKind::EndlessSurvival => {
+                let rules = &mut config.survival;
+                rules.lives = self.survival_lives;
+                rules.drop_speed = self.survival_drop_speed;
+                rules.bricks_to_place = u32::MAX;
+                rules.dark_magic = false;
+                rules.curse_waves = true;
+                rules.waves = self.survival_waves.clone();
+                config.magic.award_rules = vec![AwardRule {
+                    light: self.survival_light.iter().map(|&s| (s, 1)).collect(),
+                    ..default()
+                }];
+            }
+            ModeKind::EndlessPuzzle => {
+                let rules = &mut config.puzzle;
+                rules.drop_speed = self.puzzle_drop_speed;
+                rules.line_height = self.laser_start;
+                rules.line_random = 0.0;
+                rules.start_spell = None;
+            }
+            _ => {}
         }
     }
 }
@@ -1452,11 +1552,14 @@ pub struct WaveRules {
     pub shake: f32,
 }
 
-/// One curse wave: its curses, and how long it lasts in whole seconds (top left out).
+/// One curse wave: its curses, and how long it lasts in whole seconds (top left out),
+/// or in bricks when `bricks` isn't 0 (the brick in hand counts as the first).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 pub struct Wave {
     pub curses: Vec<SpellKind>,
     pub seconds: (u32, u32),
+    #[serde(default)]
+    pub bricks: u32,
 }
 
 impl Wave {
@@ -1464,6 +1567,16 @@ impl Wave {
         Self {
             curses: curses.to_vec(),
             seconds,
+            bricks: 0,
+        }
+    }
+
+    /// A wave that lasts `bricks` bricks (Endless Survival) instead of seconds.
+    fn bricks(curses: &[SpellKind], bricks: u32) -> Self {
+        Self {
+            curses: curses.to_vec(),
+            seconds: (0, 0),
+            bricks,
         }
     }
 }
@@ -2396,7 +2509,7 @@ impl GameConfig {
     }
 
     /// Base drop speed of the current mode, in cells/s. Endless Survival and Endless
-    /// Puzzle use their battle mode's (?).
+    /// Puzzle use their battle mode's, set by `EndlessPlay::apply`.
     pub fn drop_speed(&self) -> f32 {
         match self.mode.rules() {
             ModeKind::Survival => self.survival.drop_speed,

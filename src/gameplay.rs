@@ -416,6 +416,15 @@ pub struct TowerState {
     pub wave_hold_x: f32,
     /// A trial's "(random)" spell line: cast the light spell next tick.
     pub auto_cast_light: bool,
+    /// Bricks still to curse in an Endless Survival wave, after the brick in hand.
+    pub wave_bricks: u32,
+    /// Bricks that fell out of the tower after being placed.
+    pub tower_losses: u32,
+    /// Endless Puzzle: the level, the bricks used when it ends, and the time into
+    /// a level-up while one runs.
+    pub puzzle_level: u32,
+    pub level_end: u32,
+    pub level_up: Option<f32>,
     pub wave_lift: (f32, f32),
     /// Endless Race: the pacer line's height in cells, checkpoints reached, its speed
     /// and the step the next checkpoint adds, seconds left of the checkpoint stop, the
@@ -441,7 +450,11 @@ impl TowerState {
             status: TowerStatus::Building,
             bricks_placed: 0,
             bricks_dropped: 0,
-            lives: (config.mode.rules() == ModeKind::Survival).then_some(config.survival.lives),
+            lives: match config.mode {
+                // Endless Puzzle has one life: a lost brick ends the run.
+                ModeKind::EndlessPuzzle => Some(1),
+                mode => (mode.rules() == ModeKind::Survival).then_some(config.survival.lives),
+            },
             height: 0.0,
             stack_top: 0.0,
             all_settled: true,
@@ -473,6 +486,11 @@ impl TowerState {
             wave_hold: 0.0,
             wave_hold_x: 0.0,
             auto_cast_light: false,
+            wave_bricks: 0,
+            tower_losses: 0,
+            puzzle_level: 1,
+            level_end: config.endless_play.level_bricks(1),
+            level_up: None,
             wave_lift: (0.0, 0.0),
             pacer: config.endless.intro_from,
             pacer_stages: 0,
@@ -532,22 +550,20 @@ impl TowerState {
     /// Puzzle laser height for this tower: each dropped brick brings it lower.
     pub fn laser(&self, config: &GameConfig) -> f32 {
         if config.mode == ModeKind::EndlessPuzzle {
-            // Endless Puzzle: the laser climbs as bricks go down (?).
+            // Endless Puzzle: the laser rises at each level-up.
             let rules = &config.endless_play;
-            let steps = self.bricks_placed / rules.laser_every.max(1);
-            return self.laser_base + rules.laser_rise * steps as f32;
+            let rising = self.level_up.map_or(0.0, |t| {
+                let k = ((t - rules.level_wait.0) / rules.rise_seconds.max(0.01)).clamp(0.0, 1.0);
+                k * k * (3.0 - 2.0 * k)
+            });
+            return self.laser_base + rules.laser_rise * rising;
         }
         self.laser_base - config.puzzle.drop_penalty * self.bricks_dropped as f32
     }
 
-    /// Endless Survival and Endless Puzzle score: points per brick placed (?).
-    pub fn endless_score(&self, config: &GameConfig) -> u32 {
-        let per_brick = match config.mode {
-            ModeKind::EndlessSurvival => config.endless_play.survival_score_per_brick,
-            ModeKind::EndlessPuzzle => config.endless_play.puzzle_score_per_brick,
-            _ => 0,
-        };
-        self.bricks_placed * per_brick
+    /// Endless Survival and Endless Puzzle score: the bricks in the tower.
+    pub fn endless_score(&self) -> u32 {
+        self.bricks_placed.saturating_sub(self.tower_losses)
     }
 }
 
@@ -766,8 +782,16 @@ fn pause_physics_outside_play(game: Res<Match>, mut time: ResMut<Time<Physics>>)
     }
 }
 
+/// The mode rules as loaded, before a match's difficulty, trial or Endless mode.
+type ModeRules = (
+    crate::config::RaceRules,
+    crate::config::SurvivalRules,
+    crate::config::PuzzleRules,
+    crate::config::MagicRules,
+);
+
 /// Clears the field and builds a tower for you and one per opponent.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn start_match(
     mut commands: Commands,
     mut request: ResMut<MatchRequest>,
@@ -784,16 +808,33 @@ fn start_match(
         )>,
     >,
     joints: Query<(Entity, &crate::spells::VineJoint)>,
+    mut base: Local<Option<ModeRules>>,
 ) {
     if !std::mem::take(&mut request.pending) {
         return;
     }
+    // Trials and the Endless modes change the mode rules for one match; start
+    // each match from the rules as loaded.
+    let base = base.get_or_insert_with(|| {
+        (
+            config.race.clone(),
+            config.survival.clone(),
+            config.puzzle.clone(),
+            config.magic.clone(),
+        )
+    });
+    config.race = base.0.clone();
+    config.survival = base.1.clone();
+    config.puzzle = base.2.clone();
+    config.magic = base.3.clone();
     // The picked difficulty's values replace the mode rules.
     config.apply_difficulty();
     // A trial's own rules go over the difficulty's.
     if let Some(trial) = config.trial.and_then(|i| config.trials.get(i)).cloned() {
         trial.apply(&mut config);
     }
+    let endless = config.endless_play.clone();
+    endless.apply(&mut config);
     let config = &*config;
     // Joints go before the bricks they hold; avian's island bookkeeping
     // breaks if a jointed body disappears first.
@@ -977,6 +1018,8 @@ fn spawn_next_brick(
         let limit = match game.mode {
             ModeKind::Puzzle => Some(config.puzzle.bricks),
             ModeKind::Survival => Some(config.survival.bricks_to_place),
+            // Endless Puzzle stops at the end of each level until the level-up.
+            ModeKind::EndlessPuzzle => Some(state.level_end),
             _ => None,
         };
         if limit.is_some_and(|n| state.bricks_used() >= n) {
@@ -1016,6 +1059,14 @@ fn spawn_next_brick(
         // Ghost in a curse wave strikes again with every new brick.
         if state.wave_ghost {
             state.ghosts_due += 1;
+        }
+        // An Endless Survival wave ends after its last cursed brick.
+        if respawn.is_none() && state.wave_bricks > 0 {
+            state.wave_bricks -= 1;
+            if state.wave_bricks == 0 {
+                state.wave_mod = None;
+                state.wave_ghost = false;
+            }
         }
         // A Mystery piece is a curse of its own when it comes back.
         modifier.mystery |= piece >= config.pieces.len();
@@ -1562,6 +1613,7 @@ fn track_towers(
             if game.phase != Phase::Playing {
                 continue;
             }
+            state.tower_losses += 1;
             state.lose_brick(&config);
             if let Some(cursed) = cursed.filter(|c| c.times < config.magic.respawn_limit) {
                 state.respawn = Some(Respawn {
@@ -1692,13 +1744,31 @@ fn judge_match(
                 }
             }
             ModeKind::EndlessPuzzle => {
-                // No brick limit: the run ends when a brick crosses the laser, or
-                // (as in puzzle trials) when one is dropped (?).
+                // Levels of bricks, the laser rising between them; a brick over
+                // the laser or a lost one ends the run.
                 state.best_height = state.best_height.max(state.height);
-                let crossed = state.all_settled && state.height > state.laser(&config) + 0.05;
-                let dropped = config.endless_play.puzzle_drop_ends_run && state.bricks_dropped > 0;
-                if crossed || dropped {
+                let rules = &config.endless_play;
+                if let Some(t) = state.level_up.as_mut() {
+                    *t += dt;
+                    if *t >= rules.level_wait.0 + rules.rise_seconds + rules.level_wait.1 {
+                        state.level_up = None;
+                        state.laser_base += rules.laser_rise;
+                        state.puzzle_level += 1;
+                        state.level_end += rules.level_bricks(state.puzzle_level);
+                        if config.magic.enabled && rules.level_spell.is_some() {
+                            state.light_spell = rules.level_spell;
+                            state.dark_spell = None;
+                        }
+                    }
+                } else if (state.all_settled && state.height > state.laser(&config) + 0.05)
+                    || state.lives == Some(0)
+                {
                     state.status = TowerStatus::Out;
+                } else if state.bricks_used() >= state.level_end
+                    && state.active.is_none()
+                    && state.all_settled
+                {
+                    state.level_up = Some(0.0);
                 }
             }
             ModeKind::Puzzle => {

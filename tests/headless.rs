@@ -1129,6 +1129,7 @@ fn a_ghost_wave_carries_off_a_brick_with_every_new_one() {
     config.survival.waves.levels = vec![vec![Wave {
         curses: vec![SpellKind::Ghost],
         seconds: (30, 31),
+        bricks: 0,
     }]];
     let mut app = headless_app(config);
     let mut ghosted = std::collections::HashSet::new();
@@ -1153,6 +1154,7 @@ fn a_curse_wave_holds_the_brick_in_hand_for_a_moment() {
     config.survival.waves.levels = vec![vec![Wave {
         curses: vec![SpellKind::Large],
         seconds: (30, 31),
+        bricks: 0,
     }]];
     let cell = config.cell_size;
     let shake = config.survival.waves.shake;
@@ -1286,51 +1288,98 @@ fn the_winner_keeps_its_tower_while_the_loser_falls_apart() {
 fn endless_survival_has_no_brick_limit_and_ends_with_the_lives() {
     let mut config = fast_config();
     config.mode = ModeKind::EndlessSurvival;
-    // Battle Survival would stop here; Endless Survival goes on.
-    config.survival.bricks_to_place = 3;
+    config.endless_play.survival_drop_speed = 8.0;
+    config.endless_play.survival_waves.levels.clear();
+    let lives = config.endless_play.survival_lives;
     let mut app = headless_app(config);
     run_seconds(&mut app, 5.0, |_| {});
     let state = tower(&mut app, 0);
     assert!(state.bricks_placed > 3, "no brick limit: {state:?}");
-    assert_eq!(state.lives, Some(3));
+    assert_eq!(state.lives, Some(lives));
     assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
+    assert_eq!(
+        app.world().resource::<GameConfig>().survival.drop_speed,
+        8.0
+    );
 
-    assert!(run_until(&mut app, 30.0, |app| {
+    assert!(run_until(&mut app, 40.0, |app| {
         human_input(app).left_held = true;
         app.world().resource::<Match>().phase == Phase::Over
     }));
     let state = tower(&mut app, 0);
     assert_eq!(state.status, TowerStatus::Out);
     assert_eq!(state.lives, Some(0));
+    // The score is the bricks still in the tower.
+    assert_eq!(
+        state.endless_score(),
+        state.bricks_placed - state.tower_losses
+    );
 }
 
 #[test]
-fn endless_puzzle_laser_climbs_and_a_dropped_brick_ends_the_run() {
+fn endless_survival_waves_last_a_number_of_bricks() {
+    use tricky_towers::config::Wave;
+    let mut config = fast_config();
+    config.mode = ModeKind::EndlessSurvival;
+    config.endless_play.survival_drop_speed = 8.0;
+    let waves = &mut config.endless_play.survival_waves;
+    waves.gap = (3, 4);
+    waves.lift = 0.0;
+    waves.hold = 0.0;
+    waves.levels = vec![vec![Wave {
+        curses: vec![SpellKind::Large],
+        seconds: (0, 0),
+        bricks: 2,
+    }]];
+    let mut app = headless_app(config);
+    // The brick in hand is the first of the two.
+    assert!(run_until(&mut app, 5.0, |app| tower(app, 0)
+        .wave_mod
+        .is_some()));
+    assert_eq!(tower(&mut app, 0).wave_bricks, 1);
+    wait_for_next_brick(&mut app);
+    let state = tower(&mut app, 0);
+    assert_eq!(state.wave_bricks, 0);
+    assert_eq!(state.wave_mod, None, "the second brick was the last");
+}
+
+#[test]
+fn endless_puzzle_levels_raise_the_laser_and_a_lost_brick_ends_the_run() {
     let mut config = fast_config();
     config.mode = ModeKind::EndlessPuzzle;
-    config.puzzle.line_height = 6.0;
-    config.puzzle.bricks = 2;
-    let rules = config.endless_play.clone();
+    config.magic.enabled = true;
+    let rules = &mut config.endless_play;
+    rules.puzzle_drop_speed = 8.0;
+    rules.laser_start = 30.0;
+    rules.first_bricks = 2;
+    rules.bricks_per_level = 1;
+    let rules = rules.clone();
     let mut app = headless_app(config);
-    let start = {
+    let laser = |app: &mut App| {
         let config = app.world().resource::<GameConfig>().clone();
-        tower(&mut app, 0).laser(&config)
+        tower(app, 0).laser(&config)
     };
-    // Puzzle bricks start above the laser, so they take a while to come down.
-    assert!(
-        run_until(&mut app, 12.0, |app| tower(app, 0).bricks_placed > 3),
-        "no brick limit: {:?}",
-        tower(&mut app, 0)
-    );
-    let config = app.world().resource::<GameConfig>().clone();
-    let state = tower(&mut app, 0);
-    let steps = state.bricks_placed / rules.laser_every;
-    assert_eq!(
-        state.laser(&config),
-        start + rules.laser_rise * steps as f32
-    );
+    assert_eq!(laser(&mut app), 30.0);
+    assert_eq!(tower(&mut app, 0).lives, Some(1));
+    assert_eq!(tower(&mut app, 0).light_spell, None);
 
-    // Steering a brick off the edge ends the run.
+    // Two bricks, then a level-up: the laser rises and Undo is given.
+    assert!(run_until(&mut app, 20.0, |app| tower(app, 0)
+        .level_up
+        .is_some()));
+    assert_eq!(tower(&mut app, 0).bricks_used(), 2);
+    assert!(
+        tower(&mut app, 0).active.is_none(),
+        "no brick during a level-up"
+    );
+    assert!(run_until(&mut app, 5.0, |app| tower(app, 0).puzzle_level == 2));
+    let state = tower(&mut app, 0);
+    assert_eq!(laser(&mut app), 30.0 + rules.laser_rise);
+    assert_eq!(state.light_spell, Some(SpellKind::Undo));
+    assert_eq!(state.level_end, 2 + rules.level_bricks(2));
+    assert_eq!(rules.level_bricks(2), 3);
+
+    // Steering a brick off the edge costs the only life.
     assert!(run_until(&mut app, 20.0, |app| {
         human_input(app).left_held = true;
         app.world().resource::<Match>().phase == Phase::Over
