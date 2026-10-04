@@ -157,6 +157,11 @@ $manifest.Add('    "water_band_survival": (colors: []),')
 $manifest.Add('    "water_band_puzzle": (colors: []),')
 $notes.Add('- water_band : Race background water, bottom 6 screen units, top (61,82,201) to bottom (137,146,217); islands bob on it.')
 
+# --- The original's letters (Enzo), as a letter picture plus sheet ---
+& (Join-Path $PSScriptRoot 'font.ps1') -Repo $Repo
+$manifest.Add('    "font_main": (file: "fonts/main.ron"),')
+$notes.Add('- font_main : the original''s Enzo letters, from its distance-field atlas turned into plain white letters (fonts/main.png, 1024x1024) with 199 glyph metrics (fonts/main.ron). The original also draws an outline and gradient on titles.')
+
 # --- Title screen ---
 Add-Sprite 'logo' 'gph_logo_0' 'menu\logo.png' 'Game logo with brick, plants and debris (818x420)'
 $menuBg = Join-Path $X 'menu\menu_background.png'

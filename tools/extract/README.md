@@ -17,3 +17,10 @@ committed. They contain names and measured positions, no code or assets from the
 prefab uses and where, for measuring new layouts.
 
 Delete `extracted\` before re-running step 3 so stale entries don't linger.
+5. Wizards 1 to 4 (parts, positions, pivots, clip frames, cape wave, voice lines), after step 3:
+   `powershell -File tools\extract\wizards.ps1 -Repo .` (run it before step 4).
+
+`stage.ps1` also runs `font.ps1`, which turns the original's distance-field letter atlas into
+`extracted\fonts\main.png` plus the letter sheet `extracted\fonts\main.ron`.
+`prefab_tree.ps1 -Prefab <file> -GuidIndex research\guid_index.tsv` prints every sprite in a
+prefab with its path and position summed through its parents.
