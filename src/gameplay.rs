@@ -45,6 +45,7 @@ impl Plugin for GameplayPlugin {
                     )
                         .chain(),
                     judge_match,
+                    drain_water,
                 )
                     .chain()
                     .in_set(GameplaySystems),
@@ -109,6 +110,61 @@ impl Default for Match {
 pub struct BrickLost {
     pub tower: usize,
     pub at: Vec2,
+}
+
+/// A lost brick in the water: no longer part of any tower, floating a while
+/// before it goes.
+#[derive(Component, Debug)]
+pub struct Sunk {
+    pub time: f32,
+}
+
+/// Takes a brick that hit the water out of play, as the original does: it almost
+/// stops, its spin is damped, and (unless it was in a bubble) the water lifts it.
+fn sink(
+    commands: &mut Commands,
+    config: &GameConfig,
+    entity: Entity,
+    velocity: Vec2,
+    spin: f32,
+    floats: bool,
+) {
+    let water = &config.water;
+    let mut brick = commands.entity(entity);
+    brick
+        .remove::<(
+            Brick,
+            ActiveBrick,
+            Cursed,
+            crate::spells::Bubbled,
+            crate::spells::Ghosted,
+        )>()
+        .insert((
+            Sunk { time: 0.0 },
+            RigidBody::Dynamic,
+            LinearVelocity(velocity * (1.0 - water.stop)),
+            AngularVelocity(spin * (1.0 - water.spin_damp)),
+        ));
+    if floats {
+        brick.insert(ConstantLinearAcceleration(
+            Vec2::Y * config.cells(water.lift),
+        ));
+    }
+}
+
+/// Lost bricks float in the water for a while, then go.
+fn drain_water(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut sunk: Query<(Entity, &mut Sunk)>,
+) {
+    for (entity, mut brick) in &mut sunk {
+        brick.time += time.delta_secs();
+        if brick.time >= config.water.float_seconds {
+            commands.entity(entity).despawn();
+        }
+    }
 }
 
 /// Set `pending` to start (or restart) a match with the current
@@ -1239,7 +1295,8 @@ fn control_active_brick(
                 tower: tower.index,
                 at: position.0,
             });
-            commands.entity(entity).despawn();
+            let falling = Vec2::NEG_Y * config.cells(drop_speed);
+            sink(&mut commands, &config, entity, falling, 0.0, true);
             state.active = None;
             state.lose_brick(&config);
             if control.mods.comes_back() && control.comebacks < config.magic.respawn_limit {
@@ -1344,6 +1401,7 @@ fn track_towers(
             Has<crate::spells::Bubbled>,
             Has<crate::spells::Ghosted>,
             Option<&Cursed>,
+            Option<&AngularVelocity>,
         ),
         Without<ActiveBrick>,
     >,
@@ -1362,7 +1420,7 @@ fn track_towers(
         state.half_width = 0.0;
         state.all_settled = true;
     }
-    for (entity, brick, position, velocity, aabb, bubbled, ghosted, cursed) in &bricks {
+    for (entity, brick, position, velocity, aabb, bubbled, ghosted, cursed, spin) in &bricks {
         let Ok((tower, mut state)) = towers.get_mut(brick.tower) else {
             continue;
         };
@@ -1376,7 +1434,8 @@ fn track_towers(
                     commands.entity(joint).despawn();
                 }
             }
-            commands.entity(entity).despawn();
+            let spin = spin.map_or(0.0, |s| s.0);
+            sink(&mut commands, &config, entity, velocity.0, spin, !bubbled);
             state.lose_brick(&config);
             if let Some(cursed) = cursed.filter(|c| c.times < config.magic.respawn_limit) {
                 state.respawn = Some(Respawn {

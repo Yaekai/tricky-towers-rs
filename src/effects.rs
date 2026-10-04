@@ -184,101 +184,163 @@ fn fly_skulls(
     }
 }
 
-/// A droplet of a splash, flying and fading.
+/// A piece of a splash: a front picture that grows in and vanishes, or a drop
+/// thrown up that falls and shrinks.
 #[derive(Component)]
-struct Droplet {
+struct SplashPiece {
     velocity: Vec2,
+    size: f32,
     time: f32,
+    front: bool,
 }
 
-/// Staged splash art, removed when its animation ends.
-#[derive(Component)]
-struct SplashArt {
-    time: f32,
-    length: f32,
+/// A tiny repeatable random number in 0..1 from a seed.
+fn roll(seed: &mut u32) -> f32 {
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 17;
+    *seed ^= *seed << 5;
+    (*seed % 10_000) as f32 / 10_000.0
 }
 
-/// A splash where each lost brick hits the water.
+/// A splash where each lost brick hits the water, with one of the splash sounds.
+#[allow(clippy::too_many_arguments)]
 fn splash(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
     time: Res<Time>,
     mut lost: MessageReader<BrickLost>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut drop_look: Local<Option<(Handle<Mesh>, Handle<ColorMaterial>)>>,
 ) {
-    let c = config.cell_size;
     let look = &config.splash;
-    let water = -config.cells(config.kill_depth);
+    // Every drop is the same white disc, scaled.
+    let (disc, white) = drop_look
+        .get_or_insert_with(|| (meshes.add(Circle::new(0.5)), materials.add(Color::WHITE)))
+        .clone();
     for (n, brick) in lost.read().enumerate() {
-        let at = Vec2::new(brick.at.x, water);
-        if let Some(image) = art.image("splash") {
-            let sprite = Sprite::from_image(image);
-            let ppu = art
-                .entries
-                .get("splash")
-                .and_then(|e| e.pixels_per_unit)
-                .unwrap_or(100.0);
-            let mut entity = commands.spawn((
-                sprite,
-                bevy::sprite::Anchor::BOTTOM_CENTER,
-                Transform::from_translation(at.extend(6.0))
-                    .with_scale(Vec3::splat(c / ppu.max(1.0))),
-                SplashArt {
+        let mut seed = (time.elapsed_secs() * 1000.0) as u32 ^ (n as u32 * 7919) | 1;
+        let mut r = || roll(&mut seed);
+        let at = brick.at - Vec2::Y * config.cells(look.drop_below * r());
+        // One of the splash sounds.
+        let sounds: Vec<_> = (1..=4)
+            .filter_map(|i| art.sounds.get(&format!("sfx_splash_{i}")))
+            .collect();
+        if !sounds.is_empty() {
+            let sound = sounds[(r() * sounds.len() as f32) as usize % sounds.len()].clone();
+            commands.spawn((AudioPlayer(sound), PlaybackSettings::DESPAWN));
+        }
+        // The front pictures along a line, each picked at random.
+        let pictures: Vec<_> = (1..=3)
+            .filter_map(|i| art.image(&format!("splash_{i}")))
+            .chain(art.image("splash"))
+            .collect();
+        for i in 0..look.fronts {
+            let Some(picture) = (!pictures.is_empty())
+                .then(|| pictures[(r() * pictures.len() as f32) as usize % pictures.len()].clone())
+            else {
+                break;
+            };
+            let along = if look.fronts > 1 {
+                i as f32 / (look.fronts - 1) as f32 - 0.5
+            } else {
+                0.0
+            };
+            let size = look.front_size.0 + (look.front_size.1 - look.front_size.0) * r();
+            commands.spawn((
+                Sprite {
+                    image: picture,
+                    custom_size: Some(Vec2::ZERO),
+                    ..default()
+                },
+                Transform::from_translation(
+                    (at + Vec2::X * config.cells(along * look.front_line)).extend(7.0),
+                ),
+                SplashPiece {
+                    velocity: Vec2::ZERO,
+                    size: config.cells(size),
                     time: 0.0,
-                    length: art.length("splash").unwrap_or(look.life),
+                    front: true,
                 },
             ));
-            if art.is_animation("splash") {
-                entity.insert(crate::art::Animated::new("splash"));
-            }
-            continue;
         }
-        // No art: droplets thrown up in a fan, varied by a cheap hash.
-        let seed = (time.elapsed_secs() * 1000.0) as u32 ^ (n as u32 * 7919);
-        for d in 0..look.drops {
-            let k =
-                ((seed.wrapping_mul(2654435761).wrapping_add(d * 40503)) % 1000) as f32 / 1000.0;
-            let side = d as f32 / (look.drops.max(2) - 1) as f32 * 2.0 - 1.0;
-            let angle = (side * look.spread).to_radians();
-            let speed = look.speed.0 + (look.speed.1 - look.speed.0) * k;
+        // White drops thrown up behind them.
+        for _ in 0..look.drops {
+            let angle = (r() * 2.0 - 1.0) * look.drop_cone.to_radians();
+            let speed = look.drop_speed.0 + (look.drop_speed.1 - look.drop_speed.0) * r();
+            let (dr, da) = (look.drop_disc * r().sqrt(), r() * std::f32::consts::TAU);
+            let start = at + Vec2::new(da.cos(), da.sin()) * config.cells(dr);
+            let size = look.drop_size.0 + (look.drop_size.1 - look.drop_size.0) * r();
             commands.spawn((
-                Sprite::from_color(
-                    Color::srgba(0.85, 0.93, 1.0, 0.9),
-                    Vec2::splat(config.cells(look.size)),
-                ),
-                Transform::from_translation(at.extend(6.0)),
-                Droplet {
+                Mesh2d(disc.clone()),
+                MeshMaterial2d(white.clone()),
+                Transform::from_translation(start.extend(5.5))
+                    .with_scale(Vec3::splat(config.cells(size))),
+                SplashPiece {
                     velocity: Vec2::new(angle.sin(), angle.cos()) * config.cells(speed),
+                    size: config.cells(size),
                     time: 0.0,
+                    front: false,
                 },
             ));
         }
     }
 }
 
+/// Where a curve of (time, value) points is at `t`, straight between points.
+fn along_curve(curve: &[(f32, f32)], t: f32) -> f32 {
+    let Some(&(first_t, first)) = curve.first() else {
+        return 1.0;
+    };
+    if t <= first_t {
+        return first;
+    }
+    for pair in curve.windows(2) {
+        let ((t0, v0), (t1, v1)) = (pair[0], pair[1]);
+        if t <= t1 {
+            return v0 + (v1 - v0) * ((t - t0) / (t1 - t0).max(f32::EPSILON));
+        }
+    }
+    curve.last().map_or(1.0, |&(_, v)| v)
+}
+
 fn fly_droplets(
     mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
-    mut droplets: Query<(Entity, &mut Droplet, &mut Transform, &mut Sprite)>,
-    mut arts: Query<(Entity, &mut SplashArt)>,
+    mut pieces: Query<(
+        Entity,
+        &mut SplashPiece,
+        &mut Transform,
+        Option<&mut Sprite>,
+    )>,
 ) {
     let dt = time.delta_secs();
-    let life = config.splash.life.max(0.05);
-    for (entity, mut drop, mut transform, mut sprite) in &mut droplets {
-        drop.time += dt;
-        if drop.time >= life {
+    let look = &config.splash;
+    let front_end = look.front_curve.last().map_or(1.0, |&(t, _)| t);
+    for (entity, mut piece, mut transform, sprite) in &mut pieces {
+        piece.time += dt;
+        let share = if piece.front {
+            along_curve(&look.front_curve, piece.time)
+        } else {
+            let (hold, gone) = look.drop_shrink;
+            piece.velocity.y -= config.cells(look.drop_gravity) * dt;
+            transform.translation += (piece.velocity * dt).extend(0.0);
+            1.0 - ((piece.time - hold) / (gone - hold).max(0.01)).clamp(0.0, 1.0)
+        };
+        let end = if piece.front {
+            front_end
+        } else {
+            look.drop_shrink.1
+        };
+        if piece.time >= end {
             commands.entity(entity).despawn();
             continue;
         }
-        drop.velocity.y -= config.cells(config.gravity) * dt;
-        transform.translation += (drop.velocity * dt).extend(0.0);
-        sprite.color = sprite.color.with_alpha(0.9 * (1.0 - drop.time / life));
-    }
-    for (entity, mut splash) in &mut arts {
-        splash.time += dt;
-        if splash.time >= splash.length {
-            commands.entity(entity).despawn();
+        match sprite {
+            Some(mut sprite) => sprite.custom_size = Some(Vec2::splat(piece.size * share)),
+            None => transform.scale = Vec3::splat(piece.size * share),
         }
     }
 }

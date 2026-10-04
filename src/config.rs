@@ -60,6 +60,8 @@ pub struct GameConfig {
     pub menu: MenuLook,
     /// The splash when a brick is lost in the water.
     pub splash: SplashLook,
+    /// What the water does to a lost brick.
+    pub water: WaterRules,
     /// How far above the tower top a new brick appears, in cells.
     pub spawn_gap: f32,
     /// Bricks that fall this far below the platform are counted as dropped.
@@ -1103,30 +1105,72 @@ impl Default for MatchMoments {
     }
 }
 
-/// The splash a lost brick makes in the water. Drawn with the staged `splash`
-/// art when there is some (an animation plays once); otherwise as droplets.
-/// The droplet numbers are guesses (?).
+/// A brick that falls below the water line (`kill_depth`) is lost; the water
+/// nearly stops it (it keeps `1 - stop` of its speed and `1 - spin_damp` of its
+/// spin) and lifts it with `lift` cells/s² against gravity, so it floats. From the
+/// original (docs/research/controls-physics.md), except `float_seconds` (?), how
+/// long it stays before it is removed.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct WaterRules {
+    pub stop: f32,
+    pub spin_damp: f32,
+    pub lift: f32,
+    pub float_seconds: f32,
+}
+
+impl Default for WaterRules {
+    fn default() -> Self {
+        Self {
+            stop: 0.9,
+            spin_damp: 0.25,
+            lift: 17.0,
+            float_seconds: 6.0,
+        }
+    }
+}
+
+/// The splash a lost brick makes in the water, from the original
+/// (docs/research/controls-physics.md): a front layer of splash pictures that
+/// grow in and vanish, and white drops thrown up behind them. Lengths in cells.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct SplashLook {
-    /// Droplets thrown up, their speed range in cells/s and how far from straight up
-    /// they may fly, in degrees.
+    /// The splash sits at the brick's centre, moved down by up to this much.
+    pub drop_below: f32,
+    /// Front pictures: how many, along a line this wide, each this size across.
+    pub fronts: u32,
+    pub front_line: f32,
+    pub front_size: (f32, f32),
+    /// Front picture size over its life: (seconds, share of full size) points.
+    pub front_curve: Vec<(f32, f32)>,
+    /// Drops: how many, their size, the disc they start in (radius), the cone they
+    /// fly up in (degrees either side), their speed and gravity.
     pub drops: u32,
-    pub speed: (f32, f32),
-    pub spread: f32,
-    /// Seconds a droplet lives, and its size in cells.
-    pub life: f32,
-    pub size: f32,
+    pub drop_size: (f32, f32),
+    pub drop_disc: f32,
+    pub drop_cone: f32,
+    pub drop_speed: (f32, f32),
+    pub drop_gravity: f32,
+    /// Drops keep full size until the first time and are gone by the second.
+    pub drop_shrink: (f32, f32),
 }
 
 impl Default for SplashLook {
     fn default() -> Self {
         Self {
-            drops: 10,
-            speed: (4.0, 9.0),
-            spread: 35.0,
-            life: 0.9,
-            size: 0.3,
+            drop_below: 0.4,
+            fronts: 5,
+            front_line: 2.86,
+            front_size: (1.3, 2.5),
+            front_curve: vec![(0.0, 0.0), (0.1, 1.0), (0.42, 0.92), (0.68, 0.0)],
+            drops: 12,
+            drop_size: (0.3, 0.4),
+            drop_disc: 1.5,
+            drop_cone: 2.3,
+            drop_speed: (10.0, 18.0),
+            drop_gravity: 36.0,
+            drop_shrink: (0.45, 0.93),
         }
     }
 }
@@ -1309,6 +1353,7 @@ impl Default for GameConfig {
             lanes: Lanes::default(),
             menu: MenuLook::default(),
             splash: SplashLook::default(),
+            water: WaterRules::default(),
             spawn_gap: 17.0,
             kill_depth: 8.5,
             collider_scale: 0.98,

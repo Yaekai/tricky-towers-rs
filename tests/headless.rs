@@ -1074,4 +1074,11 @@ fn a_lost_brick_reports_where_it_hit_the_water() {
     let config = app.world().resource::<GameConfig>();
     assert!(lost.at.y <= -config.cells(config.kill_depth));
     assert!(lost.at.x < 0.0, "it went off the left side: {lost:?}");
+    // It floats in the water a while, out of play, then goes.
+    let mut sunk = app.world_mut().query::<&tricky_towers::gameplay::Sunk>();
+    assert_eq!(sunk.iter(app.world()).count(), 1);
+    let float = app.world().resource::<GameConfig>().water.float_seconds;
+    run_seconds(&mut app, float + 0.5, |app| human_input(app).left_held = false);
+    let mut sunk = app.world_mut().query::<&tricky_towers::gameplay::Sunk>();
+    assert!(sunk.iter(app.world()).count() <= 1, "the first one is gone");
 }
