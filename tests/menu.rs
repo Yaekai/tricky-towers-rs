@@ -111,10 +111,6 @@ fn single_player_opens_endless_and_plays_endless_race() {
     tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(screen(&app), MenuScreen::Endless);
-    // Survival isn't built either.
-    tap(&mut app, KeyCode::ArrowDown);
-    tap(&mut app, KeyCode::Enter);
-    assert_eq!(screen(&app), MenuScreen::Endless);
     tap(&mut app, KeyCode::Escape);
     assert_eq!(screen(&app), MenuScreen::Single);
     tap(&mut app, KeyCode::Enter);
@@ -123,6 +119,26 @@ fn single_player_opens_endless_and_plays_endless_race() {
     assert_eq!((game.phase, game.mode), (Phase::Playing, ModeKind::Endless));
     let config = app.world().resource::<GameConfig>();
     assert_eq!((config.players, config.opponents), (1, 0));
+}
+
+#[test]
+fn endless_survival_and_puzzle_start_from_the_endless_screen() {
+    for (downs, mode) in [(1, ModeKind::EndlessSurvival), (2, ModeKind::EndlessPuzzle)] {
+        let mut app = app();
+        // Title → Single Player → Endless.
+        tap(&mut app, KeyCode::ArrowDown);
+        tap(&mut app, KeyCode::Enter);
+        tap(&mut app, KeyCode::Enter);
+        assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Endless);
+        for _ in 0..downs {
+            tap(&mut app, KeyCode::ArrowDown);
+        }
+        tap(&mut app, KeyCode::Enter);
+        let game = app.world().resource::<Match>();
+        assert_eq!((game.phase, game.mode), (Phase::Playing, mode));
+        let config = app.world().resource::<GameConfig>();
+        assert_eq!((config.players, config.opponents), (1, 0));
+    }
 }
 
 #[test]

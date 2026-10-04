@@ -437,7 +437,7 @@ impl TowerState {
             status: TowerStatus::Building,
             bricks_placed: 0,
             bricks_dropped: 0,
-            lives: (config.mode == ModeKind::Survival).then_some(config.survival.lives),
+            lives: (config.mode.rules() == ModeKind::Survival).then_some(config.survival.lives),
             height: 0.0,
             stack_top: 0.0,
             all_settled: true,
@@ -445,7 +445,7 @@ impl TowerState {
             settle_timer: 0.0,
             active: None,
             // Puzzle has no spell lines, only a spell to start with.
-            light_spell: (config.mode == ModeKind::Puzzle && config.magic.enabled)
+            light_spell: (config.mode.rules() == ModeKind::Puzzle && config.magic.enabled)
                 .then_some(config.puzzle.start_spell)
                 .flatten(),
             dark_spell: None,
@@ -525,7 +525,23 @@ impl TowerState {
 
     /// Puzzle laser height for this tower: each dropped brick brings it lower.
     pub fn laser(&self, config: &GameConfig) -> f32 {
+        if config.mode == ModeKind::EndlessPuzzle {
+            // Endless Puzzle: the laser climbs as bricks go down (?).
+            let rules = &config.endless_play;
+            let steps = self.bricks_placed / rules.laser_every.max(1);
+            return self.laser_base + rules.laser_rise * steps as f32;
+        }
         self.laser_base - config.puzzle.drop_penalty * self.bricks_dropped as f32
+    }
+
+    /// Endless Survival and Endless Puzzle score: points per brick placed (?).
+    pub fn endless_score(&self, config: &GameConfig) -> u32 {
+        let per_brick = match config.mode {
+            ModeKind::EndlessSurvival => config.endless_play.survival_score_per_brick,
+            ModeKind::EndlessPuzzle => config.endless_play.puzzle_score_per_brick,
+            _ => 0,
+        };
+        self.bricks_placed * per_brick
     }
 }
 
@@ -786,7 +802,7 @@ fn start_match(
         }
         _ => 0.0,
     };
-    let floor = if config.mode == ModeKind::Puzzle {
+    let floor = if config.mode.rules() == ModeKind::Puzzle {
         puzzle_floor(config, &mut roll)
     } else {
         Vec::new()
@@ -933,10 +949,11 @@ fn spawn_next_brick(
         if state.status != TowerStatus::Building || state.active.is_some() {
             continue;
         }
+        // The Endless modes have no brick limit.
         let limit = match game.mode {
             ModeKind::Puzzle => Some(config.puzzle.bricks),
             ModeKind::Survival => Some(config.survival.bricks_to_place),
-            ModeKind::Race | ModeKind::Endless => None,
+            _ => None,
         };
         if limit.is_some_and(|n| state.bricks_used() >= n) {
             continue;
@@ -1022,7 +1039,7 @@ fn spawn_next_brick(
             continue;
         }
 
-        let floor = match game.mode {
+        let floor = match game.mode.rules() {
             // Puzzle bricks come from above the laser line.
             ModeKind::Puzzle => state.stack_top.max(state.laser(&config)),
             _ => state.stack_top,
@@ -1620,6 +1637,24 @@ fn judge_match(
                     state.status = TowerStatus::Out;
                 }
             }
+            ModeKind::EndlessSurvival => {
+                // No brick limit: the run ends with the last life.
+                state.invincible = (state.invincible - dt).max(0.0);
+                state.best_height = state.best_height.max(state.height);
+                if state.lives == Some(0) {
+                    state.status = TowerStatus::Out;
+                }
+            }
+            ModeKind::EndlessPuzzle => {
+                // No brick limit: the run ends when a brick crosses the laser, or
+                // (as in puzzle trials) when one is dropped (?).
+                state.best_height = state.best_height.max(state.height);
+                let crossed = state.all_settled && state.height > state.laser(&config) + 0.05;
+                let dropped = config.endless_play.puzzle_drop_ends_run && state.bricks_dropped > 0;
+                if crossed || dropped {
+                    state.status = TowerStatus::Out;
+                }
+            }
             ModeKind::Puzzle => {
                 let rules = &config.puzzle;
                 if state.all_settled && state.height > state.laser(&config) + 0.05 {
@@ -1661,7 +1696,7 @@ fn judge_match(
             humans_building += (state.status == TowerStatus::Building) as usize;
         }
     }
-    if game.mode == ModeKind::Puzzle && count > 1 {
+    if game.mode.rules() == ModeKind::Puzzle && count > 1 {
         // Everyone plays out their bricks; the tallest pile of bricks wins.
         winner = None;
         if building.is_empty() {
@@ -1689,7 +1724,8 @@ pub fn placings(game: &Match, towers: &[(usize, &TowerState)]) -> Vec<usize> {
     let score = |s: &TowerState| match game.mode {
         ModeKind::Race => s.height,
         ModeKind::Survival => s.lives.unwrap_or(0) as f32 * 1000.0 + s.bricks_placed as f32,
-        ModeKind::Puzzle => s.bricks_placed as f32,
+        ModeKind::Puzzle | ModeKind::EndlessPuzzle => s.bricks_placed as f32,
+        ModeKind::EndlessSurvival => s.bricks_placed as f32,
         ModeKind::Endless => s.best_height,
     };
     let key = |(index, s): &(usize, &TowerState)| {

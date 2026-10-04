@@ -1,7 +1,8 @@
 //! Single Player: the player's seat over a short list (Trials, Endless), then
 //! the Endless screen, three wide buttons (Race, Survival, Puzzle) beside a
 //! leaderboard. Layout from docs/research/menus.md, in pixels of a 1920×1080
-//! screen; only Endless Race is built, so the rest show dimmed.
+//! screen. Trials aren't built, so that entry shows dimmed. Endless Survival and
+//! Endless Puzzle follow public descriptions until their values are read (?).
 
 use std::path::PathBuf;
 
@@ -64,6 +65,7 @@ struct EndlessEntry {
     face: &'static str,
     built: bool,
     color: Color,
+    mode: ModeKind,
 }
 
 const ENDLESS: [EndlessEntry; 3] = [
@@ -75,6 +77,7 @@ const ENDLESS: [EndlessEntry; 3] = [
         face: "menu_challenge_wizard3",
         built: true,
         color: Color::srgb(0.85, 0.35, 0.2),
+        mode: ModeKind::Endless,
     },
     EndlessEntry {
         name: "Survival",
@@ -82,8 +85,10 @@ const ENDLESS: [EndlessEntry; 3] = [
         size: (689.0, 167.0),
         lift: 0.0,
         face: "menu_challenge_wizard2",
-        built: false,
+        // Rules from public descriptions; values are guesses until read (?).
+        built: true,
         color: Color::srgb(0.25, 0.55, 0.85),
+        mode: ModeKind::EndlessSurvival,
     },
     EndlessEntry {
         name: "Puzzle",
@@ -91,8 +96,10 @@ const ENDLESS: [EndlessEntry; 3] = [
         size: (690.0, 224.0),
         lift: 28.0,
         face: "menu_challenge_wizard4",
-        built: false,
+        // Rules from public descriptions; values are guesses until read (?).
+        built: true,
         color: Color::srgb(0.55, 0.35, 0.75),
+        mode: ModeKind::EndlessPuzzle,
     },
 ];
 
@@ -449,7 +456,8 @@ pub(crate) fn endless_input(
     if !(taps.key_pick || !taps.pad_pick.is_empty()) || !ENDLESS[menu.endless].built {
         return;
     }
-    config.mode = ModeKind::Endless;
+    config.mode = ENDLESS[menu.endless].mode;
+    // Endless runs use Normal's values (?).
     config.difficulty = Some(Difficulty::Normal);
     config.players = 1;
     config.opponents = 0;
@@ -571,7 +579,7 @@ pub(crate) fn show_single_screens(
     }
 }
 
-/// When an Endless Race ends, each player's score goes on the leaderboard.
+/// When an Endless run ends, each player's score goes on that mode's leaderboard.
 pub(crate) fn record_endless_scores(
     game: Res<Match>,
     config: Res<GameConfig>,
@@ -579,7 +587,8 @@ pub(crate) fn record_endless_scores(
     mut board: ResMut<Leaderboard>,
     mut recorded: Local<bool>,
 ) {
-    let over = game.phase == Phase::Over && game.mode == ModeKind::Endless;
+    let board_index = game.mode.endless_index();
+    let over = game.phase == Phase::Over && board_index.is_some();
     if !over {
         if game.phase == Phase::Playing {
             *recorded = false;
@@ -591,8 +600,14 @@ pub(crate) fn record_endless_scores(
     }
     *recorded = true;
     for (tower, state) in &towers {
-        if tower.human {
-            board.add(0, config.endless.score(state.best_height));
+        if tower.human
+            && let Some(index) = board_index
+        {
+            let score = match game.mode {
+                ModeKind::Endless => config.endless.score(state.best_height),
+                _ => state.endless_score(&config),
+            };
+            board.add(index, score);
         }
     }
     board.save();

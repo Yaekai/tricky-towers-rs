@@ -109,3 +109,15 @@ Cells. x is measured from the base centre and y from the base top (the y = 0 lin
 - Pro uses FLOOR_PUZZLE_PRO: a centre column (gph_house03_world03) 1 wide, x -0.5..0.5. Pro pieces 1-12 and the top piece (gph_house08/11_world03 …) are 1×1 cells, x -0.5..0.5, y -1..0.
 
 In the rewrite these boxes are `GameConfig::bases` (src/config.rs); the AI, Auto Build and the on-tower check use the top's half width (`base_half_width`, 3 cells for both houses). The petrified-brick challenge variant isn't built (Trials aren't in yet).
+
+## Endless Survival and Endless Puzzle (public descriptions only, NOT yet read from the install)
+
+From reviews and store pages, not from Max's copy, so nothing here is confirmed:
+- Endless Survival: three lives, stack as many bricks as you can in one tower; it has a
+  leaderboard. (Giant Bomb wiki, TrueAchievements review.)
+- Endless Puzzle: the puzzle-trial rules (bricks under a laser line; a brick above the line
+  or a dropped brick fails) that keep going until you fail. (Same sources.)
+
+In the rewrite these are `ModeKind::EndlessSurvival` / `EndlessPuzzle` with the guesses in
+`GameConfig::endless_play` (src/config.rs, every field marked `(?)`). The PC readout queued in
+docs/pc-tasks.md replaces them with the original's values.

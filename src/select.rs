@@ -88,6 +88,8 @@ impl ModePick {
             ModePick::Mode(ModeKind::Survival) => Color::srgb(0.25, 0.55, 0.85),
             ModePick::Mode(ModeKind::Puzzle) => Color::srgb(0.55, 0.35, 0.75),
             ModePick::Mode(ModeKind::Endless) => Color::srgb(0.25, 0.6, 0.3),
+            ModePick::Mode(ModeKind::EndlessSurvival) => Color::srgb(0.2, 0.45, 0.7),
+            ModePick::Mode(ModeKind::EndlessPuzzle) => Color::srgb(0.45, 0.3, 0.65),
             ModePick::Random => Color::srgb(0.85, 0.65, 0.15),
         }
     }
@@ -101,6 +103,8 @@ impl ModePick {
             }
             ModePick::Mode(ModeKind::Puzzle) => ("menu_mode_puzzle", (-7.0, -1.0), (505.0, 392.0)),
             ModePick::Mode(ModeKind::Endless) => ("menu_mode_endless", (0.0, 0.0), (495.0, 393.0)),
+            // Played from the Endless screen's list, not from a tile.
+            ModePick::Mode(_) => ("menu_mode_endless", (0.0, 0.0), (495.0, 393.0)),
             ModePick::Random => ("menu_mode_random", (0.0, 0.0), (495.0, 393.0)),
         }
     }
