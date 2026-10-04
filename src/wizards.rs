@@ -77,6 +77,8 @@ pub struct Wizard {
     laugh_cooldown: f32,
     startle_cooldown: f32,
     shake: f32,
+    /// Seconds since the match was lost; the wizard shrinks away.
+    vanish: f32,
     seen: Seen,
     rng: u64,
 }
@@ -150,6 +152,7 @@ fn spawn_wizards(
             laugh_cooldown: 0.0,
             startle_cooldown: 0.0,
             shake: 0.0,
+            vanish: 0.0,
             seen: Seen {
                 placed: state.bricks_placed,
                 lives: state.lives,
@@ -289,16 +292,30 @@ fn react_wizards(
 fn move_wizards(
     time: Res<Time>,
     config: Res<GameConfig>,
+    game: Res<crate::gameplay::Match>,
     towers: Query<(&Tower, &TowerState)>,
-    mut wizards: Query<(&mut Wizard, &mut Transform)>,
+    mut wizards: Query<(&mut Wizard, &mut Transform, &mut Visibility)>,
 ) {
     let look = &config.wizards;
     let dt = time.delta_secs();
     let solo = towers.iter().count() == 1;
-    for (mut wizard, mut transform) in &mut wizards {
+    for (mut wizard, mut transform, mut visibility) in &mut wizards {
         let Ok((tower, state)) = towers.get(wizard.tower) else {
             continue;
         };
+        // A lost match: the wizard shrinks away in a moment, like a poof.
+        let gone = if crate::hud::lost(&game, tower, state) {
+            wizard.vanish += dt;
+            (wizard.vanish / config.hud.wizard_vanish.max(0.01)).min(1.0)
+        } else {
+            wizard.vanish = 0.0;
+            0.0
+        };
+        visibility.set_if_neq(if gone >= 1.0 {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
         wizard.time += dt;
         let target = state.height + look.lift;
         let y = wizard.y.get_or_insert(target);
@@ -323,7 +340,8 @@ fn move_wizards(
         transform.translation.x = tower.origin_x + config.cells(at.x);
         transform.translation.y = config.cells(at.y);
         // Alone, the wizard floats on the left and turns to face the tower.
-        transform.scale.x = if solo { -1.0 } else { 1.0 };
+        let size = 1.0 - gone * gone;
+        transform.scale = Vec3::new(if solo { -size } else { size }, size, 1.0);
     }
 }
 

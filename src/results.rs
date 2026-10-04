@@ -505,6 +505,7 @@ fn show_hold_counts(
         &mut Visibility,
     )>,
     mut labels: Query<&mut Text, With<MatchLabel>>,
+    mut faces: Query<&mut TextColor, With<MatchLabel>>,
     view: Res<ViewSize>,
 ) {
     let Ok((camera, eye)) = camera.single() else {
@@ -554,6 +555,18 @@ fn show_hold_counts(
             .ceil()
             .max(1.0);
         let label = format!("{left:.0}");
+        // The leader's countdown is gold, the others' pink.
+        let tone = if leader == Some(count.0) {
+            Tone::Gold
+        } else {
+            Tone::Red
+        };
+        let face = tone_color(&art, &images, tone);
+        if let Some(mut color) = children.get(1).and_then(|c| faces.get_mut(*c).ok())
+            && color.0 != face
+        {
+            color.0 = face;
+        }
         for child in children {
             if let Ok(mut text) = labels.get_mut(*child)
                 && text.0 != label

@@ -410,10 +410,11 @@ pub struct TowerState {
     pub ghosts_due: u32,
     /// Bricks placed so far, counting up; stamps each brick's `Placed`.
     pub placed_count: u32,
-    /// Seconds the brick in hand is still held at the top by a wave's start,
-    /// and the x it shakes around.
+    /// Seconds the brick in hand is still lifted and held by a wave's start, and
+    /// where it rises from and to (world pixels; it shakes around that path).
     pub wave_hold: f32,
     pub wave_hold_x: f32,
+    pub wave_lift: (f32, f32),
     /// Endless Race: the pacer line's height in cells, checkpoints reached, its speed
     /// and the step the next checkpoint adds, seconds left of the checkpoint stop, the
     /// height it stopped at, and seconds since the run started.
@@ -469,6 +470,7 @@ impl TowerState {
             placed_count: 0,
             wave_hold: 0.0,
             wave_hold_x: 0.0,
+            wave_lift: (0.0, 0.0),
             pacer: config.endless.intro_from,
             pacer_stages: 0,
             pacer_speed: config.endless.start_speed,
@@ -1145,20 +1147,28 @@ fn control_active_brick(
             state.active = None;
             continue;
         };
-        // A curse wave just started: the brick hangs at the top, shaking, and
-        // takes no input until the hold is over.
+        // A curse wave just started: the brick rises near the top of the view
+        // (eased in, passing through everything), hangs there, shakes the whole
+        // time, and takes no input until it is let go.
         if state.wave_hold > 0.0 {
+            let rules = &config.survival.waves;
             state.wave_hold = (state.wave_hold - dt).max(0.0);
-            let (reach, rate) = config.survival.waves.shake;
-            let wobble = if state.wave_hold > 0.0 {
-                (state.wave_hold * rate * std::f32::consts::TAU).sin() * config.cells(reach)
+            let elapsed = rules.lift + rules.hold - state.wave_hold;
+            let t = (elapsed / rules.lift.max(0.01)).min(1.0);
+            let (from, to) = state.wave_lift;
+            let mut at = Vec2::new(state.wave_hold_x, from + (to - from) * t * t);
+            if state.wave_hold > 0.0 {
+                // A fresh random jump every step, smaller on an enlarged brick.
+                let reach = config.cells(rules.shake) / brick.scale.max(1.0);
+                let mut seed = (state.wave_hold.to_bits() as u64) << 8 | tower.index as u64 | 1;
+                let mut unit = || (xorshift(&mut seed) % 2001) as f32 / 1000.0 - 1.0;
+                at += Vec2::new(unit(), unit()) * reach;
             } else {
-                0.0
-            };
-            commands.entity(entity).insert((
-                Position(Vec2::new(state.wave_hold_x + wobble, position.0.y)),
-                LinearVelocity::ZERO,
-            ));
+                commands.entity(entity).remove::<ColliderDisabled>();
+            }
+            commands
+                .entity(entity)
+                .insert((Position(at), LinearVelocity::ZERO));
             continue;
         }
         let (mut position, mut rotation) = (*position, *rotation);

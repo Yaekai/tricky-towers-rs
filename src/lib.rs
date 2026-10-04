@@ -19,6 +19,7 @@ pub mod debug;
 pub mod debug_panel;
 pub mod effects;
 pub mod gameplay;
+pub mod hud;
 pub mod input;
 pub mod letters;
 pub mod menu;

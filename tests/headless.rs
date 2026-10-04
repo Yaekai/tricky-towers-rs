@@ -1154,18 +1154,27 @@ fn a_curse_wave_holds_the_brick_in_hand_for_a_moment() {
         curses: vec![SpellKind::Large],
         seconds: (30, 31),
     }]];
+    let cell = config.cell_size;
+    let shake = config.survival.waves.shake;
     let mut app = headless_app(config);
-    let held = run_until(&mut app, 4.0, |app| {
+    // Rising first, then held for the last second.
+    let held = run_until(&mut app, 5.0, |app| {
         let state = tower(app, 0);
-        state.wave_hold > 0.5 && state.active.is_some()
+        state.active.is_some() && state.wave_hold > 0.1 && state.wave_hold < 0.6
     });
     assert!(held, "no wave held the brick");
-    let brick = tower(&mut app, 0).active.unwrap();
+    let state = tower(&mut app, 0);
+    let brick = state.active.unwrap();
+    let (_, top) = state.wave_lift;
     let y = app.world().get::<Position>(brick).unwrap().0.y;
-    run_seconds(&mut app, 0.4, |_| {});
+    assert!(
+        (y - top).abs() <= cell * shake + 0.01,
+        "the brick sits at {y}, not near the top {top}"
+    );
+    run_seconds(&mut app, 0.3, |_| {});
     let later = app.world().get::<Position>(brick).unwrap().0.y;
     assert!(
-        (later - y).abs() < 0.01,
+        (later - top).abs() <= cell * shake + 0.01,
         "the held brick moved from {y} to {later}"
     );
 }

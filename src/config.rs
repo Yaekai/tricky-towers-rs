@@ -125,6 +125,8 @@ pub struct GameConfig {
     pub wizards: WizardLook,
     #[serde(default)]
     pub moments: MatchMoments,
+    #[serde(default)]
+    pub hud: HudLook,
     pub pieces: Vec<PieceDef>,
 }
 
@@ -1343,11 +1345,15 @@ pub struct WaveRules {
     pub waves_per_level: u32,
     /// Each level's waves, drawn without repeats; the last level repeats.
     pub levels: Vec<Vec<Wave>>,
-    /// Seconds the brick in hand is held still at the top when a wave starts.
+    /// When a wave starts, the brick in hand rises over `lift` seconds (eased in,
+    /// collisions off) to `lift_below_top` cells under the top of the view, then
+    /// is held `hold` seconds; it shakes the whole time, jumping to a random
+    /// offset of up to `shake` cells every step (less when enlarged). From the
+    /// original (docs/research/modes.md).
+    pub lift: f32,
+    pub lift_below_top: f32,
     pub hold: f32,
-    /// How the held brick shakes: sideways reach in cells and shakes per
-    /// second (? both guessed; the original's numbers aren't read yet).
-    pub shake: (f32, f32),
+    pub shake: f32,
 }
 
 /// One curse wave: its curses, and how long it lasts in whole seconds (top left out).
@@ -1373,8 +1379,10 @@ impl Default for WaveRules {
         Self {
             gap: (12, 18),
             waves_per_level: 2,
+            lift: 1.0,
+            lift_below_top: 4.0,
             hold: 1.0,
-            shake: (0.08, 20.0),
+            shake: 0.1,
             levels: vec![
                 vec![
                     w(&[Large], (6, 8)),
@@ -2143,12 +2151,19 @@ impl Default for GameConfig {
             ai: AiRules::default(),
             wizards: WizardLook::default(),
             moments: MatchMoments::default(),
+            hud: HudLook::default(),
             pieces: default_pieces(),
         }
     }
 }
 
 impl GameConfig {
+    /// The top of the view while a tower's top is at `top` cells: the camera keeps
+    /// the spawn point and a little room above it in sight.
+    pub fn camera_top(&self, top: f32) -> f32 {
+        (top + self.spawn_gap + 3.0).max(16.0)
+    }
+
     /// Copies the picked difficulty's values into the mode rules (nothing if none
     /// is picked).
     pub fn apply_difficulty(&mut self) {
@@ -2391,6 +2406,106 @@ mod tests {
             let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
             let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
             assert_eq!(min + max, Vec2::ZERO, "piece {} is off-centre", piece.name);
+        }
+    }
+}
+
+/// What each lane shows during a match, from gameplay videos of the original
+/// (docs/research/video-notes.md). Screen sizes are shares of the view's height
+/// (or width, where said), so they hold at any window size; world offsets are cells.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct HudLook {
+    /// The next-brick card hanging from the top of each lane: height as a share of
+    /// the view height, width over height, its top bar's share of its height, and
+    /// how far left of the lane's drop column its centre sits (share of view width).
+    pub card_height: f32,
+    pub card_aspect: f32,
+    pub card_bar: f32,
+    pub card_left: f32,
+    /// Card and top bar colours (0-255).
+    pub card_color: [u8; 3],
+    pub card_bar_color: [u8; 3],
+    /// The Survival brick count's text size (share of view height).
+    pub count_size: f32,
+    /// The place label (1ST, 2ND...) under the wizard: text size, cells below the
+    /// wizard, and the leader's and the others' colours (0-255).
+    pub place_size: f32,
+    pub place_below: f32,
+    pub place_first: [u8; 3],
+    pub place_other: [u8; 3],
+    /// Hearts under the wizard: size and cells below the wizard (?).
+    pub heart_size: f32,
+    pub heart_below: f32,
+    /// Spell bubbles: size, where the first sits from the wizard in cells (x toward
+    /// the tower, up), and the second's step from the first in cells (?).
+    pub bubble_size: f32,
+    pub bubble_at: (f32, f32),
+    pub bubble_step: (f32, f32),
+    /// Light and dark bubble colours when no bubble art is staged (0-255).
+    pub bubble_light: [u8; 3],
+    pub bubble_dark: [u8; 3],
+    /// The drop guide's colour in Race (and Puzzle, Endless) and in Survival (0-1, with alpha).
+    pub guide_race: [f32; 4],
+    pub guide_survival: [f32; 4],
+    /// Spell line diamonds: size and gap in cells, and one colour per line in turn
+    /// when the art gives none (0-255).
+    pub diamond_size: f32,
+    pub diamond_step: f32,
+    pub line_colors: Vec<[u8; 3]>,
+    /// The roof dropped onto the winner: cells above the tower top it starts, the
+    /// seconds the fall takes, and its size in cells when no art is staged.
+    pub roof_from: f32,
+    pub roof_drop: f32,
+    pub roof_size: (f32, f32),
+    /// Losing towers turn this colour (0-1) by this much once the match is over.
+    pub loser_tint: [f32; 3],
+    pub loser_mix: f32,
+    /// Losing wizards shrink away over this many seconds once the match is over.
+    pub wizard_vanish: f32,
+    /// How many cells tall the view is while playing (a cell is about 36 px at
+    /// 1080p in the press kit); more when the lanes need the width.
+    pub camera_cells: f32,
+}
+
+impl Default for HudLook {
+    fn default() -> Self {
+        Self {
+            card_height: 65.0 / 720.0,
+            card_aspect: 75.0 / 65.0,
+            card_bar: 0.2,
+            card_left: 78.0 / 1280.0,
+            card_color: [255, 255, 255],
+            card_bar_color: [36, 52, 110],
+            count_size: 34.0 / 720.0,
+            place_size: 22.0 / 720.0,
+            place_below: 2.2,
+            place_first: [255, 190, 60],
+            place_other: [205, 190, 240],
+            heart_size: 18.0 / 720.0,
+            heart_below: 2.2,
+            bubble_size: 45.0 / 720.0,
+            bubble_at: (1.6, 1.8),
+            bubble_step: (0.9, -0.9),
+            bubble_light: [110, 210, 90],
+            bubble_dark: [235, 90, 170],
+            guide_race: [0.65, 0.95, 1.0, 0.3],
+            guide_survival: [0.8, 0.7, 1.0, 0.3],
+            diamond_size: 0.45,
+            diamond_step: 0.6,
+            line_colors: vec![
+                [80, 220, 255],
+                [110, 230, 90],
+                [255, 110, 200],
+                [200, 235, 80],
+            ],
+            roof_from: 12.0,
+            roof_drop: 1.25,
+            roof_size: (3.0, 3.0),
+            loser_tint: [0.78, 0.82, 0.88],
+            loser_mix: 0.7,
+            wizard_vanish: 0.6,
+            camera_cells: 30.0,
         }
     }
 }
