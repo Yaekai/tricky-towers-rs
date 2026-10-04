@@ -184,7 +184,10 @@ fn time_popup(
         return;
     }
     popup.clock += time.delta_secs();
-    if !popup.shown && popup.clock >= config.moments.popup_after && crate::collapse::all_done(&game, &towers) {
+    if !popup.shown
+        && popup.clock >= config.moments.popup_after
+        && crate::collapse::all_done(&game, towers)
+    {
         popup.shown = true;
         popup.selected = 0;
     }

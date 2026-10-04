@@ -113,7 +113,9 @@ fn start_collapse(
             stage: CollapseStage::Wait,
             clock: config.moments.collapse_wait,
             queue: Vec::new(),
-            roll: config.seed ^ game.round.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ tower.index as u64 + 1,
+            roll: config.seed
+                ^ game.round.wrapping_mul(0x9E37_79B9_7F4A_7C15)
+                ^ (tower.index as u64 + 1),
         });
     }
 }

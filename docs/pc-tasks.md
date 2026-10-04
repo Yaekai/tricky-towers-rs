@@ -196,3 +196,18 @@ and nothing gets installed without Max's own go-ahead.
   are also the winner's (we give the winner the full amount); (3) where the original shows XP
   and the level (profile screen, after a cup), with the art names, so it can be drawn when cups
   are added.
+- Readouts that unblock the next cloud work (no screenshots needed, just notes in
+  docs/research/):
+  1. **Cups:** how a local cup is set up (how many matches, which modes, picked how), how
+     points per place add up, what decides the cup winner and ties, which trophy size
+     (`trophy`, `trophy_big`, `trophy_super`) goes with which cup, what the screen between
+     matches shows, and when XP is given.
+  2. **Survival roof:** what goes on top of a tower that has used all its bricks (art name,
+     where it sits, how it animates in), and whether the tower is frozen after.
+  3. **Menu attract demo:** when it starts (idle time on which screen), which mode and base,
+     the "fixed loop of moves" (the move list, or how it is built), and what ends it.
+  4. **Trials:** how many levels, and for each: mode, target, the enemy wizard's spell script
+     (every N s, at set times, or at brick fractions; which spells), stars or medals, and the
+     level select layout and art names.
+  5. **Endless Survival and Endless Puzzle:** what ends a run, how the score counts, and any
+     speed-up or rule change over time (already asked above; listed here so it isn't missed).

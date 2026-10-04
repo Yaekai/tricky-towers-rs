@@ -158,7 +158,10 @@ impl Leaderboard {
                 std::fs::write(file, text)
             });
         if let Err(err) = written {
-            warn!("could not save the leaderboard to {}: {err}", file.display());
+            warn!(
+                "could not save the leaderboard to {}: {err}",
+                file.display()
+            );
         }
     }
 }
@@ -166,7 +169,11 @@ impl Leaderboard {
 /// Folder for saved data: `TT_SAVE_DIR` if set, else `%APPDATA%\tricky-towers-rs` on
 /// Windows and `$XDG_DATA_HOME/tricky-towers-rs` (or `~/.local/share/...`) elsewhere.
 pub fn save_dir() -> PathBuf {
-    let env = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from);
+    let env = |name: &str| {
+        std::env::var_os(name)
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+    };
     if let Some(dir) = env("TT_SAVE_DIR") {
         return dir;
     }

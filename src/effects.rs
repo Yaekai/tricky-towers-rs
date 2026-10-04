@@ -412,7 +412,12 @@ fn show_collapse(
                 let size = c * scale * 0.5;
                 // Each cell breaks into four pieces flung away from the brick's centre.
                 for &cell in cells {
-                    for corner in [Vec2::new(-1.0, -1.0), Vec2::new(1.0, -1.0), Vec2::new(-1.0, 1.0), Vec2::ONE] {
+                    for corner in [
+                        Vec2::new(-1.0, -1.0),
+                        Vec2::new(1.0, -1.0),
+                        Vec2::new(-1.0, 1.0),
+                        Vec2::ONE,
+                    ] {
                         let local = (cell + corner * 0.25) * c * scale;
                         let from = *at + turn * local;
                         let out = (turn * local).normalize_or(Vec2::Y);
