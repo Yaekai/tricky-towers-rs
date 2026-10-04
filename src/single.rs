@@ -10,33 +10,54 @@ use crate::config::{Difficulty, GameConfig, ModeKind};
 use crate::gameplay::{Match, MatchRequest, Phase, Tower, TowerState};
 use crate::menu::MenuScreen;
 use crate::select::{
-    NAME_PLATE, PANEL_SLICE, PLATE_SLICE, SEAT_PANEL, WIZARDS, label, place, read_taps, shown,
-    sliced, spawn_page,
+    CORNER_SMALL, PACK_PANEL, PANEL_SLICE, SEAT_PANEL, WIZARDS, corners, label, place, read_taps,
+    shown, sliced, spawn_page,
 };
 
-/// The seat sits this far above the centre; the list starts below it.
+/// The seat sits this far above the centre, its brick pack panel this far
+/// below the seat's centre; the list starts below them.
 const SEAT_Y: f32 = 200.0;
+const PACK_BELOW_SEAT: f32 = 225.0;
 const LIST_BUTTON: (f32, f32) = (550.0, 78.0);
 const LIST_TOP: f32 = -175.0;
 const LIST_STEP: f32 = 100.0;
-/// The Endless buttons down the left, the leaderboard on the right (guessed
-/// spots until the PC reads them).
+/// `menu_button_background`'s 9-slice borders (left, right, top, bottom), the
+/// gap between a picked button and its corners, and the cup band's height.
+const BUTTON_SLICE: [f32; 4] = [18.0, 16.0, 71.0, 15.0];
+const CORNER_GAP: f32 = 10.0;
+const CUP_BAND: f32 = 54.0;
+/// The Endless buttons down the right: the column's top-left corner, the slot
+/// each button fills and the pitch between them.
+const ENDLESS_TOP_LEFT: (f32, f32) = (135.0, 375.0);
 const ENDLESS_BUTTON: (f32, f32) = (690.0, 173.0);
-const ENDLESS_X: f32 = -430.0;
-const ENDLESS_YS: [f32; 3] = [230.0, 0.0, -230.0];
-const FACE: (f32, f32) = (150.0, 150.0);
+const ENDLESS_STEP: f32 = 200.0;
+/// A wizard face's size and its bottom-left corner from the button's bottom-left.
+const FACE: (f32, f32) = (110.0, 108.0);
+const FACE_AT: (f32, f32) = (33.0, 6.0);
+/// The leaderboard on the left, its right edge on the centre line, 30 px below
+/// the centre; its panel's 9-slice borders and its rows'.
 const BOARD: (f32, f32) = (800.0, 800.0);
-const BOARD_AT: (f32, f32) = (430.0, -20.0);
+const BOARD_AT: (f32, f32) = (-400.0, -30.0);
+const BOARD_SLICE: [f32; 4] = [0.0, 0.0, 51.0, 37.0];
+const ROW_SLICE: [f32; 4] = [6.0, 7.0, 0.0, 0.0];
+/// Rows down the leaderboard (guessed until read): size, the first row's
+/// centre from the board's top and the pitch.
+const ROW: (f32, f32) = (700.0, 56.0);
+const ROW_TOP: f32 = 130.0;
+const ROW_STEP: f32 = 62.0;
 /// Scores kept per Endless mode.
 const BOARD_LENGTH: usize = 10;
 
 /// A Single Player list entry: its name and whether it's built yet.
 const LIST: [(&str, bool); 2] = [("Trials", false), ("Endless", true)];
 
-/// An Endless button: its name, picture, wizard face and whether it's built.
+/// An Endless button: its name, picture (its size and how far up it sits in
+/// the slot), wizard face and whether it's built.
 struct EndlessEntry {
     name: &'static str,
     picture: &'static str,
+    size: (f32, f32),
+    lift: f32,
     face: &'static str,
     built: bool,
     color: Color,
@@ -46,20 +67,26 @@ const ENDLESS: [EndlessEntry; 3] = [
     EndlessEntry {
         name: "Race",
         picture: "menu_mode_endless",
-        face: "menu_challenge_wizard2",
+        size: (690.0, 173.0),
+        lift: 0.0,
+        face: "menu_challenge_wizard3",
         built: true,
         color: Color::srgb(0.85, 0.35, 0.2),
     },
     EndlessEntry {
         name: "Survival",
         picture: "menu_mode_endless_survival",
-        face: "menu_challenge_wizard3",
+        size: (689.0, 167.0),
+        lift: 0.0,
+        face: "menu_challenge_wizard2",
         built: false,
         color: Color::srgb(0.25, 0.55, 0.85),
     },
     EndlessEntry {
         name: "Puzzle",
         picture: "menu_mode_endless_puzzle",
+        size: (690.0, 224.0),
+        lift: 28.0,
         face: "menu_challenge_wizard4",
         built: false,
         color: Color::srgb(0.55, 0.35, 0.75),
@@ -109,10 +136,12 @@ pub(crate) struct EndlessRoot;
 pub(crate) enum Item {
     ListButton(usize),
     ListText(usize),
+    /// The four corners around a picked list button.
+    ListCorner(usize),
     EndlessButton(usize),
     EndlessText(usize),
     BoardTitle,
-    BoardText,
+    BoardRow(usize),
 }
 
 pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>) {
@@ -144,19 +173,17 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
                 place(size, (offset.0, SEAT_Y + offset.1)),
             ));
         }
-        // The name plate tucked under the panel, above the list.
-        let plate_y = SEAT_Y - SEAT_PANEL.1 / 2.0 - NAME_PLATE.0.1 / 2.0 - 10.0;
-        let mut plate = page.spawn((
-            place(NAME_PLATE.0, (0.0, plate_y)),
-            BackgroundColor(Color::srgba(0.1, 0.08, 0.2, 0.85)),
+        // The brick pack panel under the seat; no name plate here.
+        let mut pack = page.spawn((
+            place(PACK_PANEL.0, (0.0, SEAT_Y - PACK_BELOW_SEAT)),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
         ));
-        if let Some(art) = image("menu_player_select_nameplate") {
-            plate.insert((sliced(art, [PLATE_SLICE; 4]), BackgroundColor(Color::NONE)));
+        if let Some(grey) = image("menu_player_select_background_deselected") {
+            pack.insert((sliced(grey, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
         }
-        plate.with_children(|p| {
-            p.spawn(label(2.4, "Player 1"));
-        });
         let button = image("menu_button_background");
+        let band = image("menu_button_cup_background");
+        let corner = image("menu_corner_small");
         for (index, (name, _)) in LIST.iter().enumerate() {
             let y = LIST_TOP - LIST_STEP * index as f32;
             let mut node = page.spawn((
@@ -166,13 +193,43 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
             ));
             if let Some(art) = &button {
                 node.insert((
-                    sliced(art.clone(), [PLATE_SLICE; 4]),
+                    sliced(art.clone(), BUTTON_SLICE),
                     BackgroundColor(Color::NONE),
                 ));
+            }
+            // Endless carries the cup band across it, as wide as the button.
+            if *name == "Endless"
+                && let Some(band) = &band
+            {
+                node.with_children(|b| {
+                    b.spawn((
+                        ImageNode::new(band.clone()),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(CUP_BAND / LIST_BUTTON.1 * 100.0),
+                            ..default()
+                        },
+                    ));
+                });
             }
             node.with_children(|b| {
                 b.spawn((label(3.2, name), Item::ListText(index)));
             });
+            if let Some(corner) = &corner {
+                let frame = (
+                    LIST_BUTTON.0 + 2.0 * CORNER_GAP,
+                    LIST_BUTTON.1 + 2.0 * CORNER_GAP,
+                );
+                corners(
+                    page,
+                    corner,
+                    frame,
+                    (0.0, y),
+                    CORNER_SMALL,
+                    Item::ListCorner(index),
+                );
+            }
         }
         page.spawn(place((SCREEN_WIDTH, 60.0), (0.0, -540.0 + 60.0)))
             .with_children(|p| {
@@ -187,7 +244,7 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
     commands.entity(endless).insert(EndlessRoot);
     commands.entity(endless).with_children(|page| {
         for (index, entry) in ENDLESS.iter().enumerate() {
-            let at = (ENDLESS_X, ENDLESS_YS[index]);
+            let at = endless_slot(index);
             let mut node = page.spawn((
                 place(ENDLESS_BUTTON, at),
                 BackgroundColor(entry.color),
@@ -195,7 +252,12 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
             ));
             let picture = image(entry.picture);
             if let Some(art) = &picture {
-                node.insert((ImageNode::new(art.clone()), BackgroundColor(Color::NONE)));
+                // The picture keeps its own size, centred in the slot.
+                node.insert((
+                    ImageNode::new(art.clone()),
+                    BackgroundColor(Color::NONE),
+                    place(entry.size, (at.0, at.1 + entry.lift)),
+                ));
             }
             if picture.is_none() {
                 node.with_children(|b| {
@@ -203,7 +265,10 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
                 });
             }
             if let Some(face) = image(entry.face) {
-                let face_at = (at.0 - ENDLESS_BUTTON.0 / 2.0 + FACE.0 / 2.0 + 10.0, at.1);
+                let face_at = (
+                    at.0 - ENDLESS_BUTTON.0 / 2.0 + FACE_AT.0 + FACE.0 / 2.0,
+                    at.1 - ENDLESS_BUTTON.1 / 2.0 + FACE_AT.1 + FACE.1 / 2.0,
+                );
                 page.spawn((ImageNode::new(face), place(FACE, face_at)));
             }
         }
@@ -211,19 +276,43 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
             place(BOARD, BOARD_AT),
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.45)),
         ));
-        if let Some(art) = image("menu_button_cup_background") {
-            board.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+        if let Some(art) = image("menu_leaderboard_panel") {
+            board.insert((sliced(art, BOARD_SLICE), BackgroundColor(Color::NONE)));
         }
-        board.insert(Node {
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::FlexStart,
-            padding: UiRect::top(Val::Percent(6.0)),
-            row_gap: Val::Percent(4.0),
-            ..place(BOARD, BOARD_AT)
-        });
+        let row_art = image("menu_leaderboard_row");
         board.with_children(|b| {
-            b.spawn((label(4.0, ""), Item::BoardTitle));
-            b.spawn((label(3.0, ""), Item::BoardText));
+            b.spawn((Node {
+                position_type: PositionType::Absolute,
+                top: Val::Percent(4.0),
+                width: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                ..default()
+            },))
+                .with_children(|t| {
+                    t.spawn((label(4.0, ""), Item::BoardTitle));
+                });
+            for row in 0..BOARD_LENGTH {
+                let top = ROW_TOP + ROW_STEP * row as f32 - ROW.1 / 2.0;
+                let mut node = b.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Percent((BOARD.0 - ROW.0) / 2.0 / BOARD.0 * 100.0),
+                        top: Val::Percent(top / BOARD.1 * 100.0),
+                        width: Val::Percent(ROW.0 / BOARD.0 * 100.0),
+                        height: Val::Percent(ROW.1 / BOARD.1 * 100.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.08)),
+                ));
+                if let Some(art) = &row_art {
+                    node.insert((sliced(art.clone(), ROW_SLICE), BackgroundColor(Color::NONE)));
+                }
+                node.with_children(|r| {
+                    r.spawn((label(2.8, ""), Item::BoardRow(row)));
+                });
+            }
         });
         page.spawn(place((SCREEN_WIDTH, 60.0), (0.0, -540.0 + 60.0)))
             .with_children(|p| {
@@ -236,6 +325,14 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
 }
 
 const SCREEN_WIDTH: f32 = 1920.0;
+
+/// The centre of Endless button `index`'s slot.
+fn endless_slot(index: usize) -> (f32, f32) {
+    (
+        ENDLESS_TOP_LEFT.0 + ENDLESS_BUTTON.0 / 2.0,
+        ENDLESS_TOP_LEFT.1 - ENDLESS_BUTTON.1 / 2.0 - ENDLESS_STEP * index as f32,
+    )
+}
 /// A list button's colour when its art isn't staged.
 const LIST_COLOR: Color = Color::srgb(0.3, 0.24, 0.55);
 
@@ -318,6 +415,7 @@ pub(crate) fn show_single_screens(
             Option<&mut BackgroundColor>,
             Option<&mut Text>,
             Option<&mut TextColor>,
+            Option<&mut Visibility>,
         ),
         (Without<SingleRoot>, Without<EndlessRoot>),
     >,
@@ -342,7 +440,11 @@ pub(crate) fn show_single_screens(
         (false, false) => Color::srgb(0.35, 0.35, 0.4),
     };
     let entry = &ENDLESS[menu.endless];
-    for (item, image, colour, text, text_colour) in &mut items {
+    for (item, image, colour, text, text_colour, visibility) in &mut items {
+        if let (Item::ListCorner(i), Some(mut v)) = (*item, visibility) {
+            v.set_if_neq(shown(menu.selected == i));
+            continue;
+        }
         let look = match *item {
             Item::ListButton(i) => Some(tint(menu.selected == i, LIST[i].1)),
             Item::EndlessButton(i) => Some(tint(menu.endless == i, ENDLESS[i].built)),
@@ -397,21 +499,10 @@ pub(crate) fn show_single_screens(
                 }
             }
             Item::BoardTitle => format!("Endless {}", entry.name),
-            Item::BoardText => {
-                let scores = &board.scores[menu.endless];
-                if !entry.built {
-                    "Coming soon".into()
-                } else if scores.is_empty() {
-                    "No scores yet".into()
-                } else {
-                    scores
-                        .iter()
-                        .enumerate()
-                        .map(|(place, score)| format!("{}. {score}", place + 1))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                }
-            }
+            Item::BoardRow(row) => match board.scores[menu.endless].get(row) {
+                Some(score) if entry.built => format!("{}.  {score}", row + 1),
+                _ => format!("{}.  -", row + 1),
+            },
             _ => continue,
         };
         if let Some(mut text) = text

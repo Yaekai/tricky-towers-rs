@@ -12,8 +12,8 @@ use bevy::prelude::*;
 
 use crate::config::{AwardRule, Curse, GameConfig, MagicRules, ModeKind, SpellKind, WaveRules};
 use crate::gameplay::{
-    ActiveBrick, Brick, BrickMod, Match, Phase, PlayerInput, Tower, TowerState, TowerStatus,
-    brick_body, brick_collider, piece_def,
+    ActiveBrick, Brick, BrickMod, Match, Phase, Placed, PlayerInput, Tower, TowerState,
+    TowerStatus, brick_body, brick_collider, piece_def,
 };
 
 /// A vine holding two bricks together.
@@ -162,7 +162,8 @@ pub(crate) fn update_spell_lines(
 
 /// Survival Pro's curse waves: every so often a fixed set of curses hits every
 /// tower for a while, cursing the brick in hand and each new brick (Mist fogs
-/// the tower once, Ghost carries off the last brick once).
+/// the tower once; Ghost carries off the last placed brick with the brick in
+/// hand and again with each new one).
 #[derive(Default)]
 pub(crate) struct WaveClock {
     round: u64,
@@ -240,14 +241,54 @@ pub(crate) fn run_curse_waves(
         ),
         Without<ActiveBrick>,
     >,
+    ghostable: Query<
+        (Entity, &Brick, &Placed, &RigidBody),
+        (
+            Without<ActiveBrick>,
+            Without<Ghosted>,
+            Without<Stone>,
+            Without<Vined>,
+        ),
+    >,
 ) {
     let dt = time.delta_secs();
-    for (_, _, mut state) in &mut towers {
+    for (entity, tower, mut state) in &mut towers {
         if state.wave_left > 0.0 {
             state.wave_left -= dt;
             if state.wave_left <= 0.0 {
                 state.wave_mod = None;
+                state.wave_ghost = false;
             }
+        }
+        // Each Ghost hit takes the newest placed brick that is still loose and
+        // isn't ghosted, stone or ivy already.
+        // One hit per tower per step, so the next one sees this one land.
+        if state.ghosts_due > 0 {
+            state.ghosts_due -= 1;
+            if state.status != TowerStatus::Building {
+                state.ghosts_due = 0;
+                continue;
+            }
+            let Some((victim, ..)) = ghostable
+                .iter()
+                .filter(|(_, b, _, body)| b.tower == entity && **body == RigidBody::Dynamic)
+                .max_by_key(|(_, _, placed, _)| **placed)
+            else {
+                state.ghosts_due = 0;
+                continue;
+            };
+            let kept = state.last_placed;
+            state.last_placed = Some(victim);
+            cast_on_tower(
+                &mut commands,
+                &config,
+                SpellKind::Ghost,
+                entity,
+                tower,
+                &mut state,
+                &placed,
+            );
+            state.last_placed = kept.filter(|&e| e != victim);
         }
     }
     let rules = &config.survival.waves;
@@ -288,30 +329,24 @@ pub(crate) fn run_curse_waves(
         }
     }
     let cursed = effect != BrickMod::default();
-    for (entity, tower, mut state) in &mut towers {
+    let ghost = wave.curses.contains(&SpellKind::Ghost);
+    for (_, _, mut state) in &mut towers {
         if state.status != TowerStatus::Building {
             continue;
         }
+        state.wave_left = length;
         if cursed {
             // The brick in hand, then every new one while the wave lasts.
             curse_bricks(&mut commands, &config, &mut state, &mut active, &effect, 1);
             state.wave_mod = Some(effect);
-            state.wave_left = length;
         }
-        for &spell in &wave.curses {
-            match spell {
-                SpellKind::Mist => state.mist_timer = state.mist_timer.max(length),
-                SpellKind::Ghost => cast_on_tower(
-                    &mut commands,
-                    &config,
-                    spell,
-                    entity,
-                    tower,
-                    &mut state,
-                    &placed,
-                ),
-                _ => {}
-            }
+        if ghost {
+            // Once for the brick in hand, then with every new brick.
+            state.wave_ghost = true;
+            state.ghosts_due += 1;
+        }
+        if wave.curses.contains(&SpellKind::Mist) {
+            state.mist_timer = state.mist_timer.max(length);
         }
     }
 }
