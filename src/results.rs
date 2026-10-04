@@ -141,6 +141,7 @@ fn spawn_match_text(
             },
             UiTransform::default(),
             GlobalZIndex(20),
+            Visibility::Hidden,
         ))
         .with_children(|parent| {
             parent.spawn(layer(Color::srgb_u8(r, g, b), size * look.shadow_drop));
@@ -149,11 +150,16 @@ fn spawn_match_text(
         .id()
 }
 
-/// Puts a text container centred on a point of the screen, kept inside it.
-fn centre_on(node: &mut Node, computed: &ComputedNode, at: Vec2, view: Vec2) {
+/// Puts a text container centred on a point of the screen, kept inside it even
+/// while it is scaled up by `scale` around its centre.
+fn centre_on(node: &mut Node, computed: &ComputedNode, at: Vec2, view: Vec2, scale: f32) {
     let size = computed.size() * computed.inverse_scale_factor();
-    node.left = Val::Px((at.x - size.x * 0.5).clamp(0.0, (view.x - size.x).max(0.0)));
-    node.top = Val::Px((at.y - size.y * 0.5).clamp(0.0, (view.y - size.y).max(0.0)));
+    let margin = size * (scale.max(1.0) - 1.0) * 0.5;
+    let fit = |centre: f32, size: f32, margin: f32, view: f32| {
+        (centre - size * 0.5).clamp(margin, (view - size - margin).max(margin))
+    };
+    node.left = Val::Px(fit(at.x, size.x, margin.x, view.x));
+    node.top = Val::Px(fit(at.y, size.y, margin.y, view.y));
 }
 
 /// Starts the banners and lights as towers win or go out, and clears them when a
@@ -220,23 +226,7 @@ fn start_moments(
                     .id();
                 commands.entity(banner).insert_children(0, &[rays]);
             }
-            if let Some(image) = art.image("trophy") {
-                let cup = commands
-                    .spawn((
-                        Trophy,
-                        ImageNode::new(image),
-                        Node {
-                            grid_row: GridPlacement::start(2),
-                            grid_column: GridPlacement::start(1),
-                            width: Val::Px(look.banner_size * 1.5),
-                            height: Val::Px(look.banner_size * 1.5),
-                            ..default()
-                        },
-                        UiTransform::from_scale(Vec2::splat(look.trophy_pop.0)),
-                    ))
-                    .id();
-                commands.entity(banner).add_child(cup);
-            }
+            // No cup after a single match: cups only end a cup (not built yet).
             spawn_light(
                 &mut commands,
                 &art,
@@ -290,9 +280,10 @@ fn spawn_light(
     fallback: Color,
 ) {
     let sprite = match art.image(name) {
+        // The veil's art is drawn dark, like the original; the beam as it is.
         Some(image) => Sprite {
             image,
-            color: Color::WHITE.with_alpha(0.0),
+            color: fallback.with_alpha(0.0),
             ..default()
         },
         None => Sprite::from_color(fallback.with_alpha(0.0), Vec2::ONE),
@@ -371,6 +362,7 @@ fn animate_banners(
         &mut Node,
         &ComputedNode,
         &mut UiTransform,
+        &mut Visibility,
     )>,
     mut rays: Query<&mut UiTransform, (With<Sunrays>, Without<Banner>, Without<Trophy>)>,
     mut cups: Query<&mut UiTransform, (With<Trophy>, Without<Banner>, Without<Sunrays>)>,
@@ -380,7 +372,7 @@ fn animate_banners(
     };
     let look = &config.moments;
     let dt = time.delta_secs();
-    for (entity, mut banner, mut node, computed, mut transform) in &mut banners {
+    for (entity, mut banner, mut node, computed, mut transform, mut visibility) in &mut banners {
         banner.time += dt;
         let Ok(tower) = towers.get(banner.tower) else {
             continue;
@@ -393,7 +385,12 @@ fn animate_banners(
             computed,
             Vec2::new(at.x, view.0.y * 0.35),
             view.0,
+            1.4,
         );
+        // Shown once laid out, so it never flashes in the wrong place.
+        if computed.size().x > 0.0 {
+            visibility.set_if_neq(Visibility::Inherited);
+        }
         let t = banner.time;
         if banner.out {
             let (enter, stay, leave) = look.out_times;
@@ -434,7 +431,14 @@ fn show_hold_counts(
     images: Res<Assets<Image>>,
     camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     towers: Query<(Entity, &Tower, &TowerState)>,
-    mut counts: Query<(Entity, &HoldCount, &mut Node, &ComputedNode, &Children)>,
+    mut counts: Query<(
+        Entity,
+        &HoldCount,
+        &mut Node,
+        &ComputedNode,
+        &Children,
+        &mut Visibility,
+    )>,
     mut labels: Query<&mut Text, With<MatchLabel>>,
     view: Res<ViewSize>,
 ) {
@@ -458,7 +462,7 @@ fn show_hold_counts(
             commands.entity(count).insert(HoldCount(entity));
         }
     }
-    for (entity, count, mut node, computed, children) in &mut counts {
+    for (entity, count, mut node, computed, children, mut visibility) in &mut counts {
         let Ok((_, tower, state)) = towers.get(count.0) else {
             commands.entity(entity).despawn();
             continue;
@@ -493,6 +497,9 @@ fn show_hold_counts(
             }
         }
         node.display = Display::Grid;
-        centre_on(&mut node, computed, at, view.0);
+        centre_on(&mut node, computed, at, view.0, 1.0);
+        if computed.size().x > 0.0 {
+            visibility.set_if_neq(Visibility::Inherited);
+        }
     }
 }

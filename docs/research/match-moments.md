@@ -23,5 +23,6 @@ Plain-language notes from Max's installed copy.
   centred on the lane's bottom, 1.5 wide and as tall as the screen. Opacity 151/255 in Race,
   130/255 in Survival, full in Puzzle.
 - Losers: a dark veil 10 wide fades to opacity 0.1 over 1 s.
-- Trophy (cups only): pops from 40% to full size over 0.6 s with an elastic bounce. Cups come
-  in Tiny, Big, Super and Online sizes.
+- Trophy (cups only): pops from 40% to full size over 0.6 s with an elastic bounce.
+- No cup after a single match: cups show only at the end of a cup, sized Tiny, Big, Super or
+  Online (staged as `trophy`, `trophy_big`, `trophy_super`, `trophy_online`).
