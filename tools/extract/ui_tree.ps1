@@ -1,7 +1,7 @@
-param([string]$Scene, [string]$GuidIndex, [string]$Under = '')
+param([string]$Scene, [string]$GuidIndex, [string]$Under = '', [switch]$All)
 # Lists UI images in a scene or prefab: path, sprite, anchored position and size (in the UI's
 # reference pixels, relative to the parent) and anchors. Optional -Under keeps only paths that
-# contain that text. Output: path<TAB>sprite<TAB>x<TAB>y<TAB>w<TAB>h<TAB>anchorMin<TAB>anchorMax
+# contain that text; -All also lists objects without an image (sprite '-'). Output: path<TAB>sprite<TAB>x<TAB>y<TAB>w<TAB>h<TAB>anchorMin<TAB>anchorMax
 $idx = @{}; Get-Content $GuidIndex | ForEach-Object { $p = $_ -split "`t"; $idx[$p[0]] = $p[1] }
 $text = [IO.File]::ReadAllText($Scene)
 $docs = [regex]::Split($text, '(?m)^--- ') | Where-Object { $_ -match '^!u!(\d+) &(\d+)' }
@@ -22,6 +22,8 @@ foreach ($d in $docs) {
     $images += [pscustomobject]@{ go = [regex]::Match($d, 'm_GameObject: \{fileID: (\d+)').Groups[1].Value; sprite = $Matches[1] }
   }
 }
+if ($All) { $seen = @{}; foreach ($im in $images) { $seen[$im.go] = 1 }
+  foreach ($t in $rtById.Values) { if (-not $seen[$t.go]) { $images += [pscustomobject]@{ go = $t.go; sprite = "" } } } }
 foreach ($im in $images) {
   $t = $rtByGo[$im.go]; if (-not $t) { continue }
   $names = @(); $cur = $t
