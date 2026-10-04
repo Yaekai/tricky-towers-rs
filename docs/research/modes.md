@@ -28,7 +28,8 @@ Plain-language notes from Max's installed copy. Units are brick cells.
 - No spell lines; only a start spell: Undo / Ivy / none.
 - Floor: Easy is 5 wide and flat-ish (pieces up to 2 lower). Normal is 6 wide with 40% gaps, pieces
   up to 4 lower. Pro is a 3-wide pillar with random 1-cell side ledges (70% per row).
-- The lane is 1.2× wider, and the steering limit grows with the tower.
+- The lane is 1.2× wider. The steering limit is the larger of the usual limit × 1.2 and the
+  tower's half width plus 1.5, measured from the widest settled brick either side of the centre.
 - A brick above the laser is zapped and that player's round ends.
 - A dropped brick costs no life; the laser effectively moves 0.5 lower.
 - When everyone has finished, the most bricks in the tower wins.

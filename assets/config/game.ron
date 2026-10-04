@@ -96,7 +96,12 @@
         same_bricks: false,
         dark_magic: true,
         wind: None,
-        wind_push: 0.1,
+        countdown_above: (10.0, 7.0),
+        wind_period: 5.0,
+        wind_force: 0.8,
+        wind_rows: 10,
+        wind_row_falloff: 0.02,
+        wind_reach: 10.0,
     ),
     survival: (
         lives: 3,
@@ -128,7 +133,7 @@
         normal_floor: (6, 40, 4),
         pro_floor: (3, 70),
         lane_scale: 1.2,
-        lane_growth: 0.1,
+        lane_margin: 1.5,
     ),
     endless: (
         intro_from: -15.0,

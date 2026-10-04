@@ -25,6 +25,7 @@ impl Plugin for VisualsPlugin {
             .init_resource::<Art>()
             .init_resource::<ViewSize>()
             .add_systems(Startup, setup_scene)
+            .add_systems(Update, show_hold_counts.after(frame_towers))
             .add_systems(
                 Update,
                 (
@@ -83,6 +84,10 @@ struct Hud;
 /// A player panel, kept beside its tower's base by `place_panels`.
 #[derive(Component)]
 struct PanelLane(usize);
+
+/// The race hold countdown (3, 2, 1) over a tower that is past the finish line.
+#[derive(Component)]
+struct HoldCount(usize);
 
 /// The row of player panels along the bottom: portrait, hearts and spell slots.
 #[derive(Component)]
@@ -329,7 +334,15 @@ fn dress_bricks(
         }
         let art_drawn = image.is_some();
         // Vines and grass are drawn over the sprite when staged, else tint it.
-        let vine_art = art.image("vine_overlay").filter(|_| art_drawn && vined);
+        // Vines grow over the brick with an animation made for its shape, when staged.
+        let vine_name = [
+            format!("vine_overlay_{}", key.trim_start_matches("brick_")),
+            "vine_overlay".into(),
+        ]
+        .into_iter()
+        .find(|name| art.image(name).is_some())
+        .unwrap_or_default();
+        let vine_art = art.image(&vine_name).filter(|_| art_drawn && vined);
         let grass_art = art.image("grass_overlay").filter(|_| art_drawn && grassy);
         if vined && vine_art.is_none() {
             color = color.mix(&VINES, if art_drawn { 0.25 } else { 0.4 });
@@ -355,16 +368,25 @@ fn dress_bricks(
                     },
                     Transform::from_translation(center.extend(0.0)),
                 ));
-                for (z, overlay) in [(0.1, vine_art), (0.2, grass_art)] {
+                for (z, overlay, name) in
+                    [(0.1, vine_art, vine_name.as_str()), (0.2, grass_art, "")]
+                {
                     if let Some(overlay) = overlay {
-                        entity.with_child((
-                            Sprite {
-                                image: overlay,
-                                custom_size: Some(size),
-                                ..default()
-                            },
-                            Transform::from_translation(center.extend(z)),
-                        ));
+                        let mut child = entity.commands();
+                        let id = child
+                            .spawn((
+                                Sprite {
+                                    image: overlay,
+                                    custom_size: Some(size),
+                                    ..default()
+                                },
+                                Transform::from_translation(center.extend(z)),
+                            ))
+                            .id();
+                        if art.is_animation(name) {
+                            child.entity(id).insert(Animated::new(name));
+                        }
+                        entity.add_child(id);
                     }
                 }
             }
@@ -1128,6 +1150,82 @@ const PANEL_ICON: f32 = 44.0;
 /// One panel per tower, in lane order: the wizard portrait (`wizard_<lane>`), hearts
 /// for lives (`heart`), and the light and dark spell slots (`spell_icon_<Spell>` in
 /// `spell_slot_light` / `spell_slot_dark`). Text stands in for missing art.
+/// Shows the race countdown above the finish line of each tower that is holding past
+/// it, higher for the leader, like the original.
+fn show_hold_counts(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    towers: Query<(&Tower, &TowerState)>,
+    mut counts: Query<(Entity, &HoldCount, &mut Text, &mut Node, &ComputedNode)>,
+) {
+    let Ok((camera, eye)) = camera.single() else {
+        return;
+    };
+    let leader = towers
+        .iter()
+        .max_by(|a, b| a.1.height.total_cmp(&b.1.height))
+        .map(|(t, _)| t.index);
+    for (tower, _) in &towers {
+        if !counts.iter().any(|(_, c, ..)| c.0 == tower.index) {
+            commands.spawn((
+                HoldCount(tower.index),
+                Text::new(""),
+                TextFont {
+                    font_size: FontSize::Px(64.0),
+                    ..default()
+                },
+                TextLayout::justify(Justify::Center),
+                Node {
+                    position_type: PositionType::Absolute,
+                    display: Display::None,
+                    ..default()
+                },
+            ));
+        }
+    }
+    for (entity, count, mut text, mut node, computed) in &mut counts {
+        let Some((tower, state)) = towers.iter().find(|(t, _)| t.index == count.0) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        let holding = game.phase == Phase::Playing
+            && game.mode == ModeKind::Race
+            && state.status == TowerStatus::Building
+            && state.hold_timer > 0.0;
+        let (lead, other) = config.race.countdown_above;
+        let above = if leader == Some(tower.index) {
+            lead
+        } else {
+            other
+        };
+        let at = Vec3::new(
+            tower.origin_x,
+            config.cells(game.finish_height + above) + config.cell_size * 0.5,
+            0.0,
+        );
+        let Some(at) = holding
+            .then(|| camera.world_to_viewport(eye, at).ok())
+            .flatten()
+        else {
+            node.display = Display::None;
+            continue;
+        };
+        let left = (config.race.hold_seconds - state.hold_timer)
+            .ceil()
+            .max(1.0);
+        let label = format!("{left:.0}");
+        if text.0 != label {
+            text.0 = label;
+        }
+        let size = computed.size() * computed.inverse_scale_factor();
+        node.display = Display::Flex;
+        node.left = Val::Px(at.x - size.x * 0.5);
+        node.top = Val::Px(at.y - size.y * 0.5);
+    }
+}
+
 fn update_panels(
     mut commands: Commands,
     config: Res<GameConfig>,

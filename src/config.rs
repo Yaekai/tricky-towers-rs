@@ -155,12 +155,23 @@ pub struct RaceRules {
     pub same_bricks: bool,
     /// Spell lines also hand out dark spells (not on Easy).
     pub dark_magic: bool,
-    /// Wind (Pro): a sideways push on the tower's loose bricks, its strength random in
-    /// this range and its side random each match. Left out, there is no wind.
+    /// Wind (Pro): its strength swings between these two on a sine cycle. It blows one
+    /// way, picked at random, for the whole match. Left out, there is no wind.
     pub wind: Option<(f32, f32)>,
-    /// Sideways acceleration per point of wind strength, in cells/s² (?). How the
-    /// original turns strength into a push is not read yet.
-    pub wind_push: f32,
+    /// The hold countdown (3, 2, 1) shows this far above the finish line for the
+    /// leading tower, and for the others.
+    #[serde(default = "default_countdown_above")]
+    pub countdown_above: (f32, f32),
+    /// Seconds for one swing of the wind's strength.
+    pub wind_period: f32,
+    /// Force per point of strength on the first brick each wind row hits.
+    pub wind_force: f32,
+    /// Wind rows, 1 cell apart from half a cell under the tower top down; each row is
+    /// this much weaker than the one above.
+    pub wind_rows: u32,
+    pub wind_row_falloff: f32,
+    /// Each row's ray starts this far upwind of the lane centre (and reaches as far past).
+    pub wind_reach: f32,
 }
 
 impl Default for RaceRules {
@@ -175,7 +186,12 @@ impl Default for RaceRules {
             same_bricks: false,
             dark_magic: true,
             wind: None,
-            wind_push: 0.1,
+            countdown_above: default_countdown_above(),
+            wind_period: 5.0,
+            wind_force: 0.8,
+            wind_rows: 10,
+            wind_row_falloff: 0.02,
+            wind_reach: 10.0,
         }
     }
 }
@@ -322,13 +338,21 @@ pub struct PuzzleRules {
     /// The lane is this much wider than in the other modes...
     #[serde(default = "default_puzzle_lane_scale")]
     pub lane_scale: f32,
-    /// ...and the steering limit grows by this many cells per cell of tower (?).
-    #[serde(default)]
-    pub lane_growth: f32,
+    /// ...and a tower wider than that steers out to its widest settled brick plus this.
+    #[serde(default = "default_puzzle_lane_margin")]
+    pub lane_margin: f32,
 }
 
 fn default_puzzle_lane_scale() -> f32 {
     1.2
+}
+
+fn default_countdown_above() -> (f32, f32) {
+    (10.0, 7.0)
+}
+
+fn default_puzzle_lane_margin() -> f32 {
+    1.5
 }
 
 impl Default for PuzzleRules {
@@ -347,7 +371,7 @@ impl Default for PuzzleRules {
             normal_floor: (6, 40, 4),
             pro_floor: (3, 70),
             lane_scale: 1.2,
-            lane_growth: 0.1,
+            lane_margin: 1.5,
         }
     }
 }
@@ -1205,13 +1229,12 @@ impl GameConfig {
     }
 
     /// How far either side of its lane centre a steered brick may go in the current
-    /// mode, in cells, with the tower `height` cells tall.
-    pub fn lane_reach(&self, height: f32) -> f32 {
+    /// mode, in cells, for a tower whose widest settled brick reaches `tower_half_width`
+    /// from the centre. Puzzle lanes are wider and grow with the tower.
+    pub fn lane_reach(&self, tower_half_width: f32) -> f32 {
         match self.mode {
-            ModeKind::Puzzle => {
-                self.lane_half_width * self.puzzle.lane_scale
-                    + self.puzzle.lane_growth * height.max(0.0)
-            }
+            ModeKind::Puzzle => (self.lane_half_width * self.puzzle.lane_scale)
+                .max(tower_half_width + self.puzzle.lane_margin),
             _ => self.lane_half_width,
         }
     }

@@ -1016,20 +1016,25 @@ fn race_pro_wind_blows_one_way_and_puzzle_lanes_are_wider() {
     let mut config = fast_config();
     config.mode = ModeKind::Race;
     config.difficulty = Some(Difficulty::Pro);
-    let app = headless_app(config.clone());
+    let mut app = headless_app(config.clone());
     let wind = app.world().resource::<Match>().wind;
-    let push = config.race.wind_push;
-    assert!(
-        (3.0 * push..=4.0 * push).contains(&wind.abs()),
-        "wind {wind}"
-    );
+    assert_eq!(wind.abs(), 1.0, "wind {wind}");
+    // Placed bricks drift downwind; nothing breaks.
+    run_seconds(&mut app, 4.0, |_| {});
+    let world = app.world_mut();
+    let drift: Vec<f32> = world
+        .query::<(&Brick, &avian2d::prelude::LinearVelocity)>()
+        .iter(world)
+        .map(|(_, v)| v.0.x)
+        .collect();
+    assert!(drift.iter().all(|v| v.is_finite()));
 
     config.difficulty = Some(Difficulty::Normal);
     let app = headless_app(config.clone());
     assert_eq!(app.world().resource::<Match>().wind, 0.0);
 
+    // Puzzle: 1.2x the normal limit, or the tower's widest brick plus 1.5.
     config.mode = ModeKind::Puzzle;
-    let base = config.lane_half_width;
-    assert!(config.lane_reach(0.0) > base * 1.19);
-    assert!(config.lane_reach(10.0) > config.lane_reach(0.0));
+    assert!((config.lane_reach(0.0) - 8.4).abs() < 1e-4);
+    assert_eq!(config.lane_reach(10.0), 11.5);
 }

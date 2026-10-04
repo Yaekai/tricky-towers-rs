@@ -64,3 +64,8 @@ and nothing gets installed without Max's own go-ahead.
   where it puts each player's panel (portrait, name, hearts, spell slots) in 1 to 4 player
   matches, as screen positions or relative to the lane, so it can match exactly.
 - Puzzle floor pieces are wired up (`dress_floor` in src/visuals.rs; 2-wide `puzzle_piece_2` isn't used yet, as our columns are 1 wide). Screenshot Puzzle on each difficulty offscreen and compare the floors and the missing water with the original. Read how the original picks column widths (1 or 2) so `puzzle_piece_2` can be used.
+- Wind, the Puzzle steering limit, per-shape vine growth (`vine_overlay_<P>`,
+  `vine_overlay_mystery_<name>`, as animations) and the race hold countdown are in. For the
+  countdown, say if the original draws the numbers from a sprite sheet rather than the font,
+  and stage them if so. Next readout wanted: the Winner! and Wizard out! banners, the trophy
+  pop-in and the spotlights (names, where they show, their timings), so the results can be coded.

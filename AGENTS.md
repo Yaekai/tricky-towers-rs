@@ -42,3 +42,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-04: Endless Race rebuilt from the PC's readout: intro slide, checkpoints on picked-up spell lines (fixed heights), ease and wait, growing speed step, score 10 × height, light spells only, `background_endless_N`. Panels move beside the base when there's no room under it.
 - 2026-10-04: font sheet, wizards 1-4, Endless pacer and Puzzle floor pieces staged by tools/extract; offscreen screenshots of every mode (no window, no sound) all load with 0 errors.
 - 2026-10-04: Puzzle floors drawn with the staged floor pieces (`FloorBlock { part }`, `dress_floor`); the water strip hides in modes whose water band is off.
+- 2026-10-04: exact Race Pro wind (`blow_wind` rays per row + `push_wind` forces), Puzzle steering limit from the tower's settled half width, per-shape vine growth animations, race hold countdown over the finish line (`show_hold_counts`).

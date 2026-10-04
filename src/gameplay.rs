@@ -19,6 +19,7 @@ impl Plugin for GameplayPlugin {
         app.insert_resource(Time::<Fixed>::from_hz(50.0))
             .init_resource::<Match>()
             .init_resource::<MatchRequest>()
+            .init_resource::<WindGusts>()
             .init_resource::<crate::spells::SpellLog>()
             .add_systems(Startup, setup_world)
             .add_systems(
@@ -28,6 +29,7 @@ impl Plugin for GameplayPlugin {
                     spawn_next_brick,
                     control_active_brick,
                     blow_wind,
+                    push_wind,
                     track_towers,
                     crate::spells::update_spell_lines,
                     crate::spells::run_curse_waves,
@@ -82,7 +84,7 @@ pub struct Match {
     pub players: usize,
     /// Matches started so far, so each round can differ.
     pub round: u64,
-    /// Race Pro wind: sideways push on loose bricks in cells/s², positive to the right.
+    /// Race Pro wind's side: 1 blows right, -1 left, 0 no wind.
     pub wind: f32,
 }
 
@@ -346,6 +348,8 @@ pub struct TowerState {
     pub pacer_pause: f32,
     pub pacer_from: f32,
     pub pacer_clock: f32,
+    /// How far the widest settled brick reaches from the lane centre, in cells.
+    pub half_width: f32,
     /// The tallest this tower has been, in cells (Endless Race's score).
     pub best_height: f32,
     pub rng: u64,
@@ -390,6 +394,7 @@ impl TowerState {
             pacer_from: 0.0,
             pacer_clock: 0.0,
             best_height: 0.0,
+            half_width: 0.0,
             mystery_bag: Vec::new(),
             rng: seed.max(1),
         }
@@ -684,16 +689,14 @@ fn start_match(
     let mut roll = config.seed ^ round.wrapping_mul(0x9E37_79B9_7F4A_7C15);
     let laser = config.puzzle.line_height
         + (xorshift(&mut roll) % 1001) as f32 / 1000.0 * config.puzzle.line_random;
-    // Race wind: a random strength in its range, blowing to a random side.
+    // Race wind blows to a random side for the whole match.
     let wind = match config.race.wind {
-        Some((low, high)) if config.mode == ModeKind::Race => {
-            let strength = low + (xorshift(&mut roll) % 1001) as f32 / 1000.0 * (high - low);
-            let side = if xorshift(&mut roll).is_multiple_of(2) {
+        Some(_) if config.mode == ModeKind::Race => {
+            if xorshift(&mut roll).is_multiple_of(2) {
                 1.0
             } else {
                 -1.0
-            };
-            side * strength * config.race.wind_push
+            }
         }
         _ => 0.0,
     };
@@ -923,7 +926,7 @@ fn spawn_next_brick(
         };
         // A returning brick comes back above where it was lost, within the lane.
         let x = respawn.map_or(tower.origin_x, |back| {
-            let reach = config.cells(config.lane_reach(state.height));
+            let reach = config.cells(config.lane_reach(state.half_width));
             back.x.clamp(tower.origin_x - reach, tower.origin_x + reach)
         });
         let mut position = Vec2::new(x, config.cells(floor + config.spawn_gap));
@@ -1030,7 +1033,7 @@ fn control_active_brick(
                 &filter,
             )
         };
-        let reach = config.cells(config.lane_reach(state.height));
+        let reach = config.cells(config.lane_reach(state.half_width));
         let in_lane = |x: f32| (x - tower.origin_x).abs() <= reach;
         let mut placed = false;
         let mut shoves: Vec<Shove> = Vec::new();
@@ -1243,21 +1246,71 @@ fn control_active_brick(
     }
 }
 
-/// Race Pro wind pushes every loose brick sideways.
+/// Race Pro wind, as in the original: rows of wind 1 cell apart down from the top of
+/// each tower, each pushing the first brick it meets on the windward side. Lower bricks
+/// shelter behind the tower; the steered brick and bubbled bricks are never pushed.
 #[allow(clippy::type_complexity)]
 fn blow_wind(
-    time: Res<Time>,
     config: Res<GameConfig>,
     game: Res<Match>,
-    mut bricks: Query<(&RigidBody, &mut LinearVelocity), (With<Brick>, Without<ActiveBrick>)>,
+    spatial: SpatialQuery,
+    towers: Query<(&Tower, &TowerState)>,
+    skip: Query<(), Or<(With<ActiveBrick>, With<crate::spells::Bubbled>)>>,
+    mut gusts: ResMut<WindGusts>,
 ) {
+    gusts.0.clear();
+    let Some((low, high)) = config.race.wind else {
+        return;
+    };
     if game.wind == 0.0 || game.phase == Phase::Menu {
         return;
     }
-    let push = config.cells(game.wind) * time.delta_secs();
-    for (body, mut velocity) in &mut bricks {
-        if body.is_dynamic() {
-            velocity.0.x += push;
+    let rules = &config.race;
+    let swing = (game.elapsed * std::f32::consts::TAU / rules.wind_period.max(0.01)).sin();
+    let strength = low + (high - low) * (swing + 1.0) * 0.5;
+    let along = if game.wind > 0.0 {
+        Dir2::X
+    } else {
+        Dir2::NEG_X
+    };
+    for (tower, state) in &towers {
+        for row in 0..rules.wind_rows {
+            let y = state.height - 0.5 - row as f32;
+            let from = Vec2::new(
+                tower.origin_x - game.wind * config.cells(rules.wind_reach),
+                config.cells(y),
+            );
+            let hit = spatial.cast_ray_predicate(
+                from,
+                along,
+                config.cells(rules.wind_reach * 2.0),
+                true,
+                &SpatialQueryFilter::default(),
+                &|entity| !skip.contains(entity),
+            );
+            if let Some(hit) = hit {
+                let force =
+                    strength * rules.wind_force * (1.0 - rules.wind_row_falloff).powi(row as i32);
+                let point = from + along * hit.distance;
+                gusts
+                    .0
+                    .push((hit.entity, point, along * config.cells(force)));
+            }
+        }
+    }
+}
+
+/// This step's wind pushes: the brick, where it's hit, and the force.
+#[derive(Resource, Default)]
+pub struct WindGusts(pub Vec<(Entity, Vec2, Vec2)>);
+
+/// Applies the wind found by [`blow_wind`] to the bricks it hit.
+fn push_wind(gusts: Res<WindGusts>, mut bricks: Query<(&RigidBody, Forces), With<Brick>>) {
+    for &(entity, point, force) in &gusts.0 {
+        if let Ok((body, mut forces)) = bricks.get_mut(entity)
+            && body.is_dynamic()
+        {
+            forces.apply_force_at_point(force, point);
         }
     }
 }
@@ -1292,6 +1345,7 @@ fn track_towers(
     for (_, mut state) in &mut towers {
         state.height = 0.0;
         state.stack_top = 0.0;
+        state.half_width = 0.0;
         state.all_settled = true;
     }
     for (entity, brick, position, velocity, aabb, bubbled, ghosted, cursed) in &bricks {
@@ -1323,6 +1377,10 @@ fn track_towers(
             continue;
         }
         let settled = velocity.0.x.abs() < settled_speed && velocity.0.y.abs() < settled_speed;
+        if settled {
+            let reach = (aabb.max.x - tower.origin_x).max(tower.origin_x - aabb.min.x);
+            state.half_width = state.half_width.max(reach / config.cell_size);
+        }
         tops.push((brick.tower, aabb.max.y, settled));
     }
     for (tower, top, settled) in tops {
