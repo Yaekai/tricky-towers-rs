@@ -11,6 +11,9 @@ use tricky_towers::results::ResultsPlugin;
 use tricky_towers::visuals::VisualsPlugin;
 use tricky_towers::wizards::WizardsPlugin;
 
+// DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
+// The command-line options (`--play`, `--difficulty`, `--offscreen`, `--shots`, `--menu`, a
+// config file path) are development tools for scripted checks and pictures.
 fn main() {
     // An alternative config (a mod) can be passed as an argument, and
     // `--play race|survival|puzzle` skips the menu (handy for scripted checks).

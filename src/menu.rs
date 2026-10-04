@@ -21,6 +21,7 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             crate::popup::PopupPlugin,
+            // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
             crate::cups_menu::CupsMenuPlugin,
             crate::settings::SettingsPlugin,
         ))
@@ -807,6 +808,9 @@ fn main_menu_input(
     let mut pick = false;
     if let Some(keys) = keys {
         let pressed = |list: [KeyCode; 3]| keys.any_just_pressed(list);
+        // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
+        // WASD and the numpad arrows (scripted key presses on Windows) also work in
+        // menus, here and in select.rs, popup.rs and the pause menu.
         if pressed([KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Numpad8]) {
             dir = Vec2::Y;
         }

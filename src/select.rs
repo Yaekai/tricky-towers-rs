@@ -577,6 +577,7 @@ pub(crate) fn read_taps(
 ) -> Taps {
     let mut taps = Taps::default();
     if let Some(keys) = keys {
+        // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md). (WASD and numpad keys in menus)
         taps.up = keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Numpad8]);
         taps.down = keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS, KeyCode::Numpad2]);
         taps.left = keys.any_just_pressed([KeyCode::ArrowLeft, KeyCode::KeyA, KeyCode::Numpad4]);

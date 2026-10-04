@@ -1,3 +1,7 @@
+//! DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
+//! Local cups aren't in the original (cups are an online feature there, per the fan wiki
+//! and press kit; docs/research/wiki-notes.md). Kept for now as a test tool.
+//!
 //! What the player sees of cups: the cup picker on Select Mode (C or the pad's
 //! Select button cycles single match → each cup → single match), the standings
 //! line while a cup runs, and the cup winner's trophy popping in at the end.

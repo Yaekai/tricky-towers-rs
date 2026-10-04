@@ -96,6 +96,8 @@ const CAST_DARK: [KeyCode; 1] = [KeyCode::KeyK];
 // const CAST_DARK: [KeyCode; 1] = [KeyCode::KeyE];
 // /// Held with a move key, makes it a nudge instead.
 // const NUDGE: [KeyCode; 2] = [KeyCode::ShiftLeft, KeyCode::ShiftRight];
+// DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
+// R restarts a match; the original restarts through Pause → Retry or Rematch.
 const RESTART: [KeyCode; 1] = [KeyCode::KeyR];
 
 fn read_keyboard(
@@ -107,6 +109,7 @@ fn read_keyboard(
     if game.phase == Phase::Menu {
         return;
     }
+    // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
     if keys.any_just_pressed(RESTART) {
         request.pending = true;
     }
@@ -157,6 +160,8 @@ fn read_gamepads(
     pads.sort_by_key(|(e, _)| *e);
     let players = towers.iter().filter(|(t, _)| t.human).count();
     for (slot, (entity, pad)) in pads.into_iter().enumerate() {
+        // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
+        // Start restarts a finished match; in the original the popup does that.
         if game.phase == Phase::Over && pad.just_pressed(GamepadButton::Start) {
             request.pending = true;
         }

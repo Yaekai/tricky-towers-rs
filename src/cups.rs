@@ -1,3 +1,7 @@
+//! DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
+//! Local cups aren't in the original (cups are an online feature there, per the fan wiki
+//! and press kit; docs/research/wiki-notes.md). Kept for now as a test tool.
+//!
 //! Local cups: a series of matches picked on Select Mode. Each match gives
 //! points by place ([`CupRules::points`]); after the last one the cup winner
 //! gets a trophy and every human player gets XP for their cup place
