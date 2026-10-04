@@ -981,64 +981,85 @@ impl Default for Levels {
     }
 }
 
-/// Survival Pro's curse waves: every so often a curse hits everyone for a while.
+/// Survival Pro's curse waves: every so often a fixed set of curses hits everyone
+/// for a while. From the original (docs/research/modes.md).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct WaveRules {
-    /// Seconds between waves, random in this range.
-    pub every: (f32, f32),
-    /// Waves before the next level applies.
+    /// Whole seconds before the first wave, and from the end of one wave to the
+    /// start of the next; the top value is left out, as in the original.
+    pub gap: (u32, u32),
+    /// Waves before the next level starts (sooner if its list runs out).
     pub waves_per_level: u32,
-    /// Harder and harder levels; the last one stays.
-    pub levels: Vec<WaveLevel>,
-    /// The curses a wave can bring, and the shortest and longest each lasts, in seconds.
-    pub curses: Vec<(SpellKind, f32, f32)>,
+    /// Each level's waves, drawn without repeats; the last level repeats.
+    pub levels: Vec<Vec<Wave>>,
 }
 
-/// One level of curse waves.
+/// One curse wave: its curses, and how long it lasts in whole seconds (top left out).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
-pub struct WaveLevel {
-    /// How many different curses a wave brings at once.
-    pub curses: u32,
-    /// Seconds each wave lasts is its curse's range times this.
-    pub length_scale: f32,
+pub struct Wave {
+    pub curses: Vec<SpellKind>,
+    pub seconds: (u32, u32),
+}
+
+impl Wave {
+    fn new(curses: &[SpellKind], seconds: (u32, u32)) -> Self {
+        Self {
+            curses: curses.to_vec(),
+            seconds,
+        }
+    }
 }
 
 impl Default for WaveRules {
-    /// Every 12 to 18 s; every 2 waves the next of 4 levels, with longer waves and
-    /// double or triple curses. The per-level numbers are a guess (?) until read
-    /// from the original.
     fn default() -> Self {
+        use SpellKind::{Fast, Ghost, Ice, Large, Mist, Mystery, NoRotate as NoTurn};
+        let w = Wave::new;
         Self {
-            every: (12.0, 18.0),
+            gap: (12, 18),
             waves_per_level: 2,
             levels: vec![
-                WaveLevel {
-                    curses: 1,
-                    length_scale: 1.0,
-                },
-                WaveLevel {
-                    curses: 1,
-                    length_scale: 1.25,
-                },
-                WaveLevel {
-                    curses: 2,
-                    length_scale: 1.25,
-                },
-                WaveLevel {
-                    curses: 3,
-                    length_scale: 1.5,
-                },
-            ],
-            // Large and Mist are the original's; the rest are a guess (?).
-            curses: vec![
-                (SpellKind::Large, 6.0, 8.0),
-                (SpellKind::Mist, 14.0, 14.0),
-                (SpellKind::Fast, 6.0, 8.0),
-                (SpellKind::Ice, 6.0, 8.0),
-                (SpellKind::NoRotate, 6.0, 8.0),
-                (SpellKind::AutoRotate, 6.0, 8.0),
-                (SpellKind::Mystery, 6.0, 8.0),
+                vec![
+                    w(&[Large], (6, 8)),
+                    w(&[Mist], (14, 14)),
+                    w(&[Mystery], (6, 8)),
+                    w(&[Fast], (6, 8)),
+                    w(&[NoTurn], (6, 8)),
+                ],
+                vec![
+                    w(&[Large], (8, 11)),
+                    w(&[Mystery], (8, 11)),
+                    w(&[Ice], (6, 8)),
+                    w(&[Fast], (8, 11)),
+                    w(&[NoTurn], (8, 11)),
+                    w(&[Fast, Large], (4, 6)),
+                    w(&[Mystery, NoTurn], (4, 6)),
+                    w(&[Mist, Large], (6, 8)),
+                ],
+                vec![
+                    w(&[Large], (12, 16)),
+                    w(&[Ice], (8, 11)),
+                    w(&[NoTurn], (11, 15)),
+                    w(&[Ghost], (6, 8)),
+                    w(&[Mist, NoTurn], (8, 11)),
+                    w(&[Mystery, Ice], (6, 8)),
+                    w(&[NoTurn, Fast], (8, 11)),
+                    w(&[NoTurn, Large], (8, 11)),
+                ],
+                vec![
+                    w(&[Fast], (12, 16)),
+                    w(&[NoTurn], (12, 16)),
+                    w(&[Ice], (11, 15)),
+                    w(&[Mystery], (12, 16)),
+                    w(&[Ghost, Fast], (6, 8)),
+                    w(&[Ice, Large], (6, 8)),
+                    w(&[Mystery, Ice], (8, 11)),
+                    w(&[Large, Large], (6, 8)),
+                    w(&[Mist, Mystery], (8, 11)),
+                    w(&[Large, Ghost], (7, 10)),
+                    w(&[Mystery, Large, NoTurn], (6, 8)),
+                    w(&[Large, Fast, NoTurn], (6, 8)),
+                ],
             ],
         }
     }

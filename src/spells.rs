@@ -10,7 +10,7 @@ use avian2d::prelude::*;
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 
-use crate::config::{AwardRule, Curse, GameConfig, MagicRules, ModeKind, SpellKind};
+use crate::config::{AwardRule, Curse, GameConfig, MagicRules, ModeKind, SpellKind, WaveRules};
 use crate::gameplay::{
     ActiveBrick, Brick, BrickMod, Match, Phase, PlayerInput, Tower, TowerState, TowerStatus,
     brick_body, brick_collider, piece_def,
@@ -160,34 +160,89 @@ pub(crate) fn update_spell_lines(
     }
 }
 
-/// Survival Pro's curse waves: every so often a few curses hit every tower for a
-/// while, cursing each new brick (or fogging the tower, for Mist).
+/// Survival Pro's curse waves: every so often a fixed set of curses hits every
+/// tower for a while, cursing the brick in hand and each new brick (Mist fogs
+/// the tower once, Ghost carries off the last brick once).
 #[derive(Default)]
 pub(crate) struct WaveClock {
     round: u64,
     next_in: f32,
-    waves: u32,
+    deck: WaveDeck,
     rng: u64,
 }
 
 impl WaveClock {
-    fn random(&mut self) -> f32 {
+    fn random(&mut self) -> u64 {
         self.rng ^= self.rng << 13;
         self.rng ^= self.rng >> 7;
         self.rng ^= self.rng << 17;
-        (self.rng % 10_001) as f32 / 10_000.0
+        self.rng
+    }
+
+    /// Whole seconds from `lo` up to but not including `hi` (or `lo` when they meet).
+    fn seconds(&mut self, (lo, hi): (u32, u32)) -> f32 {
+        let span = hi.saturating_sub(lo).max(1) as u64;
+        (lo as u64 + self.random() % span) as f32
     }
 }
 
+/// Which wave comes next: the level, how many waves it has had, and the waves
+/// it hasn't used yet.
+#[derive(Default, Debug)]
+pub struct WaveDeck {
+    level: usize,
+    dealt: u32,
+    left: Option<Vec<usize>>,
+}
+
+impl WaveDeck {
+    /// Draws the next wave as (level, index into that level).
+    pub fn draw(
+        &mut self,
+        rules: &WaveRules,
+        mut roll: impl FnMut() -> u64,
+    ) -> Option<(usize, usize)> {
+        let last = rules.levels.len().checked_sub(1)?;
+        let full = |level: usize| (0..rules.levels[level].len()).collect::<Vec<_>>();
+        let mut left = self.left.take().unwrap_or_else(|| full(self.level));
+        if self.dealt >= rules.waves_per_level.max(1) || left.is_empty() {
+            self.level = (self.level + 1).min(last);
+            self.dealt = 0;
+            left = full(self.level);
+        }
+        if left.is_empty() {
+            return None;
+        }
+        let index = left.remove((roll() % left.len() as u64) as usize);
+        self.dealt += 1;
+        self.left = Some(left);
+        Some((self.level, index))
+    }
+}
+
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(crate) fn run_curse_waves(
+    mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
     game: Res<Match>,
     mut clock: Local<WaveClock>,
-    mut towers: Query<&mut TowerState>,
+    mut towers: Query<(Entity, &Tower, &mut TowerState)>,
+    mut active: Query<(&mut ActiveBrick, &mut Brick)>,
+    placed: Query<
+        (
+            Entity,
+            &Brick,
+            &Position,
+            &RigidBody,
+            Has<Stone>,
+            Has<Vined>,
+        ),
+        Without<ActiveBrick>,
+    >,
 ) {
     let dt = time.delta_secs();
-    for mut state in &mut towers {
+    for (_, _, mut state) in &mut towers {
         if state.wave_left > 0.0 {
             state.wave_left -= dt;
             if state.wave_left <= 0.0 {
@@ -199,63 +254,64 @@ pub(crate) fn run_curse_waves(
     let on = game.phase == Phase::Playing
         && game.mode == ModeKind::Survival
         && config.survival.curse_waves
-        && !rules.curses.is_empty();
+        && !rules.levels.is_empty();
     if !on {
         return;
     }
     if clock.round != game.round {
+        // One seed for everyone, so every tower gets the same waves.
         *clock = WaveClock {
             round: game.round,
-            rng: config.seed ^ 0xC0FF_EE00 ^ (game.round).wrapping_mul(0x9E37_79B9),
+            rng: (config.seed ^ 0xC0FF_EE00 ^ game.round.wrapping_mul(0x9E37_79B9)) | 1,
             ..default()
         };
-        clock.rng |= 1;
-        let t = clock.random();
-        clock.next_in = rules.every.0 + (rules.every.1 - rules.every.0) * t;
+        clock.next_in = clock.seconds(rules.gap);
     }
     clock.next_in -= dt;
     if clock.next_in > 0.0 {
         return;
     }
-    let t = clock.random();
-    clock.next_in = rules.every.0 + (rules.every.1 - rules.every.0) * t;
-    let level_index = (clock.waves / rules.waves_per_level.max(1)) as usize;
-    clock.waves += 1;
-    let Some(level) = rules
-        .levels
-        .get(level_index.min(rules.levels.len().saturating_sub(1)))
-    else {
+    let mut deck = std::mem::take(&mut clock.deck);
+    let drawn = deck.draw(rules, || clock.random());
+    clock.deck = deck;
+    let Some((level, index)) = drawn else {
         return;
     };
-    // Pick distinct curses for this wave.
-    let mut pool = rules.curses.clone();
-    let mut wave = BrickMod::default();
-    let mut longest = 0.0f32;
-    let mut mist = None;
-    for _ in 0..level.curses.max(1) {
-        if pool.is_empty() {
-            break;
-        }
-        let pick = ((clock.random() * pool.len() as f32) as usize).min(pool.len() - 1);
-        let (spell, lo, hi) = pool.remove(pick);
-        let length = (lo + (hi - lo) * clock.random()) * level.length_scale;
-        longest = longest.max(length);
-        match brick_effect(spell, &config.magic) {
-            Some(effect) => wave.merge(&effect),
-            None if spell == SpellKind::Mist => mist = Some(length),
-            None => {}
+    let wave = &rules.levels[level][index];
+    let length = clock.seconds(wave.seconds);
+    // The next wave counts from the end of this one.
+    clock.next_in = length + clock.seconds(rules.gap);
+    let mut effect = BrickMod::default();
+    for &spell in &wave.curses {
+        if let Some(e) = brick_effect(spell, &config.magic) {
+            effect.merge(&e);
         }
     }
-    for mut state in &mut towers {
+    let cursed = effect != BrickMod::default();
+    for (entity, tower, mut state) in &mut towers {
         if state.status != TowerStatus::Building {
             continue;
         }
-        if let Some(length) = mist {
-            state.mist_timer = state.mist_timer.max(length);
+        if cursed {
+            // The brick in hand, then every new one while the wave lasts.
+            curse_bricks(&mut commands, &config, &mut state, &mut active, &effect, 1);
+            state.wave_mod = Some(effect);
+            state.wave_left = length;
         }
-        if wave != BrickMod::default() {
-            state.wave_mod = Some(wave);
-            state.wave_left = longest;
+        for &spell in &wave.curses {
+            match spell {
+                SpellKind::Mist => state.mist_timer = state.mist_timer.max(length),
+                SpellKind::Ghost => cast_on_tower(
+                    &mut commands,
+                    &config,
+                    spell,
+                    entity,
+                    tower,
+                    &mut state,
+                    &placed,
+                ),
+                _ => {}
+            }
         }
     }
 }

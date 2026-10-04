@@ -149,10 +149,9 @@
         dark_magic: true,
         curse_waves: false,
         waves: (
-            every: (12.0, 18.0),
+            gap: (12, 18),
             waves_per_level: 2,
-            levels: [(curses: 1, length_scale: 1.0), (curses: 1, length_scale: 1.25), (curses: 2, length_scale: 1.25), (curses: 3, length_scale: 1.5)],
-            curses: [(Large, 6.0, 8.0), (Mist, 14.0, 14.0), (Fast, 6.0, 8.0), (Ice, 6.0, 8.0), (NoRotate, 6.0, 8.0), (AutoRotate, 6.0, 8.0), (Mystery, 6.0, 8.0)],
+            levels: [[(curses: [Large], seconds: (6, 8)), (curses: [Mist], seconds: (14, 14)), (curses: [Mystery], seconds: (6, 8)), (curses: [Fast], seconds: (6, 8)), (curses: [NoRotate], seconds: (6, 8))], [(curses: [Large], seconds: (8, 11)), (curses: [Mystery], seconds: (8, 11)), (curses: [Ice], seconds: (6, 8)), (curses: [Fast], seconds: (8, 11)), (curses: [NoRotate], seconds: (8, 11)), (curses: [Fast, Large], seconds: (4, 6)), (curses: [Mystery, NoRotate], seconds: (4, 6)), (curses: [Mist, Large], seconds: (6, 8))], [(curses: [Large], seconds: (12, 16)), (curses: [Ice], seconds: (8, 11)), (curses: [NoRotate], seconds: (11, 15)), (curses: [Ghost], seconds: (6, 8)), (curses: [Mist, NoRotate], seconds: (8, 11)), (curses: [Mystery, Ice], seconds: (6, 8)), (curses: [NoRotate, Fast], seconds: (8, 11)), (curses: [NoRotate, Large], seconds: (8, 11))], [(curses: [Fast], seconds: (12, 16)), (curses: [NoRotate], seconds: (12, 16)), (curses: [Ice], seconds: (11, 15)), (curses: [Mystery], seconds: (12, 16)), (curses: [Ghost, Fast], seconds: (6, 8)), (curses: [Ice, Large], seconds: (6, 8)), (curses: [Mystery, Ice], seconds: (8, 11)), (curses: [Large, Large], seconds: (6, 8)), (curses: [Mist, Mystery], seconds: (8, 11)), (curses: [Large, Ghost], seconds: (7, 10)), (curses: [Mystery, Large, NoRotate], seconds: (6, 8)), (curses: [Large, Fast, NoRotate], seconds: (6, 8))]],
         ),
     ),
     puzzle: (

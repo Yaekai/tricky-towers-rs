@@ -85,4 +85,4 @@ Waves per level (curses, length in s; the top value is excluded)
 | 3 | Large 12-16; Ice 8-11; No rotate 11-15; Ghost 6-8; Mist+No rotate 8-11; Mystery+Ice 6-8; No rotate+Fast 8-11; No rotate+Large 8-11 |
 | 4 | Fast 12-16; No rotate 12-16; Ice 11-15; Mystery 12-16; Ghost+Fast 6-8; Ice+Large 6-8; Mystery+Ice 8-11; Large+Large 6-8; Mist+Mystery 8-11; Large+Ghost 7-10; Mystery+Large+No rotate 6-8; Large+Fast+No rotate 6-8 |
 
-Our `WaveRules` has an Auto-rotate curse, which is not in the original, and is missing Ghost. Each wave in the original is a fixed set of curses with its own length; it is not "N random curses times a scale".
+`WaveRules` now holds these four tables (src/config.rs). Not done yet: pausing, shaking and lifting the brick in hand for 1 s at a wave's start. Ghost is applied once at the wave's start (a guess).

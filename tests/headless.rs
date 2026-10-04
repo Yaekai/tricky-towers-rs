@@ -937,7 +937,7 @@ fn survival_pro_waves_curse_new_bricks() {
     let mut config = fast_config();
     config.survival.curse_waves = true;
     config.survival.dark_magic = false;
-    config.survival.waves.every = (0.5, 0.5);
+    config.survival.waves.gap = (1, 1);
     let mut app = headless_app(config);
     let cursed = run_until(&mut app, 3.0, |app| {
         let mut towers = app
@@ -948,6 +948,28 @@ fn survival_pro_waves_curse_new_bricks() {
             .any(|s| s.wave_mod.is_some() || s.mist_timer > 0.0)
     });
     assert!(cursed, "no curse wave arrived");
+}
+
+#[test]
+fn curse_waves_deal_each_level_without_repeats_and_move_on_after_two() {
+    use tricky_towers::spells::WaveDeck;
+    let rules = tricky_towers::config::WaveRules::default();
+    let mut deck = WaveDeck::default();
+    let mut n = 0u64;
+    let mut roll = || {
+        n += 7;
+        n
+    };
+    let drawn: Vec<_> = (0..10)
+        .map(|_| deck.draw(&rules, &mut roll).unwrap())
+        .collect();
+    let levels: Vec<usize> = drawn.iter().map(|d| d.0).collect();
+    assert_eq!(
+        levels,
+        [0, 0, 1, 1, 2, 2, 3, 3, 3, 3],
+        "two waves a level, then level 4 repeats"
+    );
+    assert_ne!(drawn[0], drawn[1], "no repeats within a level");
 }
 
 #[test]
