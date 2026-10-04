@@ -879,7 +879,8 @@ impl Difficulty {
         match self {
             Difficulty::Easy => "Easy",
             Difficulty::Normal => "Normal",
-            Difficulty::Pro => "Pro",
+            // Called PRO inside the original, but its screens say "Special".
+            Difficulty::Pro => "Special",
         }
     }
 }

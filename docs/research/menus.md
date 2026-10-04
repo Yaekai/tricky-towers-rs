@@ -30,17 +30,34 @@ tiles too).
 Text is white on the picked tile.
 
 ## Player select ("Select Players")
-Four slots in equal columns under a 100-high header bar. Each slot, top to bottom:
-a 318×500 character panel with the wizard sleeping until the player joins and ready
-once they have; a brick-pack panel; small left/right arrows 165 px from the centre to
-cycle choices; four small corners when picked. A deselected background 332×283 at
-y +115, a lower strip 332×100 at y −110 and a name plate 367×78 at y −230. An empty
-slot says "[button] To join", or "Connect controller" when a pad is missing.
+Four seat columns between 5% and 95% of the width, each 22.5% wide, under an 800×90
+header bar hanging from the top centre (9-sliced; borders 84 left, 92 right, 75 top, 15
+bottom). Per seat, from the screen centre (y up): a 332×283 character panel at +115 with
+the wizard window centred on the same point, small arrows at x ±165 on that line, a
+332×100 brick-pack panel at −110 and a 367×78 name plate at −230. Panels and the outline
+are 9-sliced with 60-pixel borders, the name plate with about 13. Small corners frame
+both panels of a taken seat.
+
+The wizard sleeps until someone joins. A taken seat shows the coloured panel, five
+sun-ray layers cut to 327×267, the outline and the awake wizard. Seats 2 and 4 have no
+awake picture of their own: the original reuses the title screen's wizards. Wizard
+offsets from the panel centre and sizes: asleep 1 (0, 0) 213×250, 2 (0, 38) 225×323,
+3 (−9, 14) 237×275, 4 (0, 11.7) 212×267; awake 1 (0, 0) 235×314, 2 (0, 21) 259×344,
+3 (−3, 4) 279×300, 4 (7.5, 7) 253×322. Texts: "Select Players", "[continue] To join"
+(two lines), "Player {n}".
 
 ## Mode select ("Select Mode")
-Race, Survival, Puzzle and Random tiles, each with a difficulty badge: a centre badge
-81×80, side wings 191×98 and stars 37×35, in versions for easy, normal and special.
-Difficulty names shown: Easy, Normal, Special, and Random for any.
+Two columns, each a 480×800 panel, 540 px apart (x −270 and +270, y 0): first the mode
+(Race, Survival, Puzzle, Random), then the difficulty (Easy, Normal, Special, Random).
+Each shows one tile at a time, with 94×55 arrows 130 px beyond the top and bottom of the
+513×445 frame around the active column's tile (frame at x −5.5 from the column, with the
+large corners). Mode pictures: race (−3, 9) 487×411, survival (6, 0) 482×393, puzzle
+(−7, −1) 505×392, random (0, 0) 495×393. Difficulty tiles: a 461×393 background at
+(−5, 0), its own version for Special, with pictures easy (−3.9, 35.5) 209×157, normal
+(−2, 38) 328×175, Special (−2.5, 42) 370×188, random (0, 50) 365×208, and the light and
+dark spell icons 56×56 at (85, −190) and (145, −190). The third difficulty is PRO inside
+the game, but the screen says "Special". The small mode-title banners with wings and
+stars are shown at the start of a match, not here.
 
 ## Pause
 "Game Paused" with Resume, Retry and Quit.

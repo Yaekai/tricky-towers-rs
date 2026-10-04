@@ -46,9 +46,10 @@ fn tap(app: &mut App, key: KeyCode) {
     }
 }
 
-/// Local Battle, join with the keyboard, on to the modes, play the first one.
+/// Local Battle, join with the keyboard, on to the modes, take the first mode
+/// and difficulty, play.
 fn start(app: &mut App) {
-    for _ in 0..4 {
+    for _ in 0..5 {
         tap(app, KeyCode::Enter);
     }
 }
@@ -73,10 +74,18 @@ fn local_battle_seats_players_then_starts_the_picked_mode() {
     assert_eq!(screen(&app), MenuScreen::Players);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(screen(&app), MenuScreen::Modes);
-    // Race, Survival, Puzzle; Up raises its difficulty from Normal.
+    // Race, Survival, Puzzle down the mode column; Enter moves to the
+    // difficulty column, where Down goes from Normal to Special.
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(app.world().resource::<Lobby>().column, 1);
+    tap(&mut app, KeyCode::ArrowDown);
+    // Esc steps back to the mode column, Right comes back.
+    tap(&mut app, KeyCode::Escape);
+    assert_eq!(screen(&app), MenuScreen::Modes);
+    assert_eq!(app.world().resource::<Lobby>().column, 0);
     tap(&mut app, KeyCode::ArrowRight);
-    tap(&mut app, KeyCode::ArrowRight);
-    tap(&mut app, KeyCode::ArrowUp);
     tap(&mut app, KeyCode::Enter);
     let game = app.world().resource::<Match>();
     assert_eq!((game.phase, game.mode), (Phase::Playing, ModeKind::Puzzle));
@@ -93,8 +102,9 @@ fn single_player_goes_straight_to_endless() {
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
     tap(&mut app, KeyCode::Escape);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
-    tap(&mut app, KeyCode::Enter);
-    tap(&mut app, KeyCode::Enter);
+    for _ in 0..3 {
+        tap(&mut app, KeyCode::Enter);
+    }
     let game = app.world().resource::<Match>();
     assert_eq!((game.phase, game.mode), (Phase::Playing, ModeKind::Endless));
 }

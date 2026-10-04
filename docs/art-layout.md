@@ -123,9 +123,9 @@ islands on the water band), by adding `screen`:
 | `menu_tile_<key>_front_deselected`, `menu_tile_<key>_overlay` | Grey art on unpicked tiles; the frame over a picked one |
 | `menu_tile_header`, `menu_corner_large`, `menu_corner_small` | The label bar on big tiles and the frame corner (drawn top-left, flipped for the others) |
 | `menu_header` | The bar across the top of Select Players and Select Mode |
-| `menu_player_select_wizard<N>_ready`, `_sleeping` | Seat N's wizard (1-4), sleeping until someone sits there |
-| `menu_player_select_background_deselected`, `menu_player_select_nameplate` | A seat's background (332×283) and name plate (367×78) |
-| `menu_mode_title_background_<d>`, `menu_mode_title_side_<d>`, `menu_mode_title_star_<d>` | A mode tile's difficulty badge, wings and stars; `<d>` is easy, normal or special (Pro) |
+| `menu_player_select_wizard<N>_ready`, `_sleeping` | Seat N's wizard (1-4), asleep until someone sits there |
+| `menu_player_select_background_deselected`, `_selected`, `menu_player_select_outline`, `menu_player_select_nameplate`, `menu_arrow_small` | Seat panels (9-sliced), the frame over a taken seat, the name plate and the seat arrows |
+| `menu_mode_<race\|survival\|puzzle\|random>`, `menu_difficulty_background(_special)`, `menu_difficulty_<easy\|normal\|pro\|random>`, `menu_arrow`, `menu_arrow_deselected` | Select Mode's tiles and column arrows |
 | `menu_sunrays_1` .. `menu_sunrays_5` | Ray layers spinning behind a picked tile (556×556 at 1920×1080) |
 | `music_menu`, `music_race`, `music_survival`, `music_puzzle` | Looping music |
 | `sfx_land`, `sfx_move`, `sfx_nudge`, `sfx_rotate`, `sfx_drop_lost`, `sfx_line_collect` | Your brick and tower |

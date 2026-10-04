@@ -8,7 +8,7 @@ use crate::art::Art;
 use crate::config::GameConfig;
 use crate::gameplay::{Match, MatchRequest, Phase};
 use crate::select::{
-    Lobby, back_from_modes, modes_input, players_input, show_select_screens, spawn_select_screens,
+    Lobby, modes_input, players_input, show_select_screens, spawn_select_screens, step_back,
 };
 
 pub struct MenuPlugin;
@@ -57,7 +57,7 @@ fn menu_escape(
     mut game: ResMut<Match>,
     mut screen: ResMut<MenuScreen>,
     mut pause: ResMut<PauseMenu>,
-    lobby: Res<Lobby>,
+    mut lobby: ResMut<Lobby>,
 ) {
     let Some(keys) = keys else { return };
     if !keys.just_pressed(KeyCode::Escape) {
@@ -83,7 +83,7 @@ fn menu_escape(
             game.phase = Phase::Menu;
             *screen = MenuScreen::Main;
         }
-        (Phase::Menu, MenuScreen::Modes) => *screen = back_from_modes(&lobby),
+        (Phase::Menu, MenuScreen::Modes) => step_back(&mut lobby, &mut screen),
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
         (Phase::Menu, MenuScreen::Start) => {}
     }
@@ -756,6 +756,7 @@ fn main_menu_input(
         "single" => {
             lobby.single = true;
             lobby.mode = 0;
+            lobby.column = 0;
             *screen = MenuScreen::Modes;
         }
         "quit" => {

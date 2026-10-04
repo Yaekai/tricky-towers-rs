@@ -119,3 +119,7 @@ and nothing gets installed without Max's own go-ahead.
   art it throws up droplets with guessed numbers (`GameConfig::splash`). Find the original's
   splash (particles or sprite sheet, its size, how long it lasts, any sound) and stage it as
   `splash` (an animation if it has frames), and note the numbers in docs/research/.
+- Select Players and Select Mode are rebuilt from your readout (two columns, 9-sliced panels,
+  per-pose wizard spots). Take offscreen pictures (`--menu players`, `--menu modes`, `--menu
+  single`) and list what still differs. Endless has no mode tile name yet: say which picture the
+  original's Single Player mode select shows for Endless Race and stage it as `menu_mode_endless`.
