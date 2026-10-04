@@ -169,6 +169,19 @@ Add-Sprite 'puzzle_pro_ledge_2'    'gph_house09_world03' 'floors\puzzle_pro_ledg
 Add-Sprite 'puzzle_pro_ledge_3'    'gph_house10_world03' 'floors\puzzle_pro_ledge_3.png'   'Pro floor side ledge, 1x1 (variant 3)'
 Add-Sprite 'puzzle_pro_ledge_top'  'gph_house11_world03' 'floors\puzzle_pro_ledge_top.png' 'Pro floor topmost side ledge, 1x1'
 
+# --- Match moments: banner text gradients, spotlights, winner sunrays ---
+Add-Texture 'text_gradient_gold'   'gph_gradientTextureFont02.png' 'text\gradient_gold.png'   'Vertical gradient for the gold front layer of WINNER! / countdown numbers'
+Add-Texture 'text_gradient_red'    'gph_gradientTextureFont.png'   'text\gradient_red.png'    'Vertical gradient for the red front layer of WIZARD OUT!'
+Add-Texture 'text_gradient_bronze' 'gph_gradientTextureFont04.png' 'text\gradient_bronze.png' 'Vertical gradient for the bronze front layer (draw)'
+$modes = [ordered]@{ race = '01'; survival = '02'; puzzle = '03' }
+foreach ($md in $modes.Keys) {
+  Add-Sprite "spotlight_winner_$md" "gph_spotlightWinner_World$($modes[$md])" "match\spotlight_winner_$md.png" "Winner light beam over the winning lane ($md), stretched to screen height, 1.5 wide"
+  Add-Sprite "spotlight_loser_$md"  "gph_spotlightLoser_World$($modes[$md])"  "match\spotlight_loser_$md.png"  "Dark veil over losing lanes ($md), 10 wide, alpha 0.1"
+}
+Add-Sprite 'winner_sunrays' 'gph_castEffectSunrays' 'match\winner_sunrays.png' 'Rotating sunrays behind the WINNER! text'
+$notes.Add('- Match text (countdown numbers, WINNER!, WIZARD OUT!, FINISH!, FAILED, WAVE): the Enzo letters in two layers. Back: dilated 0.2, outline 0.25 (37,13,40), face (158,23,64) gold/bronze or (160,24,101) red. Front: white face times text_gradient_<gold|red|bronze>. Both have a shadow 0.5 below in (227,33,61). Gold = winner, red = loser, bronze = draw.')
+$notes.Add('- Spotlights: 0.5 s after the win the winner beam fades in over 1 s to alpha 151/255 (race), 130/255 (survival), 1 (puzzle), centred on the winning lane bottom, 1.5 wide and screen tall. Loser veils fade to 0.1 over 1 s. Trophy (cups): pops from scale 0.4 to 1 over 0.6 s with an elastic ease. Lose message: move in 2 s, idle 2 s, move out 1 s.')
+
 # --- Endless Race: pacer line and the Endless versions of the Race backdrop ---
 Add-Sprite 'pacer_line'  'gph_pacerRaceEndless'        'fx\pacer_line.png'  'Endless Race pacer line tile (1x2 units, 77 tiles side by side 1 unit apart); the line is its top edge' @(0.5, 1.0)
 Add-Sprite 'pacer_layer' 'gph_endless_race_pace_layer' 'fx\pacer_layer.png' 'Tint drawn under the pacer line (EndlessRacePaceLayer)'
