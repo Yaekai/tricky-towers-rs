@@ -3,7 +3,10 @@
 //! leaderboard. Layout from docs/research/menus.md, in pixels of a 1920×1080
 //! screen; only Endless Race is built, so the rest show dimmed.
 
+use std::path::PathBuf;
+
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::art::Art;
 use crate::config::{Difficulty, GameConfig, ModeKind};
@@ -111,10 +114,13 @@ impl Default for SingleMenu {
     }
 }
 
-/// Best Endless scores this run, best first, per Endless mode.
-#[derive(Resource, Debug, Default)]
+/// Best Endless scores, best first, per Endless mode. Kept between runs in
+/// `file` when one is set (the game sets it; tests and offscreen pictures don't).
+#[derive(Resource, Debug, Default, Serialize, Deserialize)]
 pub struct Leaderboard {
     pub scores: [Vec<u32>; 3],
+    #[serde(skip)]
+    pub file: Option<PathBuf>,
 }
 
 impl Leaderboard {
@@ -124,6 +130,51 @@ impl Leaderboard {
         list.sort_unstable_by(|a, b| b.cmp(a));
         list.truncate(BOARD_LENGTH);
     }
+
+    /// The board saved in `file`, or an empty one that will save there.
+    pub fn load(file: PathBuf) -> Self {
+        let mut board: Self = std::fs::read_to_string(&file)
+            .ok()
+            .and_then(|text| ron::from_str(&text).ok())
+            .unwrap_or_default();
+        for list in &mut board.scores {
+            list.sort_unstable_by(|a, b| b.cmp(a));
+            list.truncate(BOARD_LENGTH);
+        }
+        board.file = Some(file);
+        board
+    }
+
+    /// Writes the board to its file, if it has one. A failed save is logged, not fatal.
+    pub fn save(&self) {
+        let Some(file) = &self.file else {
+            return;
+        };
+        let written = file
+            .parent()
+            .map_or(Ok(()), std::fs::create_dir_all)
+            .and_then(|_| {
+                let text = ron::to_string(self).map_err(std::io::Error::other)?;
+                std::fs::write(file, text)
+            });
+        if let Err(err) = written {
+            warn!("could not save the leaderboard to {}: {err}", file.display());
+        }
+    }
+}
+
+/// Folder for saved data: `TT_SAVE_DIR` if set, else `%APPDATA%\tricky-towers-rs` on
+/// Windows and `$XDG_DATA_HOME/tricky-towers-rs` (or `~/.local/share/...`) elsewhere.
+pub fn save_dir() -> PathBuf {
+    let env = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from);
+    if let Some(dir) = env("TT_SAVE_DIR") {
+        return dir;
+    }
+    let base = env("APPDATA")
+        .or_else(|| env("XDG_DATA_HOME"))
+        .or_else(|| env("HOME").map(|home| home.join(".local").join("share")))
+        .unwrap_or_else(|| PathBuf::from("."));
+    base.join("tricky-towers-rs")
 }
 
 #[derive(Component)]
@@ -537,6 +588,7 @@ pub(crate) fn record_endless_scores(
             board.add(0, config.endless.score(state.best_height));
         }
     }
+    board.save();
 }
 
 #[cfg(test)]
@@ -552,5 +604,20 @@ mod tests {
         assert_eq!(board.scores[0].len(), BOARD_LENGTH);
         assert_eq!(board.scores[0][0], 120);
         assert_eq!(*board.scores[0].last().unwrap(), 30);
+    }
+
+    #[test]
+    fn the_leaderboard_survives_a_restart() {
+        let file = std::env::temp_dir()
+            .join(format!("tt-board-{}", std::process::id()))
+            .join("leaderboard.ron");
+        let mut board = Leaderboard::load(file.clone());
+        assert!(board.scores[0].is_empty());
+        board.add(0, 250);
+        board.add(2, 40);
+        board.save();
+        let again = Leaderboard::load(file.clone());
+        assert_eq!(again.scores, [vec![250], vec![], vec![40]]);
+        let _ = std::fs::remove_dir_all(file.parent().unwrap());
     }
 }

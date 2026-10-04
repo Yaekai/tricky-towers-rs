@@ -1174,3 +1174,42 @@ fn bases_have_the_originals_tops() {
     assert_eq!(config.base_half_width(ModeKind::Race), 3.0);
     assert_eq!(config.base_half_width(ModeKind::Endless), 3.0);
 }
+
+#[test]
+fn a_losing_tower_falls_apart_before_the_popup() {
+    use tricky_towers::collapse::{Collapse, CollapseStage, all_done};
+    let mut app = headless_app(fast_config());
+    // Build a little, then steer every brick off the edge until the lives run out.
+    run_seconds(&mut app, 3.0, |_| {});
+    let built = tower(&mut app, 0).bricks_placed;
+    assert!(built >= 2, "expected a few bricks first: {:?}", tower(&mut app, 0));
+    assert!(run_until(&mut app, 30.0, |app| {
+        human_input(app).left_held = true;
+        app.world().resource::<Match>().phase == Phase::Over
+    }));
+    let at_end = tower(&mut app, 0);
+    let done = |app: &mut App| {
+        let game = app.world().resource::<Match>().clone();
+        let world = app.world_mut();
+        all_done(
+            &game,
+            world
+                .query::<(&Tower, &TowerState, Option<&Collapse>)>()
+                .iter(world),
+        )
+    };
+    assert!(!done(&mut app), "a loser must play its end sequence first");
+    human_input(&mut app).left_held = false;
+
+    // Wait, blasts, rumble: about 1.5 + a little + 2.5 seconds.
+    assert!(run_until(&mut app, 8.0, |app| done(app)), "the collapse never finished");
+    let world = app.world_mut();
+    let stage = world.query::<&Collapse>().single(world).unwrap().stage;
+    assert_eq!(stage, CollapseStage::Done);
+    // The wizard was out, so every brick blew up or sank; none stand.
+    assert_eq!(count::<With<Brick>>(&mut app), 0);
+    // Falling apart doesn't change the final score.
+    let after = tower(&mut app, 0);
+    assert_eq!(after.lives, at_end.lives);
+    assert_eq!(after.bricks_dropped, at_end.bricks_dropped);
+}

@@ -9,6 +9,7 @@
 
 pub mod ai;
 pub mod art;
+pub mod collapse;
 pub mod config;
 pub mod effects;
 pub mod gameplay;
@@ -43,6 +44,7 @@ impl Plugin for TowerCorePlugin {
         app.add_plugins((
             PhysicsPlugins::default().with_length_unit(cell),
             gameplay::GameplayPlugin,
+            collapse::CollapsePlugin,
             ai::AiPlugin,
         ));
     }

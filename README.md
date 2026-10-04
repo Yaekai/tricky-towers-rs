@@ -74,9 +74,8 @@ Values below come from reading Max's own copy of the original; the notes are in 
 
 ## What's missing
 See `PLAN.md`. In short: Trials, Endless Survival and Endless Puzzle, the Online, Shop, Help and
-Settings tiles, losing towers collapsing and blowing up before the popup, the 1 s pause and lift
-at the start of a curse wave, spell effect animations (Large grow, cast beams and lightning, the
-spell bubbles beside each wizard), and saving the Endless leaderboard between runs.
+Settings tiles, spell effect animations (Large grow, cast beams and lightning, the spell bubbles
+beside each wizard), and the explosion art for collapsing towers (blasts fall back to shards).
 
 ## Modding
 Drop RON files in a `mods/` folder next to the game: each one changes only the config fields

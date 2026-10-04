@@ -1447,6 +1447,7 @@ fn push_wind(gusts: Res<WindGusts>, mut bricks: Query<(&RigidBody, Forces), With
 fn track_towers(
     mut commands: Commands,
     config: Res<GameConfig>,
+    game: Res<Match>,
     mut towers: Query<(&Tower, &mut TowerState)>,
     bricks: Query<
         (
@@ -1493,6 +1494,11 @@ fn track_towers(
             }
             let spin = spin.map_or(0.0, |s| s.0);
             sink(&mut commands, &config, entity, velocity.0, spin, !bubbled);
+            // Once the match is over (and losing towers fall apart), losses no
+            // longer change the score.
+            if game.phase != Phase::Playing {
+                continue;
+            }
             state.lose_brick(&config);
             if let Some(cursed) = cursed.filter(|c| c.times < config.magic.respawn_limit) {
                 state.respawn = Some(Respawn {

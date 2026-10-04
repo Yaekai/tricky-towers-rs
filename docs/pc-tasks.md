@@ -153,3 +153,20 @@ and nothing gets installed without Max's own go-ahead.
   art where the boxes are (chimney, holes). Curse waves now lift and hold the brick in hand for
   1 s, shaking: read the original's shake (how far, how fast, or its animation clip) for
   `WaveRules::shake`.
+- Losing towers now fall apart before the popup (src/collapse.rs, effects in src/effects.rs,
+  numbers in `GameConfig::moments`): after 1.5 s every brick turns into a sensor (no longer
+  solid) and drops into the water, every 3rd brick (every brick if the wizard was already out)
+  blows up in placement order with the blast shake, then the 2.5 s rumble and the thud. The
+  popup opens once every loser is done (`popup_after` is now only a minimum, 0). Please read
+  and report: (1) whether "stops being solid" means the bricks pass through everything and
+  sink, or only stop colliding with each other; (2) the order bricks blow up in (placement,
+  top-down, random?); (3) the explosion's art (sprite sheet or particles, size, frames and
+  times) and stage it as `explosion`, plus the sounds as `sfx_explosion`, `sfx_rumble` (the
+  loop) and `sfx_brick_heavy`; (4) whether a solo win (no losers) opens the popup at once or
+  after a delay. Then screenshot a 2-tower race until someone wins with a quick finish
+  (`--shots 14,16,20`) and say how the collapse differs.
+- Endless scores are now saved between runs (`%APPDATA%\tricky-towers-rs\leaderboard.ron`;
+  offscreen runs never save). Read whether the original saves the Endless leaderboard per
+  profile and what each row shows (rank, name, score, wizard?), and the rules of Endless
+  Survival and Endless Puzzle (what ends a run, how the score counts, any speed-up), so they
+  can be played.

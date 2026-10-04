@@ -1,19 +1,22 @@
 //! Effects drawn over the play: the Slow balloon on its string, the Ghost skulls
-//! that carry a brick off (both only when their art is staged), and the splash
-//! of a brick lost in the water.
+//! that carry a brick off (both only when their art is staged), the splash
+//! of a brick lost in the water, and the blasts, shakes and sounds of a losing
+//! tower falling apart.
 
 use bevy::prelude::*;
 
 use crate::art::Art;
+use crate::collapse::{CollapseEvent, CollapseKind};
 use crate::config::GameConfig;
 use crate::gameplay::{ActiveBrick, Brick, BrickLost};
 use crate::spells::Ghosted;
+use crate::visuals::FramedCamera;
 
 pub struct EffectsPlugin;
 
 impl Plugin for EffectsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.init_resource::<CameraShake>().add_systems(
             Update,
             (
                 float_balloons,
@@ -21,6 +24,11 @@ impl Plugin for EffectsPlugin {
                 fly_skulls,
                 splash,
                 fly_droplets,
+                show_collapse,
+                fly_shards,
+                stop_rumble,
+                unshake_camera.before(FramedCamera),
+                shake_camera.after(FramedCamera).after(show_collapse),
             ),
         );
     }
@@ -342,5 +350,175 @@ fn fly_droplets(
             Some(mut sprite) => sprite.custom_size = Some(Vec2::splat(piece.size * share)),
             None => transform.scale = Vec3::splat(piece.size * share),
         }
+    }
+}
+
+/// Camera shakes still running, and the offset applied this frame.
+#[derive(Resource, Default)]
+struct CameraShake {
+    /// Reach in pixels (sideways, up) and seconds left.
+    kicks: Vec<(Vec2, f32)>,
+    applied: Vec2,
+}
+
+/// A piece of a blown-up brick.
+#[derive(Component)]
+struct Shard {
+    velocity: Vec2,
+    spin: f32,
+    size: f32,
+    time: f32,
+}
+
+/// The looping rumble sound, stopped when the rumble ends.
+#[derive(Component)]
+struct Rumble {
+    left: f32,
+}
+
+/// How long a shard flies before it is gone, in seconds.
+const SHARD_LIFE: f32 = 0.7;
+
+/// Blasts, shakes and sounds for the towers falling apart at the end of a match.
+fn show_collapse(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    time: Res<Time>,
+    mut events: MessageReader<CollapseEvent>,
+    mut shake: ResMut<CameraShake>,
+) {
+    let c = config.cell_size;
+    let look = &config.moments;
+    let play = |commands: &mut Commands, name: &str, settings: PlaybackSettings| {
+        art.sounds
+            .get(name)
+            .map(|sound| commands.spawn((AudioPlayer(sound.clone()), settings)).id())
+    };
+    for (n, event) in events.read().enumerate() {
+        match &event.kind {
+            CollapseKind::Blast {
+                at,
+                rotation,
+                cells,
+                color,
+                scale,
+            } => {
+                let (x, y, seconds) = look.blast_shake;
+                shake.kicks.push((Vec2::new(x, y) * c, seconds));
+                play(&mut commands, "sfx_explosion", PlaybackSettings::DESPAWN);
+                let mut seed = (time.elapsed_secs() * 1000.0) as u32 ^ (n as u32 * 7919) | 1;
+                let turn = Rot2::radians(*rotation);
+                let size = c * scale * 0.5;
+                // Each cell breaks into four pieces flung away from the brick's centre.
+                for &cell in cells {
+                    for corner in [Vec2::new(-1.0, -1.0), Vec2::new(1.0, -1.0), Vec2::new(-1.0, 1.0), Vec2::ONE] {
+                        let local = (cell + corner * 0.25) * c * scale;
+                        let from = *at + turn * local;
+                        let out = (turn * local).normalize_or(Vec2::Y);
+                        let speed = c * (4.0 + 6.0 * roll(&mut seed));
+                        commands.spawn((
+                            Shard {
+                                velocity: out * speed + Vec2::Y * c * 4.0,
+                                spin: (roll(&mut seed) - 0.5) * 20.0,
+                                size,
+                                time: 0.0,
+                            },
+                            Sprite::from_color(*color, Vec2::splat(size)),
+                            Transform::from_translation(from.extend(6.0))
+                                .with_rotation(Quat::from_rotation_z(*rotation)),
+                        ));
+                    }
+                }
+                if let Some(image) = art.image("explosion") {
+                    commands.spawn((
+                        Shard {
+                            velocity: Vec2::ZERO,
+                            spin: 0.0,
+                            size: c * 3.0,
+                            time: 0.0,
+                        },
+                        Sprite {
+                            image,
+                            custom_size: Some(Vec2::splat(c * 3.0)),
+                            ..default()
+                        },
+                        Transform::from_translation(at.extend(7.0)),
+                    ));
+                }
+            }
+            CollapseKind::Rumble(seconds) => {
+                let (x, y, _) = look.rumble;
+                shake.kicks.push((Vec2::new(x, y) * c, *seconds));
+                if let Some(sound) = play(&mut commands, "sfx_rumble", PlaybackSettings::LOOP) {
+                    commands.entity(sound).insert(Rumble { left: *seconds });
+                }
+            }
+            CollapseKind::Thud => {
+                play(&mut commands, "sfx_brick_heavy", PlaybackSettings::DESPAWN);
+            }
+        }
+    }
+}
+
+fn fly_shards(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut shards: Query<(Entity, &mut Shard, &mut Transform, &mut Sprite)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut shard, mut transform, mut sprite) in &mut shards {
+        shard.time += dt;
+        if shard.time >= SHARD_LIFE {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        shard.velocity.y -= config.cells(config.gravity) * dt;
+        transform.translation += (shard.velocity * dt).extend(0.0);
+        transform.rotate_z(shard.spin * dt);
+        let left = 1.0 - shard.time / SHARD_LIFE;
+        sprite.custom_size = Some(Vec2::splat(shard.size * (0.4 + 0.6 * left)));
+        sprite.color.set_alpha(left);
+    }
+}
+
+fn stop_rumble(mut commands: Commands, time: Res<Time>, mut rumbles: Query<(Entity, &mut Rumble)>) {
+    for (entity, mut rumble) in &mut rumbles {
+        rumble.left -= time.delta_secs();
+        if rumble.left <= 0.0 {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+/// Takes last frame's shake off the camera before it is framed again.
+fn unshake_camera(shake: Res<CameraShake>, mut camera: Query<&mut Transform, With<Camera2d>>) {
+    if let Ok(mut transform) = camera.single_mut() {
+        transform.translation -= shake.applied.extend(0.0);
+    }
+}
+
+/// Puts this frame's shake on the camera: every running kick jitters it.
+fn shake_camera(
+    time: Res<Time>,
+    mut shake: ResMut<CameraShake>,
+    mut camera: Query<&mut Transform, With<Camera2d>>,
+) {
+    let dt = time.delta_secs();
+    shake.kicks.retain_mut(|(_, left)| {
+        *left -= dt;
+        *left > 0.0
+    });
+    let t = time.elapsed_secs();
+    let offset = shake
+        .kicks
+        .iter()
+        .map(|(reach, _)| Vec2::new(reach.x * (t * 61.0).sin(), reach.y * (t * 47.0).cos()))
+        .sum::<Vec2>();
+    shake.applied = Vec2::ZERO;
+    if let Ok(mut transform) = camera.single_mut() {
+        transform.translation += offset.extend(0.0);
+        shake.applied = offset;
     }
 }
