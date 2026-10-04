@@ -86,3 +86,24 @@ Waves per level (curses, length in s; the top value is excluded)
 | 4 | Fast 12-16; No rotate 12-16; Ice 11-15; Mystery 12-16; Ghost+Fast 6-8; Ice+Large 6-8; Mystery+Ice 8-11; Large+Large 6-8; Mist+Mystery 8-11; Large+Ghost 7-10; Mystery+Large+No rotate 6-8; Large+Fast+No rotate 6-8 |
 
 `WaveRules` now holds these four tables (src/config.rs). Not done yet: pausing, shaking and lifting the brick in hand for 1 s at a wave's start. Ghost is applied once at the wave's start (a guess).
+
+## Base shapes (read from the PC install, 2026-10-04)
+
+Cells. x is measured from the base centre and y from the base top (the y = 0 line the bricks rest on). Every collider is a plain box.
+
+**Race, all difficulties** (FLOOR_RACE, picture `platform_race` = gph_house02). Endless Race uses the same shapes (FLOOR_RACE_ENDLESS) with the Endless reflection art.
+- Body: x -3..3, y -9..0. The top is 6 cells wide.
+- Chimney bump: x -1..0, y 0..1. One cell sticks up, just left of the centre.
+- Side ledges lower down, under the water: x -4..-3, y -9..-5.57 and x 3..4, y -9..-5.
+
+**Survival, all difficulties, Endless Survival too** (FLOOR_LWS, picture `platform_survival` = gph_house01_world02, the castle).
+- Merlons on top, each 1 cell high (y -1..0): x -3..-2, x -1..1, x 2..3.
+- That leaves two holes, each 1 cell wide and 1 deep: x -2..-1 and x 1..2. The tops of the merlons are the y = 0 line.
+- Body under the merlons: x -3..3, y -5..-1.
+- Wider band: x -3.5..3.5, y -7..-5.
+- Foot: x -2.5..3, y -11..-7.
+- A challenge variant (FLOOR_LWS_PETRIFIED_BRICK) adds a stone I brick lying at x 2..6, y 0..1.
+
+**Puzzle.** The floors are built from pieces that are single columns. All pieces are 13 tall (y -13..0) unless noted.
+- Easy and Normal use FLOOR_PUZZLE: piece 1 (gph_house01_world03) is 1 wide, piece 2 (gph_house02_world03) is 2 wide, piece 3 (gph_house03_world03) is 1 wide.
+- Pro uses FLOOR_PUZZLE_PRO: a centre column (gph_house03_world03) 1 wide, x -0.5..0.5. Pro pieces 1-12 and the top piece (gph_house08/11_world03 …) are 1×1 cells, x -0.5..0.5, y -1..0.
