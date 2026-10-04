@@ -80,6 +80,11 @@ pub struct Wizard {
 }
 
 impl Wizard {
+    /// The tower this wizard belongs to.
+    pub fn tower(&self) -> Entity {
+        self.tower
+    }
+
     fn random(&mut self, lo: u32, hi: u32) -> u32 {
         self.rng = self
             .rng

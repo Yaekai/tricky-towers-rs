@@ -170,3 +170,22 @@ and nothing gets installed without Max's own go-ahead.
   profile and what each row shows (rank, name, score, wizard?), and the rules of Endless
   Survival and Endless Puzzle (what ends a run, how the score counts, any speed-up), so they
   can be played.
+- Cast effects are in (src/casts.rs, numbers in `GameConfig::casts`, taken from your stage.ps1
+  notes): the dark cast's beam up from the caster, then a beam down onto each victim's brick,
+  then the lane wave; the light cast's lightning from the wizard to the brick; spell clouds
+  beside each wizard (Show, Floating, Used after a cast, Hide when thrown away); Large grows the
+  brick in hand over 0.3 s with a camera shake. Please check, in this order:
+  1. Stage everything listed under "Cast beams" in stage.ps1 and run
+     `--play race --offscreen screenshots --shots 30,45,60` with 1 AI opponent (a small config
+     with `magic: (line_spacing: 2.0)` makes casts come quickly). Say how the beams, wave,
+     lightning and clouds differ from the original.
+  2. Read the sizes we guessed (marked `(?)` in `CastLook`): the beam's width and how far up it
+     reaches, the lightning's width and wobble, the spell cloud's drawn size in cells (its
+     picture's size and pixels per unit × 1.31), the icon's size in the cloud, the Floating
+     clip's bob, and what the Used clip does (we swell to 1.3× then shrink while rising).
+  3. Large: the camera shake's size and length, and the sound it plays; stage that sound as
+     `sfx_large`.
+  4. Where wizard 4's clouds sit (we reuse wizard 1's), and whether the clouds flip sides
+     when a lone wizard floats on the left of the tower.
+  5. The rays, rings, blobs and sparks at the beam's foot: we only draw `cast_circle_gradient`
+     there. Say which ones matter most to look right and their sizes and spin speeds.

@@ -60,6 +60,8 @@ pub struct GameConfig {
     pub menu: MenuLook,
     /// The splash when a brick is lost in the water.
     pub splash: SplashLook,
+    /// Cast beams, lightning, spell clouds and the Large grow.
+    pub casts: CastLook,
     /// What the water does to a lost brick.
     pub water: WaterRules,
     /// Each base's collider, as read from the original.
@@ -1266,6 +1268,76 @@ impl Default for WaterRules {
 /// The splash a lost brick makes in the water, from the original
 /// (docs/research/controls-physics.md): a front layer of splash pictures that
 /// grow in and vanish, and white drops thrown up behind them. Lengths in cells.
+/// How casting looks, from the PC's readout of the original (tools/extract notes,
+/// "Cast beams" and "Spell clouds"). Lengths in cells, times in seconds; `(?)` marks
+/// guesses.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct CastLook {
+    /// Dark cast, beam up from the caster: grows in, then gives up.
+    pub beam_up: (f32, f32),
+    /// Then a beam down onto each victim's brick: grows in, then gives up.
+    pub beam_down: (f32, f32),
+    /// Then the wave over each victim's lane: in, out.
+    pub lane_wave: (f32, f32),
+    /// A finished beam squeezes to nothing this fast.
+    pub beam_squeeze: f32,
+    /// Beam width (the white edges sit at ±0.88) and how far above the view top
+    /// the beams reach (?).
+    pub beam_width: f32,
+    pub beam_reach: f32,
+    /// Light cast: the lightning from the wizard to the brick lasts this long, and
+    /// wobbles this far at its middle (?).
+    pub lightning: f32,
+    pub lightning_wobble: f32,
+    /// Spell clouds: Show, one Floating cycle, Used and Hide clip lengths.
+    pub cloud_show: f32,
+    pub cloud_float: f32,
+    pub cloud_used: f32,
+    pub cloud_hide: f32,
+    /// Cloud size (drawn ×1.31 of its picture; ? until the picture size is read),
+    /// the icon's share of it, and how far it bobs while floating (?).
+    pub cloud_size: f32,
+    pub cloud_icon: f32,
+    pub cloud_bob: f32,
+    /// Where each wizard's light and dark clouds sit, from the wizard.
+    /// Wizard 4 wasn't read and uses wizard 1's.
+    pub cloud_spots: Vec<((f32, f32), (f32, f32))>,
+    /// Large: the brick grows over this long, with this camera shake (cells
+    /// sideways, cells up, seconds; ?).
+    pub large_grow: f32,
+    pub large_shake: (f32, f32, f32),
+}
+
+impl Default for CastLook {
+    fn default() -> Self {
+        Self {
+            beam_up: (0.33, 1.0),
+            beam_down: (0.63, 1.0),
+            lane_wave: (1.0, 0.17),
+            beam_squeeze: 0.03,
+            beam_width: 1.76,
+            beam_reach: 30.0,
+            lightning: 0.4,
+            lightning_wobble: 0.6,
+            cloud_show: 0.83,
+            cloud_float: 3.0,
+            cloud_used: 1.22,
+            cloud_hide: 0.38,
+            cloud_size: 2.4,
+            cloud_icon: 0.6,
+            cloud_bob: 0.12,
+            cloud_spots: vec![
+                ((0.58, 4.8), (2.87, 3.53)),
+                ((0.38, 5.37), (2.67, 4.1)),
+                ((0.75, 5.0), (3.04, 3.73)),
+            ],
+            large_grow: 0.3,
+            large_shake: (0.1, 0.13, 0.3),
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct SplashLook {
@@ -1486,6 +1558,7 @@ impl Default for GameConfig {
             lanes: Lanes::default(),
             menu: MenuLook::default(),
             splash: SplashLook::default(),
+            casts: CastLook::default(),
             water: WaterRules::default(),
             bases: Bases::default(),
             spawn_gap: 17.0,
