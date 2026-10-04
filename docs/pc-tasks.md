@@ -359,3 +359,14 @@ and nothing gets installed without Max's own go-ahead.
   scale, the Hologram look (cyan, see-through, sideways jitter) and Diamond's gloss (a flash
   instead of a sweep). Spring's grass and eggs aren't staged: stage them (names, sizes) and
   say where they sit. Picture each pack with a script (`Start` then wait) and compare.
+- **Skies and weather are in** (src/weather.rs, `GameConfig::weather`, `visuals::pro_look`):
+  Race Pro night sky (3-colour gradient from your readout), rain (front streaks and the back
+  layer, slanting with the wind) and lightning (flash + bolt with branches); every Puzzle's sand
+  strip and two-layer scrolling sandstorm; Puzzle Pro's sky, eclipsed sun and corona; Survival's
+  sky shifting to the curse-wave colours over 1 s. A `sky_race_pro` / `sky_puzzle_pro` and
+  `background_race_pro_N` / `background_puzzle_pro_N` in the manifest win over the built-in
+  colours. Not done: the Race Pro clouds, `water_pro` and the `_DARK` islands lit by the flash,
+  the Puzzle Pro ruin colours, the reflected gradients, the Survival clouds/stars/moon changes.
+  Guessed: the sun's place and size on our screen, the sand strip height, the corona spin, the
+  bolt shape, the rain drop width. Check: Race Pro's rain (about 1,100 drops a second) runs
+  smoothly on the PC; picture Race Pro, Puzzle, Puzzle Pro and a Survival Pro wave with scripts.

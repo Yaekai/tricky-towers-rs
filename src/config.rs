@@ -68,6 +68,9 @@ pub struct GameConfig {
     pub xp: XpRules,
     /// Local cups (guesses until read).
     pub cups: CupRules,
+    /// Per-mode skies and weather: Race Pro night, Puzzle sandstorm and eclipse,
+    /// Survival curse-wave sky.
+    pub weather: WeatherLook,
     /// What the water does to a lost brick.
     pub water: WaterRules,
     /// Each base's collider, as read from the original.
@@ -1702,6 +1705,82 @@ impl Default for WaterRules {
 /// The splash a lost brick makes in the water, from the original
 /// (docs/research/controls-physics.md): a front layer of splash pictures that
 /// grow in and vanish, and white drops thrown up behind them. Lengths in cells.
+/// Skies and weather the original swaps in by mode and difficulty, from the PC readouts
+/// (docs/research/modes.md "Race Pro look", docs/research/gap-scan.md 1-2). Colours are
+/// 0-255 RGB, gradients top to bottom; lengths in cells, times in seconds; `(?)` marks
+/// guesses.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct WeatherLook {
+    /// Race Pro ("Special") night sky and water band.
+    pub race_pro_sky: Vec<[u8; 3]>,
+    pub race_pro_water: Vec<[u8; 3]>,
+    /// Rain: drops a second, life, speed (cells/s), streak length (cells), RGBA colour;
+    /// front then back. Emitters tilt this many degrees with the wind.
+    pub rain_front: (f32, f32, f32, f32, [f32; 4]),
+    pub rain_back: (f32, f32, f32, f32, [f32; 4]),
+    pub rain_tilt: f32,
+    /// Lightning: seconds between strikes (random in range), no strikes in the first
+    /// seconds, flash opacity and fade, bolt hold and fade, branches.
+    pub lightning_every: (f32, f32),
+    pub lightning_quiet_start: f32,
+    pub lightning_flash: (f32, f32),
+    pub lightning_bolt: (f32, f32),
+    pub lightning_branches: u32,
+    /// Puzzle sandstorm: back and front tint (RGB) and opacity, scroll speed as a
+    /// share of the view width per second, and the per-layer offset.
+    pub sandstorm_back: ([u8; 3], f32),
+    pub sandstorm_front: ([u8; 3], f32),
+    pub sandstorm_speed: f32,
+    pub sandstorm_offset: f32,
+    /// Puzzle sand strip height as a share of the view (?).
+    pub sand_strip: f32,
+    /// Puzzle Pro sky, the eclipsed sun's height above the view centre as a share of the
+    /// view height (9 units in the original's background camera, ?), its size, and its
+    /// corona: rays, width and height ranges (multiples of the ray picture).
+    pub puzzle_pro_sky: Vec<[u8; 3]>,
+    pub eclipse_height: f32,
+    pub eclipse_size: f32,
+    pub corona_rays: u32,
+    pub corona_width: (f32, f32),
+    pub corona_height: (f32, f32),
+    /// Survival night sky and the curse-wave sky it shifts to over `wave_shift` seconds.
+    pub survival_sky: Vec<[u8; 3]>,
+    pub survival_wave_sky: Vec<[u8; 3]>,
+    pub wave_shift: f32,
+}
+
+impl Default for WeatherLook {
+    fn default() -> Self {
+        Self {
+            race_pro_sky: vec![[49, 21, 138], [13, 119, 154], [37, 25, 126]],
+            race_pro_water: vec![[13, 119, 154], [49, 21, 138]],
+            rain_front: (100.0, 1.0, 100.0, 3.0, [0.82, 0.78, 0.96, 0.9]),
+            rain_back: (1024.0, 3.0, 40.0, 1.0, [0.43, 0.45, 0.79, 0.9]),
+            rain_tilt: 30.0,
+            lightning_every: (5.0, 14.0),
+            lightning_quiet_start: 3.0,
+            lightning_flash: (0.65, 0.1),
+            lightning_bolt: (0.2, 0.2),
+            lightning_branches: 4,
+            sandstorm_back: ([0x9B, 0x86, 0x44], 0.38),
+            sandstorm_front: ([0xE9, 0xAA, 0x5D], 0.37),
+            sandstorm_speed: 0.035,
+            sandstorm_offset: 0.025,
+            sand_strip: 0.08,
+            puzzle_pro_sky: vec![[0xAB, 0x05, 0x4C], [0xB8, 0x44, 0x42]],
+            eclipse_height: 0.3,
+            eclipse_size: 0.22,
+            corona_rays: 7,
+            corona_width: (0.6, 0.8),
+            corona_height: (0.3, 2.0),
+            survival_sky: vec![[51, 30, 103], [91, 83, 173]],
+            survival_wave_sky: vec![[26, 13, 58], [147, 64, 157]],
+            wave_shift: 1.0,
+        }
+    }
+}
+
 /// Local cups: a series of matches with points per place, a trophy for the cup
 /// winner, and XP (the original gives XP only in cups and online). Built from
 /// public descriptions and the trophy names read so far; the series length,
@@ -2196,6 +2275,7 @@ impl Default for GameConfig {
             casts: CastLook::default(),
             xp: XpRules::default(),
             cups: CupRules::default(),
+            weather: WeatherLook::default(),
             water: WaterRules::default(),
             bases: Bases::default(),
             spawn_gap: 17.0,

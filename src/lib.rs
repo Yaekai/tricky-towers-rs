@@ -36,6 +36,7 @@ pub mod start;
 pub mod trials;
 pub mod trials_menu;
 pub mod visuals;
+pub mod weather;
 pub mod wizards;
 
 use avian2d::prelude::*;
