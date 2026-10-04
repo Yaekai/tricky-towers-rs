@@ -74,3 +74,11 @@ and nothing gets installed without Max's own go-ahead.
   after a normal local match as `trophy` (say which size it uses when), and screenshot a race
   offscreen until someone wins (a small config with `finish_height: 3.0` and AI opponents
   gets there in about 15 s) to compare with the original.
+- Spell effects are wired up (src/effects.rs, bubbles in src/visuals.rs): stage the bubbles as
+  `bubble_<2|3|4>_<1|2|3>`, the two Ghost skulls as `ghost_skull_1`, `ghost_skull_2`, and check
+  `balloon`'s pivot (it floats 2.5 cells above the brick centre on a string). Next readout
+  wanted, for the cast beams: the art names and sizes of the dark cast beam (up from the wizard,
+  down the victim's lane, then the lane wave), the light cast's lightning strip, and the spell
+  cloud over the panel with its "used" animation; stage them as `cast_beam`, `cast_lane_beam`,
+  `cast_lightning`, `spell_cloud`, `spell_cloud_used`. Also the bubble wobble's speed and how far
+  above the brick the balloon floats.

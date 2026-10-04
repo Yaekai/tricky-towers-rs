@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use tricky_towers::TowerCorePlugin;
 use tricky_towers::art::ArtPlugin;
 use tricky_towers::config::{DEFAULT_CONFIG_PATH, Difficulty, GameConfig, ModeKind};
+use tricky_towers::effects::EffectsPlugin;
 use tricky_towers::input::KeyboardInputPlugin;
 use tricky_towers::letters::LettersPlugin;
 use tricky_towers::menu::MenuPlugin;
@@ -113,6 +114,7 @@ fn main() {
         LettersPlugin,
         WizardsPlugin,
         ResultsPlugin,
+        EffectsPlugin,
     ));
     if let Some(dir) = offscreen {
         app.add_plugins(tricky_towers::offscreen::OffscreenPlugin {

@@ -25,6 +25,7 @@ impl Plugin for VisualsPlugin {
             .init_resource::<Art>()
             .init_resource::<ViewSize>()
             .add_systems(Startup, setup_scene)
+            .add_systems(Update, wobble_bubbles)
             .add_systems(
                 Update,
                 (
@@ -409,23 +410,33 @@ fn dress_bubbles(
     children: Query<&Children>,
     bubbles: Query<(), With<BubbleSprite>>,
 ) {
-    if let Some(image) = art.image("bubble") {
-        for (entity, brick) in &added {
-            let max = brick
-                .cells
-                .iter()
-                .fold(0.0f32, |a, b| a.max(b.abs().max_element()));
-            let size = (max + 1.0) * 2.0 * config.cell_size * brick.scale;
-            commands.entity(entity).with_child((
-                BubbleSprite,
-                Sprite {
-                    image: image.clone(),
-                    custom_size: Some(Vec2::splat(size)),
-                    ..default()
-                },
-                Transform::from_xyz(0.0, 0.0, 0.5),
-            ));
-        }
+    for (entity, brick) in &added {
+        let max = brick
+            .cells
+            .iter()
+            .fold(0.0f32, |a, b| a.max(b.abs().max_element()));
+        let size = (max + 1.0) * 2.0 * config.cell_size * brick.scale;
+        // The original has bubbles for bricks 2, 3 and 4 cells across, in 3 looks each.
+        let across = ((max * 2.0 + 1.0) * brick.scale).round().clamp(2.0, 4.0) as u32;
+        let look = entity.index_u32() % 3 + 1;
+        let Some(image) = [
+            format!("bubble_{across}_{look}"),
+            format!("bubble_{across}"),
+            "bubble".into(),
+        ]
+        .iter()
+        .find_map(|name| art.image(name)) else {
+            continue;
+        };
+        commands.entity(entity).with_child((
+            BubbleSprite,
+            Sprite {
+                image,
+                custom_size: Some(Vec2::splat(size)),
+                ..default()
+            },
+            Transform::from_xyz(0.0, 0.0, 0.5),
+        ));
     }
     for entity in popped.read() {
         for child in children.iter_descendants(entity) {
@@ -433,6 +444,14 @@ fn dress_bubbles(
                 commands.entity(child).despawn();
             }
         }
+    }
+}
+
+/// Bubbles wobble a little, like the original's (±2.5% of their size).
+fn wobble_bubbles(time: Res<Time>, mut bubbles: Query<&mut Transform, With<BubbleSprite>>) {
+    let wobble = 1.0 + 0.025 * (time.elapsed_secs() * std::f32::consts::TAU).sin();
+    for mut transform in &mut bubbles {
+        transform.scale = Vec3::new(wobble, 2.0 - wobble, 1.0);
     }
 }
 

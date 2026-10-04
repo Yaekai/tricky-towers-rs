@@ -10,6 +10,7 @@
 pub mod ai;
 pub mod art;
 pub mod config;
+pub mod effects;
 pub mod gameplay;
 pub mod input;
 pub mod letters;

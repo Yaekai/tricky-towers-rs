@@ -94,6 +94,9 @@ islands on the water band), by adding `screen`:
 | `background_race_0`, `background_survival_0`, `background_puzzle_0`, ... | Layers for one mode only; when any exist for a mode they replace the plain `background_N` set |
 | `finish_line`, `laser` | Race finish and Puzzle laser, repeated sideways across the lane; pivot on the line |
 | `pacer_line` | Endless Race's rising line, drawn the same way; Endless otherwise uses the race art and music |
+| `bubble_<2|3|4>_<1|2|3>` | Bubble for a brick 2, 3 or 4 cells across, in 3 looks (falls back to `bubble_<n>`, then `bubble`) |
+| `balloon` | Slow spell balloon, floating upright above the brick on a 3-pixel string |
+| `ghost_skull_1`, `ghost_skull_2` | Ghost skulls that fly in and grab the brick's outline (or one `ghost_skull`) |
 | `text_gradient_gold`, `text_gradient_red` | Colour of match text (countdown, WINNER!, WIZARD OUT!), taken from the middle of the gradient |
 | `winner_sunrays` | Turning rays behind WINNER! |
 | `spotlight_winner_<mode>`, `spotlight_loser_<mode>` | Beam over the winning lane and veil over losing lanes (`race`, `survival`, `puzzle`) |

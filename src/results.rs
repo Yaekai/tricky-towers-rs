@@ -388,7 +388,12 @@ fn animate_banners(
         let Ok(at) = camera.world_to_viewport(eye, Vec3::new(tower.origin_x, 0.0, 0.0)) else {
             continue;
         };
-        centre_on(&mut node, computed, Vec2::new(at.x, view.0.y * 0.35), view.0);
+        centre_on(
+            &mut node,
+            computed,
+            Vec2::new(at.x, view.0.y * 0.35),
+            view.0,
+        );
         let t = banner.time;
         if banner.out {
             let (enter, stay, leave) = look.out_times;

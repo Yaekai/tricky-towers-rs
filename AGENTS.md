@@ -44,3 +44,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-04: Puzzle floors drawn with the staged floor pieces (`FloorBlock { part }`, `dress_floor`); the water strip hides in modes whose water band is off.
 - 2026-10-04: exact Race Pro wind (`blow_wind` rays per row + `push_wind` forces), Puzzle steering limit from the tower's settled half width, per-shape vine growth animations, race hold countdown over the finish line (`show_hold_counts`).
 - 2026-10-04: src/results.rs: match text (shadow + gradient-tinted face), race hold countdown, WINNER! with sunrays and trophy pop, WIZARD OUT!, winner spotlight and loser veils, timings in `GameConfig::moments`.
+- 2026-10-04: src/effects.rs: Slow balloon on a string, Ghost skulls flying in to the brick's outline; bubbles pick the size/look variant and wobble ±2.5%.
