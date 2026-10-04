@@ -82,3 +82,10 @@ and nothing gets installed without Max's own go-ahead.
   cloud over the panel with its "used" animation; stage them as `cast_beam`, `cast_lane_beam`,
   `cast_lightning`, `spell_cloud`, `spell_cloud_used`. Also the bubble wobble's speed and how far
   above the brick the balloon floats.
+- For the title menu: the staged `menu_*` tile names (selected and deselected), where each
+  tile sits on screen (as a share of the screen or in units with the view height), their
+  order, what moving between them animates (scale, slide, timing), and the logo's place. Our
+  menu offers Race, Survival, Puzzle and Endless plus players, AI and difficulty; say how the
+  original's local-play screens pick mode, players and difficulty so the flow can match.
+- Survival Pro curse waves: the exact levels (which curses each level can pick, how many at
+  once, and each one's length), to replace the `(?)` guesses in `WaveRules` in src/config.rs.
