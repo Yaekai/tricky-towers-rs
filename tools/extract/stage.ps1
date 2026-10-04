@@ -179,6 +179,11 @@ foreach ($md in $modes.Keys) {
   Add-Sprite "spotlight_loser_$md"  "gph_spotlightLoser_World$($modes[$md])"  "match\spotlight_loser_$md.png"  "Dark veil over losing lanes ($md), 10 wide, alpha 0.1"
 }
 Add-Sprite 'winner_sunrays' 'gph_castEffectSunrays' 'match\winner_sunrays.png' 'Rotating sunrays behind the WINNER! text'
+# Cups: the original shows them only in cup (tournament) results, sized by cup: Tiny, Big, Super, Online.
+Add-Sprite 'trophy'        'gph_cupTinyLarge'   'match\trophy.png'        'Tiny Cup trophy (the smallest cup); the original shows a cup only in cup results, not after a single match'
+Add-Sprite 'trophy_big'    'gph_cupBigLarge'    'match\trophy_big.png'    'Big Cup trophy'
+Add-Sprite 'trophy_super'  'gph_cupSuperLarge'  'match\trophy_super.png'  'Super Cup trophy'
+Add-Sprite 'trophy_online' 'gph_cupOnlineLarge' 'match\trophy_online.png' 'Online Cup trophy'
 $notes.Add('- Match text (countdown numbers, WINNER!, WIZARD OUT!, FINISH!, FAILED, WAVE): the Enzo letters in two layers. Back: dilated 0.2, outline 0.25 (37,13,40), face (158,23,64) gold/bronze or (160,24,101) red. Front: white face times text_gradient_<gold|red|bronze>. Both have a shadow 0.5 below in (227,33,61). Gold = winner, red = loser, bronze = draw.')
 $notes.Add('- Spotlights: 0.5 s after the win the winner beam fades in over 1 s to alpha 151/255 (race), 130/255 (survival), 1 (puzzle), centred on the winning lane bottom, 1.5 wide and screen tall. Loser veils fade to 0.1 over 1 s. Trophy (cups): pops from scale 0.4 to 1 over 0.6 s with an elastic ease. Lose message: move in 2 s, idle 2 s, move out 1 s.')
 
