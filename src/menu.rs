@@ -14,6 +14,7 @@ use crate::single::{
     Leaderboard, SingleMenu, endless_input, record_endless_scores, show_single_screens,
     single_input, spawn_single_screens,
 };
+use crate::start::{StartClock, show_start_screen, spawn_start_screen, start_input};
 
 pub struct MenuPlugin;
 
@@ -28,6 +29,7 @@ impl Plugin for MenuPlugin {
         .init_resource::<MenuScreen>()
         .init_resource::<MainMenu>()
         .init_resource::<PauseMenu>()
+        .init_resource::<StartClock>()
         .init_resource::<Lobby>()
         .init_resource::<SingleMenu>()
         .init_resource::<Leaderboard>()
@@ -141,120 +143,6 @@ pub enum MenuScreen {
     Settings,
     /// "Game Paused" over a match: Resume, Retry, Quit.
     Pause,
-}
-
-#[derive(Component)]
-struct StartRoot;
-#[derive(Component)]
-struct StartPrompt;
-
-/// The screen before the title tiles: the backdrop, the logo and a blinking
-/// "Press Enter to start".
-fn spawn_start_screen(mut commands: Commands, art: Option<Res<Art>>) {
-    let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
-    let mut root = commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::SpaceEvenly,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        BackgroundColor(Color::srgb(0.05, 0.06, 0.12)),
-        GlobalZIndex(11),
-        Visibility::Hidden,
-        StartRoot,
-    ));
-    if let Some(background) = image("menu_background") {
-        root.insert((ImageNode::new(background), BackgroundColor(Color::NONE)));
-    }
-    root.with_children(|root| {
-        match image("logo") {
-            // The staged logo is 818×420 at 1920×1080.
-            Some(logo) => {
-                root.spawn((
-                    ImageNode::new(logo),
-                    Node {
-                        width: Val::Vh(818.0 / 10.8),
-                        height: Val::Vh(420.0 / 10.8),
-                        ..default()
-                    },
-                ));
-            }
-            None => {
-                root.spawn((
-                    Text::new("Tricky Towers"),
-                    TextFont {
-                        font_size: FontSize::Vh(12.0),
-                        ..default()
-                    },
-                    TextColor(Color::WHITE),
-                ));
-            }
-        }
-        // In a box of its own, so blinking hides the letter-drawn copy too.
-        root.spawn((Node::default(), Visibility::Inherited, StartPrompt))
-            .with_child((
-                Text::new("Press Enter to start"),
-                TextFont {
-                    font_size: FontSize::Vh(4.5),
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-                TextLayout::justify(Justify::Center),
-            ));
-    });
-}
-
-/// Enter, Space, A or Start goes on to the title tiles.
-fn start_input(
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    gamepads: Query<&Gamepad>,
-    game: Res<Match>,
-    mut screen: ResMut<MenuScreen>,
-) {
-    if game.phase != Phase::Menu || *screen != MenuScreen::Start {
-        return;
-    }
-    let key = keys.is_some_and(|k| {
-        k.any_just_pressed([KeyCode::Enter, KeyCode::Space, KeyCode::NumpadEnter])
-    });
-    let pad = gamepads
-        .iter()
-        .any(|p| p.any_just_pressed([GamepadButton::South, GamepadButton::Start]));
-    if key || pad {
-        *screen = MenuScreen::Main;
-    }
-}
-
-fn show_start_screen(
-    time: Res<Time>,
-    game: Res<Match>,
-    screen: Res<MenuScreen>,
-    mut root: Query<&mut Visibility, With<StartRoot>>,
-    mut prompt: Query<&mut Visibility, (With<StartPrompt>, Without<StartRoot>)>,
-) {
-    let shown = game.phase == Phase::Menu && *screen == MenuScreen::Start;
-    for mut v in &mut root {
-        v.set_if_neq(if shown {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        });
-    }
-    if !shown {
-        return;
-    }
-    // The prompt blinks once a second (a guess).
-    let on = time.elapsed_secs().fract() < 0.75;
-    for mut v in &mut prompt {
-        v.set_if_neq(if on {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        });
-    }
 }
 
 /// The pause menu's highlighted option and the phase Resume goes back to.
