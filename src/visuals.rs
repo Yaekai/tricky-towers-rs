@@ -12,8 +12,8 @@ use crate::art::{Animated, Art};
 use crate::config::{GameConfig, ModeKind, SpellKind};
 use crate::gameplay::piece_def;
 use crate::gameplay::{
-    ActiveBrick, Brick, BrickBag, FloorBlock, FloorPart, MAX_TOWERS, Match, Phase, Platform, Tower,
-    TowerState, TowerStatus,
+    ActiveBrick, Brick, BrickBag, FloorBlock, FloorPart, Match, Phase, Platform, Tower, TowerState,
+    TowerStatus,
 };
 use crate::spells::{Bubbled, Grassy, LifeOrb, SpellLog, Stone, Vined, Zapped};
 
@@ -151,7 +151,7 @@ fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
     ));
     // Water under every lane, its top at the depth where dropped bricks are lost.
     let depth = Vec3::new(0.0, -config.cells(config.kill_depth), -800.0);
-    let width = config.cells(config.tower_spacing * (MAX_TOWERS as f32 + 2.0));
+    let width = config.cells(config.lanes.screen_width * 3.0);
     if let Some(water) = art_strip(&art, "water", config.cell_size, width, depth) {
         commands.spawn((WaterStrip, water));
     }

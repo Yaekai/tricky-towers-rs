@@ -198,8 +198,6 @@ fn start_moments(
     let over = game.phase == Phase::Over;
     for (entity, tower, state) in &towers {
         let won = state.status == TowerStatus::Won || (over && game.winner == Some(tower.index));
-        let lost = state.status == TowerStatus::Out
-            || (over && game.winner.is_some() && game.winner != Some(tower.index));
         if won && seen.1.insert((entity, true)) {
             let color = tone_color(&art, &images, Tone::Gold);
             let banner =
@@ -234,38 +232,92 @@ fn start_moments(
                 entity,
                 look.spotlight_delay,
                 beam_alpha,
-                look.spotlight_width,
+                Strip {
+                    from: 0.0,
+                    side: 0.0,
+                    width: look.spotlight_width,
+                    screen: false,
+                },
                 Color::WHITE,
             );
         }
-        if lost && seen.1.insert((entity, false)) {
-            if state.status == TowerStatus::Out {
-                let color = tone_color(&art, &images, Tone::Red);
-                let banner = spawn_match_text(
-                    &mut commands,
-                    &config,
-                    "WIZARD OUT!",
-                    look.banner_size * 0.75,
-                    color,
-                );
-                commands.entity(banner).insert(Banner {
-                    tower: entity,
-                    out: true,
-                    time: 0.0,
-                });
-            }
+        if state.status == TowerStatus::Out && seen.1.insert((entity, false)) {
+            let color = tone_color(&art, &images, Tone::Red);
+            let banner = spawn_match_text(
+                &mut commands,
+                &config,
+                "WIZARD OUT!",
+                look.banner_size * 0.75,
+                color,
+            );
+            commands.entity(banner).insert(Banner {
+                tower: entity,
+                out: true,
+                time: 0.0,
+            });
+        }
+    }
+    // The veil: everything but a clear gap around the winner's lane darkens.
+    let Some((winner, winner_tower, _)) = towers
+        .iter()
+        .find(|(_, t, _)| over && game.winner == Some(t.index))
+    else {
+        return;
+    };
+    if !seen.1.insert((winner, false)) {
+        return;
+    }
+    let humans = towers.iter().filter(|(_, t, _)| t.human).count();
+    let name = format!("spotlight_loser_{key}");
+    if humans == 1 && !winner_tower.human {
+        // The computer beat the only player: one strip over the whole screen.
+        let strip = Strip {
+            from: 0.0,
+            side: 0.0,
+            width: look.veil_solo_width,
+            screen: true,
+        };
+        spawn_light(
+            &mut commands,
+            &art,
+            &name,
+            winner,
+            0.0,
+            look.veil_alpha,
+            strip,
+            Color::BLACK,
+        );
+    } else {
+        for side in [-1.0, 1.0] {
+            let strip = Strip {
+                from: look.veil_gap,
+                side,
+                width: look.veil_width,
+                screen: false,
+            };
             spawn_light(
                 &mut commands,
                 &art,
-                &format!("spotlight_loser_{key}"),
-                entity,
+                &name,
+                winner,
                 0.0,
                 look.veil_alpha,
-                look.veil_width,
+                strip,
                 Color::BLACK,
             );
         }
     }
+}
+
+/// Where a light lies across its tower's lane, in cells: centred on the lane
+/// (`side` 0), or starting `from` the lane centre and reaching `width` outward
+/// to the left (-1) or right (1). A `screen` strip is centred on the view.
+#[derive(Component, Clone, Copy)]
+struct Strip {
+    from: f32,
+    side: f32,
+    width: f32,
+    screen: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -276,10 +328,10 @@ fn spawn_light(
     tower: Entity,
     delay: f32,
     alpha: f32,
-    width: f32,
+    strip: Strip,
     fallback: Color,
 ) {
-    let sprite = match art.image(name) {
+    let mut sprite = match art.image(name) {
         // The veil's art is drawn dark, like the original; the beam as it is.
         Some(image) => Sprite {
             image,
@@ -287,6 +339,15 @@ fn spawn_light(
             ..default()
         },
         None => Sprite::from_color(fallback.with_alpha(0.0), Vec2::ONE),
+    };
+    // The left strip is the right one mirrored.
+    sprite.flip_x = strip.side < 0.0;
+    let anchor = if strip.side < 0.0 {
+        bevy::sprite::Anchor::BOTTOM_RIGHT
+    } else if strip.side > 0.0 {
+        bevy::sprite::Anchor::BOTTOM_LEFT
+    } else {
+        bevy::sprite::Anchor::BOTTOM_CENTER
     };
     commands.spawn((
         Moment,
@@ -297,14 +358,11 @@ fn spawn_light(
             time: 0.0,
         },
         sprite,
-        bevy::sprite::Anchor::BOTTOM_CENTER,
+        anchor,
         Transform::from_xyz(0.0, 0.0, 30.0),
-        LightWidth(width),
+        strip,
     ));
 }
-
-#[derive(Component)]
-struct LightWidth(f32);
 
 #[allow(clippy::type_complexity)]
 /// Fades the lights in and keeps them covering their lane from the bottom of the
@@ -315,14 +373,14 @@ fn animate_lights(
     view: Res<ViewSize>,
     camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<Light>)>,
     towers: Query<&Tower>,
-    mut lights: Query<(&mut Light, &LightWidth, &mut Sprite, &mut Transform)>,
+    mut lights: Query<(&mut Light, &Strip, &mut Sprite, &mut Transform)>,
 ) {
     let Ok((eye, Projection::Orthographic(ortho))) = camera.single() else {
         return;
     };
     let height = view.0.y * ortho.scale;
     let bottom = eye.translation.y - height * 0.5;
-    for (mut light, width, mut sprite, mut transform) in &mut lights {
+    for (mut light, strip, mut sprite, mut transform) in &mut lights {
         light.time += time.delta_secs();
         let Ok(tower) = towers.get(light.tower) else {
             continue;
@@ -330,8 +388,13 @@ fn animate_lights(
         let fade =
             ((light.time - light.delay) / config.moments.spotlight_fade.max(0.01)).clamp(0.0, 1.0);
         sprite.color = sprite.color.with_alpha(light.alpha * fade);
-        sprite.custom_size = Some(Vec2::new(config.cells(width.0), height));
-        transform.translation.x = tower.origin_x;
+        sprite.custom_size = Some(Vec2::new(config.cells(strip.width), height));
+        transform.translation.x = if strip.screen {
+            // The whole-screen strip follows the camera.
+            eye.translation.x
+        } else {
+            tower.origin_x + config.cells(strip.from * strip.side)
+        };
         transform.translation.y = bottom;
     }
 }

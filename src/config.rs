@@ -54,8 +54,10 @@ pub struct GameConfig {
     pub steer_inset: f32,
     /// Width of the base platform, in cells.
     pub platform_width: f32,
-    /// Horizontal distance between neighbouring towers, in cells.
-    pub tower_spacing: f32,
+    /// How the screen is split into one lane per tower.
+    pub lanes: Lanes,
+    /// How the title tiles move.
+    pub menu: MenuLook,
     /// How far above the tower top a new brick appears, in cells.
     pub spawn_gap: f32,
     /// Bricks that fall this far below the platform are counted as dropped.
@@ -1058,8 +1060,13 @@ pub struct MatchMoments {
     pub spotlight_fade: f32,
     pub spotlight_width: f32,
     pub spotlight_alpha: (f32, f32, f32),
-    /// The dark veil over losing lanes: width in cells and final opacity.
+    /// The dark veil once someone wins: two mirrored strips starting `veil_gap` cells
+    /// either side of the winner's lane centre, each `veil_width` cells wide, at this
+    /// final opacity. When the computer beats a lone player, one `veil_solo_width`
+    /// strip covers the screen instead.
+    pub veil_gap: f32,
     pub veil_width: f32,
+    pub veil_solo_width: f32,
     pub veil_alpha: f32,
     /// The trophy pops from this share of its size to full over this many seconds.
     pub trophy_pop: (f32, f32),
@@ -1082,12 +1089,70 @@ impl Default for MatchMoments {
             spotlight_fade: 1.0,
             spotlight_width: 1.5,
             spotlight_alpha: (151.0 / 255.0, 130.0 / 255.0, 1.0),
-            veil_width: 10.0,
+            veil_gap: 8.0,
+            veil_width: 60.0,
+            veil_solo_width: 120.0,
             veil_alpha: 0.1,
             trophy_pop: (0.4, 0.6),
             sunray_spin: 20.0,
             popup_after: 4.0,
         }
+    }
+}
+
+/// How the picked title tile moves (docs/research/menus.md).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct MenuLook {
+    /// For each ray layer from the first: degrees it turns, and over how many seconds,
+    /// before it starts again. Layers past the list stay still.
+    pub ray_turns: Vec<(f32, f32)>,
+    /// The corners move out this many pixels (of a 1080-high screen) and back over
+    /// this many seconds (the reach is a guess).
+    pub corner_pulse: (f32, f32),
+}
+
+impl Default for MenuLook {
+    fn default() -> Self {
+        Self {
+            ray_turns: vec![(180.0, 2.0), (-90.0, 2.0)],
+            corner_pulse: (8.0, 1.0),
+        }
+    }
+}
+
+/// The lanes across the screen, in cells: the screen is `screen_width` wide with
+/// `margin` at each side and `gap` between lanes, so each of n lanes is
+/// `(screen_width - 2 margin - (n - 1) gap) / n` wide (33 for 2 players, 21.67 for 3,
+/// 16 for 4). From the original (docs/research/match-moments.md).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct Lanes {
+    pub screen_width: f32,
+    pub margin: f32,
+    pub gap: f32,
+}
+
+impl Default for Lanes {
+    fn default() -> Self {
+        Self {
+            screen_width: 73.85,
+            margin: 3.42,
+            gap: 1.0,
+        }
+    }
+}
+
+impl Lanes {
+    /// Width of each lane with `count` towers.
+    pub fn width(&self, count: usize) -> f32 {
+        let n = count.max(1) as f32;
+        (self.screen_width - 2.0 * self.margin - (n - 1.0) * self.gap) / n
+    }
+
+    /// Distance between neighbouring tower centres with `count` towers.
+    pub fn spacing(&self, count: usize) -> f32 {
+        self.width(count) + self.gap
     }
 }
 
@@ -1210,7 +1275,8 @@ impl Default for GameConfig {
             rotation_steps: 6,
             steer_inset: 0.15,
             platform_width: 9.0,
-            tower_spacing: 16.0,
+            lanes: Lanes::default(),
+            menu: MenuLook::default(),
             spawn_gap: 17.0,
             kill_depth: 8.5,
             collider_scale: 0.98,

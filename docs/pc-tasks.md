@@ -96,8 +96,10 @@ and nothing gets installed without Max's own go-ahead.
   parent so the centres can be exact, and say what moving between tiles animates (scale, timing)
   and where the logo sits. Then take an offscreen picture of the title screen (no `--play`,
   `--shots 2`) and compare.
-- Veils over losers' lanes still show light bands between them. Read the original's lane spacing
-  for 2, 3 and 4 players and how wide a loser's veil is compared with its lane.
+- Lanes now follow the original's split (`GameConfig::lanes`) and the veil is the two mirrored
+  strips. Screenshot a 4-player race until someone wins and say whether the strip's dark side
+  points the right way (we flip the left one) and how far the corners of a picked title tile
+  pulse out (we guess 8 px).
 - The pause menu and the "Game Completed" popup are in as plain text on dark panels (src/menu.rs,
   src/popup.rs). Read their art (panel, button frames, the selected look) and stage it with
   names to suggest, and read how long after a match ends the popup appears (we guess 4 s,

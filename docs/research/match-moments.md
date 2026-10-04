@@ -22,7 +22,15 @@ Plain-language notes from Max's installed copy.
 - Winner spotlight: 0.5 s after the win a beam fades in over 1 s over the winning lane,
   centred on the lane's bottom, 1.5 wide and as tall as the screen. Opacity 151/255 in Race,
   130/255 in Survival, full in Puzzle.
-- Losers: a dark veil 10 wide fades to opacity 0.1 over 1 s.
+- The veil once someone wins: not one per losing lane but two mirrored gradient strips that
+  start 8 units left and right of the winner's lane centre, each the 387-pixel sprite
+  stretched 5 times outward (about 60 units), at opacity 0.1. Only a 16-unit gap around the
+  winner stays clear. When the computer beats a lone player, one strip stretched 10 times
+  covers the screen.
 - Trophy (cups only): pops from 40% to full size over 0.6 s with an elastic bounce.
 - No cup after a single match: cups show only at the end of a cup, sized Tiny, Big, Super or
   Online (staged as `trophy`, `trophy_big`, `trophy_super`, `trophy_online`).
+
+## Lanes
+The screen is 73.85 units wide with 3.42 margins and 1-unit gaps between lanes, so
+each of n lanes is (67 − (n − 1)) / n wide: 33 for 2 players, 21.67 for 3 and 16 for 4.

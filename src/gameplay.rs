@@ -712,11 +712,8 @@ fn start_match(
     let count = (humans + config.opponents as usize).min(MAX_TOWERS);
     let c = config.cell_size;
     for index in 0..count {
-        // Puzzle lanes are wider, so the towers stand further apart.
-        let spacing = match config.mode {
-            ModeKind::Puzzle => config.tower_spacing * config.puzzle.lane_scale,
-            _ => config.tower_spacing,
-        };
+        // The screen is shared out into equal lanes, wider with fewer towers.
+        let spacing = config.lanes.spacing(count);
         let origin_x = config.cells(spacing) * (index as f32 - (count - 1) as f32 * 0.5);
         // Human players first, then the AI wizards.
         let human = index < humans;

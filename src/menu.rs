@@ -440,60 +440,69 @@ pub struct Tile {
     pub size: (f32, f32),
     pub at: (f32, f32),
     pub color: (f32, f32, f32),
+    /// Where the art over the tile sits: its centre's offset from the tile's
+    /// centre and its size, when it isn't the tile's own size.
+    pub front: Option<((f32, f32), (f32, f32))>,
 }
 
-/// The original's title tiles in its order. Sizes are the original's; the
-/// centres are laid out from those sizes as two columns of equal height over
-/// the Quit bar (the original's anchors aren't read yet).
+/// The original's title tiles in its order, with its sizes, centres and front
+/// art placement (docs/research/menus.md).
 pub const TILES: [Tile; 7] = [
     Tile {
         key: "local",
         label: "Local Battle",
         size: (437.0, 335.0),
-        at: (-249.0, 222.0),
+        at: (-249.0, 225.5),
         color: (0.85, 0.35, 0.2),
+        front: Some(((-5.0, -25.0), (538.0, 272.0))),
     },
     Tile {
         key: "single",
         label: "Single Player",
         size: (435.0, 335.0),
-        at: (-246.0, -133.0),
+        at: (-246.0, -155.5),
         color: (0.25, 0.6, 0.3),
+        front: Some(((17.0, -42.0), (488.0, 235.0))),
     },
     Tile {
         key: "online",
         label: "Online Battle",
         size: (441.0, 335.0),
-        at: (278.0, 222.0),
+        at: (278.0, 232.5),
         color: (0.25, 0.45, 0.85),
+        front: Some(((-21.0, -19.0), (467.0, 283.0))),
     },
     Tile {
         key: "shop",
         label: "Shop",
         size: (450.0, 165.0),
-        at: (277.0, -48.0),
+        at: (277.0, -62.5),
         color: (0.85, 0.65, 0.15),
+        front: Some(((-20.0, -9.0), (483.0, 128.0))),
     },
     Tile {
         key: "help",
         label: "Help",
         size: (197.0, 150.0),
-        at: (146.0, -226.0),
+        at: (146.0, -250.0),
         color: (0.55, 0.35, 0.75),
+        front: None,
     },
     Tile {
         key: "settings",
         label: "Settings",
         size: (197.0, 150.0),
-        at: (396.0, -226.0),
+        at: (396.0, -251.0),
         color: (0.4, 0.45, 0.5),
+        front: Some(((0.0, 0.0), (181.0, 134.0))),
     },
     Tile {
         key: "quit",
         label: "Quit",
         size: (436.0, 68.0),
-        at: (0.0, -355.0),
+        at: (0.0, -406.0),
         color: (0.7, 0.2, 0.25),
+        front: None,
     },
 ];
 
@@ -515,6 +524,9 @@ struct TileChosen {
 }
 #[derive(Component)]
 struct TileLabel(usize);
+/// A corner of the picked tile's frame, and which way it pulses (UI y is down).
+#[derive(Component)]
+struct TileCorner(Vec2);
 #[derive(Component)]
 struct TileRays {
     layer: usize,
@@ -541,11 +553,13 @@ fn fill() -> Node {
     }
 }
 
-/// The title screen. Each tile shows `menu_tile_<key>_deselected` (grey) until
-/// it is picked; then `menu_tile_<key>_selected` with the spinning
-/// `menu_sunrays_1..5`, its `menu_tile_<key>_front` art, the
-/// `menu_tile_header` bar with the label and `menu_corner_large|small` in its
-/// corners. Missing art falls back to plain colours.
+/// The title screen. Each tile shows `menu_tile_<key>_deselected` with its grey
+/// `menu_tile_<key>_front_deselected` art until it is picked; then
+/// `menu_tile_<key>_selected` with the turning `menu_sunrays_1..5`, its
+/// `menu_tile_<key>_front` art (bigger than the tile, poking out), the
+/// `menu_tile_<key>_overlay` frame, the `menu_tile_header` bar with the label
+/// and `menu_corner_large|small` pulsing in its corners. Missing art falls back
+/// to plain colours.
 fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
     let mut root = commands.spawn((
@@ -566,67 +580,90 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
         for (i, tile) in TILES.iter().enumerate() {
             let (r, g, b) = tile.color;
             let small = tile.size.1 < 200.0;
-            let mut node = percent_node(tile.size, tile.at);
-            node.overflow = Overflow::clip();
+            let (w, h) = tile.size;
+            // A child `size` pixels big whose centre sits `offset` from the tile's.
+            let inside = |size: (f32, f32), offset: (f32, f32)| Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(((w - size.0) / 2.0 + offset.0) / w * 100.0),
+                top: Val::Percent(((h - size.1) / 2.0 - offset.1) / h * 100.0),
+                width: Val::Percent(size.0 / w * 100.0),
+                height: Val::Percent(size.1 / h * 100.0),
+                ..default()
+            };
+            let shown_when = |picked: bool| {
+                let visibility = if picked {
+                    Visibility::Hidden
+                } else {
+                    Visibility::Inherited
+                };
+                (TileChosen { picked }, visibility)
+            };
+            let key = tile.key;
             parent
-                .spawn((node, UiTransform::default(), TileBack(i)))
+                .spawn((percent_node(tile.size, tile.at), TileBack(i)))
                 .with_children(|t| {
                     // Grey when not picked.
-                    let grey = image(&format!("menu_tile_{}_deselected", tile.key));
-                    let mut back =
-                        t.spawn((fill(), TileChosen { picked: false }, Visibility::Inherited));
-                    match grey {
-                        Some(h) => back.insert(ImageNode::new(h)),
+                    let mut back = t.spawn((fill(), shown_when(false)));
+                    match image(&format!("menu_tile_{key}_deselected")) {
+                        Some(art) => back.insert(ImageNode::new(art)),
                         None => back.insert(BackgroundColor(Color::srgb(
                             0.35 + r * 0.15,
                             0.35 + g * 0.15,
                             0.35 + b * 0.15,
                         ))),
                     };
-                    // Everything shown when picked.
-                    t.spawn((fill(), TileChosen { picked: true }, Visibility::Hidden))
-                        .with_children(|on| {
-                            let mut colour = on.spawn(fill());
-                            match image(&format!("menu_tile_{}_selected", tile.key)) {
-                                Some(h) => colour.insert(ImageNode::new(h)),
-                                None => colour.insert(BackgroundColor(Color::srgb(r, g, b))),
+                    // Coloured, with the rays turning inside the tile.
+                    let colour = Node {
+                        overflow: Overflow::clip(),
+                        ..fill()
+                    };
+                    let mut on = t.spawn((colour, shown_when(true)));
+                    match image(&format!("menu_tile_{key}_selected")) {
+                        Some(art) => on.insert(ImageNode::new(art)),
+                        None => on.insert(BackgroundColor(Color::srgb(r, g, b))),
+                    };
+                    on.with_children(|on| {
+                        for layer in 0..RAY_LAYERS {
+                            let Some(art) = image(&format!("menu_sunrays_{}", layer + 1)) else {
+                                continue;
                             };
-                            for layer in 0..RAY_LAYERS {
-                                let Some(h) = image(&format!("menu_sunrays_{}", layer + 1)) else {
-                                    continue;
-                                };
-                                let (w, hgt) = tile.size;
-                                on.spawn((
-                                    ImageNode::new(h),
-                                    Node {
-                                        position_type: PositionType::Absolute,
-                                        left: Val::Percent((w - RAY_SIZE) / 2.0 / w * 100.0),
-                                        top: Val::Percent((hgt - RAY_SIZE) / 2.0 / hgt * 100.0),
-                                        width: Val::Percent(RAY_SIZE / w * 100.0),
-                                        height: Val::Percent(RAY_SIZE / hgt * 100.0),
-                                        ..default()
-                                    },
-                                    UiTransform::default(),
-                                    TileRays { layer },
-                                ));
-                            }
-                            if let Some(h) = image(&format!("menu_tile_{}_front", tile.key)) {
-                                on.spawn((ImageNode::new(h), fill()));
-                            }
-                            let corner = if small {
-                                "menu_corner_small"
-                            } else {
-                                "menu_corner_large"
-                            };
-                            if let Some(h) = image(corner) {
-                                let (cw, ch) = if small { (38.0, 34.0) } else { (69.0, 68.0) };
+                            on.spawn((
+                                ImageNode::new(art),
+                                inside((RAY_SIZE, RAY_SIZE), (0.0, 0.0)),
+                                UiTransform::default(),
+                                TileRays { layer },
+                            ));
+                        }
+                    });
+                    // The art over the tile, grey or in colour, and the frame.
+                    let front = || match tile.front {
+                        Some((offset, size)) => inside(size, offset),
+                        None => fill(),
+                    };
+                    for (part, picked) in [("_front_deselected", false), ("_front", true)] {
+                        if let Some(art) = image(&format!("menu_tile_{key}{part}")) {
+                            t.spawn((ImageNode::new(art), front(), shown_when(picked)));
+                        }
+                    }
+                    if let Some(art) = image(&format!("menu_tile_{key}_overlay")) {
+                        t.spawn((ImageNode::new(art), fill(), shown_when(true)));
+                    }
+                    let corner = if small {
+                        "menu_corner_small"
+                    } else {
+                        "menu_corner_large"
+                    };
+                    if let Some(art) = image(corner) {
+                        let (cw, ch) = if small { (38.0, 34.0) } else { (69.0, 68.0) };
+                        t.spawn((fill(), shown_when(true)))
+                            .with_children(|corners| {
                                 for (flip_x, flip_y) in
                                     [(false, false), (true, false), (false, true), (true, true)]
                                 {
                                     let mut node = Node {
                                         position_type: PositionType::Absolute,
-                                        width: Val::Percent(cw / tile.size.0 * 100.0),
-                                        height: Val::Percent(ch / tile.size.1 * 100.0),
+                                        width: Val::Percent(cw / w * 100.0),
+                                        height: Val::Percent(ch / h * 100.0),
                                         ..default()
                                     };
                                     if flip_x {
@@ -635,18 +672,21 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
                                     if flip_y {
                                         node.bottom = Val::Px(0.0);
                                     }
-                                    on.spawn((
+                                    let side = |flip: bool| if flip { 1.0 } else { -1.0 };
+                                    corners.spawn((
                                         ImageNode {
-                                            image: h.clone(),
+                                            image: art.clone(),
                                             flip_x,
                                             flip_y,
                                             ..default()
                                         },
                                         node,
+                                        UiTransform::default(),
+                                        TileCorner(Vec2::new(side(flip_x), side(flip_y))),
                                     ));
                                 }
-                            }
-                        });
+                            });
+                    }
                     // The label, in the header bar on big tiles.
                     let mut header = t.spawn((
                         Node {
@@ -660,8 +700,8 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
                         TileLabel(i),
                         Visibility::Hidden,
                     ));
-                    if !small && let Some(h) = image("menu_tile_header") {
-                        header.insert(ImageNode::new(h));
+                    if !small && let Some(art) = image("menu_tile_header") {
+                        header.insert(ImageNode::new(art));
                     }
                     header.with_children(|h| {
                         h.spawn((
@@ -680,12 +720,17 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
 }
 
 /// The tile from `from` in direction `dir`: the nearest one ahead, with
-/// sideways distance counting double.
+/// sideways distance counting double. Tiles more sideways than ahead (twice
+/// over) don't count, so Up from Local Battle stays put.
 fn tile_towards(from: usize, dir: Vec2) -> usize {
     let at = |i: usize| Vec2::new(TILES[i].at.0, TILES[i].at.1);
     let here = at(from);
     (0..TILES.len())
-        .filter(|&i| i != from && (at(i) - here).dot(dir) > 1.0)
+        .filter(|&i| {
+            let d = at(i) - here;
+            let ahead = d.dot(dir);
+            i != from && ahead > 1.0 && ahead * 2.0 > (d - dir * ahead).length()
+        })
         .min_by(|&a, &b| {
             let cost = |i: usize| {
                 let d = at(i) - here;
@@ -778,7 +823,7 @@ fn show_main_menu(
             Or<(With<TileChosen>, With<TileLabel>)>,
         ),
     >,
-    mut tiles: Query<(&TileBack, &Children, &mut UiTransform)>,
+    tiles: Query<(&TileBack, &Children)>,
 ) {
     let shown = game.phase == Phase::Menu && *screen == MenuScreen::Main;
     for mut v in &mut root {
@@ -795,22 +840,16 @@ fn show_main_menu(
         art.as_ref()
             .is_some_and(|a| a.image(&format!("menu_tile_{key}_deselected")).is_some())
     };
-    for (back, children, mut transform) in &mut tiles {
+    for (back, children) in &tiles {
         let on = back.0 == menu.selected;
-        let scale = if on { Vec2::splat(1.04) } else { Vec2::ONE };
-        if transform.scale != scale {
-            transform.scale = scale;
-        }
         for &child in children {
             let Ok((mut v, chosen, label)) = parts.get_mut(child) else {
                 continue;
             };
-            let want = if let Some(chosen) = chosen {
-                chosen.picked == on
-            } else if let Some(label) = label {
-                on || !staged(TILES[label.0].key)
-            } else {
-                continue;
+            let want = match (chosen, label) {
+                (Some(chosen), _) => chosen.picked == on,
+                (None, Some(label)) => on || !staged(TILES[label.0].key),
+                (None, None) => continue,
             };
             v.set_if_neq(if want {
                 Visibility::Inherited
@@ -821,19 +860,28 @@ fn show_main_menu(
     }
 }
 
+/// The picked tile's first ray layers turn and its corners pulse outward and
+/// back, as `GameConfig::menu` sets.
 fn spin_tile_rays(
     time: Res<Time>,
     config: Res<GameConfig>,
-    mut rays: Query<(&TileRays, &mut UiTransform, &InheritedVisibility)>,
+    mut rays: Query<(&TileRays, &mut UiTransform), Without<TileCorner>>,
+    mut corners: Query<(&TileCorner, &mut UiTransform), Without<TileRays>>,
 ) {
-    for (rays, mut transform, visible) in &mut rays {
-        if !visible.get() {
+    let t = time.elapsed_secs();
+    let look = &config.menu;
+    for (rays, mut transform) in &mut rays {
+        let Some(&(degrees, seconds)) = look.ray_turns.get(rays.layer) else {
             continue;
-        }
-        // Each layer turns at its own speed, alternating direction.
-        let sign = if rays.layer % 2 == 0 { 1.0 } else { -1.0 };
-        let speed = config.moments.sunray_spin * (1.0 + rays.layer as f32 * 0.25) * sign;
-        let angle = transform.rotation.as_radians() + speed.to_radians() * time.delta_secs();
-        transform.rotation = Rot2::radians(angle);
+        };
+        let loop_at = (t / seconds.max(0.01)).fract();
+        transform.rotation = Rot2::degrees(degrees * loop_at);
+    }
+    let (reach, seconds) = look.corner_pulse;
+    let out = reach * (0.5 - 0.5 * (t / seconds.max(0.01) * std::f32::consts::TAU).cos());
+    // Pixels of a 1080-high screen, as a share of the view height.
+    let vh = out / SCREEN.1 * 100.0;
+    for (corner, mut transform) in &mut corners {
+        transform.translation = Val2::new(Val::Vh(corner.0.x * vh), Val::Vh(corner.0.y * vh));
     }
 }
