@@ -106,3 +106,31 @@ Ours (`SpellKind::name`) differs: Minibase, Fast, Ice, No Rotate, Balloon, Grass
 ## More achievements (wiki)
 On the right track (unlock the Expert trials), Almost there (unlock the Master trials). Endless
 Race: bricks may be lost freely (no lives) as long as the tower stays above the grey filter.
+
+## Checked against the PC install (2026-10-05)
+- **Keyboard defaults: confirmed.** Left/Right move, Down drops, Up turns right, Space turns left,
+  U/I nudge left/right, J light spell, K dark spell, Tab player overview. All rebindable (the
+  Keybinding popup in Settings).
+- **Menus:** arrows and WASD both move; Enter or Space confirms and retries; Escape goes back
+  and pauses; P starts Auto Build where offered; Tab opens the player overview / store; K
+  invites (online). So the original does take WASD in menus. It does not use numpad arrows.
+- **Gamepad defaults:** D-pad left/right move, D-pad down drops, D-pad up turns right; left
+  trigger turns left, right trigger turns right; left/right bumper nudge; A (Action1) turns
+  right and confirms; X (Action3) light spell; B (Action2) dark spell and back; Y (Action4)
+  player overview / store / Auto Build; Start, Options or Menu pause. In menus, the bumpers
+  also page left/right, and the left stick moves like the D-pad.
+- **Settings: confirmed, with more options.** Two pages side by side (the second 1920 px to
+  the right):
+  1. Sound effects (slider), Music (slider), Explanations (on/off), Stats (popup),
+     Credits (popup), Keybinding (popup).
+  2. Full screen (on/off), Resolution (the screen's list), Quality (Low/Medium/High),
+     V-sync (on/off), Language (19 flags: en, de, fr, es, pt, it, zh-CN, zh-TW, ja, ko, ru, pl,
+     ar, tr, nl, sv, no, fl, ro), Apply (applies the graphics changes).
+  Defaults: both volumes 100%, Explanations on, Quality High, V-sync off. Sliders step 10% per
+  press, repeating every 0.2 s while held. Full screen starts as whatever the window is.
+  Sound effects also set the ambience volume.
+- **Trial tiers: confirmed** at 0 / 8 / 17 / 26 / 36 medals. **One medal per trial** beaten
+  (the medal count is the number of completed trials). All 50 trials are in trials.md.
+- **Endless Puzzle groups:** the first group is 6 bricks, each later one min(26, 6 + 2 × level)
+  bricks. After each finished group the laser rises 4 cells (not 1) and obstacle blocks are
+  added. The score is the bricks in the tower. Details in modes.md.

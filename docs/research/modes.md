@@ -110,7 +110,7 @@ Cells. x is measured from the base centre and y from the base top (the y = 0 lin
 
 In the rewrite these boxes are `GameConfig::bases` (src/config.rs); the AI, Auto Build and the on-tower check use the top's half width (`base_half_width`, 3 cells for both houses). The petrified-brick challenge variant isn't built (Trials aren't in yet).
 
-## Endless Survival and Endless Puzzle (public descriptions only, NOT yet read from the install)
+## Endless Survival and Endless Puzzle (public descriptions only; superseded by the install readout below)
 
 From reviews and store pages, not from Max's copy, so nothing here is confirmed:
 - Endless Survival: three lives, stack as many bricks as you can in one tower; it has a
@@ -132,3 +132,46 @@ wait 1 s, shake off, control back.
   less). It runs only while the brick isn't frozen. When the shake ends, the picture snaps
   back to the centre.
 - So the brick shakes for about 2 s in all: 1 s rising and 1 s held at the top.
+
+## Endless Survival and Endless Puzzle (read from the PC install, 2026-10-05)
+**Endless Puzzle**
+- One life. Drop speed starts at 2 (with the usual height bonus). Random bricks. No wind.
+  Puzzle floor `FLOOR_PUZZLE`. Camera zoomed 1.2× closer than battle Puzzle; bricks more than
+  4 cells above the camera's top are removed. The drop guide is cream (1, 0.92, 0.74, 80%).
+- The laser starts at height 6.2. The run comes in **levels**: level 1 allows 6 bricks. When
+  you've used all the bricks of the level and none was zapped, a level-up runs:
+  1. Brick spawning stops, the guide hides, wait 0.3 s.
+  2. The laser and the height limit both rise by 4 cells over 0.5 s, with one of 3 "move
+     laser" sounds.
+  3. New **obstacle blocks** are placed on the tower (positions picked from the tower height,
+     the new laser height and the camera), one every 0.1 s, each with one of 3 spawn sounds.
+     Then wait 0.3 s.
+  4. The laser zaps (laser start sound), spawning resumes, and you're given one Undo spell.
+  5. The next level allows min(26, 6 + 2 × level) more bricks (8, 10, 12, … up to 26).
+- **Failing:** a brick zapped by the laser (settled above it) starts the end countdown; a lost
+  brick costs the only life. Either ends the run.
+- **Score:** the number of bricks in the tower (`BRICK_COUNT`) at the end.
+- There's no difficulty choice. The roof at the end is the Puzzle roof.
+
+**Endless Survival**
+- Lives: the game's maximum health setting (the value lives in the game's settings data, not
+  in the scripts; Survival battle uses 3). Drop speed starts at 4. Random bricks. Floor
+  `FLOOR_LWS` at 12.5 (the Survival base).
+- Spell lines give a random spell from Ivy, Minibase and Petrify (light spells only).
+- **Curse waves** ("shared agony"): the first wave and each following one come 15 to 29 s apart.
+  A wave lasts a number of bricks, not seconds. There are 4 difficulty levels of waves (the
+  game moves up through them as the run goes on). Each wave curses that many bricks with its
+  curse(s):
+  - Level 1: Large ×2, Mist ×3, Mystery ×2, Fast ×4, No Rotate ×3.
+  - Level 2: Large ×3, Mystery ×3, Ice ×3, Fast ×5, No Rotate ×4, Fast+Large ×2,
+    Mystery+No Rotate ×2, Mist+Large ×2.
+  - Level 3: Large ×4, Ice ×4, No Rotate ×5, Ghost ×2, Mist+No Rotate ×4, Mystery+Ice ×3,
+    No Rotate+Fast ×4, No Rotate+Large ×3.
+  - Level 4: Fast ×5, Large ×7, No Rotate ×6, Ice ×5, Mystery ×6, Ghost+Fast ×3,
+    Ice+Large ×4, Mystery+Ice ×5, Mist+Mystery ×5, Large+Ghost ×5,
+    Mystery+Large+No Rotate ×4, Large+Fast+No Rotate ×5.
+  The Large curse also shakes the camera and plays the rumble. Mist targets the top of the
+  tower; Ghost targets the last brick placed (1.5 s).
+- **Score:** the number of bricks in the tower at the end. The run ends when the last life is
+  lost. The roof piece is `ROOF_02`.
+- Both modes keep one online leaderboard each (see menus.md, "Endless leaderboard rows").
