@@ -171,6 +171,11 @@ fn time_popup(
     config: Res<GameConfig>,
     game: Res<Match>,
     mut popup: ResMut<Popup>,
+    towers: Query<(
+        &crate::gameplay::Tower,
+        &crate::gameplay::TowerState,
+        Option<&crate::collapse::Collapse>,
+    )>,
 ) {
     if game.phase != Phase::Over || popup.round != game.round {
         popup.round = game.round;
@@ -179,7 +184,7 @@ fn time_popup(
         return;
     }
     popup.clock += time.delta_secs();
-    if !popup.shown && popup.clock >= config.moments.popup_after {
+    if !popup.shown && popup.clock >= config.moments.popup_after && crate::collapse::all_done(&game, &towers) {
         popup.shown = true;
         popup.selected = 0;
     }

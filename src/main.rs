@@ -119,6 +119,11 @@ fn main() {
         ResultsPlugin,
         EffectsPlugin,
     ));
+    // Endless scores are kept between runs, except in offscreen picture runs.
+    if offscreen.is_none() {
+        let file = tricky_towers::single::save_dir().join("leaderboard.ron");
+        app.insert_resource(tricky_towers::single::Leaderboard::load(file));
+    }
     // `--menu title|players|modes|single|endless|pause` opens on that menu screen, for scripted pictures.
     // Player select shows the keyboard player and one AI wizard seated.
     if let Some(menu) = value("--menu") {

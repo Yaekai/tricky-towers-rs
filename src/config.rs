@@ -1107,7 +1107,21 @@ pub struct MatchMoments {
     pub trophy_pop: (f32, f32),
     /// Degrees a second the sunrays behind WINNER! turn (?).
     pub sunray_spin: f32,
-    /// Seconds after a match ends before the "Game Completed" popup (?).
+    /// Each losing tower's end sequence: seconds before it gives way; every n-th
+    /// brick blows up (every brick if the wizard was already out), at most this
+    /// many; the gap before each blast is (bricks still to go, at most
+    /// `blast_gap_cap`) × a random time in `blast_gap`.
+    pub collapse_wait: f32,
+    pub blast_every: usize,
+    pub blast_limit: usize,
+    pub blast_gap: (f32, f32),
+    pub blast_gap_cap: usize,
+    /// Camera shake per blast and for the rumble after the last one: cells
+    /// sideways, cells up, seconds.
+    pub blast_shake: (f32, f32, f32),
+    pub rumble: (f32, f32, f32),
+    /// The popup opens once every loser's sequence is done, and at least this
+    /// many seconds after the match ends.
     pub popup_after: f32,
     /// Seconds the popup takes to slide up into the bottom-right corner.
     pub popup_slide: f32,
@@ -1132,7 +1146,14 @@ impl Default for MatchMoments {
             veil_alpha: 0.1,
             trophy_pop: (0.4, 0.6),
             sunray_spin: 20.0,
-            popup_after: 4.0,
+            collapse_wait: 1.5,
+            blast_every: 3,
+            blast_limit: 100,
+            blast_gap: (0.002, 0.007),
+            blast_gap_cap: 10,
+            blast_shake: (0.2, 0.26, 0.05),
+            rumble: (0.1, 0.13, 2.5),
+            popup_after: 0.0,
             popup_slide: 0.25,
         }
     }
