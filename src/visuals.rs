@@ -25,7 +25,6 @@ impl Plugin for VisualsPlugin {
             .init_resource::<Art>()
             .init_resource::<ViewSize>()
             .add_systems(Startup, setup_scene)
-            .add_systems(Update, show_hold_counts.after(frame_towers))
             .add_systems(
                 Update,
                 (
@@ -43,7 +42,7 @@ impl Plugin for VisualsPlugin {
                     dress_platforms,
                     update_drop_guide,
                     update_next_preview,
-                    frame_towers,
+                    frame_towers.in_set(FramedCamera),
                     update_hud,
                     update_panels,
                     place_panels.after(update_panels).after(frame_towers),
@@ -58,6 +57,10 @@ impl Plugin for VisualsPlugin {
 /// is turned off (Survival, Puzzle) have no water at all.
 #[derive(Component)]
 struct WaterStrip;
+
+/// After this set the camera is where it will be drawn from this frame.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FramedCamera;
 
 /// Size of the view in logical pixels: the window's, or the offscreen picture's.
 #[derive(Resource, Clone, Copy, Debug)]
@@ -84,10 +87,6 @@ struct Hud;
 /// A player panel, kept beside its tower's base by `place_panels`.
 #[derive(Component)]
 struct PanelLane(usize);
-
-/// The race hold countdown (3, 2, 1) over a tower that is past the finish line.
-#[derive(Component)]
-struct HoldCount(usize);
 
 /// The row of player panels along the bottom: portrait, hearts and spell slots.
 #[derive(Component)]
@@ -1150,82 +1149,6 @@ const PANEL_ICON: f32 = 44.0;
 /// One panel per tower, in lane order: the wizard portrait (`wizard_<lane>`), hearts
 /// for lives (`heart`), and the light and dark spell slots (`spell_icon_<Spell>` in
 /// `spell_slot_light` / `spell_slot_dark`). Text stands in for missing art.
-/// Shows the race countdown above the finish line of each tower that is holding past
-/// it, higher for the leader, like the original.
-fn show_hold_counts(
-    mut commands: Commands,
-    config: Res<GameConfig>,
-    game: Res<Match>,
-    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
-    towers: Query<(&Tower, &TowerState)>,
-    mut counts: Query<(Entity, &HoldCount, &mut Text, &mut Node, &ComputedNode)>,
-) {
-    let Ok((camera, eye)) = camera.single() else {
-        return;
-    };
-    let leader = towers
-        .iter()
-        .max_by(|a, b| a.1.height.total_cmp(&b.1.height))
-        .map(|(t, _)| t.index);
-    for (tower, _) in &towers {
-        if !counts.iter().any(|(_, c, ..)| c.0 == tower.index) {
-            commands.spawn((
-                HoldCount(tower.index),
-                Text::new(""),
-                TextFont {
-                    font_size: FontSize::Px(64.0),
-                    ..default()
-                },
-                TextLayout::justify(Justify::Center),
-                Node {
-                    position_type: PositionType::Absolute,
-                    display: Display::None,
-                    ..default()
-                },
-            ));
-        }
-    }
-    for (entity, count, mut text, mut node, computed) in &mut counts {
-        let Some((tower, state)) = towers.iter().find(|(t, _)| t.index == count.0) else {
-            commands.entity(entity).despawn();
-            continue;
-        };
-        let holding = game.phase == Phase::Playing
-            && game.mode == ModeKind::Race
-            && state.status == TowerStatus::Building
-            && state.hold_timer > 0.0;
-        let (lead, other) = config.race.countdown_above;
-        let above = if leader == Some(tower.index) {
-            lead
-        } else {
-            other
-        };
-        let at = Vec3::new(
-            tower.origin_x,
-            config.cells(game.finish_height + above) + config.cell_size * 0.5,
-            0.0,
-        );
-        let Some(at) = holding
-            .then(|| camera.world_to_viewport(eye, at).ok())
-            .flatten()
-        else {
-            node.display = Display::None;
-            continue;
-        };
-        let left = (config.race.hold_seconds - state.hold_timer)
-            .ceil()
-            .max(1.0);
-        let label = format!("{left:.0}");
-        if text.0 != label {
-            text.0 = label;
-        }
-        let size = computed.size() * computed.inverse_scale_factor();
-        node.display = Display::Flex;
-        node.left = Val::Px(at.x - size.x * 0.5);
-        node.top = Val::Px(at.y - size.y * 0.5);
-    }
-}
-
 fn update_panels(
     mut commands: Commands,
     config: Res<GameConfig>,

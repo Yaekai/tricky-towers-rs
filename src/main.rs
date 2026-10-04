@@ -6,6 +6,7 @@ use tricky_towers::config::{DEFAULT_CONFIG_PATH, Difficulty, GameConfig, ModeKin
 use tricky_towers::input::KeyboardInputPlugin;
 use tricky_towers::letters::LettersPlugin;
 use tricky_towers::menu::MenuPlugin;
+use tricky_towers::results::ResultsPlugin;
 use tricky_towers::visuals::VisualsPlugin;
 use tricky_towers::wizards::WizardsPlugin;
 
@@ -111,6 +112,7 @@ fn main() {
         ArtPlugin,
         LettersPlugin,
         WizardsPlugin,
+        ResultsPlugin,
     ));
     if let Some(dir) = offscreen {
         app.add_plugins(tricky_towers::offscreen::OffscreenPlugin {

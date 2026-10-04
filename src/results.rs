@@ -1,0 +1,493 @@
+//! Match moments: the race hold countdown, the WINNER! and WIZARD OUT! banners, the
+//! winner's spotlight, the veil over losing lanes and the trophy. Drawn with the
+//! original's letters and art when staged (see `docs/research/match-moments.md`).
+
+use bevy::platform::collections::HashSet;
+use bevy::prelude::*;
+
+use crate::art::Art;
+use crate::config::{GameConfig, ModeKind};
+use crate::gameplay::{Match, Phase, Tower, TowerState, TowerStatus};
+use crate::visuals::{FramedCamera, ViewSize};
+
+pub struct ResultsPlugin;
+
+impl Plugin for ResultsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                start_moments,
+                show_hold_counts,
+                animate_banners,
+                animate_lights,
+            )
+                .chain()
+                .after(FramedCamera),
+        );
+    }
+}
+
+/// The colour of match text: gold for winners and the countdown, red for losers,
+/// bronze for a draw.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Tone {
+    Gold,
+    Red,
+}
+
+impl Tone {
+    fn gradient(self) -> &'static str {
+        match self {
+            Tone::Gold => "text_gradient_gold",
+            Tone::Red => "text_gradient_red",
+        }
+    }
+
+    fn fallback(self) -> Color {
+        match self {
+            Tone::Gold => Color::srgb_u8(255, 210, 80),
+            Tone::Red => Color::srgb_u8(240, 70, 110),
+        }
+    }
+}
+
+/// The text's colour: the middle of its staged gradient, else a plain stand-in.
+fn tone_color(art: &Art, images: &Assets<Image>, tone: Tone) -> Color {
+    art.image(tone.gradient())
+        .and_then(|h| images.get(&h))
+        .and_then(|image| {
+            let size = image.size();
+            image.get_color_at(size.x / 2, size.y / 2).ok()
+        })
+        .unwrap_or_else(|| tone.fallback())
+}
+
+/// Everything shown for one match; cleared when the next one starts.
+#[derive(Component)]
+struct Moment;
+
+/// Both layers of a piece of match text, so its words can change.
+#[derive(Component)]
+struct MatchLabel;
+
+/// A banner over a lane, and how long it has shown.
+#[derive(Component)]
+struct Banner {
+    tower: Entity,
+    out: bool,
+    time: f32,
+}
+
+/// The countdown over a tower holding past the race finish.
+#[derive(Component)]
+struct HoldCount(Entity);
+
+/// Sunrays turning behind WINNER!.
+#[derive(Component)]
+struct Sunrays;
+
+/// The trophy popping in under WINNER!.
+#[derive(Component)]
+struct Trophy;
+
+/// A beam over the winner's lane, or a veil over a loser's.
+#[derive(Component)]
+struct Light {
+    tower: Entity,
+    delay: f32,
+    alpha: f32,
+    time: f32,
+}
+
+/// Match text in the original's style: a shadow a little below, the face on top.
+/// Returns the container, which is positioned and scaled as one.
+fn spawn_match_text(
+    commands: &mut Commands,
+    config: &GameConfig,
+    text: &str,
+    size: f32,
+    color: Color,
+) -> Entity {
+    let look = &config.moments;
+    let [r, g, b] = look.shadow_color;
+    let layer = |color: Color, drop: f32| {
+        (
+            MatchLabel,
+            Text::new(text),
+            TextFont {
+                font_size: FontSize::Px(size),
+                ..default()
+            },
+            TextColor(color),
+            TextLayout::justify(Justify::Center),
+            Node {
+                grid_row: GridPlacement::start(1),
+                grid_column: GridPlacement::start(1),
+                top: Val::Px(drop),
+                ..default()
+            },
+        )
+    };
+    commands
+        .spawn((
+            Moment,
+            Node {
+                position_type: PositionType::Absolute,
+                display: Display::Grid,
+                justify_items: JustifyItems::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            UiTransform::default(),
+            GlobalZIndex(20),
+        ))
+        .with_children(|parent| {
+            parent.spawn(layer(Color::srgb_u8(r, g, b), size * look.shadow_drop));
+            parent.spawn(layer(color, 0.0));
+        })
+        .id()
+}
+
+/// Puts a text container centred on a point of the screen, kept inside it.
+fn centre_on(node: &mut Node, computed: &ComputedNode, at: Vec2, view: Vec2) {
+    let size = computed.size() * computed.inverse_scale_factor();
+    node.left = Val::Px((at.x - size.x * 0.5).clamp(0.0, (view.x - size.x).max(0.0)));
+    node.top = Val::Px((at.y - size.y * 0.5).clamp(0.0, (view.y - size.y).max(0.0)));
+}
+
+/// Starts the banners and lights as towers win or go out, and clears them when a
+/// new match starts.
+#[allow(clippy::too_many_arguments)]
+fn start_moments(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    art: Res<Art>,
+    images: Res<Assets<Image>>,
+    towers: Query<(Entity, &Tower, &TowerState)>,
+    moments: Query<Entity, With<Moment>>,
+    mut seen: Local<(u64, HashSet<(Entity, bool)>)>,
+) {
+    if game.phase == Phase::Menu || seen.0 != game.round {
+        for entity in &moments {
+            commands.entity(entity).despawn();
+        }
+        *seen = (game.round, HashSet::default());
+        if game.phase == Phase::Menu {
+            return;
+        }
+    }
+    let look = &config.moments;
+    let key = match game.mode.look() {
+        ModeKind::Survival => "survival",
+        ModeKind::Puzzle => "puzzle",
+        _ => "race",
+    };
+    let beam_alpha = match game.mode.look() {
+        ModeKind::Survival => look.spotlight_alpha.1,
+        ModeKind::Puzzle => look.spotlight_alpha.2,
+        _ => look.spotlight_alpha.0,
+    };
+    let over = game.phase == Phase::Over;
+    for (entity, tower, state) in &towers {
+        let won = state.status == TowerStatus::Won || (over && game.winner == Some(tower.index));
+        let lost = state.status == TowerStatus::Out
+            || (over && game.winner.is_some() && game.winner != Some(tower.index));
+        if won && seen.1.insert((entity, true)) {
+            let color = tone_color(&art, &images, Tone::Gold);
+            let banner =
+                spawn_match_text(&mut commands, &config, "WINNER!", look.banner_size, color);
+            commands.entity(banner).insert(Banner {
+                tower: entity,
+                out: false,
+                time: 0.0,
+            });
+            if let Some(image) = art.image("winner_sunrays") {
+                let rays = commands
+                    .spawn((
+                        Sunrays,
+                        ImageNode::new(image),
+                        Node {
+                            grid_row: GridPlacement::start(1),
+                            grid_column: GridPlacement::start(1),
+                            width: Val::Px(look.banner_size * 4.0),
+                            height: Val::Px(look.banner_size * 4.0),
+                            ..default()
+                        },
+                        UiTransform::default(),
+                    ))
+                    .id();
+                commands.entity(banner).insert_children(0, &[rays]);
+            }
+            if let Some(image) = art.image("trophy") {
+                let cup = commands
+                    .spawn((
+                        Trophy,
+                        ImageNode::new(image),
+                        Node {
+                            grid_row: GridPlacement::start(2),
+                            grid_column: GridPlacement::start(1),
+                            width: Val::Px(look.banner_size * 1.5),
+                            height: Val::Px(look.banner_size * 1.5),
+                            ..default()
+                        },
+                        UiTransform::from_scale(Vec2::splat(look.trophy_pop.0)),
+                    ))
+                    .id();
+                commands.entity(banner).add_child(cup);
+            }
+            spawn_light(
+                &mut commands,
+                &art,
+                &format!("spotlight_winner_{key}"),
+                entity,
+                look.spotlight_delay,
+                beam_alpha,
+                look.spotlight_width,
+                Color::WHITE,
+            );
+        }
+        if lost && seen.1.insert((entity, false)) {
+            if state.status == TowerStatus::Out {
+                let color = tone_color(&art, &images, Tone::Red);
+                let banner = spawn_match_text(
+                    &mut commands,
+                    &config,
+                    "WIZARD OUT!",
+                    look.banner_size * 0.75,
+                    color,
+                );
+                commands.entity(banner).insert(Banner {
+                    tower: entity,
+                    out: true,
+                    time: 0.0,
+                });
+            }
+            spawn_light(
+                &mut commands,
+                &art,
+                &format!("spotlight_loser_{key}"),
+                entity,
+                0.0,
+                look.veil_alpha,
+                look.veil_width,
+                Color::BLACK,
+            );
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_light(
+    commands: &mut Commands,
+    art: &Art,
+    name: &str,
+    tower: Entity,
+    delay: f32,
+    alpha: f32,
+    width: f32,
+    fallback: Color,
+) {
+    let sprite = match art.image(name) {
+        Some(image) => Sprite {
+            image,
+            color: Color::WHITE.with_alpha(0.0),
+            ..default()
+        },
+        None => Sprite::from_color(fallback.with_alpha(0.0), Vec2::ONE),
+    };
+    commands.spawn((
+        Moment,
+        Light {
+            tower,
+            delay,
+            alpha,
+            time: 0.0,
+        },
+        sprite,
+        bevy::sprite::Anchor::BOTTOM_CENTER,
+        Transform::from_xyz(0.0, 0.0, 30.0),
+        LightWidth(width),
+    ));
+}
+
+#[derive(Component)]
+struct LightWidth(f32);
+
+#[allow(clippy::type_complexity)]
+/// Fades the lights in and keeps them covering their lane from the bottom of the
+/// screen to the top.
+fn animate_lights(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    view: Res<ViewSize>,
+    camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<Light>)>,
+    towers: Query<&Tower>,
+    mut lights: Query<(&mut Light, &LightWidth, &mut Sprite, &mut Transform)>,
+) {
+    let Ok((eye, Projection::Orthographic(ortho))) = camera.single() else {
+        return;
+    };
+    let height = view.0.y * ortho.scale;
+    let bottom = eye.translation.y - height * 0.5;
+    for (mut light, width, mut sprite, mut transform) in &mut lights {
+        light.time += time.delta_secs();
+        let Ok(tower) = towers.get(light.tower) else {
+            continue;
+        };
+        let fade =
+            ((light.time - light.delay) / config.moments.spotlight_fade.max(0.01)).clamp(0.0, 1.0);
+        sprite.color = sprite.color.with_alpha(light.alpha * fade);
+        sprite.custom_size = Some(Vec2::new(config.cells(width.0), height));
+        transform.translation.x = tower.origin_x;
+        transform.translation.y = bottom;
+    }
+}
+
+fn ease_out_elastic(x: f32) -> f32 {
+    if x >= 1.0 {
+        return 1.0;
+    }
+    2f32.powf(-10.0 * x) * ((10.0 * x - 0.75) * std::f32::consts::TAU / 3.0).sin() + 1.0
+}
+
+fn ease_out(x: f32) -> f32 {
+    1.0 - (1.0 - x.clamp(0.0, 1.0)).powi(3)
+}
+
+/// Moves the banners in, keeps them over their lane, and moves WIZARD OUT! away again.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn animate_banners(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    view: Res<ViewSize>,
+    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    towers: Query<&Tower>,
+    mut banners: Query<(
+        Entity,
+        &mut Banner,
+        &mut Node,
+        &ComputedNode,
+        &mut UiTransform,
+    )>,
+    mut rays: Query<&mut UiTransform, (With<Sunrays>, Without<Banner>, Without<Trophy>)>,
+    mut cups: Query<&mut UiTransform, (With<Trophy>, Without<Banner>, Without<Sunrays>)>,
+) {
+    let Ok((camera, eye)) = camera.single() else {
+        return;
+    };
+    let look = &config.moments;
+    let dt = time.delta_secs();
+    for (entity, mut banner, mut node, computed, mut transform) in &mut banners {
+        banner.time += dt;
+        let Ok(tower) = towers.get(banner.tower) else {
+            continue;
+        };
+        let Ok(at) = camera.world_to_viewport(eye, Vec3::new(tower.origin_x, 0.0, 0.0)) else {
+            continue;
+        };
+        centre_on(&mut node, computed, Vec2::new(at.x, view.0.y * 0.35), view.0);
+        let t = banner.time;
+        if banner.out {
+            let (enter, stay, leave) = look.out_times;
+            let drop = view.0.y * 0.6;
+            let y = if t < enter {
+                -drop * (1.0 - ease_out(t / enter))
+            } else if t < enter + stay {
+                0.0
+            } else {
+                -drop * ease_out((t - enter - stay) / leave)
+            };
+            transform.translation = Val2::px(0.0, y);
+            if t > enter + stay + leave {
+                commands.entity(entity).despawn();
+            }
+        } else {
+            transform.scale = Vec2::splat(ease_out_elastic(t / look.winner_in.max(0.01)).max(0.0));
+        }
+    }
+    for mut ray in &mut rays {
+        ray.rotation *= Rot2::degrees(look.sunray_spin * dt);
+    }
+    for mut cup in &mut cups {
+        let (from, over) = look.trophy_pop;
+        let next = (cup.scale.x + (1.0 - from) * dt / over.max(0.01)).min(1.0);
+        cup.scale = Vec2::splat(next);
+    }
+}
+
+/// The race countdown above the finish line of each tower holding past it, higher
+/// over the leader, like the original.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn show_hold_counts(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    art: Res<Art>,
+    images: Res<Assets<Image>>,
+    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    towers: Query<(Entity, &Tower, &TowerState)>,
+    mut counts: Query<(Entity, &HoldCount, &mut Node, &ComputedNode, &Children)>,
+    mut labels: Query<&mut Text, With<MatchLabel>>,
+    view: Res<ViewSize>,
+) {
+    let Ok((camera, eye)) = camera.single() else {
+        return;
+    };
+    let leader = towers
+        .iter()
+        .max_by(|a, b| a.2.height.total_cmp(&b.2.height))
+        .map(|(e, ..)| e);
+    for (entity, ..) in &towers {
+        if game.mode == ModeKind::Race && !counts.iter().any(|(_, c, ..)| c.0 == entity) {
+            let color = tone_color(&art, &images, Tone::Gold);
+            let count = spawn_match_text(
+                &mut commands,
+                &config,
+                "",
+                config.moments.countdown_size,
+                color,
+            );
+            commands.entity(count).insert(HoldCount(entity));
+        }
+    }
+    for (entity, count, mut node, computed, children) in &mut counts {
+        let Ok((_, tower, state)) = towers.get(count.0) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        let holding = game.phase == Phase::Playing
+            && game.mode == ModeKind::Race
+            && state.status == TowerStatus::Building
+            && state.hold_timer > 0.0;
+        let (lead, other) = config.race.countdown_above;
+        let above = if leader == Some(count.0) { lead } else { other };
+        let at = Vec3::new(
+            tower.origin_x,
+            config.cells(game.finish_height + above) + config.cell_size * 0.5,
+            0.0,
+        );
+        let Some(at) = holding
+            .then(|| camera.world_to_viewport(eye, at).ok())
+            .flatten()
+        else {
+            node.display = Display::None;
+            continue;
+        };
+        let left = (config.race.hold_seconds - state.hold_timer)
+            .ceil()
+            .max(1.0);
+        let label = format!("{left:.0}");
+        for child in children {
+            if let Ok(mut text) = labels.get_mut(*child)
+                && text.0 != label
+            {
+                text.0 = label.clone();
+            }
+        }
+        node.display = Display::Grid;
+        centre_on(&mut node, computed, at, view.0);
+    }
+}

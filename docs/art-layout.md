@@ -94,6 +94,10 @@ islands on the water band), by adding `screen`:
 | `background_race_0`, `background_survival_0`, `background_puzzle_0`, ... | Layers for one mode only; when any exist for a mode they replace the plain `background_N` set |
 | `finish_line`, `laser` | Race finish and Puzzle laser, repeated sideways across the lane; pivot on the line |
 | `pacer_line` | Endless Race's rising line, drawn the same way; Endless otherwise uses the race art and music |
+| `text_gradient_gold`, `text_gradient_red` | Colour of match text (countdown, WINNER!, WIZARD OUT!), taken from the middle of the gradient |
+| `winner_sunrays` | Turning rays behind WINNER! |
+| `spotlight_winner_<mode>`, `spotlight_loser_<mode>` | Beam over the winning lane and veil over losing lanes (`race`, `survival`, `puzzle`) |
+| `trophy` | The cup that pops in under WINNER! (stage the size that fits; see the note in pc-tasks) |
 | `puzzle_piece_1`, `puzzle_piece_3` | Puzzle floor columns (1 wide), pivot top-left on the column's corner |
 | `puzzle_piece_base`, `puzzle_piece_base_top` | Tiles stacked behind each Puzzle column every 2 cells, and their cap |
 | `puzzle_pro_center`, `puzzle_pro_ledge_1`..`_3`, `puzzle_pro_ledge_top` | Pro pillar columns, side ledges, and the highest ledge on each side |

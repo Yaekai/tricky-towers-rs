@@ -96,6 +96,8 @@ pub struct GameConfig {
     pub ai: AiRules,
     #[serde(default)]
     pub wizards: WizardLook,
+    #[serde(default)]
+    pub moments: MatchMoments,
     pub pieces: Vec<PieceDef>,
 }
 
@@ -1035,6 +1037,57 @@ impl Default for WaveRules {
     }
 }
 
+/// How the end of a match looks: banners, spotlights and the trophy. Values from the
+/// original (docs/research/match-moments.md).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct MatchMoments {
+    /// Size of banner text (WINNER!, WIZARD OUT!) and of the countdown, in pixels.
+    pub banner_size: f32,
+    pub countdown_size: f32,
+    /// Shadow under match text, as a share of the text size, and its colour (0-255).
+    pub shadow_drop: f32,
+    pub shadow_color: [u8; 3],
+    /// WINNER! takes this long to move in.
+    pub winner_in: f32,
+    /// WIZARD OUT! moves in, stays, then moves out, in seconds.
+    pub out_times: (f32, f32, f32),
+    /// The winner's beam: seconds before it fades in, the fade, its width in cells, and
+    /// its opacity in Race, Survival and Puzzle.
+    pub spotlight_delay: f32,
+    pub spotlight_fade: f32,
+    pub spotlight_width: f32,
+    pub spotlight_alpha: (f32, f32, f32),
+    /// The dark veil over losing lanes: width in cells and final opacity.
+    pub veil_width: f32,
+    pub veil_alpha: f32,
+    /// The trophy pops from this share of its size to full over this many seconds.
+    pub trophy_pop: (f32, f32),
+    /// Degrees a second the sunrays behind WINNER! turn (?).
+    pub sunray_spin: f32,
+}
+
+impl Default for MatchMoments {
+    fn default() -> Self {
+        Self {
+            banner_size: 96.0,
+            countdown_size: 72.0,
+            shadow_drop: 0.06,
+            shadow_color: [227, 33, 61],
+            winner_in: 2.6,
+            out_times: (2.0, 2.0, 1.0),
+            spotlight_delay: 0.5,
+            spotlight_fade: 1.0,
+            spotlight_width: 1.5,
+            spotlight_alpha: (151.0 / 255.0, 130.0 / 255.0, 1.0),
+            veil_width: 10.0,
+            veil_alpha: 0.1,
+            trophy_pop: (0.4, 0.6),
+            sunray_spin: 20.0,
+        }
+    }
+}
+
 /// Where the wizards float and how lively they are (see docs/research/wizards.md).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
@@ -1177,6 +1230,7 @@ impl Default for GameConfig {
             magic: MagicRules::default(),
             ai: AiRules::default(),
             wizards: WizardLook::default(),
+            moments: MatchMoments::default(),
             pieces: default_pieces(),
         }
     }

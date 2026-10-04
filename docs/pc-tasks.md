@@ -69,3 +69,8 @@ and nothing gets installed without Max's own go-ahead.
   countdown, say if the original draws the numbers from a sprite sheet rather than the font,
   and stage them if so. Next readout wanted: the Winner! and Wizard out! banners, the trophy
   pop-in and the spotlights (names, where they show, their timings), so the results can be coded.
+- Match moments are in (src/results.rs): the countdown, WINNER! with `winner_sunrays`, WIZARD
+  OUT!, the spotlights and veils, and a `trophy` that pops in. Stage the cup the original shows
+  after a normal local match as `trophy` (say which size it uses when), and screenshot a race
+  offscreen until someone wins (a small config with `finish_height: 3.0` and AI opponents
+  gets there in about 15 s) to compare with the original.

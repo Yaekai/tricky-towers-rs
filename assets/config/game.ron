@@ -230,6 +230,22 @@
         reaction_cooldown: 7.0,
         shake: (0.1, 0.13, 0.2),
     ),
+    moments: (
+        banner_size: 96.0,
+        countdown_size: 72.0,
+        shadow_drop: 0.06,
+        shadow_color: (227, 33, 61),
+        winner_in: 2.6,
+        out_times: (2.0, 2.0, 1.0),
+        spotlight_delay: 0.5,
+        spotlight_fade: 1.0,
+        spotlight_width: 1.5,
+        spotlight_alpha: (0.5921569, 0.50980395, 1.0),
+        veil_width: 10.0,
+        veil_alpha: 0.1,
+        trophy_pop: (0.4, 0.6),
+        sunray_spin: 20.0,
+    ),
     pieces: [
         (
             name: "I",

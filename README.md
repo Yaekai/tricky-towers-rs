@@ -42,7 +42,8 @@ Values below come from reading Max's own copy of the original; the notes are in 
   little faster, up to 1.5 cells/s. Score is 10 × height; light spells only.
 - Race Pro wind as in the original: rows of wind push the windward face of the top of each
   tower one way, swinging between strength 3 and 4. Puzzle lanes are wider and grow with the
-  tower. The race hold countdown shows over the finish line.
+  tower. The race hold countdown shows over the finish line, and a match ends with the original's
+  WINNER! and WIZARD OUT! banners, spotlight, veils and trophy.
 - Cursed and Mystery bricks that are lost come back where they fell, up to 3 times.
 - Spells as the original awards them: each tower has a spell line, and reaching it gives a pair,
   one light spell and one dark curse; casting either throws the other away. Rubber-banding rules
