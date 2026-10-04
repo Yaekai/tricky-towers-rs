@@ -6,8 +6,9 @@
 //! its changes wait for Apply. Kept between runs in `settings.ron`.
 //!
 //! Not done: the Stats, Credits and Keybinding popups (picking them does nothing
-//! yet), Quality (kept but changes nothing), the 18 languages (English only) and
-//! the tips that Explanations turns on.
+//! yet), Quality (kept but changes nothing), text in languages other than English,
+//! language flags, slider repeat while held (every 0.2 s), and the tips that
+//! Explanations turns on.
 
 use std::path::PathBuf;
 
@@ -34,17 +35,18 @@ impl Plugin for SettingsPlugin {
     }
 }
 
-/// Graphics quality, as the original names it (default Magical).
+/// Graphics quality, as the PC install names it (default High; the wiki's
+/// Performance/Normal/Magical may be older names).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Quality {
-    Performance,
-    Normal,
+    Low,
+    Medium,
     #[default]
-    Magical,
+    High,
 }
 
 impl Quality {
-    const ALL: [Quality; 3] = [Quality::Performance, Quality::Normal, Quality::Magical];
+    const ALL: [Quality; 3] = [Quality::Low, Quality::Medium, Quality::High];
 }
 
 /// Window sizes offered, from 512×384 up to 1920×1080 (the in-between ones are
@@ -61,8 +63,29 @@ pub const RESOLUTIONS: [(u32, u32); 9] = [
     (1920, 1080),
 ];
 
-/// The original has 18; only English is here.
-pub const LANGUAGES: [&str; 1] = ["English"];
+/// The original's 19 language flags, in its order, by name (the original shows
+/// flags; only English text exists here).
+pub const LANGUAGES: [&str; 19] = [
+    "English",
+    "German",
+    "French",
+    "Spanish",
+    "Portuguese",
+    "Italian",
+    "Chinese (Simplified)",
+    "Chinese (Traditional)",
+    "Japanese",
+    "Korean",
+    "Russian",
+    "Polish",
+    "Arabic",
+    "Turkish",
+    "Dutch",
+    "Swedish",
+    "Norwegian",
+    "Finnish",
+    "Romanian",
+];
 
 /// The player's settings. Kept in `file` when one is set (the game sets it;
 /// tests and offscreen pictures don't).
@@ -92,7 +115,7 @@ impl Default for Settings {
             explanations: true,
             fullscreen: true,
             resolution: (1920, 1080),
-            quality: Quality::Magical,
+            quality: Quality::High,
             vsync: false,
             language: LANGUAGES[0].to_string(),
             file: None,
@@ -762,9 +785,9 @@ mod tests {
         assert_eq!(s.resolution, (1920, 1080));
         s.step(Row::Resolution, 1);
         assert_eq!(s.resolution, RESOLUTIONS[0]);
-        assert_eq!(s.quality, Quality::Magical);
+        assert_eq!(s.quality, Quality::High);
         s.step(Row::Quality, -1);
-        assert_eq!(s.quality, Quality::Normal);
+        assert_eq!(s.quality, Quality::Medium);
     }
 
     #[test]

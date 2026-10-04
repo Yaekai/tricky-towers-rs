@@ -29,8 +29,9 @@ cup: a series of matches with points per place, a trophy and XP at the end (rule
 read from the original). `--menu title|players|modes|single|endless|pause`
 opens on a menu screen, for scripted pictures.
 
-Players 2 to 4 use gamepads: stick or d-pad to move, down to drop, LT/RT to nudge, A/B to rotate,
-X for the light spell and Y for the dark one. With one player, a gamepad works for player 1 too.
+Players 2 to 4 use gamepads, with the original's defaults: stick or d-pad to move, down to drop,
+A, d-pad up or the right trigger to turn right, the left trigger to turn left, the bumpers to
+nudge, X for the light spell and B for the dark one. With one player, a gamepad works for player 1 too.
 
 ![A race against three AI wizards](docs/screenshot.png)
 

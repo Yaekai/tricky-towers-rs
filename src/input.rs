@@ -186,10 +186,17 @@ fn read_gamepads(
         input.right_pressed |= right && !before.right;
         input.nudge_left_pressed |= pad.just_pressed(GamepadButton::LeftTrigger);
         input.nudge_right_pressed |= pad.just_pressed(GamepadButton::RightTrigger);
-        input.rotate_pressed |= pad.just_pressed(GamepadButton::South);
-        input.rotate_ccw_pressed |= pad.just_pressed(GamepadButton::East);
+        // The original's pad defaults (docs/research/wiki-notes.md, checked on the PC):
+        // A, D-pad up or the right trigger turn right, the left trigger turns left,
+        // the bumpers nudge, X casts the light spell and B the dark one.
+        input.rotate_pressed |= pad.any_just_pressed([
+            GamepadButton::South,
+            GamepadButton::DPadUp,
+            GamepadButton::RightTrigger2,
+        ]);
+        input.rotate_ccw_pressed |= pad.just_pressed(GamepadButton::LeftTrigger2);
         input.cast_light_pressed |= pad.just_pressed(GamepadButton::West);
-        input.cast_dark_pressed |= pad.just_pressed(GamepadButton::North);
+        input.cast_dark_pressed |= pad.just_pressed(GamepadButton::East);
         *before = PadState { left, right };
     }
 }
