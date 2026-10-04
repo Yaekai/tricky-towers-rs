@@ -113,3 +113,46 @@ points", each player's score) and then a "{cup} Winner!" popup with the cup.
 - **Name:** left aligned, size 26 white, starting at x 165 (125 when there's no avatar), with
   110 px kept free on the right.
 - **Score:** right edge, 100 px wide, centred, size 26 white, the plain number.
+
+## Settings screen layout (read from the PC install, 2026-10-05)
+- Same frame as the other menus: header panel `gph_menuHeaderBackground` 800×91 at the top
+  centre (title "SETTINGS"), menu arrows `btn_menuArrow` 94×55 at x ±500 on the centre line to
+  switch between the two pages. The pages sit side by side 1920 px apart and slide.
+- Rows sit in an 800 px wide area from 220 px below the top down to the bottom, a vertical list
+  with 100 px between rows, centred (the first row is at +50 × (rows − 1)).
+- **Every row:** 78 px tall, full width, `gph_settingsMenuItemBackground` (staged already as
+  `menu_button_background`). Icon 100×100 box at x 79 from the left, 11 px above centre (the
+  icon pictures are 43–107 px wide, see `settings_icon_*`). Title at x 150, size 36, white,
+  left aligned. The picked row shows the four small corner pieces (`menu_corner_small`, 38×34)
+  10 px outside each corner.
+- **Slider row** (Sound effects, Music): a 360 px value area at the right edge: left arrow at
+  40 px, right arrow 40 px from its right end (25×31 `settings_arrow`), and a 190×40 bar
+  (`settings_slider_empty` under `settings_slider_fill`, cut to the value) starting 85 px in.
+- **Choice row** (Resolution, Quality, Language): the same 360 px area with both arrows and the
+  value text centred between them, size 36.
+- **Toggle row** (Explanations, Full screen, V-sync): a 43×43 box (`settings_checkbox`) 60 px
+  from the right edge, showing a tick (`settings_tick`, 61×49, shifted 9 px right, 3 px up) when
+  on or a cross (`settings_cross`, 49×49) when off.
+- **Popup row** (Stats, Credits, Keybinding): just icon and title. Choosing it opens its popup.
+- **Apply row:** applies the graphics changes on page 2.
+
+## Trials screen layout (read from the PC install, 2026-10-05)
+- Header "SELECT GAME" frame like the other menus; a medal panel at the top right
+  (`menu_info_background` 382×183, its centre 120 px right of and 100 px above the corner, so
+  partly off screen) with a large medal (`medal_large` 70×96) and the count "12/35" (size 46),
+  plus a small "MEDALS:" label.
+- One page per tier, 1920 px apart, switched with the menu arrows at x ±500 (or the bumpers).
+  The tier's name is the page title.
+- A page holds its 10 trials in 2 columns of 5: rows 125 px apart, columns 440 px apart.
+  Arrows move between them.
+- **Trial button:** 423×101. The picture is per mode: `trial_button_race` (405×101),
+  `trial_button_survival` (399×90) or `trial_button_puzzle` (423×101). The trial's number sits
+  in the middle (size 46). A wizard face sits on the left (x −119): wizard 3 for Race, 2 for
+  Survival, 4 for Puzzle (the `menu_challenge_wizard*` faces). The medal (70×96) sits at
+  x +145 once the trial is beaten. The picked one has small corners on a 449×134 frame.
+- **Locked tier:** a 783×215 panel (`trial_locked_background`) over the page, with "LOCKED"
+  (size 60), "Earn X to unlock" (size 46), a medal, and a padlock (`trial_lock`) on a chain of
+  links (`trial_chain_link`, `_short`, `_end`) running across it. When the tier unlocks, the lock
+  pops to 1.3× (ease out back) with chain sounds (4 variants, 0.2 s apart), then the whole panel
+  slides 1000 px up in 0.5 s after 0.2 s, with brick spawn and roof placed sounds.
+- Starting a trial plays the mode's start stinger.
