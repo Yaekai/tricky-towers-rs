@@ -33,6 +33,8 @@ struct MirroredBy(Entity);
 struct LetterText {
     text: String,
     size: f32,
+    /// Whether `size` is a share of the view height rather than pixels.
+    view_height: bool,
     color: Color,
     centered: bool,
 }
@@ -43,13 +45,15 @@ fn letter_text(
     color: Option<&TextColor>,
     layout: Option<&TextLayout>,
 ) -> LetterText {
-    let size = match font.font_size {
-        FontSize::Px(px) => px,
-        _ => 20.0,
+    let (size, view_height) = match font.font_size {
+        FontSize::Px(px) => (px, false),
+        FontSize::Vh(vh) => (vh, true),
+        _ => (20.0, false),
     };
     LetterText {
         text: text.0.clone(),
         size,
+        view_height,
         color: color.map_or(Color::WHITE, |c| c.0),
         centered: layout.is_some_and(|l| l.justify == Justify::Center),
     }
@@ -152,10 +156,17 @@ fn draw_letters(
 
 fn spawn_line(lines: &mut ChildSpawnerCommands, sheet: &Letters, text: &LetterText, line: &str) {
     let k = text.size / sheet.size.max(1.0);
+    let len = |v: f32| {
+        if text.view_height {
+            Val::Vh(v)
+        } else {
+            Val::Px(v)
+        }
+    };
     let height = sheet.line_height * k;
     lines
         .spawn(Node {
-            height: Val::Px(height),
+            height: len(height),
             ..default()
         })
         .with_children(|row| {
@@ -167,7 +178,7 @@ fn spawn_line(lines: &mut ChildSpawnerCommands, sheet: &Letters, text: &LetterTe
                 else {
                     // Unknown letters (and spaces without a glyph) leave a gap.
                     row.spawn(Node {
-                        width: Val::Px(sheet.size * 0.3 * k),
+                        width: len(sheet.size * 0.3 * k),
                         ..default()
                     });
                     continue;
@@ -175,8 +186,8 @@ fn spawn_line(lines: &mut ChildSpawnerCommands, sheet: &Letters, text: &LetterTe
                 let (x, y, w, h) = glyph.rect;
                 let (ox, oy) = glyph.offset;
                 row.spawn(Node {
-                    width: Val::Px(glyph.advance * k),
-                    height: Val::Px(height),
+                    width: len(glyph.advance * k),
+                    height: len(height),
                     ..default()
                 })
                 .with_children(|cell| {
@@ -192,10 +203,10 @@ fn spawn_line(lines: &mut ChildSpawnerCommands, sheet: &Letters, text: &LetterTe
                         },
                         Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(ox * k),
-                            top: Val::Px((sheet.ascender - oy) * k),
-                            width: Val::Px(w * k),
-                            height: Val::Px(h * k),
+                            left: len(ox * k),
+                            top: len((sheet.ascender - oy) * k),
+                            width: len(w * k),
+                            height: len(h * k),
                             ..default()
                         },
                     ));

@@ -46,3 +46,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-04: src/results.rs: match text (shadow + gradient-tinted face), race hold countdown, WINNER! with sunrays and trophy pop, WIZARD OUT!, winner spotlight and loser veils, timings in `GameConfig::moments`.
 - 2026-10-04: src/effects.rs: Slow balloon on a string, Ghost skulls flying in to the brick's outline; bubbles pick the size/look variant and wobble ±2.5%.
 - 2026-10-04: from the PC's win screenshot: no cup after a single match, WINNER! kept on screen through its bounce (and hidden until laid out), loser veils drawn dark.
+- 2026-10-04: title screen of tiles like the original (`MenuScreen::Main`, `TILES` in src/menu.rs); Local Battle opens the mode menu, Esc goes back. Letter text takes `FontSize::Vh`. Tile centres are laid out from the sizes until the anchors are read.

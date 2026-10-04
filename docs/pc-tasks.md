@@ -89,3 +89,12 @@ and nothing gets installed without Max's own go-ahead.
   original's local-play screens pick mode, players and difficulty so the flow can match.
 - Survival Pro curse waves: the exact levels (which curses each level can pick, how many at
   once, and each one's length), to replace the `(?)` guesses in `WaveRules` in src/config.rs.
+- The title tiles are in (src/menu.rs, `TILES`). Stage the original's tile art under the names in
+  docs/art-layout.md (`menu_tile_<key>_deselected|_selected|_front`, `menu_tile_header`,
+  `menu_corner_large|small`, `menu_sunrays_1..5`). The tile positions you read overlap if taken as
+  centres, so they are laid out from the sizes for now: read each tile's anchors, pivot and
+  parent so the centres can be exact, and say what moving between tiles animates (scale, timing)
+  and where the logo sits. Then take an offscreen picture of the title screen (no `--play`,
+  `--shots 2`) and compare.
+- Veils over losers' lanes still show light bands between them. Read the original's lane spacing
+  for 2, 3 and 4 players and how wide a loser's veil is compared with its lane.
