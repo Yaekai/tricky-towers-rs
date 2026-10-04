@@ -62,9 +62,11 @@ const KINDS: [Kind; 6] = [
 #[derive(Clone, PartialEq, Debug)]
 enum Shows {
     Nothing,
-    Card(usize),
+    /// The next brick, drawn with the tower's brick pack.
+    Card(usize, crate::config::BrickPack),
     Text(String, Color),
-    Hearts(u32),
+    /// Lives left and the most there have been: filled hearts, then crosses.
+    Hearts(u32, u32),
     Light(SpellKind),
     Dark,
 }
@@ -144,6 +146,7 @@ fn wanted(
     place: Option<usize>,
     state: &TowerState,
     bag: Option<&mut BrickBag>,
+    pack: crate::config::BrickPack,
 ) -> Shows {
     let look = &config.hud;
     let playing = game.phase == Phase::Playing && state.status == TowerStatus::Building;
@@ -152,7 +155,7 @@ fn wanted(
             let finished_puzzle =
                 game.mode == ModeKind::Puzzle && state.bricks_used() + 1 >= config.puzzle.bricks;
             match bag {
-                Some(bag) if playing && !finished_puzzle => Shows::Card(bag.peek()),
+                Some(bag) if playing && !finished_puzzle => Shows::Card(bag.peek(), pack),
                 _ => Shows::Nothing,
             }
         }
@@ -187,7 +190,7 @@ fn wanted(
         },
         Kind::Hearts if state.status != TowerStatus::Out && game.phase != Phase::Over => {
             match state.lives {
-                Some(lives) if lives > 0 => Shows::Hearts(lives),
+                Some(lives) if lives > 0 => Shows::Hearts(lives, lives.max(config.survival.lives)),
                 _ => Shows::Nothing,
             }
         }
@@ -213,19 +216,24 @@ fn fill_items(
     game: Res<Match>,
     art: Res<Art>,
     view: Res<ViewSize>,
-    mut towers: Query<(&Tower, &TowerState, Option<&mut BrickBag>)>,
+    mut towers: Query<(
+        &Tower,
+        &TowerState,
+        Option<&mut BrickBag>,
+        Option<&crate::gameplay::TowerSkin>,
+    )>,
     mut items: Query<(Entity, &mut HudItem, &mut Visibility)>,
 ) {
     let order: Vec<(usize, TowerState)> = towers
         .iter()
-        .filter(|(_, s, _)| s.status == TowerStatus::Building)
-        .map(|(t, s, _)| (t.index, s.clone()))
+        .filter(|(_, s, _, _)| s.status == TowerStatus::Building)
+        .map(|(t, s, _, _)| (t.index, s.clone()))
         .collect();
     let refs: Vec<(usize, &TowerState)> = order.iter().map(|(i, s)| (*i, s)).collect();
     let places = placings(&game, &refs);
     let height = view.0.y.max(1.0);
     for (entity, mut item, mut visibility) in &mut items {
-        let Ok((tower, state, bag)) = towers.get_mut(item.tower) else {
+        let Ok((tower, state, bag, skin)) = towers.get_mut(item.tower) else {
             continue;
         };
         let place = places.iter().position(|&i| i == tower.index);
@@ -236,6 +244,7 @@ fn fill_items(
             place,
             state,
             bag.map(|b| b.into_inner()),
+            skin.map(|s| s.pack).unwrap_or_default(),
         );
         if item.shows.as_ref() == Some(&shows) && item.built_at == height && !art.is_changed() {
             continue;
@@ -302,14 +311,24 @@ fn build(
             text(node, words, *color, size);
             base
         }
-        Shows::Hearts(lives) => {
+        Shows::Hearts(lives, most) => {
             let size = look.heart_size * height;
             match art.image("heart") {
                 Some(image) => {
+                    // A lost life shows a cross (`heart_lost`, gph_cross), else a dim heart.
+                    let lost = art.image("heart_lost");
                     node.with_children(|row| {
-                        for _ in 0..*lives {
+                        for i in 0..*most {
+                            let (picture, color) = if i < *lives {
+                                (image.clone(), Color::WHITE)
+                            } else {
+                                match &lost {
+                                    Some(cross) => (cross.clone(), Color::WHITE),
+                                    None => (image.clone(), Color::srgba(0.2, 0.2, 0.25, 0.6)),
+                                }
+                            };
                             row.spawn((
-                                ImageNode::new(image.clone()),
+                                ImageNode::new(picture).with_color(color),
                                 Node {
                                     width: Val::Px(size),
                                     height: Val::Px(size),
@@ -345,6 +364,40 @@ fn build(
                     node.insert(BackgroundColor(color.with_alpha(0.85)));
                 }
             }
+            // The key to press under the bubble: J (light) or K (dark) on a key cap
+            // (`key_background`); pads show X / B (gap-scan.md 4; pad art partly unstaged).
+            let key = if matches!(shows, Shows::Light(_)) {
+                "J"
+            } else {
+                "K"
+            };
+            node.with_children(|bubble| {
+                let mut cap = bubble.spawn(Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(-size * 0.32),
+                    width: Val::Px(size * 0.36),
+                    height: Val::Px(size * 0.36),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                });
+                match art.image("key_background") {
+                    Some(image) => {
+                        cap.insert(ImageNode::new(image));
+                    }
+                    None => {
+                        cap.insert(BackgroundColor(Color::srgba(0.95, 0.95, 0.95, 0.9)));
+                    }
+                }
+                cap.with_child((
+                    Text::new(key),
+                    TextFont {
+                        font_size: FontSize::Px(size * 0.24),
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.15, 0.1, 0.25)),
+                ));
+            });
             node.with_children(|bubble| match shows {
                 Shows::Light(spell) => match art.image(&format!("spell_icon_{spell:?}")) {
                     Some(image) => {
@@ -388,7 +441,7 @@ fn build(
                 ..base
             }
         }
-        Shows::Card(piece) => {
+        Shows::Card(piece, pack) => {
             let card_h = look.card_height * height;
             let card_w = card_h * look.card_aspect;
             let bar = card_h * look.card_bar;
@@ -426,7 +479,12 @@ fn build(
                     margin: UiRect::top(Val::Px(bar)),
                     ..default()
                 });
-                match art.image(&format!("brick_{}", def.name)) {
+                // The pack's own card icon, else its brick art, else the default.
+                let picture = art
+                    .image(&format!("next_brick_{}_{}", pack.key(), def.name))
+                    .or_else(|| art.image(&pack.brick_art(&def.name)))
+                    .or_else(|| art.image(&format!("brick_{}", def.name)));
+                match picture {
                     Some(image) => {
                         holder.insert(ImageNode::new(image));
                     }

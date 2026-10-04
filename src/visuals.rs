@@ -112,7 +112,7 @@ struct MistCloud {
 
 /// Child sprite of a brick, one per cell.
 #[derive(Component)]
-struct CellSprite;
+pub(crate) struct CellSprite;
 
 fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
     commands.spawn((Camera2d, Transform::from_xyz(0.0, config.cells(6.0), 0.0)));
@@ -254,7 +254,7 @@ fn dress_floor(
 /// stone or ice version when the brick is petrified or iced), else coloured cells.
 /// Runs again when a brick changes, turns to stone, or gets vines or grass.
 #[allow(clippy::type_complexity)]
-fn dress_bricks(
+pub(crate) fn dress_bricks(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
@@ -262,12 +262,21 @@ fn dress_bricks(
         (Entity, &Brick, Has<Stone>, Has<Vined>, Has<Grassy>),
         Or<(Changed<Brick>, Added<Stone>, Added<Vined>, Added<Grassy>)>,
     >,
+    skins: Query<&crate::gameplay::TowerSkin>,
 ) {
     for (entity, brick, stone, vined, grassy) in &bricks {
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
+        let pack = skins.get(brick.tower).map(|s| s.pack).unwrap_or_default();
+        // A normal brick takes its tower's brick pack art (default when not staged);
+        // stone and ice keep their own looks.
         let key = if brick.piece < config.pieces.len() {
-            format!("brick_{}", def.name)
+            let packed = pack.brick_art(&def.name);
+            if stone || brick.ice || art.image(&packed).is_none() {
+                format!("brick_{}", def.name)
+            } else {
+                packed
+            }
         } else {
             format!("mystery_{}", def.name.to_lowercase())
         };
@@ -487,7 +496,26 @@ pub(crate) fn mode_key(mode: ModeKind) -> &'static str {
 
 /// Background layer names for this mode, back to front: `background_<mode>_N`
 /// when staged for the mode, else `background_N`.
+/// The look a mode swaps to on Pro ("Special"): Race Pro's night, Puzzle Pro's eclipse.
+pub(crate) fn pro_look(
+    mode: ModeKind,
+    difficulty: Option<crate::config::Difficulty>,
+) -> Option<&'static str> {
+    if difficulty != Some(crate::config::Difficulty::Pro) {
+        return None;
+    }
+    match mode {
+        ModeKind::Race => Some("race_pro"),
+        ModeKind::Puzzle => Some("puzzle_pro"),
+        _ => None,
+    }
+}
+
 fn background_names(art: &Art, mode: ModeKind) -> Vec<String> {
+    background_names_for(art, mode, None)
+}
+
+fn background_names_for(art: &Art, mode: ModeKind, pro: Option<&str>) -> Vec<String> {
     let endless = mode == ModeKind::Endless;
     let mode = mode_key(mode);
     let layers = |prefix: &str| {
@@ -503,9 +531,14 @@ fn background_names(art: &Art, mode: ModeKind) -> Vec<String> {
         found.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         found.into_iter().map(|(.., name)| name).collect::<Vec<_>>()
     };
-    // Endless Race has its own versions of the race islands, when staged.
+    // Endless Race has its own versions of the race islands, and Pro its own look,
+    // when staged.
     let own = Some(layers("background_endless_"))
         .filter(|l| endless && !l.is_empty())
+        .or_else(|| {
+            pro.map(|p| layers(&format!("background_{p}_")))
+                .filter(|l| !l.is_empty())
+        })
         .unwrap_or_else(|| layers(&format!("background_{mode}_")));
     if own.is_empty() {
         layers("background_")
@@ -536,7 +569,7 @@ struct ScreenLayer {
 
 /// The sky gradient behind every other layer.
 #[derive(Component)]
-struct Sky;
+pub(crate) struct Sky;
 
 /// The background scene's water band along the bottom of the screen.
 #[derive(Component)]
@@ -547,7 +580,7 @@ struct WaterBand {
 }
 
 /// A tall gradient image from `colors`, top to bottom.
-fn gradient_image(colors: &[Color]) -> Image {
+pub(crate) fn gradient_image(colors: &[Color]) -> Image {
     use bevy::asset::RenderAssetUsages;
     use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
     const ROWS: usize = 256;
@@ -578,6 +611,7 @@ fn spawn_backgrounds(
     mut commands: Commands,
     art: Res<Art>,
     game: Res<Match>,
+    config: Res<GameConfig>,
     mut images: ResMut<Assets<Image>>,
     camera: Query<Entity, With<Camera2d>>,
     existing: Query<
@@ -590,26 +624,44 @@ fn spawn_backgrounds(
         )>,
     >,
     mut water: Query<&mut Visibility, With<WaterStrip>>,
-    mut shown: Local<Option<ModeKind>>,
+    mut shown: Local<Option<(ModeKind, Option<&'static str>)>>,
 ) {
     let Ok(camera) = camera.single() else {
         return;
     };
-    if *shown == Some(game.mode) && !art.is_changed() {
+    let pro = pro_look(game.mode, config.difficulty);
+    if *shown == Some((game.mode, pro)) && !art.is_changed() {
         return;
     }
-    *shown = Some(game.mode);
+    *shown = Some((game.mode, pro));
     for entity in &existing {
         commands.entity(entity).despawn();
     }
     let mode_name = mode_key(game.mode);
-    // A mode's own sky and water band win over the shared ones.
+    // A Pro look's sky and water band win over the mode's, which win over the shared.
     let for_mode = |name: &str| {
-        art.entries
-            .get(&format!("{name}_{mode_name}"))
+        pro.and_then(|p| art.entries.get(&format!("{name}_{p}")))
+            .or_else(|| art.entries.get(&format!("{name}_{mode_name}")))
             .or_else(|| art.entries.get(name))
     };
-    if let Some(sky) = for_mode("sky") {
+    // The readouts' sky colours stand in when the Pro sky isn't staged.
+    let weather = &config.weather;
+    let rgb = |c: &[[u8; 3]]| -> Vec<Color> {
+        c.iter().map(|&[r, g, b]| Color::srgb_u8(r, g, b)).collect()
+    };
+    let pro_sky = match pro {
+        Some("race_pro") => Some(rgb(&weather.race_pro_sky)),
+        Some("puzzle_pro") => Some(rgb(&weather.puzzle_pro_sky)),
+        _ => None,
+    }
+    .filter(|_| pro.is_some_and(|p| !art.entries.contains_key(&format!("sky_{p}"))));
+    if let Some(colors) = pro_sky {
+        commands.entity(camera).with_child((
+            Sky,
+            Sprite::from_image(images.add(gradient_image(&colors))),
+            Transform::from_xyz(0.0, 0.0, -950.0),
+        ));
+    } else if let Some(sky) = for_mode("sky") {
         let colors = sky.colors();
         if !colors.is_empty() {
             commands.entity(camera).with_child((
@@ -643,7 +695,10 @@ fn spawn_backgrounds(
             ));
         }
     }
-    for (order, name) in background_names(&art, game.mode).iter().enumerate() {
+    for (order, name) in background_names_for(&art, game.mode, pro)
+        .iter()
+        .enumerate()
+    {
         let Some(entry) = art.entries.get(name) else {
             continue;
         };

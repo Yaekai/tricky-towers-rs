@@ -25,6 +25,8 @@ pub mod letters;
 pub mod menu;
 pub mod mods;
 pub mod offscreen;
+pub mod packs;
+pub mod particles;
 pub mod popup;
 pub mod results;
 pub mod select;
@@ -35,6 +37,7 @@ pub mod start;
 pub mod trials;
 pub mod trials_menu;
 pub mod visuals;
+pub mod weather;
 pub mod wizards;
 
 use avian2d::prelude::*;

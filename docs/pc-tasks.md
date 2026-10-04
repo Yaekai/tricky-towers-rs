@@ -346,3 +346,35 @@ and nothing gets installed without Max's own go-ahead.
   moments (a curse, a collapse, a Survival roof, a spell cloud) and picture them offscreen with
   `Picture`, instead of waiting for them in play. Use them for the comparisons above. The F1
   panel is for Max when playing in a window.
+- **Skins are in** (cloud, from skins.md): each seated player picks a wizard (14) and a brick
+  pack (8) on Select Players with Up/Down (Character / Brick pack) and Left/Right; towers draw
+  with them (`TowerSkin`, `BrickPack`, `brick_<pack>_<shape>`, `next_brick_<pack>_<shape>`,
+  `wizard<n>`). Guessed: the picker layout (two lines under the name plate) and the Spirit
+  Animal names ("Spirit Animal 1..4"). When there's a PC session again: read the pickers' layout,
+  art and wording, and the four Spirit Animal names.
+- **Brick pack looks are in** (src/packs.rs): Christmas lights blink and snow caps (25% per top
+  edge) grow in, Halloween decorations (up to 2, 40% each) pulse, Galaxy cells show one shared
+  scrolling starfield in a purple border with twirling stars, Hologram glitches, Diamond
+  flashes. Guessed: the lights' blink rate, the pulse length, the Galaxy scroll speed and
+  scale, the Hologram look (cyan, see-through, sideways jitter) and Diamond's gloss (a flash
+  instead of a sweep). Spring's grass and eggs aren't staged: stage them (names, sizes) and
+  say where they sit. Picture each pack with a script (`Start` then wait) and compare.
+- **Skies and weather are in** (src/weather.rs, `GameConfig::weather`, `visuals::pro_look`):
+  Race Pro night sky (3-colour gradient from your readout), rain (front streaks and the back
+  layer, slanting with the wind) and lightning (flash + bolt with branches); every Puzzle's sand
+  strip and two-layer scrolling sandstorm; Puzzle Pro's sky, eclipsed sun and corona; Survival's
+  sky shifting to the curse-wave colours over 1 s. A `sky_race_pro` / `sky_puzzle_pro` and
+  `background_race_pro_N` / `background_puzzle_pro_N` in the manifest win over the built-in
+  colours. Not done: the Race Pro clouds, `water_pro` and the `_DARK` islands lit by the flash,
+  the Puzzle Pro ruin colours, the reflected gradients, the Survival clouds/stars/moon changes.
+  Guessed: the sun's place and size on our screen, the sand strip height, the corona spin, the
+  bolt shape, the rain drop width. Check: Race Pro's rain (about 1,100 drops a second) runs
+  smoothly on the PC; picture Race Pro, Puzzle, Puzzle Pro and a Survival Pro wave with scripts.
+- **Particles and HUD bits are in** (src/particles.rs, src/hud.rs): spawn poof, landing dust,
+  lost-brick mist (Race/Survival) or desert dust (Puzzle) with the spinning lost cross, the
+  WAVE N cloud message, hearts with lost slots, J/K key caps under the spell bubbles. Guessed:
+  particle speeds (taken as tenths of the readout's numbers), the WAVE message's place, size and
+  2 s length, the key cap's place. Stage `gph_cross` as `heart_lost` and the pad B buttons
+  (`pad_b_up`/`pad_b_down`) so lost hearts and pad hints can use them. Not done: gravel, impact
+  dust on later hard hits (we only puff on landing), confetti (cups are a debug tool), the
+  hourglass timer on race trials, the Endless score line, `finish_line_end` flags.

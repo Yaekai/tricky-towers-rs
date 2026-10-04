@@ -662,6 +662,9 @@ pub struct ActiveBrick {
     /// Seconds a refused turn (No Rotate) still shakes the brick; drawn by the
     /// visuals.
     pub refused: f32,
+    /// How far (world units) the brick's picture jumps about while a curse wave
+    /// lifts and holds it; 0 when not. Only the picture shakes, not the body.
+    pub picture_shake: f32,
 }
 
 impl ActiveBrick {
@@ -678,6 +681,7 @@ impl ActiveBrick {
             auto_rotate_timer: 0.0,
             side_cooldown: 0.0,
             refused: 0.0,
+            picture_shake: 0.0,
         }
     }
 }
@@ -854,6 +858,12 @@ fn start_match(
         if !human {
             tower.insert(AiControlled);
         }
+        let (wizard, pack) = config
+            .skins
+            .get(index)
+            .copied()
+            .unwrap_or((index, crate::config::BrickPack::Default));
+        tower.insert(TowerSkin { wizard, pack });
         let tower = tower.id();
 
         // The platform's top surface sits at y = 0. In Puzzle the round's floor
@@ -1156,14 +1166,13 @@ fn control_active_brick(
             let elapsed = rules.lift + rules.hold - state.wave_hold;
             let t = (elapsed / rules.lift.max(0.01)).min(1.0);
             let (from, to) = state.wave_lift;
-            let mut at = Vec2::new(state.wave_hold_x, from + (to - from) * t * t);
+            let at = Vec2::new(state.wave_hold_x, from + (to - from) * t * t);
             if state.wave_hold > 0.0 {
-                // A fresh random jump every step, smaller on an enlarged brick.
-                let reach = config.cells(rules.shake) / brick.scale.max(1.0);
-                let mut seed = (state.wave_hold.to_bits() as u64) << 8 | tower.index as u64 | 1;
-                let mut unit = || (xorshift(&mut seed) % 2001) as f32 / 1000.0 - 1.0;
-                at += Vec2::new(unit(), unit()) * reach;
+                // Only the picture shakes (drawn by the visuals), smaller on an
+                // enlarged brick.
+                control.picture_shake = config.cells(rules.shake) / brick.scale.max(1.0);
             } else {
+                control.picture_shake = 0.0;
                 commands.entity(entity).remove::<ColliderDisabled>();
             }
             commands
@@ -1739,6 +1748,13 @@ fn judge_match(
         game.phase = Phase::Over;
         game.winner = winner;
     }
+}
+
+/// The wizard (0 for wizard 1) and brick pack a tower is drawn with. Looks only.
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct TowerSkin {
+    pub wizard: usize,
+    pub pack: crate::config::BrickPack,
 }
 
 /// Final placings, first place first: the winner, then towers still standing
