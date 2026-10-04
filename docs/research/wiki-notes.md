@@ -62,7 +62,8 @@ every spell once), Speed. Precision. (win a normal race within 80 s without drop
   faster (Fast), grass makes it hard to see (Grassy), very slippery bricks (Ice), mist (Mist),
   harder shapes (Mystery), no rotating (No-rotate), a balloon slows bricks (Slow), tiny ghosts
   steal your brick (Ghost), "a combination of dark magic" and "an even stronger combination".
-  Extra life isn't in the quoted list. Matches our 17 spells and the combos.
+  Another quote of the same FAQ also mentions a spell giving extra lives (Extra life). Matches
+  our 17 spells and the combos.
   Open question: "large and heavy" — the PC readout says every brick has mass 1; check whether
   Large changes a brick's mass.
 - Wizard levels: Rookie Magician ... Expert Wizard, then "Master Wizard Level 1", "Level 2",
