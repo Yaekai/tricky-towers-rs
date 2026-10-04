@@ -112,7 +112,7 @@ struct MistCloud {
 
 /// Child sprite of a brick, one per cell.
 #[derive(Component)]
-struct CellSprite;
+pub(crate) struct CellSprite;
 
 fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
     commands.spawn((Camera2d, Transform::from_xyz(0.0, config.cells(6.0), 0.0)));
@@ -254,7 +254,7 @@ fn dress_floor(
 /// stone or ice version when the brick is petrified or iced), else coloured cells.
 /// Runs again when a brick changes, turns to stone, or gets vines or grass.
 #[allow(clippy::type_complexity)]
-fn dress_bricks(
+pub(crate) fn dress_bricks(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,

@@ -352,3 +352,10 @@ and nothing gets installed without Max's own go-ahead.
   `wizard<n>`). Guessed: the picker layout (two lines under the name plate) and the Spirit
   Animal names ("Spirit Animal 1..4"). When there's a PC session again: read the pickers' layout,
   art and wording, and the four Spirit Animal names.
+- **Brick pack looks are in** (src/packs.rs): Christmas lights blink and snow caps (25% per top
+  edge) grow in, Halloween decorations (up to 2, 40% each) pulse, Galaxy cells show one shared
+  scrolling starfield in a purple border with twirling stars, Hologram glitches, Diamond
+  flashes. Guessed: the lights' blink rate, the pulse length, the Galaxy scroll speed and
+  scale, the Hologram look (cyan, see-through, sideways jitter) and Diamond's gloss (a flash
+  instead of a sweep). Spring's grass and eggs aren't staged: stage them (names, sizes) and
+  say where they sit. Picture each pack with a script (`Start` then wait) and compare.
