@@ -390,7 +390,7 @@ fn show_collapse(
 ) {
     let c = config.cell_size;
     let look = &config.moments;
-    let mut play = |commands: &mut Commands, name: &str, settings: PlaybackSettings| {
+    let play = |commands: &mut Commands, name: &str, settings: PlaybackSettings| {
         art.sounds
             .get(name)
             .map(|sound| commands.spawn((AudioPlayer(sound.clone()), settings)).id())
