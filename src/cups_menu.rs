@@ -168,8 +168,8 @@ fn show_cup_ui(
     let picking = game.phase == Phase::Menu && *screen == MenuScreen::Modes;
     let pick_words = match cup.pick.and_then(|i| config.cups.sizes.get(i)) {
         Some(size) => format!(
-            "{}: {} matches  (C / Select to change)",
-            size.name, size.matches
+            "{}: first to {}  (C / Select to change)",
+            size.name, size.target
         ),
         None => "Single match  (C / Select for a cup)".to_string(),
     };
@@ -191,11 +191,16 @@ fn show_cup_ui(
             .iter()
             .map(|&t| format!("{} {}", player_name(&towers, t), cup.points[t]))
             .collect();
-        let round = (cup.played + u32::from(game.phase == Phase::Playing)).min(size.matches);
+        let round = cup.played + u32::from(game.phase == Phase::Playing);
+        let overtime = if cup.overtime(&config.cups) {
+            "  OVERTIME"
+        } else {
+            ""
+        };
         format!(
-            "{}  match {round}/{}   {}",
+            "{}  match {round}, first to {}{overtime}   {}",
             size.name,
-            size.matches,
+            size.target,
             scores.join("   ")
         )
     });
@@ -227,12 +232,7 @@ fn show_cup_ui(
         transform.scale = Vec2::splat(next);
     }
     if let (Some(winner), Some(size)) = (winner, cup_rules) {
-        let xp = cup.xp.get(winner).copied().unwrap_or(0);
-        let words = format!(
-            "{} wins the {}!  +{xp} XP",
-            player_name(&towers, winner),
-            size.name
-        );
+        let words = format!("{} wins the {}!", player_name(&towers, winner), size.name);
         for entity in &trophy_text {
             set(&mut texts, entity, words.clone());
         }

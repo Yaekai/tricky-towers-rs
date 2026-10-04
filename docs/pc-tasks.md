@@ -246,26 +246,22 @@ and nothing gets installed without Max's own go-ahead.
      down onto your brick), and whether light spell lines appear in trials.
   6. What the game saves for trials (we save the names beaten, in `trials.ron` next to the
      leaderboard).
-- **Cups are now playable on GUESSES** (src/cups.rs, src/cups_menu.rs, `GameConfig::cups`).
-  On Select Mode, C (or the pad's Select) cycles Single match / Tiny Cup / Big Cup / Super
-  Cup; a cup is a series of matches of the picked mode, the popup's first item reads "Next
-  match" until the last one, the standings line runs along the top, and the winner gets the
-  cup's trophy and everyone XP by cup place (saved per player seat in `xp.ron`). Please read
-  and correct, in docs/research/:
-  1. How a local cup is picked in the original (screen, wording, art) and how long each is.
-  2. Points per place (ours: 3, 2, 1, 0), tie-breaks (ours: better place in the last match),
-     and whether modes rotate or come from several picked modes ("Next match" appears "when
-     more than one mode was picked" in your popup notes, so a cup may BE the mode list).
-  3. Which trophy goes with which cup, where it is shown and how it animates (ours: centred,
-     the existing 0.6 s pop).
-  4. When XP is given in a cup (per match or at the end) and how it is shown and saved
-     (ours: at the end, by cup place, with `XpRules::for_place`).
-  5. What the screen between cup matches shows (standings? a scoreboard screen?).
-- **Settings screen is in as a placeholder** (src/settings.rs, `MenuScreen::Settings`, `--menu
-  settings`): Volume, Music and Full screen, applied at once and saved in `settings.ron`.
-  Please read the original's Settings screen: which options it has (volumes, controls,
-  language, screen), their order, ranges and steps, its layout and art names, and take an
-  offscreen picture of ours (`--menu settings --offscreen screenshots --shots 2`).
+- **Cups now follow your readout** (match-moments.md "Cups"; src/cups.rs, still a DEBUG-TOOL):
+  first to 6 / 12 / 18 points (Tiny / Big / Super), 3-2-1-0 per match, overtime while the
+  leaders tie at or above the target, no XP for local cups. Still guessed (?): the order of the
+  players below the winner (we break ties by the last match). Not done: the third Select Mode
+  column (we still cycle with C), random modes per match from the picks, the medal rows in the
+  popup, the winner popup with place counts, fireworks and the 12 s close.
+- **Settings screen now follows your layout readout** (menus.md; src/settings.rs): two sliding
+  pages (Sound effects, Music, Explanations, Stats, Credits, Keybinding / Full screen,
+  Resolution, Quality, V-sync, Language, Apply), 800×78 rows 100 px apart, icons, slider bars,
+  checkboxes with tick/cross, choice arrows, small corners on the picked row, page arrows at
+  ±500. Page 2 waits for Apply. Guessed (?): the in-between resolutions, that the arrow art
+  points right, the slide time (0.3 s), that the row stays the same when the page turns, that
+  Language waits for Apply, how icons fit their 100 px box, that the slider fill is stretched
+  rather than cropped. Not done: Stats/Credits/Keybinding popups, Quality's effect, the 18
+  languages, Explanations' tips. Picture it on the PC: `--menu settings --offscreen <dir>`
+  (the cloud has no GPU).
 - From your notes, now in the game: Auto Rotate's motion (winds back 15° in 0.2 s, swings 105°
   in 0.45 s, waits; `auto_rotate_angle`), No Rotate's 0.3 s shake on a refused turn, Race Pro's
   spell rules (far behind at 20, Minibase [3] in the normal pool, line wait growing with players

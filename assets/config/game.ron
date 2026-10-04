@@ -155,9 +155,9 @@
             0,
         ],
         sizes: [
-            (name: "Tiny Cup", matches: 3, trophy: "trophy"),
-            (name: "Big Cup", matches: 5, trophy: "trophy_big"),
-            (name: "Super Cup", matches: 7, trophy: "trophy_super"),
+            (name: "Tiny Cup", target: 6, trophy: "trophy"),
+            (name: "Big Cup", target: 12, trophy: "trophy_big"),
+            (name: "Super Cup", target: 18, trophy: "trophy_super"),
         ],
     ),
     weather: (

@@ -2,11 +2,10 @@
 //! Local cups aren't in the original (cups are an online feature there, per the fan wiki
 //! and press kit; docs/research/wiki-notes.md). Kept for now as a test tool.
 //!
-//! Local cups: a series of matches picked on Select Mode. Each match gives
-//! points by place ([`CupRules::points`]); after the last one the cup winner
-//! gets a trophy and every human player gets XP for their cup place
-//! ([`XpRules::for_place`]), kept between runs. Rules are guesses until read
-//! (docs/pc-tasks.md).
+//! Local cups, from the PC readout (docs/research/match-moments.md): matches
+//! picked on Select Mode, each giving points by place ([`CupRules::points`]),
+//! until one player alone has the most points at or above the cup's target
+//! (ties go to overtime). The winner gets the cup's trophy. Local cups give no XP.
 //!
 //! Headless-safe: no rendering or keyboard here.
 
@@ -15,7 +14,7 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{CupRules, CupSize, Difficulty, GameConfig, XpRules};
+use crate::config::{CupRules, CupSize, GameConfig};
 use crate::gameplay::{GameplaySystems, Match, Phase, Tower, TowerState, placings};
 
 pub struct CupsPlugin;
@@ -41,8 +40,6 @@ pub struct Cup {
     pub points: Vec<u32>,
     /// The final standings (tower indexes, first first) once the cup is over.
     pub standings: Option<Vec<usize>>,
-    /// XP each tower index got at the end of the cup.
-    pub xp: Vec<u32>,
     counted: u64,
 }
 
@@ -65,7 +62,7 @@ impl Cup {
         self.size.is_some() && self.standings.is_none()
     }
 
-    /// Adds one match's result. Returns true when that was the cup's last match.
+    /// Adds one match's result. Returns true when it decided the cup.
     pub fn add_match(&mut self, rules: &CupRules, order: &[usize]) -> bool {
         let Some(size) = self.rules(rules).cloned() else {
             return false;
@@ -77,10 +74,12 @@ impl Cup {
             self.points[tower] += rules.points.get(place).copied().unwrap_or(0);
         }
         self.played += 1;
-        if self.played < size.matches {
+        let best = self.points.iter().copied().max().unwrap_or(0);
+        let leaders = self.points.iter().filter(|&&p| p == best).count();
+        if best < size.target || leaders > 1 {
             return false;
         }
-        // Most points first; ties go to the better place in the last match (?).
+        // Most points first; lower places by the last match (?).
         let mut standings: Vec<usize> = (0..self.points.len()).collect();
         let last = |t: usize| order.iter().position(|&o| o == t).unwrap_or(usize::MAX);
         standings.sort_by(|&a, &b| {
@@ -90,6 +89,15 @@ impl Cup {
         });
         self.standings = Some(standings);
         true
+    }
+
+    /// True when the leaders are tied at or above the target, playing on.
+    pub fn overtime(&self, rules: &CupRules) -> bool {
+        let Some(size) = self.rules(rules) else {
+            return false;
+        };
+        let best = self.points.iter().copied().max().unwrap_or(0);
+        best >= size.target && self.points.iter().filter(|&&p| p == best).count() > 1
     }
 }
 
@@ -137,22 +145,12 @@ impl XpBook {
     }
 }
 
-/// XP for each place of a finished cup of `players` towers.
-pub fn cup_xp(rules: &XpRules, standings: &[usize], difficulty: Difficulty) -> Vec<(usize, u32)> {
-    standings
-        .iter()
-        .enumerate()
-        .map(|(place, &tower)| (tower, rules.for_place(place, standings.len(), difficulty)))
-        .collect()
-}
-
-/// Adds each finished match to the cup, and hands out XP when the cup ends.
+/// Adds each finished match to the cup.
 fn score_cup(
     config: Res<GameConfig>,
     game: Res<Match>,
     towers: Query<(&Tower, &TowerState)>,
     mut cup: ResMut<Cup>,
-    mut book: ResMut<XpBook>,
 ) {
     let local = config.trial.is_none() && !config.mode.is_endless();
     if game.phase != Phase::Over || cup.counted == game.round || !local || !cup.in_progress() {
@@ -161,44 +159,37 @@ fn score_cup(
     cup.counted = game.round;
     let all: Vec<(usize, &TowerState)> = towers.iter().map(|(t, s)| (t.index, s)).collect();
     let order = placings(&game, &all);
-    if !cup.add_match(&config.cups, &order) {
-        return;
-    }
-    let standings = cup.standings.clone().unwrap_or_default();
-    let difficulty = config.difficulty.unwrap_or_default();
-    cup.xp = vec![0; standings.len()];
-    for (tower, xp) in cup_xp(&config.xp, &standings, difficulty) {
-        if tower < cup.xp.len() {
-            cup.xp[tower] = xp;
-        }
-        // Only people earn XP, by their player seat.
-        if let Some(player) = towers
-            .iter()
-            .find(|(t, _)| t.index == tower)
-            .and_then(|(t, _)| t.player)
-        {
-            book.add(player, xp);
-        }
-    }
-    book.save();
+    cup.add_match(&config.cups, &order);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn a_cup_adds_points_and_ends_after_its_matches() {
-        let rules = CupRules::default();
+    fn cup(target: u32) -> (CupRules, Cup) {
+        let rules = CupRules {
+            sizes: vec![CupSize {
+                name: "test".into(),
+                target,
+                trophy: "trophy".into(),
+            }],
+            ..default()
+        };
         let mut cup = Cup {
             pick: Some(0),
             ..default()
         };
         cup.begin();
+        (rules, cup)
+    }
+
+    #[test]
+    fn a_cup_is_first_to_its_target() {
+        let (rules, mut cup) = cup(6);
         assert!(cup.in_progress());
-        // Three matches of 3 towers: 0 wins twice, 2 once.
         assert!(!cup.add_match(&rules, &[0, 1, 2]));
         assert!(!cup.add_match(&rules, &[2, 1, 0]));
+        // 0 reaches 7, alone at the top.
         assert!(cup.add_match(&rules, &[0, 2, 1]));
         assert_eq!(cup.points, vec![7, 5, 6]);
         assert_eq!(cup.standings, Some(vec![0, 2, 1]));
@@ -209,28 +200,23 @@ mod tests {
     }
 
     #[test]
-    fn ties_go_to_the_better_last_place() {
-        let rules = CupRules {
-            sizes: vec![CupSize {
-                name: "two".into(),
-                matches: 2,
-                trophy: "trophy".into(),
-            }],
-            ..default()
-        };
-        let mut cup = Cup {
-            pick: Some(0),
-            ..default()
-        };
-        cup.begin();
+    fn a_tie_at_the_target_goes_to_overtime() {
+        let (rules, mut cup) = cup(5);
         cup.add_match(&rules, &[0, 1]);
         cup.add_match(&rules, &[1, 0]);
+        // 5 each: both at the target, tied.
+        assert_eq!(cup.points, vec![5, 5]);
+        assert!(cup.overtime(&rules));
+        assert!(cup.in_progress());
+        assert!(cup.add_match(&rules, &[1, 0]));
         assert_eq!(cup.standings, Some(vec![1, 0]));
     }
 
     #[test]
-    fn cup_xp_follows_the_xp_rules() {
-        let xp = cup_xp(&XpRules::default(), &[2, 0, 1], Difficulty::Normal);
-        assert_eq!(xp, vec![(2, 800), (0, 200), (1, 100)]);
+    fn the_local_cups_follow_the_original() {
+        let rules = CupRules::default();
+        let targets: Vec<u32> = rules.sizes.iter().map(|s| s.target).collect();
+        assert_eq!(targets, [6, 12, 18]);
+        assert_eq!(rules.points, [3, 2, 1, 0]);
     }
 }

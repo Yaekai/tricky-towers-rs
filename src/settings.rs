@@ -1,20 +1,28 @@
-//! The Settings screen from the title tiles: sound effects, music and full screen,
-//! applied at once and kept between runs. The original has these too (fan wiki,
-//! docs/research/wiki-notes.md: both volumes 0-100% defaulting to 100%, full screen
-//! on by default), plus Explanations, Statistics, Credits, Keybinding, Resolution,
-//! Quality, V-sync and Language, which aren't built. Layout is a plain list (?).
+//! The Settings screen from the title tiles, laid out from the PC readout
+//! (docs/research/menus.md "Settings screen layout") with the options from the fan
+//! wiki (docs/research/wiki-notes.md). Two pages side by side that slide:
+//! page 1 has Sound effects, Music, Explanations, Stats, Credits and Keybinding;
+//! page 2 has Full screen, Resolution, Quality, V-sync, Language and Apply, and
+//! its changes wait for Apply. Kept between runs in `settings.ron`.
+//!
+//! Not done: the Stats, Credits and Keybinding popups (picking them does nothing
+//! yet), Quality (kept but changes nothing), text in languages other than English,
+//! language flags, slider repeat while held (every 0.2 s), and the tips that
+//! Explanations turns on.
 
 use std::path::PathBuf;
 
 use bevy::audio::{AudioSink, AudioSinkPlayback, PlaybackSettings, Volume};
 use bevy::prelude::*;
-use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
+use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
 use serde::{Deserialize, Serialize};
 
 use crate::art::Music;
 use crate::gameplay::{Match, Phase};
 use crate::menu::MenuScreen;
-use crate::select::{label, place, read_taps, shown, spawn_page};
+use crate::select::{
+    CORNER_SMALL, SCREEN, corners, label, place, read_taps, shown, sliced, spawn_page,
+};
 
 pub struct SettingsPlugin;
 
@@ -27,6 +35,58 @@ impl Plugin for SettingsPlugin {
     }
 }
 
+/// Graphics quality, as the PC install names it (default High; the wiki's
+/// Performance/Normal/Magical may be older names).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Quality {
+    Low,
+    Medium,
+    #[default]
+    High,
+}
+
+impl Quality {
+    const ALL: [Quality; 3] = [Quality::Low, Quality::Medium, Quality::High];
+}
+
+/// Window sizes offered, from 512×384 up to 1920×1080 (the in-between ones are
+/// common sizes, not read from the original, ?).
+pub const RESOLUTIONS: [(u32, u32); 9] = [
+    (512, 384),
+    (640, 480),
+    (800, 600),
+    (1024, 768),
+    (1280, 720),
+    (1280, 1024),
+    (1366, 768),
+    (1600, 900),
+    (1920, 1080),
+];
+
+/// The original's 19 language flags, in its order, by name (the original shows
+/// flags; only English text exists here).
+pub const LANGUAGES: [&str; 19] = [
+    "English",
+    "German",
+    "French",
+    "Spanish",
+    "Portuguese",
+    "Italian",
+    "Chinese (Simplified)",
+    "Chinese (Traditional)",
+    "Japanese",
+    "Korean",
+    "Russian",
+    "Polish",
+    "Arabic",
+    "Turkish",
+    "Dutch",
+    "Swedish",
+    "Norwegian",
+    "Finnish",
+    "Romanian",
+];
+
 /// The player's settings. Kept in `file` when one is set (the game sets it;
 /// tests and offscreen pictures don't).
 #[derive(Resource, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -36,7 +96,13 @@ pub struct Settings {
     pub volume: f32,
     /// Music, 0 to 1 (separate from the sound effects).
     pub music: f32,
+    /// Tips and objectives.
+    pub explanations: bool,
     pub fullscreen: bool,
+    pub resolution: (u32, u32),
+    pub quality: Quality,
+    pub vsync: bool,
+    pub language: String,
     #[serde(skip)]
     pub file: Option<PathBuf>,
 }
@@ -46,7 +112,12 @@ impl Default for Settings {
         Self {
             volume: 1.0,
             music: 1.0,
+            explanations: true,
             fullscreen: true,
+            resolution: (1920, 1080),
+            quality: Quality::High,
+            vsync: false,
+            language: LANGUAGES[0].to_string(),
             file: None,
         }
     }
@@ -80,67 +151,411 @@ impl Settings {
         }
     }
 
-    /// Moves the setting on `row` one step left (-1) or right (+1). Returns true
-    /// if anything changed.
-    pub fn step(&mut self, row: usize, dir: i32) -> bool {
+    /// Moves `row`'s value one step left (-1) or right (+1); toggles flip either
+    /// way. Returns true if anything changed.
+    pub fn step(&mut self, row: Row, dir: i32) -> bool {
         let before = self.clone();
         let nudge = |v: f32| ((v + 0.1 * dir as f32) * 10.0).round().clamp(0.0, 10.0) / 10.0;
-        match ROWS.get(row) {
-            Some(Row::Volume) => self.volume = nudge(self.volume),
-            Some(Row::Music) => self.music = nudge(self.music),
-            Some(Row::Fullscreen) => self.fullscreen = !self.fullscreen,
-            _ => {}
+        let cycle = |at: usize, len: usize| (at as i32 + dir).rem_euclid(len as i32) as usize;
+        match row {
+            Row::Effects => self.volume = nudge(self.volume),
+            Row::Music => self.music = nudge(self.music),
+            Row::Explanations => self.explanations = !self.explanations,
+            Row::Fullscreen => self.fullscreen = !self.fullscreen,
+            Row::Vsync => self.vsync = !self.vsync,
+            Row::Resolution => {
+                let at = RESOLUTIONS.iter().position(|&r| r == self.resolution);
+                let next = at.map_or(RESOLUTIONS.len() - 1, |i| cycle(i, RESOLUTIONS.len()));
+                self.resolution = RESOLUTIONS[next];
+            }
+            Row::Quality => {
+                let at = Quality::ALL
+                    .iter()
+                    .position(|&q| q == self.quality)
+                    .unwrap_or(2);
+                self.quality = Quality::ALL[cycle(at, Quality::ALL.len())];
+            }
+            Row::Language => {
+                let at = LANGUAGES
+                    .iter()
+                    .position(|&l| l == self.language)
+                    .unwrap_or(0);
+                self.language = LANGUAGES[cycle(at, LANGUAGES.len())].to_string();
+            }
+            Row::Stats | Row::Credits | Row::Keybinding | Row::Apply => {}
         }
         *self != before
     }
+
+    /// Takes page 2's values (the graphics ones) from `pending`.
+    fn apply_page_two(&mut self, pending: &Settings) {
+        self.fullscreen = pending.fullscreen;
+        self.resolution = pending.resolution;
+        self.quality = pending.quality;
+        self.vsync = pending.vsync;
+        self.language = pending.language.clone();
+    }
+
+    /// The words in a choice row's value area.
+    fn choice(&self, row: Row) -> String {
+        match row {
+            Row::Resolution => format!("{}x{}", self.resolution.0, self.resolution.1),
+            Row::Quality => format!("{:?}", self.quality),
+            Row::Language => self.language.clone(),
+            _ => String::new(),
+        }
+    }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
-enum Row {
-    Volume,
+/// One row of the Settings screen.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Row {
+    Effects,
     Music,
+    Explanations,
+    Stats,
+    Credits,
+    Keybinding,
     Fullscreen,
-    Back,
+    Resolution,
+    Quality,
+    Vsync,
+    Language,
+    Apply,
 }
 
-const ROWS: [Row; 4] = [Row::Volume, Row::Music, Row::Fullscreen, Row::Back];
-const ROW: (f32, f32) = (800.0, 70.0);
-const ROW_TOP: f32 = 180.0;
-const ROW_STEP: f32 = 90.0;
+/// How a row shows and changes its value.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Kind {
+    Slider,
+    Choice,
+    Toggle,
+    /// Just an icon and a title; picking it opens something.
+    Popup,
+}
+
+impl Row {
+    fn kind(self) -> Kind {
+        match self {
+            Row::Effects | Row::Music => Kind::Slider,
+            Row::Resolution | Row::Quality | Row::Language => Kind::Choice,
+            Row::Explanations | Row::Fullscreen | Row::Vsync => Kind::Toggle,
+            Row::Stats | Row::Credits | Row::Keybinding | Row::Apply => Kind::Popup,
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            Row::Effects => "Sound effects",
+            Row::Music => "Music",
+            Row::Explanations => "Explanations",
+            Row::Stats => "Stats",
+            Row::Credits => "Credits",
+            Row::Keybinding => "Keybinding",
+            Row::Fullscreen => "Full screen",
+            Row::Resolution => "Resolution",
+            Row::Quality => "Quality",
+            Row::Vsync => "V-sync",
+            Row::Language => "Language",
+            Row::Apply => "Apply",
+        }
+    }
+
+    /// The staged icon, `settings_icon_<key>` (Apply has none, ?).
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Row::Effects => "settings_icon_sfx",
+            Row::Music => "settings_icon_music",
+            Row::Explanations => "settings_icon_explanations",
+            Row::Stats => "settings_icon_stats",
+            Row::Credits => "settings_icon_credits",
+            Row::Keybinding => "settings_icon_keybinding",
+            Row::Fullscreen => "settings_icon_fullscreen",
+            Row::Resolution => "settings_icon_resolution",
+            Row::Quality => "settings_icon_quality",
+            Row::Vsync => "settings_icon_vsync",
+            Row::Language => "settings_icon_language",
+            Row::Apply => return None,
+        })
+    }
+}
+
+/// The two pages, top row first.
+pub const PAGES: [[Row; 6]; 2] = [
+    [
+        Row::Effects,
+        Row::Music,
+        Row::Explanations,
+        Row::Stats,
+        Row::Credits,
+        Row::Keybinding,
+    ],
+    [
+        Row::Fullscreen,
+        Row::Resolution,
+        Row::Quality,
+        Row::Vsync,
+        Row::Language,
+        Row::Apply,
+    ],
+];
+
+/// Layout from the readout, in 1920×1080 pixels from the screen centre (y up).
+const ROW: (f32, f32) = (800.0, 78.0);
+const ROW_STEP: f32 = 100.0;
+/// The rows' area runs from 220 px below the top to the bottom; its centre.
+const AREA_CENTRE: f32 = SCREEN.1 / 2.0 - 220.0 - (SCREEN.1 - 220.0) / 2.0;
+const ICON: ((f32, f32), f32, f32) = ((100.0, 100.0), 79.0, 11.0);
+const TITLE_X: f32 = 150.0;
+const TITLE_SIZE: f32 = 36.0;
+/// The value area at the row's right end, its arrows and the slider bar.
+const VALUE_WIDTH: f32 = 360.0;
+const VALUE_ARROW: (f32, f32) = (25.0, 31.0);
+const VALUE_ARROW_INSET: f32 = 40.0;
+const BAR: (f32, f32) = (190.0, 40.0);
+const BAR_INSET: f32 = 85.0;
+const CHECKBOX: ((f32, f32), f32) = ((43.0, 43.0), 60.0);
+const TICK: ((f32, f32), (f32, f32)) = ((61.0, 49.0), (9.0, 3.0));
+const CROSS: (f32, f32) = (49.0, 49.0);
+const CORNER_GAP: f32 = 10.0;
+const PAGE_ARROW: ((f32, f32), f32) = ((94.0, 55.0), 500.0);
+/// `menu_button_background`'s 9-slice borders, as on the Single Player list.
+const BUTTON_SLICE: [f32; 4] = [18.0, 16.0, 71.0, 15.0];
+/// Seconds a page slide takes (?).
+const SLIDE_SECONDS: f32 = 0.3;
+
+fn row_y(index: usize) -> f32 {
+    AREA_CENTRE + ROW_STEP / 2.0 * (PAGES[0].len() as f32 - 1.0) - ROW_STEP * index as f32
+}
+
+/// x of a point `inset` px into the value area from its left end.
+fn value_x(inset: f32) -> f32 {
+    ROW.0 / 2.0 - VALUE_WIDTH + inset
+}
 
 #[derive(Resource, Debug, Default)]
 pub struct SettingsMenu {
+    pub page: usize,
     pub selected: usize,
+    /// Page 2's values until Apply; `None` until something there changes.
+    pub pending: Option<Settings>,
+    /// Where the pages are, sliding towards `page`.
+    slide: f32,
+}
+
+impl SettingsMenu {
+    pub fn row(&self) -> Row {
+        PAGES[self.page][self.selected]
+    }
 }
 
 #[derive(Component)]
 pub(crate) struct SettingsRoot;
-#[derive(Component)]
-pub(crate) struct SettingsRow(usize);
-#[derive(Component)]
-pub(crate) struct SettingsText(usize);
+
+/// A Settings node: which page and row it belongs to and what it is.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub(crate) enum SettingsPart {
+    Page(usize),
+    Corner(usize, usize),
+    Fill(usize, usize),
+    Tick(usize, usize),
+    Cross(usize, usize),
+    Value(usize, usize),
+    PageArrow(bool),
+}
 
 fn spawn_settings_screen(mut commands: Commands, art: Option<Res<crate::art::Art>>) {
-    let page = spawn_page(&mut commands, art.as_deref(), "Settings");
+    let art = art.as_deref();
+    let image = |name: &str| art.and_then(|a| a.image(name));
+    let root = spawn_page(&mut commands, art, "SETTINGS");
     commands
-        .entity(page)
+        .entity(root)
         .insert(SettingsRoot)
-        .with_children(|page| {
-            for (i, _) in ROWS.iter().enumerate() {
-                page.spawn((
-                    place(ROW, (0.0, ROW_TOP - ROW_STEP * i as f32)),
-                    BackgroundColor(Color::srgba(0.3, 0.24, 0.55, 0.8)),
-                    SettingsRow(i),
+        .with_children(|root| {
+            for (p, rows) in PAGES.iter().enumerate() {
+                root.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        ..default()
+                    },
+                    SettingsPart::Page(p),
                 ))
-                .with_children(|row| {
-                    row.spawn((label(3.4, ""), SettingsText(i)));
+                .with_children(|page| {
+                    for (i, &row) in rows.iter().enumerate() {
+                        spawn_row(page, &image, p, i, row);
+                    }
                 });
+            }
+            for right in [false, true] {
+                let x = if right { PAGE_ARROW.1 } else { -PAGE_ARROW.1 };
+                let mut arrow = root.spawn((
+                    place(PAGE_ARROW.0, (x, 0.0)),
+                    SettingsPart::PageArrow(right),
+                ));
+                match image("menu_arrow") {
+                    Some(art) => {
+                        arrow.insert(ImageNode {
+                            image: art,
+                            flip_x: !right,
+                            ..default()
+                        });
+                    }
+                    None => {
+                        arrow.with_children(|a| {
+                            a.spawn(label(4.0, if right { ">" } else { "<" }));
+                        });
+                    }
+                }
             }
         });
 }
 
-/// Up/Down pick a row, Left/Right change it, Enter toggles or goes back, Esc
-/// or B goes back to the title tiles.
+fn spawn_row(
+    page: &mut ChildSpawnerCommands,
+    image: &impl Fn(&str) -> Option<Handle<Image>>,
+    p: usize,
+    i: usize,
+    row: Row,
+) {
+    let y = row_y(i);
+    let left = -ROW.0 / 2.0;
+    let mut back = page.spawn((
+        place(ROW, (0.0, y)),
+        BackgroundColor(Color::srgba(0.3, 0.24, 0.55, 0.8)),
+    ));
+    if let Some(art) = image("menu_button_background") {
+        back.insert((sliced(art, BUTTON_SLICE), BackgroundColor(Color::NONE)));
+    }
+    if let Some(icon) = row.icon().and_then(image) {
+        // The icons are 43-107 px wide; keep their shape inside the 100 px box (?).
+        page.spawn(place(ICON.0, (left + ICON.1, y + ICON.2)))
+            .with_children(|b| {
+                b.spawn((
+                    ImageNode::new(icon),
+                    Node {
+                        height: Val::Percent(100.0),
+                        ..default()
+                    },
+                ));
+            });
+    }
+    let title_box = (ROW.0 - TITLE_X, ROW.1);
+    page.spawn(Node {
+        justify_content: JustifyContent::FlexStart,
+        ..place(title_box, (left + TITLE_X + title_box.0 / 2.0, y))
+    })
+    .with_children(|t| {
+        t.spawn(label(TITLE_SIZE / SCREEN.1 * 100.0, row.title()));
+    });
+    let arrows = |page: &mut ChildSpawnerCommands| {
+        for right in [false, true] {
+            let x = if right {
+                value_x(VALUE_WIDTH - VALUE_ARROW_INSET)
+            } else {
+                value_x(VALUE_ARROW_INSET)
+            };
+            let mut arrow = page.spawn(place(VALUE_ARROW, (x, y)));
+            match image("settings_arrow") {
+                // The arrow art points right (?); the left one is flipped.
+                Some(art) => {
+                    arrow.insert(ImageNode {
+                        image: art,
+                        flip_x: !right,
+                        ..default()
+                    });
+                }
+                None => {
+                    arrow.with_children(|a| {
+                        a.spawn(label(3.0, if right { ">" } else { "<" }));
+                    });
+                }
+            }
+        }
+    };
+    match row.kind() {
+        Kind::Slider => {
+            arrows(page);
+            let bar_x = value_x(BAR_INSET) + BAR.0 / 2.0;
+            let mut empty = page.spawn((
+                place(BAR, (bar_x, y)),
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+            ));
+            if let Some(art) = image("settings_slider_empty") {
+                empty.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
+            }
+            let mut fill = page.spawn((
+                place(BAR, (bar_x, y)),
+                BackgroundColor(Color::srgb(0.95, 0.8, 0.3)),
+                SettingsPart::Fill(p, i),
+            ));
+            if let Some(art) = image("settings_slider_fill") {
+                fill.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
+            }
+        }
+        Kind::Choice => {
+            arrows(page);
+            let width = VALUE_WIDTH - 2.0 * (VALUE_ARROW_INSET + VALUE_ARROW.0);
+            page.spawn(place((width, ROW.1), (value_x(VALUE_WIDTH / 2.0), y)))
+                .with_children(|v| {
+                    v.spawn((
+                        label(TITLE_SIZE / SCREEN.1 * 100.0, ""),
+                        SettingsPart::Value(p, i),
+                    ));
+                });
+        }
+        Kind::Toggle => {
+            let x = ROW.0 / 2.0 - CHECKBOX.1;
+            let mut boxed = page.spawn((
+                place(CHECKBOX.0, (x, y)),
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+            ));
+            if let Some(art) = image("settings_checkbox") {
+                boxed.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
+            }
+            let (size, (dx, dy)) = TICK;
+            let mut tick = page.spawn((place(size, (x + dx, y + dy)), SettingsPart::Tick(p, i)));
+            match image("settings_tick") {
+                Some(art) => {
+                    tick.insert(ImageNode::new(art));
+                }
+                None => {
+                    tick.with_children(|t| {
+                        t.spawn(label(3.5, "V"));
+                    });
+                }
+            }
+            let mut cross = page.spawn((place(CROSS, (x, y)), SettingsPart::Cross(p, i)));
+            match image("settings_cross") {
+                Some(art) => {
+                    cross.insert(ImageNode::new(art));
+                }
+                None => {
+                    cross.with_children(|t| {
+                        t.spawn(label(3.5, "X"));
+                    });
+                }
+            }
+        }
+        Kind::Popup => {}
+    }
+    if let Some(corner) = image("menu_corner_small") {
+        let frame = (ROW.0 + 2.0 * CORNER_GAP, ROW.1 + 2.0 * CORNER_GAP);
+        corners(
+            page,
+            &corner,
+            frame,
+            (0.0, y),
+            CORNER_SMALL,
+            SettingsPart::Corner(p, i),
+        );
+    }
+}
+
+/// Up/Down pick a row, Left/Right change it (or turn the page on a row without
+/// a value), the bumpers turn the page, Enter toggles, applies or opens, Esc or
+/// B goes back to the title tiles.
 pub(crate) fn settings_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
@@ -150,6 +565,10 @@ pub(crate) fn settings_input(
     mut settings: ResMut<Settings>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Settings {
+        // Page 2's unapplied changes are dropped on leaving.
+        if menu.pending.is_some() {
+            menu.pending = None;
+        }
         return;
     }
     let taps = read_taps(keys.as_deref(), &pads);
@@ -157,7 +576,10 @@ pub(crate) fn settings_input(
         *screen = MenuScreen::Main;
         return;
     }
-    let count = ROWS.len();
+    let bumper = |button| pads.iter().any(|(_, pad)| pad.just_pressed(button));
+    let mut turn =
+        bumper(GamepadButton::RightTrigger) as i32 - bumper(GamepadButton::LeftTrigger) as i32;
+    let count = PAGES[menu.page].len();
     if taps.up {
         menu.selected = (menu.selected + count - 1) % count;
     }
@@ -166,29 +588,56 @@ pub(crate) fn settings_input(
     }
     let pick = taps.key_pick || !taps.pad_pick.is_empty();
     let dir = taps.right as i32 - taps.left as i32;
-    let changed = match ROWS[menu.selected] {
-        Row::Back if pick => {
-            *screen = MenuScreen::Main;
-            false
+    let row = menu.row();
+    let mut changed = false;
+    match row.kind() {
+        Kind::Popup if row == Row::Apply && pick => {
+            if let Some(pending) = menu.pending.take() {
+                settings.apply_page_two(&pending);
+                changed = true;
+            }
         }
-        Row::Fullscreen if pick || dir != 0 => settings.step(menu.selected, 1),
-        _ if dir != 0 => settings.step(menu.selected, dir),
-        _ => false,
-    };
+        // Stats, Credits and Keybinding open popups that aren't built yet.
+        Kind::Popup => turn += dir,
+        Kind::Toggle if pick || dir != 0 => changed = step(&mut menu, &mut settings, row, 1),
+        _ if dir != 0 => changed = step(&mut menu, &mut settings, row, dir),
+        _ => {}
+    }
+    if turn != 0 {
+        let page = (menu.page as i32 + turn).clamp(0, PAGES.len() as i32 - 1) as usize;
+        if page != menu.page {
+            menu.page = page;
+            menu.selected = menu.selected.min(PAGES[page].len() - 1);
+        }
+    }
     if changed {
         settings.save();
     }
 }
 
-#[allow(clippy::type_complexity)]
+/// Changes `row` on the settings (page 1) or on page 2's pending copy. Returns
+/// true when the saved settings changed.
+fn step(menu: &mut SettingsMenu, settings: &mut Settings, row: Row, dir: i32) -> bool {
+    if PAGES[1].contains(&row) {
+        menu.pending
+            .get_or_insert_with(|| settings.clone())
+            .step(row, dir);
+        false
+    } else {
+        settings.step(row, dir)
+    }
+}
+
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(crate) fn show_settings_screen(
+    time: Res<Time>,
     game: Res<Match>,
     screen: Res<MenuScreen>,
-    menu: Res<SettingsMenu>,
+    mut menu: ResMut<SettingsMenu>,
     settings: Res<Settings>,
     mut root: Query<&mut Visibility, With<SettingsRoot>>,
-    mut rows: Query<(&SettingsRow, &mut BackgroundColor)>,
-    mut texts: Query<(&SettingsText, &mut Text)>,
+    mut parts: Query<(&SettingsPart, &mut Node, Option<&mut Visibility>), Without<SettingsRoot>>,
+    mut texts: Query<(&SettingsPart, &mut Text)>,
 ) {
     let on = game.phase == Phase::Menu && *screen == MenuScreen::Settings;
     for mut v in &mut root {
@@ -197,31 +646,71 @@ pub(crate) fn show_settings_screen(
     if !on {
         return;
     }
-    for (row, mut color) in &mut rows {
-        color.0 = if row.0 == menu.selected {
-            Color::srgb(0.55, 0.42, 0.9)
-        } else {
-            Color::srgba(0.3, 0.24, 0.55, 0.8)
+    let target = menu.page as f32;
+    let step = time.delta_secs() / SLIDE_SECONDS;
+    menu.slide = if (menu.slide - target).abs() <= step {
+        target
+    } else {
+        menu.slide + step * (target - menu.slide).signum()
+    };
+    let shown_values = |p: usize| -> &Settings {
+        match (&menu.pending, p) {
+            (Some(pending), 1) => pending,
+            _ => &settings,
+        }
+    };
+    for (part, mut node, visibility) in &mut parts {
+        let visible = match *part {
+            SettingsPart::Page(p) => {
+                let left = Val::Percent((p as f32 - menu.slide) * 100.0);
+                if node.left != left {
+                    node.left = left;
+                }
+                true
+            }
+            SettingsPart::Corner(p, i) => p == menu.page && i == menu.selected,
+            SettingsPart::Fill(p, i) => {
+                let values = shown_values(p);
+                let v = match PAGES[p][i] {
+                    Row::Effects => values.volume,
+                    _ => values.music,
+                };
+                // The fill is cut to the value from the bar's left end.
+                let bar_left = value_x(BAR_INSET);
+                let want = place((BAR.0 * v, BAR.1), (bar_left + BAR.0 * v / 2.0, row_y(i)));
+                if node.left != want.left || node.width != want.width {
+                    node.left = want.left;
+                    node.width = want.width;
+                }
+                v > 0.0
+            }
+            SettingsPart::Tick(p, i) | SettingsPart::Cross(p, i) => {
+                let values = shown_values(p);
+                let value = match PAGES[p][i] {
+                    Row::Explanations => values.explanations,
+                    Row::Fullscreen => values.fullscreen,
+                    _ => values.vsync,
+                };
+                value == matches!(part, SettingsPart::Tick(..))
+            }
+            SettingsPart::PageArrow(right) => (menu.page + 1 < PAGES.len()) == right,
+            SettingsPart::Value(..) => true,
         };
+        if let Some(mut v) = visibility {
+            v.set_if_neq(shown(visible));
+        }
     }
-    let percent = |v: f32| format!("< {:.0}% >", v * 100.0);
-    for (text, mut words) in &mut texts {
-        let line = match ROWS[text.0] {
-            Row::Volume => format!("Sound effects   {}", percent(settings.volume)),
-            Row::Music => format!("Music   {}", percent(settings.music)),
-            Row::Fullscreen => format!(
-                "Full screen   {}",
-                if settings.fullscreen { "On" } else { "Off" }
-            ),
-            Row::Back => "Back".to_string(),
-        };
-        if words.0 != line {
-            words.0 = line;
+    for (part, mut words) in &mut texts {
+        if let SettingsPart::Value(p, i) = *part {
+            let line = shown_values(p).choice(PAGES[p][i]);
+            if words.0 != line {
+                words.0 = line;
+            }
         }
     }
 }
 
-/// Puts changed settings into effect: the music already playing and the window mode.
+/// Puts changed settings into effect: the music already playing and the window.
 fn apply_settings(
     settings: Res<Settings>,
     mut music: Query<&mut AudioSink, With<Music>>,
@@ -238,9 +727,23 @@ fn apply_settings(
     } else {
         WindowMode::Windowed
     };
+    let present = if settings.vsync {
+        PresentMode::AutoVsync
+    } else {
+        PresentMode::AutoNoVsync
+    };
     for mut window in &mut windows {
         if window.mode != mode {
             window.mode = mode;
+        }
+        if window.present_mode != present {
+            window.present_mode = present;
+        }
+        let (w, h) = settings.resolution;
+        if !settings.fullscreen
+            && (window.resolution.width(), window.resolution.height()) != (w as f32, h as f32)
+        {
+            window.resolution.set(w as f32, h as f32);
         }
     }
 }
@@ -263,21 +766,35 @@ mod tests {
     #[test]
     fn steps_stay_in_range_and_toggle() {
         let mut s = Settings::default();
-        assert!(s.step(0, -1));
+        assert!(s.step(Row::Effects, -1));
         assert_eq!(s.volume, 0.9);
         for _ in 0..20 {
-            s.step(0, 1);
+            s.step(Row::Effects, 1);
         }
         assert_eq!(s.volume, 1.0);
-        assert!(!s.step(0, 1), "already at the top");
+        assert!(!s.step(Row::Effects, 1), "already at the top");
         for _ in 0..20 {
-            s.step(1, -1);
+            s.step(Row::Music, -1);
         }
         assert_eq!(s.music, 0.0);
         // Full screen starts on, like the original, and toggles.
-        assert!(s.step(2, 1));
+        assert!(s.step(Row::Fullscreen, 1));
         assert!(!s.fullscreen);
-        assert!(!s.step(3, 1), "Back has nothing to change");
+        assert!(!s.step(Row::Apply, 1), "Apply has nothing to change");
+        // Choices wrap around.
+        assert_eq!(s.resolution, (1920, 1080));
+        s.step(Row::Resolution, 1);
+        assert_eq!(s.resolution, RESOLUTIONS[0]);
+        assert_eq!(s.quality, Quality::High);
+        s.step(Row::Quality, -1);
+        assert_eq!(s.quality, Quality::Medium);
+    }
+
+    #[test]
+    fn rows_sit_100_px_apart_around_the_area_centre() {
+        // 6 rows centred in the area from 220 px below the top to the bottom.
+        assert_eq!(row_y(0), -110.0 + 250.0);
+        assert_eq!(row_y(5), -110.0 - 250.0);
     }
 
     #[test]
@@ -287,10 +804,10 @@ mod tests {
             .join("settings.ron");
         let mut s = Settings::load(file.clone());
         s.music = 0.3;
-        s.fullscreen = true;
+        s.vsync = true;
         s.save();
         let again = Settings::load(file.clone());
-        assert_eq!((again.music, again.fullscreen), (0.3, true));
+        assert_eq!((again.music, again.vsync), (0.3, true));
         let _ = std::fs::remove_dir_all(file.parent().unwrap());
     }
 }
