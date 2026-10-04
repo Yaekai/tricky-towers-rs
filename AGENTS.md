@@ -12,6 +12,8 @@ Read `PLAN.md` first, then `README.md` for what works today.
   depend on rendering or keyboard. Tests in `tests/headless.rs` run them with `MinimalPlugins`.
 - Every tower, human or AI, goes through the same systems; only the writer of its
   `PlayerInput` differs. Keep it that way so bots, replays and netplay stay easy.
+- Anything not in the original (dev and test tools) is marked `DEBUG-TOOL` in the code and
+  listed in `docs/release-checklist.md`, to remove before the final build. Mark new ones the same way.
 - Tunable numbers belong in `GameConfig` (`src/config.rs`) and
   `assets/config/game.ron`, not as literals in systems.
 
@@ -69,3 +71,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-04: Settings screen (src/settings.rs: Volume, Music, Full screen; `GlobalVolume`, the music's `AudioSink` and the window mode follow it; saved as settings.ron). Placeholder list until the original's is read.
 - 2026-10-04: 1:1 fixes from the notes: Auto Rotate winds back and swings (`gameplay::auto_rotate_angle`, `MagicRules::auto_rotate_back/swing`), No Rotate shakes a refused turn (`ActiveBrick::refused`, drawn in casts.rs), Race Pro award rules (`AwardRule::difficulties`), line wait per player only on Normal/Pro (`line_wait_extra_on`), wizard Action → Cheer on the Survival roof. Two spell-line rules wait on the PC (pc-tasks.md).
 - 2026-10-04: wiki facts applied (to be checked on the PC): original default keys (U/I nudge, J/K magic, Space turns left; old keys commented out in input.rs), separate Sound effects / Music volumes at 100% and full screen on by default (`set_effect_volume`), trial tiers with medal unlocks (`TrialTiers`), Endless Puzzle laser rising per group of 10 bricks. Sources and notes in docs/research/wiki-notes.md.
+- 2026-10-04: audit of extras: kept as debug tools, tagged `DEBUG-TOOL` and listed in docs/release-checklist.md (R restart, pad Start restart, F3 text, local cups, WASD/numpad in menus, command-line options).

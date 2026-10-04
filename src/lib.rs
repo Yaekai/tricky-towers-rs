@@ -52,6 +52,7 @@ impl Plugin for TowerCorePlugin {
             gameplay::GameplayPlugin,
             collapse::CollapsePlugin,
             trials::TrialsPlugin,
+            // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
             cups::CupsPlugin,
             ai::AiPlugin,
         ));

@@ -1420,6 +1420,8 @@ fn update_hud(
     let Ok(mut text) = hud.single_mut() else {
         return;
     };
+    // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
+    // F3 shows a text readout (height, spells, result) for development.
     if keys.is_some_and(|k| k.just_pressed(KeyCode::F3)) {
         *debug = !*debug;
     }
