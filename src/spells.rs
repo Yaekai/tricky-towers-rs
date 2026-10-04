@@ -241,6 +241,7 @@ pub(crate) fn run_curse_waves(
         ),
         Without<ActiveBrick>,
     >,
+    held: Query<&Position, With<ActiveBrick>>,
     ghostable: Query<
         (Entity, &Brick, &Placed, &RigidBody),
         (
@@ -335,6 +336,17 @@ pub(crate) fn run_curse_waves(
             continue;
         }
         state.wave_left = length;
+        // The brick in hand goes up to where new bricks start and is held there.
+        if let Some(brick) = state.active
+            && let Ok(at) = held.get(brick)
+        {
+            let top = at.0.y.max(config.cells(state.stack_top + config.spawn_gap));
+            commands
+                .entity(brick)
+                .insert((Position(Vec2::new(at.0.x, top)), LinearVelocity::ZERO));
+            state.wave_hold = rules.hold;
+            state.wave_hold_x = at.0.x;
+        }
         if cursed {
             // The brick in hand, then every new one while the wave lasts.
             curse_bricks(&mut commands, &config, &mut state, &mut active, &effect, 1);

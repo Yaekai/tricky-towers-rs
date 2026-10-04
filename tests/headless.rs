@@ -663,10 +663,15 @@ fn bubble_lifts_the_last_brick() {
     config.race.same_bricks = true;
     config.magic.enabled = true;
     let mut app = headless_app(config);
-    run_seconds(&mut app, 2.5, |_| {});
-    let last = tower(&mut app, 1)
-        .last_placed
-        .expect("wizard 1 placed a brick");
+    run_seconds(&mut app, 2.0, |_| {});
+    // Cast right after the wizard places a brick, so it's still the last one.
+    let earlier = tower(&mut app, 1).last_placed;
+    let placed = run_until(&mut app, 3.0, |app| {
+        let now = tower(app, 1).last_placed;
+        now.is_some() && now != earlier
+    });
+    assert!(placed, "wizard 1 placed no brick");
+    let last = tower(&mut app, 1).last_placed.unwrap();
     let y = |app: &App| {
         app.world()
             .get::<avian2d::prelude::Position>(last)
@@ -1128,4 +1133,44 @@ fn a_ghost_wave_carries_off_a_brick_with_every_new_one() {
         ghosted.len() >= 3
     });
     assert!(enough, "only {} bricks ghosted in one wave", ghosted.len());
+}
+
+#[test]
+fn a_curse_wave_holds_the_brick_in_hand_for_a_moment() {
+    use avian2d::prelude::Position;
+    use tricky_towers::config::Wave;
+    let mut config = fast_config();
+    config.survival.curse_waves = true;
+    config.survival.dark_magic = false;
+    config.survival.waves.gap = (1, 2);
+    config.survival.waves.levels = vec![vec![Wave {
+        curses: vec![SpellKind::Large],
+        seconds: (30, 31),
+    }]];
+    let mut app = headless_app(config);
+    let held = run_until(&mut app, 4.0, |app| {
+        let state = tower(app, 0);
+        state.wave_hold > 0.5 && state.active.is_some()
+    });
+    assert!(held, "no wave held the brick");
+    let brick = tower(&mut app, 0).active.unwrap();
+    let y = app.world().get::<Position>(brick).unwrap().0.y;
+    run_seconds(&mut app, 0.4, |_| {});
+    let later = app.world().get::<Position>(brick).unwrap().0.y;
+    assert!(
+        (later - y).abs() < 0.01,
+        "the held brick moved from {y} to {later}"
+    );
+}
+
+#[test]
+fn bases_have_the_originals_tops() {
+    // The castle's top is three merlons with holes between; both bases are 6 wide.
+    let config = fast_config();
+    let boxes = config.base_boxes(ModeKind::Survival);
+    let tops = boxes.iter().filter(|b| b.y.1 >= 0.0).count();
+    assert_eq!(tops, 3, "three merlons reach the top");
+    assert_eq!(config.base_half_width(ModeKind::Survival), 3.0);
+    assert_eq!(config.base_half_width(ModeKind::Race), 3.0);
+    assert_eq!(config.base_half_width(ModeKind::Endless), 3.0);
 }

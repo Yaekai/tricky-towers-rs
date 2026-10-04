@@ -62,6 +62,8 @@ pub struct GameConfig {
     pub splash: SplashLook,
     /// What the water does to a lost brick.
     pub water: WaterRules,
+    /// Each base's collider, as read from the original.
+    pub bases: Bases,
     /// How far above the tower top a new brick appears, in cells.
     pub spawn_gap: f32,
     /// Bricks that fall this far below the platform are counted as dropped.
@@ -993,6 +995,11 @@ pub struct WaveRules {
     pub waves_per_level: u32,
     /// Each level's waves, drawn without repeats; the last level repeats.
     pub levels: Vec<Vec<Wave>>,
+    /// Seconds the brick in hand is held still at the top when a wave starts.
+    pub hold: f32,
+    /// How the held brick shakes: sideways reach in cells and shakes per
+    /// second (? both guessed; the original's numbers aren't read yet).
+    pub shake: (f32, f32),
 }
 
 /// One curse wave: its curses, and how long it lasts in whole seconds (top left out).
@@ -1018,6 +1025,8 @@ impl Default for WaveRules {
         Self {
             gap: (12, 18),
             waves_per_level: 2,
+            hold: 1.0,
+            shake: (0.08, 20.0),
             levels: vec![
                 vec![
                     w(&[Large], (6, 8)),
@@ -1126,6 +1135,85 @@ impl Default for MatchMoments {
             popup_after: 4.0,
             popup_slide: 0.25,
         }
+    }
+}
+
+/// One plain box of a base's collider, in cells: x from the base centre, y from
+/// its top (the line bricks rest on).
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
+pub struct BaseBox {
+    pub x: (f32, f32),
+    pub y: (f32, f32),
+}
+
+const fn base_box(x: (f32, f32), y: (f32, f32)) -> BaseBox {
+    BaseBox { x, y }
+}
+
+/// The bases' colliders, from the original (docs/research/modes.md, "Base
+/// shapes"). Endless Race uses the Race base. Puzzle builds its floor from
+/// columns instead; with the plain floor it gets a `platform_width` box.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct Bases {
+    /// The house: a 6-wide body, a chimney cell left of the centre and a
+    /// ledge on each side under the water.
+    pub race: Vec<BaseBox>,
+    /// The castle: three merlons with a 1-cell hole between each pair, on a
+    /// body that widens and then narrows to its foot.
+    pub survival: Vec<BaseBox>,
+}
+
+impl Default for Bases {
+    fn default() -> Self {
+        Self {
+            race: vec![
+                base_box((-3.0, 3.0), (-9.0, 0.0)),
+                base_box((-1.0, 0.0), (0.0, 1.0)),
+                base_box((-4.0, -3.0), (-9.0, -5.57)),
+                base_box((3.0, 4.0), (-9.0, -5.0)),
+            ],
+            survival: vec![
+                base_box((-3.0, -2.0), (-1.0, 0.0)),
+                base_box((-1.0, 1.0), (-1.0, 0.0)),
+                base_box((2.0, 3.0), (-1.0, 0.0)),
+                base_box((-3.0, 3.0), (-5.0, -1.0)),
+                base_box((-3.5, 3.5), (-7.0, -5.0)),
+                base_box((-2.5, 3.0), (-11.0, -7.0)),
+            ],
+        }
+    }
+}
+
+impl GameConfig {
+    /// The boxes of this mode's base, or a plain `platform_width` slab when the
+    /// mode has no read shape.
+    pub fn base_boxes(&self, mode: ModeKind) -> Vec<BaseBox> {
+        let boxes = match mode.look() {
+            ModeKind::Race => &self.bases.race,
+            ModeKind::Survival => &self.bases.survival,
+            _ => return vec![self.plain_base()],
+        };
+        if boxes.is_empty() {
+            vec![self.plain_base()]
+        } else {
+            boxes.clone()
+        }
+    }
+
+    fn plain_base(&self) -> BaseBox {
+        let half = self.platform_width * 0.5;
+        base_box((-half, half), (-1.0, 0.0))
+    }
+
+    /// Half the width of the base's top, in cells: the widest box reaching
+    /// the top line.
+    pub fn base_half_width(&self, mode: ModeKind) -> f32 {
+        self.base_boxes(mode)
+            .iter()
+            .filter(|b| b.y.1 >= 0.0)
+            .map(|b| b.x.0.abs().max(b.x.1.abs()))
+            .fold(0.0, f32::max)
     }
 }
 
@@ -1378,6 +1466,7 @@ impl Default for GameConfig {
             menu: MenuLook::default(),
             splash: SplashLook::default(),
             water: WaterRules::default(),
+            bases: Bases::default(),
             spawn_gap: 17.0,
             kill_depth: 8.5,
             collider_scale: 0.98,
