@@ -187,6 +187,30 @@ Add-Sprite 'trophy_online' 'gph_cupOnlineLarge' 'match\trophy_online.png' 'Onlin
 $notes.Add('- Match text (countdown numbers, WINNER!, WIZARD OUT!, FINISH!, FAILED, WAVE): the Enzo letters in two layers. Back: dilated 0.2, outline 0.25 (37,13,40), face (158,23,64) gold/bronze or (160,24,101) red. Front: white face times text_gradient_<gold|red|bronze>. Both have a shadow 0.5 below in (227,33,61). Gold = winner, red = loser, bronze = draw.')
 $notes.Add('- Spotlights: 0.5 s after the win the winner beam fades in over 1 s to alpha 151/255 (race), 130/255 (survival), 1 (puzzle), centred on the winning lane bottom, 1.5 wide and screen tall. Loser veils fade to 0.1 over 1 s. Trophy (cups): pops from scale 0.4 to 1 over 0.6 s with an elastic ease. Lose message: move in 2 s, idle 2 s, move out 1 s.')
 
+# --- Title screen tiles (MainMenu scene, 1920x1080 reference pixels) ---
+$tiles = [ordered]@{
+  local    = @('LocalMP',      'gph_mainMenuLocalMPWizards',     'gph_mainMenuLocalMPWizards_deselected',     'gph_mainMenuForegroundLocalMP_selected')
+  single   = @('SinglePlayer', 'gph_mainMenuSinglePlayerWizard', 'gph_mainMenuSinglePlayerWizard_deselected', 'gph_mainMenuForegroundSinglePlayer')
+  online   = @('OnlineMP',     'gph_mainMenuOnlineMP',           'gph_mainMenuOnlineMP_deselected',           'gph_mainMenuForegroundOnlineMP_selected')
+  shop     = @('DLC',          'gph_mainMenuDLC',                'gph_mainMenuDLC_deselected',                'gph_mainMenuForegroundDLC_selected')
+  help     = @('Settings',     $null,                            $null,                                       'gph_mainMenuForegroundSettings_selected')
+  settings = @('Settings',     'gph_mainMenuSettingsCogs',       'gph_mainMenuSettingsCogs',                  'gph_mainMenuForegroundSettings_selected')
+  quit     = @('Quit',         $null,                            $null,                                       'gph_mainMenuForegroundQuit_selected')
+}
+foreach ($k in $tiles.Keys) {
+  $t = $tiles[$k]
+  Add-Sprite "menu_tile_$($k)_deselected" "gph_mainMenuBackground$($t[0])_deselected" "menu\tile_$($k)_deselected.png" "Title tile $k, grey background"
+  Add-Sprite "menu_tile_$($k)_selected"   "gph_mainMenuBackground$($t[0])_selected"   "menu\tile_$($k)_selected.png"   "Title tile $k, coloured background"
+  if ($t[1]) { Add-Sprite "menu_tile_$($k)_front"            $t[1] "menu\tile_$($k)_front.png"            "Title tile $k, art over the picked tile (wizards / cogs)" }
+  if ($t[2]) { Add-Sprite "menu_tile_$($k)_front_deselected" $t[2] "menu\tile_$($k)_front_deselected.png" "Title tile $k, grey art over the tile when not picked" }
+  if ($t[3]) { Add-Sprite "menu_tile_$($k)_overlay"          $t[3] "menu\tile_$($k)_overlay.png"          "Title tile $k, frame drawn on top when picked" }
+}
+Add-Sprite 'menu_tile_header'  'gph_mainMenuItemHeader'      'menu\tile_header.png'  'Label bar on top of a picked tile'
+Add-Sprite 'menu_corner_large' 'gph_menuSelectedCornerLarge' 'menu\corner_large.png' 'Frame corner, big tiles (69x68), drawn top-left and flipped for the others'
+Add-Sprite 'menu_corner_small' 'gph_menuSelectedCornerSmall' 'menu\corner_small.png' 'Frame corner, small tiles (38x34)'
+foreach ($i in 1..5) { Add-Sprite "menu_sunrays_$i" "gph_mainMenuSun0$i" "menu\sunrays_$i.png" "Sun-ray layer $i behind a picked tile (556x556)" }
+$notes.Add('- Title tiles (1920x1080, centres from screen centre, y up): local (-249, 225.5) 437x335; single (-246, -155.5) 435x335; online (278, 232.5) 441x335; shop (277, -62.5) 450x165; help (146, -250) 197x150; settings (396, -251) 197x150; quit (0, -406) 436x68. Front art offsets from the tile centre: local (-5, -25) 538x272, single (17, -42) 488x235, online (-21, -19) 467x283, shop (-20, -9) 483x128, settings cogs (0, 0) 181x134. Picked tile: rays 1 turn 0->180 deg and rays 2 turn 0->-90 deg every 2 s (looping); the 4 corners pulse outward and back every 1 s.')
+
 # --- Endless Race: pacer line and the Endless versions of the Race backdrop ---
 Add-Sprite 'pacer_line'  'gph_pacerRaceEndless'        'fx\pacer_line.png'  'Endless Race pacer line tile (1x2 units, 77 tiles side by side 1 unit apart); the line is its top edge' @(0.5, 1.0)
 Add-Sprite 'pacer_layer' 'gph_endless_race_pace_layer' 'fx\pacer_layer.png' 'Tint drawn under the pacer line (EndlessRacePaceLayer)'
