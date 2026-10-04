@@ -90,3 +90,31 @@ XP (only used online and in cups; local matches give none)
   2 s; losing a life 255 / 0 for 0.5 s; another rumble of 128 / 0 for 1.5 s in the general game
   controller; a spell effect trigger 255 / 255 for 1.5 s; a held spell effect 128 / 128 while it
   lasts; the start screen press 255 / 0 for 0.3 s. The 2.5 s blast shake has no pad rumble.
+
+## Cups (read from the PC install, 2026-10-05)
+- **Picking:** on Select Mode, the third column picks Single match or a cup (see video-notes.md).
+  Local cups: **Tiny**, **Big**, **Super** (Online has its own).
+- **Length:** a cup isn't a fixed number of matches. It's first to a points target: Tiny 6,
+  Big 12, Super 18 (Online 9).
+- **Points per match:** 4 − place: 1st gets 3, 2nd 2, 3rd 1, 4th 0. These are the "medals" the
+  standings show.
+- **Winning:** after each match, if exactly one player has the most points and has reached the
+  target, they win the cup. If two or more are tied on the most points at or above the target,
+  it's **overtime**: matches go on until one of them leads alone.
+- **Modes:** each match's mode is drawn at random (from the cup's seed) from the modes allowed
+  by the picks. When mode and difficulty are both "Random" (ANY), every mode is in the pool; the
+  mode just played is taken out before the draw where the pool allows.
+- **Between matches:** the results popup shows each player's row of medals against the target,
+  with the cup's decoration (`gph_cupTinyMedium` etc. in the header), and a confirm button that
+  pops in (0.15 s). The current score can also be shown as a popup during a match (fades
+  0.1 s).
+- **Cup winner:** a winner popup with the winner's name, their counts of 1st / 2nd / 3rd / 4th
+  places, the cup's trophy flying in with the trophy sound, two turning sunray layers behind it
+  (`gph_castEffectSunrays`, pale blue-white at 24%), and fireworks every 0.3–0.6 s. It closes
+  by itself after 12 s (3 s fade).
+  - Tiny: `gph_cupTinyLarge` 111×132 (17 px low) on 200×200 sunrays.
+  - Big: `gph_cupBigLarge` 203×203 on 300×300 sunrays.
+  - Super: `gph_cupSuperLarge` 307×247 on 350×350 sunrays.
+  (Already staged as `trophy`, `trophy_big`, `trophy_super`.)
+- **XP:** only online, non-friends cups give XP (the level-up popup after the winner popup).
+  Local cups give none.
