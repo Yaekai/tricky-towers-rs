@@ -114,7 +114,8 @@ pub(crate) fn update_spell_lines(
             state.line_wait = magic.wait(game.players);
             continue;
         };
-        if game.mode == ModeKind::Race {
+        // Endless Race hands out spells like a race (?).
+        if game.mode.look() == ModeKind::Race {
             let above = line - height;
             if above > magic.line_rush_beyond || state.line_wait <= 0.0 {
                 let speed = magic.line_slide_speed
@@ -138,7 +139,7 @@ pub(crate) fn update_spell_lines(
         let Some(rule) = magic
             .award_rules
             .iter()
-            .find(|r| rule_holds(r, game.mode, hurt, finish_gap, behind))
+            .find(|r| rule_holds(r, game.mode.look(), hurt, finish_gap, behind))
         else {
             continue;
         };

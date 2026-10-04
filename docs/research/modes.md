@@ -43,4 +43,6 @@ Plain-language notes from Max's installed copy. Units are brick cells.
 - Endless Race: a pacer line chases your tower, starting at 0.2 cells/s and speeding up each
   10-cell stage up to 1.5 cells/s. It pauses 2 s and drops back 2 cells at each stage. You lose
   when it reaches your tower top.
+  - In our build the speed step per stage (0.1), the start (4 cells under the base top), and
+    spell lines working as in Race are guesses until read from the original.
 - Our AI opponents are an extra beyond the original, not its main mode.

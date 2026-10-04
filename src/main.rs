@@ -21,6 +21,7 @@ fn main() {
             "race" => Some(ModeKind::Race),
             "survival" => Some(ModeKind::Survival),
             "puzzle" => Some(ModeKind::Puzzle),
+            "endless" => Some(ModeKind::Endless),
             _ => None,
         });
     let path = args

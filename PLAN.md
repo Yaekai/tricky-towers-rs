@@ -38,8 +38,9 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
 2. **Opponents, spells, puzzle, menu** (done).
 3. **Match the original's rules** (mostly done, notes in `docs/research/`): controls, physics,
    spell awards and all 17 spells, Survival grace and countdown, Puzzle lasers, floors and
-   scoring, difficulty levels, Survival Pro curse waves, cursed-brick respawn. Still to do:
-   Endless Race (the chasing line), Race Pro wind (strength 3 to 4, details to read from the
+   scoring, difficulty levels, Survival Pro curse waves, cursed-brick respawn, Endless Race (the
+   chasing line; the speed step per stage, where it starts and whether it hands out spells are
+   still guesses). Still to do: Race Pro wind (strength 3 to 4, details to read from the
    original), exact curse-wave levels (the per-level curses are a guess, marked `(?)` in
    `config.rs`), the wider Puzzle lane.
 4. **Local multiplayer** (done): up to 4 players, keyboard and gamepads.

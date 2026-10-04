@@ -36,6 +36,9 @@ Values below come from reading Max's own copy of the original; the notes are in 
   "Magic Waves" that curse everyone every 12 to 18 s.
 - Puzzle: a shared random laser each round, a floor per difficulty (flat-ish, gappy, or a pillar
   with ledges), dropped bricks lowering the laser, most bricks wins.
+- Endless Race: a line rises from below and chases your tower top, speeding up from 0.2 to 1.5
+  cells/s, pausing 2 s and dropping back 2 cells every 10 cells. Your best height is the score.
+  (`--play endless`; the speed step per stage is a guess until it's read from the original.)
 - Cursed and Mystery bricks that are lost come back where they fell, up to 3 times.
 - Spells as the original awards them: each tower has a spell line, and reaching it gives a pair,
   one light spell and one dark curse; casting either throws the other away. Rubber-banding rules
@@ -56,7 +59,7 @@ Values below come from reading Max's own copy of the original; the notes are in 
   `assets/config/game.ron`.
 
 ## What's missing
-See `PLAN.md`. In short: Endless Race and Trials, Race Pro wind, spell effect animations (Large
+See `PLAN.md`. In short: Trials, Race Pro wind, spell effect animations (Large
 grow, Auto Rotate wind-up, rising balloon, vines growing), countdown and results screens, and the
 title menu in the original's layout.
 

@@ -317,6 +317,13 @@ pub struct TowerState {
     /// A curse wave's effect on every new brick, and seconds it still lasts.
     pub wave_mod: Option<BrickMod>,
     pub wave_left: f32,
+    /// Endless Race: the pacer line's height in cells, stages it has climbed, and
+    /// seconds it still waits after the last stage.
+    pub pacer: f32,
+    pub pacer_stages: u32,
+    pub pacer_pause: f32,
+    /// The tallest this tower has been, in cells (Endless Race's score).
+    pub best_height: f32,
     pub rng: u64,
 }
 
@@ -351,6 +358,10 @@ impl TowerState {
             respawn: None,
             wave_mod: None,
             wave_left: 0.0,
+            pacer: config.endless.start_height,
+            pacer_stages: 0,
+            pacer_pause: 0.0,
+            best_height: 0.0,
             mystery_bag: Vec::new(),
             rng: seed.max(1),
         }
@@ -760,7 +771,7 @@ fn spawn_next_brick(
         let limit = match game.mode {
             ModeKind::Puzzle => Some(config.puzzle.bricks),
             ModeKind::Survival => Some(config.survival.bricks_to_place),
-            ModeKind::Race => None,
+            ModeKind::Race | ModeKind::Endless => None,
         };
         if limit.is_some_and(|n| state.bricks_used() >= n) {
             continue;
@@ -1240,6 +1251,22 @@ fn track_towers(
     }
 }
 
+/// Moves Endless Race's pacer line up. Each time it climbs a stage it speeds up,
+/// pauses and drops back a little.
+pub fn advance_pacer(rules: &crate::config::EndlessRules, state: &mut TowerState, dt: f32) {
+    if state.pacer_pause > 0.0 {
+        state.pacer_pause -= dt;
+        return;
+    }
+    state.pacer += rules.speed(state.pacer_stages) * dt;
+    let next_stage = rules.stage_height * (state.pacer_stages + 1) as f32;
+    if rules.stage_height > 0.0 && state.pacer >= next_stage {
+        state.pacer_stages += 1;
+        state.pacer = next_stage - rules.stage_drop;
+        state.pacer_pause = rules.stage_pause;
+    }
+}
+
 fn judge_match(
     time: Res<Time>,
     config: Res<GameConfig>,
@@ -1281,6 +1308,13 @@ fn judge_match(
                     if state.settle_timer >= config.survival.finish_countdown {
                         state.status = TowerStatus::Won;
                     }
+                }
+            }
+            ModeKind::Endless => {
+                state.best_height = state.best_height.max(state.height);
+                advance_pacer(&config.endless, &mut state, dt);
+                if state.pacer >= state.height {
+                    state.status = TowerStatus::Out;
                 }
             }
             ModeKind::Puzzle => {

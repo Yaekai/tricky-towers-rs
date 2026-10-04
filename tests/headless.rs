@@ -943,3 +943,39 @@ fn survival_pro_waves_curse_new_bricks() {
     });
     assert!(cursed, "no curse wave arrived");
 }
+
+#[test]
+fn endless_pacer_speeds_up_pauses_and_drops_back_each_stage() {
+    use tricky_towers::config::EndlessRules;
+    use tricky_towers::gameplay::advance_pacer;
+    let rules = EndlessRules {
+        start_height: 0.0,
+        ..default()
+    };
+    let mut state = TowerState::new(&GameConfig::default(), 1);
+    state.pacer = 9.9;
+    advance_pacer(&rules, &mut state, 1.0);
+    assert_eq!(state.pacer_stages, 1);
+    assert!((state.pacer - 8.0).abs() < 1e-4, "dropped back 2: {}", state.pacer);
+    // Waits 2 s, then climbs faster than at the start.
+    advance_pacer(&rules, &mut state, 1.0);
+    advance_pacer(&rules, &mut state, 1.0);
+    assert!((state.pacer - 8.0).abs() < 1e-4, "moved while paused");
+    state.pacer_pause = 0.0;
+    advance_pacer(&rules, &mut state, 1.0);
+    assert!(state.pacer - 8.0 > rules.start_speed, "{}", state.pacer);
+    assert_eq!(rules.speed(100), rules.max_speed);
+}
+
+#[test]
+fn endless_race_ends_when_the_line_catches_the_tower() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Endless;
+    config.endless.start_height = -0.5;
+    config.endless.start_speed = 2.0;
+    let mut app = headless_app(config);
+    // An empty base is caught within a second.
+    run_seconds(&mut app, 1.0, |_| {});
+    assert_eq!(tower(&mut app, 0).status, TowerStatus::Out);
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Over);
+}

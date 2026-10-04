@@ -90,6 +90,8 @@ pub struct GameConfig {
     pub race: RaceRules,
     pub survival: SurvivalRules,
     pub puzzle: PuzzleRules,
+    #[serde(default)]
+    pub endless: EndlessRules,
     pub magic: MagicRules,
     pub ai: AiRules,
     #[serde(default)]
@@ -106,16 +108,32 @@ pub enum ModeKind {
     Survival,
     /// Place a fixed set of bricks without crossing a laser line.
     Puzzle,
+    /// Build as high as you can before a rising line catches the top of your tower.
+    Endless,
 }
 
 impl ModeKind {
-    pub const ALL: [ModeKind; 3] = [ModeKind::Race, ModeKind::Survival, ModeKind::Puzzle];
+    pub const ALL: [ModeKind; 4] = [
+        ModeKind::Race,
+        ModeKind::Survival,
+        ModeKind::Puzzle,
+        ModeKind::Endless,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
             ModeKind::Race => "Race",
             ModeKind::Survival => "Survival",
             ModeKind::Puzzle => "Puzzle",
+            ModeKind::Endless => "Endless Race",
+        }
+    }
+
+    /// The mode whose art and music this one uses: Endless Race is dressed as a race.
+    pub fn look(self) -> ModeKind {
+        match self {
+            ModeKind::Endless => ModeKind::Race,
+            mode => mode,
         }
     }
 }
@@ -151,6 +169,51 @@ impl Default for RaceRules {
             same_bricks: false,
             dark_magic: true,
         }
+    }
+}
+
+/// Endless Race: a pacer line rises from below and chases the top of the tower.
+/// It speeds up at every stage it climbs, then pauses and drops back a little.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct EndlessRules {
+    /// Where the pacer starts, in cells from the platform top (?).
+    pub start_height: f32,
+    /// Pacer speed at the start and its ceiling, in cells/s.
+    pub start_speed: f32,
+    pub max_speed: f32,
+    /// Speed added at each stage (?). The original goes from 0.2 to 1.5; the steps between
+    /// are not read yet.
+    pub speed_step: f32,
+    /// Height of one stage, in cells.
+    pub stage_height: f32,
+    /// At each stage the pacer stops for this many seconds...
+    pub stage_pause: f32,
+    /// ...and drops back this many cells.
+    pub stage_drop: f32,
+    /// Base drop speed, in cells/s (?).
+    pub drop_speed: f32,
+}
+
+impl Default for EndlessRules {
+    fn default() -> Self {
+        Self {
+            start_height: -4.0,
+            start_speed: 0.2,
+            max_speed: 1.5,
+            speed_step: 0.1,
+            stage_height: 10.0,
+            stage_pause: 2.0,
+            stage_drop: 2.0,
+            drop_speed: 3.0,
+        }
+    }
+}
+
+impl EndlessRules {
+    /// Pacer speed after `stages` stages, in cells/s.
+    pub fn speed(&self, stages: u32) -> f32 {
+        (self.start_speed + self.speed_step * stages as f32).min(self.max_speed)
     }
 }
 
@@ -1025,6 +1088,7 @@ impl Default for GameConfig {
             race: RaceRules::default(),
             survival: SurvivalRules::default(),
             puzzle: PuzzleRules::default(),
+            endless: EndlessRules::default(),
             magic: MagicRules::default(),
             ai: AiRules::default(),
             wizards: WizardLook::default(),
@@ -1065,7 +1129,7 @@ impl GameConfig {
         match mode {
             ModeKind::Race => self.race.dark_magic,
             ModeKind::Survival => self.survival.dark_magic,
-            ModeKind::Puzzle => false,
+            ModeKind::Puzzle | ModeKind::Endless => false,
         }
     }
 
@@ -1074,7 +1138,7 @@ impl GameConfig {
         match mode {
             ModeKind::Race => self.race.same_bricks,
             ModeKind::Survival => self.survival.same_bricks,
-            ModeKind::Puzzle => true,
+            ModeKind::Puzzle | ModeKind::Endless => true,
         }
     }
 
@@ -1084,6 +1148,7 @@ impl GameConfig {
             ModeKind::Race => self.race.drop_speed,
             ModeKind::Survival => self.survival.drop_speed,
             ModeKind::Puzzle => self.puzzle.drop_speed,
+            ModeKind::Endless => self.endless.drop_speed,
         }
     }
 

@@ -203,6 +203,7 @@ fn show_menu(
                     config.survival.bricks_to_place, config.survival.lives
                 ),
                 ModeKind::Puzzle => format!("fit {} bricks under the laser", config.puzzle.bricks),
+                ModeKind::Endless => "stay above the rising line".into(),
             };
             if m == config.mode {
                 format!("> {}  ({detail}) <", m.name())

@@ -402,14 +402,19 @@ struct LaneLayer {
     parallax: f32,
 }
 
+/// The name a mode's art goes by in the manifest. Endless Race is dressed as a race.
+fn mode_key(mode: ModeKind) -> &'static str {
+    match mode.look() {
+        ModeKind::Survival => "survival",
+        ModeKind::Puzzle => "puzzle",
+        _ => "race",
+    }
+}
+
 /// Background layer names for this mode, back to front: `background_<mode>_N`
 /// when staged for the mode, else `background_N`.
 fn background_names(art: &Art, mode: ModeKind) -> Vec<String> {
-    let mode = match mode {
-        ModeKind::Race => "race",
-        ModeKind::Survival => "survival",
-        ModeKind::Puzzle => "puzzle",
-    };
+    let mode = mode_key(mode);
     let layers = |prefix: &str| {
         let mut found: Vec<(f32, u32, String)> = art
             .entries
@@ -518,11 +523,7 @@ fn spawn_backgrounds(
     for entity in &existing {
         commands.entity(entity).despawn();
     }
-    let mode_name = match game.mode {
-        ModeKind::Race => "race",
-        ModeKind::Survival => "survival",
-        ModeKind::Puzzle => "puzzle",
-    };
+    let mode_name = mode_key(game.mode);
     // A mode's own sky and water band win over the shared ones.
     let for_mode = |name: &str| {
         art.entries
@@ -734,11 +735,8 @@ fn dress_platforms(
     platforms: Query<(Entity, &Platform), Added<Platform>>,
 ) {
     let c = config.cell_size;
-    let art_name = match game.mode {
-        ModeKind::Race => "platform_race",
-        ModeKind::Survival => "platform_survival",
-        ModeKind::Puzzle => "platform_puzzle",
-    };
+    let art_name = format!("platform_{}", mode_key(game.mode));
+    let art_name = art_name.as_str();
     for (entity, platform) in &platforms {
         let mut base = commands.entity(entity);
         // In Puzzle the floor blocks stand in for the base.
@@ -775,6 +773,12 @@ fn dress_platforms(
                     config.puzzle.line_height,
                     "laser",
                     Color::srgba(1.0, 0.2, 0.2, 0.8),
+                )),
+                // The pacer starts below the base and rises from there.
+                ModeKind::Endless => Some((
+                    config.endless.start_height,
+                    "pacer_line",
+                    Color::srgba(1.0, 0.55, 0.1, 0.85),
                 )),
                 ModeKind::Survival => None,
             };
@@ -1101,11 +1105,8 @@ fn place_panels(
         return;
     };
     // How far the base's art reaches below its top surface, in cells.
-    let platform = match game.mode {
-        ModeKind::Race => "platform_race",
-        ModeKind::Survival => "platform_survival",
-        ModeKind::Puzzle => "platform_puzzle",
-    };
+    let platform = format!("platform_{}", mode_key(game.mode));
+    let platform = platform.as_str();
     let depth = art
         .entries
         .get(platform)
@@ -1308,6 +1309,10 @@ fn update_hud(
             config.puzzle.bricks,
             you.laser(&config)
         ),
+        ModeKind::Endless => format!(
+            "ENDLESS  height {:.1}  best {:.1}  line {:.1}",
+            you.height, you.best_height, you.pacer
+        ),
     };
     let spell = if config.magic.enabled {
         you.spell_line
@@ -1355,6 +1360,10 @@ fn update_hud(
             ),
             None => match game.mode {
                 ModeKind::Puzzle => "PUZZLE FAILED. Press R to try again".into(),
+                ModeKind::Endless => format!(
+                    "CAUGHT at {:.1} bricks high. Press R to try again",
+                    you.best_height
+                ),
                 _ => "OUT OF LIVES. Press R to try again".into(),
             },
         });
@@ -1376,6 +1385,9 @@ fn update_lines(
             ModeKind::Puzzle => towers
                 .get(line.tower)
                 .map_or(config.puzzle.line_height, |s| s.laser(&config)),
+            ModeKind::Endless => towers
+                .get(line.tower)
+                .map_or(config.endless.start_height, |s| s.pacer),
             _ => game.finish_height,
         };
         transform.translation.y = config.cells(height) + c * 0.5;

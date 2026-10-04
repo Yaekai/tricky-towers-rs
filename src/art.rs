@@ -510,11 +510,12 @@ fn play_music(
     game: Res<Match>,
     playing: Query<(Entity, &Music)>,
 ) {
-    let want = match (game.phase, game.mode) {
+    let want = match (game.phase, game.mode.look()) {
         (Phase::Menu, _) => "music_menu",
         (_, ModeKind::Race) => "music_race",
         (_, ModeKind::Survival) => "music_survival",
         (_, ModeKind::Puzzle) => "music_puzzle",
+        (_, ModeKind::Endless) => unreachable!("Endless Race looks like a race"),
     };
     if playing.iter().any(|(_, m)| m.0 == want) {
         return;

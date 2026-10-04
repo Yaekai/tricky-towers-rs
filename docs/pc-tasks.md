@@ -48,3 +48,6 @@ and nothing gets installed without Max's own go-ahead.
   wave levels (which curses, how many at once, how long) and Race Pro wind, for the notes.
 - Send the remaining inventory groups: Puzzle floor art (the 3 piece types and how they are
   laid out), spell effects, match moments, menus and results.
+- Endless Race is in (`--play endless`). Screenshot it, stage the original's pacer line art as
+  `pacer_line` (and any Endless-only background), and read from the original: the pacer's speed
+  at each stage, where it starts, and whether Endless has spell lines and lives.

@@ -123,6 +123,16 @@
         normal_floor: (6, 40, 4),
         pro_floor: (3, 70),
     ),
+    endless: (
+        start_height: -4.0,
+        start_speed: 0.2,
+        max_speed: 1.5,
+        speed_step: 0.1,
+        stage_height: 10.0,
+        stage_pause: 2.0,
+        stage_drop: 2.0,
+        drop_speed: 3.0,
+    ),
     magic: (
         enabled: true,
         line_spacing: 9.0,
