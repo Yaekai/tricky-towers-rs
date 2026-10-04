@@ -218,7 +218,9 @@ const COLUMN_X: [f32; 2] = [-270.0, 270.0];
 const FRAME: (f32, f32) = (513.0, 445.0);
 const FRAME_X: f32 = -5.5;
 const COLUMN_ARROW: (f32, f32) = (94.0, 55.0);
-const ARROW_GAP: f32 = 130.0;
+/// The arrows sit this far inside the top and bottom of the column's 480×800 panel.
+const COLUMN_PANEL_HEIGHT: f32 = 800.0;
+const ARROW_INSET: f32 = 130.0;
 const DIFFICULTY_BACK: ((f32, f32), (f32, f32)) = ((-5.0, 0.0), (461.0, 393.0));
 const CORNER_LARGE: (f32, f32) = (69.0, 68.0);
 const CORNER_SMALL: (f32, f32) = (38.0, 34.0);
@@ -299,6 +301,12 @@ pub(crate) enum Part {
     SeatWizard(usize),
     /// A seat's name plate text.
     SeatName(usize),
+    /// "To join" over an empty seat's panel.
+    SeatJoin(usize),
+    /// The box holding the join text; the letter copy hides with its parent.
+    SeatJoinBox(usize),
+    /// The corners on the panel a seated player is choosing on.
+    SeatFocus(usize),
     /// A column's tile picture (mode or difficulty), and the difficulty background.
     ColumnPicture(usize),
     DifficultyBack,
@@ -410,6 +418,10 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
                 ));
             }
             page.spawn((ImageNode::default(), place(wizard[0].1, at), Part::SeatWizard(seat)));
+            // "To join" fills the empty panel.
+            page.spawn((place(SEAT_PANEL, at), Visibility::Hidden, Part::SeatJoinBox(seat))).with_children(|p| {
+                p.spawn((label(3.6, ""), Part::SeatJoin(seat)));
+            });
             if let Some(arrow) = image("menu_arrow_small") {
                 for flip_x in [true, false] {
                     let side = if flip_x { -1.0 } else { 1.0 };
@@ -433,8 +445,9 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
                 pack.insert((sliced(grey, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
             }
             if let Some(corner) = image("menu_corner_small") {
-                corners(page, &corner, SEAT_PANEL, at, CORNER_SMALL, Part::SeatTaken(seat));
-                corners(page, &corner, PACK_PANEL.0, (x, PACK_PANEL.1), CORNER_SMALL, Part::SeatTaken(seat));
+                // Only the panel a player is choosing on has corners: the
+                // character panel (brick packs can't be picked yet).
+                corners(page, &corner, SEAT_PANEL, at, CORNER_SMALL, Part::SeatFocus(seat));
             }
             let mut plate = page.spawn((
                 place(NAME_PLATE.0, (x, NAME_PLATE.1)),
@@ -477,7 +490,7 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
                     n.spawn((label(4.0, ""), Part::ColumnName(column)));
                 });
             for up in [true, false] {
-                let y = (FRAME.1 / 2.0 + ARROW_GAP) * if up { 1.0 } else { -1.0 };
+                let y = (COLUMN_PANEL_HEIGHT / 2.0 - ARROW_INSET) * if up { 1.0 } else { -1.0 };
                 page.spawn((
                     ImageNode {
                         flip_y: !up,
@@ -488,11 +501,13 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
                 ));
             }
         }
-        // The frame around the active column's tile, with its corners inside.
+        // The frame around the active column's tile: the four large corners, or
+        // a thin outline when they aren't staged.
         let corner = image("menu_corner_large");
+        let outline = if corner.is_some() { 0.0 } else { 0.4 };
         page.spawn((
             Node {
-                border: UiRect::all(Val::Vh(0.4)),
+                border: UiRect::all(Val::Vh(outline)),
                 ..place(FRAME, (COLUMN_X[0] + FRAME_X, 0.0))
             },
             BorderColor::all(Color::srgba(1.0, 0.9, 0.5, 0.9)),
@@ -822,13 +837,6 @@ pub(crate) fn show_select_screens(
                 let name = match lobby.seats[seat] {
                     Seat::Keyboard | Seat::Pad(_) => format!("Player {}", player_number(seat)),
                     Seat::Ai => "AI Wizard".into(),
-                    Seat::Empty if Some(seat) == first_empty => {
-                        if lobby.seats.contains(&Seat::Keyboard) {
-                            "[A]\nTo join".into()
-                        } else {
-                            "[Enter]\nTo join".into()
-                        }
-                    }
                     Seat::Empty => String::new(),
                 };
                 if let Some(mut text) = text
@@ -838,6 +846,21 @@ pub(crate) fn show_select_screens(
                 }
                 true
             }
+            Part::SeatJoin(_) => {
+                let join = if lobby.seats.contains(&Seat::Keyboard) {
+                    "[A]\nTo join"
+                } else {
+                    "[Enter]\nTo join"
+                };
+                if let Some(mut text) = text
+                    && text.0 != join
+                {
+                    text.0 = join.into();
+                }
+                true
+            }
+            Part::SeatJoinBox(seat) => Some(seat) == first_empty,
+            Part::SeatFocus(seat) => lobby.seats[seat].human(),
             Part::ColumnPicture(column) => {
                 let (name, offset, size, fallback) = if column == 0 {
                     let (n, o, s) = mode.picture();
