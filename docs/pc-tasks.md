@@ -132,3 +132,8 @@ and nothing gets installed without Max's own go-ahead.
   race win (`--shots 14,20` with a quick finish) and of `--menu pause`, and say what differs:
   the pause panel's size and the pause row pitch are guesses, and so is the popup header (70
   px, left empty). The top-left debug text is gone unless F3 is pressed.
+- Base shapes (Max found them while playing): the bases aren't flat. Some have 1-cell notches that line
+  up with the art, and the castle one has 2-cell holes. Ours is a flat `platform_width` box. Read every
+  base's collider from the original (each mode and difficulty, and which base each uses): its cells or
+  polygon points in cell units, measured from the base centre and top. Write them in
+  docs/research/modes.md under "Base shapes", and say which picture goes with each shape.
