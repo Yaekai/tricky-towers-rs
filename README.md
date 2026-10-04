@@ -11,8 +11,9 @@ cargo run -- --play survival --difficulty pro   # skip the menu
 cargo run -- --play race --offscreen shots --shots 5,20   # no window or sound; saves pictures
 cargo test                         # config + headless gameplay tests
 ```
-Controls: arrows or A/D to move, Shift + Left/Right to nudge, Up/W/Space to rotate clockwise and
-Z anticlockwise, Down/S to drop faster, Q to cast your light spell and E your dark one, R to
+Controls (the original's defaults, from the fan wiki): Left/Right to move, U/I to nudge, Up to
+rotate clockwise and Space anticlockwise, Down to drop faster, J to cast your light spell and K
+your dark one, R to
 restart, Esc to pause (Resume, Retry, Quit), F3 for a debug readout (height, spells, result).
 
 Menus follow the original: "Press Enter to start" under the logo, then the title tiles, where the arrows and Enter pick. Local Battle opens

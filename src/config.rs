@@ -110,6 +110,9 @@ pub struct GameConfig {
     pub endless_play: EndlessPlay,
     /// The Trials, in order (samples until the original's are read).
     pub trials: Vec<TrialDef>,
+    /// The trial tiers: each holds `TrialTiers::size` trials in order and opens at a
+    /// medal count.
+    pub trial_tiers: TrialTiers,
     /// The trial being played, as an index into `trials`; set by the Trials screen
     /// and cleared by the other menus. Not saved.
     #[serde(skip)]
@@ -348,8 +351,9 @@ pub struct EndlessPlay {
     pub survival_score_per_brick: u32,
     /// Endless Survival hands out light spells like Survival does (?).
     pub survival_spells: bool,
-    /// Endless Puzzle: the laser starts at Puzzle's height and rises this many cells
-    /// every `laser_every` bricks placed (?).
+    /// Endless Puzzle: bricks come in groups of `laser_every`; the laser starts at
+    /// Puzzle's height and rises `laser_rise` cells once every brick of a group is
+    /// placed (fan wiki; the group size and rise are guesses, ?).
     pub laser_rise: f32,
     pub laser_every: u32,
     /// Endless Puzzle: score per brick placed (?).
@@ -365,7 +369,7 @@ impl Default for EndlessPlay {
             survival_score_per_brick: 10,
             survival_spells: true,
             laser_rise: 1.0,
-            laser_every: 3,
+            laser_every: 10,
             puzzle_score_per_brick: 10,
             puzzle_drop_ends_run: true,
         }
@@ -594,6 +598,53 @@ impl Default for TrialDef {
             start_spell: None,
             enemy: Vec::new(),
         }
+    }
+}
+
+/// The original's trial tiers (fan wiki, docs/research/wiki-notes.md): 50 trials in 5
+/// tiers of 10, each opening at a number of medals. One medal per trial beaten is a
+/// guess (?) until the medal rules are read.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct TrialTiers {
+    /// Trials per tier.
+    pub size: usize,
+    /// Each tier's name and the medals it needs to open, easiest first.
+    pub tiers: Vec<(String, u32)>,
+    /// Medals for beating a trial (?).
+    pub medals_per_trial: u32,
+}
+
+impl Default for TrialTiers {
+    fn default() -> Self {
+        Self {
+            size: 10,
+            tiers: [
+                ("Rookie", 0),
+                ("Apprentice", 8),
+                ("Pro", 17),
+                ("Expert", 26),
+                ("Master", 36),
+            ]
+            .map(|(name, medals)| (name.to_string(), medals))
+            .to_vec(),
+            medals_per_trial: 1,
+        }
+    }
+}
+
+impl TrialTiers {
+    /// The tier trial `index` (0 for the first) belongs to; past the last tier,
+    /// the last one.
+    pub fn tier_of(&self, index: usize) -> usize {
+        (index / self.size.max(1)).min(self.tiers.len().saturating_sub(1))
+    }
+
+    /// Whether trial `index` is open with `medals` medals.
+    pub fn is_open(&self, index: usize, medals: u32) -> bool {
+        self.tiers
+            .get(self.tier_of(index))
+            .is_none_or(|(_, need)| medals >= *need)
     }
 }
 
@@ -2022,6 +2073,7 @@ impl Default for GameConfig {
             endless: EndlessRules::default(),
             endless_play: EndlessPlay::default(),
             trials: sample_trials(),
+            trial_tiers: TrialTiers::default(),
             trial: None,
             magic: MagicRules::default(),
             ai: AiRules::default(),
@@ -2184,6 +2236,19 @@ mod tests {
             text,
         )
         .unwrap();
+    }
+
+    #[test]
+    fn trial_tiers_open_with_medals() {
+        let tiers = TrialTiers::default();
+        assert_eq!(
+            (tiers.tier_of(0), tiers.tier_of(9), tiers.tier_of(10)),
+            (0, 0, 1)
+        );
+        assert_eq!(tiers.tier_of(49), 4);
+        assert!(tiers.is_open(9, 0), "Rookie is open from the start");
+        assert!(!tiers.is_open(10, 7) && tiers.is_open(10, 8));
+        assert!(!tiers.is_open(40, 35) && tiers.is_open(40, 36));
     }
 
     #[test]

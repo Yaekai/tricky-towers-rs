@@ -280,7 +280,7 @@
         survival_score_per_brick: 10,
         survival_spells: true,
         laser_rise: 1.0,
-        laser_every: 3,
+        laser_every: 10,
         puzzle_score_per_brick: 10,
         puzzle_drop_ends_run: true,
     ),
@@ -322,6 +322,17 @@
             enemy: [],
         ),
     ],
+    trial_tiers: (
+        size: 10,
+        tiers: [
+            ("Rookie", 0),
+            ("Apprentice", 8),
+            ("Pro", 17),
+            ("Expert", 26),
+            ("Master", 36),
+        ],
+        medals_per_trial: 1,
+    ),
     magic: (
         enabled: true,
         line_spacing: 9.0,

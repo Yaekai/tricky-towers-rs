@@ -640,22 +640,13 @@ fn play_sounds(
         heard.countdown = countdown;
         let steering = you.active.is_some_and(|e| active.contains(e));
         if let Some(keys) = keys.filter(|_| steering) {
-            let shift = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-            let sideways = keys.any_just_pressed([
-                KeyCode::ArrowLeft,
-                KeyCode::ArrowRight,
-                KeyCode::KeyA,
-                KeyCode::KeyD,
-            ]);
-            if sideways {
-                play(if shift { "sfx_nudge" } else { "sfx_move" });
+            use crate::input::{LEFT, NUDGE_LEFT, NUDGE_RIGHT, RIGHT, ROTATE, ROTATE_CCW};
+            if keys.any_just_pressed(NUDGE_LEFT) || keys.any_just_pressed(NUDGE_RIGHT) {
+                play("sfx_nudge");
+            } else if keys.any_just_pressed(LEFT) || keys.any_just_pressed(RIGHT) {
+                play("sfx_move");
             }
-            if keys.any_just_pressed([
-                KeyCode::ArrowUp,
-                KeyCode::KeyW,
-                KeyCode::Space,
-                KeyCode::KeyZ,
-            ]) {
+            if keys.any_just_pressed(ROTATE) || keys.any_just_pressed(ROTATE_CCW) {
                 play("sfx_rotate");
             }
         }

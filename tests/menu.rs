@@ -321,10 +321,10 @@ fn settings_change_with_left_and_right_and_escape_goes_back() {
     tap(&mut app, KeyCode::ArrowLeft);
     let after = app.world().resource::<Settings>().music;
     assert!((after - (music - 0.1)).abs() < 1e-4, "{music} -> {after}");
-    // Enter on Full screen toggles it.
+    // Enter on Full screen toggles it (on by default, like the original).
     tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
-    assert!(app.world().resource::<Settings>().fullscreen);
+    assert!(!app.world().resource::<Settings>().fullscreen);
     tap(&mut app, KeyCode::Escape);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
 }
