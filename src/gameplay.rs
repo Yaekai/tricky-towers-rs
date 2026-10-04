@@ -62,9 +62,6 @@ pub struct Brick {
 pub struct ActiveBrick {
     repeat_timer: f32,
     repeating: bool,
-    /// Where the brick would touch down if dropped straight from here, in
-    /// world units, or `None` if nothing is underneath it. Drives the drop guide.
-    pub landing: Option<Vec2>,
 }
 
 #[derive(Component)]
@@ -177,14 +174,11 @@ fn setup_world(mut commands: Commands, config: Res<GameConfig>) {
     commands.insert_resource(Gravity(Vec2::NEG_Y * config.gravity * c));
 
     let shrink = config.collider_scale;
-    let radius = c * config.corner_radius;
     let build = |cells: &[Vec2], scale: f32| {
-        // Rounding grows a rectangle outwards, so shrink the core to keep the size.
-        let core = c * scale - 2.0 * radius;
         Collider::compound(
             cells
                 .iter()
-                .map(|&p| (p * c, Rotation::IDENTITY, Collider::round_rectangle(core, core, radius)))
+                .map(|&p| (p * c, Rotation::IDENTITY, Collider::rectangle(c * scale, c * scale)))
                 .collect(),
         )
     };
@@ -375,18 +369,6 @@ fn control_active_brick(
         None => {
             position.0.y -= distance;
             commands.entity(entity).insert((position, rotation));
-            // Look all the way down for the drop guide.
-            let reach = position.0.y + config.cells(config.kill_depth);
-            control.landing = spatial
-                .cast_shape(
-                    shape,
-                    position.0,
-                    rotation.as_radians(),
-                    Dir2::NEG_Y,
-                    &ShapeCastConfig::from_max_distance(reach.max(0.0)),
-                    &filter,
-                )
-                .map(|hit| position.0 - Vec2::Y * hit.distance);
         }
     }
 

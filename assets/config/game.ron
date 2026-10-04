@@ -12,7 +12,6 @@
     spawn_gap: 8.0,
     kill_depth: 12.0,
     collider_scale: 0.98,
-    corner_radius: 0.08,      // rounded cell corners, so bricks slide instead of snagging
     brick_friction: 0.8,
     brick_restitution: 0.0,
     brick_density: 1.0,
