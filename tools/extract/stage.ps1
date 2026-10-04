@@ -364,6 +364,28 @@ foreach ($k in $icons.Keys) { Add-Sprite "spell_icon_$k" $icons[$k] "icons\$k.pn
 Add-Sprite 'spell_slot_light' 'gph_spellBackground_white' 'icons\slot_light.png' 'Light spell slot background'
 Add-Sprite 'spell_slot_dark'  'gph_spellBackground_black' 'icons\slot_dark.png'  'Dark spell slot background'
 
+# --- Gap scan 2026-10-05: Puzzle Pro sky, sandstorm, brick particles, in-match messages ---
+Add-Sprite 'puzzle_pro_sun' 'gph_eclipsedSun' 'background\puzzle_pro_sun.png' 'Puzzle Pro: eclipsed sun, 9 units above the screen centre'
+Add-Sprite 'puzzle_pro_corona' 'gph_corona' 'background\puzzle_pro_corona.png' 'Puzzle Pro: corona ray around the eclipsed sun (several copies, stretched)'
+Add-Texture 'puzzle_sand' 'gph_pinkSand.png' 'background\puzzle_sand.png' 'Puzzle: sand strip along the bottom of the background'
+Add-Texture 'sandstorm_front_1' 'gph_sand.png' 'background\sandstorm_front_1.png' 'Puzzle: front sandstorm layer 1 (scrolling, tinted)'
+Add-Texture 'sandstorm_front_2' 'gph_sand02.png' 'background\sandstorm_front_2.png' 'Puzzle: front sandstorm layer 2'
+Add-Texture 'sandstorm_back_1' 'gph_sand03.png' 'background\sandstorm_back_1.png' 'Puzzle: back sandstorm layer 1'
+Add-Texture 'sandstorm_back_2' 'gph_sand04.png' 'background\sandstorm_back_2.png' 'Puzzle: back sandstorm layer 2'
+Add-Texture 'brick_impact_dust' 'gph_brickImpact.png' 'effects\brick_impact_dust.png' 'Dust puff where a brick hits (3 per hit)'
+Add-Texture 'gravel' 'gph_gravel.png' 'effects\gravel.png' 'Gravel bits'
+Add-Texture 'mist_puff' 'gph_gradientRadialSoft.png' 'effects\mist_puff.png' 'Soft round puff: lost-brick mist and desert dust'
+Add-Texture 'spark_star' 'gph_castEffectStar.png' 'effects\spark_star.png' 'Small star spark (spawn poof, desert sparks)'
+Add-Sprite 'lost_cross' 'anim_largeCross_65x65_0' 'hud\lost_cross.png' 'Big red cross where a brick was lost (spins and shrinks, 0.8 s)'
+foreach ($i in 1..4) { Add-Sprite "wave_cloud_$i" "gph_cloudMessage0$i" "hud\wave_cloud_$i.png" "WAVE N message: cloud piece $i" }
+Add-Texture 'confetti_1' 'anim_confetti01_32x96.png' 'effects\confetti_1.png' 'Confetti sheet 1 (32x96 frames), cup winner popup'
+Add-Texture 'confetti_2' 'anim_confetti02_32x96.png' 'effects\confetti_2.png' 'Confetti sheet 2 (32x96 frames), cup winner popup'
+Add-Texture 'finish_line_end' 'gph_finishLineEnd.png' 'fx\finish_line_end.png' 'Finish flag tile at the ends of the finish line'
+Add-Sprite 'hourglass' 'icn_time' 'hud\hourglass.png' 'Hourglass beside the time left on a Race trial finish line'
+Add-Texture 'key_background' 'gph_KBKeyBackground.png' 'hud\key_background.png' 'Keyboard key cap behind the J/K hint on the spell bubbles'
+Add-Texture 'pad_x_up' 'gph_xButton_up.png' 'hud\pad_x_up.png' 'Pad X button hint (up)'
+Add-Texture 'pad_x_down' 'gph_xButton_down.png' 'hud\pad_x_down.png' 'Pad X button hint (pressed)'
+
 # --- Brick packs (BrickPack folders; picked per player on Select Players) ---
 foreach ($pk in @(@('candy','candy'), @('christmas','christmas'), @('diamond','diamond'), @('spring','easter'), @('halloween','halloween'))) {
   foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_$($pk[0])_$s" "gph_brick$($s)_$($pk[1])_texture.png" "bricks\$($pk[0])\$s.png" "Brick $s, $($pk[0]) pack" }
