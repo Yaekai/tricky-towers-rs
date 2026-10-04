@@ -305,3 +305,26 @@ fn c_picks_a_cup_on_select_mode_and_starting_begins_it() {
     assert_eq!((cup.size, cup.played), (Some(0), 0));
     assert!(cup.in_progress());
 }
+
+#[test]
+fn settings_change_with_left_and_right_and_escape_goes_back() {
+    use tricky_towers::menu::TILES;
+    use tricky_towers::settings::Settings;
+    let mut app = app();
+    let settings_tile = TILES.iter().position(|t| t.key == "settings").unwrap();
+    app.world_mut().resource_mut::<MainMenu>().selected = settings_tile;
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Settings);
+    let music = app.world().resource::<Settings>().music;
+    // Down to Music, Left lowers it a step.
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowLeft);
+    let after = app.world().resource::<Settings>().music;
+    assert!((after - (music - 0.1)).abs() < 1e-4, "{music} -> {after}");
+    // Enter on Full screen toggles it.
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    assert!(app.world().resource::<Settings>().fullscreen);
+    tap(&mut app, KeyCode::Escape);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
+}

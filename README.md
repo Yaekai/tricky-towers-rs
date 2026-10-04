@@ -22,7 +22,8 @@ Puzzle or Random) then the difficulty (Easy, Normal, Special or Random), Up/Down
 Enter to move on. Single Player shows your seat over Trials and Endless; Endless offers Race,
 Survival and Puzzle beside the best scores (kept between runs). Esc (B) steps back. Once the
 losing towers have fallen apart after a match, "Game Completed" slides up in the bottom-right
-corner with Rematch, Select Mode and Main menu. On Select Mode, C (or the pad's Select) picks a
+corner with Rematch, Select Mode and Main menu. The Settings tile sets the volume, music volume and full screen (kept
+between runs). On Select Mode, C (or the pad's Select) picks a
 cup: a series of matches with points per place, a trophy and XP at the end (rules guessed until
 read from the original). `--menu title|players|modes|single|endless|pause`
 opens on a menu screen, for scripted pictures.
@@ -83,7 +84,7 @@ Values below come from reading Max's own copy of the original; the notes are in 
 See `PLAN.md`. In short: the original's 50 Trials (the engine and 3 sample trials are in), the
 original's exact Endless Survival and Endless Puzzle rules
 (both play today on guessed values), the Online, Shop, Help and
-Settings tiles, the remaining spell animations (Auto Rotate wind-up, stone and ice transitions),
+tiles, the remaining spell animations (Auto Rotate wind-up, stone and ice transitions),
 the decorations at a cast beam's foot (rays, rings, sparks), and the explosion art for collapsing
 towers (blasts fall back to shards).
 

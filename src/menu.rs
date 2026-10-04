@@ -19,51 +19,57 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((crate::popup::PopupPlugin, crate::cups_menu::CupsMenuPlugin))
-            .init_resource::<MenuScreen>()
-            .init_resource::<MainMenu>()
-            .init_resource::<PauseMenu>()
-            .init_resource::<Lobby>()
-            .init_resource::<SingleMenu>()
-            .init_resource::<Leaderboard>()
-            .init_resource::<crate::trials_menu::TrialsMenu>()
-            .add_systems(
-                Startup,
-                (
-                    spawn_start_screen,
-                    spawn_main_menu,
-                    spawn_select_screens,
-                    spawn_single_screens,
-                    crate::trials_menu::spawn_trials_screen,
-                    spawn_pause_menu,
-                ),
+        app.add_plugins((
+            crate::popup::PopupPlugin,
+            crate::cups_menu::CupsMenuPlugin,
+            crate::settings::SettingsPlugin,
+        ))
+        .init_resource::<MenuScreen>()
+        .init_resource::<MainMenu>()
+        .init_resource::<PauseMenu>()
+        .init_resource::<Lobby>()
+        .init_resource::<SingleMenu>()
+        .init_resource::<Leaderboard>()
+        .init_resource::<crate::trials_menu::TrialsMenu>()
+        .add_systems(
+            Startup,
+            (
+                spawn_start_screen,
+                spawn_main_menu,
+                spawn_select_screens,
+                spawn_single_screens,
+                crate::trials_menu::spawn_trials_screen,
+                spawn_pause_menu,
+            ),
+        )
+        .add_systems(
+            Update,
+            (
+                // Each screen reads its keys before the screen that leads to it,
+                // so one press never acts on two screens.
+                menu_escape,
+                modes_input,
+                players_input,
+                endless_input,
+                crate::trials_menu::trials_input,
+                single_input,
+                crate::settings::settings_input,
+                main_menu_input,
+                start_input,
+                pause_input,
+                show_start_screen,
+                show_select_screens,
+                show_single_screens,
+                crate::trials_menu::show_trials_screen,
+                crate::settings::show_settings_screen,
+                show_pause_menu,
+                show_main_menu,
+                spin_tile_rays,
             )
-            .add_systems(
-                Update,
-                (
-                    // Each screen reads its keys before the screen that leads to it,
-                    // so one press never acts on two screens.
-                    menu_escape,
-                    modes_input,
-                    players_input,
-                    endless_input,
-                    crate::trials_menu::trials_input,
-                    single_input,
-                    main_menu_input,
-                    start_input,
-                    pause_input,
-                    show_start_screen,
-                    show_select_screens,
-                    show_single_screens,
-                    crate::trials_menu::show_trials_screen,
-                    show_pause_menu,
-                    show_main_menu,
-                    spin_tile_rays,
-                )
-                    .chain()
-                    .in_set(MenuSystems),
-            )
-            .add_systems(Update, record_endless_scores);
+                .chain()
+                .in_set(MenuSystems),
+        )
+        .add_systems(Update, record_endless_scores);
     }
 }
 
@@ -102,6 +108,7 @@ fn menu_escape(
         (Phase::Menu, MenuScreen::Single) => *screen = MenuScreen::Main,
         (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
+        (Phase::Menu, MenuScreen::Settings) => *screen = MenuScreen::Main,
         (Phase::Menu, MenuScreen::Start) => {}
     }
 }
@@ -129,6 +136,8 @@ pub enum MenuScreen {
     Endless,
     /// Trials: the list of single-player challenges.
     Trials,
+    /// Settings: volume, music and full screen.
+    Settings,
     /// "Game Paused" over a match: Resume, Retry, Quit.
     Pause,
 }
@@ -839,6 +848,9 @@ fn main_menu_input(
         }
         "single" => {
             *screen = MenuScreen::Single;
+        }
+        "settings" => {
+            *screen = MenuScreen::Settings;
         }
         "quit" => {
             exit.write(AppExit::Success);

@@ -268,3 +268,8 @@ and nothing gets installed without Max's own go-ahead.
   4. When XP is given in a cup (per match or at the end) and how it is shown and saved
      (ours: at the end, by cup place, with `XpRules::for_place`).
   5. What the screen between cup matches shows (standings? a scoreboard screen?).
+- **Settings screen is in as a placeholder** (src/settings.rs, `MenuScreen::Settings`, `--menu
+  settings`): Volume, Music and Full screen, applied at once and saved in `settings.ron`.
+  Please read the original's Settings screen: which options it has (volumes, controls,
+  language, screen), their order, ranges and steps, its layout and art names, and take an
+  offscreen picture of ours (`--menu settings --offscreen screenshots --shots 2`).

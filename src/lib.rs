@@ -24,6 +24,7 @@ pub mod offscreen;
 pub mod popup;
 pub mod results;
 pub mod select;
+pub mod settings;
 pub mod single;
 pub mod spells;
 pub mod trials;

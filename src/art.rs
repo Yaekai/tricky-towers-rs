@@ -556,7 +556,7 @@ fn apply_font(art: Res<Art>, mut texts: Query<&mut TextFont>) {
 }
 
 #[derive(Component)]
-struct Music(String);
+pub(crate) struct Music(String);
 
 /// Loops the music for the menu or the current mode.
 fn play_music(
@@ -564,6 +564,7 @@ fn play_music(
     art: Res<Art>,
     game: Res<Match>,
     playing: Query<(Entity, &Music)>,
+    settings: Option<Res<crate::settings::Settings>>,
 ) {
     let want = match (game.phase, game.mode.look()) {
         (Phase::Menu, _) => "music_menu",
@@ -582,7 +583,9 @@ fn play_music(
         commands.spawn((
             Music(want.into()),
             AudioPlayer(handle.clone()),
-            PlaybackSettings::LOOP,
+            PlaybackSettings::LOOP.with_volume(bevy::audio::Volume::Linear(
+                settings.map_or(1.0, |s| s.music),
+            )),
         ));
     }
 }
