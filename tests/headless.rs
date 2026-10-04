@@ -1129,6 +1129,7 @@ fn a_ghost_wave_carries_off_a_brick_with_every_new_one() {
     config.survival.waves.levels = vec![vec![Wave {
         curses: vec![SpellKind::Ghost],
         seconds: (30, 31),
+        bricks: 0,
     }]];
     let mut app = headless_app(config);
     let mut ghosted = std::collections::HashSet::new();
@@ -1153,6 +1154,7 @@ fn a_curse_wave_holds_the_brick_in_hand_for_a_moment() {
     config.survival.waves.levels = vec![vec![Wave {
         curses: vec![SpellKind::Large],
         seconds: (30, 31),
+        bricks: 0,
     }]];
     let cell = config.cell_size;
     let shake = config.survival.waves.shake;
@@ -1286,51 +1288,98 @@ fn the_winner_keeps_its_tower_while_the_loser_falls_apart() {
 fn endless_survival_has_no_brick_limit_and_ends_with_the_lives() {
     let mut config = fast_config();
     config.mode = ModeKind::EndlessSurvival;
-    // Battle Survival would stop here; Endless Survival goes on.
-    config.survival.bricks_to_place = 3;
+    config.endless_play.survival_drop_speed = 8.0;
+    config.endless_play.survival_waves.levels.clear();
+    let lives = config.endless_play.survival_lives;
     let mut app = headless_app(config);
     run_seconds(&mut app, 5.0, |_| {});
     let state = tower(&mut app, 0);
     assert!(state.bricks_placed > 3, "no brick limit: {state:?}");
-    assert_eq!(state.lives, Some(3));
+    assert_eq!(state.lives, Some(lives));
     assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
+    assert_eq!(
+        app.world().resource::<GameConfig>().survival.drop_speed,
+        8.0
+    );
 
-    assert!(run_until(&mut app, 30.0, |app| {
+    assert!(run_until(&mut app, 40.0, |app| {
         human_input(app).left_held = true;
         app.world().resource::<Match>().phase == Phase::Over
     }));
     let state = tower(&mut app, 0);
     assert_eq!(state.status, TowerStatus::Out);
     assert_eq!(state.lives, Some(0));
+    // The score is the bricks still in the tower.
+    assert_eq!(
+        state.endless_score(),
+        state.bricks_placed - state.tower_losses
+    );
 }
 
 #[test]
-fn endless_puzzle_laser_climbs_and_a_dropped_brick_ends_the_run() {
+fn endless_survival_waves_last_a_number_of_bricks() {
+    use tricky_towers::config::Wave;
+    let mut config = fast_config();
+    config.mode = ModeKind::EndlessSurvival;
+    config.endless_play.survival_drop_speed = 8.0;
+    let waves = &mut config.endless_play.survival_waves;
+    waves.gap = (3, 4);
+    waves.lift = 0.0;
+    waves.hold = 0.0;
+    waves.levels = vec![vec![Wave {
+        curses: vec![SpellKind::Large],
+        seconds: (0, 0),
+        bricks: 2,
+    }]];
+    let mut app = headless_app(config);
+    // The brick in hand is the first of the two.
+    assert!(run_until(&mut app, 5.0, |app| tower(app, 0)
+        .wave_mod
+        .is_some()));
+    assert_eq!(tower(&mut app, 0).wave_bricks, 1);
+    wait_for_next_brick(&mut app);
+    let state = tower(&mut app, 0);
+    assert_eq!(state.wave_bricks, 0);
+    assert_eq!(state.wave_mod, None, "the second brick was the last");
+}
+
+#[test]
+fn endless_puzzle_levels_raise_the_laser_and_a_lost_brick_ends_the_run() {
     let mut config = fast_config();
     config.mode = ModeKind::EndlessPuzzle;
-    config.puzzle.line_height = 6.0;
-    config.puzzle.bricks = 2;
-    let rules = config.endless_play.clone();
+    config.magic.enabled = true;
+    let rules = &mut config.endless_play;
+    rules.puzzle_drop_speed = 8.0;
+    rules.laser_start = 30.0;
+    rules.first_bricks = 2;
+    rules.bricks_per_level = 1;
+    let rules = rules.clone();
     let mut app = headless_app(config);
-    let start = {
+    let laser = |app: &mut App| {
         let config = app.world().resource::<GameConfig>().clone();
-        tower(&mut app, 0).laser(&config)
+        tower(app, 0).laser(&config)
     };
-    // Puzzle bricks start above the laser, so they take a while to come down.
-    assert!(
-        run_until(&mut app, 12.0, |app| tower(app, 0).bricks_placed > 3),
-        "no brick limit: {:?}",
-        tower(&mut app, 0)
-    );
-    let config = app.world().resource::<GameConfig>().clone();
-    let state = tower(&mut app, 0);
-    let steps = state.bricks_placed / rules.laser_every;
-    assert_eq!(
-        state.laser(&config),
-        start + rules.laser_rise * steps as f32
-    );
+    assert_eq!(laser(&mut app), 30.0);
+    assert_eq!(tower(&mut app, 0).lives, Some(1));
+    assert_eq!(tower(&mut app, 0).light_spell, None);
 
-    // Steering a brick off the edge ends the run.
+    // Two bricks, then a level-up: the laser rises and Undo is given.
+    assert!(run_until(&mut app, 20.0, |app| tower(app, 0)
+        .level_up
+        .is_some()));
+    assert_eq!(tower(&mut app, 0).bricks_used(), 2);
+    assert!(
+        tower(&mut app, 0).active.is_none(),
+        "no brick during a level-up"
+    );
+    assert!(run_until(&mut app, 5.0, |app| tower(app, 0).puzzle_level == 2));
+    let state = tower(&mut app, 0);
+    assert_eq!(laser(&mut app), 30.0 + rules.laser_rise);
+    assert_eq!(state.light_spell, Some(SpellKind::Undo));
+    assert_eq!(state.level_end, 2 + rules.level_bricks(2));
+    assert_eq!(rules.level_bricks(2), 3);
+
+    // Steering a brick off the edge costs the only life.
     assert!(run_until(&mut app, 20.0, |app| {
         human_input(app).left_held = true;
         app.world().resource::<Match>().phase == Phase::Over
@@ -1417,6 +1466,109 @@ fn the_enemy_wizard_casts_on_its_schedule() {
 }
 
 #[test]
+fn a_trial_deals_its_fixed_brick_order() {
+    use tricky_towers::config::TrialDef;
+    use tricky_towers::gameplay::{ActiveBrick, Brick};
+    let order = ["I", "O", "T", "S"];
+    let mut app = headless_app(trial_config(TrialDef {
+        name: "order".into(),
+        mode: ModeKind::Survival,
+        bricks: Some(10),
+        order: order.iter().map(|s| s.to_string()).collect(),
+        ..default()
+    }));
+    let names: Vec<String> = app
+        .world()
+        .resource::<GameConfig>()
+        .pieces
+        .iter()
+        .map(|p| p.name.clone())
+        .collect();
+    let mut dealt: Vec<(Entity, String)> = Vec::new();
+    run_until(&mut app, 30.0, |app| {
+        let world = app.world_mut();
+        for (entity, brick) in world
+            .query_filtered::<(Entity, &Brick), With<ActiveBrick>>()
+            .iter(world)
+        {
+            let name = names[brick.piece].clone();
+            if dealt.last().map(|(e, _)| *e) != Some(entity) {
+                dealt.push((entity, name));
+            }
+        }
+        dealt.len() >= order.len()
+    });
+    let dealt: Vec<&str> = dealt.iter().map(|(_, n)| n.as_str()).collect();
+    assert_eq!(dealt, order);
+}
+
+#[test]
+fn the_enemy_wizard_casts_at_heights_and_bricks() {
+    use tricky_towers::config::{CastWhen, EnemyCast, TrialDef};
+    let mut config = trial_config(TrialDef {
+        name: "triggers".into(),
+        mode: ModeKind::Survival,
+        bricks: Some(40),
+        enemy: vec![
+            EnemyCast {
+                when: CastWhen::Height(0.0),
+                spells: vec![SpellKind::Slow],
+            },
+            EnemyCast {
+                when: CastWhen::Brick(3),
+                spells: vec![SpellKind::Ice],
+            },
+            EnemyCast {
+                when: CastWhen::Height(500.0),
+                spells: vec![SpellKind::Large],
+            },
+        ],
+        ..default()
+    });
+    config.survival.drop_speed = 8.0;
+    let mut app = headless_app(config);
+    run_until(&mut app, 2.0, |app| !log(app).is_empty());
+    assert_eq!(log(&app)[0].spell, SpellKind::Slow);
+    assert!(run_until(&mut app, 30.0, |app| log(app)
+        .iter()
+        .any(|c| c.spell == SpellKind::Ice)));
+    // The third brick is the one in hand when Ice lands.
+    assert_eq!(tower(&mut app, 0).bricks_used(), 2);
+    run_seconds(&mut app, 3.0, |_| {});
+    let spells: Vec<SpellKind> = log(&app).iter().map(|c| c.spell).collect();
+    assert_eq!(spells, [SpellKind::Slow, SpellKind::Ice], "each fires once");
+}
+
+#[test]
+fn trial_spell_lines_give_their_spells_in_order_then_stop() {
+    use tricky_towers::config::{TrialDef, TrialLines};
+    let mut config = trial_config(TrialDef {
+        name: "lines".into(),
+        mode: ModeKind::Survival,
+        bricks: Some(60),
+        lines: Some(TrialLines {
+            every: 1.0,
+            spells: vec![(SpellKind::Ivy, false), (SpellKind::Petrify, true)],
+        }),
+        ..default()
+    });
+    config.magic.enabled = true;
+    let mut app = headless_app(config);
+    assert!(run_until(&mut app, 30.0, |app| tower(app, 0).lines_reached >= 1));
+    assert_eq!(tower(&mut app, 0).light_spell, Some(SpellKind::Ivy));
+    assert_eq!(tower(&mut app, 0).dark_spell, None);
+    // The second line's spell is cast as soon as it's collected.
+    assert!(run_until(&mut app, 30.0, |app| log(app)
+        .iter()
+        .any(|c| c.spell == SpellKind::Petrify)));
+    assert_eq!(tower(&mut app, 0).light_spell, None);
+    run_seconds(&mut app, 5.0, |_| {});
+    let state = tower(&mut app, 0);
+    assert_eq!(state.lines_reached, 2);
+    assert_eq!(state.spell_line, None);
+}
+
+#[test]
 fn winning_a_trial_marks_it_done() {
     use tricky_towers::config::TrialDef;
     use tricky_towers::trials::TrialProgress;
@@ -1428,10 +1580,28 @@ fn winning_a_trial_marks_it_done() {
         ..default()
     }));
     assert_eq!(app.world().resource::<GameConfig>().puzzle.line_random, 0.0);
+    // A dropped brick fails a puzzle trial, so lay them side by side.
+    let (mut frame, mut presses) = (0, [0; 2]);
     assert!(run_until(&mut app, 20.0, |app| {
+        frame += 1;
+        let placed = tower(app, 0).bricks_placed as usize;
+        let mut input = human_input(app);
+        if placed < 2 && presses[placed] < 3 && frame % 4 == 0 {
+            presses[placed] += 1;
+            if placed == 0 {
+                input.left_pressed = true;
+            } else {
+                input.right_pressed = true;
+            }
+        }
         app.world().resource::<Match>().phase == Phase::Over
     }));
-    assert_eq!(tower(&mut app, 0).status, TowerStatus::Won);
+    assert_eq!(
+        tower(&mut app, 0).status,
+        TowerStatus::Won,
+        "{:?}",
+        tower(&mut app, 0)
+    );
     let progress = app.world().resource::<TrialProgress>();
     assert!(progress.is_done("short puzzle"));
 }

@@ -1219,12 +1219,12 @@ fn update_hud(
         ),
         ModeKind::EndlessSurvival => format!(
             "ENDLESS SURVIVAL  score {}  bricks {}",
-            you.endless_score(&config),
+            you.endless_score(),
             you.bricks_placed,
         ),
         ModeKind::EndlessPuzzle => format!(
             "ENDLESS PUZZLE  score {}  stay under the laser ({:.1})",
-            you.endless_score(&config),
+            you.endless_score(),
             you.laser(&config)
         ),
     };
@@ -1282,7 +1282,7 @@ fn update_hud(
                 ),
                 ModeKind::EndlessSurvival | ModeKind::EndlessPuzzle => format!(
                     "RUN OVER! Score {}. Press R to try again",
-                    you.endless_score(&config)
+                    you.endless_score()
                 ),
                 _ => "OUT OF LIVES. Press R to try again".into(),
             },

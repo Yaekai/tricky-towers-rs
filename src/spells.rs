@@ -95,11 +95,25 @@ pub(crate) fn update_spell_lines(
     }
     let magic = &config.magic;
     let lines_off = game.mode.rules() == ModeKind::Puzzle
-        || (game.mode == ModeKind::EndlessSurvival && !config.endless_play.survival_spells);
-    if !magic.enabled || game.phase != Phase::Playing || lines_off {
+        || (game.mode == ModeKind::EndlessSurvival
+            && config.endless_play.survival_light.is_empty());
+    // A trial has its own lines, or none at all.
+    let trial_lines = config
+        .trial
+        .and_then(|i| config.trials.get(i))
+        .map(|t| t.lines.clone());
+    if !magic.enabled
+        || game.phase != Phase::Playing
+        || lines_off
+        || matches!(trial_lines, Some(None))
+    {
         return;
     }
-    let spacing = magic.spacing(game.players);
+    let trial_lines = trial_lines.flatten();
+    let spacing = match &trial_lines {
+        Some(lines) => lines.every * (1.0 + 0.25 * game.players.saturating_sub(1) as f32),
+        None => magic.spacing(game.players),
+    };
     let building: Vec<f32> = towers
         .iter()
         .filter(|s| s.status == TowerStatus::Building)
@@ -113,6 +127,12 @@ pub(crate) fn update_spell_lines(
             continue;
         }
         let height = state.height;
+        if trial_lines
+            .as_ref()
+            .is_some_and(|l| state.lines_reached as usize >= l.spells.len())
+        {
+            continue;
+        }
         let Some(mut line) = state.spell_line else {
             // Endless Race's lines are checkpoints at set heights.
             state.spell_line = Some(if game.mode == ModeKind::Endless {
@@ -144,6 +164,14 @@ pub(crate) fn update_spell_lines(
         state.lines_reached += 1;
         if game.mode == ModeKind::Endless {
             crate::gameplay::pacer_checkpoint(&config.endless, &mut state);
+        }
+        // A trial's lines give their spells in order; "(random)" ones are cast at once.
+        if let Some(lines) = &trial_lines {
+            let (spell, now) = lines.spells[state.lines_reached as usize - 1];
+            state.light_spell = Some(spell);
+            state.dark_spell = None;
+            state.auto_cast_light = now;
+            continue;
         }
         let finish_gap = (game.mode == ModeKind::Race).then(|| game.finish_height - height);
         let behind = leader - height;
@@ -303,7 +331,7 @@ pub(crate) fn run_curse_waves(
     }
     let rules = &config.survival.waves;
     let on = game.phase == Phase::Playing
-        && game.mode == ModeKind::Survival
+        && game.mode.rules() == ModeKind::Survival
         && config.survival.curse_waves
         && !rules.levels.is_empty();
     if !on {
@@ -329,8 +357,15 @@ pub(crate) fn run_curse_waves(
         return;
     };
     let wave = &rules.levels[level][index];
-    let length = clock.seconds(wave.seconds);
-    // The next wave counts from the end of this one.
+    // A wave lasts some seconds, or (Endless Survival) some bricks, the one in
+    // hand first. The next wave counts from the end of a timed one, from the
+    // start of a counted one (?).
+    let counted = wave.bricks > 0;
+    let length = if counted {
+        0.0
+    } else {
+        clock.seconds(wave.seconds)
+    };
     clock.next_in = length + clock.seconds(rules.gap);
     let mut effect = BrickMod::default();
     for &spell in &wave.curses {
@@ -340,11 +375,14 @@ pub(crate) fn run_curse_waves(
     }
     let cursed = effect != BrickMod::default();
     let ghost = wave.curses.contains(&SpellKind::Ghost);
+    // How long Mist fogs a tower when the wave is counted in bricks (?).
+    let magic_mist = config.magic.mist_seconds;
     for (_, _, mut state) in &mut towers {
         if state.status != TowerStatus::Building {
             continue;
         }
         state.wave_left = length;
+        state.wave_bricks = wave.bricks.saturating_sub(1);
         // The brick in hand rises to a little under the top of the view, passing
         // through everything on the way, and is held there.
         if let Some(brick) = state.active
@@ -358,18 +396,20 @@ pub(crate) fn run_curse_waves(
             state.wave_hold_x = at.0.x;
             state.wave_lift = (at.0.y, top);
         }
+        let more = !counted || state.wave_bricks > 0;
         if cursed {
             // The brick in hand, then every new one while the wave lasts.
             curse_bricks(&mut commands, &config, &mut state, &mut active, &effect, 1);
-            state.wave_mod = Some(effect);
+            state.wave_mod = more.then_some(effect);
         }
         if ghost {
             // Once for the brick in hand, then with every new brick.
-            state.wave_ghost = true;
+            state.wave_ghost = more;
             state.ghosts_due += 1;
         }
         if wave.curses.contains(&SpellKind::Mist) {
-            state.mist_timer = state.mist_timer.max(length);
+            let mist = if counted { magic_mist } else { length };
+            state.mist_timer = state.mist_timer.max(mist);
         }
     }
 }
@@ -480,7 +520,8 @@ pub(crate) fn cast_spells(
 ) {
     let mut casts = Vec::new();
     for (entity, tower, mut state, mut input) in &mut towers {
-        let light = std::mem::take(&mut input.cast_light_pressed);
+        let light = std::mem::take(&mut input.cast_light_pressed)
+            | std::mem::take(&mut state.auto_cast_light);
         let dark = std::mem::take(&mut input.cast_dark_pressed);
         if game.phase != Phase::Playing || state.status != TowerStatus::Building {
             continue;

@@ -34,6 +34,7 @@ pub mod settings;
 pub mod single;
 pub mod spells;
 pub mod start;
+pub mod trial_list;
 pub mod trials;
 pub mod trials_menu;
 pub mod visuals;

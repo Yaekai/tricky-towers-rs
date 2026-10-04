@@ -53,9 +53,10 @@ Values below come from reading Max's own copy of the original; the notes are in 
   line you reach (at 10, 20, 30...) is a checkpoint where it stops, eases back and then rises a
   little faster, up to 1.5 cells/s. Score is 10 × height; light spells only.
 - Endless Survival (`--play endless-survival`) and Endless Puzzle (`--play endless-puzzle`):
-  Survival with no brick limit until the lives run out, and Puzzle with a laser that climbs
-  until a brick crosses it or is dropped. These follow public descriptions, not the install;
-  their numbers are guesses (`GameConfig::endless_play`) waiting on the PC readout.
+  Survival with no brick limit, light spells and curse waves counted in bricks until the lives
+  run out; Puzzle in levels of bricks with the laser rising 4 cells and an Undo after each,
+  until a brick crosses the laser or is lost. Both score the bricks in the tower. From the PC
+  readout (`GameConfig::endless_play`); obstacle blocks and a few values still wait on the PC.
 - Race Pro wind as in the original: rows of wind push the windward face of the top of each
   tower one way, swinging between strength 3 and 4. Puzzle lanes are wider and grow with the
   tower. The race hold countdown shows over the finish line, and a match ends with the original's
@@ -82,9 +83,7 @@ Values below come from reading Max's own copy of the original; the notes are in 
   `assets/config/game.ron`.
 
 ## What's missing
-See `PLAN.md`. In short: the original's 50 Trials (the engine and 3 sample trials are in), the
-original's exact Endless Survival and Endless Puzzle rules
-(both play today on guessed values), the Online, Shop, Help and
+See `PLAN.md`. In short: trial floors and rival towers, Endless Puzzle's obstacle blocks, the Online, Shop, Help and
 tiles, the remaining spell animations (Auto Rotate wind-up, stone and ice transitions),
 the decorations at a cast beam's foot (rays, rings, sparks), and the explosion art for collapsing
 towers (blasts fall back to shards).
