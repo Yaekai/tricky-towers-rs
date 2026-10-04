@@ -58,6 +58,8 @@ Values below come from reading Max's own copy of the original; the notes are in 
   backgrounds with sky, clouds, islands and water per mode, lines, spell icons, player panels,
   animated wizards beside each tower that react to the game, music and sounds. Nothing from the
   original is in this repo; without the extracted folder the game draws plain shapes.
+  To build that folder on Windows, export your install with AssetRipper and run the scripts in
+  `tools/extract/` (steps in `tools/extract/README.md`).
 - Everything tunable (controls, physics, mode rules, spell weights, AI skill) is in
   `assets/config/game.ron`.
 

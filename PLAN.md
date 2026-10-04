@@ -17,9 +17,9 @@ Following the "Rust rewrites and ports" guide's order of preference:
    standard tools (AssetRipper/UABEA for data, ILSpy/dnSpy for logic). Rules for that work:
    it stays on your machine in the ignored `research/` folder, only plain-language notes come
    into the repo, and nothing is redistributed. Leave DRM and online services alone.
-4. **Assets.** The repo ships placeholder art. A later `tools/extract.py` can convert sprites and
-   sounds from the player's own install into `extracted/` (gitignored) for the engine to load at
-   runtime, the same pattern as gang-beasts-rust. Mods can also ship their own art.
+4. **Assets.** The repo ships placeholder art. `tools/extract/` (PowerShell, see its README)
+   converts sprites, sounds, the letters and the wizards from the player's own install into
+   `extracted/` (gitignored) for the engine to load at runtime. Mods can also ship their own art.
 
 ## Architecture
 | Layer | Where | Swap it to... |

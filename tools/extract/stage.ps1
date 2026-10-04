@@ -157,6 +157,18 @@ $manifest.Add('    "water_band_survival": (colors: []),')
 $manifest.Add('    "water_band_puzzle": (colors: []),')
 $notes.Add('- water_band : Race background water, bottom 6 screen units, top (61,82,201) to bottom (137,146,217); islands bob on it.')
 
+# --- Puzzle floor pieces (proposed names; the game draws plain cells until it uses them) ---
+Add-Sprite 'puzzle_piece_1' 'gph_house01_world03' 'floors\puzzle_piece_1.png' 'Puzzle floor piece 1: column 1 wide, 13 tall; pivot = top-left, drawn 0.03 left and up of the column corner' @(0.0, 1.0)
+Add-Sprite 'puzzle_piece_2' 'gph_house02_world03' 'floors\puzzle_piece_2.png' 'Puzzle floor piece 2: column 2 wide, 13 tall; pivot = top-left' @(0.0, 1.0)
+Add-Sprite 'puzzle_piece_3' 'gph_house03_world03' 'floors\puzzle_piece_3.png' 'Puzzle floor piece 3: column 1 wide, 13 tall (other art); pivot = top-left' @(0.0, 1.0)
+Add-Sprite 'puzzle_piece_base'     'gph_house06_world3' 'floors\puzzle_piece_base.png'     'Under-floor tile, one per 2 units down each column (centres at -1, -3, ... -11)'
+Add-Sprite 'puzzle_piece_base_top' 'gph_house07_world3' 'floors\puzzle_piece_base_top.png' 'Top of the under-floor stack (centre 0.37 above the column top)'
+Add-Sprite 'puzzle_pro_center'     'gph_house03_world03' 'floors\puzzle_pro_center.png'    'Pro floor: 1-wide, 13-tall centre column (3 of them make the 3-wide pillar)' @(0.0, 1.0)
+Add-Sprite 'puzzle_pro_ledge_1'    'gph_house08_world03' 'floors\puzzle_pro_ledge_1.png'   'Pro floor side ledge, 1x1 (variant 1)'
+Add-Sprite 'puzzle_pro_ledge_2'    'gph_house09_world03' 'floors\puzzle_pro_ledge_2.png'   'Pro floor side ledge, 1x1 (variant 2)'
+Add-Sprite 'puzzle_pro_ledge_3'    'gph_house10_world03' 'floors\puzzle_pro_ledge_3.png'   'Pro floor side ledge, 1x1 (variant 3)'
+Add-Sprite 'puzzle_pro_ledge_top'  'gph_house11_world03' 'floors\puzzle_pro_ledge_top.png' 'Pro floor topmost side ledge, 1x1'
+
 # --- Endless Race: pacer line and the Endless versions of the Race backdrop ---
 Add-Sprite 'pacer_line'  'gph_pacerRaceEndless'        'fx\pacer_line.png'  'Endless Race pacer line tile (1x2 units, 77 tiles side by side 1 unit apart); the line is its top edge' @(0.5, 1.0)
 Add-Sprite 'pacer_layer' 'gph_endless_race_pace_layer' 'fx\pacer_layer.png' 'Tint drawn under the pacer line (EndlessRacePaceLayer)'
