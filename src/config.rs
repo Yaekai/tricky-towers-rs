@@ -39,6 +39,9 @@ pub struct GameConfig {
     /// Fraction of a cell used for the physics collider of each cell. Slightly
     /// under 1.0 so neighbouring bricks do not start in contact.
     pub collider_scale: f32,
+    /// Corner rounding of each cell's collider, as a fraction of a cell. Round
+    /// corners stop bricks snagging on each other's edges as they slide.
+    pub corner_radius: f32,
     pub brick_friction: f32,
     pub brick_restitution: f32,
     pub brick_density: f32,
@@ -120,6 +123,7 @@ impl Default for GameConfig {
             spawn_gap: 8.0,
             kill_depth: 12.0,
             collider_scale: 0.98,
+            corner_radius: 0.08,
             brick_friction: 0.8,
             brick_restitution: 0.0,
             brick_density: 1.0,
@@ -167,6 +171,9 @@ impl GameConfig {
         if self.cell_size <= 0.0 {
             self.cell_size = Self::default().cell_size;
         }
+        // The steering collider is a little smaller than the physics one, so
+        // the rounding has to fit inside both.
+        self.corner_radius = self.corner_radius.clamp(0.0, (self.collider_scale - 0.04) * 0.45);
         self
     }
 
