@@ -364,6 +364,12 @@ foreach ($k in $icons.Keys) { Add-Sprite "spell_icon_$k" $icons[$k] "icons\$k.pn
 Add-Sprite 'spell_slot_light' 'gph_spellBackground_white' 'icons\slot_light.png' 'Light spell slot background'
 Add-Sprite 'spell_slot_dark'  'gph_spellBackground_black' 'icons\slot_dark.png'  'Dark spell slot background'
 
+# --- Race Pro night look (RaceProBackground / RaceProForeground) ---
+Add-Sprite 'race_pro_cloud' 'gph_cloudLargePro_var01' 'background\race_pro_cloud.png' 'Race Pro cloud (drifts 0.15..0.25, parallax 0.2)'
+Add-Sprite 'water_pro' 'gph_foregroundWaterPro' 'background\water_pro.png' 'Race Pro foreground water strip (stretched 80x wide)'
+Add-Texture 'rain_drop' 'gph_rainDrop.png' 'effects\rain_drop.png' 'Race Pro rain streak (stretched billboard)'
+Add-Texture 'lightning_thick' 'gph_lightningEffectThick.png' 'effects\lightning_thick.png' 'Race Pro lightning bolt strip'
+
 # --- Losing tower collapse (CollapseTowerEffect / BrickDisappearEffect, Game/Particles/Explosion) ---
 Add-Audio 'sfx_explosion'   '11_explosion_01'      'A brick blowing up as a losing tower falls apart (pitch 0.95..1.05)'
 Add-Audio 'sfx_rumble'      '026_Rumble'           'Rumble loop during the 2.5 s shake after the blasts'

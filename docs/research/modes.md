@@ -175,3 +175,27 @@ wait 1 s, shake off, control back.
 - **Score:** the number of bricks in the tower at the end. The run ends when the last life is
   lost. The roof piece is `ROOF_02`.
 - Both modes keep one online leaderboard each (see menus.md, "Endless leaderboard rows").
+## Race Pro ("Special") look (read from the PC install, 2026-10-05)
+Race Pro has its own background and foreground instead of the day race:
+- **Sky:** a 3-colour gradient, top (49, 21, 138), middle (13, 119, 154), bottom (37, 25, 126).
+- **Clouds:** `gph_cloudLargePro_var01` (staged as `race_pro_cloud`), drifting at 0.15–0.25,
+  parallax 0.2, white.
+- **Water band:** gradient (13, 119, 154) to (49, 21, 138), parallax 0.3, water height 6. The
+  foreground water uses `gph_foregroundWaterPro` (`water_pro`), stretched 80× wide. Waves:
+  background rows from y 3, 2 tall, scale 0.2–0.5; foreground from y 2.5, 0.5 tall, scale
+  0.5–0.7.
+- **Islands:** the race islands at parallax 0.3, each with a `_DARK` version of its picture that
+  the lightning flash brightens.
+- **Rain**, from emitters at (±18, 30) tilted 30°, mirrored to match the match's random wind
+  direction:
+  - Front: 100 drops a second, life 1 s, speed 100, size 3, drawn as stretched streaks
+    (`gph_rainDrop`, staged as `rain_drop`), lilac (0.82, 0.78, 0.96, 90%). Each drop that hits
+    something throws 3 tiny white dots (size 0.25, speed 10, 0.2 s).
+  - Back: 1024 drops a second, life 3 s, speed 40, size 1, darker blue (0.43, 0.45, 0.79).
+- **Lightning:** every 5–14 s (random each time, not during the intro): a white full-screen
+  flash at 65% that fades over 0.1 s, plus a bolt from a random point on the top edge to the
+  bottom edge (shifted up to ±5/48 of the screen width), with up to 4 branches, drawn with
+  `gph_lightningEffectThick` (`lightning_thick`). It stays full for 0.2 s, then fades over
+  0.2 s.
+- The press kit's Race Special shot matches this: dark blue night, heavy diagonal rain, a white
+  bolt.
