@@ -355,9 +355,9 @@ fn fly_droplets(
 
 /// Camera shakes still running, and the offset applied this frame.
 #[derive(Resource, Default)]
-struct CameraShake {
+pub(crate) struct CameraShake {
     /// Reach in pixels (sideways, up) and seconds left.
-    kicks: Vec<(Vec2, f32)>,
+    pub(crate) kicks: Vec<(Vec2, f32)>,
     applied: Vec2,
 }
 

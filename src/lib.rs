@@ -9,6 +9,7 @@
 
 pub mod ai;
 pub mod art;
+pub mod casts;
 pub mod collapse;
 pub mod config;
 pub mod effects;

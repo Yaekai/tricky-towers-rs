@@ -117,6 +117,9 @@ islands on the water band), by adding `screen`:
 | `spell_icon_<Spell>` | Spell icon in a slot, for Ivy, Petrify, Undo, ExtraLife, Minibase, AutoBuild, Large, Fast, NoRotate, AutoRotate, Ice, Mist, Slow, Mystery, Bubble, Grassy, Ghost |
 | `life_orb` | Extra Life's heart orb |
 | `splash_1` .. `splash_3`, `splash`, `sfx_splash_1` .. `sfx_splash_4` | The front pictures of a splash (one picked per piece) and its sounds |
+| `cast_beam`, `cast_lane_beam`, `cast_lane_beam_survival`, `cast_circle_gradient` | Dark cast beam (stretched up from the caster and down onto each victim's brick), the wave over a victim's lane, and the glow at a beam's foot |
+| `cast_lightning` | Light cast lightning, drawn as 14 pieces along a wobbling line from the wizard to the brick |
+| `spell_cloud`, `spell_cloud_button_light`, `spell_cloud_button_dark`, `sfx_large` | The cloud beside a wizard holding a spell icon, its button hints, and the sound of Large growing a brick |
 | `explosion`, `sfx_explosion`, `sfx_rumble`, `sfx_brick_heavy` | A brick blowing up as a losing tower falls apart (3 cells wide; shards of the brick's colour without it), the looping rumble after the blasts, and the closing thud |
 | `menu_background`, `logo` | Title screen: a picture filling the menu, and the game's logo above the options |
 | `menu_tile_<key>_deselected`, `menu_tile_<key>_selected` | Title tile backgrounds, grey and coloured; keys `local`, `single`, `online`, `shop`, `help`, `settings`, `quit` |
