@@ -1396,7 +1396,7 @@ impl GameConfig {
     }
 
     /// Replaces values that would break the game with defaults.
-    fn validated(mut self) -> Self {
+    pub(crate) fn validated(mut self) -> Self {
         self.pieces.retain(|p| !p.cells.is_empty());
         if self.pieces.is_empty() {
             warn!("config has no usable pieces; using the default set");

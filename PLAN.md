@@ -48,9 +48,12 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    backgrounds, skies, water, lines, panels, letters, animated wizards, music and sounds. To do,
    in order: stage the wizards on Max's PC and check them, spell effect animations (Large grow,
    Auto Rotate wind-up, rising balloon, vines growing, stone and ice transitions, particles),
-   countdown and win/lose screens, the lost-brick splash, the title menu's layout.
+   the lost-brick splash, cast beams and the spell cloud, XP and wizard levels. Done since:
+   countdown, win/lose moments, the start screen, title tiles, player and mode select, pause
+   and the Game Completed popup.
 6. **Trials/campaign** levels described in RON files, with the scripted enemy wizard.
-7. **Mod loading:** a `mods/` folder of RON configs and asset packs, merged at startup.
+7. **Mod loading** (done): a `mods/` folder of RON config changes and art packs, merged at
+   startup in name order (`src/mods.rs`, `docs/modding.md`).
 
 ## How work is split
 - Code is written in the cloud and pushed to PR #1.

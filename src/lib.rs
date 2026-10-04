@@ -15,6 +15,7 @@ pub mod gameplay;
 pub mod input;
 pub mod letters;
 pub mod menu;
+pub mod mods;
 pub mod offscreen;
 pub mod popup;
 pub mod results;

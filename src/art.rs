@@ -52,6 +52,12 @@ pub fn register_source(app: &mut App) {
         SOURCE,
         AssetSourceBuilder::platform_default(&dir.to_string_lossy(), None),
     );
+    // Art packs in mods load from `mods://<mod>/<file>`.
+    let mods = absolute(crate::mods::mods_dir());
+    app.register_asset_source(
+        crate::mods::SOURCE,
+        AssetSourceBuilder::platform_default(&mods.to_string_lossy(), None),
+    );
 }
 
 /// One entry of `extracted/manifest.ron`.
@@ -292,10 +298,16 @@ impl Plugin for ArtPlugin {
 #[derive(Resource, Default)]
 pub struct Silent;
 
-fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>, silent: Option<Res<Silent>>) {
-    let dir = extracted_dir();
-    let entries = read_manifest(&dir);
-    for (name, entry) in &entries {
+/// Loads one manifest's files, found in `dir` and read through `prefix`.
+fn load_entries(
+    art: &mut Art,
+    assets: &AssetServer,
+    silent: bool,
+    dir: &Path,
+    prefix: &str,
+    entries: &HashMap<String, ArtEntry>,
+) {
+    for (name, entry) in entries {
         if entry.file.is_empty() {
             continue;
         }
@@ -303,7 +315,7 @@ fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>, silent: Option<Res<S
             warn!("{name}: {} is missing", entry.file);
             continue;
         }
-        let path = format!("{SOURCE}://{}", entry.file);
+        let path = format!("{prefix}{}", entry.file);
         // The file type decides what it is; the name prefix covers odd extensions.
         let ext = Path::new(&entry.file)
             .extension()
@@ -319,7 +331,7 @@ fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>, silent: Option<Res<S
                 .and_then(|text| ron::from_str::<Letters>(&text).map_err(|e| e.to_string()));
             match sheet {
                 Ok(mut letters) if dir.join(&letters.image).is_file() => {
-                    letters.handle = assets.load(format!("{SOURCE}://{}", letters.image));
+                    letters.handle = assets.load(format!("{prefix}{}", letters.image));
                     art.letters.insert(name.clone(), letters);
                 }
                 Ok(letters) => warn!("{name}: {} is missing", letters.image),
@@ -328,13 +340,49 @@ fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>, silent: Option<Res<S
         } else if is_font {
             art.fonts.insert(name.clone(), assets.load(path));
         } else if is_sound {
-            if silent.is_some() {
+            if silent {
                 continue;
             }
             art.sounds.insert(name.clone(), assets.load(path));
         } else {
             art.images.insert(name.clone(), assets.load(path));
         }
+    }
+}
+
+fn load_art(mut art: ResMut<Art>, assets: Res<AssetServer>, silent: Option<Res<Silent>>) {
+    let dir = extracted_dir();
+    let mut entries = read_manifest(&dir);
+    load_entries(
+        &mut art,
+        &assets,
+        silent.is_some(),
+        &dir,
+        &format!("{SOURCE}://"),
+        &entries,
+    );
+    // Art packs from mods replace entries of the same name, in mod order.
+    for m in crate::mods::list_mods(&crate::mods::mods_dir()) {
+        let Some(pack) = &m.art else { continue };
+        let pack_entries = read_manifest(pack);
+        // An entry that becomes an animation or a set of numbers drops the old file.
+        for (name, entry) in &pack_entries {
+            if entry.file.is_empty() {
+                art.images.remove(name);
+                art.sounds.remove(name);
+            }
+        }
+        let prefix = format!("{}://{}/", crate::mods::SOURCE, m.name);
+        load_entries(
+            &mut art,
+            &assets,
+            silent.is_some(),
+            pack,
+            &prefix,
+            &pack_entries,
+        );
+        info!("mod {}: {} art entries", m.name, pack_entries.len());
+        entries.extend(pack_entries);
     }
     art.entries = entries;
     if art.has_any() {

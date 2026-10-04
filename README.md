@@ -77,9 +77,9 @@ screens like the original's, spell effect animations (Large grow, Auto Rotate wi
 beams), and the XP and wizard levels in the end-of-match popup.
 
 ## Modding
-Copy `assets/config/game.ron`, change what you want (any field can be left out),
-and pass it as the first argument. Bricks can be any polyomino. Code-level mods
-can replace any plugin in `src/lib.rs`, or drive `PlayerInput` from a bot.
+Drop RON files in a `mods/` folder next to the game: each one changes only the config fields
+it writes, and a mod folder can also carry an art and sound pack that replaces entries of the
+extracted manifest. Bricks can be any polyomino. See `docs/modding.md`.
 
 ## Credits
 *Tricky Towers* is by WeirdBeard Games. This project is an unaffiliated fan reimplementation;

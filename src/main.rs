@@ -40,7 +40,10 @@ fn main() {
         .map_or_else(|| DEFAULT_CONFIG_PATH.to_string(), |(_, a)| a.clone());
     let mut config = GameConfig {
         start_in_menu: play.is_none(),
-        ..GameConfig::load_or_default(&path)
+        ..tricky_towers::mods::apply_config_mods(
+            GameConfig::load_or_default(&path),
+            &tricky_towers::mods::mods_dir(),
+        )
     };
     if let Some(mode) = play {
         config.mode = mode;
