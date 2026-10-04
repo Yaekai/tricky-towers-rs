@@ -290,3 +290,33 @@ and nothing gets installed without Max's own go-ahead.
         (does a new line stay hidden until it is 5 cells above the tower top?).
   4. Screenshot a Race Pro match with AI opponents for 60 s (`--play race --difficulty pro`)
      and a Survival finish, and say if anything looks off.
+- New source notes in docs/research/wiki-notes.md (fan wiki + official FAQ quotes). Please
+  confirm against the install, and say where they disagree with your readouts: the default
+  keyboard keys (U/I nudge, J/K magic, Space rotates left), the Settings options and defaults,
+  the 5 trial tiers with 0/8/17/26/36 medals to unlock and how many medals one trial gives,
+  whether cups exist outside online play, how the Endless Puzzle laser rises per group of
+  bricks (and the group size), and whether Large changes a brick's mass ("large and heavy").
+- **Reference pictures and full pages from the web** (the cloud session can't reach these sites;
+  your PC can). Everything downloaded stays on the PC in the gitignored `research/reference/`
+  folder: never commit pictures, pages or video from the original or its sites. Write only
+  plain-language findings into docs/research/ (wiki-notes.md has what search quotes gave so far).
+  1. Download the press kit screenshots, logos and trailer stills from
+     https://www.weirdbeard.nl/presskit/sheet.php?p=TrickyTowers (and the Steam store page
+     screenshots, https://store.steampowered.com/app/437920/) into `research/reference/`.
+  2. For each picture, say what it shows (mode, players, menu screen) and take the matching
+     offscreen picture of ours (`--play <mode>` / `--menu <screen>`, `--offscreen
+     research/reference/ours --shots ...`). Compare them side by side, read the pictures
+     yourself (don't open them on screen), and list every difference: layout, sizes, colours,
+     HUD/panel placement, text and wording, effects. Fix the ones that are only staging (art
+     names, manifest fields) and queue the code ones here for the cloud.
+  3. Read these wiki pages in full and add what search snippets missed to wiki-notes.md:
+     Trials (every trial's goal if listed, medals per trial and how they're earned), Controls
+     (gamepad layout too), Settings, Spells (exact on-screen names), Single player, Local
+     battle, Online battle, Achievements (all 29), Characters, DLCs.
+     https://tricky-towers.fandom.com/wiki/Tricky_Towers is the start page.
+  4. Read the official FAQ (https://www.trickytowers.com/faq.php) and the tournament kit rules
+     (https://www.trickytowers.com/tournamentkit.php) and note anything about local play, cups
+     and match rules.
+  5. Check the spell names our game shows against the original's on-screen names (the wiki
+     says Tower Piece, Fast Brick, Ice Brick, Grass, Slow Down, Ghosts, Super, Super Duper; and
+     check the no-rotate curse's real name), so `SpellKind::name` can match.
