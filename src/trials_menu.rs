@@ -58,6 +58,7 @@ fn first_shown(selected: usize, count: usize) -> usize {
         .min(count.saturating_sub(ROWS))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn trials_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,

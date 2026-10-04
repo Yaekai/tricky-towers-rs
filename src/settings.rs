@@ -245,6 +245,17 @@ fn apply_settings(
     }
 }
 
+/// Every new sound effect plays at the sound-effects volume (music has its own,
+/// set where it starts). Runs before the audio output picks the sounds up.
+fn set_effect_volume(
+    settings: Res<Settings>,
+    mut sounds: Query<&mut PlaybackSettings, (Added<AudioPlayer>, Without<Music>)>,
+) {
+    for mut playback in &mut sounds {
+        playback.volume = Volume::Linear(settings.volume);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -281,16 +292,5 @@ mod tests {
         let again = Settings::load(file.clone());
         assert_eq!((again.music, again.fullscreen), (0.3, true));
         let _ = std::fs::remove_dir_all(file.parent().unwrap());
-    }
-}
-
-/// Every new sound effect plays at the sound-effects volume (music has its own,
-/// set where it starts). Runs before the audio output picks the sounds up.
-fn set_effect_volume(
-    settings: Res<Settings>,
-    mut sounds: Query<&mut PlaybackSettings, (Added<AudioPlayer>, Without<Music>)>,
-) {
-    for mut playback in &mut sounds {
-        playback.volume = Volume::Linear(settings.volume);
     }
 }
