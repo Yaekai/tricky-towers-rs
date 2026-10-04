@@ -10,7 +10,9 @@ and nothing gets installed without Max's own go-ahead.
 2. Re-stage `extracted\` per `docs/art-layout.md`, filling in any newly documented names or
    fields from the original. Keep `extracted\inventory.md` (see the Inventory section)
    current.
-3. If Max isn't using the PC, take screenshots of each mode started with
+3. **On hold:** Max asked on 2026-10-04 at 11:55Z not to open the game while he's watching
+   something. Don't launch the game, take screenshots or open any window until Max says so
+   himself. List screenshot items as pending in your report. When he does, take screenshots of each mode started with
    `target\debug\tricky_towers.exe --play race` (and `survival`, `puzzle`). If windows get
    closed from outside, stop and wait for the next pull.
 4. Report what changed, what is still missing against the original, and anything only Max
