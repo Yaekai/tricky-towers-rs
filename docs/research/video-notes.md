@@ -71,6 +71,32 @@ in yellow-orange, the others in pink.
   between two laurels with small cups, one row per player (wizard face, then a row of trophy
   slots filling up), and "CONTINUE" under it.
 
+## Dark cast, measured at 10 frames a second (2-player race)
+Time from the caster pressing the dark spell button:
+- **0–0.7 s:** the dark bubble beside the caster blinks (hidden 0.5 s, shown 0.6 s) and is
+  gone at 0.7 s; the other bubble stays.
+- **0.8 s:** a thin dark line shoots from the caster's wizard straight up to the top of the
+  screen. It widens to a dark magenta column (about 10 px at 720p, jagged edges) by 1.0 s and
+  holds, with a dark spiky ball showing a "?" at the wizard's hand.
+- **0.8 s, at the same time:** over the victim's lane a wide purple column fades in from the top
+  of the screen to the bottom (about 3.5 cells wide, centred on the victim's drop column), with
+  a pink puff at its top.
+- **1.0–1.4 s:** a magenta spiky orb carrying the curse's icon comes down inside the purple
+  column and reaches the falling brick at about 1.4 s; the brick takes the curse then.
+- **1.5–1.6 s:** the purple column fades out. **1.8–1.9 s:** the caster's column thins and is
+  gone.
+So the whole cast reads in about 1.1 s, and both lanes show it at the same moment.
+
+## Spell line pickup and spell bubbles
+- When the tower reaches a spell line, the line breaks into its coloured diamonds, which fly
+  to the wizard over about 0.3 s.
+- The two spell bubbles then pop in beside the wizard (small at 0.5 s, full size by 0.6 s), on
+  the side facing the tower: left of the wizard when the wizard floats right of its tower.
+  The light spell is a green bubble with its icon, the dark spell a pink bubble with a "?".
+- A light cast right after shows thin white wavy lines from the top of the screen down to the
+  tower, for about 0.4 s, with a white flash at the top. The bubbles then slide to the
+  wizard's other side, shrink and pop.
+
 ## Still to measure
-Cast beams and the light cast's lightning, the spell bubbles' cast and "used" animations, the
-curse-wave start shake (no Survival Pro wave in these videos), and the explosion's frames.
+The curse-wave start shake (no Survival Pro wave in these videos) and the explosion's frames:
+both are to be read from the install instead.
