@@ -290,3 +290,9 @@ and nothing gets installed without Max's own go-ahead.
         (does a new line stay hidden until it is 5 cells above the tower top?).
   4. Screenshot a Race Pro match with AI opponents for 60 s (`--play race --difficulty pro`)
      and a Survival finish, and say if anything looks off.
+- New source notes in docs/research/wiki-notes.md (fan wiki + official FAQ quotes). Please
+  confirm against the install, and say where they disagree with your readouts: the default
+  keyboard keys (U/I nudge, J/K magic, Space rotates left), the Settings options and defaults,
+  the 5 trial tiers with 0/8/17/26/36 medals to unlock and how many medals one trial gives,
+  whether cups exist outside online play, how the Endless Puzzle laser rises per group of
+  bricks (and the group size), and whether Large changes a brick's mass ("large and heavy").

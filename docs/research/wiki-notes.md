@@ -53,3 +53,19 @@ Cup Winner (win an online cup), Baby Steps / Doing Good (unlock the Apprentice /
 survival), 99 Bricks! (a 99-brick tower in endless survival), Shadow Stacker (a 99-brick tower
 in endless puzzle), Green Fingers (connect 7 bricks with one ivy spell), All-round Magician (use
 every spell once), Speed. Precision. (win a normal race within 80 s without dropping a brick).
+
+## Official site (trickytowers.com FAQ and tournament kit, via search quotes; the site is blocked here)
+- Spell list, in the FAQ's words summarised: binds touching bricks (Ivy), a small piece to build
+  on (Minibase), petrifies a brick (Petrify), removes your last placed brick (Undo), places a
+  couple of petrified bricks (Auto-build), bricks rotate on their own (Auto-rotate), soapy
+  bubbles float bricks away (Bubble), **makes a brick large and heavy** (Large), bricks drop much
+  faster (Fast), grass makes it hard to see (Grassy), very slippery bricks (Ice), mist (Mist),
+  harder shapes (Mystery), no rotating (No-rotate), a balloon slows bricks (Slow), tiny ghosts
+  steal your brick (Ghost), "a combination of dark magic" and "an even stronger combination".
+  Extra life isn't in the quoted list. Matches our 17 spells and the combos.
+  Open question: "large and heavy" — the PC readout says every brick has mass 1; check whether
+  Large changes a brick's mass.
+- Wizard levels: Rookie Magician ... Expert Wizard, then "Master Wizard Level 1", "Level 2",
+  "Level 3" and so on. Confirms `XpRules::name` (level 11 = Master Wizard Level 1).
+- The tournament kit ("tournament roster with official rules", papercraft crowns, a printable
+  Super Cup) is for players running their own events; its rules weren't quoted.
