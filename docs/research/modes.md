@@ -50,3 +50,39 @@ Plain-language notes from Max's installed copy. Units are brick cells.
   lives: lost bricks are just gone. It has its own versions of the race islands and a tint
   under the pacer line.
 - Our AI opponents are an extra beyond the original, not its main mode.
+
+## Survival Pro curse waves, exact (read from the PC install, 2026-10-04)
+
+Timing
+- Times are whole seconds, picked with an integer random that excludes the top value. So "12 to 18" really means 12 to 17 s, and a wave listed "6 to 8" lasts 6 or 7 s.
+- The first wave comes 12 to 17 s after the start. Each next wave comes 12 to 17 s after the previous one ends. The gap is counted from the end of a wave, not from its start.
+- All players share one random seed, so everyone gets the same waves at the same times.
+
+Levels
+- There are 4 levels. Within a level, waves are drawn at random without repeats.
+- After 2 waves (or sooner, if the level's list runs out) the next level starts. Level 4 then repeats, with a fresh copy of its list each time.
+
+When a wave starts
+- The current brick is paused and shakes.
+- It is moved to the top, the game waits 1 s, then control comes back.
+- The wave's curses hit that brick, and then every new brick while the wave lasts. Mist is the exception: it is applied once, at the start.
+
+The 7 curses
+- **Large**: the brick grows, with a camera shake and a rumble sound.
+- **No rotate.**
+- **Fast.**
+- **Ice.**
+- **Mist**: spawned over the top of the tower, once per wave.
+- **Ghost**: the last brick placed on the tower turns ghost for 1.5. It skips bricks that are already ghost, stone or ivy.
+- **Mystery**: the current brick becomes a Mystery brick.
+
+Waves per level (curses, length in s; the top value is excluded)
+
+| Level | Waves |
+|---|---|
+| 1 | Large 6-8; Mist 14-14 (14 s); Mystery 6-8; Fast 6-8; No rotate 6-8 |
+| 2 | Large 8-11; Mystery 8-11; Ice 6-8; Fast 8-11; No rotate 8-11; Fast+Large 4-6; Mystery+No rotate 4-6; Mist+Large 6-8 |
+| 3 | Large 12-16; Ice 8-11; No rotate 11-15; Ghost 6-8; Mist+No rotate 8-11; Mystery+Ice 6-8; No rotate+Fast 8-11; No rotate+Large 8-11 |
+| 4 | Fast 12-16; No rotate 12-16; Ice 11-15; Mystery 12-16; Ghost+Fast 6-8; Ice+Large 6-8; Mystery+Ice 8-11; Large+Large 6-8; Mist+Mystery 8-11; Large+Ghost 7-10; Mystery+Large+No rotate 6-8; Large+Fast+No rotate 6-8 |
+
+Our `WaveRules` has an Auto-rotate curse, which is not in the original, and is missing Ghost. Each wave in the original is a fixed set of curses with its own length; it is not "N random curses times a scale".
