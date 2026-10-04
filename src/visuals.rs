@@ -9,11 +9,10 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use crate::art::{Animated, Art};
-use crate::config::{GameConfig, ModeKind, SpellKind};
+use crate::config::{GameConfig, ModeKind};
 use crate::gameplay::piece_def;
 use crate::gameplay::{
-    ActiveBrick, Brick, BrickBag, FloorBlock, FloorPart, Match, Phase, Platform, Tower, TowerState,
-    TowerStatus,
+    ActiveBrick, Brick, FloorBlock, FloorPart, Match, Phase, Platform, Tower, TowerState,
 };
 use crate::spells::{Bubbled, Grassy, LifeOrb, SpellLog, Stone, Vined, Zapped};
 
@@ -41,12 +40,9 @@ impl Plugin for VisualsPlugin {
                     fit_strips,
                     redress_on_art_change,
                     dress_platforms,
-                    update_drop_guide,
-                    update_next_preview,
+                    update_drop_guide.after(frame_towers),
                     frame_towers.in_set(FramedCamera),
                     update_hud,
-                    update_panels,
-                    place_panels.after(update_panels).after(frame_towers),
                     update_lines,
                     update_mist,
                 ),
@@ -85,22 +81,22 @@ fn track_view_size(windows: Query<&Window>, mut view: ResMut<ViewSize>) {
 #[derive(Component)]
 struct Hud;
 
-/// A player panel, kept beside its tower's base by `place_panels`.
+/// A tower's drop guide: a pale column from the top of the screen down to where
+/// its falling brick will land.
 #[derive(Component)]
-struct PanelLane(usize);
-
-/// The row of player panels along the bottom: portrait, hearts and spell slots.
-#[derive(Component)]
-struct PanelRow;
-
-#[derive(Component)]
-struct DropGuide;
+struct DropGuide {
+    tower: Entity,
+}
 
 /// A tower's spell line.
 #[derive(Component)]
 struct SpellLine {
     tower: Entity,
 }
+
+/// One diamond of a spell line.
+#[derive(Component)]
+struct SpellDiamond;
 
 /// The race finish line or puzzle laser over a tower; both can come down.
 #[derive(Component)]
@@ -114,52 +110,18 @@ struct MistCloud {
     tower: Entity,
 }
 
-#[derive(Component)]
-struct NextPreview {
-    piece: Option<usize>,
-}
-
 /// Child sprite of a brick, one per cell.
 #[derive(Component)]
 struct CellSprite;
 
 fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
-    commands.spawn((
-        PanelRow,
-        Node {
-            position_type: PositionType::Absolute,
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            ..default()
-        },
-    ));
     commands.spawn((Camera2d, Transform::from_xyz(0.0, config.cells(6.0), 0.0)));
-    // A translucent blue column under the brick, like the original.
-    let guide = match art.image("drop_guide") {
-        Some(image) => Sprite {
-            image,
-            color: DROP_GUIDE,
-            ..default()
-        },
-        None => Sprite::from_color(DROP_GUIDE.with_alpha(0.2), Vec2::ONE),
-    };
-    commands.spawn((
-        DropGuide,
-        guide,
-        Transform::from_xyz(0.0, 0.0, -2.0),
-        Visibility::Hidden,
-    ));
     // Water under every lane, its top at the depth where dropped bricks are lost.
     let depth = Vec3::new(0.0, -config.cells(config.kill_depth), -800.0);
     let width = config.cells(config.lanes.screen_width * 3.0);
     if let Some(water) = art_strip(&art, "water", config.cell_size, width, depth) {
         commands.spawn((WaterStrip, water));
     }
-    commands.spawn((
-        NextPreview { piece: None },
-        Transform::default(),
-        Visibility::Hidden,
-    ));
     commands.spawn((
         Hud,
         Text::new(""),
@@ -186,7 +148,6 @@ fn cell_sprites(parent: &mut ChildSpawnerCommands, cells: &[Vec2], cell: f32, co
     }
 }
 
-const DROP_GUIDE: Color = Color::srgba(133.0 / 255.0, 177.0 / 255.0, 1.0, 0.75);
 const STONE: Color = Color::srgb(0.45, 0.45, 0.48);
 const VINES: Color = Color::srgb(0.2, 0.7, 0.25);
 const GRASS: Color = Color::srgb(0.35, 0.8, 0.2);
@@ -516,7 +477,7 @@ struct LaneLayer {
 }
 
 /// The name a mode's art goes by in the manifest. Endless Race is dressed as a race.
-fn mode_key(mode: ModeKind) -> &'static str {
+pub(crate) fn mode_key(mode: ModeKind) -> &'static str {
     match mode.look() {
         ModeKind::Survival => "survival",
         ModeKind::Puzzle => "puzzle",
@@ -930,8 +891,18 @@ fn dress_platforms(
                 };
             }
             if config.magic.enabled {
-                // A line with an orb at each end: one light, one dark.
+                // A row of diamonds across the lane, all one colour per line
+                // (`update_lines` picks it); no caps at the ends.
                 let width = config.cells(config.platform_width + 2.0);
+                let look = &config.hud;
+                let sprite = art_sprite(&art, "spell_line", c);
+                let count = art
+                    .entries
+                    .get("spell_line")
+                    .and_then(|e| e.count)
+                    .filter(|_| sprite.is_some())
+                    .unwrap_or((width / config.cells(look.diamond_step)) as u32)
+                    .max(1);
                 let mut line = parent.spawn((
                     SpellLine {
                         tower: platform.tower,
@@ -939,57 +910,25 @@ fn dress_platforms(
                     Transform::from_xyz(0.0, 0.0, -1.5),
                     Visibility::Hidden,
                 ));
-                match art_sprite(&art, "spell_line", c) {
-                    // The original's line is a row of pickups in rainbow colours.
-                    Some((sprite, anchor, transform)) => {
-                        let entry = &art.entries["spell_line"];
-                        let mut colors = entry.colors();
-                        if colors.is_empty() {
-                            colors = (0..9)
-                                .map(|i| Color::hsl(i as f32 * 40.0, 0.9, 0.65))
-                                .collect();
-                        }
-                        let count = entry.count.unwrap_or(16).max(1);
-                        line.with_children(|line| {
-                            for i in 0..count {
-                                let x = width * ((i as f32 + 0.5) / count as f32 - 0.5);
+                line.with_children(|line| {
+                    for i in 0..count {
+                        let x = width * ((i as f32 + 0.5) / count as f32 - 0.5);
+                        match &sprite {
+                            Some((sprite, anchor, transform)) => {
                                 line.spawn((
-                                    Sprite {
-                                        color: colors[i as usize % colors.len()],
-                                        ..sprite.clone()
-                                    },
-                                    anchor,
+                                    SpellDiamond,
+                                    sprite.clone(),
+                                    *anchor,
                                     transform.with_translation(Vec3::new(x, 0.0, 0.0)),
                                 ));
                             }
-                        });
-                    }
-                    None => {
-                        line.with_child(Sprite::from_color(
-                            Color::srgba(1.0, 0.95, 0.7, 0.25),
-                            Vec2::new(width, 2.0),
-                        ));
-                    }
-                }
-                line.with_children(|line| {
-                    let orbs = [
-                        (-1.0, "spell_orb_light", Color::srgb(1.0, 0.95, 0.55)),
-                        (1.0, "spell_orb_dark", Color::srgb(0.65, 0.3, 0.95)),
-                    ];
-                    for (side, name, color) in orbs {
-                        let x = side * config.cells(config.platform_width * 0.5 + 1.5);
-                        match art_sprite(&art, name, c) {
-                            Some((sprite, anchor, transform)) => {
-                                line.spawn((
-                                    sprite,
-                                    anchor,
-                                    transform.with_translation(Vec3::new(x, 0.0, 0.5)),
-                                ));
-                            }
                             None => {
+                                let side = config.cells(look.diamond_size)
+                                    * std::f32::consts::FRAC_1_SQRT_2;
                                 line.spawn((
-                                    Sprite::from_color(color, Vec2::splat(c * 0.6)),
-                                    Transform::from_xyz(x, 0.0, 0.5).with_rotation(
+                                    SpellDiamond,
+                                    Sprite::from_color(Color::WHITE, Vec2::splat(side)),
+                                    Transform::from_xyz(x, 0.0, 0.0).with_rotation(
                                         Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
                                     ),
                                 ));
@@ -1022,97 +961,84 @@ fn dress_platforms(
     }
 }
 
-/// A faint beam under your falling brick showing where it will land.
+/// A pale column the width of each falling brick, from the top of the screen down
+/// to where the brick will land (light cyan in Race, lilac in Survival).
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn update_drop_guide(
-    towers: Query<(&Tower, &TowerState)>,
-    bricks: Query<(&ActiveBrick, &ColliderAabb)>,
-    mut guide: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<DropGuide>>,
-) {
-    let Ok((mut transform, mut sprite, mut visibility)) = guide.single_mut() else {
-        return;
-    };
-    let active = towers
-        .iter()
-        .find(|(tower, _)| tower.is_first_player())
-        .and_then(|(_, state)| state.active)
-        .and_then(|entity| bricks.get(entity).ok());
-    let Some((active, aabb)) = active else {
-        *visibility = Visibility::Hidden;
-        return;
-    };
-    let Some(distance) = active.drop_distance else {
-        *visibility = Visibility::Hidden;
-        return;
-    };
-    let width = aabb.max.x - aabb.min.x;
-    let x = (aabb.min.x + aabb.max.x) * 0.5;
-    transform.translation = Vec3::new(x, aabb.min.y - distance * 0.5, -2.0);
-    sprite.custom_size = Some(Vec2::new(width, distance.max(1.0)));
-    *visibility = Visibility::Visible;
-}
-
-/// Shows your next brick beside your spawn point.
-fn update_next_preview(
     mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
     art: Res<Art>,
-    mut towers: Query<(&Tower, &TowerState, &mut BrickBag)>,
-    mut preview: Query<(Entity, &mut NextPreview, &mut Transform, &mut Visibility)>,
+    view: Res<ViewSize>,
+    camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<DropGuide>)>,
+    towers: Query<(Entity, &TowerState), With<Tower>>,
+    bricks: Query<(&ActiveBrick, &ColliderAabb)>,
+    mut guides: Query<(
+        Entity,
+        &DropGuide,
+        &mut Transform,
+        &mut Sprite,
+        &mut Visibility,
+    )>,
 ) {
-    let Ok((entity, mut preview, mut transform, mut visibility)) = preview.single_mut() else {
-        return;
-    };
-    let Some((tower, state, mut bag)) = towers.iter_mut().find(|(t, _, _)| t.is_first_player())
-    else {
-        *visibility = Visibility::Hidden;
-        return;
-    };
-    let finished_puzzle = game.mode == ModeKind::Puzzle
-        && state.bricks_placed + state.bricks_dropped + 1 >= config.puzzle.bricks;
-    if game.phase != Phase::Playing || finished_puzzle {
-        *visibility = Visibility::Hidden;
-        return;
+    for (entity, guide, ..) in &guides {
+        if !towers.contains(guide.tower) {
+            commands.entity(entity).despawn();
+        }
     }
-    *visibility = Visibility::Visible;
-    let floor = if game.mode.rules() == ModeKind::Puzzle {
-        state.stack_top.max(state.laser(&config))
-    } else {
-        state.stack_top
+    let color = match game.mode.look() {
+        ModeKind::Survival => config.hud.guide_survival,
+        _ => config.hud.guide_race,
     };
-    transform.translation = Vec3::new(
-        tower.origin_x + config.cells(config.platform_width * 0.5 + 3.0),
-        // A few cells under the spawn point, clear of the text at the top.
-        config.cells(floor + config.spawn_gap - 4.0),
-        0.0,
-    );
-    let next = bag.peek();
-    if preview.piece == Some(next) {
-        return;
-    }
-    preview.piece = Some(next);
-    let def = &config.pieces[next];
-    let cells = def.centered_cells();
-    let cell = config.cell_size * 0.8;
-    let mut preview = commands.entity(entity);
-    preview.despawn_children();
-    match art.image(&format!("brick_{}", def.name)) {
-        Some(image) => {
-            let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
-            let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
-            preview.with_child((
-                Sprite {
+    let color = Color::srgba(color[0], color[1], color[2], color[3]);
+    for (tower, _) in &towers {
+        if !guides.iter().any(|(_, g, ..)| g.tower == tower) {
+            let sprite = match art.image("drop_guide") {
+                Some(image) => Sprite {
                     image,
-                    custom_size: Some((max - min + Vec2::ONE) * cell),
+                    color,
                     ..default()
                 },
-                Transform::from_translation(((min + max) * 0.5 * cell).extend(0.0)),
+                None => Sprite::from_color(color, Vec2::ONE),
+            };
+            commands.spawn((
+                DropGuide { tower },
+                sprite,
+                Transform::from_xyz(0.0, 0.0, -2.0),
+                Visibility::Hidden,
             ));
         }
-        None => {
-            let color = Color::srgb(def.color[0], def.color[1], def.color[2]);
-            preview.with_children(|parent| cell_sprites(parent, &cells, cell, color));
-        }
+    }
+    let Ok((eye, projection)) = camera.single() else {
+        return;
+    };
+    let scale = match projection {
+        Projection::Orthographic(ortho) => ortho.scale,
+        _ => 1.0,
+    };
+    let screen_top = eye.translation.y + view.0.y * 0.5 * scale;
+    for (_, guide, mut transform, mut sprite, mut visibility) in &mut guides {
+        let active = towers
+            .get(guide.tower)
+            .ok()
+            .filter(|_| game.phase == Phase::Playing)
+            .and_then(|(_, state)| state.active)
+            .and_then(|entity| bricks.get(entity).ok());
+        let Some((active, aabb)) = active else {
+            visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        };
+        let Some(distance) = active.drop_distance else {
+            visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        };
+        let width = aabb.max.x - aabb.min.x;
+        let bottom = aabb.min.y - distance;
+        let top = screen_top.max(aabb.max.y);
+        transform.translation =
+            Vec3::new((aabb.min.x + aabb.max.x) * 0.5, (top + bottom) * 0.5, -2.0);
+        sprite.custom_size = Some(Vec2::new(width, (top - bottom).max(1.0)));
+        visibility.set_if_neq(Visibility::Visible);
     }
 }
 
@@ -1143,13 +1069,26 @@ fn frame_towers(
         ModeKind::Puzzle => config.puzzle.line_height + config.puzzle.line_random,
         _ => 0.0,
     };
-    let view_top = (top.max(goal) + config.spawn_gap + 3.0).max(16.0);
+    let view_top = config.camera_top(top.max(goal));
     // Just past the water line, so the whole base and what hangs under it stay in view.
     let below = config.kill_depth + 1.5;
-    let height = config.cells(view_top + below);
     let width = max_x - min_x + config.cells(config.platform_width + 10.0);
+    // While playing, the camera stays close (about `camera_cells` tall) and follows
+    // the tower tops, so a tall tower's base leaves the screen. Once the match is
+    // over it pulls back until every tower and its base fit.
+    let close = game.phase == Phase::Playing && game.mode.rules() != ModeKind::Puzzle;
+    let full = view_top + below;
+    let cells_tall = if close {
+        config.hud.camera_cells.min(full)
+    } else {
+        full
+    };
+    let height = config.cells(cells_tall);
     let scale = (width / window.x).max(height / window.y).max(0.5);
-    let target = Vec2::new((min_x + max_x) * 0.5, height * 0.5 - config.cells(below));
+    // Whatever height the width forces is shown from the top down.
+    let shown = config.cells(full).min(window.y * scale);
+    let bottom = (config.cells(view_top) - shown).max(-config.cells(below));
+    let target = Vec2::new((min_x + max_x) * 0.5, bottom + shown * 0.5);
 
     let t = 1.0 - (-3.0 * time.delta_secs()).exp();
     let current = transform.translation.truncate();
@@ -1157,253 +1096,6 @@ fn frame_towers(
     if let Projection::Orthographic(ortho) = &mut *projection {
         ortho.scale += (scale - ortho.scale) * t;
     }
-}
-
-/// What one player's panel shows; the panels are rebuilt when any of it changes.
-#[derive(PartialEq, Clone, Debug)]
-struct PanelState {
-    lane: usize,
-    name: String,
-    lives: Option<u32>,
-    light: Option<SpellKind>,
-    dark: Vec<SpellKind>,
-    status: TowerStatus,
-}
-
-const PANEL_ICON: f32 = 44.0;
-
-/// One panel per tower, in lane order: the wizard portrait (`wizard_<lane>`), hearts
-/// for lives (`heart`), and the light and dark spell slots (`spell_icon_<Spell>` in
-/// `spell_slot_light` / `spell_slot_dark`). Text stands in for missing art.
-fn update_panels(
-    mut commands: Commands,
-    config: Res<GameConfig>,
-    game: Res<Match>,
-    art: Res<Art>,
-    towers: Query<(&Tower, &TowerState)>,
-    row: Query<Entity, With<PanelRow>>,
-    mut shown: Local<Option<Vec<PanelState>>>,
-) {
-    let Ok(row) = row.single() else {
-        return;
-    };
-    let mut panels: Vec<PanelState> = towers
-        .iter()
-        .filter(|_| game.phase != Phase::Menu)
-        .map(|(tower, state)| PanelState {
-            lane: tower.index,
-            name: match tower.player {
-                Some(p) => format!("Player {}", p + 1),
-                None => format!("Wizard {}", tower.index),
-            },
-            lives: state.lives,
-            light: state.light_spell.filter(|_| config.magic.enabled),
-            dark: state
-                .dark_spell
-                .as_ref()
-                .filter(|_| config.magic.enabled)
-                .map(|c| c.spells.clone())
-                .unwrap_or_default(),
-            status: state.status,
-        })
-        .collect();
-    panels.sort_by_key(|p| p.lane);
-    if shown.as_ref() == Some(&panels) && !art.is_changed() {
-        return;
-    }
-    commands.entity(row).despawn_children();
-    commands.entity(row).with_children(|row| {
-        for panel in &panels {
-            spawn_panel(row, &art, config.magic.enabled, panel);
-        }
-    });
-    *shown = Some(panels);
-}
-
-/// Puts each panel beside its lane, just under the right end of the tower's base.
-#[allow(clippy::too_many_arguments)]
-fn place_panels(
-    config: Res<GameConfig>,
-    game: Res<Match>,
-    art: Res<Art>,
-    images: Res<Assets<Image>>,
-    view_size: Res<ViewSize>,
-    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
-    towers: Query<&Tower>,
-    mut panels: Query<(&PanelLane, &mut Node, &ComputedNode)>,
-) {
-    let Ok((camera, eye)) = camera.single() else {
-        return;
-    };
-    let window = view_size.0;
-    // How far the base's art reaches below its top surface, in cells.
-    let platform = format!("platform_{}", mode_key(game.mode));
-    let platform = platform.as_str();
-    let depth = art
-        .entries
-        .get(platform)
-        .zip(art.image(platform).and_then(|h| images.get(&h)))
-        .map_or(1.0, |(entry, image)| {
-            let pivot_y = entry.pivot.map_or(0.5, |p| p.1);
-            image.size_f32().y * pivot_y / entry.pixels_per_unit.unwrap_or(100.0).max(1.0)
-        });
-    for (lane, mut node, computed) in &mut panels {
-        let Some(tower) = towers.iter().find(|t| t.index == lane.0) else {
-            continue;
-        };
-        let corner = Vec3::new(
-            tower.origin_x + config.cells(config.platform_width * 0.5),
-            -config.cells(depth),
-            0.0,
-        );
-        let Ok(at) = camera.world_to_viewport(eye, corner) else {
-            continue;
-        };
-        // Right-aligned to the base's right end, hanging below the base. When the base
-        // reaches below the bottom of the screen there is no room under it, so the
-        // panel sits just right of the base instead, along the bottom edge.
-        let size = computed.size() * computed.inverse_scale_factor();
-        let bottom = window.y - size.y - 4.0;
-        let x = if at.y <= bottom {
-            at.x - size.x
-        } else {
-            at.x + 8.0
-        };
-        node.left = Val::Px(x.clamp(0.0, (window.x - size.x).max(0.0)));
-        node.top = Val::Px(at.y.min(bottom).max(0.0));
-    }
-}
-
-fn spawn_panel(row: &mut ChildSpawnerCommands, art: &Art, magic: bool, panel: &PanelState) {
-    let label = |text: String, size: f32| {
-        (
-            Text::new(text),
-            TextFont {
-                font_size: FontSize::Px(size),
-                ..default()
-            },
-        )
-    };
-    let icon = |image: Handle<Image>, size: f32| {
-        (
-            ImageNode::new(image),
-            Node {
-                width: Val::Px(size),
-                height: Val::Px(size),
-                ..default()
-            },
-        )
-    };
-    let faded = panel.status == TowerStatus::Out;
-    row.spawn((
-        PanelLane(panel.lane),
-        Node {
-            position_type: PositionType::Absolute,
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
-            row_gap: Val::Px(4.0),
-            padding: UiRect::all(Val::Px(6.0)),
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, if faded { 0.15 } else { 0.35 })),
-    ))
-    .with_children(|panel_ui| {
-        panel_ui
-            .spawn(Node {
-                align_items: AlignItems::Center,
-                column_gap: Val::Px(6.0),
-                ..default()
-            })
-            .with_children(|top| {
-                let portrait = format!("wizard_{}", panel.lane + 1);
-                if let Some(image) = art.image(&portrait) {
-                    let mut wizard = top.spawn(icon(image, 56.0));
-                    if art.is_animation(&portrait) {
-                        wizard.insert(Animated::new(portrait));
-                    }
-                }
-                let status = match panel.status {
-                    TowerStatus::Building => "",
-                    TowerStatus::Won => " - won",
-                    TowerStatus::Out => " - out",
-                };
-                top.spawn(label(format!("{}{status}", panel.name), 16.0));
-            });
-        if let Some(lives) = panel.lives {
-            panel_ui
-                .spawn(Node {
-                    column_gap: Val::Px(2.0),
-                    ..default()
-                })
-                .with_children(|hearts| match art.image("heart") {
-                    Some(image) => {
-                        for _ in 0..lives {
-                            hearts.spawn(icon(image.clone(), 22.0));
-                        }
-                    }
-                    None => {
-                        hearts.spawn((
-                            label("♥ ".repeat(lives as usize).trim_end().to_string(), 18.0),
-                            TextColor(Color::srgb(1.0, 0.35, 0.45)),
-                        ));
-                    }
-                });
-        }
-        if !magic {
-            return;
-        }
-        panel_ui
-            .spawn(Node {
-                column_gap: Val::Px(8.0),
-                ..default()
-            })
-            .with_children(|slots| {
-                let slot_list = [
-                    (
-                        "spell_slot_light",
-                        panel.light.into_iter().collect::<Vec<_>>(),
-                        Color::srgb(1.0, 0.95, 0.55),
-                    ),
-                    (
-                        "spell_slot_dark",
-                        panel.dark.clone(),
-                        Color::srgb(0.7, 0.45, 1.0),
-                    ),
-                ];
-                for (frame, spells, color) in slot_list {
-                    let mut slot = slots.spawn((
-                        Node {
-                            min_width: Val::Px(PANEL_ICON),
-                            height: Val::Px(PANEL_ICON),
-                            align_items: AlignItems::Center,
-                            justify_content: JustifyContent::Center,
-                            padding: UiRect::horizontal(Val::Px(4.0)),
-                            border: UiRect::all(Val::Px(2.0)),
-                            ..default()
-                        },
-                        BorderColor::all(color),
-                    ));
-                    if let Some(image) = art.image(frame) {
-                        slot.insert((ImageNode::new(image), BorderColor::all(Color::NONE)));
-                    }
-                    slot.with_children(|slot| {
-                        for spell in spells {
-                            match art.image(&format!("spell_icon_{spell:?}")) {
-                                Some(image) => {
-                                    slot.spawn(icon(image, PANEL_ICON - 8.0));
-                                }
-                                None => {
-                                    slot.spawn((
-                                        label(spell.name().into(), 13.0),
-                                        TextColor(color),
-                                    ));
-                                }
-                            }
-                        }
-                    });
-                }
-            });
-    });
 }
 
 /// The debug readout in the top-left corner (height, spells, who won). The
@@ -1549,11 +1241,29 @@ fn update_lines(
     config: Res<GameConfig>,
     game: Res<Match>,
     towers: Query<&TowerState>,
-    mut lines: Query<(&SpellLine, &mut Transform, &mut Visibility), Without<FinishLine>>,
-    mut finish: Query<(&FinishLine, &mut Transform)>,
+    art: Res<Art>,
+    mut lines: Query<(&SpellLine, &Children, &mut Transform, &mut Visibility), Without<FinishLine>>,
+    mut finish: Query<(&FinishLine, &mut Transform, &mut Visibility), Without<SpellLine>>,
+    mut diamonds: Query<&mut Sprite, With<SpellDiamond>>,
 ) {
     let c = config.cell_size;
-    for (line, mut transform) in &mut finish {
+    // Once a match is decided, the finish line and spell lines go at once.
+    let over = game.phase == Phase::Over && game.mode.rules() != ModeKind::Puzzle;
+    let colors: Vec<Color> = match art.entries.get("spell_line").map(|e| e.colors()) {
+        Some(colors) if !colors.is_empty() => colors,
+        _ => config
+            .hud
+            .line_colors
+            .iter()
+            .map(|&[r, g, b]| Color::srgb_u8(r, g, b))
+            .collect(),
+    };
+    for (line, mut transform, mut visibility) in &mut finish {
+        visibility.set_if_neq(if over {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
         let height = match game.mode.rules() {
             ModeKind::Puzzle => towers
                 .get(line.tower)
@@ -1565,8 +1275,19 @@ fn update_lines(
         };
         transform.translation.y = config.cells(height) + c * 0.5;
     }
-    for (line, mut transform, mut visibility) in &mut lines {
-        let height = towers.get(line.tower).ok().and_then(|s| s.spell_line);
+    for (line, children, mut transform, mut visibility) in &mut lines {
+        let state = towers.get(line.tower).ok();
+        let height = state.and_then(|s| s.spell_line).filter(|_| !over);
+        if let (Some(state), false) = (state, colors.is_empty()) {
+            let color = colors[state.lines_reached as usize % colors.len()];
+            for child in children {
+                if let Ok(mut sprite) = diamonds.get_mut(*child)
+                    && sprite.color != color
+                {
+                    sprite.color = color;
+                }
+            }
+        }
         // Lines right under the finish are hidden, like the original.
         let near_finish = game.mode == ModeKind::Race
             && height.is_some_and(|h| h > game.finish_height - config.magic.line_hide_near_finish);

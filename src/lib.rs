@@ -16,6 +16,7 @@ pub mod cups;
 pub mod cups_menu;
 pub mod effects;
 pub mod gameplay;
+pub mod hud;
 pub mod input;
 pub mod letters;
 pub mod menu;

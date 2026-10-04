@@ -124,6 +124,7 @@ fn main() {
         ResultsPlugin,
         EffectsPlugin,
         tricky_towers::casts::CastsPlugin,
+        tricky_towers::hud::HudPlugin,
     ));
     // Endless scores are kept between runs, except in offscreen picture runs.
     if offscreen.is_none() {

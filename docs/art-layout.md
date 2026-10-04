@@ -104,17 +104,17 @@ islands on the water band), by adding `screen`:
 | `puzzle_piece_1`, `puzzle_piece_3` | Puzzle floor columns (1 wide), pivot top-left on the column's corner |
 | `puzzle_piece_base`, `puzzle_piece_base_top` | Tiles stacked behind each Puzzle column every 2 cells, and their cap |
 | `puzzle_pro_center`, `puzzle_pro_ledge_1`..`_3`, `puzzle_pro_ledge_top` | Pro pillar columns, side ledges, and the highest ledge on each side |
-| `spell_line` | One pickup of the spell line; `count` of them (16 if left out) are spread across the lane, tinted in turn with `colors` (0 to 255; a 9-colour rainbow if left out) |
-| `spell_orb_light`, `spell_orb_dark` | The light and dark pickups at the ends of the spell line |
+| `spell_line` | One diamond of the spell line, `count` of them across the lane (one every `hud.diamond_step` cells if left out); the whole line takes one colour, the next of `colors` (0 to 255; `hud.line_colors` if left out) for each new line |
 | `water` | Water under all lanes, repeated sideways; pivot at the middle of its top edge (sits at the depth where dropped bricks are lost) |
-| `drop_guide` | The beam under your brick, stretched to the brick's width and drop distance and tinted blue (133, 177, 255) at 75% |
+| `drop_guide` | The pale column under each falling brick, stretched from the top of the screen to where the brick lands and tinted `hud.guide_race` / `hud.guide_survival` |
 | `vine_overlay`, `grass_overlay` | Drawn over a brick's sprite when it has vines or grass, stretched to the brick (a green tint if left out) |
 | `bubble` | Drawn around a brick lifted by Bubble |
 | `mist` | The Mist fog over a tower, faded in and out |
-| `wizard_1` ... `wizard_4` | Portrait in each lane's player panel, left to right |
-| `heart` | One per life in a player panel |
-| `spell_slot_light`, `spell_slot_dark` | Frames of the two spell slots in a player panel |
-| `spell_icon_<Spell>` | Spell icon in a slot, for Ivy, Petrify, Undo, ExtraLife, Minibase, AutoBuild, Large, Fast, NoRotate, AutoRotate, Ice, Mist, Slow, Mystery, Bubble, Grassy, Ghost |
+| `heart` | One per life, in a row under the wizard |
+| `spell_bubble_light`, `spell_bubble_dark` | The bubbles beside a wizard holding a spell (green and pink circles if left out); the dark one shows a ? |
+| `next_card` | The next-brick card hanging from the top of each lane (a white card with a dark blue bar if left out) |
+| `roof_race`, `roof_survival`, `roof` | The roof dropped onto a finished tower, pivot at its bottom middle (a stepped red spire if left out) |
+| `spell_icon_<Spell>` | Spell icon in a light spell bubble, for Ivy, Petrify, Undo, ExtraLife, Minibase, AutoBuild, Large, Fast, NoRotate, AutoRotate, Ice, Mist, Slow, Mystery, Bubble, Grassy, Ghost |
 | `life_orb` | Extra Life's heart orb |
 | `splash_1` .. `splash_3`, `splash`, `sfx_splash_1` .. `sfx_splash_4` | The front pictures of a splash (one picked per piece) and its sounds |
 | `cast_beam`, `cast_lane_beam`, `cast_lane_beam_survival`, `cast_circle_gradient` | Dark cast beam (stretched up from the caster and down onto each victim's brick), the wave over a victim's lane, and the glow at a beam's foot |
@@ -208,4 +208,3 @@ Each tower's wizard floats beside it (`wizards` in `game.ron` sets where; see
   pivots, so pose variants can sit differently on the joint. A clip lasts as long as its
   longest part animation; then the wizard goes back to idle (`dying` holds its last frame).
 - `wizard<n>_say_<clip>`: the voice line played when that clip starts (optional).
-- The panel portrait is still `wizard_<n>`.
