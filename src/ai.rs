@@ -137,7 +137,7 @@ fn plan(
     let c = config.cell_size;
     let cell = c * brick.scale;
     let step = config.cells(config.move_step);
-    let half = config.cells(config.platform_width * 0.5);
+    let half = config.cells(config.base_half_width(config.mode));
     let filter = SpatialQueryFilter::from_excluded_entities([entity]);
     // Plan with the brick's real size: the shrunk steering shape would happily
     // squeeze it into spots where it overlaps its neighbours once placed.

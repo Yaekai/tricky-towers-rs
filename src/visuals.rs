@@ -879,11 +879,18 @@ fn dress_platforms(
             None if floor => {
                 base.insert(Visibility::default());
             }
+            // No art: one plain block per collider box.
             None => {
-                base.insert(Sprite::from_color(
-                    Color::srgb(0.55, 0.50, 0.45),
-                    Vec2::new(config.cells(config.platform_width), c),
-                ));
+                base.insert(Visibility::default()).with_children(|parent| {
+                    for b in config.base_boxes(game.mode) {
+                        let size = Vec2::new(b.x.1 - b.x.0, b.y.1 - b.y.0) * c;
+                        let centre = Vec2::new(b.x.0 + b.x.1, b.y.0 + b.y.1) * 0.5 * c;
+                        parent.spawn((
+                            Sprite::from_color(Color::srgb(0.55, 0.50, 0.45), size),
+                            Transform::from_translation((centre + Vec2::Y * c * 0.5).extend(0.0)),
+                        ));
+                    }
+                });
             }
         }
         base.with_children(|parent| {

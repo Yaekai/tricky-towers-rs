@@ -409,6 +409,10 @@ pub struct TowerState {
     pub ghosts_due: u32,
     /// Bricks placed so far, counting up; stamps each brick's `Placed`.
     pub placed_count: u32,
+    /// Seconds the brick in hand is still held at the top by a wave's start,
+    /// and the x it shakes around.
+    pub wave_hold: f32,
+    pub wave_hold_x: f32,
     /// Endless Race: the pacer line's height in cells, checkpoints reached, its speed
     /// and the step the next checkpoint adds, seconds left of the checkpoint stop, the
     /// height it stopped at, and seconds since the run started.
@@ -462,6 +466,8 @@ impl TowerState {
             wave_ghost: false,
             ghosts_due: 0,
             placed_count: 0,
+            wave_hold: 0.0,
+            wave_hold_x: 0.0,
             pacer: config.endless.intro_from,
             pacer_stages: 0,
             pacer_speed: config.endless.start_speed,
@@ -830,9 +836,23 @@ fn start_match(
             Transform::from_xyz(origin_x, -c * 0.5, 0.0),
         ));
         if floor.is_empty() {
+            // The base's boxes, placed from its top (half a cell above the centre).
+            let parts = config
+                .base_boxes(config.mode)
+                .iter()
+                .map(|b| {
+                    let size = Vec2::new(b.x.1 - b.x.0, b.y.1 - b.y.0) * c;
+                    let centre = Vec2::new(b.x.0 + b.x.1, b.y.0 + b.y.1) * 0.5 * c;
+                    (
+                        centre + Vec2::Y * c * 0.5,
+                        Rotation::IDENTITY,
+                        Collider::rectangle(size.x, size.y),
+                    )
+                })
+                .collect();
             platform.insert((
                 RigidBody::Static,
-                Collider::rectangle(config.cells(config.platform_width), c),
+                Collider::compound(parts),
                 Friction::new(config.brick_friction),
             ));
         }
@@ -967,7 +987,7 @@ fn spawn_next_brick(
 
         if modifier.auto_build {
             // Auto Build: straight down onto a random spot over the tower, as stone.
-            let half = config.cells(config.platform_width * 0.5);
+            let half = config.cells(config.base_half_width(game.mode));
             let x = tower.origin_x + ((state.random() % 1000) as f32 / 1000.0 * 2.0 - 1.0) * half;
             let from = Vec2::new(x, config.cells(state.stack_top + config.spawn_gap));
             let Some(hit) = spatial.cast_shape(
@@ -1099,6 +1119,22 @@ fn control_active_brick(
             state.active = None;
             continue;
         };
+        // A curse wave just started: the brick hangs at the top, shaking, and
+        // takes no input until the hold is over.
+        if state.wave_hold > 0.0 {
+            state.wave_hold = (state.wave_hold - dt).max(0.0);
+            let (reach, rate) = config.survival.waves.shake;
+            let wobble = if state.wave_hold > 0.0 {
+                (state.wave_hold * rate * std::f32::consts::TAU).sin() * config.cells(reach)
+            } else {
+                0.0
+            };
+            commands.entity(entity).insert((
+                Position(Vec2::new(state.wave_hold_x + wobble, position.0.y)),
+                LinearVelocity::ZERO,
+            ));
+            continue;
+        }
         let (mut position, mut rotation) = (*position, *rotation);
         let shape = control.query_shape.clone();
         let filter = SpatialQueryFilter::from_excluded_entities([entity]);
@@ -1469,7 +1505,7 @@ fn track_towers(
             continue;
         }
         let on_tower = (position.0.x - tower.origin_x).abs()
-            <= config.cells(config.platform_width * 0.5 + 2.0);
+            <= config.cells(config.base_half_width(config.mode) + 2.0);
         // Bricks held up by a bubble or a ghost don't count toward the height.
         if !on_tower || aabb.min.y <= -config.cell_size || bubbled || ghosted {
             continue;

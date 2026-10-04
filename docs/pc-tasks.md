@@ -147,3 +147,9 @@ and nothing gets installed without Max's own go-ahead.
 - Survival Pro curse waves: Ghost now strikes with the brick in hand and again with every new
   brick while the wave lasts. Just confirm a `--play survival --difficulty pro` offscreen run
   still loads with 0 errors.
+- The bases now use your collider readout (`GameConfig::bases`): the Race house is 6 wide with
+  the chimney cell and the under-water ledges, the Survival castle has its merlons and holes.
+  Take offscreen pictures of Race and Survival (`--shots 5,20`) and check that bricks sit on the
+  art where the boxes are (chimney, holes). Curse waves now lift and hold the brick in hand for
+  1 s, shaking: read the original's shake (how far, how fast, or its animation clip) for
+  `WaveRules::shake`.
