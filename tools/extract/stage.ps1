@@ -250,6 +250,23 @@ Add-Sprite 'logo_brick' 'gph_logoBrick' 'menu\logo_brick.png' 'Brick that drops 
 foreach ($i in 1..8) { Add-Sprite "logo_debris_$i" "gph_logoDebris0$i" "menu\logo_debris_$i.png" "Rubble piece $i under the logo" }
 foreach ($i in 1..4) { Add-Sprite "logo_plants_$i" "gph_logoPlants0$i" "menu\logo_plants_$i.png" "Plants growing on top of the logo, piece $i" }
 $notes.Add('- Start screen: logo gph_logo is 818x294 at 26 px/unit (818x294 px at 1080p), centre 7 units (182 px) above the screen centre. Pieces relative to the logo container (units, y up): brick (-1.78, 10.11); plants 1 (-9.67, 11.71), 2 (-5.38, 11.79), 3 (3.33, 11.66), 4 (9.795, 11.206) behind the logo; debris 1 (-1.02, 0.49), 2 (0.45, 1.12), 3 (3.58, 0.13), 4 (9.36, 0.35), 5 (5.32, 1.7), 6 (-6.14, 0.16), 7 (-7.27, 1.19); small debris 8 copies at (-5.59, 1.56) x0.846, (-5.03, -0.92) x0.846, (2.82, -1.29) x0.692, (7.93, -0.46) x0.521, (8.63, 1.01) x0.658, (9.06, 1.35) x0.587, (11.36, 1.36) x0.658, (-9.03, 0.59) x0.587, (-9.77, 0.94) x0.736. MoveIn clip (2.62 s): container drops from y 22.39 to 0 by 0.38 s overshooting to -2.41, bounces (-1.26, 0.64, 1.47, 0.15) and settles at 0.81 s; at 1.63 s the brick lands: container dips to -2.24 at 1.92 s, back +0.33, -0.21, 0 at 2.48 s; logo tilts z +3.05 deg at 1.69 s, -1.87 at 1.87, +0.82, +0.32, -0.18, 0 at 2.17; debris pieces hop up about 2.3 units at 1.63 s and fall back by 2.04 s. Sounds on clip events: SWOOSH, GRASS_GROW, FALLING_BRICK, BRICK_LAND (brick nudge + menu crumble). Prompt "Press [continue] to start" ([continue] is the Enter / A key icon) in a bar 218 px below the screen centre, full width, shown once the logo is placed; it blinks on 0.5 s / off 0.5 s, and every 0.075 s after the press. Press plays game start + heavy brick + crumble, rumbles, then goes to the title tiles. Ambience: AMBIENCE_MENU.')
+
+# --- Splash where a lost brick hits the water (Splash particle prefab) ---
+# The 64x192 sheet is 3 pictures stacked (one per particle, picked at random), not frames in a row.
+$sheetSrc = Join-Path $A 'Texture2D\anim_waterSplash64x196.png'
+if (Test-Path $sheetSrc) {
+  $sheet = Get-Tex $sheetSrc
+  New-Item -ItemType Directory -Force (Join-Path $X 'fx') | Out-Null
+  foreach ($i in 1..3) {
+    $cell = $sheet.Clone((New-Object System.Drawing.Rectangle 0, (($i - 1) * 64), 64, 64), $sheet.PixelFormat)
+    $cell.Save((Join-Path $X "fx\splash_$i.png"), [System.Drawing.Imaging.ImageFormat]::Png); $cell.Dispose()
+    # 25.6 px/unit makes the 64 px picture 2.5 units, the largest particle size.
+    $manifest.Add("    `"splash_$i`": (file: `"fx/splash_$i.png`", pixels_per_unit: 25.6, pivot: (0.5, 0.5)),")
+  }
+  $manifest.Add('    "splash": (file: "fx/splash_1.png", pixels_per_unit: 25.6, pivot: (0.5, 0.5)),')
+} else { $missing.Add('splash (texture anim_waterSplash64x196.png)') }
+foreach ($i in 1..4) { Add-Audio "sfx_splash_$i" "038_Water_splash_0$i" "Splash sound $i (one of the 4 at random)" }
+$notes.Add('- Splash: a brick splashes once when its centre falls below y -8.5 (cells, the water line). The splash spawns at the brick centre minus a random 0..0.4 down and lasts up to 2 s; one of 4 splash sounds plays at random. The brick gets an impulse of -0.9 x its velocity (so it nearly stops), rotation damped by 0.25, and afterwards a constant upward force of 17 every physics step (it floats) unless it is a Bubble brick. Two layers: (1) splash_1..3 front: 5 particles at once along a 2.86-wide horizontal line (half arc), no motion, each one of the 3 pictures at random, size random 1.3..2.5 units, lifetime 1 s, size over life 0 -> 1 at 0.10 -> 0.92 at 0.42 -> 0 at 0.68, white, drawn in front (sorting order 2). (2) drops: 12 white dots (gph_whiteCircle) at once from a 1.5-radius disc, shot upward in a narrow cone (4.6 deg) at speed 10..18 units/s, gravity x2 (world gravity 18 -> 36 units/s^2), size 0.3..0.4 units, full size until 0.45 s, shrinking to 0 at 0.93 s (lifetime 5 s, size curve 1 -> 1 at 0.09 -> 0 at 0.19), sorting order 0.')
 # --- Endless Race: pacer line and the Endless versions of the Race backdrop ---
 Add-Sprite 'pacer_line'  'gph_pacerRaceEndless'        'fx\pacer_line.png'  'Endless Race pacer line tile (1x2 units, 77 tiles side by side 1 unit apart); the line is its top edge' @(0.5, 1.0)
 Add-Sprite 'pacer_layer' 'gph_endless_race_pace_layer' 'fx\pacer_layer.png' 'Tint drawn under the pacer line (EndlessRacePaceLayer)'
