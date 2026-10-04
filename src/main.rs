@@ -139,6 +139,7 @@ fn main() {
         tricky_towers::casts::CastsPlugin,
         tricky_towers::packs::PacksPlugin,
         tricky_towers::weather::WeatherPlugin,
+        tricky_towers::particles::ParticlesPlugin,
         tricky_towers::hud::HudPlugin,
     ));
     // Endless scores are kept between runs, except in offscreen picture runs.

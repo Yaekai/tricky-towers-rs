@@ -65,7 +65,8 @@ enum Shows {
     /// The next brick, drawn with the tower's brick pack.
     Card(usize, crate::config::BrickPack),
     Text(String, Color),
-    Hearts(u32),
+    /// Lives left and the most there have been: filled hearts, then crosses.
+    Hearts(u32, u32),
     Light(SpellKind),
     Dark,
 }
@@ -189,7 +190,7 @@ fn wanted(
         },
         Kind::Hearts if state.status != TowerStatus::Out && game.phase != Phase::Over => {
             match state.lives {
-                Some(lives) if lives > 0 => Shows::Hearts(lives),
+                Some(lives) if lives > 0 => Shows::Hearts(lives, lives.max(config.survival.lives)),
                 _ => Shows::Nothing,
             }
         }
@@ -310,14 +311,24 @@ fn build(
             text(node, words, *color, size);
             base
         }
-        Shows::Hearts(lives) => {
+        Shows::Hearts(lives, most) => {
             let size = look.heart_size * height;
             match art.image("heart") {
                 Some(image) => {
+                    // A lost life shows a cross (`heart_lost`, gph_cross), else a dim heart.
+                    let lost = art.image("heart_lost");
                     node.with_children(|row| {
-                        for _ in 0..*lives {
+                        for i in 0..*most {
+                            let (picture, color) = if i < *lives {
+                                (image.clone(), Color::WHITE)
+                            } else {
+                                match &lost {
+                                    Some(cross) => (cross.clone(), Color::WHITE),
+                                    None => (image.clone(), Color::srgba(0.2, 0.2, 0.25, 0.6)),
+                                }
+                            };
                             row.spawn((
-                                ImageNode::new(image.clone()),
+                                ImageNode::new(picture).with_color(color),
                                 Node {
                                     width: Val::Px(size),
                                     height: Val::Px(size),
@@ -353,6 +364,40 @@ fn build(
                     node.insert(BackgroundColor(color.with_alpha(0.85)));
                 }
             }
+            // The key to press under the bubble: J (light) or K (dark) on a key cap
+            // (`key_background`); pads show X / B (gap-scan.md 4; pad art partly unstaged).
+            let key = if matches!(shows, Shows::Light(_)) {
+                "J"
+            } else {
+                "K"
+            };
+            node.with_children(|bubble| {
+                let mut cap = bubble.spawn(Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(-size * 0.32),
+                    width: Val::Px(size * 0.36),
+                    height: Val::Px(size * 0.36),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                });
+                match art.image("key_background") {
+                    Some(image) => {
+                        cap.insert(ImageNode::new(image));
+                    }
+                    None => {
+                        cap.insert(BackgroundColor(Color::srgba(0.95, 0.95, 0.95, 0.9)));
+                    }
+                }
+                cap.with_child((
+                    Text::new(key),
+                    TextFont {
+                        font_size: FontSize::Px(size * 0.24),
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.15, 0.1, 0.25)),
+                ));
+            });
             node.with_children(|bubble| match shows {
                 Shows::Light(spell) => match art.image(&format!("spell_icon_{spell:?}")) {
                     Some(image) => {

@@ -370,3 +370,11 @@ and nothing gets installed without Max's own go-ahead.
   Guessed: the sun's place and size on our screen, the sand strip height, the corona spin, the
   bolt shape, the rain drop width. Check: Race Pro's rain (about 1,100 drops a second) runs
   smoothly on the PC; picture Race Pro, Puzzle, Puzzle Pro and a Survival Pro wave with scripts.
+- **Particles and HUD bits are in** (src/particles.rs, src/hud.rs): spawn poof, landing dust,
+  lost-brick mist (Race/Survival) or desert dust (Puzzle) with the spinning lost cross, the
+  WAVE N cloud message, hearts with lost slots, J/K key caps under the spell bubbles. Guessed:
+  particle speeds (taken as tenths of the readout's numbers), the WAVE message's place, size and
+  2 s length, the key cap's place. Stage `gph_cross` as `heart_lost` and the pad B buttons
+  (`pad_b_up`/`pad_b_down`) so lost hearts and pad hints can use them. Not done: gravel, impact
+  dust on later hard hits (we only puff on landing), confetti (cups are a debug tool), the
+  hourglass timer on race trials, the Endless score line, `finish_line_end` flags.
