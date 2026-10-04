@@ -12,6 +12,8 @@ pub mod art;
 pub mod casts;
 pub mod collapse;
 pub mod config;
+pub mod cups;
+pub mod cups_menu;
 pub mod effects;
 pub mod gameplay;
 pub mod input;
@@ -22,8 +24,11 @@ pub mod offscreen;
 pub mod popup;
 pub mod results;
 pub mod select;
+pub mod settings;
 pub mod single;
 pub mod spells;
+pub mod trials;
+pub mod trials_menu;
 pub mod visuals;
 pub mod wizards;
 
@@ -46,6 +51,8 @@ impl Plugin for TowerCorePlugin {
             PhysicsPlugins::default().with_length_unit(cell),
             gameplay::GameplayPlugin,
             collapse::CollapsePlugin,
+            trials::TrialsPlugin,
+            cups::CupsPlugin,
             ai::AiPlugin,
         ));
     }

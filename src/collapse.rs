@@ -59,6 +59,8 @@ pub struct CollapseEvent {
 
 #[derive(Clone, Debug)]
 pub enum CollapseKind {
+    /// The sequence starts: the wait before the tower gives way.
+    Begin,
     /// A brick blew up: where (world pixels), its turn, cells, colour and scale.
     Blast {
         at: Vec2,
@@ -94,6 +96,7 @@ fn start_collapse(
     config: Res<crate::config::GameConfig>,
     game: Res<Match>,
     mut towers: Query<(Entity, &Tower, &mut TowerState), Without<Collapse>>,
+    mut events: MessageWriter<CollapseEvent>,
 ) {
     if game.phase != Phase::Over {
         return;
@@ -102,6 +105,10 @@ fn start_collapse(
         if is_winner(&game, tower, &state) {
             continue;
         }
+        events.write(CollapseEvent {
+            tower: tower.index,
+            kind: CollapseKind::Begin,
+        });
         // The brick in hand goes down with the rest.
         if let Some(active) = state.active.take() {
             commands

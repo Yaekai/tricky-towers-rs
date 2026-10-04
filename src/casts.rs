@@ -128,6 +128,22 @@ fn start_casts(
     let mut lit: Vec<usize> = Vec::new();
     for cast in log.0.iter().rev().take(fresh) {
         let Some((caster_entity, caster, caster_state)) = find(cast.caster) else {
+            // A trial's enemy wizard has no tower: only the beam down onto the victim
+            // (where the original draws the enemy wizard isn't read yet, ?).
+            if cast.caster == crate::spells::ENEMY_WIZARD
+                && let Some((_, victim, victim_state)) = find(cast.target)
+            {
+                let foot = brick_at(victim_state, victim);
+                spawn_beam(
+                    &mut commands,
+                    &config,
+                    &art,
+                    BeamKind::Down,
+                    foot,
+                    victim.origin_x,
+                    cast.target,
+                );
+            }
             continue;
         };
         let (from, _) = wizard_spot(&config, caster_entity, caster, caster_state, solo, &wizards);

@@ -233,3 +233,43 @@ and nothing gets installed without Max's own go-ahead.
      the leaderboard per mode (we keep one per mode, 10 rows)?
   Then offscreen screenshots: `--play endless-survival` and `--play endless-puzzle`
   (`--offscreen screenshots --shots 5,20`), and say what differs.
+- Controller rumble is in (src/input.rs `rumble_losers`): a losing player's pad rumbles 2 s when
+  their end sequence starts and 2.5 s with the rumble after the blasts. The strength (0.6 on
+  the strong motor) is a guess: read the original's rumble strength (both motors) for each.
+- **Trials are now playable on SAMPLE data** (src/trials.rs, src/trials_menu.rs,
+  `GameConfig::trials` = `TrialDef` list, `sample_trials()` in config.rs). The engine follows
+  your notes: a goal per mode, and an enemy wizard who casts dark spells every N seconds, at set
+  times, or when a share of the bricks is used (`CastWhen::Every/At/BricksUsed`). The three
+  sample trials and everything below are GUESSES. Please read and write in docs/research/:
+  1. All 50 trials, in order, as rows the cloud can paste into `trials` in game.ron: name,
+     mode, goal (Race: finish height and time limit; Survival: bricks and lives; Puzzle:
+     bricks and laser height), drop speed, start spell, base or floor, and the enemy script
+     lines (when + which spells). Note the petrified-brick challenge variant too.
+  2. How a trial is won and lost beyond the goal (does a Race trial need the 3 s hold? does
+     the Survival roof countdown apply?), and whether trials give stars, medals or times.
+  3. Unlocking: are trials opened one by one, by stars, or all at once? (Ours: all open.)
+  4. The Trials screen: layout, art names, what each row shows, and how trials are grouped.
+  5. The enemy wizard: which art, where it floats, how its casts look (we only draw the beam
+     down onto your brick), and whether light spell lines appear in trials.
+  6. What the game saves for trials (we save the names beaten, in `trials.ron` next to the
+     leaderboard).
+- **Cups are now playable on GUESSES** (src/cups.rs, src/cups_menu.rs, `GameConfig::cups`).
+  On Select Mode, C (or the pad's Select) cycles Single match / Tiny Cup / Big Cup / Super
+  Cup; a cup is a series of matches of the picked mode, the popup's first item reads "Next
+  match" until the last one, the standings line runs along the top, and the winner gets the
+  cup's trophy and everyone XP by cup place (saved per player seat in `xp.ron`). Please read
+  and correct, in docs/research/:
+  1. How a local cup is picked in the original (screen, wording, art) and how long each is.
+  2. Points per place (ours: 3, 2, 1, 0), tie-breaks (ours: better place in the last match),
+     and whether modes rotate or come from several picked modes ("Next match" appears "when
+     more than one mode was picked" in your popup notes, so a cup may BE the mode list).
+  3. Which trophy goes with which cup, where it is shown and how it animates (ours: centred,
+     the existing 0.6 s pop).
+  4. When XP is given in a cup (per match or at the end) and how it is shown and saved
+     (ours: at the end, by cup place, with `XpRules::for_place`).
+  5. What the screen between cup matches shows (standings? a scoreboard screen?).
+- **Settings screen is in as a placeholder** (src/settings.rs, `MenuScreen::Settings`, `--menu
+  settings`): Volume, Music and Full screen, applied at once and saved in `settings.ron`.
+  Please read the original's Settings screen: which options it has (volumes, controls,
+  language, screen), their order, ranges and steps, its layout and art names, and take an
+  offscreen picture of ours (`--menu settings --offscreen screenshots --shots 2`).

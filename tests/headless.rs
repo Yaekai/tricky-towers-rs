@@ -1316,3 +1316,145 @@ fn endless_puzzle_laser_climbs_and_a_dropped_brick_ends_the_run() {
     assert_eq!(state.status, TowerStatus::Out);
     assert!(state.bricks_dropped >= 1);
 }
+
+fn trial_config(trial: tricky_towers::config::TrialDef) -> GameConfig {
+    let mut config = fast_config();
+    config.trials = vec![trial];
+    config.trial = Some(0);
+    config
+}
+
+#[test]
+fn a_race_trial_is_lost_when_its_clock_runs_out() {
+    use tricky_towers::config::TrialDef;
+    let mut app = headless_app(trial_config(TrialDef {
+        name: "clock".into(),
+        mode: ModeKind::Race,
+        finish_height: Some(40.0),
+        seconds: Some(2.0),
+        ..default()
+    }));
+    assert_eq!(app.world().resource::<Match>().mode, ModeKind::Race);
+    assert_eq!(
+        app.world().resource::<GameConfig>().race.finish_height,
+        40.0
+    );
+    run_seconds(&mut app, 1.5, |_| {});
+    assert_eq!(tower(&mut app, 0).status, TowerStatus::Building);
+    run_seconds(&mut app, 1.0, |_| {});
+    assert_eq!(tower(&mut app, 0).status, TowerStatus::Out);
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Over);
+}
+
+#[test]
+fn the_enemy_wizard_casts_on_its_schedule() {
+    use tricky_towers::config::{CastWhen, EnemyCast, TrialDef};
+    use tricky_towers::spells::ENEMY_WIZARD;
+    let mut config = trial_config(TrialDef {
+        name: "enemy".into(),
+        mode: ModeKind::Survival,
+        bricks: Some(40),
+        enemy: vec![
+            EnemyCast {
+                when: CastWhen::Every(1.0),
+                spells: vec![SpellKind::Large],
+            },
+            EnemyCast {
+                when: CastWhen::At(0.5),
+                spells: vec![SpellKind::Slow],
+            },
+            EnemyCast {
+                when: CastWhen::BricksUsed(0.1),
+                spells: vec![SpellKind::Ice],
+            },
+        ],
+        ..default()
+    });
+    config.survival.drop_speed = 3.0;
+    let mut app = headless_app(config);
+    let mut casts: Vec<SpellKind> = Vec::new();
+    let mut seen = 0;
+    run_seconds(&mut app, 3.2, |app| {
+        let log = app.world().resource::<tricky_towers::spells::SpellLog>();
+        let fresh = (log.1 - seen) as usize;
+        for cast in log.0.iter().rev().take(fresh).rev() {
+            assert_eq!(cast.caster, ENEMY_WIZARD);
+            casts.push(cast.spell);
+        }
+        seen = log.1;
+    });
+    let count = |spell| casts.iter().filter(|&&s| s == spell).count();
+    assert_eq!(count(SpellKind::Large), 3, "every second: {casts:?}");
+    assert_eq!(count(SpellKind::Slow), 1, "once, at 0.5 s: {casts:?}");
+    // 10% of 40 bricks is 4 used.
+    assert_eq!(
+        count(SpellKind::Ice),
+        (tower(&mut app, 0).bricks_used() >= 4) as usize
+    );
+}
+
+#[test]
+fn winning_a_trial_marks_it_done() {
+    use tricky_towers::config::TrialDef;
+    use tricky_towers::trials::TrialProgress;
+    let mut app = headless_app(trial_config(TrialDef {
+        name: "short puzzle".into(),
+        mode: ModeKind::Puzzle,
+        bricks: Some(2),
+        laser: Some(8.0),
+        ..default()
+    }));
+    assert_eq!(app.world().resource::<GameConfig>().puzzle.line_random, 0.0);
+    assert!(run_until(&mut app, 20.0, |app| {
+        app.world().resource::<Match>().phase == Phase::Over
+    }));
+    assert_eq!(tower(&mut app, 0).status, TowerStatus::Won);
+    let progress = app.world().resource::<TrialProgress>();
+    assert!(progress.is_done("short puzzle"));
+}
+
+#[test]
+fn a_two_match_cup_scores_both_matches_and_gives_xp() {
+    use tricky_towers::config::CupSize;
+    use tricky_towers::cups::{Cup, XpBook};
+    use tricky_towers::gameplay::MatchRequest;
+    let mut config = fast_config();
+    config.opponents = 1;
+    config.survival.drop_speed = 3.0;
+    config.cups.sizes = vec![CupSize {
+        name: "Test Cup".into(),
+        matches: 2,
+        trophy: "trophy".into(),
+    }];
+    let mut app = headless_app(config);
+    {
+        let mut cup = app.world_mut().resource_mut::<Cup>();
+        cup.pick = Some(0);
+        cup.begin();
+    }
+    // You throw every brick away, so the computer wizard wins both matches.
+    for round in 1..=2 {
+        assert!(run_until(&mut app, 40.0, |app| {
+            human_input(app).left_held = true;
+            app.world().resource::<Match>().phase == Phase::Over
+        }));
+        run_seconds(&mut app, 0.1, |_| {});
+        let cup = app.world().resource::<Cup>().clone();
+        assert_eq!(cup.played, round);
+        if round == 1 {
+            assert!(cup.in_progress());
+            app.world_mut().resource_mut::<MatchRequest>().pending = true;
+            run_seconds(&mut app, 0.1, |_| {});
+        }
+    }
+    let cup = app.world().resource::<Cup>().clone();
+    assert!(!cup.in_progress());
+    assert_eq!(
+        cup.points,
+        vec![4, 6],
+        "2 + 2 for you, 3 + 3 for the wizard"
+    );
+    assert_eq!(cup.standings, Some(vec![1, 0]));
+    // Last of two on Normal: 100 XP, kept for player 1.
+    assert_eq!(app.world().resource::<XpBook>().players, vec![100]);
+}

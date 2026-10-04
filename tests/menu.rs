@@ -104,9 +104,11 @@ fn single_player_opens_endless_and_plays_endless_race() {
     tap(&mut app, KeyCode::Escape);
     assert_eq!(screen(&app), MenuScreen::Main);
     tap(&mut app, KeyCode::Enter);
-    // Trials isn't built: picking it stays put.
+    // Trials opens its list; Esc comes back.
     tap(&mut app, KeyCode::ArrowUp);
     tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Trials);
+    tap(&mut app, KeyCode::Escape);
     assert_eq!(screen(&app), MenuScreen::Single);
     tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
@@ -251,5 +253,78 @@ fn game_completed_popup_rematches_selects_a_mode_or_goes_to_the_title() {
         Phase::Menu,
         "Main menu"
     );
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
+}
+
+#[test]
+fn trials_list_plays_the_picked_trial() {
+    let mut app = app();
+    let screen = |app: &App| *app.world().resource::<MenuScreen>();
+    // Title → Single Player → Trials (above Endless, where the cursor starts).
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::ArrowUp);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Trials);
+    // The second sample trial is Survival.
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    let game = app.world().resource::<Match>();
+    assert_eq!(
+        (game.phase, game.mode),
+        (Phase::Playing, ModeKind::Survival)
+    );
+    let config = app.world().resource::<GameConfig>();
+    assert_eq!(config.trial, Some(1));
+    assert_eq!((config.players, config.opponents), (1, 0));
+    assert_eq!(
+        config.survival.bricks_to_place,
+        config.trials[1].bricks.unwrap()
+    );
+}
+
+#[test]
+fn c_picks_a_cup_on_select_mode_and_starting_begins_it() {
+    use tricky_towers::cups::Cup;
+    let mut app = app();
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Tab);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
+    // Single match → Tiny → Big → Super → single match → Tiny.
+    let count = app.world().resource::<GameConfig>().cups.sizes.len();
+    for _ in 0..count + 2 {
+        tap(&mut app, KeyCode::KeyC);
+    }
+    assert_eq!(app.world().resource::<Cup>().pick, Some(0));
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
+    let cup = app.world().resource::<Cup>();
+    assert_eq!((cup.size, cup.played), (Some(0), 0));
+    assert!(cup.in_progress());
+}
+
+#[test]
+fn settings_change_with_left_and_right_and_escape_goes_back() {
+    use tricky_towers::menu::TILES;
+    use tricky_towers::settings::Settings;
+    let mut app = app();
+    let settings_tile = TILES.iter().position(|t| t.key == "settings").unwrap();
+    app.world_mut().resource_mut::<MainMenu>().selected = settings_tile;
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Settings);
+    let music = app.world().resource::<Settings>().music;
+    // Down to Music, Left lowers it a step.
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowLeft);
+    let after = app.world().resource::<Settings>().music;
+    assert!((after - (music - 0.1)).abs() < 1e-4, "{music} -> {after}");
+    // Enter on Full screen toggles it.
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    assert!(app.world().resource::<Settings>().fullscreen);
+    tap(&mut app, KeyCode::Escape);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
 }

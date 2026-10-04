@@ -397,6 +397,8 @@ fn show_collapse(
     };
     for (n, event) in events.read().enumerate() {
         match &event.kind {
+            // Only the controller rumbles here (src/input.rs).
+            CollapseKind::Begin => {}
             CollapseKind::Blast {
                 at,
                 rotation,

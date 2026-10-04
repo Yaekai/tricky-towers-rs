@@ -3,8 +3,10 @@
 //! gamepad drives player 1 too). Input is written into each tower's
 //! [`PlayerInput`] once per frame; the fixed-step gameplay systems consume it.
 
+use bevy::input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy::prelude::*;
 
+use crate::collapse::{CollapseEvent, CollapseKind};
 use crate::gameplay::{Match, MatchRequest, Phase, PlayerInput, Tower};
 
 pub struct KeyboardInputPlugin;
@@ -19,7 +21,56 @@ impl Plugin for KeyboardInputPlugin {
             )
                 .chain()
                 .after(bevy::input::InputSystems),
+        )
+        .add_systems(
+            Update,
+            rumble_losers.run_if(resource_exists::<Messages<GamepadRumbleRequest>>),
         );
+    }
+}
+
+/// Which player a gamepad drives: pads drive players 2, 3, 4 in the order they
+/// connected; alone, the first pad drives player 1.
+fn player_for_slot(players: usize, slot: usize) -> usize {
+    if players <= 1 { slot } else { slot + 1 }
+}
+
+/// Rumbles a losing player's controller as their tower falls apart: once while it
+/// waits to give way, and again with the rumble after the blasts.
+fn rumble_losers(
+    config: Res<crate::config::GameConfig>,
+    mut events: MessageReader<CollapseEvent>,
+    gamepads: Query<Entity, With<Gamepad>>,
+    towers: Query<&Tower>,
+    mut rumble: MessageWriter<GamepadRumbleRequest>,
+) {
+    let mut pads: Vec<Entity> = gamepads.iter().collect();
+    pads.sort();
+    let players = towers.iter().filter(|t| t.human).count();
+    let look = &config.moments;
+    for event in events.read() {
+        let seconds = match event.kind {
+            CollapseKind::Begin => look.pad_rumble.0,
+            CollapseKind::Rumble(_) => look.pad_rumble.1,
+            _ => continue,
+        };
+        let Some(player) = towers
+            .iter()
+            .find(|t| t.index == event.tower)
+            .and_then(|t| t.player)
+        else {
+            continue;
+        };
+        let pad = (0..pads.len())
+            .find(|&slot| player_for_slot(players, slot) == player)
+            .map(|slot| pads[slot]);
+        if let Some(gamepad) = pad {
+            rumble.write(GamepadRumbleRequest::Add {
+                duration: std::time::Duration::from_secs_f32(seconds),
+                intensity: GamepadRumbleIntensity::strong_motor(look.pad_rumble_strength),
+                gamepad,
+            });
+        }
     }
 }
 
@@ -92,8 +143,7 @@ fn read_gamepads(
         if game.phase == Phase::Menu {
             continue;
         }
-        // Pads drive players 2, 3, 4; alone, the first pad drives player 1.
-        let player = if players <= 1 { slot } else { slot + 1 };
+        let player = player_for_slot(players, slot);
         let Some((_, mut input)) = towers.iter_mut().find(|(t, _)| t.player == Some(player)) else {
             continue;
         };
@@ -116,5 +166,57 @@ fn read_gamepads(
         input.cast_light_pressed |= pad.just_pressed(GamepadButton::West);
         input.cast_dark_pressed |= pad.just_pressed(GamepadButton::North);
         *before = PadState { left, right };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::GameConfig;
+
+    #[test]
+    fn a_losing_players_pad_rumbles_at_the_start_and_with_the_collapse() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(GameConfig::default())
+            .add_message::<CollapseEvent>()
+            .add_message::<GamepadRumbleRequest>()
+            .add_systems(Update, rumble_losers);
+        // Two human players: the first pad drives player 2.
+        for index in 0..2 {
+            app.world_mut().spawn(Tower {
+                index,
+                origin_x: 0.0,
+                human: true,
+                player: Some(index),
+            });
+        }
+        let pad = app.world_mut().spawn(Gamepad::default()).id();
+        let mut cursor = app
+            .world()
+            .resource::<Messages<GamepadRumbleRequest>>()
+            .get_cursor();
+        let mut send = |app: &mut App, tower: usize, kind: CollapseKind| {
+            app.world_mut().write_message(CollapseEvent { tower, kind });
+            app.update();
+            let messages = app.world().resource::<Messages<GamepadRumbleRequest>>();
+            cursor
+                .read(messages)
+                .filter_map(|r| match r {
+                    GamepadRumbleRequest::Add {
+                        gamepad, duration, ..
+                    } => Some((*gamepad, duration.as_secs_f32())),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        // Player 1 is on the keyboard: nothing to rumble.
+        assert!(send(&mut app, 0, CollapseKind::Begin).is_empty());
+        assert_eq!(send(&mut app, 1, CollapseKind::Begin), vec![(pad, 2.0)]);
+        assert_eq!(
+            send(&mut app, 1, CollapseKind::Rumble(2.5)),
+            vec![(pad, 2.5)]
+        );
+        assert!(send(&mut app, 1, CollapseKind::Thud).is_empty());
     }
 }

@@ -64,6 +64,8 @@ pub struct GameConfig {
     pub casts: CastLook,
     /// Experience per match and the wizard levels it buys.
     pub xp: XpRules,
+    /// Local cups (guesses until read).
+    pub cups: CupRules,
     /// What the water does to a lost brick.
     pub water: WaterRules,
     /// Each base's collider, as read from the original.
@@ -106,6 +108,12 @@ pub struct GameConfig {
     pub endless: EndlessRules,
     /// Endless Survival and Endless Puzzle (guesses until read).
     pub endless_play: EndlessPlay,
+    /// The Trials, in order (samples until the original's are read).
+    pub trials: Vec<TrialDef>,
+    /// The trial being played, as an index into `trials`; set by the Trials screen
+    /// and cleared by the other menus. Not saved.
+    #[serde(skip)]
+    pub trial: Option<usize>,
     pub magic: MagicRules,
     pub ai: AiRules,
     #[serde(default)]
@@ -543,6 +551,167 @@ impl SpellKind {
             SpellKind::Ghost => "Ghost",
         }
     }
+}
+
+/// One Trial: a single-player challenge in Race, Survival or Puzzle, with an enemy
+/// wizard who doesn't build but casts dark spells on a schedule
+/// (docs/research/modes.md). The shipped list holds a few SAMPLE trials (?) until
+/// the original's 50 are read on the PC; their goals are guesses, the kinds of
+/// schedule are the original's.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct TrialDef {
+    pub name: String,
+    /// Race, Survival or Puzzle.
+    pub mode: ModeKind,
+    /// Race: the finish height and the seconds you have to hold it by.
+    pub finish_height: Option<f32>,
+    pub seconds: Option<f32>,
+    /// Survival and Puzzle: bricks to place. Survival: lives.
+    pub bricks: Option<u32>,
+    pub lives: Option<u32>,
+    /// Puzzle: the laser height (no random part in a trial, ?).
+    pub laser: Option<f32>,
+    /// Base drop speed, if not the mode's Normal one.
+    pub drop_speed: Option<f32>,
+    /// A light spell in hand at the start.
+    pub start_spell: Option<SpellKind>,
+    /// The enemy wizard's casts.
+    pub enemy: Vec<EnemyCast>,
+}
+
+impl Default for TrialDef {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            mode: ModeKind::Race,
+            finish_height: None,
+            seconds: None,
+            bricks: None,
+            lives: None,
+            laser: None,
+            drop_speed: None,
+            start_spell: None,
+            enemy: Vec::new(),
+        }
+    }
+}
+
+/// One line of the enemy wizard's script: when it casts, and what.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+pub struct EnemyCast {
+    pub when: CastWhen,
+    /// Cast together, like a dark spell pair's curse.
+    pub spells: Vec<SpellKind>,
+}
+
+/// The three kinds of schedule the original's trials use.
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
+pub enum CastWhen {
+    /// Every this many seconds, first after one period.
+    Every(f32),
+    /// Once, this many seconds in.
+    At(f32),
+    /// Once, when this share (0 to 1) of the trial's bricks has been used.
+    BricksUsed(f32),
+}
+
+impl TrialDef {
+    /// Puts this trial's rules into the config, over the Normal difficulty's.
+    pub fn apply(&self, config: &mut GameConfig) {
+        config.mode = self.mode;
+        config.players = 1;
+        config.opponents = 0;
+        match self.mode {
+            ModeKind::Race => {
+                if let Some(height) = self.finish_height {
+                    config.race.finish_height = height;
+                }
+                // A trial's clock replaces the finish line coming down.
+                config.race.finish_drop_after = f32::MAX;
+                if let Some(speed) = self.drop_speed {
+                    config.race.drop_speed = speed;
+                }
+            }
+            ModeKind::Survival => {
+                if let Some(bricks) = self.bricks {
+                    config.survival.bricks_to_place = bricks;
+                }
+                if let Some(lives) = self.lives {
+                    config.survival.lives = lives;
+                }
+                if let Some(speed) = self.drop_speed {
+                    config.survival.drop_speed = speed;
+                }
+            }
+            ModeKind::Puzzle => {
+                if let Some(bricks) = self.bricks {
+                    config.puzzle.bricks = bricks;
+                }
+                if let Some(laser) = self.laser {
+                    config.puzzle.line_height = laser;
+                    config.puzzle.line_random = 0.0;
+                }
+                if let Some(speed) = self.drop_speed {
+                    config.puzzle.drop_speed = speed;
+                }
+                config.puzzle.start_spell = self.start_spell;
+            }
+            _ => {}
+        }
+    }
+
+    /// The bricks a Survival or Puzzle trial gives, after `apply`.
+    pub fn brick_target(&self, config: &GameConfig) -> Option<u32> {
+        match self.mode {
+            ModeKind::Survival => Some(config.survival.bricks_to_place),
+            ModeKind::Puzzle => Some(config.puzzle.bricks),
+            _ => None,
+        }
+    }
+}
+
+/// A few sample trials, one per mode, so the Trials screen and enemy wizard can be
+/// played and tested. All goals and schedules are guesses (?).
+pub fn sample_trials() -> Vec<TrialDef> {
+    vec![
+        TrialDef {
+            name: "Sample Race".into(),
+            mode: ModeKind::Race,
+            finish_height: Some(15.0),
+            seconds: Some(90.0),
+            enemy: vec![EnemyCast {
+                when: CastWhen::Every(25.0),
+                spells: vec![SpellKind::Large],
+            }],
+            ..default()
+        },
+        TrialDef {
+            name: "Sample Survival".into(),
+            mode: ModeKind::Survival,
+            bricks: Some(20),
+            lives: Some(3),
+            enemy: vec![
+                EnemyCast {
+                    when: CastWhen::BricksUsed(0.5),
+                    spells: vec![SpellKind::Mystery],
+                },
+                EnemyCast {
+                    when: CastWhen::At(40.0),
+                    spells: vec![SpellKind::Slow],
+                },
+            ],
+            ..default()
+        },
+        TrialDef {
+            name: "Sample Puzzle".into(),
+            mode: ModeKind::Puzzle,
+            bricks: Some(8),
+            laser: Some(5.0),
+            start_spell: Some(SpellKind::Undo),
+            ..default()
+        },
+    ]
 }
 
 /// One dark draw: one or more effects cast together.
@@ -1203,6 +1372,10 @@ pub struct MatchMoments {
     /// sideways, cells up, seconds.
     pub blast_shake: (f32, f32, f32),
     pub rumble: (f32, f32, f32),
+    /// The losing player's controller rumbles this long when the sequence starts and
+    /// again with the rumble after the blasts, at this strength (0 to 1, ?).
+    pub pad_rumble: (f32, f32),
+    pub pad_rumble_strength: f32,
     /// The popup opens once every loser's sequence is done, and at least this
     /// many seconds after the match ends.
     pub popup_after: f32,
@@ -1236,6 +1409,8 @@ impl Default for MatchMoments {
             blast_gap_cap: 10,
             blast_shake: (0.2, 0.26, 0.05),
             rumble: (0.1, 0.13, 2.5),
+            pad_rumble: (2.0, 2.5),
+            pad_rumble_strength: 0.6,
             popup_after: 0.0,
             popup_slide: 0.25,
         }
@@ -1349,6 +1524,46 @@ impl Default for WaterRules {
 /// The splash a lost brick makes in the water, from the original
 /// (docs/research/controls-physics.md): a front layer of splash pictures that
 /// grow in and vanish, and white drops thrown up behind them. Lengths in cells.
+/// Local cups: a series of matches with points per place, a trophy for the cup
+/// winner, and XP (the original gives XP only in cups and online). Built from
+/// public descriptions and the trophy names read so far; the series length,
+/// points and tie rule are guesses `(?)` until read on the PC.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct CupRules {
+    /// Points for 1st, 2nd, 3rd and 4th place in each match (?).
+    pub points: Vec<u32>,
+    /// The cups to pick from on Select Mode, smallest first (?).
+    pub sizes: Vec<CupSize>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+pub struct CupSize {
+    pub name: String,
+    /// Matches in the cup (?).
+    pub matches: u32,
+    /// The trophy picture shown to the cup winner.
+    pub trophy: String,
+}
+
+impl Default for CupRules {
+    fn default() -> Self {
+        let size = |name: &str, matches, trophy: &str| CupSize {
+            name: name.into(),
+            matches,
+            trophy: trophy.into(),
+        };
+        Self {
+            points: vec![3, 2, 1, 0],
+            sizes: vec![
+                size("Tiny Cup", 3, "trophy"),
+                size("Big Cup", 5, "trophy_big"),
+                size("Super Cup", 7, "trophy_super"),
+            ],
+        }
+    }
+}
+
 /// Experience, from the original (docs/research/match-moments.md). Only online
 /// matches and cups give any; a single local match gives none.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
@@ -1740,6 +1955,7 @@ impl Default for GameConfig {
             splash: SplashLook::default(),
             casts: CastLook::default(),
             xp: XpRules::default(),
+            cups: CupRules::default(),
             water: WaterRules::default(),
             bases: Bases::default(),
             spawn_gap: 17.0,
@@ -1762,6 +1978,8 @@ impl Default for GameConfig {
             puzzle: PuzzleRules::default(),
             endless: EndlessRules::default(),
             endless_play: EndlessPlay::default(),
+            trials: sample_trials(),
+            trial: None,
             magic: MagicRules::default(),
             ai: AiRules::default(),
             wizards: WizardLook::default(),

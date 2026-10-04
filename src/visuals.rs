@@ -1501,6 +1501,8 @@ fn update_hud(
         let who = |i: usize| {
             if i == 0 {
                 "You".to_string()
+            } else if i == crate::spells::ENEMY_WIZARD {
+                "The enemy wizard".to_string()
             } else {
                 names.get(i).cloned().unwrap_or_default()
             }
