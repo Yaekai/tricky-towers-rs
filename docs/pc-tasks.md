@@ -338,3 +338,7 @@ and nothing gets installed without Max's own go-ahead.
   4. Endless Puzzle: bricks come in groups; the laser rises once a whole group is placed. We
      guess groups of 10 and a 1-cell rise (`EndlessPlay::laser_every`, `laser_rise`): read the
      real group size, the rise, and how the score ("conserve as many bricks as possible") counts.
+- **Debug tools are in** (docs/debug-tools.md): write small `--script` files to set up exact
+  moments (a curse, a collapse, a Survival roof, a spell cloud) and picture them offscreen with
+  `Picture`, instead of waiting for them in play. Use them for the comparisons above. The F1
+  panel is for Max when playing in a window.
