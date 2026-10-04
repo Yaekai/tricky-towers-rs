@@ -103,8 +103,7 @@ fn main() {
             }));
         }
     }
-    app.insert_resource(config)
-    .add_plugins((
+    app.insert_resource(config).add_plugins((
         TowerCorePlugin,
         KeyboardInputPlugin,
         MenuPlugin,

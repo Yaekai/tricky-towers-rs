@@ -63,3 +63,4 @@ and nothing gets installed without Max's own go-ahead.
   just right of the base along the bottom edge instead of on top of it. Read from the original
   where it puts each player's panel (portrait, name, hearts, spell slots) in 1 to 4 player
   matches, as screen positions or relative to the lane, so it can match exactly.
+- Puzzle floor pieces are wired up (`dress_floor` in src/visuals.rs; 2-wide `puzzle_piece_2` isn't used yet, as our columns are 1 wide). Screenshot Puzzle on each difficulty offscreen and compare the floors and the missing water with the original. Read how the original picks column widths (1 or 2) so `puzzle_piece_2` can be used.

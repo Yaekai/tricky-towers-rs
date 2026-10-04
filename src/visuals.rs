@@ -12,8 +12,8 @@ use crate::art::{Animated, Art};
 use crate::config::{GameConfig, ModeKind, SpellKind};
 use crate::gameplay::piece_def;
 use crate::gameplay::{
-    ActiveBrick, Brick, BrickBag, MAX_TOWERS, Match, Phase, Platform, Tower, TowerState,
-    TowerStatus,
+    ActiveBrick, Brick, BrickBag, FloorBlock, FloorPart, MAX_TOWERS, Match, Phase, Platform, Tower,
+    TowerState, TowerStatus,
 };
 use crate::spells::{Bubbled, Grassy, LifeOrb, SpellLog, Stone, Vined, Zapped};
 
@@ -29,6 +29,7 @@ impl Plugin for VisualsPlugin {
                 Update,
                 (
                     dress_bricks,
+                    dress_floor.after(dress_bricks),
                     flicker_effects,
                     dress_bubbles,
                     dress_life_orbs,
@@ -51,6 +52,11 @@ impl Plugin for VisualsPlugin {
             );
     }
 }
+
+/// The water strip at the depth where dropped bricks are lost. Modes whose water band
+/// is turned off (Survival, Puzzle) have no water at all.
+#[derive(Component)]
+struct WaterStrip;
 
 /// Size of the view in logical pixels: the window's, or the offscreen picture's.
 #[derive(Resource, Clone, Copy, Debug)]
@@ -142,7 +148,7 @@ fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
     let depth = Vec3::new(0.0, -config.cells(config.kill_depth), -800.0);
     let width = config.cells(config.tower_spacing * (MAX_TOWERS as f32 + 2.0));
     if let Some(water) = art_strip(&art, "water", config.cell_size, width, depth) {
-        commands.spawn(water);
+        commands.spawn((WaterStrip, water));
     }
     commands.spawn((
         NextPreview { piece: None },
@@ -230,6 +236,52 @@ fn art_sprite(art: &Art, name: &str, cell: f32) -> Option<(Sprite, Anchor, Trans
         Anchor(Vec2::new(px - 0.5, py - 0.5)),
         Transform::from_scale(Vec3::splat(scale)),
     ))
+}
+
+/// Draws the Puzzle floor with the original's pieces when they are staged: a column
+/// piece hanging from each block's top-left corner with tiles stacked behind it, or
+/// the Pro pillar and its ledges. Unstaged, the floor stays plain cells.
+#[allow(clippy::type_complexity)]
+fn dress_floor(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    blocks: Query<(Entity, &FloorBlock, &Brick), Or<(Added<FloorBlock>, Changed<Brick>)>>,
+) {
+    let c = config.cell_size;
+    for (entity, block, brick) in &blocks {
+        let name = match block.part {
+            FloorPart::Column(0) => "puzzle_piece_1".to_string(),
+            FloorPart::Column(_) => "puzzle_piece_3".to_string(),
+            FloorPart::Pillar => "puzzle_pro_center".to_string(),
+            FloorPart::Ledge(n) => format!("puzzle_pro_ledge_{}", n + 1),
+            FloorPart::TopLedge => "puzzle_pro_ledge_top".to_string(),
+        };
+        let Some((sprite, anchor, mut transform)) = art_sprite(&art, &name, c) else {
+            continue;
+        };
+        let half = brick.cells.len() as f32 * 0.5;
+        let mut node = commands.entity(entity);
+        node.despawn_children();
+        if matches!(block.part, FloorPart::Column(_) | FloorPart::Pillar) {
+            // Pivot on the top-left, a hair left of and above the block's corner.
+            transform.translation = Vec3::new(c * (-0.5 - 0.03), c * (half + 0.03), 0.0);
+        }
+        node.with_child((sprite, anchor, transform));
+        if matches!(block.part, FloorPart::Column(_)) {
+            // Tiles behind the column every 2 cells down, and a cap on the stack.
+            for k in 0..6 {
+                if let Some((sprite, anchor, mut t)) = art_sprite(&art, "puzzle_piece_base", c) {
+                    t.translation = Vec3::new(0.0, c * (half - 1.0 - 2.0 * k as f32), -0.1);
+                    node.with_child((sprite, anchor, t));
+                }
+            }
+            if let Some((sprite, anchor, mut t)) = art_sprite(&art, "puzzle_piece_base_top", c) {
+                t.translation = Vec3::new(0.0, c * (half + 0.37), -0.1);
+                node.with_child((sprite, anchor, t));
+            }
+        }
+    }
 }
 
 /// Draws each brick: the original's sprite when one is staged (untinted, with its
@@ -536,6 +588,7 @@ fn spawn_backgrounds(
             With<WaterBand>,
         )>,
     >,
+    mut water: Query<&mut Visibility, With<WaterStrip>>,
     mut shown: Local<Option<ModeKind>>,
 ) {
     let Ok(camera) = camera.single() else {
@@ -565,7 +618,16 @@ fn spawn_backgrounds(
             ));
         }
     }
-    if let Some(band) = for_mode("water_band") {
+    let band = for_mode("water_band");
+    let water_off = band.is_some_and(|b| b.colors().is_empty());
+    for mut visibility in &mut water {
+        visibility.set_if_neq(if water_off {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
+    }
+    if let Some(band) = band {
         let colors = band.colors();
         if !colors.is_empty() {
             commands.entity(camera).with_child((
@@ -1039,9 +1101,7 @@ fn frame_towers(
     let below = config.kill_depth + 1.5;
     let height = config.cells(view_top + below);
     let width = max_x - min_x + config.cells(config.platform_width + 10.0);
-    let scale = (width / window.x)
-        .max(height / window.y)
-        .max(0.5);
+    let scale = (width / window.x).max(height / window.y).max(0.5);
     let target = Vec2::new((min_x + max_x) * 0.5, height * 0.5 - config.cells(below));
 
     let t = 1.0 - (-3.0 * time.delta_secs()).exp();
@@ -1157,7 +1217,11 @@ fn place_panels(
         // panel sits just right of the base instead, along the bottom edge.
         let size = computed.size() * computed.inverse_scale_factor();
         let bottom = window.y - size.y - 4.0;
-        let x = if at.y <= bottom { at.x - size.x } else { at.x + 8.0 };
+        let x = if at.y <= bottom {
+            at.x - size.x
+        } else {
+            at.x + 8.0
+        };
         node.left = Val::Px(x.clamp(0.0, (window.x - size.x).max(0.0)));
         node.top = Val::Px(at.y.min(bottom).max(0.0));
     }

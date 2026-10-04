@@ -94,6 +94,9 @@ islands on the water band), by adding `screen`:
 | `background_race_0`, `background_survival_0`, `background_puzzle_0`, ... | Layers for one mode only; when any exist for a mode they replace the plain `background_N` set |
 | `finish_line`, `laser` | Race finish and Puzzle laser, repeated sideways across the lane; pivot on the line |
 | `pacer_line` | Endless Race's rising line, drawn the same way; Endless otherwise uses the race art and music |
+| `puzzle_piece_1`, `puzzle_piece_3` | Puzzle floor columns (1 wide), pivot top-left on the column's corner |
+| `puzzle_piece_base`, `puzzle_piece_base_top` | Tiles stacked behind each Puzzle column every 2 cells, and their cap |
+| `puzzle_pro_center`, `puzzle_pro_ledge_1`..`_3`, `puzzle_pro_ledge_top` | Pro pillar columns, side ledges, and the highest ledge on each side |
 | `spell_line` | One pickup of the spell line; `count` of them (16 if left out) are spread across the lane, tinted in turn with `colors` (0 to 255; a 9-colour rainbow if left out) |
 | `spell_orb_light`, `spell_orb_dark` | The light and dark pickups at the ends of the spell line |
 | `water` | Water under all lanes, repeated sideways; pivot at the middle of its top edge (sits at the depth where dropped bricks are lost) |

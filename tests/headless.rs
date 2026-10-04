@@ -920,7 +920,11 @@ fn puzzle_floors_follow_each_difficulty() {
         config.puzzle.floor = PuzzleFloor::Normal;
         let normal = puzzle_floor(&config, &mut roll);
         assert!((2..=6).contains(&normal.len()));
-        assert!(normal.iter().all(|&(_, top, _)| (-4.0..=0.0).contains(&top)));
+        assert!(
+            normal
+                .iter()
+                .all(|&(_, top, _)| (-4.0..=0.0).contains(&top))
+        );
         config.puzzle.floor = PuzzleFloor::Pro;
         let pro = puzzle_floor(&config, &mut roll);
         assert_eq!(pro.iter().filter(|c| c.1 == 0.0).count(), 3);
@@ -936,7 +940,9 @@ fn survival_pro_waves_curse_new_bricks() {
     config.survival.waves.every = (0.5, 0.5);
     let mut app = headless_app(config);
     let cursed = run_until(&mut app, 3.0, |app| {
-        let mut towers = app.world_mut().query::<&tricky_towers::gameplay::TowerState>();
+        let mut towers = app
+            .world_mut()
+            .query::<&tricky_towers::gameplay::TowerState>();
         towers
             .iter(app.world())
             .any(|s| s.wave_mod.is_some() || s.mist_timer > 0.0)
@@ -965,9 +971,16 @@ fn endless_pacer_stops_eases_down_and_speeds_up_at_checkpoints() {
     advance_pacer(&rules, &mut state, 1.0);
     assert!((state.pacer - (at - 2.0)).abs() < 1e-4, "{}", state.pacer);
     advance_pacer(&rules, &mut state, 2.0);
-    assert!((state.pacer - (at - 2.0)).abs() < 1e-4, "moved while waiting");
+    assert!(
+        (state.pacer - (at - 2.0)).abs() < 1e-4,
+        "moved while waiting"
+    );
     advance_pacer(&rules, &mut state, 1.0);
-    assert!((state.pacer - (at - 2.0 + 0.25)).abs() < 1e-4, "{}", state.pacer);
+    assert!(
+        (state.pacer - (at - 2.0 + 0.25)).abs() < 1e-4,
+        "{}",
+        state.pacer
+    );
     // The step grows by 0.01 per checkpoint, up to 0.1; the speed tops out at 1.5.
     assert!((state.pacer_step - 0.06).abs() < 1e-6);
     for _ in 0..100 {

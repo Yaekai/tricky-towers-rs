@@ -140,7 +140,21 @@ pub enum TowerStatus {
 
 /// A block of the Puzzle floor (static, part of no one's tower count).
 #[derive(Component, Debug)]
-pub struct FloorBlock;
+pub struct FloorBlock {
+    pub part: FloorPart,
+}
+
+/// Which piece of the original's floor a block is drawn as.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FloorPart {
+    /// An Easy or Normal column, in one of the 1-wide looks (0 or 1).
+    Column(u32),
+    /// One of the Pro pillar's columns.
+    Pillar,
+    /// A Pro side ledge in one of 3 looks, or the highest ledge on its side.
+    Ledge(u32),
+    TopLedge,
+}
 
 /// The Puzzle floor's columns for one round: each is (x of its centre, top, bottom),
 /// in cells from the middle of the base's top. The same for every tower.
@@ -674,7 +688,11 @@ fn start_match(
     let wind = match config.race.wind {
         Some((low, high)) if config.mode == ModeKind::Race => {
             let strength = low + (xorshift(&mut roll) % 1001) as f32 / 1000.0 * (high - low);
-            let side = if xorshift(&mut roll).is_multiple_of(2) { 1.0 } else { -1.0 };
+            let side = if xorshift(&mut roll).is_multiple_of(2) {
+                1.0
+            } else {
+                -1.0
+            };
             side * strength * config.race.wind_push
         }
         _ => 0.0,
@@ -738,7 +756,26 @@ fn start_match(
                 Friction::new(config.brick_friction),
             ));
         }
-        for &(x, top, bottom) in &floor {
+        // The highest ledge on each side of a Pro pillar has its own look.
+        let top_ledge = |side: f32| {
+            floor
+                .iter()
+                .filter(|&&(x, top, _)| top < 0.0 && x.signum() == side)
+                .map(|&(_, top, _)| top)
+                .fold(f32::MIN, f32::max)
+        };
+        let (left_top, right_top) = (top_ledge(-1.0), top_ledge(1.0));
+        let pro = config.puzzle.floor == PuzzleFloor::Pro;
+        for (n, &(x, top, bottom)) in floor.iter().enumerate() {
+            let part = if !pro {
+                FloorPart::Column((n as u64 ^ round) as u32 % 2)
+            } else if top >= 0.0 {
+                FloorPart::Pillar
+            } else if top == if x < 0.0 { left_top } else { right_top } {
+                FloorPart::TopLedge
+            } else {
+                FloorPart::Ledge(((n as u64).wrapping_mul(2654435761) ^ round) as u32 % 3)
+            };
             let rows = (top - bottom).round().max(1.0) as i32;
             let cells: Vec<Vec2> = (0..rows)
                 .map(|i| Vec2::new(0.0, (rows - 1) as f32 * 0.5 - i as f32))
@@ -759,7 +796,7 @@ fn start_match(
             );
             commands.spawn((
                 block,
-                FloorBlock,
+                FloorBlock { part },
                 RigidBody::Static,
                 collider,
                 Friction::new(config.brick_friction),
