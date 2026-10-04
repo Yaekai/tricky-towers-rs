@@ -1399,16 +1399,29 @@ fn spawn_panel(row: &mut ChildSpawnerCommands, art: &Art, magic: bool, panel: &P
     });
 }
 
+/// The debug readout in the top-left corner (height, spells, who won). The
+/// original has none, so it stays empty until F3 turns it on.
 fn update_hud(
     config: Res<GameConfig>,
     game: Res<Match>,
     log: Res<SpellLog>,
+    keys: Option<Res<ButtonInput<KeyCode>>>,
     towers: Query<(&Tower, &TowerState)>,
     mut hud: Query<&mut Text, With<Hud>>,
+    mut debug: Local<bool>,
 ) {
     let Ok(mut text) = hud.single_mut() else {
         return;
     };
+    if keys.is_some_and(|k| k.just_pressed(KeyCode::F3)) {
+        *debug = !*debug;
+    }
+    if !*debug {
+        if !text.0.is_empty() {
+            text.0.clear();
+        }
+        return;
+    }
     let mut sorted: Vec<_> = towers.iter().collect();
     sorted.sort_by_key(|(t, _)| t.index);
     let Some((_, you)) = sorted.iter().find(|(t, _)| t.is_first_player()) else {

@@ -191,7 +191,7 @@ fn escape_pauses_and_the_pause_menu_resumes_retries_or_quits() {
 }
 
 #[test]
-fn game_completed_popup_rematches_or_goes_to_the_title() {
+fn game_completed_popup_rematches_selects_a_mode_or_goes_to_the_title() {
     use tricky_towers::popup::Popup;
     let mut app = app();
     app.world_mut()
@@ -210,7 +210,6 @@ fn game_completed_popup_rematches_or_goes_to_the_title() {
     };
     end(&mut app);
     let round = app.world().resource::<Match>().round;
-    tap(&mut app, KeyCode::ArrowRight);
     tap(&mut app, KeyCode::Enter);
     let game = app.world().resource::<Match>();
     assert_eq!(game.phase, Phase::Playing, "Rematch");
@@ -218,7 +217,18 @@ fn game_completed_popup_rematches_or_goes_to_the_title() {
     assert!(!app.world().resource::<Popup>().shown);
 
     end(&mut app);
-    tap(&mut app, KeyCode::ArrowLeft);
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(
+        *app.world().resource::<MenuScreen>(),
+        MenuScreen::Modes,
+        "Select Mode"
+    );
+    for _ in 0..2 {
+        tap(&mut app, KeyCode::Enter);
+    }
+    end(&mut app);
+    tap(&mut app, KeyCode::ArrowUp);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(
         app.world().resource::<Match>().phase,

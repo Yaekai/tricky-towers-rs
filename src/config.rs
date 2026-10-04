@@ -1079,6 +1079,8 @@ pub struct MatchMoments {
     pub sunray_spin: f32,
     /// Seconds after a match ends before the "Game Completed" popup (?).
     pub popup_after: f32,
+    /// Seconds the popup takes to slide up into the bottom-right corner.
+    pub popup_slide: f32,
 }
 
 impl Default for MatchMoments {
@@ -1101,6 +1103,7 @@ impl Default for MatchMoments {
             trophy_pop: (0.4, 0.6),
             sunray_spin: 20.0,
             popup_after: 4.0,
+            popup_slide: 0.25,
         }
     }
 }

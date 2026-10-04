@@ -128,3 +128,7 @@ and nothing gets installed without Max's own go-ahead.
   single`, `--menu endless`) and read what differs: the Endless buttons' centres, the wizard
   faces' spot and size, the leaderboard's place, art and rows, the selected/deselected look of
   a list button, and where the name plate sits under the single seat. Also say what Trials holds.
+- The popup and pause now follow your readout (src/popup.rs, src/menu.rs). Take a picture of a
+  race win (`--shots 14,20` with a quick finish) and of `--menu pause`, and say what differs:
+  the pause panel's size and the pause row pitch are guesses, and so is the popup header (70
+  px, left empty). The top-left debug text is gone unless F3 is pressed.

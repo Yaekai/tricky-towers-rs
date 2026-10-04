@@ -70,12 +70,23 @@ stars are shown at the start of a match, not here.
   and the selected look are guesses (src/single.rs) until read.
 
 ## Pause
-"Game Paused" with Resume, Retry and Quit.
+A full-screen dark overlay (0.016, 0.012, 0.035 at 90%) with a panel (0.031, 0.020, 0.094 at
+85%). "Game Paused" sits 480 px in from the left at +260; Resume, Retry and Quit are below
+it from +120, each on a 30-high row with `menu_item_selected` (28 high, 9-sliced) behind the
+picked one. The panel's size and the row pitch (60 px here) are guesses.
 
 ## End of a match
-A "Game Completed" popup: the place ("1st Place" to "4th Place", or "Forfeit!"), the XP
-gained ("{xp} XP") counting up, and "Level Up!" or "Level Down!". Buttons: Next match,
-Rematch, Main menu. Wizard levels: Rookie Magician, Apprentice Magician, Magician,
-Rookie Sorcerer, Apprentice Sorcerer, Sorcerer, Rookie Wizard, Apprentice Wizard,
-Wizard, Expert Wizard, then Master Wizard Level N. Cups add a results table ("First to
-{N} points", each player's score) and then a "{cup} Winner!" popup with the cup.
+The "Game Completed" popup is not centred. It slides up from below in 0.25 s (ease out quad)
+into the bottom-right corner: content 610 wide × (60 per item + 70) high, the
+`popup_background` panel (9-sliced, top border 198, bottom 6) reaching 120 px past the right
+edge and 100 px below the bottom. Items are right-aligned labels (465×30, 40 px in from the
+right), 60 px apart, with `menu_item_selected` (24 high, 30 px in, as wide as the words)
+behind the picked one. Local items: "Next match" (only when more than one mode was picked),
+"Rematch", "Select Mode", "Main menu". There's no place line, and WINNER! stays visible
+beside it. It opens once every loser's tower has collapsed, about 4 to 5 s after the end
+(docs/research/match-moments.md).
+
+XP only counts online and in cups. Wizard levels: Rookie Magician, Apprentice Magician,
+Magician, Rookie Sorcerer, Apprentice Sorcerer, Sorcerer, Rookie Wizard, Apprentice Wizard,
+Wizard, Expert Wizard, then Master Wizard Level N. Cups add a results table ("First to {N}
+points", each player's score) and then a "{cup} Winner!" popup with the cup.

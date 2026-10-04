@@ -284,6 +284,7 @@
         trophy_pop: (0.4, 0.6),
         sunray_spin: 20.0,
         popup_after: 4.0,
+        popup_slide: 0.25,
     ),
     pieces: [
         (

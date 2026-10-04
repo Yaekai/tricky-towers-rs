@@ -13,7 +13,7 @@ cargo test                         # config + headless gameplay tests
 ```
 Controls: arrows or A/D to move, Shift + Left/Right to nudge, Up/W/Space to rotate clockwise and
 Z anticlockwise, Down/S to drop faster, Q to cast your light spell and E your dark one, R to
-restart, Esc to pause (Resume, Retry, Quit).
+restart, Esc to pause (Resume, Retry, Quit), F3 for a debug readout (height, spells, result).
 
 Menus follow the original: "Press Enter to start" under the logo, then the title tiles, where the arrows and Enter pick. Local Battle opens
 "Select Players": Enter (or A on a pad) takes a seat, Tab (X) adds an AI wizard, Backspace (Y)
@@ -21,7 +21,7 @@ removes one, and Enter again goes on to "Select Mode": two columns, the mode (Ra
 Puzzle or Random) then the difficulty (Easy, Normal, Special or Random), Up/Down to change and
 Enter to move on. Single Player shows your seat over Trials and Endless; Endless offers Race
 (Survival and Puzzle aren't built yet) beside this run's best scores. Esc (B) steps back. A few seconds after a match ends, "Game
-Completed" shows your place with Next match, Rematch and Main menu. `--menu title|players|modes|single|endless`
+Completed" slides up in the bottom-right corner with Rematch, Select Mode and Main menu. `--menu title|players|modes|single|endless|pause`
 opens on a menu screen, for scripted pictures.
 
 Players 2 to 4 use gamepads: stick or d-pad to move, down to drop, LT/RT to nudge, A/B to rotate,

@@ -253,48 +253,97 @@ pub const PAUSE_OPTIONS: [&str; 3] = ["Resume", "Retry", "Quit"];
 
 #[derive(Component)]
 struct PauseRoot;
-#[derive(Component)]
-struct PauseOption(usize);
 
-/// "Game Paused" and its options over a dimmed match.
-fn spawn_pause_menu(mut commands: Commands) {
+/// Layout of the pause screen in pixels of a 1080-high screen: the title's
+/// and items' left edge, the title's and first item's heights over the
+/// centre, the row pitch, and the bar behind the picked item.
+const PAUSE_LEFT: f32 = 480.0;
+const PAUSE_TITLE_Y: f32 = 260.0;
+const PAUSE_ITEMS_Y: f32 = 120.0;
+const PAUSE_ROW: (f32, f32) = (60.0, 30.0);
+const PAUSE_BAR: f32 = 28.0;
+/// The panel behind the column (its size is a guess).
+const PAUSE_PANEL_WIDTH: f32 = 960.0;
+
+#[derive(Component)]
+struct PauseBar(usize);
+
+/// "Game Paused" and its options in a column on the left, over a darkened
+/// match (docs/research/menus.md).
+fn spawn_pause_menu(mut commands: Commands, art: Option<Res<Art>>) {
+    use crate::popup::{BAR_SLICE, px, sliced};
+    let bar = art.as_ref().and_then(|a| a.image("menu_item_selected"));
+    let text = |size: f32, value: &str| {
+        (
+            Text::new(value),
+            TextFont {
+                font_size: FontSize::Vh(size / 10.8),
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            TextLayout::justify(Justify::Left),
+        )
+    };
+    // Heights over the centre become tops in a 1080-high screen.
+    let top = |y: f32, h: f32| px(540.0 - y - h / 2.0);
     commands
         .spawn((
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                row_gap: Val::Vh(2.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
+            BackgroundColor(Color::srgba(0.016, 0.012, 0.035, 0.90)),
             GlobalZIndex(12),
             Visibility::Hidden,
             PauseRoot,
         ))
         .with_children(|root| {
             root.spawn((
-                Text::new("Game Paused"),
-                TextFont {
-                    font_size: FontSize::Vh(7.0),
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0.0),
+                    top: px(0.0),
+                    width: px(PAUSE_PANEL_WIDTH),
+                    height: Val::Percent(100.0),
                     ..default()
                 },
-                TextColor(Color::WHITE),
-                TextLayout::justify(Justify::Center),
+                BackgroundColor(Color::srgba(0.031, 0.020, 0.094, 0.85)),
             ));
+            root.spawn((Node {
+                position_type: PositionType::Absolute,
+                left: px(PAUSE_LEFT),
+                top: top(PAUSE_TITLE_Y, 70.0),
+                height: px(70.0),
+                align_items: AlignItems::Center,
+                ..default()
+            },))
+                .with_children(|t| {
+                    t.spawn(text(64.0, "Game Paused"));
+                });
             for (i, option) in PAUSE_OPTIONS.iter().enumerate() {
-                root.spawn((
-                    Text::new(*option),
-                    TextFont {
-                        font_size: FontSize::Vh(4.5),
+                let y = PAUSE_ITEMS_Y - PAUSE_ROW.0 * i as f32;
+                let mut row = root.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: px(PAUSE_LEFT - 16.0),
+                        top: top(y, PAUSE_BAR),
+                        height: px(PAUSE_BAR),
+                        padding: UiRect::new(px(16.0), px(24.0), px(0.0), px(0.0)),
+                        align_items: AlignItems::Center,
                         ..default()
                     },
-                    TextColor(Color::WHITE),
-                    TextLayout::justify(Justify::Center),
-                    PauseOption(i),
+                    BackgroundColor(Color::NONE),
+                    PauseBar(i),
                 ));
+                if let Some(bar) = &bar {
+                    let mut node = sliced(bar.clone(), BAR_SLICE);
+                    node.color = Color::NONE;
+                    row.insert(node);
+                }
+                row.with_children(|r| {
+                    r.spawn(text(PAUSE_ROW.1, option));
+                });
             }
         });
 }
@@ -367,12 +416,13 @@ fn pause_input(
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn show_pause_menu(
     game: Res<Match>,
     screen: Res<MenuScreen>,
     pause: Res<PauseMenu>,
     mut root: Query<&mut Visibility, With<PauseRoot>>,
-    mut options: Query<(&PauseOption, &mut TextColor)>,
+    mut bars: Query<(&PauseBar, Option<&mut ImageNode>, &mut BackgroundColor)>,
 ) {
     let shown = game.phase == Phase::Menu && *screen == MenuScreen::Pause;
     for mut v in &mut root {
@@ -382,14 +432,25 @@ fn show_pause_menu(
             Visibility::Hidden
         });
     }
-    for (option, mut color) in &mut options {
-        let want = if option.0 == pause.selected {
-            Color::srgb(1.0, 0.82, 0.25)
-        } else {
-            Color::WHITE
-        };
-        if color.0 != want {
-            color.0 = want;
+    for (bar, image, mut colour) in &mut bars {
+        let picked = bar.0 == pause.selected;
+        match image {
+            Some(mut image) => {
+                let want = if picked { Color::WHITE } else { Color::NONE };
+                if image.color != want {
+                    image.color = want;
+                }
+            }
+            None => {
+                let want = if picked {
+                    Color::srgba(1.0, 0.75, 0.2, 0.55)
+                } else {
+                    Color::NONE
+                };
+                if colour.0 != want {
+                    colour.0 = want;
+                }
+            }
         }
     }
 }
