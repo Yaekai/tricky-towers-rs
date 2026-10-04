@@ -110,9 +110,15 @@ fn run_trial(
         return;
     }
     let used = towers.iter().map(|s| s.bricks_used()).max().unwrap_or(0);
+    let in_hand = towers.iter().any(|s| s.active.is_some());
+    let height = towers.iter().map(|s| s.height).fold(0.0, f32::max);
     let target = trial.brick_target(&config);
     for (i, cast) in trial.enemy.iter().enumerate() {
         let due = match cast.when {
+            // The original's two kinds: when the tower reaches a height, or on the
+            // Nth brick (the brick in hand is cursed).
+            CastWhen::Height(cells) => !run.fired[i] && height >= cells,
+            CastWhen::Brick(n) => !run.fired[i] && in_hand && used + 1 >= n.max(1),
             CastWhen::Every(period) => {
                 let due = game.elapsed >= run.next[i];
                 if due {

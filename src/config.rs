@@ -593,6 +593,18 @@ pub struct TrialDef {
     pub start_spell: Option<SpellKind>,
     /// The enemy wizard's casts.
     pub enemy: Vec<EnemyCast>,
+    /// A fixed brick order (shape names), else random bricks.
+    pub order: Vec<String>,
+    /// The trial's own spell lines, else none.
+    pub lines: Option<TrialLines>,
+}
+
+/// A trial's spell lines: how far apart (cells, plus 25% per extra player), and the
+/// light spell each gives, in order; `true` casts it the moment it's collected.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+pub struct TrialLines {
+    pub every: f32,
+    pub spells: Vec<(SpellKind, bool)>,
 }
 
 impl Default for TrialDef {
@@ -608,6 +620,8 @@ impl Default for TrialDef {
             drop_speed: None,
             start_spell: None,
             enemy: Vec::new(),
+            order: Vec::new(),
+            lines: None,
         }
     }
 }
@@ -737,9 +751,14 @@ pub struct EnemyCast {
     pub spells: Vec<SpellKind>,
 }
 
-/// The three kinds of schedule the original's trials use.
+/// When the enemy wizard casts. The original's trials use `Height` and `Brick`
+/// (docs/research/trials.md); the others are extra kinds for mods and tests.
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
 pub enum CastWhen {
+    /// Once, when your tower reaches this many cells.
+    Height(f32),
+    /// Once, on your Nth brick (counting from 1; 0 counts as the first).
+    Brick(u32),
     /// Every this many seconds, first after one period.
     Every(f32),
     /// Once, this many seconds in.
@@ -2298,7 +2317,7 @@ impl Default for GameConfig {
             puzzle: PuzzleRules::default(),
             endless: EndlessRules::default(),
             endless_play: EndlessPlay::default(),
-            trials: sample_trials(),
+            trials: crate::trial_list::original_trials(),
             trial_tiers: TrialTiers::default(),
             trial: None,
             skins: Vec::new(),

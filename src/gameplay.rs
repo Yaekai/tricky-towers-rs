@@ -414,6 +414,8 @@ pub struct TowerState {
     /// where it rises from and to (world pixels; it shakes around that path).
     pub wave_hold: f32,
     pub wave_hold_x: f32,
+    /// A trial's "(random)" spell line: cast the light spell next tick.
+    pub auto_cast_light: bool,
     pub wave_lift: (f32, f32),
     /// Endless Race: the pacer line's height in cells, checkpoints reached, its speed
     /// and the step the next checkpoint adds, seconds left of the checkpoint stop, the
@@ -470,6 +472,7 @@ impl TowerState {
             placed_count: 0,
             wave_hold: 0.0,
             wave_hold_x: 0.0,
+            auto_cast_light: false,
             wave_lift: (0.0, 0.0),
             pacer: config.endless.intro_from,
             pacer_stages: 0,
@@ -993,6 +996,15 @@ fn spawn_next_brick(
                     modifier.merge(wave);
                 }
                 let mut piece = bag.draw();
+                // A trial with a fixed brick order deals exactly that order.
+                if let Some(name) = config
+                    .trial
+                    .and_then(|i| config.trials.get(i))
+                    .and_then(|t| t.order.get(state.bricks_used() as usize))
+                    && let Some(fixed) = config.pieces.iter().position(|p| &p.name == name)
+                {
+                    piece = fixed;
+                }
                 if modifier.mystery
                     && let Some(shape) = state.draw_mystery(config.magic.mystery_pieces.len())
                 {
@@ -1691,7 +1703,9 @@ fn judge_match(
             }
             ModeKind::Puzzle => {
                 let rules = &config.puzzle;
-                if state.all_settled && state.height > state.laser(&config) + 0.05 {
+                // In a puzzle trial a dropped brick fails it (1 life, trials.md).
+                let trial_drop = config.trial.is_some() && state.bricks_dropped > 0;
+                if trial_drop || (state.all_settled && state.height > state.laser(&config) + 0.05) {
                     state.status = TowerStatus::Out;
                 } else if state.bricks_used() >= rules.bricks
                     && state.active.is_none()

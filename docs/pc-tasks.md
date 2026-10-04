@@ -378,3 +378,14 @@ and nothing gets installed without Max's own go-ahead.
   (`pad_b_up`/`pad_b_down`) so lost hearts and pad hints can use them. Not done: gravel, impact
   dust on later hard hits (we only puff on landing), confetti (cups are a debug tool), the
   hourglass timer on race trials, the Endless score line, `finish_line_end` flags.
+- **The 50 original trials are in** (src/trial_list.rs, made from docs/research/trials.md):
+  goals, drop speeds, fixed brick orders, each trial's own spell lines (spaced `every` cells
+  plus 25% per extra player, given in order, "(random)" ones cast at once, none after the
+  last; trials without lines show none), and enemy curses on heights (`CastWhen::Height`) and
+  bricks (`CastWhen::Brick`, fires while that brick is in hand). A dropped brick fails a
+  puzzle trial. Guessed: `MAX_TRIAL_LIVES = 5` for SS_20's "max lives"; that `h` heights are
+  measured like our tower height (from the base top) and that `h0` fires with the first
+  brick; that `bN` counts the brick in hand. Not done: trial floors other than the mode's
+  (FLOOR_LWS at 12.5, FLOOR_LWS_PETRIFIED_BRICK, puzzle floors), the rival tower pictures
+  (ENEMY_TOWER_LEVEL_NN), the trial names shown on the list (we show the ids). Check: play
+  SR_10, SS_10 and SS_11 against the original and compare when the curses land.

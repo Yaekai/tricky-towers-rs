@@ -96,10 +96,23 @@ pub(crate) fn update_spell_lines(
     let magic = &config.magic;
     let lines_off = game.mode.rules() == ModeKind::Puzzle
         || (game.mode == ModeKind::EndlessSurvival && !config.endless_play.survival_spells);
-    if !magic.enabled || game.phase != Phase::Playing || lines_off {
+    // A trial has its own lines, or none at all.
+    let trial_lines = config
+        .trial
+        .and_then(|i| config.trials.get(i))
+        .map(|t| t.lines.clone());
+    if !magic.enabled
+        || game.phase != Phase::Playing
+        || lines_off
+        || matches!(trial_lines, Some(None))
+    {
         return;
     }
-    let spacing = magic.spacing(game.players);
+    let trial_lines = trial_lines.flatten();
+    let spacing = match &trial_lines {
+        Some(lines) => lines.every * (1.0 + 0.25 * game.players.saturating_sub(1) as f32),
+        None => magic.spacing(game.players),
+    };
     let building: Vec<f32> = towers
         .iter()
         .filter(|s| s.status == TowerStatus::Building)
@@ -113,6 +126,12 @@ pub(crate) fn update_spell_lines(
             continue;
         }
         let height = state.height;
+        if trial_lines
+            .as_ref()
+            .is_some_and(|l| state.lines_reached as usize >= l.spells.len())
+        {
+            continue;
+        }
         let Some(mut line) = state.spell_line else {
             // Endless Race's lines are checkpoints at set heights.
             state.spell_line = Some(if game.mode == ModeKind::Endless {
@@ -144,6 +163,14 @@ pub(crate) fn update_spell_lines(
         state.lines_reached += 1;
         if game.mode == ModeKind::Endless {
             crate::gameplay::pacer_checkpoint(&config.endless, &mut state);
+        }
+        // A trial's lines give their spells in order; "(random)" ones are cast at once.
+        if let Some(lines) = &trial_lines {
+            let (spell, now) = lines.spells[state.lines_reached as usize - 1];
+            state.light_spell = Some(spell);
+            state.dark_spell = None;
+            state.auto_cast_light = now;
+            continue;
         }
         let finish_gap = (game.mode == ModeKind::Race).then(|| game.finish_height - height);
         let behind = leader - height;
@@ -480,7 +507,8 @@ pub(crate) fn cast_spells(
 ) {
     let mut casts = Vec::new();
     for (entity, tower, mut state, mut input) in &mut towers {
-        let light = std::mem::take(&mut input.cast_light_pressed);
+        let light = std::mem::take(&mut input.cast_light_pressed)
+            | std::mem::take(&mut state.auto_cast_light);
         let dark = std::mem::take(&mut input.cast_dark_pressed);
         if game.phase != Phase::Playing || state.status != TowerStatus::Building {
             continue;
