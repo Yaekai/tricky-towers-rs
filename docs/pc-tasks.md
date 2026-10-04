@@ -189,3 +189,10 @@ and nothing gets installed without Max's own go-ahead.
      when a lone wizard floats on the left of the tower.
   5. The rays, rings, blobs and sparks at the beam's foot: we only draw `cast_circle_gradient`
      there. Say which ones matter most to look right and their sizes and spin speeds.
+- XP rules are in as data (`GameConfig::xp`, `XpRules::for_place`, `level`, `name`); nothing
+  shows them yet, since only online matches and cups give XP. Please confirm: (1) past Expert
+  Wizard, is level 11 "Master Wizard Level 1" (our guess) or does the count start elsewhere;
+  (2) what "second to last" and "third to last" get in a 2- or 3-player match when those places
+  are also the winner's (we give the winner the full amount); (3) where the original shows XP
+  and the level (profile screen, after a cup), with the art names, so it can be drawn when cups
+  are added.
