@@ -82,3 +82,27 @@ every spell once), Speed. Precision. (win a normal race within 80 s without drop
 - Casting a light spell gives up the chance to cast the dark one "for a while": you choose
   between helping your own tower and hurting the others. (Matches the spell pair rule.)
 - Nothing in the feature list about local cups, mods or settings beyond the above.
+
+## Spell names as the game shows them (wiki "Spells")
+Light (6): Extra Life ("Gives you an extra life."), Ivy ("Binds bricks it touches together."),
+**Tower Piece** ("A small piece to build upon." — our Minibase), Petrify ("Petrifies a brick so
+it can't move."), Undo ("Removes your last placed brick."), Auto Build ("Places a couple of
+petrified bricks.", only for players lagging behind).
+Dark (11 + 2 combos): Auto Rotate, Bubble, Large ("Makes a brick large and heavy."), **Fast
+Brick**, **Grass**, **Ice Brick**, Mist, Mystery, **Rotated Brick** (the no-rotate curse; check
+the exact name on screen), **Slow Down** (the balloon), **Ghosts**, and the combos **Super** ("A
+combination of dark magic.") and **Super Duper** ("An even stronger combination."), both only for
+players lagging behind (our "behind" and "far behind" dark sets).
+Ours (`SpellKind::name`) differs: Minibase, Fast, Ice, No Rotate, Balloon, Grassy, Ghost.
+
+## Characters and DLC (wiki "Characters", "DLCs")
+- Base game: four wizards (the wiki calls them Wizard #1 to #4). Characters are cosmetic only.
+- Spirit Animal Pack (2 Aug 2016): costumes for the base wizards: platypus, toucan, raccoon, fish
+  (our install readout lists WizardAnimal01-04).
+- Indie Friends Pack (18 Jul 2017): six guest characters (Thane, Clunk, Fish, Candyman, Last of
+  the Order, Octodad; WizardIndie01-06 in the install).
+- Brick packs (2017): Galaxy, Candy, Gem and Holographic bricks (texture sets).
+
+## More achievements (wiki)
+On the right track (unlock the Expert trials), Almost there (unlock the Master trials). Endless
+Race: bricks may be lost freely (no lives) as long as the tower stays above the grey filter.
