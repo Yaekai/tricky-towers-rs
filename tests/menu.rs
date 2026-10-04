@@ -309,7 +309,7 @@ fn c_picks_a_cup_on_select_mode_and_starting_begins_it() {
 #[test]
 fn settings_change_with_left_and_right_and_escape_goes_back() {
     use tricky_towers::menu::TILES;
-    use tricky_towers::settings::Settings;
+    use tricky_towers::settings::{Row, Settings, SettingsMenu};
     let mut app = app();
     let settings_tile = TILES.iter().position(|t| t.key == "settings").unwrap();
     app.world_mut().resource_mut::<MainMenu>().selected = settings_tile;
@@ -321,8 +321,27 @@ fn settings_change_with_left_and_right_and_escape_goes_back() {
     tap(&mut app, KeyCode::ArrowLeft);
     let after = app.world().resource::<Settings>().music;
     assert!((after - (music - 0.1)).abs() < 1e-4, "{music} -> {after}");
-    // Enter on Full screen toggles it (on by default, like the original).
+    // Enter on Explanations toggles it (on by default).
     tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    assert!(!app.world().resource::<Settings>().explanations);
+    // Right on Keybinding (no value) turns to page 2, on the same row: Apply.
+    for _ in 0..3 {
+        tap(&mut app, KeyCode::ArrowDown);
+    }
+    tap(&mut app, KeyCode::ArrowRight);
+    let menu = app.world().resource::<SettingsMenu>();
+    assert_eq!((menu.page, menu.row()), (1, Row::Apply));
+    tap(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        app.world().resource::<SettingsMenu>().row(),
+        Row::Fullscreen
+    );
+    // Page 2 waits for Apply.
+    tap(&mut app, KeyCode::Enter);
+    assert!(app.world().resource::<Settings>().fullscreen);
+    tap(&mut app, KeyCode::ArrowUp);
+    assert_eq!(app.world().resource::<SettingsMenu>().row(), Row::Apply);
     tap(&mut app, KeyCode::Enter);
     assert!(!app.world().resource::<Settings>().fullscreen);
     tap(&mut app, KeyCode::Escape);

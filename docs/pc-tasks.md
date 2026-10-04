@@ -252,11 +252,16 @@ and nothing gets installed without Max's own go-ahead.
   players below the winner (we break ties by the last match). Not done: the third Select Mode
   column (we still cycle with C), random modes per match from the picks, the medal rows in the
   popup, the winner popup with place counts, fireworks and the 12 s close.
-- **Settings screen is in as a placeholder** (src/settings.rs, `MenuScreen::Settings`, `--menu
-  settings`): Volume, Music and Full screen, applied at once and saved in `settings.ron`.
-  Please read the original's Settings screen: which options it has (volumes, controls,
-  language, screen), their order, ranges and steps, its layout and art names, and take an
-  offscreen picture of ours (`--menu settings --offscreen screenshots --shots 2`).
+- **Settings screen now follows your layout readout** (menus.md; src/settings.rs): two sliding
+  pages (Sound effects, Music, Explanations, Stats, Credits, Keybinding / Full screen,
+  Resolution, Quality, V-sync, Language, Apply), 800×78 rows 100 px apart, icons, slider bars,
+  checkboxes with tick/cross, choice arrows, small corners on the picked row, page arrows at
+  ±500. Page 2 waits for Apply. Guessed (?): the in-between resolutions, that the arrow art
+  points right, the slide time (0.3 s), that the row stays the same when the page turns, that
+  Language waits for Apply, how icons fit their 100 px box, that the slider fill is stretched
+  rather than cropped. Not done: Stats/Credits/Keybinding popups, Quality's effect, the 18
+  languages, Explanations' tips. Picture it on the PC: `--menu settings --offscreen <dir>`
+  (the cloud has no GPU).
 - From your notes, now in the game: Auto Rotate's motion (winds back 15° in 0.2 s, swings 105°
   in 0.45 s, waits; `auto_rotate_angle`), No Rotate's 0.3 s shake on a refused turn, Race Pro's
   spell rules (far behind at 20, Minibase [3] in the normal pool, line wait growing with players
