@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use crate::art::Art;
-use crate::config::{GameConfig, WizardLook};
+use crate::config::{GameConfig, ModeKind, WizardLook};
 use crate::gameplay::{Tower, TowerState, TowerStatus};
 use crate::spells::SpellLog;
 
@@ -56,6 +56,8 @@ struct Seen {
     lives: Option<u32>,
     lines: u32,
     out: bool,
+    /// The tower finished (the Survival roof went on).
+    won: bool,
     casts: u64,
 }
 
@@ -153,6 +155,7 @@ fn spawn_wizards(
                 lives: state.lives,
                 lines: state.lines_reached,
                 out: state.status == TowerStatus::Out,
+                won: state.status == TowerStatus::Won,
                 casts: 0,
             },
             rng: config.seed ^ ((tower.index as u64 + 1) * 0x9E37_79B9),
@@ -203,6 +206,7 @@ fn react_wizards(
     config: Res<GameConfig>,
     art: Res<Art>,
     log: Res<SpellLog>,
+    game: Res<crate::gameplay::Match>,
     towers: Query<&TowerState>,
     mut wizards: Query<&mut Wizard>,
 ) {
@@ -258,11 +262,17 @@ fn react_wizards(
         if out && !wizard.seen.out {
             play(&mut wizard, Clip::Dying, None);
         }
+        // The Survival roof going on: Action, then Cheer.
+        let won = state.status == TowerStatus::Won;
+        if won && !wizard.seen.won && game.mode.rules() == ModeKind::Survival {
+            play(&mut wizard, Clip::Action, Some(Clip::Cheer));
+        }
         wizard.seen = Seen {
             placed: state.bricks_placed,
             lives: state.lives,
             lines: state.lines_reached,
             out,
+            won,
             casts: log.1,
         };
 

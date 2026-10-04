@@ -754,6 +754,8 @@ pub struct DarkSet {
 pub struct AwardRule {
     /// Holds only in this mode.
     pub mode: Option<ModeKind>,
+    /// Holds only on these difficulties; empty means any.
+    pub difficulties: Vec<Difficulty>,
     /// Holds only when the tower has (true) or hasn't (false) lost a life.
     pub hurt: Option<bool>,
     /// Holds when the race finish is at most this many cells above the tower.
@@ -778,8 +780,9 @@ pub struct MagicRules {
     pub line_spacing_per_extra_player: f32,
     /// Race: seconds a new line waits before sliding down to the tower.
     pub line_wait: f32,
-    /// Extra wait per player beyond two, as a fraction.
+    /// Extra wait per player beyond two, as a fraction, on these difficulties only.
     pub line_wait_per_extra_player: f32,
+    pub line_wait_extra_on: Vec<Difficulty>,
     /// Race: cells per second a waiting line slides down.
     pub line_slide_speed: f32,
     /// A line further above the tower than this slides faster, by half the excess.
@@ -821,8 +824,16 @@ pub struct MagicRules {
     pub fast_extra_speed: f32,
     pub ice_bricks: u32,
     pub ice_friction: f32,
-    /// Auto Rotate: seconds between turns, including the turn itself.
+    /// Auto Rotate: seconds per cycle; in each the brick winds back
+    /// `auto_rotate_back` (degrees, seconds), swings `auto_rotate_swing` the other
+    /// way (90° net), then waits out the cycle. Even speed within each part (?).
     pub auto_rotate_interval: f32,
+    pub auto_rotate_back: (f32, f32),
+    pub auto_rotate_swing: (f32, f32),
+    /// No Rotate: a refused turn shakes the brick this long; how far it shakes
+    /// sideways in cells and how fast (?).
+    pub no_rotate_shake: f32,
+    pub no_rotate_reach: (f32, f32),
     /// Shapes Mystery can turn a brick into, drawn from a bag.
     pub mystery_pieces: Vec<PieceDef>,
     /// Bubble lift as an upward acceleration in cells/s²: at the start, after
@@ -859,6 +870,7 @@ impl Default for MagicRules {
             line_spacing_per_extra_player: 0.25,
             line_wait: 18.0,
             line_wait_per_extra_player: 0.25,
+            line_wait_extra_on: vec![Difficulty::Normal, Difficulty::Pro],
             line_slide_speed: 0.5,
             line_catch_up_beyond: 9.0,
             line_catch_up_rate: 0.5,
@@ -872,9 +884,19 @@ impl Default for MagicRules {
                     dark: Some("normal".into()),
                     ..default()
                 },
+                // Far behind is 15 cells, 20 on Pro.
                 AwardRule {
                     mode: Some(ModeKind::Race),
+                    difficulties: vec![Difficulty::Easy, Difficulty::Normal],
                     behind_leader: Some(15.0),
+                    light: vec![(AutoBuild, 2), (Petrify, 1), (Minibase, 1)],
+                    dark: Some("far_behind".into()),
+                    ..default()
+                },
+                AwardRule {
+                    mode: Some(ModeKind::Race),
+                    difficulties: vec![Difficulty::Pro],
+                    behind_leader: Some(20.0),
                     light: vec![(AutoBuild, 2), (Petrify, 1), (Minibase, 1)],
                     dark: Some("far_behind".into()),
                     ..default()
@@ -888,11 +910,25 @@ impl Default for MagicRules {
                 },
                 AwardRule {
                     mode: Some(ModeKind::Race),
+                    difficulties: vec![Difficulty::Easy, Difficulty::Normal],
                     light: vec![(Ivy, 10), (Undo, 10), (Petrify, 3)],
                     dark_after: vec![
                         (Ivy, "normal".into()),
                         (Undo, "normal".into()),
                         (Petrify, "stone".into()),
+                    ],
+                    ..default()
+                },
+                // Pro adds Minibase; after it comes the same set as after Petrify.
+                AwardRule {
+                    mode: Some(ModeKind::Race),
+                    difficulties: vec![Difficulty::Pro],
+                    light: vec![(Ivy, 10), (Undo, 10), (Petrify, 3), (Minibase, 3)],
+                    dark_after: vec![
+                        (Ivy, "normal".into()),
+                        (Undo, "normal".into()),
+                        (Petrify, "stone".into()),
+                        (Minibase, "stone".into()),
                     ],
                     ..default()
                 },
@@ -994,6 +1030,10 @@ impl Default for MagicRules {
             ice_bricks: 4,
             ice_friction: 0.06,
             auto_rotate_interval: 1.65,
+            auto_rotate_back: (15.0, 0.2),
+            auto_rotate_swing: (105.0, 0.45),
+            no_rotate_shake: 0.3,
+            no_rotate_reach: (0.08, 30.0),
             mystery_pieces: default_mystery_pieces(),
             bubble_lift: (21.5, 18.0, 17.5),
             bubble_ease: 1.0,
@@ -1019,7 +1059,10 @@ impl MagicRules {
     }
 
     /// Seconds a new race line waits with `players` players in the match.
-    pub fn wait(&self, players: usize) -> f32 {
+    pub fn wait(&self, players: usize, difficulty: Difficulty) -> f32 {
+        if !self.line_wait_extra_on.contains(&difficulty) {
+            return self.line_wait;
+        }
         let extra = players.saturating_sub(2) as f32;
         self.line_wait * (1.0 + self.line_wait_per_extra_player * extra)
     }
@@ -2141,6 +2184,40 @@ mod tests {
             text,
         )
         .unwrap();
+    }
+
+    #[test]
+    fn race_pro_spell_rules_differ() {
+        let magic = MagicRules::default();
+        let race = |d: Difficulty| -> Vec<&AwardRule> {
+            magic
+                .award_rules
+                .iter()
+                .filter(|r| {
+                    r.mode == Some(ModeKind::Race)
+                        && (r.difficulties.is_empty() || r.difficulties.contains(&d))
+                })
+                .collect()
+        };
+        let far = |d| {
+            race(d)
+                .iter()
+                .filter_map(|r| r.behind_leader)
+                .fold(0.0, f32::max)
+        };
+        assert_eq!(far(Difficulty::Normal), 15.0);
+        assert_eq!(far(Difficulty::Pro), 20.0);
+        let minibase = |d| {
+            race(d).iter().any(|r| {
+                r.behind_leader.is_none()
+                    && r.finish_within.is_none()
+                    && r.light.contains(&(SpellKind::Minibase, 3))
+            })
+        };
+        assert!(minibase(Difficulty::Pro) && !minibase(Difficulty::Normal));
+        // The line wait grows with players on Normal and Pro, not on Easy.
+        assert_eq!(magic.wait(4, Difficulty::Easy), magic.line_wait);
+        assert_eq!(magic.wait(4, Difficulty::Pro), magic.line_wait * 1.5);
     }
 
     #[test]

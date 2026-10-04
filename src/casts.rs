@@ -657,6 +657,7 @@ fn animate_clouds(
 
 /// Grows the brick in hand when Large makes it bigger: its cells are drawn at
 /// the new size at once, so they are scaled down to the old size and eased up.
+/// Also shakes it while No Rotate refuses a turn.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn grow_large_bricks(
     time: Res<Time>,
@@ -664,14 +665,16 @@ fn grow_large_bricks(
     art: Res<Art>,
     mut commands: Commands,
     mut shake: ResMut<CameraShake>,
-    bricks: Query<(Entity, &Brick, Option<&Children>), With<ActiveBrick>>,
+    bricks: Query<(Entity, &Brick, &ActiveBrick, Option<&Children>)>,
     mut cells: Query<(&mut Transform, Option<&GrowBase>), Without<Brick>>,
     mut sizes: Local<HashMap<Entity, (f32, f32, f32)>>,
+    mut shook: Local<bevy::platform::collections::HashSet<Entity>>,
 ) {
     let look = &config.casts;
     let dt = time.delta_secs();
     sizes.retain(|entity, _| bricks.contains(*entity));
-    for (entity, brick, children) in &bricks {
+    shook.retain(|entity| bricks.contains(*entity));
+    for (entity, brick, control, children) in &bricks {
         let entry = sizes
             .entry(entity)
             .or_insert((brick.scale, brick.scale, 1.0));
@@ -689,13 +692,28 @@ fn grow_large_bricks(
             *entry = (brick.scale, brick.scale, 1.0);
         }
         let (from, to, progress) = *entry;
-        // Only touch the cells while a grow runs (the last step puts them back).
-        if progress >= 1.0 {
+        // No Rotate refusing a turn shakes the brick sideways.
+        let shaking = control.refused > 0.0;
+        let was_shaking = if shaking {
+            !shook.insert(entity)
+        } else {
+            shook.remove(&entity)
+        };
+        // Only touch the cells while a grow or shake runs (the last step puts them
+        // back).
+        if progress >= 1.0 && !shaking && !was_shaking {
             continue;
         }
         let progress = (progress + dt / look.large_grow.max(0.001)).min(1.0);
         entry.2 = progress;
         let factor = (from + (to - from) * progress) / to;
+        let (reach, rate) = config.magic.no_rotate_reach;
+        let wobble = if shaking {
+            let t = time.elapsed_secs() * rate * std::f32::consts::TAU;
+            config.cells(reach) * t.sin()
+        } else {
+            0.0
+        };
         let Some(children) = children else {
             continue;
         };
@@ -710,8 +728,8 @@ fn grow_large_bricks(
                     *transform
                 }
             };
-            transform.translation =
-                (base.translation.truncate() * factor).extend(base.translation.z);
+            transform.translation = (base.translation.truncate() * factor + Vec2::X * wobble)
+                .extend(base.translation.z);
             transform.scale = base.scale * factor;
         }
     }

@@ -10,7 +10,9 @@ use avian2d::prelude::*;
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 
-use crate::config::{AwardRule, Curse, GameConfig, MagicRules, ModeKind, SpellKind, WaveRules};
+use crate::config::{
+    AwardRule, Curse, Difficulty, GameConfig, MagicRules, ModeKind, SpellKind, WaveRules,
+};
 use crate::gameplay::{
     ActiveBrick, Brick, BrickMod, Match, Phase, Placed, PlayerInput, Tower, TowerState,
     TowerStatus, brick_body, brick_collider, piece_def,
@@ -118,7 +120,7 @@ pub(crate) fn update_spell_lines(
             } else {
                 state.next_line.max(height + spacing)
             });
-            state.line_wait = magic.wait(game.players);
+            state.line_wait = magic.wait(game.players, config.difficulty.unwrap_or_default());
             continue;
         };
         // Endless Race hands out spells like a race (?).
@@ -146,11 +148,16 @@ pub(crate) fn update_spell_lines(
         let finish_gap = (game.mode == ModeKind::Race).then(|| game.finish_height - height);
         let behind = leader - height;
         let hurt = state.lives.is_some_and(|l| l < config.survival.lives);
-        let Some(rule) = magic
-            .award_rules
-            .iter()
-            .find(|r| rule_holds(r, game.mode.rules(), hurt, finish_gap, behind))
-        else {
+        let Some(rule) = magic.award_rules.iter().find(|r| {
+            rule_holds(
+                r,
+                game.mode.rules(),
+                config.difficulty.unwrap_or_default(),
+                hurt,
+                finish_gap,
+                behind,
+            )
+        }) else {
             continue;
         };
         award(
@@ -368,11 +375,13 @@ pub(crate) fn run_curse_waves(
 fn rule_holds(
     rule: &AwardRule,
     mode: ModeKind,
+    difficulty: Difficulty,
     hurt: bool,
     finish_gap: Option<f32>,
     behind: f32,
 ) -> bool {
     rule.mode.is_none_or(|m| m == mode)
+        && (rule.difficulties.is_empty() || rule.difficulties.contains(&difficulty))
         && rule.hurt.is_none_or(|h| h == hurt)
         && rule
             .finish_within
