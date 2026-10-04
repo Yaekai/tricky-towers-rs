@@ -346,3 +346,9 @@ and nothing gets installed without Max's own go-ahead.
   moments (a curse, a collapse, a Survival roof, a spell cloud) and picture them offscreen with
   `Picture`, instead of waiting for them in play. Use them for the comparisons above. The F1
   panel is for Max when playing in a window.
+- **Skins are in** (cloud, from skins.md): each seated player picks a wizard (14) and a brick
+  pack (8) on Select Players with Up/Down (Character / Brick pack) and Left/Right; towers draw
+  with them (`TowerSkin`, `BrickPack`, `brick_<pack>_<shape>`, `next_brick_<pack>_<shape>`,
+  `wizard<n>`). Guessed: the picker layout (two lines under the name plate) and the Spirit
+  Animal names ("Spirit Animal 1..4"). When there's a PC session again: read the pickers' layout,
+  art and wording, and the four Spirit Animal names.

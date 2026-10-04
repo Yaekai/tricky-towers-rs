@@ -328,3 +328,45 @@ fn settings_change_with_left_and_right_and_escape_goes_back() {
     tap(&mut app, KeyCode::Escape);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
 }
+
+#[test]
+fn each_seat_picks_its_wizard_and_brick_pack() {
+    use tricky_towers::config::BrickPack;
+    use tricky_towers::gameplay::{Tower, TowerSkin};
+    let mut app = app();
+    tap(&mut app, KeyCode::Enter); // title → Select Players
+    tap(&mut app, KeyCode::Enter); // seat the keyboard player
+    // Character: two to the right (wizard 1 → 3); then the brick pack: one to the right.
+    tap(&mut app, KeyCode::ArrowRight);
+    tap(&mut app, KeyCode::ArrowRight);
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowRight);
+    let lobby = app.world().resource::<Lobby>();
+    assert_eq!(lobby.skins[0], (2, BrickPack::Christmas));
+    tap(&mut app, KeyCode::Tab); // an AI wizard keeps its seat's default
+    tap(&mut app, KeyCode::Enter); // on to Select Mode
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter); // play
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
+    let world = app.world_mut();
+    let mut skins: Vec<(usize, TowerSkin)> = world
+        .query::<(&Tower, &TowerSkin)>()
+        .iter(world)
+        .map(|(t, s)| (t.index, *s))
+        .collect();
+    skins.sort_by_key(|(i, _)| *i);
+    assert_eq!(
+        skins[0].1,
+        TowerSkin {
+            wizard: 2,
+            pack: BrickPack::Christmas
+        }
+    );
+    assert_eq!(
+        skins[1].1,
+        TowerSkin {
+            wizard: 1,
+            pack: BrickPack::Default
+        }
+    );
+}

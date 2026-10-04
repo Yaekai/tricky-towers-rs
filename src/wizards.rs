@@ -121,7 +121,12 @@ fn spawn_wizards(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
-    towers: Query<(Entity, &Tower, &TowerState)>,
+    towers: Query<(
+        Entity,
+        &Tower,
+        &TowerState,
+        Option<&crate::gameplay::TowerSkin>,
+    )>,
     wizards: Query<(Entity, &Wizard)>,
 ) {
     for (entity, wizard) in &wizards {
@@ -130,11 +135,13 @@ fn spawn_wizards(
         }
     }
     let cell = config.cell_size;
-    for (tower_entity, tower, state) in &towers {
+    for (tower_entity, tower, state, skin) in &towers {
         if wizards.iter().any(|(_, w)| w.tower == tower_entity) {
             continue;
         }
-        let key = format!("wizard{}", tower.index + 1);
+        // The tower's picked wizard (Select Players), else one per lane.
+        let number = skin.map_or(tower.index, |s| s.wizard) + 1;
+        let key = format!("wizard{number}");
         let Some(parts) = art.entries.get(&key).and_then(|e| e.parts.clone()) else {
             continue;
         };

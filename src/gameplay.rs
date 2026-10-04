@@ -854,6 +854,12 @@ fn start_match(
         if !human {
             tower.insert(AiControlled);
         }
+        let (wizard, pack) = config
+            .skins
+            .get(index)
+            .copied()
+            .unwrap_or((index, crate::config::BrickPack::Default));
+        tower.insert(TowerSkin { wizard, pack });
         let tower = tower.id();
 
         // The platform's top surface sits at y = 0. In Puzzle the round's floor
@@ -1739,6 +1745,13 @@ fn judge_match(
         game.phase = Phase::Over;
         game.winner = winner;
     }
+}
+
+/// The wizard (0 for wizard 1) and brick pack a tower is drawn with. Looks only.
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct TowerSkin {
+    pub wizard: usize,
+    pub pack: crate::config::BrickPack,
 }
 
 /// Final placings, first place first: the winner, then towers still standing

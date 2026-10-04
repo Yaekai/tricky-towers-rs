@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy::ui::widget::NodeImageMode;
 
 use crate::art::Art;
-use crate::config::{Difficulty, GameConfig, ModeKind};
+use crate::config::{BrickPack, Difficulty, GameConfig, ModeKind, WIZARD_COUNT};
 use crate::gameplay::{MAX_TOWERS, Match, MatchRequest, Phase};
 use crate::menu::MenuScreen;
 
@@ -132,6 +132,10 @@ pub struct Lobby {
     pub difficulty: usize,
     /// The column Up/Down change: 0 the mode, 1 the difficulty.
     pub column: usize,
+    /// Each seat's wizard (0 for wizard 1) and brick pack, and which of the two
+    /// pickers (0 character, 1 brick pack) its player is on.
+    pub skins: [(usize, BrickPack); MAX_TOWERS],
+    pub skin_row: [usize; MAX_TOWERS],
 }
 
 impl Default for Lobby {
@@ -142,6 +146,8 @@ impl Default for Lobby {
             mode: 0,
             difficulty: 1,
             column: 0,
+            skins: std::array::from_fn(|seat| (seat, BrickPack::Default)),
+            skin_row: [0; MAX_TOWERS],
         }
     }
 }
@@ -161,6 +167,14 @@ impl Lobby {
 
     fn ais(&self) -> u32 {
         self.seats.iter().filter(|&&s| s == Seat::Ai).count() as u32
+    }
+
+    /// Each tower's (wizard, brick pack), in tower order: people first, then the AI
+    /// wizards, each in seat order.
+    pub fn tower_skins(&self) -> Vec<(usize, BrickPack)> {
+        let humans = (0..MAX_TOWERS).filter(|&s| self.seats[s].human());
+        let ais = (0..MAX_TOWERS).filter(|&s| self.seats[s] == Seat::Ai);
+        humans.chain(ais).map(|s| self.skins[s]).collect()
     }
 
     fn seat(&mut self, who: Seat) -> bool {
@@ -198,6 +212,10 @@ const SEAT_ARROW: (f32, f32) = (38.0, 64.0);
 const SEAT_ARROW_X: f32 = 165.0;
 pub(crate) const PACK_PANEL: ((f32, f32), f32) = ((332.0, 100.0), -110.0);
 pub(crate) const NAME_PLATE: ((f32, f32), f32) = ((367.0, 78.0), -230.0);
+/// The Character and Brick pack picker lines under each name plate: size and pitch
+/// (guessed until the original's Select Players pickers are read, ?).
+const PICK_LINE: (f32, f32) = (367.0, 44.0);
+const PICK_STEP: f32 = 52.0;
 /// 9-slice borders of the seat panels and outline, and of the name plate.
 pub(crate) const PANEL_SLICE: f32 = 60.0;
 pub(crate) const PLATE_SLICE: f32 = 13.0;
@@ -305,6 +323,8 @@ pub(crate) enum Part {
     SeatWizard(usize),
     /// A seat's name plate text.
     SeatName(usize),
+    /// A seated person's picker line: 0 the character, 1 the brick pack.
+    SeatPick(usize, usize),
     /// "To join" over an empty seat's panel.
     SeatJoin(usize),
     /// The box holding the join text; the letter copy hides with its parent.
@@ -463,6 +483,17 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
             plate.with_children(|p| {
                 p.spawn((label(2.4, ""), Part::SeatName(seat)));
             });
+            // The Character and Brick pack pickers under the name plate (layout ?).
+            for row in 0..2 {
+                page.spawn((
+                    place(PICK_LINE, (x, NAME_PLATE.1 - PICK_STEP * (row as f32 + 1.0))),
+                    BackgroundColor(Color::srgba(0.1, 0.08, 0.2, 0.7)),
+                    Part::SeatPick(seat, row),
+                ))
+                .with_children(|p| {
+                    p.spawn((label(2.0, ""), Part::SeatPick(seat, row)));
+                });
+            }
         }
         page.spawn(place((SCREEN.0, 60.0), (0.0, -SCREEN.1 / 2.0 + 60.0)))
             .with_children(|p| {
@@ -608,6 +639,7 @@ pub(crate) fn read_taps(
 /// someone is seated, the same press goes on to the modes. Tab or X adds an
 /// AI wizard to the next empty seat, Backspace or Y takes the last one away,
 /// and B gets a pad up from its seat.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn players_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
@@ -615,6 +647,7 @@ pub(crate) fn players_input(
     mut screen: ResMut<MenuScreen>,
     mut lobby: ResMut<Lobby>,
     mut config: ResMut<GameConfig>,
+    art: Option<Res<Art>>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Players {
         return;
@@ -649,9 +682,45 @@ pub(crate) fn players_input(
     if taps.key_remove || taps.pad_remove {
         lobby.unseat_last_ai();
     }
+    // Each seated person steers their own pickers: Up/Down between Character and
+    // Brick pack, Left/Right through what's there (docs/research/skins.md).
+    let wizards = available_wizards(art.as_deref());
+    let packs = available_packs(art.as_deref());
+    let mut moves: Vec<(Seat, i32, i32)> = Vec::new();
+    if let Some(keys) = keys.as_deref() {
+        let dx = keys.just_pressed(KeyCode::ArrowRight) as i32
+            - keys.just_pressed(KeyCode::ArrowLeft) as i32;
+        let dy = keys.just_pressed(KeyCode::ArrowDown) as i32
+            - keys.just_pressed(KeyCode::ArrowUp) as i32;
+        moves.push((Seat::Keyboard, dx, dy));
+    }
+    for (entity, pad) in &pads {
+        let dx = pad.just_pressed(GamepadButton::DPadRight) as i32
+            - pad.just_pressed(GamepadButton::DPadLeft) as i32;
+        let dy = pad.just_pressed(GamepadButton::DPadDown) as i32
+            - pad.just_pressed(GamepadButton::DPadUp) as i32;
+        moves.push((Seat::Pad(entity), dx, dy));
+    }
+    for (who, dx, dy) in moves {
+        let Some(seat) = lobby.seats.iter().position(|s| *s == who) else {
+            continue;
+        };
+        if dy != 0 {
+            lobby.skin_row[seat] = (lobby.skin_row[seat] as i32 + dy).clamp(0, 1) as usize;
+        }
+        if dx != 0 {
+            let (wizard, pack) = lobby.skins[seat];
+            if lobby.skin_row[seat] == 0 {
+                lobby.skins[seat].0 = step_in(&wizards, wizard, dx);
+            } else {
+                lobby.skins[seat].1 = step_in(&packs, pack, dx);
+            }
+        }
+    }
     if go && lobby.humans() > 0 {
         config.players = lobby.humans();
         config.opponents = lobby.ais();
+        config.skins = lobby.tower_skins();
         lobby.mode = lobby.mode.min(lobby.modes().len() - 1);
         lobby.column = 0;
         *screen = MenuScreen::Modes;
@@ -832,8 +901,15 @@ pub(crate) fn show_select_screens(
                     size,
                     (seat_x(seat) + offset.0, SEAT_Y + offset.1),
                 );
+                // The picked wizard's picture, else the seat's own.
+                let picked = image(&format!(
+                    "menu_player_select_wizard{}_{pose}",
+                    lobby.skins[seat].0 + 1
+                ));
                 match (
-                    image(&format!("menu_player_select_wizard{}_{pose}", seat + 1)),
+                    picked.or_else(|| {
+                        image(&format!("menu_player_select_wizard{}_{pose}", seat + 1))
+                    }),
                     image_node,
                 ) {
                     (Some(handle), Some(mut img)) => {
@@ -873,6 +949,25 @@ pub(crate) fn show_select_screens(
             }
             Part::SeatJoinBox(seat) => Some(seat) == first_empty,
             Part::SeatFocus(seat) => lobby.seats[seat].human(),
+            Part::SeatPick(seat, row) => {
+                let (wizard, pack) = lobby.skins[seat];
+                let name = if row == 0 {
+                    wizard_name(wizard)
+                } else {
+                    pack.name().to_string()
+                };
+                let words = if lobby.skin_row[seat] == row {
+                    format!("< {name} >")
+                } else {
+                    name
+                };
+                if let Some(mut text) = text
+                    && text.0 != words
+                {
+                    text.0 = words;
+                }
+                lobby.seats[seat].human()
+            }
             Part::ColumnPicture(column) => {
                 let (name, offset, size, fallback) = if column == 0 {
                     let (n, o, s) = mode.picture();
@@ -962,5 +1057,58 @@ pub(crate) fn show_select_screens(
             }
         };
         v.set_if_neq(shown(want));
+    }
+}
+
+/// The wizards to pick from: those whose art is staged (all of them without art).
+pub(crate) fn available_wizards(art: Option<&Art>) -> Vec<usize> {
+    let staged: Vec<usize> = (0..WIZARD_COUNT)
+        .filter(|w| art.is_some_and(|a| a.entries.contains_key(&format!("wizard{}", w + 1))))
+        .collect();
+    if staged.is_empty() {
+        (0..WIZARD_COUNT).collect()
+    } else {
+        staged
+    }
+}
+
+/// The brick packs to pick from: the default, and every pack whose art is staged (all
+/// of them without art). Hologram draws the default bricks, so it is always there.
+pub(crate) fn available_packs(art: Option<&Art>) -> Vec<BrickPack> {
+    let Some(art) = art.filter(|a| a.image("brick_I").is_some()) else {
+        return BrickPack::ALL.to_vec();
+    };
+    BrickPack::ALL
+        .into_iter()
+        .filter(|pack| match pack {
+            BrickPack::Default | BrickPack::Hologram => true,
+            BrickPack::Galaxy => art.image("brick_galaxy_background").is_some(),
+            pack => art.image(&pack.brick_art("I")).is_some(),
+        })
+        .collect()
+}
+
+/// The entry `dx` steps from `current` in `list`, wrapping around.
+fn step_in<T: Copy + PartialEq>(list: &[T], current: T, dx: i32) -> T {
+    if list.is_empty() {
+        return current;
+    }
+    let at = list.iter().position(|&x| x == current).unwrap_or(0) as i32;
+    let n = list.len() as i32;
+    list[((at + dx) % n + n) as usize % list.len()]
+}
+
+/// A wizard's name on the character picker (docs/research/skins.md).
+pub fn wizard_name(wizard: usize) -> String {
+    match wizard {
+        0..=3 => format!("Wizard {}", wizard + 1),
+        4..=7 => format!("Spirit Animal {}", wizard - 3),
+        8 => "Candyman".into(),
+        9 => "Clunk".into(),
+        10 => "Last of the Order".into(),
+        11 => "Thane".into(),
+        12 => "Fish".into(),
+        13 => "Octodad".into(),
+        _ => format!("Wizard {}", wizard + 1),
     }
 }

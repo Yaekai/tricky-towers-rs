@@ -62,7 +62,8 @@ const KINDS: [Kind; 6] = [
 #[derive(Clone, PartialEq, Debug)]
 enum Shows {
     Nothing,
-    Card(usize),
+    /// The next brick, drawn with the tower's brick pack.
+    Card(usize, crate::config::BrickPack),
     Text(String, Color),
     Hearts(u32),
     Light(SpellKind),
@@ -144,6 +145,7 @@ fn wanted(
     place: Option<usize>,
     state: &TowerState,
     bag: Option<&mut BrickBag>,
+    pack: crate::config::BrickPack,
 ) -> Shows {
     let look = &config.hud;
     let playing = game.phase == Phase::Playing && state.status == TowerStatus::Building;
@@ -152,7 +154,7 @@ fn wanted(
             let finished_puzzle =
                 game.mode == ModeKind::Puzzle && state.bricks_used() + 1 >= config.puzzle.bricks;
             match bag {
-                Some(bag) if playing && !finished_puzzle => Shows::Card(bag.peek()),
+                Some(bag) if playing && !finished_puzzle => Shows::Card(bag.peek(), pack),
                 _ => Shows::Nothing,
             }
         }
@@ -213,19 +215,24 @@ fn fill_items(
     game: Res<Match>,
     art: Res<Art>,
     view: Res<ViewSize>,
-    mut towers: Query<(&Tower, &TowerState, Option<&mut BrickBag>)>,
+    mut towers: Query<(
+        &Tower,
+        &TowerState,
+        Option<&mut BrickBag>,
+        Option<&crate::gameplay::TowerSkin>,
+    )>,
     mut items: Query<(Entity, &mut HudItem, &mut Visibility)>,
 ) {
     let order: Vec<(usize, TowerState)> = towers
         .iter()
-        .filter(|(_, s, _)| s.status == TowerStatus::Building)
-        .map(|(t, s, _)| (t.index, s.clone()))
+        .filter(|(_, s, _, _)| s.status == TowerStatus::Building)
+        .map(|(t, s, _, _)| (t.index, s.clone()))
         .collect();
     let refs: Vec<(usize, &TowerState)> = order.iter().map(|(i, s)| (*i, s)).collect();
     let places = placings(&game, &refs);
     let height = view.0.y.max(1.0);
     for (entity, mut item, mut visibility) in &mut items {
-        let Ok((tower, state, bag)) = towers.get_mut(item.tower) else {
+        let Ok((tower, state, bag, skin)) = towers.get_mut(item.tower) else {
             continue;
         };
         let place = places.iter().position(|&i| i == tower.index);
@@ -236,6 +243,7 @@ fn fill_items(
             place,
             state,
             bag.map(|b| b.into_inner()),
+            skin.map(|s| s.pack).unwrap_or_default(),
         );
         if item.shows.as_ref() == Some(&shows) && item.built_at == height && !art.is_changed() {
             continue;
@@ -388,7 +396,7 @@ fn build(
                 ..base
             }
         }
-        Shows::Card(piece) => {
+        Shows::Card(piece, pack) => {
             let card_h = look.card_height * height;
             let card_w = card_h * look.card_aspect;
             let bar = card_h * look.card_bar;
@@ -426,7 +434,12 @@ fn build(
                     margin: UiRect::top(Val::Px(bar)),
                     ..default()
                 });
-                match art.image(&format!("brick_{}", def.name)) {
+                // The pack's own card icon, else its brick art, else the default.
+                let picture = art
+                    .image(&format!("next_brick_{}_{}", pack.key(), def.name))
+                    .or_else(|| art.image(&pack.brick_art(&def.name)))
+                    .or_else(|| art.image(&format!("brick_{}", def.name)));
+                match picture {
                     Some(image) => {
                         holder.insert(ImageNode::new(image));
                     }

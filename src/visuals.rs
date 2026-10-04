@@ -262,12 +262,21 @@ fn dress_bricks(
         (Entity, &Brick, Has<Stone>, Has<Vined>, Has<Grassy>),
         Or<(Changed<Brick>, Added<Stone>, Added<Vined>, Added<Grassy>)>,
     >,
+    skins: Query<&crate::gameplay::TowerSkin>,
 ) {
     for (entity, brick, stone, vined, grassy) in &bricks {
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
+        let pack = skins.get(brick.tower).map(|s| s.pack).unwrap_or_default();
+        // A normal brick takes its tower's brick pack art (default when not staged);
+        // stone and ice keep their own looks.
         let key = if brick.piece < config.pieces.len() {
-            format!("brick_{}", def.name)
+            let packed = pack.brick_art(&def.name);
+            if stone || brick.ice || art.image(&packed).is_none() {
+                format!("brick_{}", def.name)
+            } else {
+                packed
+            }
         } else {
             format!("mystery_{}", def.name.to_lowercase())
         };

@@ -115,6 +115,10 @@ pub struct GameConfig {
     /// The trial tiers: each holds `TrialTiers::size` trials in order and opens at a
     /// medal count.
     pub trial_tiers: TrialTiers,
+    /// Each tower's wizard (0 for wizard 1) and brick pack, by tower index; set from
+    /// Select Players. Towers without an entry use wizard = index and the default pack.
+    #[serde(skip)]
+    pub skins: Vec<(usize, BrickPack)>,
     /// The trial being played, as an index into `trials`; set by the Trials screen
     /// and cleared by the other menus. Not saved.
     #[serde(skip)]
@@ -604,6 +608,76 @@ impl Default for TrialDef {
         }
     }
 }
+
+/// Brick packs (brick skins), from docs/research/skins.md. Each player picks one on
+/// Select Players; it changes the art of that player's seven normal shapes only.
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub enum BrickPack {
+    #[default]
+    Default,
+    Christmas,
+    Spring,
+    Halloween,
+    Candy,
+    Hologram,
+    Diamond,
+    Galaxy,
+}
+
+impl BrickPack {
+    pub const ALL: [BrickPack; 8] = [
+        BrickPack::Default,
+        BrickPack::Christmas,
+        BrickPack::Spring,
+        BrickPack::Halloween,
+        BrickPack::Candy,
+        BrickPack::Hologram,
+        BrickPack::Diamond,
+        BrickPack::Galaxy,
+    ];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            BrickPack::Default => "Default",
+            BrickPack::Christmas => "Christmas",
+            BrickPack::Spring => "Spring",
+            BrickPack::Halloween => "Halloween",
+            BrickPack::Candy => "Candy",
+            BrickPack::Hologram => "Hologram",
+            BrickPack::Diamond => "Diamond",
+            BrickPack::Galaxy => "Galaxy",
+        }
+    }
+
+    /// The pack's word in art names (`brick_<key>_<shape>`, `next_brick_<key>_<shape>`).
+    pub fn key(self) -> &'static str {
+        match self {
+            BrickPack::Default => "default",
+            BrickPack::Christmas => "christmas",
+            BrickPack::Spring => "spring",
+            BrickPack::Halloween => "halloween",
+            BrickPack::Candy => "candy",
+            BrickPack::Hologram => "hologram",
+            BrickPack::Diamond => "diamond",
+            BrickPack::Galaxy => "galaxy",
+        }
+    }
+
+    /// The art a normal brick of `shape` uses with this pack. Hologram draws the
+    /// default textures (through its glitch effect); Galaxy has no texture of its own
+    /// and is drawn as a starfield, so it starts from the default too.
+    pub fn brick_art(self, shape: &str) -> String {
+        match self {
+            BrickPack::Default | BrickPack::Hologram | BrickPack::Galaxy => {
+                format!("brick_{shape}")
+            }
+            pack => format!("brick_{}_{shape}", pack.key()),
+        }
+    }
+}
+
+/// The wizards there are (14: 4 base, 4 Spirit Animal, 6 Indie; docs/research/skins.md).
+pub const WIZARD_COUNT: usize = 14;
 
 /// The original's trial tiers (fan wiki, docs/research/wiki-notes.md): 50 trials in 5
 /// tiers of 10, each opening at a number of medals. One medal per trial beaten is a
@@ -2147,6 +2221,7 @@ impl Default for GameConfig {
             trials: sample_trials(),
             trial_tiers: TrialTiers::default(),
             trial: None,
+            skins: Vec::new(),
             magic: MagicRules::default(),
             ai: AiRules::default(),
             wizards: WizardLook::default(),
