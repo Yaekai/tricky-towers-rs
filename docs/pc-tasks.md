@@ -342,3 +342,7 @@ and nothing gets installed without Max's own go-ahead.
   `logo_plain` (gph_logo, added to stage.ps1) with the `logo_brick`, `logo_debris_*` and
   `logo_plants_*` pieces, take offscreen pictures at 0.4, 1.7 and 3 s (`--shots`, no `--play`),
   and compare with your video frames. The brick's fall before 1.63 s is a guess: read it.
+- **Debug tools are in** (docs/debug-tools.md): write small `--script` files to set up exact
+  moments (a curse, a collapse, a Survival roof, a spell cloud) and picture them offscreen with
+  `Picture`, instead of waiting for them in play. Use them for the comparisons above. The F1
+  panel is for Max when playing in a window.
