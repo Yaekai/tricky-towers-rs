@@ -273,3 +273,20 @@ and nothing gets installed without Max's own go-ahead.
   Please read the original's Settings screen: which options it has (volumes, controls,
   language, screen), their order, ranges and steps, its layout and art names, and take an
   offscreen picture of ours (`--menu settings --offscreen screenshots --shots 2`).
+- From your notes, now in the game: Auto Rotate's motion (winds back 15° in 0.2 s, swings 105°
+  in 0.45 s, waits; `auto_rotate_angle`), No Rotate's 0.3 s shake on a refused turn, Race Pro's
+  spell rules (far behind at 20, Minibase [3] in the normal pool, line wait growing with players
+  only on Normal and Pro), and the wizard's Action → Cheer when the Survival roof goes on.
+  Please check and read:
+  1. Auto Rotate: is each part an even speed or eased (ease curve?), which way it turns
+     (we wind back clockwise and swing counter-clockwise), and what happens when the swing hits
+     something (we place the brick there, like a blocked manual turn).
+  2. No Rotate shake: how far and how fast it shakes (ours: 0.08 cells, 30 a second, a guess).
+  3. Spell lines, two rules we could NOT build without more detail:
+     a. "A line the tower has passed by more than 6 cells without touching is replaced": what
+        counts as touching (a brick crossing the line inside the lane? any brick?) — ours
+        collects a line as soon as the tower top reaches it, so it can't be passed.
+     b. "Shown once it is 5 cells above the tower": when exactly a line is hidden and shown
+        (does a new line stay hidden until it is 5 cells above the tower top?).
+  4. Screenshot a Race Pro match with AI opponents for 60 s (`--play race --difficulty pro`)
+     and a Survival finish, and say if anything looks off.

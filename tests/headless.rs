@@ -754,22 +754,29 @@ fn bricks_rotate_both_ways() {
 
 #[test]
 fn no_rotate_and_auto_rotate_curses() {
-    let mut app = headless_app(fast_config());
+    // Slow enough that the brick is still in hand after a full swing.
+    let mut config = fast_config();
+    config.survival.drop_speed = 1.0;
+    config.spawn_gap = 20.0;
+    let mut app = headless_app(config);
     let curse = tricky_towers::gameplay::BrickMod {
         no_rotate: true,
-        auto_rotate: Some(0.2),
+        auto_rotate: Some(1.65),
         ..default()
     };
-    your_tower_mut(&mut app).queue_mod(0, &curse);
-    wait_for_next_brick(&mut app);
+    // Curse the brick in hand straight away.
+    run_seconds(&mut app, 0.05, |_| {});
+    let active = tower(&mut app, 0).active.unwrap();
+    app.world_mut().get_mut::<ActiveBrick>(active).unwrap().mods = curse;
     let start = active_angle(&mut app).unwrap();
     human_input(&mut app).rotate_pressed = true;
     run_seconds(&mut app, 0.1, |_| {});
+    // Only the wind-back (at most 15°), never a 90° turn by hand.
     assert!(
-        (active_angle(&mut app).unwrap() - start).abs() < 1.0,
+        (active_angle(&mut app).unwrap() - start).abs() <= 15.5,
         "a cursed brick turned by hand"
     );
-    run_seconds(&mut app, 0.15, |_| {});
+    run_seconds(&mut app, 0.7, |_| {});
     assert!(
         (active_angle(&mut app).unwrap() - start).abs() > 45.0,
         "Auto Rotate brick did not turn"
@@ -1457,4 +1464,43 @@ fn a_two_match_cup_scores_both_matches_and_gives_xp() {
     assert_eq!(cup.standings, Some(vec![1, 0]));
     // Last of two on Normal: 100 XP, kept for player 1.
     assert_eq!(app.world().resource::<XpBook>().players, vec![100]);
+}
+
+#[test]
+fn auto_rotate_winds_back_swings_and_waits() {
+    use tricky_towers::gameplay::auto_rotate_angle;
+    let magic = GameConfig::default().magic;
+    let cycle = magic.auto_rotate_interval;
+    let at = |t: f32| auto_rotate_angle(&magic, cycle, t);
+    assert_eq!(at(0.0), 0.0);
+    assert!((at(0.1) - -7.5).abs() < 1e-3, "half the wind-back");
+    assert!((at(0.2) - -15.0).abs() < 1e-3, "wound back 15°");
+    assert!((at(0.65) - 90.0).abs() < 1e-3, "swung 105°, 90° net");
+    assert!((at(1.6) - 90.0).abs() < 1e-3, "waiting");
+    assert!((at(cycle + 0.65) - 180.0).abs() < 1e-3, "the next cycle");
+}
+
+#[test]
+fn no_rotate_refuses_the_turn_with_a_shake() {
+    let mut app = headless_app(magic_config(SpellKind::Ivy, &[SpellKind::NoRotate]));
+    wait_for_next_brick(&mut app);
+    let active = tower(&mut app, 0).active.unwrap();
+    app.world_mut()
+        .get_mut::<ActiveBrick>(active)
+        .unwrap()
+        .mods
+        .no_rotate = true;
+    let before = *app
+        .world()
+        .get::<avian2d::prelude::Rotation>(active)
+        .unwrap();
+    human_input(&mut app).rotate_pressed = true;
+    run_seconds(&mut app, 0.05, |_| {});
+    let control = app.world().get::<ActiveBrick>(active).unwrap();
+    assert!(control.refused > 0.0, "the refused turn shakes");
+    let after = *app
+        .world()
+        .get::<avian2d::prelude::Rotation>(active)
+        .unwrap();
+    assert_eq!(before.as_radians(), after.as_radians());
 }

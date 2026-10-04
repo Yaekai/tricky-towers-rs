@@ -657,6 +657,9 @@ pub struct ActiveBrick {
     auto_rotate_timer: f32,
     /// Seconds before the balloon allows another sideways step.
     side_cooldown: f32,
+    /// Seconds a refused turn (No Rotate) still shakes the brick; drawn by the
+    /// visuals.
+    pub refused: f32,
 }
 
 impl ActiveBrick {
@@ -672,6 +675,7 @@ impl ActiveBrick {
             speed: 0.0,
             auto_rotate_timer: 0.0,
             side_cooldown: 0.0,
+            refused: 0.0,
         }
     }
 }
@@ -1264,6 +1268,7 @@ fn control_active_brick(
         // Rotation: 90 degrees, tried in steps. No wall kicks: if the turn is
         // blocked part way, the brick stops there and is placed.
         let mut turns: Vec<f32> = Vec::new();
+        control.refused = (control.refused - dt).max(0.0);
         if !control.mods.no_rotate && control.mods.auto_rotate.is_none() {
             if rotate_cw {
                 turns.push(-90.0);
@@ -1271,12 +1276,17 @@ fn control_active_brick(
             if rotate_ccw {
                 turns.push(90.0);
             }
+        } else if control.mods.no_rotate && (rotate_cw || rotate_ccw) {
+            // No Rotate: the turn is refused with a shake.
+            control.refused = config.magic.no_rotate_shake;
         }
-        if let Some(interval) = control.mods.auto_rotate {
+        if let Some(cycle) = control.mods.auto_rotate {
+            // Auto Rotate winds back, swings 90° net the other way, then waits.
+            let before = auto_rotate_angle(&config.magic, cycle, control.auto_rotate_timer);
             control.auto_rotate_timer += dt;
-            if control.auto_rotate_timer >= interval {
-                control.auto_rotate_timer = 0.0;
-                turns.push(90.0);
+            let after = auto_rotate_angle(&config.magic, cycle, control.auto_rotate_timer);
+            if after != before {
+                turns.push(after - before);
             }
         }
         for turn in turns {
@@ -1747,4 +1757,22 @@ pub fn placings(game: &Match, towers: &[(usize, &TowerState)]) -> Vec<usize> {
             .then(a.0.cmp(&b.0))
     });
     order.into_iter().map(|(i, _)| i).collect()
+}
+
+/// How far Auto Rotate has turned a brick `t` seconds after it took hold, in
+/// degrees (counter-clockwise): each `cycle` it winds back, then swings 90° net.
+pub fn auto_rotate_angle(magic: &crate::config::MagicRules, cycle: f32, t: f32) -> f32 {
+    let (back, back_time) = magic.auto_rotate_back;
+    let (swing, swing_time) = magic.auto_rotate_swing;
+    let cycle = cycle.max(back_time + swing_time).max(0.01);
+    let done = (t / cycle).floor();
+    let c = t - done * cycle;
+    let within = if c < back_time {
+        -back * c / back_time.max(1e-4)
+    } else if c < back_time + swing_time {
+        -back + swing * (c - back_time) / swing_time.max(1e-4)
+    } else {
+        swing - back
+    };
+    done * (swing - back) + within
 }
