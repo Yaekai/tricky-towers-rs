@@ -20,6 +20,7 @@ pub mod offscreen;
 pub mod popup;
 pub mod results;
 pub mod select;
+pub mod single;
 pub mod spells;
 pub mod visuals;
 pub mod wizards;

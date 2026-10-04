@@ -17,10 +17,11 @@ restart, Esc to pause (Resume, Retry, Quit).
 
 Menus follow the original: "Press Enter to start" under the logo, then the title tiles, where the arrows and Enter pick. Local Battle opens
 "Select Players": Enter (or A on a pad) takes a seat, Tab (X) adds an AI wizard, Backspace (Y)
-removes one, and Enter again goes on to "Select Mode", where Left/Right pick Race, Survival,
-Puzzle or Random and Up/Down its difficulty (Easy, Normal, Pro or Random). Single Player goes
-straight to Endless Race. Esc (B) steps back. A few seconds after a match ends, "Game
-Completed" shows your place with Next match, Rematch and Main menu. `--menu title|players|modes|single`
+removes one, and Enter again goes on to "Select Mode": two columns, the mode (Race, Survival,
+Puzzle or Random) then the difficulty (Easy, Normal, Special or Random), Up/Down to change and
+Enter to move on. Single Player shows your seat over Trials and Endless; Endless offers Race
+(Survival and Puzzle aren't built yet) beside this run's best scores. Esc (B) steps back. A few seconds after a match ends, "Game
+Completed" shows your place with Next match, Rematch and Main menu. `--menu title|players|modes|single|endless`
 opens on a menu screen, for scripted pictures.
 
 Players 2 to 4 use gamepads: stick or d-pad to move, down to drop, LT/RT to nudge, A/B to rotate,

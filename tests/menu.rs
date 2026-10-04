@@ -95,18 +95,34 @@ fn local_battle_seats_players_then_starts_the_picked_mode() {
 }
 
 #[test]
-fn single_player_goes_straight_to_endless() {
+fn single_player_opens_endless_and_plays_endless_race() {
     let mut app = app();
+    let screen = |app: &App| *app.world().resource::<MenuScreen>();
     tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
-    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
+    assert_eq!(screen(&app), MenuScreen::Single);
     tap(&mut app, KeyCode::Escape);
-    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
-    for _ in 0..3 {
-        tap(&mut app, KeyCode::Enter);
-    }
+    assert_eq!(screen(&app), MenuScreen::Main);
+    tap(&mut app, KeyCode::Enter);
+    // Trials isn't built: picking it stays put.
+    tap(&mut app, KeyCode::ArrowUp);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Single);
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Endless);
+    // Survival isn't built either.
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Endless);
+    tap(&mut app, KeyCode::Escape);
+    assert_eq!(screen(&app), MenuScreen::Single);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
     let game = app.world().resource::<Match>();
     assert_eq!((game.phase, game.mode), (Phase::Playing, ModeKind::Endless));
+    let config = app.world().resource::<GameConfig>();
+    assert_eq!((config.players, config.opponents), (1, 0));
 }
 
 #[test]

@@ -123,3 +123,8 @@ and nothing gets installed without Max's own go-ahead.
   per-pose wizard spots). Take offscreen pictures (`--menu players`, `--menu modes`, `--menu
   single`) and list what still differs. Endless has no mode tile name yet: say which picture the
   original's Single Player mode select shows for Endless Race and stage it as `menu_mode_endless`.
+- Single Player is now its own screen (src/single.rs): the seat over Trials/Endless, then the
+  Endless screen with Race/Survival/Puzzle and a leaderboard. Take offscreen pictures (`--menu
+  single`, `--menu endless`) and read what differs: the Endless buttons' centres, the wizard
+  faces' spot and size, the leaderboard's place, art and rows, the selected/deselected look of
+  a list button, and where the name plate sits under the single seat. Also say what Trials holds.

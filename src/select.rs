@@ -177,7 +177,7 @@ impl Lobby {
 }
 
 /// Pixel layout of a 1920×1080 screen, from the middle with y up.
-const SCREEN: (f32, f32) = (1920.0, 1080.0);
+pub(crate) const SCREEN: (f32, f32) = (1920.0, 1080.0);
 /// The header bar hanging from the top centre, and its 9-slice borders
 /// (left, right, top, bottom).
 const HEADER: (f32, f32) = (800.0, 90.0);
@@ -186,23 +186,23 @@ const HEADER_SLICE: [f32; 4] = [84.0, 92.0, 75.0, 15.0];
 fn seat_x(seat: usize) -> f32 {
     (0.05 + 0.225 * (seat as f32 + 0.5)) * SCREEN.0 - SCREEN.0 / 2.0
 }
-const SEAT_PANEL: (f32, f32) = (332.0, 283.0);
+pub(crate) const SEAT_PANEL: (f32, f32) = (332.0, 283.0);
 const SEAT_Y: f32 = 115.0;
 /// The sun rays behind a ready wizard are cut to this size.
-const SEAT_RAYS_CLIP: (f32, f32) = (327.0, 267.0);
+pub(crate) const SEAT_RAYS_CLIP: (f32, f32) = (327.0, 267.0);
 const SEAT_ARROW: (f32, f32) = (38.0, 64.0);
 const SEAT_ARROW_X: f32 = 165.0;
 const PACK_PANEL: ((f32, f32), f32) = ((332.0, 100.0), -110.0);
-const NAME_PLATE: ((f32, f32), f32) = ((367.0, 78.0), -230.0);
+pub(crate) const NAME_PLATE: ((f32, f32), f32) = ((367.0, 78.0), -230.0);
 /// 9-slice borders of the seat panels and outline, and of the name plate.
-const PANEL_SLICE: f32 = 60.0;
-const PLATE_SLICE: f32 = 13.0;
+pub(crate) const PANEL_SLICE: f32 = 60.0;
+pub(crate) const PLATE_SLICE: f32 = 13.0;
 
 /// Each seat's wizard, asleep and awake: centre offset from the panel centre
 /// and size.
 /// A picture's centre offset and size, in pixels.
-type Spot = ((f32, f32), (f32, f32));
-const WIZARDS: [[Spot; 2]; 4] = [
+pub(crate) type Spot = ((f32, f32), (f32, f32));
+pub(crate) const WIZARDS: [[Spot; 2]; 4] = [
     [((0.0, 0.0), (213.0, 250.0)), ((0.0, 0.0), (235.0, 314.0))],
     [((0.0, 38.0), (225.0, 323.0)), ((0.0, 21.0), (259.0, 344.0))],
     [
@@ -226,7 +226,7 @@ const CORNER_LARGE: (f32, f32) = (69.0, 68.0);
 const CORNER_SMALL: (f32, f32) = (38.0, 34.0);
 
 /// An absolute node `size` pixels big centred at `at`.
-fn place(size: (f32, f32), at: (f32, f32)) -> Node {
+pub(crate) fn place(size: (f32, f32), at: (f32, f32)) -> Node {
     Node {
         position_type: PositionType::Absolute,
         left: Val::Percent(50.0 + (at.0 - size.0 / 2.0) / SCREEN.0 * 100.0),
@@ -239,7 +239,7 @@ fn place(size: (f32, f32), at: (f32, f32)) -> Node {
     }
 }
 
-fn label(size: f32, text: &str) -> impl Bundle {
+pub(crate) fn label(size: f32, text: &str) -> impl Bundle {
     (
         Text::new(text),
         TextFont {
@@ -252,7 +252,7 @@ fn label(size: f32, text: &str) -> impl Bundle {
 }
 
 /// A 9-sliced picture with these borders (left, right, top, bottom) in its pixels.
-fn sliced(image: Handle<Image>, border: [f32; 4]) -> ImageNode {
+pub(crate) fn sliced(image: Handle<Image>, border: [f32; 4]) -> ImageNode {
     ImageNode::new(image).with_mode(NodeImageMode::Sliced(TextureSlicer {
         border: BorderRect {
             min_inset: Vec2::new(border[0], border[2]),
@@ -327,7 +327,7 @@ pub(crate) struct PlayersRoot;
 pub(crate) struct ModesRoot;
 
 /// A full-screen page with the title backdrop and the header bar.
-fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str) -> Entity {
+pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str) -> Entity {
     let mut page = commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -551,23 +551,26 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
 
 /// Taps on the keyboard and every pad, read once per frame.
 #[derive(Default)]
-struct Taps {
-    up: bool,
-    down: bool,
-    left: bool,
-    right: bool,
+pub(crate) struct Taps {
+    pub(crate) up: bool,
+    pub(crate) down: bool,
+    pub(crate) left: bool,
+    pub(crate) right: bool,
     /// Enter/Space on the keyboard.
-    key_pick: bool,
-    key_add: bool,
-    key_remove: bool,
+    pub(crate) key_pick: bool,
+    pub(crate) key_add: bool,
+    pub(crate) key_remove: bool,
     /// Pads that pressed A, B, X and Y.
-    pad_pick: Vec<Entity>,
-    pad_back: Vec<Entity>,
-    pad_add: bool,
-    pad_remove: bool,
+    pub(crate) pad_pick: Vec<Entity>,
+    pub(crate) pad_back: Vec<Entity>,
+    pub(crate) pad_add: bool,
+    pub(crate) pad_remove: bool,
 }
 
-fn read_taps(keys: Option<&ButtonInput<KeyCode>>, pads: &Query<(Entity, &Gamepad)>) -> Taps {
+pub(crate) fn read_taps(
+    keys: Option<&ButtonInput<KeyCode>>,
+    pads: &Query<(Entity, &Gamepad)>,
+) -> Taps {
     let mut taps = Taps::default();
     if let Some(keys) = keys {
         taps.up = keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Numpad8]);
@@ -734,7 +737,7 @@ pub(crate) fn step_back(lobby: &mut Lobby, screen: &mut MenuScreen) {
     }
 }
 
-fn shown(on: bool) -> Visibility {
+pub(crate) fn shown(on: bool) -> Visibility {
     if on {
         Visibility::Inherited
     } else {

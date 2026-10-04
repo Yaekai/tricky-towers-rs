@@ -119,7 +119,7 @@ fn main() {
         ResultsPlugin,
         EffectsPlugin,
     ));
-    // `--menu title|players|modes|single` opens on that menu screen, for scripted pictures.
+    // `--menu title|players|modes|single|endless` opens on that menu screen, for scripted pictures.
     // Player select shows the keyboard player and one AI wizard seated.
     if let Some(menu) = value("--menu") {
         use tricky_towers::menu::MenuScreen;
@@ -131,10 +131,8 @@ fn main() {
                 lobby.seats[1] = Seat::Ai;
                 MenuScreen::Players
             }
-            "single" => {
-                lobby.single = true;
-                MenuScreen::Modes
-            }
+            "single" => MenuScreen::Single,
+            "endless" => MenuScreen::Endless,
             "title" => MenuScreen::Main,
             _ => MenuScreen::Modes,
         };

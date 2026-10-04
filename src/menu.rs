@@ -10,6 +10,10 @@ use crate::gameplay::{Match, MatchRequest, Phase};
 use crate::select::{
     Lobby, modes_input, players_input, show_select_screens, spawn_select_screens, step_back,
 };
+use crate::single::{
+    Leaderboard, SingleMenu, endless_input, record_endless_scores, show_single_screens,
+    single_input, spawn_single_screens,
+};
 
 pub struct MenuPlugin;
 
@@ -20,12 +24,15 @@ impl Plugin for MenuPlugin {
             .init_resource::<MainMenu>()
             .init_resource::<PauseMenu>()
             .init_resource::<Lobby>()
+            .init_resource::<SingleMenu>()
+            .init_resource::<Leaderboard>()
             .add_systems(
                 Startup,
                 (
                     spawn_start_screen,
                     spawn_main_menu,
                     spawn_select_screens,
+                    spawn_single_screens,
                     spawn_pause_menu,
                 ),
             )
@@ -37,18 +44,22 @@ impl Plugin for MenuPlugin {
                     menu_escape,
                     modes_input,
                     players_input,
+                    endless_input,
+                    single_input,
                     main_menu_input,
                     start_input,
                     pause_input,
                     show_start_screen,
                     show_select_screens,
+                    show_single_screens,
                     show_pause_menu,
                     show_main_menu,
                     spin_tile_rays,
                 )
                     .chain()
                     .in_set(MenuSystems),
-            );
+            )
+            .add_systems(Update, record_endless_scores);
     }
 }
 
@@ -84,6 +95,8 @@ fn menu_escape(
             *screen = MenuScreen::Main;
         }
         (Phase::Menu, MenuScreen::Modes) => step_back(&mut lobby, &mut screen),
+        (Phase::Menu, MenuScreen::Single) => *screen = MenuScreen::Main,
+        (Phase::Menu, MenuScreen::Endless) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
         (Phase::Menu, MenuScreen::Start) => {}
     }
@@ -106,6 +119,10 @@ pub enum MenuScreen {
     Players,
     /// "Select Mode": mode tiles with their difficulty.
     Modes,
+    /// Single Player: the player's seat over Trials and Endless.
+    Single,
+    /// Endless: Race, Survival and Puzzle beside the leaderboard.
+    Endless,
     /// "Game Paused" over a match: Resume, Retry, Quit.
     Pause,
 }
@@ -754,10 +771,7 @@ fn main_menu_input(
             *screen = MenuScreen::Players;
         }
         "single" => {
-            lobby.single = true;
-            lobby.mode = 0;
-            lobby.column = 0;
-            *screen = MenuScreen::Modes;
+            *screen = MenuScreen::Single;
         }
         "quit" => {
             exit.write(AppExit::Success);

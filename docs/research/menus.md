@@ -59,6 +59,16 @@ dark spell icons 56×56 at (85, −190) and (145, −190). The third difficulty 
 the game, but the screen says "Special". The small mode-title banners with wings and
 stars are shown at the start of a match, not here.
 
+## Single Player
+- One seat (Player 1's panel and wizard) 200 px above the centre.
+- A list of 550×78 buttons from 175 px below the centre, 100 px apart: "Trials", then "Endless".
+- "Endless" opens a screen with three wide buttons (Race, Survival, Puzzle, 690×173 pictures
+  `menu_mode_endless`, `_survival`, `_puzzle`) with wizard faces (`menu_challenge_wizard2`-`4`),
+  beside an 800×800 leaderboard.
+- In this rewrite only Endless Race plays; Trials, Endless Survival and Endless Puzzle show
+  dimmed with "(soon)". The Endless buttons' and leaderboard's spots, the faces' place and size,
+  and the selected look are guesses (src/single.rs) until read.
+
 ## Pause
 "Game Paused" with Resume, Retry and Quit.
 
