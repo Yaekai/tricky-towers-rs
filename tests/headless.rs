@@ -1513,3 +1513,41 @@ fn no_rotate_refuses_the_turn_with_a_shake() {
         .unwrap();
     assert_eq!(before.as_radians(), after.as_radians());
 }
+
+#[test]
+fn debug_commands_and_scripts_drive_a_match() {
+    use tricky_towers::debug::{DebugCommand, DebugQueue, DebugScript, ScriptStep};
+    let mut app = headless_app(fast_config());
+    // Commands straight away: set your lives and put a light spell in your hand.
+    app.world_mut().resource_mut::<DebugQueue>().0.extend([
+        DebugCommand::SetLives { tower: 0, lives: 1 },
+        DebugCommand::GiveLight {
+            tower: 0,
+            spell: SpellKind::Petrify,
+        },
+    ]);
+    run_seconds(&mut app, 0.05, |_| {});
+    let state = tower(&mut app, 0);
+    assert_eq!(state.lives, Some(1));
+    assert_eq!(state.light_spell, Some(SpellKind::Petrify));
+
+    // A script: restart as a race with one opponent, curse everyone, then win.
+    let script: Vec<ScriptStep> = ron::from_str(
+        "[
+            (at: 0.1, run: Start(mode: Race, opponents: Some(1))),
+            (at: 0.5, run: Curse(spells: [Large])),
+            (at: 0.6, run: Press(tower: 0, key: RotateRight)),
+            (at: 1.0, run: Win(tower: 0)),
+        ]",
+    )
+    .expect("script parses");
+    app.insert_resource(DebugScript::new(script));
+    run_seconds(&mut app, 0.3, |_| {});
+    assert_eq!(app.world().resource::<Match>().mode, ModeKind::Race);
+    assert_eq!(count::<With<Tower>>(&mut app), 2);
+    run_seconds(&mut app, 1.0, |_| {});
+    let game = app.world().resource::<Match>();
+    assert_eq!((game.phase, game.winner), (Phase::Over, Some(0)));
+    let log = app.world().resource::<tricky_towers::spells::SpellLog>();
+    assert!(log.0.iter().any(|c| c.spell == SpellKind::Large));
+}

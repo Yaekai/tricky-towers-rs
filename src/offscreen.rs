@@ -3,6 +3,8 @@
 //! on a computer someone is using: nothing shows up and nothing plays.
 //!
 //! `--offscreen <folder>` turns it on; `--shots 5,20` picks the seconds to save at.
+//! With `--script`, the script's `Picture` commands save pictures too and its `Quit`
+//! ends the run (src/debug.rs).
 
 use std::path::PathBuf;
 
@@ -22,6 +24,8 @@ pub struct OffscreenPlugin {
     pub shots: Vec<f32>,
     /// Picture size in pixels.
     pub size: UVec2,
+    /// A script runs: don't quit after the last timed picture, the script quits.
+    pub scripted: bool,
 }
 
 #[derive(Resource)]
@@ -31,6 +35,7 @@ struct Shots {
     taken: usize,
     target: Handle<Image>,
     elapsed: f32,
+    scripted: bool,
 }
 
 impl Plugin for OffscreenPlugin {
@@ -51,8 +56,9 @@ impl Plugin for OffscreenPlugin {
                 taken: 0,
                 target,
                 elapsed: 0.0,
+                scripted: self.scripted,
             })
-            .add_systems(Update, (aim_cameras, take_shots));
+            .add_systems(Update, (aim_cameras, take_shots, take_script_pictures));
     }
 }
 
@@ -84,7 +90,7 @@ fn take_shots(
     let Some(&due) = shots.times.get(shots.taken) else {
         // Give the last picture a moment to be written, then quit.
         let last = shots.times.last().copied().unwrap_or(0.0);
-        if shots.elapsed > last + 2.0 {
+        if !shots.scripted && shots.elapsed > last + 2.0 {
             exit.write(AppExit::Success);
         }
         return;
@@ -99,4 +105,19 @@ fn take_shots(
     commands
         .spawn(Screenshot::image(shots.target.clone()))
         .observe(save_to_disk(path));
+}
+
+/// Saves the pictures a debug script asks for, as `<name>.png` in the folder.
+fn take_script_pictures(
+    mut commands: Commands,
+    shots: Res<Shots>,
+    mut asked: MessageReader<crate::debug::DebugPicture>,
+) {
+    for picture in asked.read() {
+        let path = shots.dir.join(format!("{}.png", picture.0));
+        info!("saving {}", path.display());
+        commands
+            .spawn(Screenshot::image(shots.target.clone()))
+            .observe(save_to_disk(path));
+    }
 }

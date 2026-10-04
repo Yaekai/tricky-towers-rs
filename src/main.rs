@@ -39,7 +39,12 @@ fn main() {
                 && (*i == 0
                     || !matches!(
                         args[i - 1].as_str(),
-                        "--play" | "--difficulty" | "--offscreen" | "--shots" | "--menu"
+                        "--play"
+                            | "--difficulty"
+                            | "--offscreen"
+                            | "--shots"
+                            | "--menu"
+                            | "--script"
                     ))
         })
         .map_or_else(|| DEFAULT_CONFIG_PATH.to_string(), |(_, a)| a.clone());
@@ -77,9 +82,17 @@ fn main() {
             .cloned()
     };
     let offscreen = value("--offscreen").map(std::path::PathBuf::from);
+    #[cfg(feature = "debug-panel")]
+    let windowed = offscreen.is_none();
     let shots: Vec<f32> = value("--shots")
         .map(|s| s.split(',').filter_map(|t| t.trim().parse().ok()).collect())
         .unwrap_or_else(|| vec![5.0, 20.0]);
+
+    // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
+    let script = value("--script").map(|path| {
+        tricky_towers::debug::DebugScript::load(std::path::Path::new(&path))
+            .unwrap_or_else(|err| panic!("can't read script {path}: {err}"))
+    });
 
     let mut app = App::new();
     // Original art and sound from your own install, if extracted (see docs/art-layout.md).
@@ -164,7 +177,17 @@ fn main() {
             dir,
             shots,
             size: UVec2::new(1280, 720),
+            scripted: script.is_some(),
         });
+    }
+    // DEBUG-TOOL: the F1 debug panel, in a window only.
+    #[cfg(feature = "debug-panel")]
+    if windowed {
+        app.add_plugins(tricky_towers::debug_panel::DebugPanelPlugin);
+    }
+    // `--script file.ron`: a timed list of debug commands (src/debug.rs).
+    if let Some(script) = script {
+        app.insert_resource(script);
     }
     app.run();
 }

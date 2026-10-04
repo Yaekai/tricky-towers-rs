@@ -110,7 +110,7 @@ Cells. x is measured from the base centre and y from the base top (the y = 0 lin
 
 In the rewrite these boxes are `GameConfig::bases` (src/config.rs); the AI, Auto Build and the on-tower check use the top's half width (`base_half_width`, 3 cells for both houses). The petrified-brick challenge variant isn't built (Trials aren't in yet).
 
-## Endless Survival and Endless Puzzle (public descriptions only, NOT yet read from the install)
+## Endless Survival and Endless Puzzle (public descriptions only; superseded by the install readout below)
 
 From reviews and store pages, not from Max's copy, so nothing here is confirmed:
 - Endless Survival: three lives, stack as many bricks as you can in one tower; it has a
@@ -121,3 +121,81 @@ From reviews and store pages, not from Max's copy, so nothing here is confirmed:
 In the rewrite these are `ModeKind::EndlessSurvival` / `EndlessPuzzle` with the guesses in
 `GameConfig::endless_play` (src/config.rs, every field marked `(?)`). The PC readout queued in
 docs/pc-tasks.md replaces them with the original's values.
+
+## Curse wave start: lift and shake (read from the PC install, 2026-10-04)
+When a wave starts, the brick in hand goes through: player control paused, shake on, move up,
+wait 1 s, shake off, control back.
+- **Move up:** to 4 cells below the camera's top edge, over exactly 1 s, eased in (quadratic:
+  slow start, fast end), with collisions off during the move and back on at its end.
+- **Shake:** every frame, only the brick's picture (not its body) jumps to a random offset,
+  x and y each uniform in ±0.1 cell divided by the brick's scale (so an enlarged brick shakes
+  less). It runs only while the brick isn't frozen. When the shake ends, the picture snaps
+  back to the centre.
+- So the brick shakes for about 2 s in all: 1 s rising and 1 s held at the top.
+
+## Endless Survival and Endless Puzzle (read from the PC install, 2026-10-05)
+**Endless Puzzle**
+- One life. Drop speed starts at 2 (with the usual height bonus). Random bricks. No wind.
+  Puzzle floor `FLOOR_PUZZLE`. Camera zoomed 1.2× closer than battle Puzzle; bricks more than
+  4 cells above the camera's top are removed. The drop guide is cream (1, 0.92, 0.74, 80%).
+- The laser starts at height 6.2. The run comes in **levels**: level 1 allows 6 bricks. When
+  you've used all the bricks of the level and none was zapped, a level-up runs:
+  1. Brick spawning stops, the guide hides, wait 0.3 s.
+  2. The laser and the height limit both rise by 4 cells over 0.5 s, with one of 3 "move
+     laser" sounds.
+  3. New **obstacle blocks** are placed on the tower (positions picked from the tower height,
+     the new laser height and the camera), one every 0.1 s, each with one of 3 spawn sounds.
+     Then wait 0.3 s.
+  4. The laser zaps (laser start sound), spawning resumes, and you're given one Undo spell.
+  5. The next level allows min(26, 6 + 2 × level) more bricks (8, 10, 12, … up to 26).
+- **Failing:** a brick zapped by the laser (settled above it) starts the end countdown; a lost
+  brick costs the only life. Either ends the run.
+- **Score:** the number of bricks in the tower (`BRICK_COUNT`) at the end.
+- There's no difficulty choice. The roof at the end is the Puzzle roof.
+
+**Endless Survival**
+- Lives: the game's maximum health setting (the value lives in the game's settings data, not
+  in the scripts; Survival battle uses 3). Drop speed starts at 4. Random bricks. Floor
+  `FLOOR_LWS` at 12.5 (the Survival base).
+- Spell lines give a random spell from Ivy, Minibase and Petrify (light spells only).
+- **Curse waves** ("shared agony"): the first wave and each following one come 15 to 29 s apart.
+  A wave lasts a number of bricks, not seconds. There are 4 difficulty levels of waves (the
+  game moves up through them as the run goes on). Each wave curses that many bricks with its
+  curse(s):
+  - Level 1: Large ×2, Mist ×3, Mystery ×2, Fast ×4, No Rotate ×3.
+  - Level 2: Large ×3, Mystery ×3, Ice ×3, Fast ×5, No Rotate ×4, Fast+Large ×2,
+    Mystery+No Rotate ×2, Mist+Large ×2.
+  - Level 3: Large ×4, Ice ×4, No Rotate ×5, Ghost ×2, Mist+No Rotate ×4, Mystery+Ice ×3,
+    No Rotate+Fast ×4, No Rotate+Large ×3.
+  - Level 4: Fast ×5, Large ×7, No Rotate ×6, Ice ×5, Mystery ×6, Ghost+Fast ×3,
+    Ice+Large ×4, Mystery+Ice ×5, Mist+Mystery ×5, Large+Ghost ×5,
+    Mystery+Large+No Rotate ×4, Large+Fast+No Rotate ×5.
+  The Large curse also shakes the camera and plays the rumble. Mist targets the top of the
+  tower; Ghost targets the last brick placed (1.5 s).
+- **Score:** the number of bricks in the tower at the end. The run ends when the last life is
+  lost. The roof piece is `ROOF_02`.
+- Both modes keep one online leaderboard each (see menus.md, "Endless leaderboard rows").
+## Race Pro ("Special") look (read from the PC install, 2026-10-05)
+Race Pro has its own background and foreground instead of the day race:
+- **Sky:** a 3-colour gradient, top (49, 21, 138), middle (13, 119, 154), bottom (37, 25, 126).
+- **Clouds:** `gph_cloudLargePro_var01` (staged as `race_pro_cloud`), drifting at 0.15–0.25,
+  parallax 0.2, white.
+- **Water band:** gradient (13, 119, 154) to (49, 21, 138), parallax 0.3, water height 6. The
+  foreground water uses `gph_foregroundWaterPro` (`water_pro`), stretched 80× wide. Waves:
+  background rows from y 3, 2 tall, scale 0.2–0.5; foreground from y 2.5, 0.5 tall, scale
+  0.5–0.7.
+- **Islands:** the race islands at parallax 0.3, each with a `_DARK` version of its picture that
+  the lightning flash brightens.
+- **Rain**, from emitters at (±18, 30) tilted 30°, mirrored to match the match's random wind
+  direction:
+  - Front: 100 drops a second, life 1 s, speed 100, size 3, drawn as stretched streaks
+    (`gph_rainDrop`, staged as `rain_drop`), lilac (0.82, 0.78, 0.96, 90%). Each drop that hits
+    something throws 3 tiny white dots (size 0.25, speed 10, 0.2 s).
+  - Back: 1024 drops a second, life 3 s, speed 40, size 1, darker blue (0.43, 0.45, 0.79).
+- **Lightning:** every 5–14 s (random each time, not during the intro): a white full-screen
+  flash at 65% that fades over 0.1 s, plus a bolt from a random point on the top edge to the
+  bottom edge (shifted up to ±5/48 of the screen width), with up to 4 branches, drawn with
+  `gph_lightningEffectThick` (`lightning_thick`). It stays full for 0.2 s, then fades over
+  0.2 s.
+- The press kit's Race Special shot matches this: dark blue night, heavy diagonal rain, a white
+  bolt.
