@@ -20,6 +20,7 @@ impl Plugin for GameplayPlugin {
             .init_resource::<Match>()
             .init_resource::<MatchRequest>()
             .init_resource::<WindGusts>()
+            .add_message::<BrickLost>()
             .init_resource::<crate::spells::SpellLog>()
             .add_systems(Startup, setup_world)
             .add_systems(
@@ -101,6 +102,13 @@ impl Default for Match {
             wind: 0.0,
         }
     }
+}
+
+/// A brick fell into the water and was lost, at this world point (pixels).
+#[derive(Message, Clone, Copy, Debug)]
+pub struct BrickLost {
+    pub tower: usize,
+    pub at: Vec2,
 }
 
 /// Set `pending` to start (or restart) a match with the current
@@ -988,6 +996,7 @@ fn control_active_brick(
     // because SpatialQuery already reads them for every collider.
     mut bricks: Query<(&mut ActiveBrick, &Brick, &Position, &Rotation)>,
     mut velocities: Query<(&RigidBody, &mut LinearVelocity), Without<ActiveBrick>>,
+    mut lost: MessageWriter<BrickLost>,
 ) {
     let dt = time.delta_secs();
     let c = config.cell_size;
@@ -1226,6 +1235,10 @@ fn control_active_brick(
 
         // Steered off the side and past the kill line: it counts as dropped.
         if position.0.y < -config.cells(config.kill_depth) {
+            lost.write(BrickLost {
+                tower: tower.index,
+                at: position.0,
+            });
             commands.entity(entity).despawn();
             state.active = None;
             state.lose_brick(&config);
@@ -1335,6 +1348,7 @@ fn track_towers(
         Without<ActiveBrick>,
     >,
     joints: Query<(Entity, &crate::spells::VineJoint)>,
+    mut lost: MessageWriter<BrickLost>,
 ) {
     let kill_y = -config.cells(config.kill_depth);
     // Two dropped bricks can share a vine; despawn it once.
@@ -1353,6 +1367,10 @@ fn track_towers(
             continue;
         };
         if position.0.y < kill_y {
+            lost.write(BrickLost {
+                tower: tower.index,
+                at: position.0,
+            });
             for (joint, vine) in &joints {
                 if (vine.a == entity || vine.b == entity) && cut.insert(joint) {
                     commands.entity(joint).despawn();

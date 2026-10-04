@@ -34,6 +34,13 @@
         ],
         corner_pulse: (5.0, 1.0),
     ),
+    splash: (
+        drops: 10,
+        speed: (4.0, 9.0),
+        spread: 35.0,
+        life: 0.9,
+        size: 0.3,
+    ),
     spawn_gap: 17.0,
     kill_depth: 8.5,
     collider_scale: 0.98,

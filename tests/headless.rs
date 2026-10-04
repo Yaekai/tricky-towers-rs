@@ -1057,3 +1057,21 @@ fn placings_put_the_winner_first_and_the_first_out_last() {
     let list: Vec<_> = states.iter().enumerate().collect();
     assert_eq!(placings(&game, &list), vec![2, 1, 3, 0]);
 }
+
+#[test]
+fn a_lost_brick_reports_where_it_hit_the_water() {
+    use tricky_towers::gameplay::BrickLost;
+    let mut app = headless_app(fast_config());
+    let mut seen: Vec<BrickLost> = Vec::new();
+    run_until(&mut app, 8.0, |app| {
+        human_input(app).left_held = true;
+        let messages = app.world().resource::<Messages<BrickLost>>();
+        seen.extend(messages.iter_current_update_messages().copied());
+        !seen.is_empty()
+    });
+    let lost = seen.first().expect("a steered-off brick is reported");
+    assert_eq!(lost.tower, 0);
+    let config = app.world().resource::<GameConfig>();
+    assert!(lost.at.y <= -config.cells(config.kill_depth));
+    assert!(lost.at.x < 0.0, "it went off the left side: {lost:?}");
+}

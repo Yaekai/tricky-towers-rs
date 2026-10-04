@@ -1,18 +1,28 @@
-//! Spell effects drawn over bricks: the Slow balloon on its string and the Ghost
-//! skulls that carry a brick off. Drawn only when their art is staged.
+//! Effects drawn over the play: the Slow balloon on its string, the Ghost skulls
+//! that carry a brick off (both only when their art is staged), and the splash
+//! of a brick lost in the water.
 
 use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::config::GameConfig;
-use crate::gameplay::{ActiveBrick, Brick};
+use crate::gameplay::{ActiveBrick, Brick, BrickLost};
 use crate::spells::Ghosted;
 
 pub struct EffectsPlugin;
 
 impl Plugin for EffectsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (float_balloons, attach_skulls, fly_skulls));
+        app.add_systems(
+            Update,
+            (
+                float_balloons,
+                attach_skulls,
+                fly_skulls,
+                splash,
+                fly_droplets,
+            ),
+        );
     }
 }
 
@@ -171,5 +181,104 @@ fn fly_skulls(
         let ease = 1.0 - (1.0f32 - t).powi(3);
         let from = skull.grip * 4.0;
         transform.translation = from.lerp(skull.grip, ease).extend(6.0);
+    }
+}
+
+/// A droplet of a splash, flying and fading.
+#[derive(Component)]
+struct Droplet {
+    velocity: Vec2,
+    time: f32,
+}
+
+/// Staged splash art, removed when its animation ends.
+#[derive(Component)]
+struct SplashArt {
+    time: f32,
+    length: f32,
+}
+
+/// A splash where each lost brick hits the water.
+fn splash(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    time: Res<Time>,
+    mut lost: MessageReader<BrickLost>,
+) {
+    let c = config.cell_size;
+    let look = &config.splash;
+    let water = -config.cells(config.kill_depth);
+    for (n, brick) in lost.read().enumerate() {
+        let at = Vec2::new(brick.at.x, water);
+        if let Some(image) = art.image("splash") {
+            let sprite = Sprite::from_image(image);
+            let ppu = art
+                .entries
+                .get("splash")
+                .and_then(|e| e.pixels_per_unit)
+                .unwrap_or(100.0);
+            let mut entity = commands.spawn((
+                sprite,
+                bevy::sprite::Anchor::BOTTOM_CENTER,
+                Transform::from_translation(at.extend(6.0))
+                    .with_scale(Vec3::splat(c / ppu.max(1.0))),
+                SplashArt {
+                    time: 0.0,
+                    length: art.length("splash").unwrap_or(look.life),
+                },
+            ));
+            if art.is_animation("splash") {
+                entity.insert(crate::art::Animated::new("splash"));
+            }
+            continue;
+        }
+        // No art: droplets thrown up in a fan, varied by a cheap hash.
+        let seed = (time.elapsed_secs() * 1000.0) as u32 ^ (n as u32 * 7919);
+        for d in 0..look.drops {
+            let k =
+                ((seed.wrapping_mul(2654435761).wrapping_add(d * 40503)) % 1000) as f32 / 1000.0;
+            let side = d as f32 / (look.drops.max(2) - 1) as f32 * 2.0 - 1.0;
+            let angle = (side * look.spread).to_radians();
+            let speed = look.speed.0 + (look.speed.1 - look.speed.0) * k;
+            commands.spawn((
+                Sprite::from_color(
+                    Color::srgba(0.85, 0.93, 1.0, 0.9),
+                    Vec2::splat(config.cells(look.size)),
+                ),
+                Transform::from_translation(at.extend(6.0)),
+                Droplet {
+                    velocity: Vec2::new(angle.sin(), angle.cos()) * config.cells(speed),
+                    time: 0.0,
+                },
+            ));
+        }
+    }
+}
+
+fn fly_droplets(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut droplets: Query<(Entity, &mut Droplet, &mut Transform, &mut Sprite)>,
+    mut arts: Query<(Entity, &mut SplashArt)>,
+) {
+    let dt = time.delta_secs();
+    let life = config.splash.life.max(0.05);
+    for (entity, mut drop, mut transform, mut sprite) in &mut droplets {
+        drop.time += dt;
+        if drop.time >= life {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        drop.velocity.y -= config.cells(config.gravity) * dt;
+        transform.translation += (drop.velocity * dt).extend(0.0);
+        sprite.color = sprite.color.with_alpha(0.9 * (1.0 - drop.time / life));
+    }
+    for (entity, mut splash) in &mut arts {
+        splash.time += dt;
+        if splash.time >= splash.length {
+            commands.entity(entity).despawn();
+        }
     }
 }

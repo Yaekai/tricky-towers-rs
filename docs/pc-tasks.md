@@ -115,3 +115,7 @@ and nothing gets installed without Max's own go-ahead.
 - "Press Enter to start" shows the staged `logo` at 818×420 above a blinking prompt. Read the
   original's layout of that screen (logo place and size, its debris and plants if they move,
   the prompt's exact words, place and blink) so it can match.
+- Lost bricks now splash where they hit the water (src/effects.rs; `BrickLost` message). Without
+  art it throws up droplets with guessed numbers (`GameConfig::splash`). Find the original's
+  splash (particles or sprite sheet, its size, how long it lasts, any sound) and stage it as
+  `splash` (an animation if it has frames), and note the numbers in docs/research/.

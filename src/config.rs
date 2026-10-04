@@ -58,6 +58,8 @@ pub struct GameConfig {
     pub lanes: Lanes,
     /// How the title tiles move.
     pub menu: MenuLook,
+    /// The splash when a brick is lost in the water.
+    pub splash: SplashLook,
     /// How far above the tower top a new brick appears, in cells.
     pub spawn_gap: f32,
     /// Bricks that fall this far below the platform are counted as dropped.
@@ -1100,6 +1102,34 @@ impl Default for MatchMoments {
     }
 }
 
+/// The splash a lost brick makes in the water. Drawn with the staged `splash`
+/// art when there is some (an animation plays once); otherwise as droplets.
+/// The droplet numbers are guesses (?).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct SplashLook {
+    /// Droplets thrown up, their speed range in cells/s and how far from straight up
+    /// they may fly, in degrees.
+    pub drops: u32,
+    pub speed: (f32, f32),
+    pub spread: f32,
+    /// Seconds a droplet lives, and its size in cells.
+    pub life: f32,
+    pub size: f32,
+}
+
+impl Default for SplashLook {
+    fn default() -> Self {
+        Self {
+            drops: 10,
+            speed: (4.0, 9.0),
+            spread: 35.0,
+            life: 0.9,
+            size: 0.3,
+        }
+    }
+}
+
 /// How the picked title tile moves (docs/research/menus.md).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
@@ -1277,6 +1307,7 @@ impl Default for GameConfig {
             platform_width: 9.0,
             lanes: Lanes::default(),
             menu: MenuLook::default(),
+            splash: SplashLook::default(),
             spawn_gap: 17.0,
             kill_depth: 8.5,
             collider_scale: 0.98,
