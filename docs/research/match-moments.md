@@ -36,3 +36,22 @@ Plain-language notes from Max's installed copy.
 ## Lanes
 The screen is 73.85 units wide with 3.42 margins and 1-unit gaps between lanes, so
 each of n lanes is (67 − (n − 1)) / n wide: 33 for 2 players, 21.67 for 3 and 16 for 4.
+
+## When the Game Completed popup opens, and XP (read from the PC install, 2026-10-04)
+
+When the popup opens
+- It opens once every tower has finished its end sequence.
+- The winner's sequence counts as done straight away. WINNER! appears, the wizard casts and speaks over the next 2 s, and the banner stays up under the popup.
+- Each loser's sequence:
+  - Wait 1.5 s, with a 2 s controller rumble.
+  - The tower collapses. Every brick stops being solid. Every 3rd brick is blown up one after another, or every brick if that wizard was already out, up to 100 bricks. Each blast has a small camera shake (0.2 × 0.26 for 0.05 s) and an explosion sound. The gap between blasts is (bricks still to go, at most 10) × a random 0.002 to 0.007 s.
+  - A 2.5 s rumble shake (0.1 × 0.13) with a looping rumble sound.
+  - A heavy brick sound.
+- So the popup comes about 4 to 5 s after the match ends. Our 4 s guess is close.
+- It slides up from the bottom-right corner in 0.25 s. It is not centred and does not hide WINNER!. Layout: tools/extract notes, "Game Completed popup".
+
+XP (only used online and in cups; local matches give none)
+- The winner gets 600 on Easy, 800 on Normal, 1000 on Pro.
+- Last place gets 100. Second to last gets a quarter of the winner's XP, third to last half. Anyone else gets 0. Quitting costs 250.
+- XP needed for each level: 0, 500, 2,500, 10,000, 25,000, 45,000, 75,000, 112,500, 162,500, 225,000, 300,000. After that, every 75,000 is another level.
+- Level names: Rookie Magician, Apprentice Magician, Magician, Rookie Sorcerer, Apprentice Sorcerer, Sorcerer, Rookie Wizard, Apprentice Wizard, Wizard, Expert Wizard, then "Master Wizard Level N".
