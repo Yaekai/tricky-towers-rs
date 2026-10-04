@@ -364,6 +364,14 @@ foreach ($k in $icons.Keys) { Add-Sprite "spell_icon_$k" $icons[$k] "icons\$k.pn
 Add-Sprite 'spell_slot_light' 'gph_spellBackground_white' 'icons\slot_light.png' 'Light spell slot background'
 Add-Sprite 'spell_slot_dark'  'gph_spellBackground_black' 'icons\slot_dark.png'  'Dark spell slot background'
 
+# --- Losing tower collapse (CollapseTowerEffect / BrickDisappearEffect, Game/Particles/Explosion) ---
+Add-Audio 'sfx_explosion'   '11_explosion_01'      'A brick blowing up as a losing tower falls apart (pitch 0.95..1.05)'
+Add-Audio 'sfx_rumble'      '026_Rumble'           'Rumble loop during the 2.5 s shake after the blasts'
+Add-Audio 'sfx_brick_heavy' '007_Brick_land_heavy' 'Heavy brick landing, once at the end of a collapse'
+Add-Texture 'explosion_flash'  'gph_whiteCircleFaded_Large.png' 'effects\explosion_flash.png'  'Explosion flash: 1 particle, size 4, 0.15 s'
+Add-Texture 'explosion_puff'   'gph_whiteCircle_Large.png'      'effects\explosion_puff.png'   'Explosion puffs: 8 particles, size 1, speed 100, 0.5 s, shrinking'
+Add-Texture 'explosion_debris' 'gph_debris.png'                 'effects\explosion_debris.png' 'Explosion debris: 6 particles, size 0.5, speed 20, gravity 1, 3 s'
+
 # --- Music and sounds ---
 Add-Audio 'music_menu'     '044_Music_menu'      'Menu music'
 Add-Audio 'music_race'     '000_Track_01_single_speed' 'Race music'

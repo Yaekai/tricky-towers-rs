@@ -99,3 +99,17 @@ XP only counts online and in cups. Wizard levels: Rookie Magician, Apprentice Ma
 Magician, Rookie Sorcerer, Apprentice Sorcerer, Sorcerer, Rookie Wizard, Apprentice Wizard,
 Wizard, Expert Wizard, then Master Wizard Level N. Cups add a results table ("First to {N}
 points", each player's score) and then a "{cup} Winner!" popup with the cup.
+
+## Endless leaderboard rows (read from the PC install, 2026-10-04)
+- The original's Endless leaderboard is **online** (Steam): Global and Friends lists, 10 rows
+  each, loaded with a spinner. On disk it keeps only your own best score, your rank, and
+  whether the score was sent. There's no local list of runs.
+- **Row:** 42 px tall, full width of the list, `gph_leaderboardEntryBackground` tinted
+  (0.82, 0.85, 0.95); your own row uses a darker tint (0.75, 0.78, 0.94).
+- **Rank:** at x 15 from the left, 96.5 px wide, centred, size 26 white. Ranks 1–3 show a medal
+  instead of the number: `gph_leaderboardMedalGold` (44×52), `…Silver` (40×49), `…Bronze`
+  (44×52), 3 px below centre. Above 9999 the number is capped.
+- **Avatar:** the player's Steam picture, 36×36, at x 130 from the left, vertically centred.
+- **Name:** left aligned, size 26 white, starting at x 165 (125 when there's no avatar), with
+  110 px kept free on the right.
+- **Score:** right edge, 100 px wide, centred, size 26 white, the plain number.

@@ -121,3 +121,14 @@ From reviews and store pages, not from Max's copy, so nothing here is confirmed:
 In the rewrite these are `ModeKind::EndlessSurvival` / `EndlessPuzzle` with the guesses in
 `GameConfig::endless_play` (src/config.rs, every field marked `(?)`). The PC readout queued in
 docs/pc-tasks.md replaces them with the original's values.
+
+## Curse wave start: lift and shake (read from the PC install, 2026-10-04)
+When a wave starts, the brick in hand goes through: player control paused, shake on, move up,
+wait 1 s, shake off, control back.
+- **Move up:** to 4 cells below the camera's top edge, over exactly 1 s, eased in (quadratic:
+  slow start, fast end), with collisions off during the move and back on at its end.
+- **Shake:** every frame, only the brick's picture (not its body) jumps to a random offset,
+  x and y each uniform in ±0.1 cell divided by the brick's scale (so an enlarged brick shakes
+  less). It runs only while the brick isn't frozen. When the shake ends, the picture snaps
+  back to the centre.
+- So the brick shakes for about 2 s in all: 1 s rising and 1 s held at the top.
