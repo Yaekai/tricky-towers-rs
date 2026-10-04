@@ -60,14 +60,23 @@ the game, but the screen says "Special". The small mode-title banners with wings
 stars are shown at the start of a match, not here.
 
 ## Single Player
-- One seat (Player 1's panel and wizard) 200 px above the centre.
+- One seat (Player 1's panel and wizard) 200 px above the centre, and the 332×100 brick-pack
+  panel 225 px below the seat's centre. No name plate on this screen.
 - A list of 550×78 buttons from 175 px below the centre, 100 px apart: "Trials", then "Endless".
-- "Endless" opens a screen with three wide buttons (Race, Survival, Puzzle, 690×173 pictures
-  `menu_mode_endless`, `_survival`, `_puzzle`) with wizard faces (`menu_challenge_wizard2`-`4`),
-  beside an 800×800 leaderboard.
+  The buttons are `menu_button_background`, 9-sliced 18/16/71/15 (left, right, top, bottom as
+  read; check the order if it looks stretched). Endless carries the 54-high
+  `menu_button_cup_background` band across its width. The picked button gets the four small
+  corners (`menu_corner_small`) 10 px outside it.
+- "Endless" opens a screen with three wide buttons down the right: the column's top-left is at
+  (+135, +375) from the centre, 690 wide, 200 px apart. Pictures `menu_mode_endless` 690×173,
+  `_survival` 689×167, `_puzzle` 690×224 drawn 28 px up. Wizard faces 110×108 at (33, 6) from a
+  button's bottom-left: Race wizard 3, Survival wizard 2, Puzzle wizard 4.
+- The 800×800 leaderboard sits on the left, its right edge on the centre line, 30 px below the
+  centre: `gph_popupBackgroundPanel` (staged as `menu_leaderboard_panel`), 9-sliced top 51 /
+  bottom 37. Rows are `gph_leaderboardEntryBackground` (`menu_leaderboard_row`), 9-sliced left 6 /
+  right 7. Row size, spacing and text are guesses until read.
 - In this rewrite only Endless Race plays; Trials, Endless Survival and Endless Puzzle show
-  dimmed with "(soon)". The Endless buttons' and leaderboard's spots, the faces' place and size,
-  and the selected look are guesses (src/single.rs) until read.
+  dimmed with "(soon)". The Endless buttons' selected look is a tint until read.
 
 ## Pause
 A full-screen dark overlay (0.016, 0.012, 0.035 at 90%) with a panel (0.031, 0.020, 0.094 at

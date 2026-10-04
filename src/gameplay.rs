@@ -403,6 +403,12 @@ pub struct TowerState {
     /// A curse wave's effect on every new brick, and seconds it still lasts.
     pub wave_mod: Option<BrickMod>,
     pub wave_left: f32,
+    /// The wave holds Ghost: each new brick carries off the last placed one.
+    pub wave_ghost: bool,
+    /// Ghost hits the curse wave still owes this tower.
+    pub ghosts_due: u32,
+    /// Bricks placed so far, counting up; stamps each brick's `Placed`.
+    pub placed_count: u32,
     /// Endless Race: the pacer line's height in cells, checkpoints reached, its speed
     /// and the step the next checkpoint adds, seconds left of the checkpoint stop, the
     /// height it stopped at, and seconds since the run started.
@@ -453,6 +459,9 @@ impl TowerState {
             respawn: None,
             wave_mod: None,
             wave_left: 0.0,
+            wave_ghost: false,
+            ghosts_due: 0,
+            placed_count: 0,
             pacer: config.endless.intro_from,
             pacer_stages: 0,
             pacer_speed: config.endless.start_speed,
@@ -585,6 +594,10 @@ impl BrickBag {
         piece
     }
 }
+
+/// When a brick was placed: its tower's running count at the time.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Placed(pub u32);
 
 /// Any brick in play, controlled or not.
 #[derive(Component, Debug, Clone)]
@@ -930,6 +943,10 @@ fn spawn_next_brick(
                 (modifier, piece)
             }
         };
+        // Ghost in a curse wave strikes again with every new brick.
+        if state.wave_ghost {
+            state.ghosts_due += 1;
+        }
         // A Mystery piece is a curse of its own when it comes back.
         modifier.mystery |= piece >= config.pieces.len();
         let def = piece_def(&config, piece);
@@ -980,6 +997,8 @@ fn spawn_next_brick(
                 .id();
             state.bricks_placed += 1;
             state.last_placed = Some(entity);
+            state.placed_count += 1;
+            commands.entity(entity).insert(Placed(state.placed_count));
             continue;
         }
 
@@ -1286,6 +1305,8 @@ fn control_active_brick(
             state.active = None;
             state.bricks_placed += 1;
             state.last_placed = Some(entity);
+            state.placed_count += 1;
+            commands.entity(entity).insert(Placed(state.placed_count));
             continue;
         }
 

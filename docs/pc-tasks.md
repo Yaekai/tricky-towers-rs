@@ -137,3 +137,13 @@ and nothing gets installed without Max's own go-ahead.
   base's collider from the original (each mode and difficulty, and which base each uses): its cells or
   polygon points in cell units, measured from the base centre and top. Write them in
   docs/research/modes.md under "Base shapes", and say which picture goes with each shape.
+- Single Player and Endless now follow your readout (src/single.rs, docs/research/menus.md):
+  pack panel instead of the name plate, sliced list buttons with the cup band and small corners,
+  Endless buttons on the right, faces, leaderboard on the left. Stage `menu_leaderboard_panel`
+  and `menu_leaderboard_row` (added to tools/extract/stage.ps1). Take offscreen pictures
+  (`--menu single`, `--menu endless`) and say what still differs. Read the leaderboard's row
+  size, spacing, text (rank, name, score?) and title, whether `menu_button_background`'s borders
+  18/16/71/15 are left/right/top/bottom, and the Endless buttons' selected look.
+- Survival Pro curse waves: Ghost now strikes with the brick in hand and again with every new
+  brick while the wave lasts. Just confirm a `--play survival --difficulty pro` offscreen run
+  still loads with 0 errors.

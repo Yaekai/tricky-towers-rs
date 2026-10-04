@@ -122,6 +122,7 @@ islands on the water band), by adding `screen`:
 | `menu_tile_<key>_front` | Art over a picked tile (the wizards on the big tiles) |
 | `menu_tile_<key>_front_deselected`, `menu_tile_<key>_overlay` | Grey art on unpicked tiles; the frame over a picked one |
 | `menu_tile_header`, `menu_corner_large`, `menu_corner_small` | The label bar on big tiles and the frame corner (drawn top-left, flipped for the others) |
+| `menu_leaderboard_panel`, `menu_leaderboard_row` | The Endless leaderboard's 800×800 panel (9-sliced top 51 / bottom 37) and its rows (left 6 / right 7) |
 | `menu_header` | The bar across the top of Select Players and Select Mode |
 | `menu_player_select_wizard<N>_ready`, `_sleeping` | Seat N's wizard (1-4), asleep until someone sits there |
 | `menu_player_select_background_deselected`, `_selected`, `menu_player_select_outline`, `menu_player_select_nameplate`, `menu_arrow_small` | Seat panels (9-sliced), the frame over a taken seat, the name plate and the seat arrows |

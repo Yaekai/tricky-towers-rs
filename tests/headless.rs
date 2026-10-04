@@ -1106,3 +1106,26 @@ fn a_lost_brick_reports_where_it_hit_the_water() {
     let mut sunk = app.world_mut().query::<&tricky_towers::gameplay::Sunk>();
     assert!(sunk.iter(app.world()).count() <= 1, "the first one is gone");
 }
+
+#[test]
+fn a_ghost_wave_carries_off_a_brick_with_every_new_one() {
+    use tricky_towers::config::Wave;
+    let mut config = fast_config();
+    config.survival.curse_waves = true;
+    config.survival.dark_magic = false;
+    config.survival.waves.gap = (1, 2);
+    config.survival.waves.levels = vec![vec![Wave {
+        curses: vec![SpellKind::Ghost],
+        seconds: (30, 31),
+    }]];
+    let mut app = headless_app(config);
+    let mut ghosted = std::collections::HashSet::new();
+    let enough = run_until(&mut app, 20.0, |app| {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<Entity, With<tricky_towers::spells::Ghosted>>();
+        ghosted.extend(query.iter(app.world()));
+        ghosted.len() >= 3
+    });
+    assert!(enough, "only {} bricks ghosted in one wave", ghosted.len());
+}

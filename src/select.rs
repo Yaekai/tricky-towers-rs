@@ -192,7 +192,7 @@ const SEAT_Y: f32 = 115.0;
 pub(crate) const SEAT_RAYS_CLIP: (f32, f32) = (327.0, 267.0);
 const SEAT_ARROW: (f32, f32) = (38.0, 64.0);
 const SEAT_ARROW_X: f32 = 165.0;
-const PACK_PANEL: ((f32, f32), f32) = ((332.0, 100.0), -110.0);
+pub(crate) const PACK_PANEL: ((f32, f32), f32) = ((332.0, 100.0), -110.0);
 pub(crate) const NAME_PLATE: ((f32, f32), f32) = ((367.0, 78.0), -230.0);
 /// 9-slice borders of the seat panels and outline, and of the name plate.
 pub(crate) const PANEL_SLICE: f32 = 60.0;
@@ -223,7 +223,7 @@ const COLUMN_PANEL_HEIGHT: f32 = 800.0;
 const ARROW_INSET: f32 = 130.0;
 const DIFFICULTY_BACK: ((f32, f32), (f32, f32)) = ((-5.0, 0.0), (461.0, 393.0));
 const CORNER_LARGE: (f32, f32) = (69.0, 68.0);
-const CORNER_SMALL: (f32, f32) = (38.0, 34.0);
+pub(crate) const CORNER_SMALL: (f32, f32) = (38.0, 34.0);
 
 /// An absolute node `size` pixels big centred at `at`.
 pub(crate) fn place(size: (f32, f32), at: (f32, f32)) -> Node {
@@ -264,7 +264,7 @@ pub(crate) fn sliced(image: Handle<Image>, border: [f32; 4]) -> ImageNode {
 
 /// Four corner pictures on a `size` box at `at`, the art drawn top-left and
 /// flipped for the others.
-fn corners(
+pub(crate) fn corners(
     page: &mut ChildSpawnerCommands,
     art: &Handle<Image>,
     size: (f32, f32),
