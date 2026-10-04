@@ -38,9 +38,8 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
 2. **Opponents, spells, puzzle, menu** (done).
 3. **Match the original's rules** (mostly done, notes in `docs/research/`): controls, physics,
    spell awards and all 17 spells, Survival grace and countdown, Puzzle lasers, floors and
-   scoring, difficulty levels, Survival Pro curse waves, cursed-brick respawn, Endless Race (the
-   chasing line; the speed step per stage, where it starts and whether it hands out spells are
-   still guesses). Race Pro wind and the wider Puzzle lane are in, with their strength and growth guessed.
+   scoring, difficulty levels, Survival Pro curse waves, cursed-brick respawn, Endless Race (all
+   values from the original). Race Pro wind and the wider Puzzle lane are in, with their strength and growth guessed.
    Still to do: Race Pro wind's exact push (strength 3 to 4, details to read from the
    original), exact curse-wave levels (the per-level curses are a guess, marked `(?)` in
    `config.rs`), the wider Puzzle lane.

@@ -52,10 +52,14 @@ and nothing gets installed without Max's own go-ahead.
   wave levels (which curses, how many at once, how long) and Race Pro wind, for the notes.
 - Send the remaining inventory groups: Puzzle floor art (the 3 piece types and how they are
   laid out), spell effects, match moments, menus and results.
-- Endless Race is in (`--play endless`). Screenshot it, stage the original's pacer line art as
-  `pacer_line` (and any Endless-only background), and read from the original: the pacer's speed
-  at each stage, where it starts, and whether Endless has spell lines and lives.
+- Endless Race now follows your readout (checkpoints on spell lines, light spells only, the
+  Endless islands as `background_endless_N`). Screenshot it offscreen. `pacer_layer` isn't drawn
+  yet: say how the original places and sizes it.
 - Race Pro wind is in as a guess (see `docs/research/spell-awards.md`). Read from the original
   what the wind pushes (the steered brick, placed bricks, or both), how its strength turns into
   a push, and whether it changes direction during a match. Also how the Puzzle steering limit
   grows with the tower.
+- Player panels: when a base's art reaches below the bottom of the screen, the panel now sits
+  just right of the base along the bottom edge instead of on top of it. Read from the original
+  where it puts each player's panel (portrait, name, hearts, spell slots) in 1 to 4 player
+  matches, as screen positions or relative to the lane, so it can match exactly.

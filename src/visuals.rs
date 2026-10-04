@@ -435,6 +435,7 @@ fn mode_key(mode: ModeKind) -> &'static str {
 /// Background layer names for this mode, back to front: `background_<mode>_N`
 /// when staged for the mode, else `background_N`.
 fn background_names(art: &Art, mode: ModeKind) -> Vec<String> {
+    let endless = mode == ModeKind::Endless;
     let mode = mode_key(mode);
     let layers = |prefix: &str| {
         let mut found: Vec<(f32, u32, String)> = art
@@ -449,7 +450,10 @@ fn background_names(art: &Art, mode: ModeKind) -> Vec<String> {
         found.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         found.into_iter().map(|(.., name)| name).collect::<Vec<_>>()
     };
-    let own = layers(&format!("background_{mode}_"));
+    // Endless Race has its own versions of the race islands, when staged.
+    let own = Some(layers("background_endless_"))
+        .filter(|l| endless && !l.is_empty())
+        .unwrap_or_else(|| layers(&format!("background_{mode}_")));
     if own.is_empty() {
         layers("background_")
     } else {
@@ -796,7 +800,7 @@ fn dress_platforms(
                 )),
                 // The pacer starts below the base and rises from there.
                 ModeKind::Endless => Some((
-                    config.endless.start_height,
+                    config.endless.intro_from,
                     "pacer_line",
                     Color::srgba(1.0, 0.55, 0.1, 0.85),
                 )),
@@ -1148,10 +1152,14 @@ fn place_panels(
         let Ok(at) = camera.world_to_viewport(eye, corner) else {
             continue;
         };
-        // Right-aligned to the base's right end, hanging below the base, on screen.
+        // Right-aligned to the base's right end, hanging below the base. When the base
+        // reaches below the bottom of the screen there is no room under it, so the
+        // panel sits just right of the base instead, along the bottom edge.
         let size = computed.size() * computed.inverse_scale_factor();
-        node.left = Val::Px((at.x - size.x).clamp(0.0, (window.x - size.x).max(0.0)));
-        node.top = Val::Px(at.y.min(window.y - size.y - 4.0).max(0.0));
+        let bottom = window.y - size.y - 4.0;
+        let x = if at.y <= bottom { at.x - size.x } else { at.x + 8.0 };
+        node.left = Val::Px(x.clamp(0.0, (window.x - size.x).max(0.0)));
+        node.top = Val::Px(at.y.min(bottom).max(0.0));
     }
 }
 
@@ -1331,8 +1339,10 @@ fn update_hud(
             you.laser(&config)
         ),
         ModeKind::Endless => format!(
-            "ENDLESS  height {:.1}  best {:.1}  line {:.1}",
-            you.height, you.best_height, you.pacer
+            "ENDLESS  score {}  best {}  pacer {:.1}",
+            config.endless.score(you.height),
+            config.endless.score(you.best_height),
+            you.pacer
         ),
     };
     let spell = if config.magic.enabled {
@@ -1382,8 +1392,8 @@ fn update_hud(
             None => match game.mode {
                 ModeKind::Puzzle => "PUZZLE FAILED. Press R to try again".into(),
                 ModeKind::Endless => format!(
-                    "CAUGHT at {:.1} bricks high. Press R to try again",
-                    you.best_height
+                    "CAUGHT! Score {}. Press R to try again",
+                    config.endless.score(you.best_height)
                 ),
                 _ => "OUT OF LIVES. Press R to try again".into(),
             },
@@ -1408,7 +1418,7 @@ fn update_lines(
                 .map_or(config.puzzle.line_height, |s| s.laser(&config)),
             ModeKind::Endless => towers
                 .get(line.tower)
-                .map_or(config.endless.start_height, |s| s.pacer),
+                .map_or(config.endless.intro_from, |s| s.pacer),
             _ => game.finish_height,
         };
         transform.translation.y = config.cells(height) + c * 0.5;

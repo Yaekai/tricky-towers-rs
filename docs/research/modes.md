@@ -40,9 +40,12 @@ Plain-language notes from Max's installed copy. Units are brick cells.
 - Single player is Trials, where an "enemy wizard" who doesn't build casts dark spells from a
   per-level script (every N seconds, at set times, or as your remaining bricks pass fractions of
   the target), plus Endless modes.
-- Endless Race: a pacer line chases your tower, starting at 0.2 cells/s and speeding up each
-  10-cell stage up to 1.5 cells/s. It pauses 2 s and drops back 2 cells at each stage. You lose
-  when it reaches your tower top.
-  - In our build the speed step per stage (0.1), the start (4 cells under the base top), and
-    spell lines working as in Race are guesses until read from the original.
+- Endless Race: a pacer line chases your tower. It slides in from height −15 to −5 over 1 s, then
+  rises at 0.2 cells/s. Spell lines sit at fixed heights: 10, then every 10 up to 150, then each
+  gap one longer (161, 173, ...). Each line you pick up is a checkpoint: the pacer stops, eases
+  2 cells down over 1 s, waits 2 s, then rises faster by a step that starts at 0.05 and grows
+  0.01 per checkpoint up to 0.1 (top speed 1.5). You lose when it reaches your tower top. Score
+  is 10 × height, rounded up. Light spells only, drawn from Ivy, Undo, Ivy, Undo, Petrify. No
+  lives: lost bricks are just gone. It has its own versions of the race islands and a tint
+  under the pacer line.
 - Our AI opponents are an extra beyond the original, not its main mode.

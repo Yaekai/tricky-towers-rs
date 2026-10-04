@@ -37,9 +37,9 @@ Values below come from reading Max's own copy of the original; the notes are in 
   "Magic Waves" that curse everyone every 12 to 18 s.
 - Puzzle: a shared random laser each round, a floor per difficulty (flat-ish, gappy, or a pillar
   with ledges), dropped bricks lowering the laser, most bricks wins.
-- Endless Race: a line rises from below and chases your tower top, speeding up from 0.2 to 1.5
-  cells/s, pausing 2 s and dropping back 2 cells every 10 cells. Your best height is the score.
-  (`--play endless`; the speed step per stage is a guess until it's read from the original.)
+- Endless Race (`--play endless`): a line rises from below and chases your tower top. Every spell
+  line you reach (at 10, 20, 30...) is a checkpoint where it stops, eases back and then rises a
+  little faster, up to 1.5 cells/s. Score is 10 × height; light spells only.
 - Race Pro wind pushes loose bricks one way each match (strength 3 to 4, from the original;
   how strongly that pushes is a guess for now). Puzzle lanes are 1.2× wider, as in the original.
 - Cursed and Mystery bricks that are lost come back where they fell, up to 3 times.

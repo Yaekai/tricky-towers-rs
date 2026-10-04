@@ -945,32 +945,49 @@ fn survival_pro_waves_curse_new_bricks() {
 }
 
 #[test]
-fn endless_pacer_speeds_up_pauses_and_drops_back_each_stage() {
+fn endless_pacer_stops_eases_down_and_speeds_up_at_checkpoints() {
     use tricky_towers::config::EndlessRules;
-    use tricky_towers::gameplay::advance_pacer;
-    let rules = EndlessRules {
-        start_height: 0.0,
-        ..default()
-    };
+    use tricky_towers::gameplay::{advance_pacer, pacer_checkpoint};
+    let rules = EndlessRules::default();
     let mut state = TowerState::new(&GameConfig::default(), 1);
-    state.pacer = 9.9;
+    // Slides in from -15 to -5 over the first second, then rises at 0.2/s.
+    assert_eq!(state.pacer, -15.0);
+    for _ in 0..50 {
+        advance_pacer(&rules, &mut state, 0.02);
+    }
+    assert!((state.pacer + 5.0).abs() < 0.05, "{}", state.pacer);
     advance_pacer(&rules, &mut state, 1.0);
-    assert_eq!(state.pacer_stages, 1);
-    assert!((state.pacer - 8.0).abs() < 1e-4, "dropped back 2: {}", state.pacer);
-    // Waits 2 s, then climbs faster than at the start.
+    assert!((state.pacer + 4.8).abs() < 0.05, "{}", state.pacer);
+
+    // A checkpoint: 2 cells down over 1 s, a 2 s wait, then 0.05 faster.
+    let at = state.pacer;
+    pacer_checkpoint(&rules, &mut state);
     advance_pacer(&rules, &mut state, 1.0);
+    assert!((state.pacer - (at - 2.0)).abs() < 1e-4, "{}", state.pacer);
+    advance_pacer(&rules, &mut state, 2.0);
+    assert!((state.pacer - (at - 2.0)).abs() < 1e-4, "moved while waiting");
     advance_pacer(&rules, &mut state, 1.0);
-    assert!((state.pacer - 8.0).abs() < 1e-4, "moved while paused");
-    state.pacer_pause = 0.0;
-    advance_pacer(&rules, &mut state, 1.0);
-    assert!(state.pacer - 8.0 > rules.start_speed, "{}", state.pacer);
-    assert_eq!(rules.speed(100), rules.max_speed);
+    assert!((state.pacer - (at - 2.0 + 0.25)).abs() < 1e-4, "{}", state.pacer);
+    // The step grows by 0.01 per checkpoint, up to 0.1; the speed tops out at 1.5.
+    assert!((state.pacer_step - 0.06).abs() < 1e-6);
+    for _ in 0..100 {
+        pacer_checkpoint(&rules, &mut state);
+    }
+    assert_eq!((state.pacer_step, state.pacer_speed), (0.1, 1.5));
+
+    // Spell lines every 10 cells, the gaps one longer each past 150.
+    let lines: Vec<f32> = (0..17).map(|n| rules.line_height(n)).collect();
+    assert_eq!(lines[0], 10.0);
+    assert_eq!(lines[14], 150.0);
+    assert_eq!(&lines[15..], &[161.0, 173.0]);
+    assert_eq!(rules.score(4.21), 43);
 }
 
 #[test]
 fn endless_race_ends_when_the_line_catches_the_tower() {
     let mut config = fast_config();
     config.mode = ModeKind::Endless;
+    config.endless.intro_seconds = 0.0;
     config.endless.start_height = -0.5;
     config.endless.start_speed = 2.0;
     let mut app = headless_app(config);

@@ -321,11 +321,17 @@ pub struct TowerState {
     /// A curse wave's effect on every new brick, and seconds it still lasts.
     pub wave_mod: Option<BrickMod>,
     pub wave_left: f32,
-    /// Endless Race: the pacer line's height in cells, stages it has climbed, and
+    /// Endless Race: the pacer line's height in cells, checkpoints reached, its speed
+    /// and the step the next checkpoint adds, seconds left of the checkpoint stop, the
+    /// height it stopped at, and seconds since the run started.
     /// seconds it still waits after the last stage.
     pub pacer: f32,
     pub pacer_stages: u32,
+    pub pacer_speed: f32,
+    pub pacer_step: f32,
     pub pacer_pause: f32,
+    pub pacer_from: f32,
+    pub pacer_clock: f32,
     /// The tallest this tower has been, in cells (Endless Race's score).
     pub best_height: f32,
     pub rng: u64,
@@ -362,9 +368,13 @@ impl TowerState {
             respawn: None,
             wave_mod: None,
             wave_left: 0.0,
-            pacer: config.endless.start_height,
+            pacer: config.endless.intro_from,
             pacer_stages: 0,
+            pacer_speed: config.endless.start_speed,
+            pacer_step: config.endless.first_step,
             pacer_pause: 0.0,
+            pacer_from: 0.0,
+            pacer_clock: 0.0,
             best_height: 0.0,
             mystery_bag: Vec::new(),
             rng: seed.max(1),
@@ -1289,20 +1299,40 @@ fn track_towers(
     }
 }
 
-/// Moves Endless Race's pacer line up. Each time it climbs a stage it speeds up,
-/// pauses and drops back a little.
+fn smoothstep(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+/// Moves Endless Race's pacer line: it slides in, then rises; after a checkpoint it
+/// eases down a little and waits first.
 pub fn advance_pacer(rules: &crate::config::EndlessRules, state: &mut TowerState, dt: f32) {
-    if state.pacer_pause > 0.0 {
-        state.pacer_pause -= dt;
+    state.pacer_clock += dt;
+    if state.pacer_clock < rules.intro_seconds {
+        let t = smoothstep(state.pacer_clock / rules.intro_seconds);
+        state.pacer = rules.intro_from + (rules.start_height - rules.intro_from) * t;
         return;
     }
-    state.pacer += rules.speed(state.pacer_stages) * dt;
-    let next_stage = rules.stage_height * (state.pacer_stages + 1) as f32;
-    if rules.stage_height > 0.0 && state.pacer >= next_stage {
-        state.pacer_stages += 1;
-        state.pacer = next_stage - rules.stage_drop;
-        state.pacer_pause = rules.stage_pause;
+    if state.pacer_pause > 0.0 {
+        state.pacer_pause = (state.pacer_pause - dt).max(0.0);
+        let since = rules.ease_seconds + rules.wait_seconds - state.pacer_pause;
+        let t = smoothstep(since / rules.ease_seconds.max(f32::EPSILON));
+        state.pacer = state.pacer_from - rules.ease_drop * t;
+        return;
     }
+    if state.pacer_clock - dt <= rules.intro_seconds {
+        state.pacer = rules.start_height;
+    }
+    state.pacer += state.pacer_speed * dt;
+}
+
+/// A spell line picked up in Endless Race: the pacer stops, and rises faster after.
+pub fn pacer_checkpoint(rules: &crate::config::EndlessRules, state: &mut TowerState) {
+    state.pacer_stages += 1;
+    state.pacer_from = state.pacer;
+    state.pacer_pause = rules.ease_seconds + rules.wait_seconds;
+    state.pacer_speed = (state.pacer_speed + state.pacer_step).min(rules.max_speed);
+    state.pacer_step = (state.pacer_step + rules.step_growth).min(rules.max_step);
 }
 
 fn judge_match(

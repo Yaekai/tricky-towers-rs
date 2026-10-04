@@ -181,24 +181,35 @@ impl Default for RaceRules {
 }
 
 /// Endless Race: a pacer line rises from below and chases the top of the tower.
-/// It speeds up at every stage it climbs, then pauses and drops back a little.
+/// Every spell line a player picks up is a checkpoint: their pacer stops, eases back
+/// down a little, waits, then rises faster. Values from the original.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct EndlessRules {
-    /// Where the pacer starts, in cells from the platform top (?).
+    /// The pacer slides in from here to `start_height` when the run starts...
+    pub intro_from: f32,
+    pub intro_seconds: f32,
+    /// ...and starts rising from here, in cells from the platform top.
     pub start_height: f32,
     /// Pacer speed at the start and its ceiling, in cells/s.
     pub start_speed: f32,
     pub max_speed: f32,
-    /// Speed added at each stage (?). The original goes from 0.2 to 1.5; the steps between
-    /// are not read yet.
-    pub speed_step: f32,
-    /// Height of one stage, in cells.
-    pub stage_height: f32,
-    /// At each stage the pacer stops for this many seconds...
-    pub stage_pause: f32,
-    /// ...and drops back this many cells.
-    pub stage_drop: f32,
+    /// Speed added at the first checkpoint; each checkpoint adds this much more to
+    /// the step, up to `max_step`.
+    pub first_step: f32,
+    pub step_growth: f32,
+    pub max_step: f32,
+    /// Spell lines (checkpoints) are this far apart...
+    pub line_gap: f32,
+    /// ...and above this height each gap is one cell longer than the last.
+    pub line_gap_grows_after: f32,
+    /// At a checkpoint the pacer eases down this many cells over `ease_seconds`, then
+    /// waits `wait_seconds` before rising again.
+    pub ease_drop: f32,
+    pub ease_seconds: f32,
+    pub wait_seconds: f32,
+    /// Score per cell of tower height (rounded up).
+    pub score_per_cell: f32,
     /// Base drop speed, in cells/s (?).
     pub drop_speed: f32,
 }
@@ -206,22 +217,41 @@ pub struct EndlessRules {
 impl Default for EndlessRules {
     fn default() -> Self {
         Self {
-            start_height: -4.0,
+            intro_from: -15.0,
+            intro_seconds: 1.0,
+            start_height: -5.0,
             start_speed: 0.2,
             max_speed: 1.5,
-            speed_step: 0.1,
-            stage_height: 10.0,
-            stage_pause: 2.0,
-            stage_drop: 2.0,
+            first_step: 0.05,
+            step_growth: 0.01,
+            max_step: 0.1,
+            line_gap: 10.0,
+            line_gap_grows_after: 150.0,
+            ease_drop: 2.0,
+            ease_seconds: 1.0,
+            wait_seconds: 2.0,
+            score_per_cell: 10.0,
             drop_speed: 3.0,
         }
     }
 }
 
 impl EndlessRules {
-    /// Pacer speed after `stages` stages, in cells/s.
-    pub fn speed(&self, stages: u32) -> f32 {
-        (self.start_speed + self.speed_step * stages as f32).min(self.max_speed)
+    /// Height of spell line `n` (0 for the first), in cells: 10, 20, ... 150, 161, 173, ...
+    pub fn line_height(&self, n: u32) -> f32 {
+        let (mut height, mut gap) = (0.0, self.line_gap);
+        for _ in 0..=n {
+            if height >= self.line_gap_grows_after {
+                gap += 1.0;
+            }
+            height += gap;
+        }
+        height
+    }
+
+    /// Score for a tower this tall.
+    pub fn score(&self, height: f32) -> u32 {
+        (height.max(0.0) * self.score_per_cell).ceil() as u32
     }
 }
 
@@ -578,6 +608,12 @@ impl Default for MagicRules {
                         (Undo, "normal".into()),
                         (Petrify, "stone".into()),
                     ],
+                    ..default()
+                },
+                // Endless Race: light spells only.
+                AwardRule {
+                    mode: Some(ModeKind::Endless),
+                    light: vec![(Ivy, 2), (Undo, 2), (Petrify, 1)],
                     ..default()
                 },
                 AwardRule {

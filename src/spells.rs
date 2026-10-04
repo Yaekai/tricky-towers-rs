@@ -110,12 +110,17 @@ pub(crate) fn update_spell_lines(
         }
         let height = state.height;
         let Some(mut line) = state.spell_line else {
-            state.spell_line = Some(state.next_line.max(height + spacing));
+            // Endless Race's lines are checkpoints at set heights.
+            state.spell_line = Some(if game.mode == ModeKind::Endless {
+                config.endless.line_height(state.lines_reached)
+            } else {
+                state.next_line.max(height + spacing)
+            });
             state.line_wait = magic.wait(game.players);
             continue;
         };
         // Endless Race hands out spells like a race (?).
-        if game.mode.look() == ModeKind::Race {
+        if game.mode == ModeKind::Race {
             let above = line - height;
             if above > magic.line_rush_beyond || state.line_wait <= 0.0 {
                 let speed = magic.line_slide_speed
@@ -133,13 +138,16 @@ pub(crate) fn update_spell_lines(
         state.spell_line = None;
         state.next_line = line + spacing;
         state.lines_reached += 1;
+        if game.mode == ModeKind::Endless {
+            crate::gameplay::pacer_checkpoint(&config.endless, &mut state);
+        }
         let finish_gap = (game.mode == ModeKind::Race).then(|| game.finish_height - height);
         let behind = leader - height;
         let hurt = state.lives.is_some_and(|l| l < config.survival.lives);
         let Some(rule) = magic
             .award_rules
             .iter()
-            .find(|r| rule_holds(r, game.mode.look(), hurt, finish_gap, behind))
+            .find(|r| rule_holds(r, game.mode, hurt, finish_gap, behind))
         else {
             continue;
         };
