@@ -1,10 +1,12 @@
-//! The Settings screen from the title tiles: volume, music volume and full
-//! screen, applied at once and kept between runs. The original's own list of
-//! options and its layout aren't read yet (?), so this is a plain list.
+//! The Settings screen from the title tiles: sound effects, music and full screen,
+//! applied at once and kept between runs. The original has these too (fan wiki,
+//! docs/research/wiki-notes.md: both volumes 0-100% defaulting to 100%, full screen
+//! on by default), plus Explanations, Statistics, Credits, Keybinding, Resolution,
+//! Quality, V-sync and Language, which aren't built. Layout is a plain list (?).
 
 use std::path::PathBuf;
 
-use bevy::audio::{AudioSink, AudioSinkPlayback, GlobalVolume, Volume};
+use bevy::audio::{AudioSink, AudioSinkPlayback, PlaybackSettings, Volume};
 use bevy::prelude::*;
 use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
 use serde::{Deserialize, Serialize};
@@ -21,7 +23,7 @@ impl Plugin for SettingsPlugin {
         app.init_resource::<Settings>()
             .init_resource::<SettingsMenu>()
             .add_systems(Startup, spawn_settings_screen)
-            .add_systems(Update, apply_settings);
+            .add_systems(Update, (apply_settings, set_effect_volume));
     }
 }
 
@@ -30,9 +32,9 @@ impl Plugin for SettingsPlugin {
 #[derive(Resource, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    /// Every sound, 0 to 1.
+    /// Sound effects, 0 to 1.
     pub volume: f32,
-    /// Music on top of that, 0 to 1.
+    /// Music, 0 to 1 (separate from the sound effects).
     pub music: f32,
     pub fullscreen: bool,
     #[serde(skip)]
@@ -43,8 +45,8 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             volume: 1.0,
-            music: 0.7,
-            fullscreen: false,
+            music: 1.0,
+            fullscreen: true,
             file: None,
         }
     }
@@ -205,7 +207,7 @@ pub(crate) fn show_settings_screen(
     let percent = |v: f32| format!("< {:.0}% >", v * 100.0);
     for (text, mut words) in &mut texts {
         let line = match ROWS[text.0] {
-            Row::Volume => format!("Volume   {}", percent(settings.volume)),
+            Row::Volume => format!("Sound effects   {}", percent(settings.volume)),
             Row::Music => format!("Music   {}", percent(settings.music)),
             Row::Fullscreen => format!(
                 "Full screen   {}",
@@ -219,22 +221,17 @@ pub(crate) fn show_settings_screen(
     }
 }
 
-/// Puts changed settings into effect: the global volume for new sounds, the
-/// music already playing, and the window mode.
+/// Puts changed settings into effect: the music already playing and the window mode.
 fn apply_settings(
     settings: Res<Settings>,
-    global: Option<ResMut<GlobalVolume>>,
     mut music: Query<&mut AudioSink, With<Music>>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if !settings.is_changed() {
         return;
     }
-    if let Some(mut global) = global {
-        global.volume = Volume::Linear(settings.volume);
-    }
     for mut sink in &mut music {
-        sink.set_volume(Volume::Linear(settings.volume * settings.music));
+        sink.set_volume(Volume::Linear(settings.music));
     }
     let mode = if settings.fullscreen {
         WindowMode::BorderlessFullscreen(MonitorSelection::Current)
@@ -266,8 +263,9 @@ mod tests {
             s.step(1, -1);
         }
         assert_eq!(s.music, 0.0);
+        // Full screen starts on, like the original, and toggles.
         assert!(s.step(2, 1));
-        assert!(s.fullscreen);
+        assert!(!s.fullscreen);
         assert!(!s.step(3, 1), "Back has nothing to change");
     }
 
@@ -283,5 +281,16 @@ mod tests {
         let again = Settings::load(file.clone());
         assert_eq!((again.music, again.fullscreen), (0.3, true));
         let _ = std::fs::remove_dir_all(file.parent().unwrap());
+    }
+}
+
+/// Every new sound effect plays at the sound-effects volume (music has its own,
+/// set where it starts). Runs before the audio output picks the sounds up.
+fn set_effect_volume(
+    settings: Res<Settings>,
+    mut sounds: Query<&mut PlaybackSettings, (Added<AudioPlayer>, Without<Music>)>,
+) {
+    for mut playback in &mut sounds {
+        playback.volume = Volume::Linear(settings.volume);
     }
 }

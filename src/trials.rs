@@ -51,6 +51,11 @@ impl TrialProgress {
         self.done.iter().any(|d| d == name)
     }
 
+    /// Medals earned so far (per trial beaten, ?).
+    pub fn medals(&self, tiers: &crate::config::TrialTiers) -> u32 {
+        self.done.len() as u32 * tiers.medals_per_trial
+    }
+
     /// The progress saved in `file`, or none yet, saving there.
     pub fn load(file: PathBuf) -> Self {
         let mut progress: Self = std::fs::read_to_string(&file)

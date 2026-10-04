@@ -320,3 +320,21 @@ and nothing gets installed without Max's own go-ahead.
   5. Check the spell names our game shows against the original's on-screen names (the wiki
      says Tower Piece, Fast Brick, Ice Brick, Grass, Slow Down, Ghosts, Super, Super Duper; and
      check the no-rotate curse's real name), so `SpellKind::name` can match.
+- **Max put press kit pictures on the PC** in the `images presskit` folder inside the gitignored
+  release folder: start the reference comparison above with those (keep them out of git).
+- **Wiki facts are now in the game; please double-check each on the install** (source:
+  docs/research/wiki-notes.md):
+  1. Keyboard (src/input.rs): Left/Right move, Down drop, Up turns right, Space turns left, U/I
+     nudge, J light spell, K dark spell. Our old keys (A/D/W/S, Shift-nudge, Z, Q/E) are commented
+     out in input.rs. Read the install's default keybinding list (and the gamepad layout) and say
+     where it differs. Menus still also take WASD and numpad arrows: say if the original does.
+  2. Settings (src/settings.rs): Sound effects and Music are separate volumes, both 100% by
+     default; Full screen is on by default. Confirm the defaults and the 10% step, and list the
+     options we don't have (Explanations, Statistics, Credits, Keybinding, Resolution, Quality,
+     V-sync, Language) with what each does, so they can be built.
+  3. Trial tiers (`TrialTiers`): 5 tiers of 10 (Rookie, Apprentice, Pro, Expert, Master) opening
+     at 0/8/17/26/36 medals; we give 1 medal per trial beaten (guess). Read how medals are earned
+     (per trial: 1? up to 3 by score/time?) and what a locked tier looks like.
+  4. Endless Puzzle: bricks come in groups; the laser rises once a whole group is placed. We
+     guess groups of 10 and a 1-cell rise (`EndlessPlay::laser_every`, `laser_rise`): read the
+     real group size, the rise, and how the score ("conserve as many bricks as possible") counts.

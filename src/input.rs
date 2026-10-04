@@ -74,15 +74,28 @@ fn rumble_losers(
     }
 }
 
-const LEFT: [KeyCode; 2] = [KeyCode::ArrowLeft, KeyCode::KeyA];
-const RIGHT: [KeyCode; 2] = [KeyCode::ArrowRight, KeyCode::KeyD];
-const DOWN: [KeyCode; 2] = [KeyCode::ArrowDown, KeyCode::KeyS];
-const ROTATE: [KeyCode; 3] = [KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Space];
-const ROTATE_CCW: [KeyCode; 1] = [KeyCode::KeyZ];
-const CAST_LIGHT: [KeyCode; 1] = [KeyCode::KeyQ];
-const CAST_DARK: [KeyCode; 1] = [KeyCode::KeyE];
-/// Held with a move key, makes it a nudge instead.
-const NUDGE: [KeyCode; 2] = [KeyCode::ShiftLeft, KeyCode::ShiftRight];
+// The original's default keyboard keys (docs/research/wiki-notes.md, "Default keyboard
+// controls"; to be confirmed on the install): arrows move and drop, Up turns right,
+// Space turns left, U/I nudge, J/K cast the light and dark spell.
+pub(crate) const LEFT: [KeyCode; 1] = [KeyCode::ArrowLeft];
+pub(crate) const RIGHT: [KeyCode; 1] = [KeyCode::ArrowRight];
+const DOWN: [KeyCode; 1] = [KeyCode::ArrowDown];
+pub(crate) const ROTATE: [KeyCode; 1] = [KeyCode::ArrowUp];
+pub(crate) const ROTATE_CCW: [KeyCode; 1] = [KeyCode::Space];
+pub(crate) const NUDGE_LEFT: [KeyCode; 1] = [KeyCode::KeyU];
+pub(crate) const NUDGE_RIGHT: [KeyCode; 1] = [KeyCode::KeyI];
+const CAST_LIGHT: [KeyCode; 1] = [KeyCode::KeyJ];
+const CAST_DARK: [KeyCode; 1] = [KeyCode::KeyK];
+// Our earlier keys, not the original's; kept here to put back if wanted:
+// const LEFT: [KeyCode; 2] = [KeyCode::ArrowLeft, KeyCode::KeyA];
+// const RIGHT: [KeyCode; 2] = [KeyCode::ArrowRight, KeyCode::KeyD];
+// const DOWN: [KeyCode; 2] = [KeyCode::ArrowDown, KeyCode::KeyS];
+// const ROTATE: [KeyCode; 3] = [KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Space];
+// const ROTATE_CCW: [KeyCode; 1] = [KeyCode::KeyZ];
+// const CAST_LIGHT: [KeyCode; 1] = [KeyCode::KeyQ];
+// const CAST_DARK: [KeyCode; 1] = [KeyCode::KeyE];
+// /// Held with a move key, makes it a nudge instead.
+// const NUDGE: [KeyCode; 2] = [KeyCode::ShiftLeft, KeyCode::ShiftRight];
 const RESTART: [KeyCode; 1] = [KeyCode::KeyR];
 
 fn read_keyboard(
@@ -100,19 +113,26 @@ fn read_keyboard(
     let Some((_, mut input)) = towers.iter_mut().find(|(tower, _)| tower.is_first_player()) else {
         return;
     };
-    let nudge = keys.any_pressed(NUDGE);
-    input.left_held = !nudge && keys.any_pressed(LEFT);
-    input.right_held = !nudge && keys.any_pressed(RIGHT);
+    input.left_held = keys.any_pressed(LEFT);
+    input.right_held = keys.any_pressed(RIGHT);
     input.fast_fall_held = keys.any_pressed(DOWN);
     // Presses accumulate until a fixed step consumes them, so quick taps
     // between steps are never lost.
-    if nudge {
-        input.nudge_left_pressed |= keys.any_just_pressed(LEFT);
-        input.nudge_right_pressed |= keys.any_just_pressed(RIGHT);
-    } else {
-        input.left_pressed |= keys.any_just_pressed(LEFT);
-        input.right_pressed |= keys.any_just_pressed(RIGHT);
-    }
+    input.left_pressed |= keys.any_just_pressed(LEFT);
+    input.right_pressed |= keys.any_just_pressed(RIGHT);
+    input.nudge_left_pressed |= keys.any_just_pressed(NUDGE_LEFT);
+    input.nudge_right_pressed |= keys.any_just_pressed(NUDGE_RIGHT);
+    // Shift + Left/Right nudged before the original's U/I keys were known:
+    // let nudge = keys.any_pressed(NUDGE);
+    // input.left_held = !nudge && keys.any_pressed(LEFT);
+    // input.right_held = !nudge && keys.any_pressed(RIGHT);
+    // if nudge {
+    //     input.nudge_left_pressed |= keys.any_just_pressed(LEFT);
+    //     input.nudge_right_pressed |= keys.any_just_pressed(RIGHT);
+    // } else {
+    //     input.left_pressed |= keys.any_just_pressed(LEFT);
+    //     input.right_pressed |= keys.any_just_pressed(RIGHT);
+    // }
     input.rotate_pressed |= keys.any_just_pressed(ROTATE);
     input.rotate_ccw_pressed |= keys.any_just_pressed(ROTATE_CCW);
     input.cast_light_pressed |= keys.any_just_pressed(CAST_LIGHT);

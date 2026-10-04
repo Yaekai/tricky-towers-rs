@@ -66,6 +66,7 @@ pub(crate) fn trials_input(
     mut menu: ResMut<TrialsMenu>,
     mut config: ResMut<GameConfig>,
     mut request: ResMut<MatchRequest>,
+    progress: Res<TrialProgress>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Trials {
         return;
@@ -87,6 +88,11 @@ pub(crate) fn trials_input(
     }
     if taps.key_pick || !taps.pad_pick.is_empty() {
         menu.selected = menu.selected.min(count - 1);
+        // A tier opens once enough medals are earned.
+        let medals = progress.medals(&config.trial_tiers);
+        if !config.trial_tiers.is_open(menu.selected, medals) {
+            return;
+        }
         config.trial = Some(menu.selected);
         // A trial's own values go over Normal's (?).
         config.difficulty = Some(Difficulty::Normal);
@@ -126,14 +132,23 @@ pub(crate) fn show_trials_screen(
     }
     for (text, mut words) in &mut texts {
         let index = first + text.0;
+        let tiers = &config.trial_tiers;
+        let medals = progress.medals(tiers);
         let line = config.trials.get(index).map_or(String::new(), |trial| {
-            let done = if progress.is_done(&trial.name) {
-                "  - done"
+            let tier = tiers
+                .tiers
+                .get(tiers.tier_of(index))
+                .map_or("", |(name, _)| name.as_str());
+            let state = if progress.is_done(&trial.name) {
+                "  - done".to_string()
+            } else if !tiers.is_open(index, medals) {
+                let need = tiers.tiers.get(tiers.tier_of(index)).map_or(0, |t| t.1);
+                format!("  - locked ({need} medals)")
             } else {
-                ""
+                String::new()
             };
             format!(
-                "{}. {}  ({}){done}",
+                "{tier} {}. {}  ({}){state}",
                 index + 1,
                 trial.name,
                 trial.mode.name()
