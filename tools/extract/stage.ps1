@@ -157,6 +157,22 @@ $manifest.Add('    "water_band_survival": (colors: []),')
 $manifest.Add('    "water_band_puzzle": (colors: []),')
 $notes.Add('- water_band : Race background water, bottom 6 screen units, top (61,82,201) to bottom (137,146,217); islands bob on it.')
 
+# --- Endless Race: pacer line and the Endless versions of the Race backdrop ---
+Add-Sprite 'pacer_line'  'gph_pacerRaceEndless'        'fx\pacer_line.png'  'Endless Race pacer line tile (1x2 units, 77 tiles side by side 1 unit apart); the line is its top edge' @(0.5, 1.0)
+Add-Sprite 'pacer_layer' 'gph_endless_race_pace_layer' 'fx\pacer_layer.png' 'Tint drawn under the pacer line (EndlessRacePaceLayer)'
+function EndlessBg($n, $sprite, $sx, $sy, $px, $py, $bz, $par, $what) {
+  $f = [Globalization.CultureInfo]::InvariantCulture
+  $extra = [string]::Format($f, ', screen: ({0:0.0##}, {1:0.0##}), position: ({2:0.0##}, {3:0.0##}), view_height: 41.54, z: {4}, parallax: {5:0.0#}', $sx, $sy, $px, $py, $bz, $par)
+  Add-Sprite "background_endless_$n" $sprite "backgrounds\endless_$n.png" $what $null $extra
+}
+EndlessBg 0 'gph_backgroundBack01_endless'   0.5 0.0 0.0 6.0 2 0.3 'Endless back island (same place as Race)'
+EndlessBg 1 'gph_backgroundMiddle01_endless' 0.0 0.0 0.0 5.35 3 0.3 'Endless middle island left'
+EndlessBg 2 'gph_backgroundMiddle02_endless' 1.0 0.0 -9.5 5.1 4 0.3 'Endless middle island right'
+EndlessBg 3 'gph_backgroundFront01_endless'  0.0 0.0 0.0 3.5 5 0.3 'Endless front island left'
+EndlessBg 4 'gph_backgroundFront02_endless'  0.0 0.0 10.0 4.8 6 0.3 'Endless front island centre-left'
+EndlessBg 5 'gph_backgroundFront03_endless'  1.0 0.0 0.0 3.6 7 0.3 'Endless front island right'
+$notes.Add('- Endless Race: pacer starts at height -5 (slides in from -15 over 1 s), speed 0.2 u/s. Each spell line picked up is a checkpoint: lines sit at the target height, first 10, then +10 each (+11, +12... once past 150). At a checkpoint the pacer stops, eases 2 units down over 1 s, waits 2 s, then speed += step (step starts 0.05, grows 0.01 per checkpoint up to 0.1; speed max 1.5). Game over when the pacer reaches the tower top. Score = ceil(10 x tower height). Light spells only, picked from Ivy, Undo, Ivy, Undo, Petrify. No lives: lost bricks are just gone.')
+
 # --- The original's letters (Enzo), as a letter picture plus sheet ---
 & (Join-Path $PSScriptRoot 'font.ps1') -Repo $Repo
 $manifest.Add('    "font_main": (file: "fonts/main.ron"),')
