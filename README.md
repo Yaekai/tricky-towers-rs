@@ -73,9 +73,10 @@ Values below come from reading Max's own copy of the original; the notes are in 
   `assets/config/game.ron`.
 
 ## What's missing
-See `PLAN.md`. In short: Trials, Online, Shop, Help and Settings tiles, player and mode select
-screens like the original's, spell effect animations (Large grow, Auto Rotate wind-up, cast
-beams), and the XP and wizard levels in the end-of-match popup.
+See `PLAN.md`. In short: Trials, Endless Survival and Endless Puzzle, the Online, Shop, Help and
+Settings tiles, losing towers collapsing and blowing up before the popup, the 1 s pause and lift
+at the start of a curse wave, spell effect animations (Large grow, cast beams and lightning, the
+spell bubbles beside each wizard), and saving the Endless leaderboard between runs.
 
 ## Modding
 Drop RON files in a `mods/` folder next to the game: each one changes only the config fields
@@ -85,3 +86,8 @@ extracted manifest. Bricks can be any polyomino. See `docs/modding.md`.
 ## Credits
 *Tricky Towers* is by WeirdBeard Games. This project is an unaffiliated fan reimplementation;
 to play the real thing, buy it.
+
+Built with [Bevy](https://bevyengine.org) and [avian](https://github.com/Jondolf/avian). Art is
+exported from your own install with [AssetRipper](https://github.com/AssetRipper/AssetRipper).
+The approach follows the [AI Game Modding Guides](https://github.com/trevaintdead/ai-game-modding-guides)
+(rewrites and ports) and [universal-modder](https://github.com/rehan-remade/universal-modder).
