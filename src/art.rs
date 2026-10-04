@@ -570,7 +570,7 @@ fn play_music(
         (_, ModeKind::Race) => "music_race",
         (_, ModeKind::Survival) => "music_survival",
         (_, ModeKind::Puzzle) => "music_puzzle",
-        (_, ModeKind::Endless) => unreachable!("Endless Race looks like a race"),
+        (_, _) => unreachable!("Endless modes look like their battle mode"),
     };
     if playing.iter().any(|(_, m)| m.0 == want) {
         return;

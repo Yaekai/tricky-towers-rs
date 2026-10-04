@@ -24,6 +24,8 @@ fn main() {
             "survival" => Some(ModeKind::Survival),
             "puzzle" => Some(ModeKind::Puzzle),
             "endless" => Some(ModeKind::Endless),
+            "endless-survival" => Some(ModeKind::EndlessSurvival),
+            "endless-puzzle" => Some(ModeKind::EndlessPuzzle),
             _ => None,
         });
     let path = args

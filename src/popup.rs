@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use bevy::ui::widget::NodeImageMode;
 
 use crate::art::Art;
-use crate::config::{GameConfig, ModeKind};
+use crate::config::GameConfig;
 use crate::gameplay::{Match, MatchRequest, Phase};
 use crate::menu::{MenuScreen, MenuSystems};
 
@@ -236,7 +236,7 @@ fn popup_input(
         }
         "Select Mode" => {
             game.phase = Phase::Menu;
-            *screen = if config.mode == ModeKind::Endless {
+            *screen = if config.mode.is_endless() {
                 MenuScreen::Endless
             } else {
                 MenuScreen::Modes

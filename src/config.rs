@@ -104,6 +104,8 @@ pub struct GameConfig {
     pub puzzle: PuzzleRules,
     #[serde(default)]
     pub endless: EndlessRules,
+    /// Endless Survival and Endless Puzzle (guesses until read).
+    pub endless_play: EndlessPlay,
     pub magic: MagicRules,
     pub ai: AiRules,
     #[serde(default)]
@@ -124,14 +126,22 @@ pub enum ModeKind {
     Puzzle,
     /// Build as high as you can before a rising line catches the top of your tower.
     Endless,
+    /// Survival with no brick limit: place as many bricks as you can before the
+    /// lives run out (public rules; details in [`EndlessPlay`] are guesses).
+    EndlessSurvival,
+    /// Puzzle that goes on: keep placing bricks under a laser that rises, until a
+    /// brick crosses it (public rules; details in [`EndlessPlay`] are guesses).
+    EndlessPuzzle,
 }
 
 impl ModeKind {
-    pub const ALL: [ModeKind; 4] = [
+    pub const ALL: [ModeKind; 6] = [
         ModeKind::Race,
         ModeKind::Survival,
         ModeKind::Puzzle,
         ModeKind::Endless,
+        ModeKind::EndlessSurvival,
+        ModeKind::EndlessPuzzle,
     ];
 
     pub fn name(self) -> &'static str {
@@ -140,14 +150,47 @@ impl ModeKind {
             ModeKind::Survival => "Survival",
             ModeKind::Puzzle => "Puzzle",
             ModeKind::Endless => "Endless Race",
+            ModeKind::EndlessSurvival => "Endless Survival",
+            ModeKind::EndlessPuzzle => "Endless Puzzle",
         }
     }
 
-    /// The mode whose art and music this one uses: Endless Race is dressed as a race.
+    /// The mode whose art and music this one uses: each Endless mode is dressed
+    /// as its battle mode.
     pub fn look(self) -> ModeKind {
         match self {
             ModeKind::Endless => ModeKind::Race,
+            ModeKind::EndlessSurvival => ModeKind::Survival,
+            ModeKind::EndlessPuzzle => ModeKind::Puzzle,
             mode => mode,
+        }
+    }
+
+    /// The mode whose rules this one plays by. Endless Survival and Endless Puzzle
+    /// follow Survival and Puzzle apart from how they end; Endless Race has its own.
+    pub fn rules(self) -> ModeKind {
+        match self {
+            ModeKind::EndlessSurvival => ModeKind::Survival,
+            ModeKind::EndlessPuzzle => ModeKind::Puzzle,
+            mode => mode,
+        }
+    }
+
+    /// The single-player Endless modes, scored on a leaderboard.
+    pub fn is_endless(self) -> bool {
+        matches!(
+            self,
+            ModeKind::Endless | ModeKind::EndlessSurvival | ModeKind::EndlessPuzzle
+        )
+    }
+
+    /// Row on the Endless screen and leaderboard: Race, Survival, Puzzle.
+    pub fn endless_index(self) -> Option<usize> {
+        match self {
+            ModeKind::Endless => Some(0),
+            ModeKind::EndlessSurvival => Some(1),
+            ModeKind::EndlessPuzzle => Some(2),
+            _ => None,
         }
     }
 }
@@ -282,6 +325,42 @@ impl EndlessRules {
     /// Score for a tower this tall.
     pub fn score(&self, height: f32) -> u32 {
         (height.max(0.0) * self.score_per_cell).ceil() as u32
+    }
+}
+
+/// Endless Survival and Endless Puzzle. Built from public descriptions of the
+/// original (three lives, as many bricks as you can; puzzle rules until you fail),
+/// so every value here is a guess `(?)` until it is read from the install
+/// (queued in docs/pc-tasks.md).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct EndlessPlay {
+    /// Endless Survival: score per brick placed (?). Lives and drop speed are
+    /// Survival's (?).
+    pub survival_score_per_brick: u32,
+    /// Endless Survival hands out light spells like Survival does (?).
+    pub survival_spells: bool,
+    /// Endless Puzzle: the laser starts at Puzzle's height and rises this many cells
+    /// every `laser_every` bricks placed (?).
+    pub laser_rise: f32,
+    pub laser_every: u32,
+    /// Endless Puzzle: score per brick placed (?).
+    pub puzzle_score_per_brick: u32,
+    /// Endless Puzzle: a dropped brick ends the run, as in puzzle trials (?), instead
+    /// of lowering the laser.
+    pub puzzle_drop_ends_run: bool,
+}
+
+impl Default for EndlessPlay {
+    fn default() -> Self {
+        Self {
+            survival_score_per_brick: 10,
+            survival_spells: true,
+            laser_rise: 1.0,
+            laser_every: 3,
+            puzzle_score_per_brick: 10,
+            puzzle_drop_ends_run: true,
+        }
     }
 }
 
@@ -1682,6 +1761,7 @@ impl Default for GameConfig {
             survival: SurvivalRules::default(),
             puzzle: PuzzleRules::default(),
             endless: EndlessRules::default(),
+            endless_play: EndlessPlay::default(),
             magic: MagicRules::default(),
             ai: AiRules::default(),
             wizards: WizardLook::default(),
@@ -1724,7 +1804,8 @@ impl GameConfig {
         match mode {
             ModeKind::Race => self.race.dark_magic,
             ModeKind::Survival => self.survival.dark_magic,
-            ModeKind::Puzzle | ModeKind::Endless => false,
+            // The Endless modes are played alone: nobody to curse.
+            _ => false,
         }
     }
 
@@ -1733,7 +1814,7 @@ impl GameConfig {
         match mode {
             ModeKind::Race => self.race.same_bricks,
             ModeKind::Survival => self.survival.same_bricks,
-            ModeKind::Puzzle | ModeKind::Endless => true,
+            _ => true,
         }
     }
 
@@ -1741,20 +1822,21 @@ impl GameConfig {
     /// mode, in cells, for a tower whose widest settled brick reaches `tower_half_width`
     /// from the centre. Puzzle lanes are wider and grow with the tower.
     pub fn lane_reach(&self, tower_half_width: f32) -> f32 {
-        match self.mode {
+        match self.mode.rules() {
             ModeKind::Puzzle => (self.lane_half_width * self.puzzle.lane_scale)
                 .max(tower_half_width + self.puzzle.lane_margin),
             _ => self.lane_half_width,
         }
     }
 
-    /// Base drop speed of the current mode, in cells/s.
+    /// Base drop speed of the current mode, in cells/s. Endless Survival and Endless
+    /// Puzzle use their battle mode's (?).
     pub fn drop_speed(&self) -> f32 {
-        match self.mode {
-            ModeKind::Race => self.race.drop_speed,
+        match self.mode.rules() {
             ModeKind::Survival => self.survival.drop_speed,
             ModeKind::Puzzle => self.puzzle.drop_speed,
             ModeKind::Endless => self.endless.drop_speed,
+            _ => self.race.drop_speed,
         }
     }
 

@@ -866,7 +866,7 @@ fn dress_platforms(
     for (entity, platform) in &platforms {
         let mut base = commands.entity(entity);
         // In Puzzle the floor blocks stand in for the base.
-        let floor = game.mode == ModeKind::Puzzle
+        let floor = game.mode.rules() == ModeKind::Puzzle
             && config.puzzle.floor != crate::config::PuzzleFloor::Plain;
         match art_sprite(&art, art_name, c).filter(|_| !floor) {
             // A child, so the sprite's scale never touches the platform's collider.
@@ -896,7 +896,7 @@ fn dress_platforms(
         base.with_children(|parent| {
             spawn_lane_layers(parent, &art, game.mode, c);
             let lane = config.cells(config.platform_width + 4.0);
-            let line = match game.mode {
+            let line = match game.mode.rules() {
                 ModeKind::Race => Some((
                     config.race.finish_height,
                     "finish_line",
@@ -913,7 +913,7 @@ fn dress_platforms(
                     "pacer_line",
                     Color::srgba(1.0, 0.55, 0.1, 0.85),
                 )),
-                ModeKind::Survival => None,
+                _ => None,
             };
             if let Some((height, name, color)) = line {
                 // The platform's centre is half a cell below its top.
@@ -1075,7 +1075,7 @@ fn update_next_preview(
         return;
     }
     *visibility = Visibility::Visible;
-    let floor = if game.mode == ModeKind::Puzzle {
+    let floor = if game.mode.rules() == ModeKind::Puzzle {
         state.stack_top.max(state.laser(&config))
     } else {
         state.stack_top
@@ -1139,7 +1139,7 @@ fn frame_towers(
         top = top.max(state.stack_top);
     }
     // Follow the tower tops; the race finish only comes into view as towers near it.
-    let goal = match game.mode {
+    let goal = match game.mode.rules() {
         ModeKind::Puzzle => config.puzzle.line_height + config.puzzle.line_random,
         _ => 0.0,
     };
@@ -1468,6 +1468,16 @@ fn update_hud(
             config.endless.score(you.best_height),
             you.pacer
         ),
+        ModeKind::EndlessSurvival => format!(
+            "ENDLESS SURVIVAL  score {}  bricks {}",
+            you.endless_score(&config),
+            you.bricks_placed,
+        ),
+        ModeKind::EndlessPuzzle => format!(
+            "ENDLESS PUZZLE  score {}  stay under the laser ({:.1})",
+            you.endless_score(&config),
+            you.laser(&config)
+        ),
     };
     let spell = if config.magic.enabled {
         you.spell_line
@@ -1519,6 +1529,10 @@ fn update_hud(
                     "CAUGHT! Score {}. Press R to try again",
                     config.endless.score(you.best_height)
                 ),
+                ModeKind::EndlessSurvival | ModeKind::EndlessPuzzle => format!(
+                    "RUN OVER! Score {}. Press R to try again",
+                    you.endless_score(&config)
+                ),
                 _ => "OUT OF LIVES. Press R to try again".into(),
             },
         });
@@ -1536,7 +1550,7 @@ fn update_lines(
 ) {
     let c = config.cell_size;
     for (line, mut transform) in &mut finish {
-        let height = match game.mode {
+        let height = match game.mode.rules() {
             ModeKind::Puzzle => towers
                 .get(line.tower)
                 .map_or(config.puzzle.line_height, |s| s.laser(&config)),

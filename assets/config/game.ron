@@ -263,6 +263,14 @@
         score_per_cell: 10.0,
         drop_speed: 3.0,
     ),
+    endless_play: (
+        survival_score_per_brick: 10,
+        survival_spells: true,
+        laser_rise: 1.0,
+        laser_every: 3,
+        puzzle_score_per_brick: 10,
+        puzzle_drop_ends_run: true,
+    ),
     magic: (
         enabled: true,
         line_spacing: 9.0,

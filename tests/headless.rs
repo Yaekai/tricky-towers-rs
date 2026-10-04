@@ -1253,5 +1253,66 @@ fn the_winner_keeps_its_tower_while_the_loser_falls_apart() {
         .iter(world)
         .filter(|b| b.tower == winner)
         .count();
-    assert!(standing >= 3, "the winner's tower should stand: {standing} bricks");
+    assert!(
+        standing >= 3,
+        "the winner's tower should stand: {standing} bricks"
+    );
+}
+
+#[test]
+fn endless_survival_has_no_brick_limit_and_ends_with_the_lives() {
+    let mut config = fast_config();
+    config.mode = ModeKind::EndlessSurvival;
+    // Battle Survival would stop here; Endless Survival goes on.
+    config.survival.bricks_to_place = 3;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 5.0, |_| {});
+    let state = tower(&mut app, 0);
+    assert!(state.bricks_placed > 3, "no brick limit: {state:?}");
+    assert_eq!(state.lives, Some(3));
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
+
+    assert!(run_until(&mut app, 30.0, |app| {
+        human_input(app).left_held = true;
+        app.world().resource::<Match>().phase == Phase::Over
+    }));
+    let state = tower(&mut app, 0);
+    assert_eq!(state.status, TowerStatus::Out);
+    assert_eq!(state.lives, Some(0));
+}
+
+#[test]
+fn endless_puzzle_laser_climbs_and_a_dropped_brick_ends_the_run() {
+    let mut config = fast_config();
+    config.mode = ModeKind::EndlessPuzzle;
+    config.puzzle.line_height = 6.0;
+    config.puzzle.bricks = 2;
+    let rules = config.endless_play.clone();
+    let mut app = headless_app(config);
+    let start = {
+        let config = app.world().resource::<GameConfig>().clone();
+        tower(&mut app, 0).laser(&config)
+    };
+    // Puzzle bricks start above the laser, so they take a while to come down.
+    assert!(
+        run_until(&mut app, 12.0, |app| tower(app, 0).bricks_placed > 3),
+        "no brick limit: {:?}",
+        tower(&mut app, 0)
+    );
+    let config = app.world().resource::<GameConfig>().clone();
+    let state = tower(&mut app, 0);
+    let steps = state.bricks_placed / rules.laser_every;
+    assert_eq!(
+        state.laser(&config),
+        start + rules.laser_rise * steps as f32
+    );
+
+    // Steering a brick off the edge ends the run.
+    assert!(run_until(&mut app, 20.0, |app| {
+        human_input(app).left_held = true;
+        app.world().resource::<Match>().phase == Phase::Over
+    }));
+    let state = tower(&mut app, 0);
+    assert_eq!(state.status, TowerStatus::Out);
+    assert!(state.bricks_dropped >= 1);
 }

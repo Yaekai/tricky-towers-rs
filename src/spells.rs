@@ -92,7 +92,9 @@ pub(crate) fn update_spell_lines(
         state.mist_timer = (state.mist_timer - dt).max(0.0);
     }
     let magic = &config.magic;
-    if !magic.enabled || game.phase != Phase::Playing || game.mode == ModeKind::Puzzle {
+    let lines_off = game.mode.rules() == ModeKind::Puzzle
+        || (game.mode == ModeKind::EndlessSurvival && !config.endless_play.survival_spells);
+    if !magic.enabled || game.phase != Phase::Playing || lines_off {
         return;
     }
     let spacing = magic.spacing(game.players);
@@ -147,7 +149,7 @@ pub(crate) fn update_spell_lines(
         let Some(rule) = magic
             .award_rules
             .iter()
-            .find(|r| rule_holds(r, game.mode, hurt, finish_gap, behind))
+            .find(|r| rule_holds(r, game.mode.rules(), hurt, finish_gap, behind))
         else {
             continue;
         };
