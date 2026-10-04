@@ -211,6 +211,38 @@ Add-Sprite 'menu_corner_small' 'gph_menuSelectedCornerSmall' 'menu\corner_small.
 foreach ($i in 1..5) { Add-Sprite "menu_sunrays_$i" "gph_mainMenuSun0$i" "menu\sunrays_$i.png" "Sun-ray layer $i behind a picked tile (556x556)" }
 $notes.Add('- Title tiles (1920x1080, centres from screen centre, y up): local (-249, 225.5) 437x335; single (-246, -155.5) 435x335; online (278, 232.5) 441x335; shop (277, -62.5) 450x165; help (146, -250) 197x150; settings (396, -251) 197x150; quit (0, -406) 436x68. Front art offsets from the tile centre: local (-5, -25) 538x272, single (17, -42) 488x235, online (-21, -19) 467x283, shop (-20, -9) 483x128, settings cogs (0, 0) 181x134. Picked tile: rays 1 turn 0->180 deg and rays 2 turn 0->-90 deg every 2 s (looping); the 4 corners pulse outward and back every 1 s.')
 
+
+# --- Select Players and Select Mode (PlayerSelect / ModeSelect scenes, 1920x1080 UI) ---
+Add-Sprite 'menu_header' 'gph_menuHeaderBackground' 'menu\header.png' 'Title bar of Select Players / Select Mode: 800x90 hanging from the top centre'
+Add-Sprite 'menu_player_select_background_deselected' 'gph_playerSelectBackground_deselected' 'menu\player_select_background_deselected.png' 'Seat panel, grey (332x283; also the 332x100 brick pack panel, sliced)'
+Add-Sprite 'menu_player_select_background_selected'   'gph_playerSelectBackground_selected'   'menu\player_select_background_selected.png'   'Seat panel behind a ready wizard, under the sun rays'
+Add-Sprite 'menu_player_select_outline'   'gph_playerSelectOutline'        'menu\player_select_outline.png'   'Frame over a ready seat panel (332x283)'
+Add-Sprite 'menu_player_select_nameplate' 'gph_playerSelectNameBackground' 'menu\player_select_nameplate.png' 'Name plate under a seat (367x78)'
+# Seats 2 and 4 have no own "ready" picture: the original reuses the title-screen wizards.
+$ready = @{ 1 = 'gph_playerSelectWizard01Ready'; 2 = 'gph_mainMenuOnlineMPWizard02'; 3 = 'gph_playerSelectWizard03Ready'; 4 = 'gph_mainMenuLocalMPWizard04' }
+foreach ($n in 1..4) {
+  Add-Sprite "menu_player_select_wizard$($n)_sleeping" "gph_playerSelectWizard0$($n)Sleeping" "menu\player_select_wizard$($n)_sleeping.png" "Seat $n wizard, asleep until someone joins"
+  Add-Sprite "menu_player_select_wizard$($n)_ready"    $ready[$n]                              "menu\player_select_wizard$($n)_ready.png"    "Seat $n wizard, awake"
+}
+Add-Sprite 'menu_arrow_small'      'btn_menuArrowSmall'       'menu\arrow_small.png'      'Seat arrows left/right of a panel (38x64, at x -165 / +165)'
+Add-Sprite 'menu_arrow'            'btn_menuArrow'            'menu\arrow.png'            'Mode column arrow (94x55), above and below the picked tile'
+Add-Sprite 'menu_arrow_deselected' 'btn_menuArrowDeselected'  'menu\arrow_deselected.png' 'Mode column arrow when the column is not active'
+foreach ($m in @('Race', 'Survival', 'Puzzle', 'Random', 'SurvivalSP')) {
+  Add-Sprite "menu_mode_$($m.ToLower())" "gph_menuMode$m" "menu\mode_$($m.ToLower()).png" "Select Mode: $m tile"
+}
+Add-Sprite 'menu_difficulty_background'         'gph_difficultyItemBackground'         'menu\difficulty_background.png'         'Select Mode: difficulty tile background (461x393)'
+Add-Sprite 'menu_difficulty_background_special' 'gph_difficultyItemBackground_special' 'menu\difficulty_background_special.png' 'Select Mode: difficulty tile background for Pro/Special'
+foreach ($d in @('Easy', 'Normal', 'Pro', 'Random')) {
+  Add-Sprite "menu_difficulty_$($d.ToLower())" "gph_difficulty$d" "menu\difficulty_$($d.ToLower()).png" "Select Mode: $d picture on the difficulty tile"
+}
+Add-Sprite 'menu_quick_match' 'gph_quickMatch' 'menu\quick_match.png' 'Select Mode: cup column tile picture (online / cup flow)'
+foreach ($d in @('easy', 'normal', 'special')) {
+  Add-Sprite "menu_mode_title_background_$d" "gph_modeTitleBackground_$d"     "menu\mode_title_background_$d.png" "In-match mode title banner ($d), NOT a Select Mode tile"
+  Add-Sprite "menu_mode_title_side_$d"       "gph_modeTitleBackgroundSide_$d" "menu\mode_title_side_$d.png"       "In-match mode title banner wings ($d)"
+  Add-Sprite "menu_mode_title_star_$d"       "gph_modeTitleBackgroundStar_$d" "menu\mode_title_star_$d.png"       "In-match mode title banner stars ($d)"
+}
+$notes.Add('- Select Players: 4 seat columns between 5% and 95% of the width, each 22.5% wide (432 px at 1920), centred. Per seat, from the screen centre (y up): character panel 332x283 at +115, its 318x500 wizard window centred on the same point (+115), arrows at x -165/+165 on that line, brick pack panel 332x100 at -110, name plate 367x78 at -230. Corners: menu_corner_small on both panels. Header 800x90 hanging from the top centre. Wizard sprite offsets in the panel: sleeping 1 (0,0) 213x250, 2 (0,38) 225x323, 3 (-9,14) 237x275, 4 (0,11.7) 212x267; ready 1 (0,0) 235x314, 2 (0,21) 259x344, 3 (-3,4) 279x300, 4 (7.5,7) 253x322. A ready seat = selected background + 5 sun-ray layers (masked to 327x267) + outline + wizard. Texts: "Select Players", "[continue]\nTo join", "Player {n}", "Sign In".')
+$notes.Add('- Select Mode: columns of 480x800 panels, 540 px apart, centred on x (2 columns: -270 / +270; 3 with the cup column), y 0. Column 1 modes (Race, Survival, Puzzle, then Random), column 2 difficulties (Easy, Normal, Pro, Random). Picked-tile frame 513x445 at x -5.5 with menu_corner_large corners; arrows 94x55 at 130 px outside the top and bottom edge. Tile pictures: race (-3,9) 487x411, survival (6,0) 482x393, puzzle (-7,-1) 505x392, random (0,0) 495x393; difficulty background (-5,0) 461x393 with picture easy (-3.9,35.5) 209x157, normal (-2,38) 328x175, pro (-2.5,42) 370x188 on the _special background, random (0,50) 365x208; light/dark spell icons 56x56 at (85,-190) and (145,-190). The third difficulty is keyed DIFFICULTY_PRO but its English text is "Special". The menu_mode_title_* sprites are the banner shown at the start of a match, not Select Mode art.')
 # --- Endless Race: pacer line and the Endless versions of the Race backdrop ---
 Add-Sprite 'pacer_line'  'gph_pacerRaceEndless'        'fx\pacer_line.png'  'Endless Race pacer line tile (1x2 units, 77 tiles side by side 1 unit apart); the line is its top edge' @(0.5, 1.0)
 Add-Sprite 'pacer_layer' 'gph_endless_race_pace_layer' 'fx\pacer_layer.png' 'Tint drawn under the pacer line (EndlessRacePaceLayer)'
