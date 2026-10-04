@@ -236,3 +236,20 @@ and nothing gets installed without Max's own go-ahead.
 - Controller rumble is in (src/input.rs `rumble_losers`): a losing player's pad rumbles 2 s when
   their end sequence starts and 2.5 s with the rumble after the blasts. The strength (0.6 on
   the strong motor) is a guess: read the original's rumble strength (both motors) for each.
+- **Trials are now playable on SAMPLE data** (src/trials.rs, src/trials_menu.rs,
+  `GameConfig::trials` = `TrialDef` list, `sample_trials()` in config.rs). The engine follows
+  your notes: a goal per mode, and an enemy wizard who casts dark spells every N seconds, at set
+  times, or when a share of the bricks is used (`CastWhen::Every/At/BricksUsed`). The three
+  sample trials and everything below are GUESSES. Please read and write in docs/research/:
+  1. All 50 trials, in order, as rows the cloud can paste into `trials` in game.ron: name,
+     mode, goal (Race: finish height and time limit; Survival: bricks and lives; Puzzle:
+     bricks and laser height), drop speed, start spell, base or floor, and the enemy script
+     lines (when + which spells). Note the petrified-brick challenge variant too.
+  2. How a trial is won and lost beyond the goal (does a Race trial need the 3 s hold? does
+     the Survival roof countdown apply?), and whether trials give stars, medals or times.
+  3. Unlocking: are trials opened one by one, by stars, or all at once? (Ours: all open.)
+  4. The Trials screen: layout, art names, what each row shows, and how trials are grouped.
+  5. The enemy wizard: which art, where it floats, how its casts look (we only draw the beam
+     down onto your brick), and whether light spell lines appear in trials.
+  6. What the game saves for trials (we save the names beaten, in `trials.ron` next to the
+     leaderboard).

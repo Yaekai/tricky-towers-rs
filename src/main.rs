@@ -126,8 +126,10 @@ fn main() {
     if offscreen.is_none() {
         let file = tricky_towers::single::save_dir().join("leaderboard.ron");
         app.insert_resource(tricky_towers::single::Leaderboard::load(file));
+        let file = tricky_towers::single::save_dir().join("trials.ron");
+        app.insert_resource(tricky_towers::trials::TrialProgress::load(file));
     }
-    // `--menu title|players|modes|single|endless|pause` opens on that menu screen, for scripted pictures.
+    // `--menu title|players|modes|single|endless|trials|pause` opens on that menu screen, for scripted pictures.
     // Player select shows the keyboard player and one AI wizard seated.
     if let Some(menu) = value("--menu") {
         use tricky_towers::menu::MenuScreen;
@@ -141,6 +143,7 @@ fn main() {
             }
             "single" => MenuScreen::Single,
             "endless" => MenuScreen::Endless,
+            "trials" => MenuScreen::Trials,
             "title" => MenuScreen::Main,
             "pause" => MenuScreen::Pause,
             _ => MenuScreen::Modes,

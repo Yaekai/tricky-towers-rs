@@ -236,7 +236,9 @@ fn popup_input(
         }
         "Select Mode" => {
             game.phase = Phase::Menu;
-            *screen = if config.mode.is_endless() {
+            *screen = if config.trial.is_some() {
+                MenuScreen::Trials
+            } else if config.mode.is_endless() {
                 MenuScreen::Endless
             } else {
                 MenuScreen::Modes

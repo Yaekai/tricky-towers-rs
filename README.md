@@ -78,7 +78,8 @@ Values below come from reading Max's own copy of the original; the notes are in 
   `assets/config/game.ron`.
 
 ## What's missing
-See `PLAN.md`. In short: Trials, the original's exact Endless Survival and Endless Puzzle rules
+See `PLAN.md`. In short: the original's 50 Trials (the engine and 3 sample trials are in), the
+original's exact Endless Survival and Endless Puzzle rules
 (both play today on guessed values), the Online, Shop, Help and
 Settings tiles, the remaining spell animations (Auto Rotate wind-up, stone and ice transitions),
 the decorations at a cast beam's foot (rays, rings, sparks), and the explosion art for collapsing

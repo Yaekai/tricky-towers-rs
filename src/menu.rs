@@ -26,6 +26,7 @@ impl Plugin for MenuPlugin {
             .init_resource::<Lobby>()
             .init_resource::<SingleMenu>()
             .init_resource::<Leaderboard>()
+            .init_resource::<crate::trials_menu::TrialsMenu>()
             .add_systems(
                 Startup,
                 (
@@ -33,6 +34,7 @@ impl Plugin for MenuPlugin {
                     spawn_main_menu,
                     spawn_select_screens,
                     spawn_single_screens,
+                    crate::trials_menu::spawn_trials_screen,
                     spawn_pause_menu,
                 ),
             )
@@ -45,6 +47,7 @@ impl Plugin for MenuPlugin {
                     modes_input,
                     players_input,
                     endless_input,
+                    crate::trials_menu::trials_input,
                     single_input,
                     main_menu_input,
                     start_input,
@@ -52,6 +55,7 @@ impl Plugin for MenuPlugin {
                     show_start_screen,
                     show_select_screens,
                     show_single_screens,
+                    crate::trials_menu::show_trials_screen,
                     show_pause_menu,
                     show_main_menu,
                     spin_tile_rays,
@@ -96,7 +100,7 @@ fn menu_escape(
         }
         (Phase::Menu, MenuScreen::Modes) => step_back(&mut lobby, &mut screen),
         (Phase::Menu, MenuScreen::Single) => *screen = MenuScreen::Main,
-        (Phase::Menu, MenuScreen::Endless) => *screen = MenuScreen::Single,
+        (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
         (Phase::Menu, MenuScreen::Start) => {}
     }
@@ -123,6 +127,8 @@ pub enum MenuScreen {
     Single,
     /// Endless: Race, Survival and Puzzle beside the leaderboard.
     Endless,
+    /// Trials: the list of single-player challenges.
+    Trials,
     /// "Game Paused" over a match: Resume, Retry, Quit.
     Pause,
 }

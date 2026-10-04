@@ -24,6 +24,8 @@ pub mod results;
 pub mod select;
 pub mod single;
 pub mod spells;
+pub mod trials;
+pub mod trials_menu;
 pub mod visuals;
 pub mod wizards;
 
@@ -46,6 +48,7 @@ impl Plugin for TowerCorePlugin {
             PhysicsPlugins::default().with_length_unit(cell),
             gameplay::GameplayPlugin,
             collapse::CollapsePlugin,
+            trials::TrialsPlugin,
             ai::AiPlugin,
         ));
     }

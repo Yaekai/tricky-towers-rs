@@ -1,7 +1,7 @@
 //! Single Player: the player's seat over a short list (Trials, Endless), then
 //! the Endless screen, three wide buttons (Race, Survival, Puzzle) beside a
 //! leaderboard. Layout from docs/research/menus.md, in pixels of a 1920×1080
-//! screen. Trials aren't built, so that entry shows dimmed. Endless Survival and
+//! screen. Endless Survival and
 //! Endless Puzzle follow public descriptions until their values are read (?).
 
 use std::path::PathBuf;
@@ -53,7 +53,7 @@ const ROW_STEP: f32 = 62.0;
 const BOARD_LENGTH: usize = 10;
 
 /// A Single Player list entry: its name and whether it's built yet.
-const LIST: [(&str, bool); 2] = [("Trials", false), ("Endless", true)];
+const LIST: [(&str, bool); 2] = [("Trials", true), ("Endless", true)];
 
 /// An Endless button: its name, picture (its size and how far up it sits in
 /// the slot), wizard face and whether it's built.
@@ -401,8 +401,8 @@ fn endless_slot(index: usize) -> (f32, f32) {
 /// A list button's colour when its art isn't staged.
 const LIST_COLOR: Color = Color::srgb(0.3, 0.24, 0.55);
 
-/// Up/Down move along the list, Enter or A opens Endless (Trials aren't built
-/// yet), B goes back to the title.
+/// Up/Down move along the list, Enter or A opens Trials or Endless, B goes back
+/// to the title.
 pub(crate) fn single_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
@@ -421,9 +421,14 @@ pub(crate) fn single_input(
     if taps.up || taps.down {
         menu.selected = (menu.selected + 1) % LIST.len();
     }
-    if (taps.key_pick || !taps.pad_pick.is_empty()) && LIST[menu.selected].0 == "Endless" {
-        menu.endless = 0;
-        *screen = MenuScreen::Endless;
+    if taps.key_pick || !taps.pad_pick.is_empty() {
+        match LIST[menu.selected].0 {
+            "Endless" => {
+                menu.endless = 0;
+                *screen = MenuScreen::Endless;
+            }
+            _ => *screen = MenuScreen::Trials,
+        }
     }
 }
 
@@ -461,6 +466,7 @@ pub(crate) fn endless_input(
     config.difficulty = Some(Difficulty::Normal);
     config.players = 1;
     config.opponents = 0;
+    config.trial = None;
     request.pending = true;
 }
 

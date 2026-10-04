@@ -104,9 +104,11 @@ fn single_player_opens_endless_and_plays_endless_race() {
     tap(&mut app, KeyCode::Escape);
     assert_eq!(screen(&app), MenuScreen::Main);
     tap(&mut app, KeyCode::Enter);
-    // Trials isn't built: picking it stays put.
+    // Trials opens its list; Esc comes back.
     tap(&mut app, KeyCode::ArrowUp);
     tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Trials);
+    tap(&mut app, KeyCode::Escape);
     assert_eq!(screen(&app), MenuScreen::Single);
     tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
@@ -252,4 +254,31 @@ fn game_completed_popup_rematches_selects_a_mode_or_goes_to_the_title() {
         "Main menu"
     );
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
+}
+
+#[test]
+fn trials_list_plays_the_picked_trial() {
+    let mut app = app();
+    let screen = |app: &App| *app.world().resource::<MenuScreen>();
+    // Title → Single Player → Trials (above Endless, where the cursor starts).
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::ArrowUp);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Trials);
+    // The second sample trial is Survival.
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    let game = app.world().resource::<Match>();
+    assert_eq!(
+        (game.phase, game.mode),
+        (Phase::Playing, ModeKind::Survival)
+    );
+    let config = app.world().resource::<GameConfig>();
+    assert_eq!(config.trial, Some(1));
+    assert_eq!((config.players, config.opponents), (1, 0));
+    assert_eq!(
+        config.survival.bricks_to_place,
+        config.trials[1].bricks.unwrap()
+    );
 }

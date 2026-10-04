@@ -724,6 +724,7 @@ pub(crate) fn modes_input(
         config.opponents = 0;
     }
     lobby.column = 0;
+    config.trial = None;
     request.pending = true;
 }
 

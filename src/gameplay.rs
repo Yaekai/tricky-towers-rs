@@ -22,6 +22,7 @@ impl Plugin for GameplayPlugin {
             .init_resource::<WindGusts>()
             .add_message::<BrickLost>()
             .init_resource::<crate::spells::SpellLog>()
+            .init_resource::<crate::spells::EnemyCasts>()
             .add_systems(Startup, setup_world)
             .add_systems(
                 FixedUpdate,
@@ -776,6 +777,10 @@ fn start_match(
     }
     // The picked difficulty's values replace the mode rules.
     config.apply_difficulty();
+    // A trial's own rules go over the difficulty's.
+    if let Some(trial) = config.trial.and_then(|i| config.trials.get(i)).cloned() {
+        trial.apply(&mut config);
+    }
     let config = &*config;
     // Joints go before the bricks they hold; avian's island bookkeeping
     // breaks if a jointed body disappears first.

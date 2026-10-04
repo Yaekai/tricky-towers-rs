@@ -439,12 +439,20 @@ enum Cast {
     Dark(Curse),
 }
 
+/// Caster index logged for the enemy wizard of a trial, who has no tower.
+pub const ENEMY_WIZARD: usize = usize::MAX;
+
+/// Curses the trial's enemy wizard casts this step (src/trials.rs).
+#[derive(Resource, Debug, Default)]
+pub struct EnemyCasts(pub Vec<Curse>);
+
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(crate) fn cast_spells(
     mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
     mut log: ResMut<SpellLog>,
+    mut enemy: ResMut<EnemyCasts>,
     mut towers: Query<(Entity, &Tower, &mut TowerState, &mut PlayerInput)>,
     mut active: Query<(&mut ActiveBrick, &mut Brick)>,
     placed: Query<
@@ -474,6 +482,11 @@ pub(crate) fn cast_spells(
             state.light_spell = None;
             casts.push((entity, tower.index, Cast::Dark(curse)));
         }
+    }
+
+    // A trial's enemy wizard casts on every tower; it has no tower of its own.
+    for curse in enemy.0.drain(..) {
+        casts.push((Entity::PLACEHOLDER, ENEMY_WIZARD, Cast::Dark(curse)));
     }
 
     let magic = &config.magic;
