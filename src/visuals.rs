@@ -37,6 +37,7 @@ impl Plugin for VisualsPlugin {
                     spawn_backgrounds,
                     fit_backgrounds,
                     light_layers,
+                    grey_wave_layers,
                     scroll_lane_layers,
                     fit_strips,
                     redress_on_art_change,
@@ -574,6 +575,8 @@ struct ScreenLayer {
     /// Sideways drift in screen units a second, and how far it has gone.
     drift: f32,
     drifted: f32,
+    /// The drift before a curse wave sped it up.
+    base_drift: Option<f32>,
 }
 
 /// The brighter copy of a layer, shown as the lightning flashes.
@@ -770,6 +773,7 @@ fn spawn_backgrounds(
                         parallax: entry.parallax.unwrap_or(0.0),
                         drift,
                         drifted: 0.0,
+                        base_drift: None,
                     },
                     base,
                     ChildOf(camera),
@@ -861,6 +865,40 @@ fn fit_backgrounds(
         let unit = view.y / band.view_height;
         sprite.custom_size = Some(Vec2::new(view.x, band.height * unit));
         transform.translation.y = -view.y * 0.5 - climb * band.parallax;
+    }
+}
+
+/// Survival's curse waves grey the background layers (clouds and islands) and speed
+/// up the drifting clouds, shifting with the sky over `wave_shift` (gap-scan.md 2).
+#[allow(clippy::type_complexity)]
+fn grey_wave_layers(
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    mix: Option<Res<crate::weather::WaveMix>>,
+    mut layers: Query<
+        (&mut Sprite, Option<&mut ScreenLayer>),
+        (Or<(With<ScreenLayer>, With<Background>)>, Without<LitLayer>),
+    >,
+) {
+    if game.mode.look() != ModeKind::Survival {
+        return;
+    }
+    let mix = mix.map_or(0.0, |m| m.0);
+    let weather = &config.weather;
+    let [r, g, b] = weather.survival_wave_grey;
+    let tint = Color::WHITE.mix(&Color::srgb_u8(r, g, b), mix);
+    for (mut sprite, layer) in &mut layers {
+        if sprite.color != tint {
+            sprite.color = tint;
+        }
+        if let Some(mut layer) = layer {
+            let current = layer.drift;
+            let base = *layer.base_drift.get_or_insert(current);
+            let drift = base * (1.0 + (weather.survival_wave_drift - 1.0) * mix);
+            if layer.drift != drift {
+                layer.drift = drift;
+            }
+        }
     }
 }
 

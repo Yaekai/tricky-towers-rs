@@ -23,6 +23,7 @@ impl Plugin for WeatherPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WeatherState>()
             .init_resource::<Flash>()
+            .init_resource::<WaveMix>()
             .add_systems(
                 Update,
                 (
@@ -44,6 +45,10 @@ struct Weather;
 /// How bright the lightning flash is now, 0 to 1, for layers lit by it.
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct Flash(pub f32);
+
+/// How far Survival's background has shifted to the curse-wave look, 0 to 1.
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub struct WaveMix(pub f32);
 
 /// The full-screen flash of a strike (not a bolt piece).
 #[derive(Component)]
@@ -482,27 +487,34 @@ fn fit_weather(
 
 /// Survival: while a curse wave lasts, the sky shifts to the wave colours over 1 s, and
 /// back when it ends.
+#[allow(clippy::too_many_arguments)]
 fn survival_wave_sky(
     time: Res<Time>,
     config: Res<GameConfig>,
     game: Res<Match>,
     mut state: ResMut<WeatherState>,
+    mut mix: ResMut<WaveMix>,
     towers: Query<&TowerState>,
     sky: Query<&Sprite, With<Sky>>,
     mut images: ResMut<Assets<Image>>,
 ) {
     if game.mode.rules() != ModeKind::Survival || game.phase == Phase::Menu {
         state.wave_mix = 0.0;
+        mix.0 = 0.0;
         return;
     }
     let weather = &config.weather;
-    let wave = towers.iter().any(|s| s.wave_left > 0.0);
+    // Timed waves (Survival Pro) and waves counted in bricks (Endless Survival).
+    let wave = towers
+        .iter()
+        .any(|s| s.wave_left > 0.0 || s.wave_bricks > 0);
     let step = time.delta_secs() / weather.wave_shift.max(0.01);
     state.wave_mix = if wave {
         (state.wave_mix + step).min(1.0)
     } else {
         (state.wave_mix - step).max(0.0)
     };
+    mix.0 = state.wave_mix;
     // Redraw only while the colours are moving.
     if state.wave_mix == state.wave_drawn {
         return;
