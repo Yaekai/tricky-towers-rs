@@ -44,6 +44,7 @@ fn main() {
                             | "--difficulty"
                             | "--offscreen"
                             | "--shots"
+                            | "--size"
                             | "--menu"
                             | "--script"
                             | "--trials"
@@ -191,7 +192,13 @@ fn main() {
         app.add_plugins(tricky_towers::offscreen::OffscreenPlugin {
             dir,
             shots,
-            size: UVec2::new(1280, 720),
+            // `--size 3440x1440`: picture size (1280x720 if left out).
+            size: value("--size")
+                .and_then(|s| {
+                    let (w, h) = s.split_once('x')?;
+                    Some(UVec2::new(w.parse().ok()?, h.parse().ok()?))
+                })
+                .unwrap_or(UVec2::new(1280, 720)),
             scripted: script.is_some(),
         });
     }
