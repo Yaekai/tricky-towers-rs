@@ -3,7 +3,11 @@
 Answers for values marked `(?)` in the code. Units: the original's world units (1 brick
 cell = 1 unit), its UI pixels on a 1920×1080 screen, seconds and degrees.
 
-## Results: sunrays behind the trophy (`results.sunray_spin`)
+## Results: sunrays behind WINNER! (`results.sunray_spin`)
+Two `gph_castEffectSunrays` layers behind the WINNER! text, turned by a script at a steady
+60°/s and -90°/s (WinMessage prefab).
+
+## Cup winner: sunrays behind the trophy
 Two ray layers on a 2 s loop, both turning at a steady speed (linear keys): the back layer
 +90°/s (180° per loop), the front layer -45°/s (the other way). The front layer is also
 scaled 1.2, holds 1 s, then eases to 1.1 by the end of the loop (and snaps back).
