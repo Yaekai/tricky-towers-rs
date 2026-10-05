@@ -1,6 +1,6 @@
 # Standing tasks for the extract and test session on Max's PC
 
-Max has asked this session to follow this file after every pull of PR #1 until the 1:1 art
+Max has asked this session to follow this file after every pull of `features/spells-puzzle-menu` (PR #1 merged it into `main` on 2026-10-05) until the 1:1 art
 work is done, without waiting to be asked. The cloud session edits this file to queue work.
 Read-only on the Steam install, nothing from the game goes into the repo (see AGENTS.md),
 and nothing gets installed without Max's own go-ahead.
