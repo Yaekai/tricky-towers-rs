@@ -64,7 +64,8 @@ no pitch or volume variation beyond the fixed values above.
 **When each kind plays in a match**
 - startle: hit by a dark spell, a life lost, leaving the game.
 - laugh_evil: after casting a dark spell (shares the 7 s laugh cooldown).
-- laugh_hard: the trial's enemy wizard when it casts, and single-player mode intros.
+- laugh_hard: the trial's enemy wizard in the trial intros, and again every 3-4 s (random)
+  after it wins (the player failed the trial).
 - laugh: not used in a local match; the menus' wandering and player-driven wizards use it.
 - cheer: spell picked up, after a roof is placed, the winner.
 - action: the Action animation (bricks, roof).

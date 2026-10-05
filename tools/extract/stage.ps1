@@ -157,8 +157,9 @@ ModeScreenBg 'puzzle_pro' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   3 0.
 ModeScreenBg 'puzzle_pro' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.5 'Pro ruins middle right' ', mask: ((126, 22, 60), (103, 14, 43))'
 ModeScreenBg 'puzzle_pro' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.5 'Pro ruins front left' ', mask: ((46, 4, 5), (46, 4, 5))'
 ModeScreenBg 'puzzle_pro' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.5 'Pro ruins front right' ', mask: ((46, 4, 5), (46, 4, 5))'
-# Race Pro: the stormy clouds drift (screen units a second); the race islands as by day
-# (their dark versions weren't found under any sprite name, so no `lit` yet).
+# Race Pro: the stormy clouds drift (screen units a second); the race islands are drawn from their
+# night textures (Resources\game\background\race\islands\Island*Dark.png, plain textures, not
+# sprites) with the day island as `lit`, shown while the lightning flashes (fades over 0.2 s).
 ModeScreenBg 'race_pro' 0 'gph_cloudLargePro_var01' 0.3 0.0 0.0 0.0 0 0.2 'Race Pro cloud' ', drift: (0.15, 0.25)'
 ModeScreenBg 'race_pro' 1 'gph_cloudLargePro_var01' 0.8 0.0 0.0 0.0 1 0.2 'Race Pro cloud 2' ', drift: (0.15, 0.25)'
 ModeScreenBg 'race_pro' 2 'gph_backgroundBack01'   0.5 0.0 0.0 6.0 2 0.3 'Back island'
@@ -167,6 +168,16 @@ ModeScreenBg 'race_pro' 4 'gph_backgroundMiddle02' 1.0 0.0 -9.5 5.1 4 0.3 'Middl
 ModeScreenBg 'race_pro' 5 'gph_backgroundFront01'  0.0 0.0 0.0 3.5 5 0.3 'Front island left'
 ModeScreenBg 'race_pro' 6 'gph_backgroundFront02'  0.0 0.0 10.0 4.8 6 0.3 'Front island left + 10'
 ModeScreenBg 'race_pro' 7 'gph_backgroundFront03'  1.0 0.0 0.0 3.6 7 0.3 'Front island right'
+$darkIslands = @{ 2 = 'IslandBackBottomCenterDark'; 3 = 'IslandMiddleBottomLeftDark'; 4 = 'IslandMiddleBottomRightDark'; 5 = 'IslandFrontBottomLeftDark'; 6 = 'IslandFrontBottomCenterDark'; 7 = 'IslandFrontBottomRightDark' }
+foreach ($n in $darkIslands.Keys) {
+  $src = Join-Path $A "Resources\game\background\race\islands\$($darkIslands[$n]).png"
+  $i = $manifest.FindLastIndex([Predicate[string]]{ param($l) $l -like "*`"background_race_pro_$n`"*" })
+  if ($i -lt 0 -or -not (Test-Path $src)) { $missing.Add("background_race_pro_$n dark ($($darkIslands[$n]))"); continue }
+  Copy-Item $src (Join-Path $X "backgrounds\race_pro_$($n)_dark.png") -Force
+  $day = $manifest[$i]
+  $manifest.Add((($day -replace '"background_race_pro_\d+"', "`"race_pro_island_$($n)_lit`"") -replace ', screen:.*\),$', '),'))
+  $manifest[$i] = ($day -replace "race_pro_$n\.png", "race_pro_$($n)_dark.png") -replace '\),$', ", lit: `"race_pro_island_$($n)_lit`"),"
+}
 
 # --- Race water band (original BackgroundWater: bottom 6 screen units) ---
 $manifest.Add('    "water_band": (colors: [(61, 82, 201), (137, 146, 217)], position: (0.0, 6.0), view_height: 41.54, z: 1, parallax: 0.3),')

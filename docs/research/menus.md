@@ -196,7 +196,7 @@ everything sits straight on it. All text is white, all caps (TMP uppercase style
 - Closes on any player's Continue, a mouse click anywhere, or the Invite button ([invite],
   which also turns explanations off and saves it). The match intro starts after.
 - When: before a match, only while Explanations is on in Settings. Battle: per mode and
-  difficulty. Single player: `SINGLE_PLAYER_<MODE>_01` (which trials use it: not read, ?). A controls explanation popup
+  difficulty. Single player: `SINGLE_PLAYER_<MODE>_01`, before trials SR_10, SS_17 and SP_20 only. A controls explanation popup
   (`ControlsExplanation`) comes first when the mode asks for it.
 
 ## Credits popup (read 2026-10-05, PC)
