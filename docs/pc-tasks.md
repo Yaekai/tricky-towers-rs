@@ -108,6 +108,17 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Trials unlock animation and menu button hints are in** (2026-10-05, cloud;
+  src/trials_menu.rs, src/navbar.rs), both from the readouts, neither pictured yet:
+  1. Stage the unlock's sounds as `sfx_chain_1` .. `sfx_chain_4` (SFX_CHAIN_1..4) and
+     `sfx_brick_spawn` (SFX_BRICK_SPAWN); `sfx_roof_placed` is already used.
+  2. Picture it: beat 8 trials (or set `done` in the save's `trials.ron`, keeping
+     `tiers_shown: 1`), open Trials offscreen with a script, and take shots through the 3 s.
+     Check the chain's turn direction (Unity angles are drawn negated for the UI's down-y,
+     ?), and that the panel slide starts 0.2 s after the padlock's fade ends (?).
+  3. The CONTINUE / BACK hints: their exact yellow and red, the font, and the button icon
+     art for keys and pad buttons (now drawn as text on `key_background`). Which screens
+     show which items (we show CONTINUE only on the title tiles, none on the start screen).
 - **Batch for the trials/obstacles/values thread (2026-10-05, read in one go, notes in
   docs/research/, plain language, no code or assets in the repo; no screenshots needed).**
   Write each part's notes and push them as soon as that part is done, so the cloud can code it

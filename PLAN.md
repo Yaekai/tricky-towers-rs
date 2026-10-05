@@ -65,10 +65,11 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    cloud has no GPU). To do: check the cast effects and collapse against the original
    on Max's PC and fix the `(?)` sizes, the Auto Rotate wind-up, stone and ice transitions, the
    decorations at a beam's foot, and the explosion art.
-6. **Trials** (mostly done): the original's 50 trials in 5 tiers opened by medals
-   (`src/trial_list.rs`, also editable in `game.ron`), with goals, fixed brick orders, their own
-   spell lines and the enemy wizard's curses. To do: trial floors and rival towers, the tier
-   unlock animation.
+6. **Trials** (done, waiting on pictures): the original's 50 trials in 5 tiers opened by
+   medals (`src/trial_list.rs`, also editable in `game.ron`), with goals, fixed brick orders,
+   their own spell lines and the enemy wizard's curses, the enemy lane with the rival tower
+   (`src/rival.rs`), their own floors, and the tier unlock animation. To do: the mode stinger
+   when a trial starts, and checking it all against the original on Max's PC.
 7. **Mod loading** (done): a `mods/` folder of RON config changes and art packs, merged at
    startup in name order (`src/mods.rs`, `docs/modding.md`).
 8. **Not planned yet:** Online battle, Shop, Help, the Stats/Credits/Keybinding popups, text in

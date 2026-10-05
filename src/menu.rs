@@ -25,6 +25,7 @@ impl Plugin for MenuPlugin {
             // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
             crate::cups_menu::CupsMenuPlugin,
             crate::settings::SettingsPlugin,
+            crate::navbar::NavBarPlugin,
         ))
         .init_resource::<MenuScreen>()
         .init_resource::<MainMenu>()

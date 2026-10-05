@@ -42,6 +42,9 @@ pub struct TrialRun {
 #[derive(Resource, Debug, Default, Serialize, Deserialize)]
 pub struct TrialProgress {
     pub done: Vec<String>,
+    /// Tiers the Trials screen has shown opening (their unlock plays once).
+    #[serde(default)]
+    pub tiers_shown: usize,
     #[serde(skip)]
     pub file: Option<PathBuf>,
 }
