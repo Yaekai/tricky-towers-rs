@@ -2,14 +2,15 @@
 
 A clean-room, 1:1 rebuild of WeirdBeard's physics brick-stacking game *Tricky Towers*, made easy
 to mod. No code or assets from the original are in this repo: the art, sound and letters are
-loaded at runtime from your own install (without them the game draws plain shapes).
+loaded at runtime from your own install. Without them the game draws plain shapes, as in the
+pictures below.
 
 | | |
 |---|---|
 | ![Title screen](docs/shot-title.png) | ![Select Players](docs/shot-players.png) |
-| ![A race against three AI wizards](docs/shot-race4.png) | ![Survival Pro at night](docs/shot-survival.png) |
+| ![A race against three AI wizards](docs/shot-race4.png) | ![Survival Pro](docs/shot-survival.png) |
 
-![Puzzle Pro under the eclipse](docs/shot-puzzle.png)
+![Puzzle Pro](docs/shot-puzzle.png)
 
 ## Run
 ```
@@ -36,7 +37,7 @@ J light spell, K dark spell, Esc pause. Players 2 to 4 use gamepads.
 | Brick packs (8) | 🟡 | Diamond's gloss angle sweep (needs the original shader); Spring's look |
 | Trials (50 in 5 tiers) and tier unlock | 🟡 | draw the enemy wizard; the mode stinger at the start |
 | Endless Race / Survival / Puzzle | 🟡 | Endless Puzzle obstacle blocks |
-| Backgrounds and weather | 🟡 | Race Pro: softer lightning flash and the wave rows |
+| Backgrounds and weather | 🟡 | Race Pro's wave rows |
 | In-match HUD and effects | 🟡 | remove the extra spell bubbles; cast beam foot decorations; explosion art |
 | Match end (WINNER!, collapse, Game Completed) | 🟡 | second sunray layer |
 | Menus: start, title, players, modes, single player, endless, trials, settings, pause | 🟡 | key caps cut "Enter"; Stats shows an extra BACK; the cup screen's layout |
