@@ -52,6 +52,40 @@ side). The islands switch to their lit pictures and fade back over 0.2 s.
 - Levels 0-9 are named by `WIZARD_LEVEL_0` .. `WIZARD_LEVEL_9`; level 10 and up use
   `WIZARD_LEVEL_MAX` with `{subLevel}` = level - 9 (so level 10 is sub-level 1).
 
+## Puzzle sand strip (`weather.sand_strip`)
+Two strips, both stretched to the screen width and fixed to the screen (the original's
+background camera, 41.54 units tall):
+- Back: `bg_puzzle_pink_sand` (our `puzzle_sand`, 46 px tall at 26 px/unit) drawn 2× tall, so
+  3.54 units (0.085 of the view height), its bottom edge 1.12 units (0.027) above the screen
+  bottom, at 0.803 alpha, behind the ruins.
+- Front: `bg_puzzle_foreground_sand` (48 px) drawn 2× tall, 3.69 units (0.089), on the screen
+  bottom, in front of the ruins (the front landscape layer), fully opaque.
+- Endless Puzzle adds a third (`BackgroundEndlessSand`) behind them at parallax 0.1.
+
+## Menu slides
+- Settings pages and Trials tier pages: 0.3 s per page, 1920 px apart, DOTween's default ease
+  (OutQuad).
+- Trial buttons fill down the left column first: 5 per column, 125 px apart, columns 440 px
+  apart; so 1-5 on the left, 6-10 on the right.
+- Tier unlock: the locked panel leaves 1000 px upward over 0.5 s after 0.2 s; the buttons
+  rise from 1000 px below over 0.5 s, each 0.05 s after the one before; chain sounds 0.2 s
+  apart; the lock's centre grows to 1.3× (OutBack) before it goes.
+
+## Brick pack looks
+- Diamond: a gloss sweep at random 6-15 s gaps per brick (the first right away): the gloss
+  rises to 0.7 in 0.15 s, holds, and falls to 0 in 0.15 s (0.6 s in all), while the gloss
+  angle turns a full circle (either way, random) over the same 0.6 s, InOutQuad.
+- Hologram: a glitch per brick at random 6-15 s gaps (the first right away): the distortion
+  goes 0 → 1 → 0, each half taking the same random 0.1-0.5 s.
+- Galaxy: one shared starfield texture behind every Galaxy brick, scrolling (0.05, -0.07) of
+  the texture a second; every 2-6 s one random star twirls: grows to 2× in 0.3 s, turns 180°
+  over 1 s (InBack), then after 2 s shrinks back to 1× in 0.3 s. Texture scale not read.
+- Halloween: 40% of bricks get decorations (at most 2, appearing 0-0.3 s apart). Every 5-15 s
+  each decoration either squashes (one axis to 0.8× in 0.1 s then back over 1 s OutElastic,
+  the other axis 0.1 s later) or wobbles (25° one way over 0.926 s InBack, back over 0.45 s
+  OutElastic). The bricks also go black and white over 1 s after 1 s (InOutQuad).
+- Christmas: 25% of bricks get snow. Spring (Easter) has its own modifier, not read.
+
 ## Still open
-Puzzle sand strip, menu slide times and layouts, cup screen, pack looks (Diamond gloss,
-Hologram flicker, Galaxy drift), the Endless questions in pc-tasks.md.
+Cup screen layout and wording, the Endless questions in pc-tasks.md, Galaxy texture scale,
+the Spring pack look.
