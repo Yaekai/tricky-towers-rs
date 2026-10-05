@@ -350,6 +350,9 @@ $notes.Add('- Endless Race: pacer starts at height -5 (slides in from -15 over 1
 # --- The original's letters (Enzo), as a letter picture plus sheet ---
 & (Join-Path $PSScriptRoot 'font.ps1') -Repo $Repo
 $manifest.Add('    "font_main": (file: "fonts/main.ron"),')
+# The body letters (list rows, settings labels): Hans Sans Bold.
+& (Join-Path $PSScriptRoot 'font.ps1') -Repo $Repo -FontName 'HansSansBold SDF' -OutName 'body'
+$manifest.Add('    "font_body": (file: "fonts/body.ron"),')
 $notes.Add('- font_main : the original''s Enzo letters, from its distance-field atlas turned into plain white letters (fonts/main.png, 1024x1024) with 199 glyph metrics (fonts/main.ron). The original also draws an outline and gradient on titles.')
 
 # --- Title screen ---
