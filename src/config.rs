@@ -2053,7 +2053,7 @@ impl Default for WeatherLook {
             lightning_every: (5.0, 14.0),
             lightning_quiet_start: 3.0,
             lightning_flash: (0.65, 0.1),
-            lightning_bolt: (0.2, 0.2),
+            lightning_bolt: (0.4, 0.2),
             lightning_branches: 4,
             sandstorm_back: ([0x9B, 0x86, 0x44], 0.38),
             sandstorm_front: ([0xE9, 0xAA, 0x5D], 0.37),
