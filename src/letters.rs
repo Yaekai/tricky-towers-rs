@@ -17,7 +17,7 @@ impl Plugin for LettersPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            (mirror_texts, sync_mirrors, draw_letters)
+            (mirror_texts, sync_mirrors, follow_nodes, draw_letters)
                 .chain()
                 .before(bevy::ui::UiSystems::Prepare),
         );
@@ -119,6 +119,22 @@ fn sync_mirrors(
             if *letters != new {
                 *letters = new;
             }
+        }
+    }
+}
+
+/// Moves each twin with its text: HUD labels (place, counts) are placed every frame
+/// after the twin was made, and a twin left behind showed at its first spot.
+fn follow_nodes(
+    texts: Query<(&MirroredBy, &Node), Changed<Node>>,
+    mut twins: Query<&mut Node, Without<MirroredBy>>,
+) {
+    for (mirror, node) in &texts {
+        if let Ok(mut twin) = twins.get_mut(mirror.0) {
+            twin.left = node.left;
+            twin.top = node.top;
+            twin.right = node.right;
+            twin.bottom = node.bottom;
         }
     }
 }
