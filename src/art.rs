@@ -110,6 +110,14 @@ pub struct ArtEntry {
     /// `(r, g, b, a)` 0 to 255. Transparent if left out, like the original's ruins.
     #[serde(default)]
     pub outline: Option<Pair<(f32, f32, f32, f32)>>,
+    /// Screen layers only: slides sideways at a speed picked from this range, in
+    /// screen units a second, wrapping round the view (Race Pro's clouds: 0.15-0.25).
+    #[serde(default)]
+    pub drift: Option<(f32, f32)>,
+    /// Screen layers only: a brighter picture shown over this one as the lightning
+    /// flashes (Race Pro's `_DARK` islands lit by the flash).
+    #[serde(default)]
+    pub lit: Option<String>,
     /// An animation instead of a file: `(seconds, image name)` pairs in order, each
     /// image shown from its time until the next.
     #[serde(default)]

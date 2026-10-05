@@ -1988,7 +1988,11 @@ impl Default for WaterRules {
 pub struct WeatherLook {
     /// Race Pro ("Special") night sky and water band.
     pub race_pro_sky: Vec<[u8; 3]>,
+    /// Race Pro's water band when `water_band_race_pro` isn't staged: gradient top to
+    /// bottom, its height in cells and parallax (modes.md, Race Pro look).
     pub race_pro_water: Vec<[u8; 3]>,
+    pub race_pro_water_height: f32,
+    pub race_pro_water_parallax: f32,
     /// Rain: drops a second, life, speed (cells/s), streak length (cells), RGBA colour;
     /// front then back. Emitters tilt this many degrees with the wind.
     pub rain_front: (f32, f32, f32, f32, [f32; 4]),
@@ -2029,6 +2033,8 @@ impl Default for WeatherLook {
         Self {
             race_pro_sky: vec![[49, 21, 138], [13, 119, 154], [37, 25, 126]],
             race_pro_water: vec![[13, 119, 154], [49, 21, 138]],
+            race_pro_water_height: 6.0,
+            race_pro_water_parallax: 0.3,
             rain_front: (100.0, 1.0, 100.0, 3.0, [0.82, 0.78, 0.96, 0.9]),
             rain_back: (1024.0, 3.0, 40.0, 1.0, [0.43, 0.45, 0.79, 0.9]),
             rain_tilt: 30.0,

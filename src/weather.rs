@@ -21,23 +21,33 @@ pub struct WeatherPlugin;
 
 impl Plugin for WeatherPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WeatherState>().add_systems(
-            Update,
-            (
-                set_up_weather,
-                rain,
-                lightning,
-                fit_weather,
-                survival_wave_sky,
-            )
-                .chain(),
-        );
+        app.init_resource::<WeatherState>()
+            .init_resource::<Flash>()
+            .add_systems(
+                Update,
+                (
+                    set_up_weather,
+                    rain,
+                    lightning,
+                    fit_weather,
+                    survival_wave_sky,
+                )
+                    .chain(),
+            );
     }
 }
 
 /// Everything this module spawns, so a new look clears the old one.
 #[derive(Component)]
 struct Weather;
+
+/// How bright the lightning flash is now, 0 to 1, for layers lit by it.
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub struct Flash(pub f32);
+
+/// The full-screen flash of a strike (not a bolt piece).
+#[derive(Component)]
+struct FlashStrike;
 
 #[derive(Component)]
 struct RainDrop {
@@ -311,11 +321,13 @@ fn lightning(
     game: Res<Match>,
     view_size: Res<ViewSize>,
     mut state: ResMut<WeatherState>,
+    mut flash: ResMut<Flash>,
     camera: Query<(Entity, &Transform, &Projection), With<Camera2d>>,
-    mut strikes: Query<(Entity, &mut Strike, &mut Sprite)>,
+    mut strikes: Query<(Entity, &mut Strike, &mut Sprite, Has<FlashStrike>)>,
 ) {
     let dt = time.delta_secs();
-    for (entity, mut strike, mut sprite) in &mut strikes {
+    let mut lit = 0.0f32;
+    for (entity, mut strike, mut sprite, is_flash) in &mut strikes {
         strike.time += dt;
         let fading = (strike.time - strike.hold).max(0.0) / strike.fade.max(0.001);
         if fading >= 1.0 {
@@ -323,7 +335,11 @@ fn lightning(
             continue;
         }
         sprite.color.set_alpha(strike.alpha * (1.0 - fading));
+        if is_flash {
+            lit = lit.max(1.0 - fading);
+        }
     }
+    flash.0 = lit;
     let stormy = state.look.is_some_and(|l| l.1 == Some("race_pro") && l.2);
     if !stormy || game.phase != Phase::Playing {
         return;
@@ -345,6 +361,7 @@ fn lightning(
     let (flash_alpha, flash_fade) = weather.lightning_flash;
     commands.entity(camera).with_child((
         Weather,
+        FlashStrike,
         Strike {
             time: 0.0,
             hold: 0.0,
