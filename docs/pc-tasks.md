@@ -53,11 +53,16 @@ the steps below are from their READMEs on 2026-10-05.
 - Installed (user scope): `ponytail@ponytail` 4.12.0, `claude-code-setup@claude-plugins-official`
   1.0.0, and uv (winget `astral-sh.uv`, Graphify's prerequisite). Python itself isn't installed;
   uv fetches its own.
-- Not installed, blocked by the PC session's auto-mode safety check (it refuses installing
-  third-party packages unasked): `uv tool install graphifyy` and `npm install -g omniroute`.
-  Max runs those two himself, or approves them in a Claude session, then `graphify install` and
-  `/graphify .` here, and the OmniRoute setup in item 3.
-- claude-code-setup was run without the graph (Graphify missing); it only reads the repo.
+- OmniRoute installed with Max's OK (`npm install -g omniroute`, needs
+  `--allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild`).
+  Not configured yet: providers need Max's accounts, and it's only used after the Claude limit.
+- Graphify: Max ran `uv tool install --python 3.12 graphifyy` (the sandboxed session can't;
+  uv's Python folder link is refused there). `graphify.exe` is in `~/.local/bin`, not on the
+  session PATH. `graphify install --platform claude` done (user skill + `~/.claude/CLAUDE.md`).
+  Graph built with `graphify update .` (code only, no LLM, nothing sent out): 2,000 nodes,
+  no `extracted/` or `research/` files in it. The whitelist didn't ignore `graphify-out/` after
+  all (`GRAPH_REPORT.md` matched `!*.md`), so `/graphify-out/` is now in `.gitignore`.
+- claude-code-setup was run before the graph existed; it only reads the repo.
 
 ### claude-code-setup recommendations (waiting for Max; none applied)
 Note first: the whitelist `.gitignore` ignores `.claude/`, so a project hook, skill or agent
