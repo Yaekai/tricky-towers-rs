@@ -45,6 +45,7 @@ impl Plugin for VisualsPlugin {
                     frame_towers.in_set(FramedCamera),
                     update_hud,
                     update_lines,
+                    show_trial_clock,
                     update_mist,
                 ),
             );
@@ -98,6 +99,10 @@ struct SpellLine {
 /// One diamond of a spell line.
 #[derive(Component)]
 struct SpellDiamond;
+
+/// The race trial's clock on the finish line: the hourglass and the seconds left.
+#[derive(Component)]
+struct TrialClock;
 
 /// The race finish line or puzzle laser over a tower; both can come down.
 #[derive(Component)]
@@ -1067,6 +1072,65 @@ fn dress_platforms(
                     Some(strip) => line.with_child(strip),
                     None => line.with_child(Sprite::from_color(color, Vec2::new(lane, 3.0))),
                 };
+                // The finish line ends in a flag tile at each side (gap-scan.md 4), the
+                // left one mirrored (?: the flags' size and exact place not read).
+                if name == "finish_line"
+                    && let Some(image) = art.image("finish_line_end")
+                {
+                    line.with_children(|l| {
+                        for side in [-1.0f32, 1.0] {
+                            l.spawn((
+                                Sprite {
+                                    image: image.clone(),
+                                    custom_size: Some(Vec2::splat(c)),
+                                    flip_x: side < 0.0,
+                                    ..default()
+                                },
+                                Transform::from_xyz(side * (lane * 0.5 - c * 0.5), 0.0, 0.5),
+                            ));
+                        }
+                    });
+                }
+                // A race trial's finish line carries the time left beside an hourglass
+                // (gap-scan.md 4), fading in over the first second.
+                let clock = config
+                    .trial
+                    .and_then(|i| config.trials.get(i))
+                    .and_then(|t| t.seconds)
+                    .filter(|_| game.mode.rules() == ModeKind::Race);
+                if clock.is_some() {
+                    // Its place on the line and its size are guesses (?).
+                    let x = lane * 0.5 - c * 3.0;
+                    let glass = match art.image("hourglass") {
+                        Some(image) => Sprite {
+                            image,
+                            custom_size: Some(Vec2::splat(c * 1.2)),
+                            color: Color::WHITE.with_alpha(0.0),
+                            ..default()
+                        },
+                        None => Sprite::from_color(
+                            Color::srgba(1.0, 0.85, 0.4, 0.0),
+                            Vec2::splat(c * 0.8),
+                        ),
+                    };
+                    line.with_children(|l| {
+                        l.spawn((
+                            TrialClock,
+                            glass,
+                            Transform::from_xyz(x - c * 1.3, c * 0.9, 1.0),
+                        ));
+                        l.spawn((
+                            TrialClock,
+                            Text2d::new(""),
+                            TextFont {
+                                font_size: FontSize::Px(c * 1.1),
+                                ..default()
+                            },
+                            TextColor(Color::WHITE.with_alpha(0.0)),
+                            Transform::from_xyz(x, c * 0.9, 1.0),
+                        ));
+                    });
+                }
             }
             if config.magic.enabled {
                 // A row of diamonds across the lane, all one colour per line
@@ -1421,6 +1485,34 @@ fn update_hud(
 }
 
 /// Moves each tower's spell line and the race finish line to where they are now.
+/// Counts the race trial's seconds down on the finish line, fading it in.
+fn show_trial_clock(
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    mut sprites: Query<&mut Sprite, With<TrialClock>>,
+    mut texts: Query<(&mut Text2d, &mut TextColor), With<TrialClock>>,
+) {
+    let Some(seconds) = config
+        .trial
+        .and_then(|i| config.trials.get(i))
+        .and_then(|t| t.seconds)
+    else {
+        return;
+    };
+    let alpha = game.elapsed.clamp(0.0, 1.0);
+    let left = (seconds - game.elapsed).max(0.0).ceil() as u32;
+    for mut sprite in &mut sprites {
+        sprite.color.set_alpha(alpha);
+    }
+    for (mut text, mut color) in &mut texts {
+        let words = left.to_string();
+        if text.0 != words {
+            text.0 = words;
+        }
+        color.0.set_alpha(alpha);
+    }
+}
+
 fn update_lines(
     config: Res<GameConfig>,
     game: Res<Match>,
