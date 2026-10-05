@@ -108,6 +108,12 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Puzzle ruins colours (staging only, no code needed)** (gap-scan.md 1): stage the Puzzle
+  ruins with `mask` from the read colours: back #F4D9B0 → #F7E0BE (parallax 0.3), middle
+  #E0AC92 → #D69883 (0.5), front #C47464 (0.5). For Puzzle Pro, stage the same layers again as
+  `background_puzzle_pro_N` with the Pro colours: back #C82446 → #D72C53, middle #7E163C →
+  #670E2B, front #2E0405; they replace the normal ones on Pro (`visuals::pro_look`). Picture
+  Puzzle Normal and Pro and compare.
 - **Survival curse-wave background is in** (2026-10-05, cloud): during a wave the background
   layers grey to (166,166,166) and drifting layers go 138× faster, shifting with the sky over
   1 s (`WeatherLook::survival_wave_grey/drift`); Endless Survival's counted waves now shift the
