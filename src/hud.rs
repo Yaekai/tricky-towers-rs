@@ -341,7 +341,8 @@ fn build(
                 ),
             }
             Node {
-                column_gap: Val::Px(size * 0.1),
+                // Hearts 1.3 cells apart, each 1.12 wide (the original's health view).
+                column_gap: Val::Px(size * 0.16),
                 ..base
             }
         }
