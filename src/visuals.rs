@@ -1110,24 +1110,26 @@ fn dress_platforms(
                     Some(strip) => line.with_child(strip),
                     None => line.with_child(Sprite::from_color(color, Vec2::new(lane, 3.0))),
                 };
-                // The finish line ends in a flag tile at each side (gap-scan.md 4), the
-                // left one mirrored (?: the flags' size and exact place not read).
-                if name == "finish_line"
-                    && let Some(image) = art.image("finish_line_end")
-                {
-                    line.with_children(|l| {
-                        for side in [-1.0f32, 1.0] {
-                            l.spawn((
-                                Sprite {
-                                    image: image.clone(),
-                                    custom_size: Some(Vec2::splat(c)),
-                                    flip_x: side < 0.0,
-                                    ..default()
-                                },
-                                Transform::from_xyz(side * (lane * 0.5 - c * 0.5), 0.0, 0.5),
+                // The finish line's tiles end in a cap at each side, the right one turned
+                // 180° (docs/research/trials-obstacles-roofs.md, "Finish line").
+                if name == "finish_line" {
+                    for side in [-1.0f32, 1.0] {
+                        if let Some((mut sprite, anchor, transform)) =
+                            art_sprite(&art, "finish_line_end", c)
+                        {
+                            sprite.flip_x = side > 0.0;
+                            sprite.flip_y = side > 0.0;
+                            line.with_child((
+                                sprite,
+                                anchor,
+                                transform.with_translation(Vec3::new(
+                                    side * (lane * 0.5 - c * 0.7),
+                                    0.0,
+                                    0.5,
+                                )),
                             ));
                         }
-                    });
+                    }
                 }
                 // A race trial's finish line carries the time left beside an hourglass
                 // (gap-scan.md 4), fading in over the first second.

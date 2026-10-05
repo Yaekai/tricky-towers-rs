@@ -105,3 +105,6 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-05: trials end on CHALLENGE COMPLETE / FAILED (results.rs), the race-trial clock with an hourglass on the finish line (`TrialClock`, world `Text2d`), `finish_line_end` flags.
 - 2026-10-05: Survival curse waves grey the background layers and speed up drifting ones (`weather::WaveMix`, `grey_wave_layers`); fixed: Endless Survival's brick-counted waves didn't shift the sky (it only looked at `wave_left`).
 - 2026-10-05: wizard voice lines added to the todo (pc-tasks.md): per-character packs, variants and triggers to read on the PC; today every wizard shares one file per clip.
+
+- 2026-10-05 (PC): back after the cloud session. Finish line staging swapped (the original's "End" picture is the tile; caps turned 180° on the right), Puzzle Pro ruins and Race Pro clouds staged as background_puzzle_pro_N / background_race_pro_N, sfx_chain_N and popup_text_background staged. Values read: Puzzle drop speed 2, Endless Race 4, minibase 2 wide, Auto Rotate eased in-out elastic (gameplay::in_out_elastic), No Rotate shakes by random jumps (
+o_rotate_jump). Race Pro's dark islands weren't found by name.

@@ -101,3 +101,21 @@ Units are cells (1 cell = 1 brick square).
 ## 6. Values from the game's settings
 - Default drop speed 2 cells/s; brick spawn offset 17 above the tower; up to 20 cells of tower
   on screen; maximum health 3 (Endless Survival's lives).
+
+## 7. Finish line
+- Every finish line (battle and trials) is a row of `gph_finishLineEnd` tiles, 1.2 cells apart
+  across the lane (the original's names are the wrong way round: the "End" picture is the
+  repeating tile), with a `gph_finishLinetile` cap at each end: as is on the left, turned 180°
+  on the right, about 1.4 cells past the last tile. Staged as `finish_line` (tile) and
+  `finish_line_end` (cap).
+
+## 8. More values read
+- Race win: the 3-2-1 countdown, one number a second (`hold_seconds` 3).
+- Drop speeds: Race 2 / 3 / 4 (Easy / Normal / Pro), Survival 2 / 2 / 4, Puzzle 2 on all three,
+  Endless Race 4, Endless Survival 4, Endless Puzzle 2.
+- Medals: one per trial beaten, out of as many as there are trials.
+- Auto Rotate: winds back 15° in 0.2 s, swings +105° in 0.45 s, both ease in-out elastic, then
+  waits 1 s.
+- No Rotate: a refused turn shakes the brick's picture for 0.3 s, a random jump of up to 0.1 cell
+  each way every frame (divided by the brick's scale); the padlock on it jumps up to 0.06.
+- Minibase: the ledge piece's flat top is 2 cells wide, with a raised lip on its outer side.
