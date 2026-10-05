@@ -75,6 +75,8 @@ impl Action {
 }
 
 /// Keys that can be bound, with the name shown in the box and saved in `keys.ron`.
+/// R is left out while it restarts a match (a DEBUG-TOOL, docs/release-checklist.md);
+/// put it back with the restart key's removal.
 const KEY_NAMES: &[(KeyCode, &str)] = &[
     (KeyCode::ArrowLeft, "Left"),
     (KeyCode::ArrowRight, "Right"),
@@ -107,7 +109,6 @@ const KEY_NAMES: &[(KeyCode, &str)] = &[
     (KeyCode::KeyO, "O"),
     (KeyCode::KeyP, "P"),
     (KeyCode::KeyQ, "Q"),
-    (KeyCode::KeyR, "R"),
     (KeyCode::KeyS, "S"),
     (KeyCode::KeyT, "T"),
     (KeyCode::KeyU, "U"),

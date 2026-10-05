@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::art::Art;
 use crate::config::{Difficulty, GameConfig, ModeKind};
-use crate::gameplay::{Match, Phase, Tower, TowerState, TowerStatus};
+use crate::gameplay::{Match, Phase, Tower, TowerState};
 use crate::select::{SCREEN, label, place, shown, sliced};
 
 pub struct StatsPlugin;
@@ -126,8 +126,10 @@ fn count_stats(
     let battle = config.trial.is_none() && MODES.contains(&game.mode);
     if game.phase == Phase::Over && stats.counted != game.round && battle {
         stats.counted = game.round;
-        if let Some((_, you)) = towers.iter().find(|(t, _)| t.is_first_player()) {
-            let won = you.status == TowerStatus::Won;
+        if let Some((tower, _)) = towers.iter().find(|(t, _)| t.is_first_player()) {
+            // The match's winner, as the end screen shows it (a Puzzle tower that
+            // plays out its bricks is "Won" without winning the match).
+            let won = game.winner == Some(tower.index);
             stats.add(game.mode, config.difficulty.unwrap_or_default(), won);
             stats.save();
         }

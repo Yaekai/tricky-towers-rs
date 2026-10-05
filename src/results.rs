@@ -201,9 +201,9 @@ fn start_moments(
     let (win_words, win_size, out_words, out_size) = if config.trial.is_some() {
         (
             "CHALLENGE COMPLETE",
-            look.banner_size * 0.6,
+            look.banner_size * look.trial_banner_scale,
             "CHALLENGE FAILED",
-            look.banner_size * 0.6,
+            look.banner_size * look.trial_banner_scale,
         )
     } else {
         (

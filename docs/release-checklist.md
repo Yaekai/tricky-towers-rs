@@ -21,3 +21,4 @@ Not tagged, decide before release:
   is one of this project's goals.
 - The next-brick preview (`src/visuals.rs`): not yet confirmed in the original (queued for the PC).
 - `.github/workflows/check.yml`: the GitHub build/lint/test check on pull requests. Not shipped with the game (it's repo tooling); keep it or drop it, it never reaches a player.
+- When the R restart key goes, put `KeyCode::KeyR` back in `KEY_NAMES` (src/keybinding.rs) so R can be bound again.

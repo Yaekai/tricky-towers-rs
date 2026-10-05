@@ -702,8 +702,8 @@ fn play_unlock_sounds(
         let at = link_start(i);
         if crossed(at) && at - menu.chain_sound >= CHAIN_SOUND_GAP {
             menu.chain_sound = at;
-            // One of the 4 chain sounds, varied by link.
-            play(&format!("sfx_chain_{}", i * 3 % 4 + 1));
+            // One of the 4 chain sounds at random.
+            play(&format!("sfx_chain_{}", crate::art::roll(4) + 1));
         }
     }
     if crossed(padlock_start()) {

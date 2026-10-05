@@ -108,6 +108,15 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Two readings to confirm (from a cloud review, 2026-10-05):**
+  1. "Puzzle trials put the player's lane at 2/3 of the screen width": the code centres the
+     player's lane at −W/3 (a third of the width left of the middle), which with 15.5 cells of
+     steering lets bricks pass the screen's left edge. Did the original mean the lane is the
+     left two thirds of the screen (centre at −W/6, the enemy lane centred at +W/3)? Say
+     which, and the enemy lane's place in Puzzle trials.
+  2. Roofs in Endless Race and Endless Survival (trials-obstacles-roofs.md 5 says they have
+     one): when does an Endless run drop its roof, since it has no winner? The code drops
+     roofs only in battle Race and Survival.
 - **Wizard voice lines (readout, then the cloud codes it)** (Max, 2026-10-05). Today each
   clip plays one shared file for every wizard (`wizards.ps1`'s `$say` map: `yay_02`,
   `sad_01`, ...), which isn't the original. Read and write in docs/research/wizards.md:

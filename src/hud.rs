@@ -593,6 +593,7 @@ fn drop_roofs(
     config: Res<GameConfig>,
     art: Res<Art>,
     new_roofs: Query<(Entity, &RoofPiece), Added<RoofPiece>>,
+    roofs: Query<&RoofPiece>,
     towers: Query<(Entity, &TowerState)>,
     mut drums: Local<Vec<(Entity, Entity)>>,
 ) {
@@ -635,7 +636,10 @@ fn drop_roofs(
             .is_ok_and(|(_, s)| s.roof == RoofStage::Steering);
         if !steering {
             commands.entity(drum).despawn();
-            if towers.get(tower).is_ok_and(|(_, s)| s.roof_pending())
+            // Only a roof that landed: one steered off the side is gone already.
+            let landed = roofs.iter().any(|r| r.tower == tower);
+            if landed
+                && towers.get(tower).is_ok_and(|(_, s)| s.roof_pending())
                 && let Some(sound) = art.sounds.get("sfx_roof_placed")
             {
                 commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));

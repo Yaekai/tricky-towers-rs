@@ -1884,3 +1884,50 @@ fn ivy_bricks_are_drawn_where_their_bodies_are() {
         assert!(p.0.distance(g.translation().truncate()) < 1.0, "{p:?} drawn at {g:?}");
     }
 }
+
+#[test]
+fn a_roof_steered_off_the_side_still_counts_as_placed() {
+    use tricky_towers::gameplay::RoofStage;
+    let mut config = fast_config();
+    config.survival.bricks_to_place = 3;
+    config.survival.finish_countdown = 0.5;
+    let mut app = headless_app(config);
+    assert!(run_until(&mut app, 15.0, |app| tower(app, 0).roof
+        == RoofStage::Steering));
+    // Steered off the left and dropped: once its top is under the view, the match
+    // moves on as if it had landed (trials-obstacles-roofs.md 5).
+    assert!(run_until(&mut app, 30.0, |app| {
+        let mut input = human_input(app);
+        input.left_held = true;
+        input.fast_fall_held = true;
+        tower(app, 0).roof == RoofStage::Done
+    }));
+}
+
+#[test]
+fn ivy_onto_the_puzzle_floor_never_takes_the_floor_with_it() {
+    use avian2d::prelude::RigidBody;
+    use tricky_towers::gameplay::FloorBlock;
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.magic.enabled = true;
+    config.puzzle.start_spell = Some(SpellKind::Ivy);
+    config.puzzle.bricks = 6;
+    let mut app = headless_app(config);
+    let floor_static = |app: &mut App| {
+        let world = app.world_mut();
+        world
+            .query_filtered::<(Option<&RigidBody>, Option<&ChildOf>), With<FloorBlock>>()
+            .iter(world)
+            .all(|(body, parent)| body == Some(&RigidBody::Static) && parent.is_none())
+    };
+    assert!(floor_static(&mut app));
+    // Ivy on the first brick, which lands on the floor; then Undo zaps it.
+    human_input(&mut app).cast_light_pressed = true;
+    assert!(run_until(&mut app, 6.0, |app| tower(app, 0).bricks_placed >= 1));
+    run_seconds(&mut app, 0.5, |_| {});
+    assert!(floor_static(&mut app), "the floor joined the ivy");
+    cast_now(&mut app, SpellKind::Undo, None);
+    run_seconds(&mut app, 2.0, |_| {});
+    assert!(floor_static(&mut app), "the floor came loose after Undo");
+}

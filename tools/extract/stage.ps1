@@ -409,7 +409,7 @@ Add-Sprite 'nudge_sign_left' 'gph_nudgeSignLeft' 'trials\nudge_sign_left.png' 'N
 Add-Sprite 'nudge_sign_right' 'gph_nudgeSignRight' 'trials\nudge_sign_right.png' 'Nudge tutorial sign (right)'
 foreach ($i in 1..7) { Add-Sprite "grass_tuft_$i" "gph_grass_var0$i" "effects\grass_tuft_$i.png" "Grass tuft $i (on Endless Puzzle blocks, tinted #9DA247)" }
 
-Add-Sprite 'page_dot_on''gph_menuPagination_active' 'menu\page_dot_on.png' 'Page dot, current (20x20)'
+Add-Sprite 'page_dot_on' 'gph_menuPagination_active' 'menu\page_dot_on.png' 'Page dot, current (20x20)'
 Add-Sprite 'page_dot_off' 'gph_menuPagination_inactive' 'menu\page_dot_off.png' 'Page dot, other pages (20x20)'
 foreach ($d in 'Easy','Normal','Special','Total') { Add-Texture "stats_icon_$($d.ToLower())" "icn_statsPopup$d.png" "menu\stats_icon_$($d.ToLower()).png" "Stats popup column icon ($d)" }
 Add-Texture 'player_left_cross' 'icn_gameInfoPlayerLeft.png' 'menu\player_left_cross.png' 'Game Info: player left'

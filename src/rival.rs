@@ -34,10 +34,6 @@ struct Piece {
     group: u32,
 }
 
-/// Seconds the whole tower takes to pop in, and the least time between pop sounds.
-const BUILD_SECONDS: f32 = 1.5;
-const POP_SOUND_GAP: f32 = 0.075;
-
 /// The pop-in under way: time so far, groups shown, time since the last pop sound.
 #[derive(Component)]
 struct PopIn {
@@ -121,7 +117,7 @@ fn build_rival_lane(
             time: 0.0,
             groups,
             shown: 0,
-            since_sound: POP_SOUND_GAP,
+            since_sound: f32::MAX,
         });
     }
 }
@@ -131,6 +127,7 @@ fn build_rival_lane(
 fn pop_in(
     mut commands: Commands,
     time: Res<Time>,
+    config: Res<crate::config::GameConfig>,
     art: Res<Art>,
     mut lanes: Query<(&mut PopIn, &Children)>,
     mut pieces: Query<(&RivalPiece, &mut Visibility)>,
@@ -141,7 +138,7 @@ fn pop_in(
         }
         pop.time += time.delta_secs();
         pop.since_sound += time.delta_secs();
-        let progress = (pop.time / BUILD_SECONDS).min(1.0);
+        let progress = (pop.time / config.rival_pop.0.max(0.01)).min(1.0);
         let due = ((pop.groups as f32 * progress).round() as u32).min(pop.groups);
         if due > pop.shown {
             for child in children.iter() {
@@ -152,7 +149,7 @@ fn pop_in(
                 }
             }
             pop.shown = due;
-            if pop.since_sound > POP_SOUND_GAP
+            if pop.since_sound > config.rival_pop.1
                 && let Some(sound) = art.sounds.get("sfx_bubble_pop")
             {
                 pop.since_sound = 0.0;

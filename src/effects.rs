@@ -576,41 +576,49 @@ fn level_up_sounds(
                 config.cell_size,
             )
         {
-            sprite.color = Color::srgb_u8(0x9D, 0xA2, 0x47);
+            let [r, g, b] = config.endless_play.tuft_color;
+            sprite.color = Color::srgb_u8(r, g, b);
             sprite.flip_x = roll() % 2 == 0;
             transform.translation = Vec3::new(0.0, config.cell_size * 0.5, 0.2);
+            // The art's own size (cell / pixels per unit), grown from nothing.
+            let full = transform.scale.x;
             transform.scale = Vec3::ZERO;
             commands
                 .entity(block)
-                .with_child((sprite, anchor, transform, Tuft(0.0)));
+                .with_child((sprite, anchor, transform, Tuft(0.0, full)));
         }
     }
 }
 
-/// A grass tuft on an Endless Puzzle block: waits 0.5 s, grows to 0.7x in 0.1 s,
-/// then springs to full size over 0.4 s.
+/// A grass tuft on an Endless Puzzle block: waits, grows quickly to part size, then
+/// springs to full size (`EndlessPlay::tuft_grow`: 0.5 s, 0.1 s to 0.7x, 0.4 s).
 #[derive(Component)]
-struct Tuft(f32);
+struct Tuft(f32, f32);
 
-fn grow_tufts(time: Res<Time>, mut tufts: Query<(&mut Tuft, &mut Transform)>) {
+fn grow_tufts(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut tufts: Query<(&mut Tuft, &mut Transform)>,
+) {
+    let (wait, first, part, spring) = config.endless_play.tuft_grow;
     for (mut tuft, mut transform) in &mut tufts {
         tuft.0 += time.delta_secs();
-        let t = tuft.0 - 0.5;
+        let t = tuft.0 - wait;
         let s = if t < 0.0 {
             0.0
-        } else if t < 0.1 {
-            0.7 * t / 0.1
+        } else if t < first {
+            part * t / first.max(0.001)
         } else {
-            // Ease out elastic from 0.7 to 1.
-            let k = ((t - 0.1) / 0.4).min(1.0);
+            // Ease out elastic from the part size to full.
+            let k = ((t - first) / spring.max(0.001)).min(1.0);
             let e = if k >= 1.0 {
                 1.0
             } else {
                 1.0 + 2f32.powf(-10.0 * k) * ((k * 10.0 - 0.75) * std::f32::consts::TAU / 3.0).sin()
             };
-            0.7 + 0.3 * e
+            part + (1.0 - part) * e
         };
-        transform.scale = Vec3::new(s, s, 1.0);
+        transform.scale = Vec3::new(s * tuft.1, s * tuft.1, 1.0);
     }
 }
 

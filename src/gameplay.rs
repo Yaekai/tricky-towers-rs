@@ -431,6 +431,8 @@ pub struct TowerState {
     pub level_up: Option<f32>,
     /// Blocks placed so far in the running level-up.
     pub obstacles_placed: u32,
+    /// This level-up's obstacle spots, drawn once at its first block.
+    pub obstacle_spots: Vec<Vec2>,
     /// The winner's roof.
     pub roof: RoofStage,
     pub wave_lift: (f32, f32),
@@ -500,6 +502,7 @@ impl TowerState {
             level_end: config.endless_play.level_bricks(1),
             level_up: None,
             obstacles_placed: 0,
+            obstacle_spots: Vec::new(),
             roof: RoofStage::None,
             wave_lift: (0.0, 0.0),
             pacer: config.endless.intro_from,
@@ -1813,6 +1816,7 @@ fn judge_match(
                 {
                     state.level_up = Some(0.0);
                     state.obstacles_placed = 0;
+                    state.obstacle_spots.clear();
                 }
             }
             ModeKind::Puzzle => {
@@ -1902,9 +1906,12 @@ fn place_obstacles(
         let laser = state.laser_base + rules.laser_rise;
         let offset = config.puzzle.drop_penalty * state.bricks_dropped as f32;
         let height = state.height;
-        let spots = rules.obstacle_spots(height, laser - offset, || {
-            (state.random() % 10_000) as f32 / 10_000.0
-        });
+        if state.obstacles_placed == 0 {
+            state.obstacle_spots = rules.obstacle_spots(height, laser - offset, || {
+                (state.random() % 10_000) as f32 / 10_000.0
+            });
+        }
+        let spots = state.obstacle_spots.clone();
         for spot in spots
             .iter()
             .skip(state.obstacles_placed as usize)
