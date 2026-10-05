@@ -1,4 +1,4 @@
-param([string]$Repo, [string]$FontName = 'EnzoBlack SDF')
+param([string]$Repo, [string]$FontName = 'EnzoBlack SDF', [string]$OutName = 'main')
 # Turns the original's TextMeshPro font (a signed-distance-field letter picture plus glyph
 # metrics) into extracted\fonts\main.png (plain white letters with alpha) and
 # extracted\fonts\main.ron (the letter sheet described in docs/art-layout.md). Local only.
@@ -40,7 +40,12 @@ $size = Num 'PointSize'; $line = Num 'LineHeight'; $asc = Num 'Ascender'
 $src = [System.Drawing.Bitmap]::FromFile((Join-Path $A "Texture2D\$FontName Atlas.png"))
 $letters = [Sdf]::ToAlpha($src, 0.42, 0.58)
 New-Item -ItemType Directory -Force (Join-Path $X 'fonts') | Out-Null
-$letters.Save((Join-Path $X 'fonts\main.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+$letters.Save((Join-Path $X "fonts\$OutName.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+# The outline: the same field cut further out. TextMeshPro's outline width 0.35 (the menus'
+# titles and hints) moves the edge from 0.5 to about 0.325 of the field.
+$outline = [Sdf]::ToAlpha($src, 0.25, 0.4)
+$outline.Save((Join-Path $X "fonts\${OutName}_outline.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$outline.Dispose()
 $aw = $src.Width; $ah = $src.Height
 $src.Dispose(); $letters.Dispose()
 
@@ -60,11 +65,13 @@ foreach ($m in [regex]::Matches($block, $rx)) {
   if ($id -eq 32 -or $gx + $gw -gt $aw -or $gy + $gh -gt $ah) { $gx = 0; $gy = 0; $gw = 0; $gh = 0 }
   $lines.Add([string]::Format($inv, '        {0}: (rect: ({1:0.###}, {2:0.###}, {3:0.###}, {4:0.###}), offset: ({5:0.###}, {6:0.###}), advance: {7:0.###}),', $lit, $gx, $gy, $gw, $gh, $g[4], $g[5], $g[6]))
 }
-$out = @('// The original''s letters (Enzo), from your own install. Do not commit.', '(',
-  '    image: "fonts/main.png",',
+$out = @("// The original's letters ($FontName), from your own install. Do not commit.", '(',
+  "    image: `"fonts/$OutName.png`",",
+  "    outline: Some(`"fonts/${OutName}_outline.png`"),",
+  '    outline_pad: 5,',
   [string]::Format($inv, '    size: {0:0.###},', $size),
   [string]::Format($inv, '    line_height: {0:0.###},', $line),
   [string]::Format($inv, '    ascender: {0:0.###},', $asc),
   '    glyphs: {') + $lines + @('    },', ')')
-[IO.File]::WriteAllLines((Join-Path $X 'fonts\main.ron'), [string[]]$out, (New-Object System.Text.UTF8Encoding($false)))
+[IO.File]::WriteAllLines((Join-Path $X "fonts\$OutName.ron"), [string[]]$out, (New-Object System.Text.UTF8Encoding($false)))
 "font: $($lines.Count) glyphs, size $size, line $line, ascender $asc, atlas ${aw}x$ah"

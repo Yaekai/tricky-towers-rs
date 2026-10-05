@@ -19,7 +19,9 @@ use crate::art::Art;
 use crate::config::{Difficulty, GameConfig, ModeKind};
 use crate::gameplay::{Match, MatchRequest, Phase};
 use crate::menu::MenuScreen;
-use crate::select::{CORNER_SMALL, SCREEN, corners, label, place, read_taps, shown, spawn_page};
+use crate::select::{
+    CORNER_SMALL, SCREEN, corners, label, label_with, place, read_taps, shown, spawn_page,
+};
 use crate::trials::TrialProgress;
 
 /// Layout from the readout, in 1920×1080 pixels from the screen centre (y up).
@@ -33,11 +35,11 @@ const NUMBER_SIZE: f32 = 46.0;
 const FACE: ((f32, f32), f32) = ((84.0, 84.0), -119.0);
 const MEDAL: ((f32, f32), f32) = ((70.0, 96.0), 145.0);
 const CORNER_FRAME: (f32, f32) = (449.0, 134.0);
-/// The medal panel, its centre 120 px in from the right edge and 100 px down from
-/// the top (read as "120 right of, 100 above the corner", taken inward, ?).
+/// The medal panel in the top-right corner: its picture at 1.1x, "MEDALS:" and the count
+/// on the left, the medal on the right (measured from Max's screenshots of the original, ?).
 const INFO: ((f32, f32), (f32, f32)) = (
-    (382.0, 183.0),
-    (SCREEN.0 / 2.0 - 120.0, SCREEN.1 / 2.0 - 100.0),
+    (251.0, 91.0),
+    (SCREEN.0 / 2.0 - 135.0, SCREEN.1 / 2.0 - 50.0),
 );
 const LOCKED: (f32, f32) = (783.0, 215.0);
 const LOCK: (f32, f32) = (68.0, 63.0);
@@ -191,6 +193,8 @@ pub(crate) enum TrialPart {
     Title,
     MedalCount,
     PageArrow(bool),
+    /// The mode's wizard beside a trial's button, shown on the picked one only.
+    Face(usize),
 }
 
 /// Trial `index`'s place on its page: column-major, 1-5 down the left (?).
@@ -233,7 +237,10 @@ pub(crate) fn spawn_trials_screen(
         .with_children(|root| {
             root.spawn(place((800.0, 90.0), (0.0, HEADER_Y)))
                 .with_children(|h| {
-                    h.spawn((label(4.5, ""), TrialPart::Title));
+                    h.spawn((
+                        label_with(4.5, "", crate::letters::TextLook::TITLE),
+                        TrialPart::Title,
+                    ));
                 });
             for tier in 0..pages {
                 root.spawn((
@@ -264,15 +271,26 @@ pub(crate) fn spawn_trials_screen(
             }
             let left = at.0 - size.0 / 2.0;
             if let Some(medal) = image("medal_large") {
-                root.spawn((ImageNode::new(medal), place(MEDAL.0, (left + 70.0, at.1))));
+                let medal_size = (MEDAL.0.0 * 0.6, MEDAL.0.1 * 0.6);
+                root.spawn((
+                    ImageNode::new(medal),
+                    place(medal_size, (left + size.0 - 40.0, at.1)),
+                ));
             }
-            root.spawn(place((160.0, 40.0), (left + 200.0, at.1 + 35.0)))
+            root.spawn(place((160.0, 40.0), (left + 95.0, at.1 + 18.0)))
                 .with_children(|t| {
-                    t.spawn(label(vh(28.0), "MEDALS:"));
+                    t.spawn(label_with(
+                        vh(22.0),
+                        "MEDALS:",
+                        crate::letters::TextLook::OUTLINED,
+                    ));
                 });
-            root.spawn(place((160.0, 60.0), (left + 200.0, at.1 - 20.0)))
+            root.spawn(place((160.0, 60.0), (left + 95.0, at.1 - 18.0)))
                 .with_children(|t| {
-                    t.spawn((label(vh(NUMBER_SIZE), ""), TrialPart::MedalCount));
+                    t.spawn((
+                        label_with(vh(36.0), "", crate::letters::TextLook::OUTLINED),
+                        TrialPart::MedalCount,
+                    ));
                 });
             for right in [false, true] {
                 let x = if right { PAGE_ARROW.1 } else { -PAGE_ARROW.1 };
@@ -282,11 +300,15 @@ pub(crate) fn spawn_trials_screen(
                 ));
                 match image("menu_arrow") {
                     Some(art) => {
-                        arrow.insert(ImageNode {
-                            image: art,
-                            flip_x: !right,
-                            ..default()
-                        });
+                        // The staged arrow points up; the original's point out sideways.
+                        arrow.insert((
+                            ImageNode::new(art),
+                            UiTransform::from_rotation(Rot2::degrees(if right {
+                                90.0
+                            } else {
+                                -90.0
+                            })),
+                        ));
                     }
                     None => {
                         arrow.with_children(|a| {
@@ -338,10 +360,18 @@ fn button_parts(
         button.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
     }
     if let Some(art) = image(&format!("menu_challenge_wizard{face}")) {
-        page.spawn((ImageNode::new(art), place(FACE.0, (x + FACE.1, y))));
+        page.spawn((
+            ImageNode::new(art),
+            place(FACE.0, (x + FACE.1, y)),
+            TrialPart::Face(index),
+        ));
     }
     page.spawn(place(BUTTON, (x, y))).with_children(|n| {
-        n.spawn(label(vh(NUMBER_SIZE), &(index % per_tier + 1).to_string()));
+        n.spawn(label_with(
+            vh(NUMBER_SIZE),
+            &(index % per_tier + 1).to_string(),
+            crate::letters::TextLook::OUTLINED,
+        ));
     });
     let mut medal = page.spawn((place(MEDAL.0, (x + MEDAL.1, y)), TrialPart::Medal(index)));
     match image("medal_large") {
@@ -616,7 +646,7 @@ pub(crate) fn show_trials_screen(
                     t >= shown_tiers
                 }
             },
-            TrialPart::Corner(i) => i == menu.selected,
+            TrialPart::Corner(i) | TrialPart::Face(i) => i == menu.selected,
             TrialPart::Medal(i) => config
                 .trials
                 .get(i)
@@ -661,7 +691,10 @@ pub(crate) fn show_trials_screen(
     for (part, mut words) in &mut texts {
         let line = match *part {
             TrialPart::Title => {
-                tier_name(tier).map_or(String::new(), |(name, _)| name.to_uppercase())
+                // "ROOKIE TRIALS", as the original's tier titles read.
+                tier_name(tier).map_or(String::new(), |(name, _)| {
+                    format!("{} TRIALS", name.to_uppercase())
+                })
             }
             // The count against all the medals there are (?).
             TrialPart::MedalCount => format!(

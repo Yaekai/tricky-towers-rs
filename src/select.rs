@@ -295,9 +295,16 @@ pub(crate) fn place(size: (f32, f32), at: (f32, f32)) -> Node {
     }
 }
 
+/// A menu text: the original's body letters, near-black, in capitals.
 pub(crate) fn label(size: f32, text: &str) -> impl Bundle {
+    label_with(size, text, crate::letters::TextLook::BODY)
+}
+
+/// A menu text in capitals with the given look.
+pub(crate) fn label_with(size: f32, text: &str, look: crate::letters::TextLook) -> impl Bundle {
     (
-        Text::new(text),
+        Text::new(text.to_uppercase()),
+        look,
         TextFont {
             font_size: FontSize::Vh(size),
             ..default()
@@ -410,7 +417,7 @@ pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str
             header.insert((sliced(bar, HEADER_SLICE), BackgroundColor(Color::NONE)));
         }
         header.with_children(|h| {
-            h.spawn(label(4.5, title));
+            h.spawn(label_with(4.5, title, crate::letters::TextLook::TITLE));
         });
     });
     page.id()

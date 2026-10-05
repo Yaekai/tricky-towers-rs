@@ -247,9 +247,17 @@ pub struct Letters {
     /// Distance from a line's top down to its base line.
     pub ascender: f32,
     pub glyphs: HashMap<char, Glyph>,
+    /// The same letters grown into an outline, at the same glyph rectangles
+    /// (padded by `outline_pad` pixels on every side).
+    #[serde(default)]
+    pub outline: Option<String>,
+    #[serde(default)]
+    pub outline_pad: f32,
     /// The loaded picture.
     #[serde(skip)]
     pub handle: Handle<Image>,
+    #[serde(skip)]
+    pub outline_handle: Option<Handle<Image>>,
 }
 
 /// One letter in a [`Letters`] picture.
@@ -344,6 +352,11 @@ fn load_entries(
             match sheet {
                 Ok(mut letters) if dir.join(&letters.image).is_file() => {
                     letters.handle = assets.load(format!("{prefix}{}", letters.image));
+                    letters.outline_handle = letters
+                        .outline
+                        .as_ref()
+                        .filter(|file| dir.join(file).is_file())
+                        .map(|file| assets.load(format!("{prefix}{file}")));
                     art.letters.insert(name.clone(), letters);
                 }
                 Ok(letters) => warn!("{name}: {} is missing", letters.image),

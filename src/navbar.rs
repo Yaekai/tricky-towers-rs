@@ -78,6 +78,19 @@ struct NavBar;
 #[derive(Component)]
 struct NavKey(NavItem);
 
+/// An item's words, which change with the screen (SELECT, START GAME...).
+#[derive(Component)]
+struct NavWords(NavItem);
+
+/// What the go-on hint says on a screen, as the original words it.
+fn continue_words(screen: MenuScreen) -> &'static str {
+    match screen {
+        MenuScreen::Settings | MenuScreen::Single => "SELECT",
+        MenuScreen::Trials | MenuScreen::Endless => "START GAME",
+        _ => "CONTINUE",
+    }
+}
+
 /// An item's place in the stack, bottom first.
 #[derive(Component)]
 struct NavSlot(usize);
@@ -116,6 +129,8 @@ fn spawn_nav_bar(mut commands: Commands, art: Option<Res<Art>>) {
                 .with_children(|row| {
                     row.spawn((
                         Text::new(item.words()),
+                        NavWords(item),
+                        crate::letters::TextLook::OUTLINED,
                         TextFont {
                             font_size: FontSize::Vh(vh(TEXT_SIZE)),
                             ..default()
@@ -141,7 +156,8 @@ fn spawn_nav_bar(mut commands: Commands, art: Option<Res<Art>>) {
                     key.with_child((
                         Text::new(item.keys().0),
                         TextFont {
-                            font_size: FontSize::Vh(vh(TEXT_SIZE * 0.6)),
+                            // Small enough that "Enter" stays on its cap.
+                            font_size: FontSize::Vh(vh(TEXT_SIZE * 0.4)),
                             ..default()
                         },
                         TextColor(Color::srgb(0.15, 0.1, 0.25)),
@@ -161,7 +177,8 @@ fn show_nav_bar(
     pads: Query<(), With<Gamepad>>,
     mut bar: Query<&mut Visibility, With<NavBar>>,
     mut rows: Query<(&NavItem, &mut NavSlot, &mut Node, &mut Visibility), Without<NavBar>>,
-    mut keys: Query<(&NavKey, &mut Text)>,
+    mut keys: Query<(&NavKey, &mut Text), Without<NavWords>>,
+    mut words: Query<(&NavWords, &mut Text), Without<NavKey>>,
 ) {
     let list = items(*screen);
     let on = game.phase == Phase::Menu && !list.is_empty();
@@ -184,6 +201,15 @@ fn show_nav_bar(
             let want = place(ITEM, (x, y));
             node.left = want.left;
             node.top = want.top;
+        }
+    }
+    for (item, mut text) in &mut words {
+        let want = match item.0 {
+            NavItem::Continue => continue_words(*screen),
+            other => other.words(),
+        };
+        if text.0 != want {
+            text.0 = want.to_string();
         }
     }
     let pad = !pads.is_empty();

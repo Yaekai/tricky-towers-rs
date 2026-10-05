@@ -402,11 +402,15 @@ fn spawn_settings_screen(mut commands: Commands, art: Option<Res<crate::art::Art
                 ));
                 match image("menu_arrow") {
                     Some(art) => {
-                        arrow.insert(ImageNode {
-                            image: art,
-                            flip_x: !right,
-                            ..default()
-                        });
+                        // The staged arrow points up; the original's point out sideways.
+                        arrow.insert((
+                            ImageNode::new(art),
+                            UiTransform::from_rotation(Rot2::degrees(if right {
+                                90.0
+                            } else {
+                                -90.0
+                            })),
+                        ));
                     }
                     None => {
                         arrow.with_children(|a| {
