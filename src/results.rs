@@ -196,6 +196,23 @@ fn start_moments(
         _ => look.spotlight_alpha.0,
     };
     let over = game.phase == Phase::Over;
+    // Trials end on CHALLENGE COMPLETE / CHALLENGE FAILED instead (gap-scan.md 4; the
+    // longer words drawn smaller, ?).
+    let (win_words, win_size, out_words, out_size) = if config.trial.is_some() {
+        (
+            "CHALLENGE COMPLETE",
+            look.banner_size * 0.6,
+            "CHALLENGE FAILED",
+            look.banner_size * 0.6,
+        )
+    } else {
+        (
+            "WINNER!",
+            look.banner_size,
+            "WIZARD OUT!",
+            look.banner_size * 0.75,
+        )
+    };
     // The winner's roof goes on before WINNER!, the spotlight and the veils.
     if towers
         .iter()
@@ -207,8 +224,7 @@ fn start_moments(
         let won = state.status == TowerStatus::Won || (over && game.winner == Some(tower.index));
         if won && seen.1.insert((entity, true)) {
             let color = tone_color(&art, &images, Tone::Gold);
-            let banner =
-                spawn_match_text(&mut commands, &config, "WINNER!", look.banner_size, color);
+            let banner = spawn_match_text(&mut commands, &config, win_words, win_size, color);
             commands.entity(banner).insert(Banner {
                 tower: entity,
                 out: false,
@@ -250,13 +266,7 @@ fn start_moments(
         }
         if state.status == TowerStatus::Out && seen.1.insert((entity, false)) {
             let color = tone_color(&art, &images, Tone::Red);
-            let banner = spawn_match_text(
-                &mut commands,
-                &config,
-                "WIZARD OUT!",
-                look.banner_size * 0.75,
-                color,
-            );
+            let banner = spawn_match_text(&mut commands, &config, out_words, out_size, color);
             commands.entity(banner).insert(Banner {
                 tower: entity,
                 out: true,

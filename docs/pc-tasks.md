@@ -108,6 +108,15 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Trial banners, race-trial clock and finish flags are in** (2026-10-05, cloud): trials end
+  on CHALLENGE COMPLETE / CHALLENGE FAILED (drawn at 0.6× the WINNER! size, ?), a race trial's
+  finish line shows the seconds left beside `hourglass` (fading in over 1 s; place and size
+  guessed, the 0.5 s slide not done), and `finish_line_end` flags sit at both ends of the
+  finish line (left one mirrored, ?). Stage `hourglass` and `finish_line_end`, read the
+  banners' exact wording and size, the clock's place and what it slides from, and the flags'
+  size and place. Still not done from gap-scan.md 3-4: gravel (when does it spawn?), impact
+  dust on later hard hits (what counts as hard enough?), the Endless Race score line's look,
+  the "continue" prompt after a trial or Endless run, and DRAW.
 - **Race Pro background, ready for staging** (2026-10-05, cloud): screen layers now take
   `drift` and `lit` (docs/art-layout.md), and Race Pro's water band falls back to the read
   gradient (13,119,154 → 49,21,138, parallax 0.3, height 6) when `water_band_race_pro` isn't
