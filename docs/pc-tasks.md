@@ -27,16 +27,19 @@ the steps below are from their READMEs on 2026-10-05.
    already ignores it). `graphify install --project --strict` makes the agent use the graph
    before reading files; use it if the plain install gets ignored. Rebuild the graph after
    big changes (`graphify hook install` adds a post-commit refresh).
-3. **OmniRoute** (https://github.com/diegosouzapw/OmniRoute): NOT a Claude plugin. It's a
-   local proxy server (`npm install -g omniroute`, runs on localhost:20128) that Claude Code
-   is pointed at; it then compresses every request (12 engines, some lossy) and can send it
-   to other AI providers (free tiers, GPT, Gemini...) with automatic fallback. Before setting
-   it up, confirm with Max: (a) which providers it may use; the recommendation is Anthropic
-   only, so the model doing the work doesn't silently change; (b) compression profile
-   `coding-safe` or lossless only, since lossy compression can drop code or numbers from the
-   research notes; (c) that sending this repo's code through it is fine. Never route the
-   extracted game files or anything under `extracted/`/`research/` through a third-party
-   provider. Write the chosen settings here once done.
+3. **OmniRoute** (https://github.com/diegosouzapw/OmniRoute): a fallback, not always on. Max
+   uses it only after hitting the daily Claude limit, to finish a task that was cut off. It's
+   a local proxy server, not a Claude plugin: `npm install -g omniroute` (runs on
+   localhost:20128), then `omniroute run claude` (or `omniroute configure`) points Claude
+   Code at it. Set up per Max (2026-10-05): **all providers enabled**, with its automatic
+   fallback between them. Compression: use the `coding-safe` profile unless Max says
+   otherwise, since lossy modes can drop code or numbers from the research notes. Normal
+   sessions run straight on Claude, without OmniRoute. Rules while running through it:
+   - Never send anything from `extracted/`, `research/` or the game install through it (other
+     providers would get the original's files); keep to the repo's own source and notes.
+   - The model doing the work may not be Claude. Add the AGENTS.md log line for that session
+     with "via OmniRoute", so the next Claude session reviews that work before building on it.
+   Write the setup actually used (combo name, compression profile) here once done.
 
 ## After every pull
 1. Build and run `cargo test`.

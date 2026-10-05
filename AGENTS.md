@@ -17,15 +17,16 @@ Read `PLAN.md` first, then `README.md` for what works today.
 - Tunable numbers belong in `GameConfig` (`src/config.rs`) and
   `assets/config/game.ron`, not as literals in systems.
 
-## Token-saving tools (always on)
-Max wants Ponytail, Graphify and OmniRoute in use on this project at all times; install and
-setup notes are the first section of `docs/pc-tasks.md`. In short:
+## Token-saving tools
+Max wants Ponytail and Graphify in use on this project at all times, and OmniRoute as a fallback;
+install and setup notes are the first section of `docs/pc-tasks.md`. In short:
 - Ponytail: smallest working change. The 1:1 rule above still wins over a shorter version.
 - Graphify: query the graph (`graphify query`, `graphify explain`, `graphify path`) before
   reading whole files; rebuild it after big changes. Never graph `extracted/` or `research/`.
-- OmniRoute: Claude Code's requests go through it on the PC, with the providers and
-  compression profile recorded in `docs/pc-tasks.md`.
-If one of them isn't active in a session (a cloud container, a fresh machine), say so at the
+- OmniRoute: only after the daily Claude limit is hit, to finish a cut-off task; all providers
+  on. Never send `extracted/`, `research/` or game files through it. Log that session's line
+  with "via OmniRoute" so the next Claude session reviews the work before building on it.
+If Ponytail or Graphify isn't active in a session (a cloud container, a fresh machine), say so at the
 start instead of working around it silently.
 
 ## Build
@@ -94,3 +95,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-04: pad defaults from the PC check (A/d-pad up/RT turn right, LT turn left, bumpers nudge, X light, B dark); Settings Quality Low/Medium/High and the 19 languages by name.
 - 2026-10-05: Trials screen from the layout readout: tier pages that slide (`TrialPart`), 2×5 trial buttons, medal panel, locked panel; arrows move in columns and turn pages at the edges (`trials_menu::step`). Not yet pictured (no GPU in the cloud).
 - 2026-10-05: Ponytail, Graphify and OmniRoute queued for the PC (pc-tasks.md, first section) and set as always-on tools in this file.
+- 2026-10-05: OmniRoute changed to a fallback for when the daily limit is hit, with all providers on (Max).
