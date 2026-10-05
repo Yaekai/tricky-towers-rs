@@ -156,3 +156,57 @@ points", each player's score) and then a "{cup} Winner!" popup with the cup.
   pops to 1.3× (ease out back) with chain sounds (4 variants, 0.2 s apart), then the whole panel
   slides 1000 px up in 0.5 s after 0.2 s, with brick spawn and roof placed sounds.
 - Starting a trial plays the mode's start stinger.
+
+## Explanation (tutorial) popups (read 2026-10-05, PC)
+Positions are in pixels of a 1920×1080 screen, from the centre (y up) unless said otherwise.
+There is no panel: the popup fills the screen over `modal_tile` (gph_modalTile, tiled) and
+everything sits straight on it. All text is white, all caps (TMP uppercase style).
+
+| Part | Where | Size | Text size |
+|---|---|---|---|
+| Title | (0, 410), centred | 1600×100 | 75 |
+| Subtitle (the mode's rule line) | (0, 333.5), centred | 1600×50 | 26 |
+| Mode picture | (0, 61), centred | 487×414 box | - |
+| Difficulty picture | (0, -235) | 209×157 box | - |
+| Difficulty title (Easy / Normal / Pro) | (0, -318) | 1200×70 | 46 |
+| Difficulty subtitle (the Pro line) | (0, -380) | 1200×70 | 26 |
+| Light spell icon slot | (-35, -450) | 55×55, `spell_slot_light` | - |
+| Dark spell icon slot | (35, -450) | 55×55, `spell_slot_dark` | - |
+| CONTINUE [continue] | bottom-right, 30 px in, 50 px up | 400×50, right aligned | 46 |
+| Disable all explanations | bottom-left, 30 px in, 50 px up | 850×70, left aligned | 46 |
+
+- Text keys: title `EXPLANATION_TITLE_<MULTIPLAYER|SINGLE_PLAYER>_<RACE|SURVIVAL|PUZZLE>`,
+  subtitle `EXPLANATION_<same>`, Pro line `EXPLANATION_MULTIPLAYER_<MODE>_PRO_SUBTITLE`,
+  difficulty `DIFFICULTY_EASY|NORMAL|PRO`, buttons `NAVIGATION_CONTINUE`,
+  `EXPLANATIONS_DISABLE`.
+- Mode pictures: Race `menu_mode_race`, Survival `menu_mode_survivalsp` (battle and single
+  player alike), Puzzle `menu_mode_puzzle`, single-player Race
+  `menu_explanation_mode_race_sp`.
+- Difficulty pictures: `menu_difficulty_easy|normal|pro`. Single-player explanations hide the
+  whole difficulty block.
+- The two icon slots hold what that difficulty takes away or changes (light slot, dark slot):
+  Race Easy: -, magic off; Race Normal, Survival Normal: none; Race Pro: none (just the Pro
+  line); Survival Easy: -, magic off; Survival Pro: -, magic off; Puzzle Easy: Undo, magic
+  off; Puzzle Normal: Ivy, magic off; Puzzle Pro: magic off, magic off. "Magic off" is
+  `menu_unavailble`; Ivy and Undo are `spell_icon_Ivy` / `spell_icon_Undo` (50×50 in the slot).
+- In: each part slides up from 1500 px below over 0.5 s, starting at title 0.1 s, subtitle
+  0.2 s, mode picture 0.3 s, the difficulty block 0.4 s, the two icons 0.5 s (ease: DOTween
+  default, OutQuad). Out: the same delays, sliding 1500 px up. CONTINUE and "Disable" appear
+  only once everything is in; "Disable" only while explanations are on.
+- Closes on any player's Continue, a mouse click anywhere, or the Invite button ([invite],
+  which also turns explanations off and saves it). The match intro starts after.
+- When: before a match, only while Explanations is on in Settings. Battle: per mode and
+  difficulty. Single player: `SINGLE_PLAYER_<MODE>_01`, before trials SR_10, SS_17 and SP_20 only. A controls explanation popup
+  (`ControlsExplanation`) comes first when the mode asks for it.
+
+## Credits popup (read 2026-10-05, PC)
+- Full screen over `modal_tile`. A first screen (1080 high) shows `logo` (818×420, centred)
+  and under it, at y -260, `CREDITS_THANKS_FOR_PLAYING` (size 60, white, caps).
+- Then the list from `credits_content` (Resources\content\credits.json, staged): groups of
+  `titles` and `names`; a title is a language key when one exists, else shown as written;
+  `nameFirst` puts the names above the titles. Titles: size 60, 78.6 high, then 10 px gap;
+  names: size 46, 70 high; 50 px between groups. Centred, white.
+- After the last group: `menu_weirdbeard_logo` (601×434, 100 px below its slot top), then 50 px.
+- Scroll: the whole content moves up by (list height + 1080) in 60 s, linear, after 0.5 s;
+  then the popup closes itself. Holding Down speeds it to 10×, holding Up runs it backwards
+  at 10×; any button or a click closes it. Lines only show while on screen.

@@ -85,3 +85,15 @@ Values are as the install defines them; units are cells and seconds.
   the game's maximum lives.
 - The petrified-brick challenge is Rookie 6: its floor is FLOOR_LWS_PETRIFIED_BRICK, a Survival
   floor with a petrified brick on it, and its single spell line gives Petrify.
+
+## The enemy wizard (read 2026-10-05, PC)
+- Which: by trial kind, not per trial. Survival trials: wizard 2 (Wizard02); Race trials:
+  wizard 3 (Wizard03); Puzzle trials: wizard 4 (Wizard04). It uses the normal wizard prefab
+  and animations, with the player's brick pack.
+- Where: x = 7 cells left of the lane centre (-7); in Puzzle trials 2 cells right (+2).
+  y = the highest tower + 4 cells, followed with the same smoothing as the players' wizards.
+  It has no tower of its own and no HUD seat; its curses come from the trial's curse spawner.
+- It laughs hard in the trial intro, and once the player fails it laughs hard again every
+  3-4 s (random each time) until the screen changes.
+- The single-player explanation popups show before the first three trials only: SR_10
+  (race), SS_17 (survival), SP_20 (puzzle).

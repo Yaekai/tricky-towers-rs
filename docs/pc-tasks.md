@@ -137,14 +137,16 @@ frontend and test-writer suggestions.
   size and place. Still not done from gap-scan.md 3-4: gravel (when does it spawn?), impact
   dust on later hard hits (what counts as hard enough?), the Endless Race score line's look,
   the "continue" prompt after a trial or Endless run, and DRAW.
-- **Race Pro background, ready for staging** (2026-10-05, cloud): screen layers now take
-  `drift` and `lit` (docs/art-layout.md), and Race Pro's water band falls back to the read
-  gradient (13,119,154 → 49,21,138, parallax 0.3, height 6) when `water_band_race_pro` isn't
-  staged. Stage `background_race_pro_N`: the clouds (`race_pro_cloud`, parallax 0.2,
-  `drift: (0.15, 0.25)`, in the units you read them in; say which), the race islands' `_DARK`
-  pictures at parallax 0.3 with the day picture as `lit`, and `water_pro` (stretched 80×).
-  Then picture Race Pro with a strike and compare. The waves' rows (y 3 / 2.5, scales
-  0.2-0.5 / 0.5-0.7) aren't drawn yet: say how the original lays out a wave row.
+- **Race Pro islands staged (2026-10-05, PC)**: the `_DARK` pictures are plain textures in
+  `Resources\game\background\race\islands\Island*Dark.png` (not sprites, hence not found by
+  name). `background_race_pro_2..7` now use them, each with its day island as `lit`
+  (`race_pro_island_N_lit`). The shader that mixes them can't be read (AssetRipper exports a
+  stub), so dark-by-default and lit-on-flash is from the pictures, not the code (?). In our
+  pictures the flash washes the whole screen almost white; the original only brightens the
+  islands over 0.2 s plus its bolt layer, and never flashes during the intro. The waves' rows
+  (`WavesLayer`): a wave every 1.4 s, each grows from y-scale 0.2 to 0.7 over 6 s, moving 4
+  units sideways and fading in from 0 to 1, in a band starting 3 units up, 2 high, scale
+  0.2-0.5.
 - **Game Info and Stats popups are in** (2026-10-05, cloud; src/game_info.rs, src/stats.rs,
   stats saved as `stats.ron`). Read from the original and picture with a script:
   1. Game Info (Tab / Y): where the title, mode lines and player rows sit inside the 750×550
@@ -156,16 +158,9 @@ frontend and test-writer suggestions.
      cups won, time played and the 3 Endless bests), their wording (language keys), text
      sizes, the gap between the panels and their heights on screen, the time format, and
      what counts (we count player 1's local battles, not trials or Endless runs).
-- **Readout for the original's text and tutorials (next cloud work, plain notes only):**
-  1. The format of `Resources\language\<lang>.txt`: one example line pattern with the value
-     replaced by `...`, and the full list of key names (names only, no translations) in
-     docs/research/text-keys.md. With that the game can show the original's wording from the
-     staged `text_<lang>` files at runtime.
-  2. The explanation (tutorial) popups' layout: panel art and size, where the title, text,
-     mode picture, difficulty, Pro subtitle and the two icons sit, sizes, and the keys that
-     close it; which key each popup's title and text use.
-  3. The Credits popup's layout and scroll speed. The names themselves stay in the game's
-     files: say where they live (a language key, a text asset) so they can be read at runtime.
+- **Text, tutorials and Credits read (2026-10-05, PC)**: format and 271 key names in
+  docs/research/text-keys.md; explanation popups and the Credits roll in docs/research/menus.md
+  (end); the credits list is staged as `credits_content` (`stage.ps1`).
 - **Keybinding popup is in** (2026-10-05, cloud; src/keybinding.rs, saved as `keys.ron`):
   Settings → Keybinding lists the 10 keyboard actions with their keys, Enter waits for a new
   key, a Reset row, Esc closes. Read from the original: the action list, order and wording
