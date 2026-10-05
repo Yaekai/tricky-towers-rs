@@ -20,3 +20,5 @@
 /research/
 /game/
 /graphify-out/
+!.claude/settings.json
+!.claude/hooks/*.js
