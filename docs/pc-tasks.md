@@ -156,16 +156,9 @@ frontend and test-writer suggestions.
      cups won, time played and the 3 Endless bests), their wording (language keys), text
      sizes, the gap between the panels and their heights on screen, the time format, and
      what counts (we count player 1's local battles, not trials or Endless runs).
-- **Readout for the original's text and tutorials (next cloud work, plain notes only):**
-  1. The format of `Resources\language\<lang>.txt`: one example line pattern with the value
-     replaced by `...`, and the full list of key names (names only, no translations) in
-     docs/research/text-keys.md. With that the game can show the original's wording from the
-     staged `text_<lang>` files at runtime.
-  2. The explanation (tutorial) popups' layout: panel art and size, where the title, text,
-     mode picture, difficulty, Pro subtitle and the two icons sit, sizes, and the keys that
-     close it; which key each popup's title and text use.
-  3. The Credits popup's layout and scroll speed. The names themselves stay in the game's
-     files: say where they live (a language key, a text asset) so they can be read at runtime.
+- **Text, tutorials and Credits read (2026-10-05, PC)**: format and 271 key names in
+  docs/research/text-keys.md; explanation popups and the Credits roll in docs/research/menus.md
+  (end); the credits list is staged as `credits_content` (`stage.ps1`).
 - **Keybinding popup is in** (2026-10-05, cloud; src/keybinding.rs, saved as `keys.ron`):
   Settings → Keybinding lists the 10 keyboard actions with their keys, Enter waits for a new
   key, a Reset row, Esc closes. Read from the original: the action list, order and wording
