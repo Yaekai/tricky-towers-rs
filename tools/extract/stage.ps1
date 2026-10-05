@@ -149,6 +149,24 @@ ModeScreenBg 'puzzle' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   3 0.5 'R
 ModeScreenBg 'puzzle' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.5 'Ruins middle right (mask: #E0AC92 / #D69883)' ', mask: ((224, 172, 146), (214, 152, 131))'
 ModeScreenBg 'puzzle' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.5 'Ruins front left (mask: #C47464)' ', mask: ((196, 116, 100), (196, 116, 100))'
 ModeScreenBg 'puzzle' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.5 'Ruins front right (mask: #C47464)' ', mask: ((196, 116, 100), (196, 116, 100))'
+# Puzzle Pro: the same ruins in the eclipse colours (gap-scan.md 1).
+ModeScreenBg 'puzzle_pro' 0 'gph_backgroundBackLeft'     0.0 0.0 15.0 3.8   0 0.3 'Pro ruins back left' ', mask: ((200, 36, 70), (215, 44, 83))'
+ModeScreenBg 'puzzle_pro' 1 'gph_backgroundBackRight'    1.0 0.0 -30.3 3.8  1 0.3 'Pro ruins back right' ', mask: ((200, 36, 70), (215, 44, 83))'
+ModeScreenBg 'puzzle_pro' 2 'gph_backgroundMiddleLeft'   0.0 0.0 0.0 3.44   2 0.5 'Pro ruins middle left' ', mask: ((126, 22, 60), (103, 14, 43))'
+ModeScreenBg 'puzzle_pro' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   3 0.5 'Pro ruins middle centre' ', mask: ((126, 22, 60), (103, 14, 43))'
+ModeScreenBg 'puzzle_pro' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.5 'Pro ruins middle right' ', mask: ((126, 22, 60), (103, 14, 43))'
+ModeScreenBg 'puzzle_pro' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.5 'Pro ruins front left' ', mask: ((46, 4, 5), (46, 4, 5))'
+ModeScreenBg 'puzzle_pro' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.5 'Pro ruins front right' ', mask: ((46, 4, 5), (46, 4, 5))'
+# Race Pro: the stormy clouds drift (screen units a second); the race islands as by day
+# (their dark versions weren't found under any sprite name, so no `lit` yet).
+ModeScreenBg 'race_pro' 0 'gph_cloudLargePro_var01' 0.3 0.0 0.0 0.0 0 0.2 'Race Pro cloud' ', drift: (0.15, 0.25)'
+ModeScreenBg 'race_pro' 1 'gph_cloudLargePro_var01' 0.8 0.0 0.0 0.0 1 0.2 'Race Pro cloud 2' ', drift: (0.15, 0.25)'
+ModeScreenBg 'race_pro' 2 'gph_backgroundBack01'   0.5 0.0 0.0 6.0 2 0.3 'Back island'
+ModeScreenBg 'race_pro' 3 'gph_backgroundMiddle01' 0.0 0.0 0.0 5.35 3 0.3 'Middle island left'
+ModeScreenBg 'race_pro' 4 'gph_backgroundMiddle02' 1.0 0.0 -9.5 5.1 4 0.3 'Middle island right'
+ModeScreenBg 'race_pro' 5 'gph_backgroundFront01'  0.0 0.0 0.0 3.5 5 0.3 'Front island left'
+ModeScreenBg 'race_pro' 6 'gph_backgroundFront02'  0.0 0.0 10.0 4.8 6 0.3 'Front island left + 10'
+ModeScreenBg 'race_pro' 7 'gph_backgroundFront03'  1.0 0.0 0.0 3.6 7 0.3 'Front island right'
 
 # --- Race water band (original BackgroundWater: bottom 6 screen units) ---
 $manifest.Add('    "water_band": (colors: [(61, 82, 201), (137, 146, 217)], position: (0.0, 6.0), view_height: 41.54, z: 1, parallax: 0.3),')
@@ -339,7 +357,7 @@ Add-Sprite 'life_orb'      'gph_heart_filled'     'fx\life_orb.png'   'Heart (us
 Add-Sprite 'heart'         'gph_heart_filled'     'hud\heart.png'     'HUD heart'
 Add-Sprite 'drop_guide'    'gph_brick_guide'      'fx\drop_guide.png' 'Drop guide (stretched to the brick width and view height, tinted)'
 Add-Sprite 'spell_line'    'gph_spellPickup'      'fx\spell_line.png' 'One 1-unit piece of the spell line (16 per line, tinted with 9 rainbow colours)'
-Add-Sprite 'finish_line'   'gph_finishLinetile'   'fx\finish_line.png' 'Finish line tile (repeat horizontally)'
+Add-Sprite 'finish_line'   'gph_finishLineEnd'    'fx\finish_line.png' 'Finish line tile, repeated every 1.2 cells (the original names it "End")'
 Add-Texture 'laser' 'gph_laseron.png' 'fx\laser.png' 'Puzzle laser beam (1024x32 texture, repeat sideways); pillar art: gph_laserPillarTile / gph_laserPillarTop'
 Add-Sprite 'spell_orb_light' 'icn_lightSpell'     'fx\orb_light.png'  'Light magic icon (the original line has no end orbs; icon used instead)'
 Add-Sprite 'spell_orb_dark'  'icn_darkSpell'      'fx\orb_dark.png'   'Dark magic icon'
@@ -389,13 +407,15 @@ Add-Sprite 'lost_cross' 'anim_largeCross_65x65_0' 'hud\lost_cross.png' 'Big red 
 foreach ($i in 1..4) { Add-Sprite "wave_cloud_$i" "gph_cloudMessage0$i" "hud\wave_cloud_$i.png" "WAVE N message: cloud piece $i" }
 Add-Texture 'confetti_1' 'anim_confetti01_32x96.png' 'effects\confetti_1.png' 'Confetti sheet 1 (32x96 frames), cup winner popup'
 Add-Texture 'confetti_2' 'anim_confetti02_32x96.png' 'effects\confetti_2.png' 'Confetti sheet 2 (32x96 frames), cup winner popup'
-Add-Texture 'finish_line_end' 'gph_finishLineEnd.png' 'fx\finish_line_end.png' 'Finish flag tile at the ends of the finish line'
+Add-Sprite 'finish_line_end' 'gph_finishLinetile' 'fx\finish_line_end.png' 'Cap at each end of the finish line: as is on the left, turned 180 on the right'
 Add-Sprite 'hourglass' 'icn_time' 'hud\hourglass.png' 'Hourglass beside the time left on a Race trial finish line'
 Add-Texture 'key_background' 'gph_KBKeyBackground.png' 'hud\key_background.png' 'Keyboard key cap behind the J/K hint on the spell bubbles'
 Add-Texture 'pad_x_up' 'gph_xButton_up.png' 'hud\pad_x_up.png' 'Pad X button hint (up)'
 Add-Texture 'pad_x_down' 'gph_xButton_down.png' 'hud\pad_x_down.png' 'Pad X button hint (pressed)'
 
 # --- Roofs, rival towers, trial floors, Endless Puzzle blocks (docs/research/trials-obstacles-roofs.md) ---
+foreach ($i in 1..4) { Add-Audio "sfx_chain_$i" "041_Spell_chain_0$i" "Chain sound $i (SFX_CHAIN_$i): the trials tier unlock" }
+Add-Sprite 'popup_text_background' 'gph_popupTextBackground02' 'menu\popup_text_background.png' 'Game Info player row background'
 Add-Sprite 'roof_race' 'gph_roof01' 'match\roof_race.png' 'Race roof (ROOF_01), drawn at the roof body origin'
 Add-Sprite 'roof_survival' 'gph_roof02' 'match\roof_survival.png' 'Survival roof (ROOF_02), drawn 7.13 below the roof body origin'
 foreach ($b in 'I','O','T','S','Z','J','L') {

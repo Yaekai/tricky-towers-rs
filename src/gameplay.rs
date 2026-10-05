@@ -2177,8 +2177,28 @@ pub fn placings(game: &Match, towers: &[(usize, &TowerState)]) -> Vec<usize> {
     order.into_iter().map(|(i, _)| i).collect()
 }
 
+/// DOTween's InOutElastic with its default amplitude (1.70158) and period, `t` in 0..1.
+pub fn in_out_elastic(t: f32) -> f32 {
+    use std::f32::consts::TAU;
+    if t <= 0.0 {
+        return 0.0;
+    }
+    if t >= 1.0 {
+        return 1.0;
+    }
+    let (a, p) = (1.70158f32, 0.45f32);
+    let s = p / TAU * (1.0 / a).asin();
+    let t = t * 2.0 - 1.0;
+    if t < 0.0 {
+        -0.5 * a * 2f32.powf(10.0 * t) * ((t - s) * TAU / p).sin()
+    } else {
+        a * 2f32.powf(-10.0 * t) * ((t - s) * TAU / p).sin() * 0.5 + 1.0
+    }
+}
+
 /// How far Auto Rotate has turned a brick `t` seconds after it took hold, in
-/// degrees (counter-clockwise): each `cycle` it winds back, then swings 90° net.
+/// degrees (counter-clockwise): each `cycle` it winds back, then swings 90° net,
+/// both with an in-out elastic ease.
 pub fn auto_rotate_angle(magic: &crate::config::MagicRules, cycle: f32, t: f32) -> f32 {
     let (back, back_time) = magic.auto_rotate_back;
     let (swing, swing_time) = magic.auto_rotate_swing;
@@ -2186,9 +2206,9 @@ pub fn auto_rotate_angle(magic: &crate::config::MagicRules, cycle: f32, t: f32) 
     let done = (t / cycle).floor();
     let c = t - done * cycle;
     let within = if c < back_time {
-        -back * c / back_time.max(1e-4)
+        -back * in_out_elastic(c / back_time.max(1e-4))
     } else if c < back_time + swing_time {
-        -back + swing * (c - back_time) / swing_time.max(1e-4)
+        -back + swing * in_out_elastic((c - back_time) / swing_time.max(1e-4))
     } else {
         swing - back
     };

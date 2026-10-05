@@ -708,8 +708,14 @@ fn grow_large_bricks(
         let progress = (progress + dt / look.large_grow.max(0.001)).min(1.0);
         entry.2 = progress;
         let factor = (from + (to - from) * progress) / to;
-        let (reach, rate) = config.magic.no_rotate_reach;
-        let wobble = if control.picture_shake > 0.0 {
+        // A refused turn makes the picture jump like a wave's lift, smaller on a
+        // big brick (the original's shake modifier).
+        let jump = if control.picture_shake > 0.0 {
+            control.picture_shake
+        } else {
+            config.cells(config.magic.no_rotate_jump) / brick.scale.max(1.0)
+        };
+        let wobble = if shaking {
             // A fresh random jump every frame, ±reach on each axis.
             let mut seed = (time.elapsed_secs().to_bits() ^ entity.index_u32()) | 1;
             let mut unit = || {
@@ -718,10 +724,7 @@ fn grow_large_bricks(
                 seed ^= seed << 5;
                 (seed % 2001) as f32 / 1000.0 - 1.0
             };
-            Vec2::new(unit(), unit()) * control.picture_shake
-        } else if shaking {
-            let t = time.elapsed_secs() * rate * std::f32::consts::TAU;
-            Vec2::X * config.cells(reach) * t.sin()
+            Vec2::new(unit(), unit()) * jump
         } else {
             Vec2::ZERO
         };

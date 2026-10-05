@@ -225,7 +225,8 @@ impl ModeKind {
 pub struct RaceRules {
     /// Finish line height above the platform, in cells.
     pub finish_height: f32,
-    /// Seconds the tower must stay past the line to win (?).
+    /// Seconds the tower must stay past the line to win: the original's 3-2-1
+    /// countdown, one number a second.
     pub hold_seconds: f32,
     /// Seconds into the race before the finish line starts coming down.
     pub finish_drop_after: f32,
@@ -308,7 +309,7 @@ pub struct EndlessRules {
     pub wait_seconds: f32,
     /// Score per cell of tower height (rounded up).
     pub score_per_cell: f32,
-    /// Base drop speed, in cells/s (?).
+    /// Base drop speed, in cells/s (the original's Endless Race: 4).
     pub drop_speed: f32,
 }
 
@@ -329,7 +330,7 @@ impl Default for EndlessRules {
             ease_seconds: 1.0,
             wait_seconds: 2.0,
             score_per_cell: 10.0,
-            drop_speed: 3.0,
+            drop_speed: 4.0,
         }
     }
 }
@@ -605,7 +606,7 @@ pub struct PuzzleRules {
     pub line_random: f32,
     /// Seconds everything must rest below the line after the last brick lands.
     pub settle_seconds: f32,
-    /// Base drop speed, in cells/s (?).
+    /// Base drop speed, in cells/s (2 on every difficulty in the original).
     pub drop_speed: f32,
     /// The light spell every player starts with; there are no spell lines.
     pub start_spell: Option<SpellKind>,
@@ -648,7 +649,7 @@ impl Default for PuzzleRules {
             line_height: 3.2,
             line_random: 4.0,
             settle_seconds: 2.0,
-            drop_speed: 3.0,
+            drop_speed: 2.0,
             start_spell: Some(SpellKind::Ivy),
             drop_penalty: 0.5,
             floor: PuzzleFloor::Normal,
@@ -740,9 +741,8 @@ impl SpellKind {
 
 /// One Trial: a single-player challenge in Race, Survival or Puzzle, with an enemy
 /// wizard who doesn't build but casts dark spells on a schedule
-/// (docs/research/modes.md). The shipped list holds a few SAMPLE trials (?) until
-/// the original's 50 are read on the PC; their goals are guesses, the kinds of
-/// schedule are the original's.
+/// (docs/research/modes.md). The shipped list is the original's 50
+/// (src/trial_list.rs).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct TrialDef {
@@ -884,8 +884,8 @@ impl BrickPack {
 pub const WIZARD_COUNT: usize = 14;
 
 /// The original's trial tiers (fan wiki, docs/research/wiki-notes.md): 50 trials in 5
-/// tiers of 10, each opening at a number of medals. One medal per trial beaten is a
-/// guess (?) until the medal rules are read.
+/// tiers of 10, each opening at a number of medals. Each trial beaten is one medal,
+/// out of as many medals as there are trials.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct TrialTiers {
@@ -893,7 +893,7 @@ pub struct TrialTiers {
     pub size: usize,
     /// Each tier's name and the medals it needs to open, easiest first.
     pub tiers: Vec<(String, u32)>,
-    /// Medals for beating a trial (?).
+    /// Medals for beating a trial.
     pub medals_per_trial: u32,
 }
 
@@ -1144,7 +1144,8 @@ pub struct MagicRules {
     /// Minibase ledge height above the tower (or `minibase_floor`, if higher).
     pub minibase_lift: f32,
     pub minibase_floor: f32,
-    /// Minibase ledge width, in cells (?).
+    /// Minibase ledge width, in cells: the flat top of the original's ledge piece (it
+    /// also has a raised lip on the outer side, not modelled).
     pub minibase_width: f32,
     /// Extra Life orb: x from the tower centre, and height above the tower
     /// (or `life_orb_floor`, if higher).
@@ -1164,14 +1165,14 @@ pub struct MagicRules {
     pub ice_friction: f32,
     /// Auto Rotate: seconds per cycle; in each the brick winds back
     /// `auto_rotate_back` (degrees, seconds), swings `auto_rotate_swing` the other
-    /// way (90° net), then waits out the cycle. Even speed within each part (?).
+    /// way (90° net), then waits out the cycle; both parts ease in-out elastic.
     pub auto_rotate_interval: f32,
     pub auto_rotate_back: (f32, f32),
     pub auto_rotate_swing: (f32, f32),
-    /// No Rotate: a refused turn shakes the brick this long; how far it shakes
-    /// sideways in cells and how fast (?).
+    /// No Rotate: a refused turn shakes the brick's picture this long, jumping up to
+    /// `no_rotate_jump` cells each way every frame (divided by the brick's scale).
     pub no_rotate_shake: f32,
-    pub no_rotate_reach: (f32, f32),
+    pub no_rotate_jump: f32,
     /// Shapes Mystery can turn a brick into, drawn from a bag.
     pub mystery_pieces: Vec<PieceDef>,
     /// Bubble lift as an upward acceleration in cells/s²: at the start, after
@@ -1355,7 +1356,7 @@ impl Default for MagicRules {
             minibase_offset: (3.0, 5.0),
             minibase_lift: 3.0,
             minibase_floor: 2.0,
-            minibase_width: 3.0,
+            minibase_width: 2.0,
             life_orb_x: -5.0,
             life_orb_lift: 3.0,
             life_orb_floor: 10.0,
@@ -1371,7 +1372,7 @@ impl Default for MagicRules {
             auto_rotate_back: (15.0, 0.2),
             auto_rotate_swing: (105.0, 0.45),
             no_rotate_shake: 0.3,
-            no_rotate_reach: (0.08, 30.0),
+            no_rotate_jump: 0.1,
             mystery_pieces: default_mystery_pieces(),
             bubble_lift: (21.5, 18.0, 17.5),
             bubble_ease: 1.0,
