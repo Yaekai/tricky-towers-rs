@@ -14,6 +14,7 @@ the code with a `DEBUG-TOOL` comment, so `grep -rn DEBUG-TOOL src` finds them al
 | Debug commands and `--script` files | `src/debug.rs`, `--script` in `src/main.rs`, picture hook in `src/offscreen.rs`; docs/debug-tools.md | Set up rare moments exactly in tests and offscreen pictures. |
 | F1 debug panel | `src/debug_panel.rs`, the `debug-panel` feature and `bevy_egui` in `Cargo.toml` | Try things by hand while playing. Build with `--no-default-features` to leave it out. |
 | Command-line options | `src/main.rs` (`--play`, `--difficulty`, `--offscreen`, `--shots`, `--menu`, config path) | Scripted checks and offscreen pictures on the PC. |
+| Frame-time probe | `tests/perf.rs` (ignored test) | Times one frame per mode with four AI towers, to check speed work. Delete the file. |
 
 Not tagged, decide before release:
 - The `mods/` folder (`src/mods.rs`, `docs/modding.md`): not in the original, but "easy to mod"

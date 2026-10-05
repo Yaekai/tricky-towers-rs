@@ -97,3 +97,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-05: Ponytail, Graphify and OmniRoute queued for the PC (pc-tasks.md, first section) and set as always-on tools in this file.
 - 2026-10-05: OmniRoute changed to a fallback for when the daily limit is hit, with all providers on (Max).
 - 2026-10-05: Anthropic's claude-code-setup plugin queued for the PC (pc-tasks.md, first section, item 4): run once, apply only what Max agrees to.
+- 2026-10-05: optimisation pass. Measured with 4 AI towers in the dev build: about 4.5 ms CPU per frame in every mode (core loop 1.6 ms), so play speed is fine; a fresh build took 14 min. Bevy now builds without 3D (`default-features = false`, 2d/ui/audio/wav): 12 min fresh build, game file 12% smaller, frames about 18% faster. `tests/perf.rs` (DEBUG-TOOL) prints the frame times. Ponytail/Graphify not active in the cloud.
