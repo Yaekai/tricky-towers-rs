@@ -8,6 +8,7 @@ use tricky_towers::input::KeyboardInputPlugin;
 use tricky_towers::letters::LettersPlugin;
 use tricky_towers::menu::MenuPlugin;
 use tricky_towers::results::ResultsPlugin;
+use tricky_towers::rival::RivalPlugin;
 use tricky_towers::visuals::VisualsPlugin;
 use tricky_towers::wizards::WizardsPlugin;
 
@@ -141,6 +142,7 @@ fn main() {
         tricky_towers::weather::WeatherPlugin,
         tricky_towers::particles::ParticlesPlugin,
         tricky_towers::hud::HudPlugin,
+        RivalPlugin,
     ));
     // Endless scores are kept between runs, except in offscreen picture runs.
     if offscreen.is_none() {

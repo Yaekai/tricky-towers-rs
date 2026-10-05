@@ -109,6 +109,7 @@ fn draw_panel(
                         difficulty: Some(state.difficulty),
                         players: Some(1),
                         opponents: Some(state.opponents),
+                        trial: None,
                     });
                 }
             }

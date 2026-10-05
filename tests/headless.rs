@@ -1810,3 +1810,50 @@ fn the_survival_winner_steers_a_roof_onto_the_tower_before_winner_shows() {
         "{y} {state:?}"
     );
 }
+
+#[test]
+fn a_trial_has_its_own_floor_lane_and_rival_tower() {
+    use tricky_towers::gameplay::{Platform, RivalLane};
+    let mut config = fast_config();
+    config.opponents = 2;
+    // SR_10 (rival tower 1) and SP_20 (FLOOR_PUZZLE_BASIC).
+    config.trial = config.trials.iter().position(|t| t.name == "SR_10");
+    let mut app = headless_app(config.clone());
+    let world = app.world_mut();
+    let lanes: Vec<(f32, Option<u32>)> = world
+        .query::<&RivalLane>()
+        .iter(world)
+        .map(|l| (l.origin_x, l.rival))
+        .collect();
+    assert_eq!(lanes.len(), 1);
+    assert_eq!(lanes[0].1, Some(1));
+    let towers: Vec<f32> = world
+        .query::<&Tower>()
+        .iter(world)
+        .map(|t| t.origin_x)
+        .collect();
+    assert_eq!(
+        towers.len(),
+        1,
+        "a trial is one player, whatever the lobby says"
+    );
+    assert!(towers[0] < 0.0 && lanes[0].0 > 0.0);
+
+    config.trial = config.trials.iter().position(|t| t.name == "SP_20");
+    let floor = config
+        .trial_floor()
+        .expect("SP_20 has its own floor")
+        .clone();
+    assert_eq!(floor.boxes.len(), 5);
+    let mut app = headless_app(config);
+    let world = app.world_mut();
+    // No random Puzzle columns: the floor is the platform's own boxes.
+    assert_eq!(
+        world
+            .query::<&tricky_towers::gameplay::FloorBlock>()
+            .iter(world)
+            .count(),
+        0
+    );
+    assert_eq!(world.query::<&Platform>().iter(world).count(), 1);
+}

@@ -70,6 +70,9 @@ pub enum DebugCommand {
         players: Option<u32>,
         #[serde(default)]
         opponents: Option<u32>,
+        /// Play this trial (an index into the trials) instead.
+        #[serde(default)]
+        trial: Option<usize>,
     },
     /// Press a button once for tower `tower` (0 is player 1).
     Press {
@@ -200,9 +203,10 @@ fn apply_debug_commands(
                 difficulty,
                 players,
                 opponents,
+                trial,
             } => {
                 config.mode = mode;
-                config.trial = None;
+                config.trial = trial;
                 if difficulty.is_some() {
                     config.difficulty = difficulty;
                 }

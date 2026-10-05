@@ -820,6 +820,7 @@ fn start_match(
             With<Platform>,
             With<crate::spells::LifeOrb>,
             With<RoofPiece>,
+            With<RivalLane>,
         )>,
     >,
     joints: Query<(Entity, &crate::spells::VineJoint)>,
@@ -876,18 +877,46 @@ fn start_match(
         }
         _ => 0.0,
     };
-    let floor = if config.mode.rules() == ModeKind::Puzzle {
+    // A trial's own floor replaces the round's Puzzle columns.
+    let floor = if config.mode.rules() == ModeKind::Puzzle && config.trial_floor().is_none() {
         puzzle_floor(config, &mut roll)
     } else {
         Vec::new()
     };
     let humans = config.players.clamp(1, MAX_TOWERS as u32) as usize;
-    let count = (humans + config.opponents as usize).min(MAX_TOWERS);
+    let mut count = (humans + config.opponents as usize).min(MAX_TOWERS);
+    // A trial is one player against the enemy wizard, who has no tower.
+    let humans = if config.trial.is_some() { 1 } else { humans };
+    if config.trial.is_some() {
+        count = 1;
+    }
     let c = config.cell_size;
     for index in 0..count {
         // The screen is shared out into equal lanes, wider with fewer towers.
         let spacing = config.lanes.spacing(count);
-        let origin_x = config.cells(spacing) * (index as f32 - (count - 1) as f32 * 0.5);
+        let mut origin_x = config.cells(spacing) * (index as f32 - (count - 1) as f32 * 0.5);
+        if config.trial.is_some() {
+            // A trial splits the screen with the enemy wizard's lane on the right;
+            // a Puzzle trial's lane takes the left two thirds.
+            origin_x = if config.mode == ModeKind::Puzzle {
+                -config.cells(config.lanes.screen_width) / 3.0
+            } else {
+                -config.cells(config.lanes.spacing(2)) * 0.5
+            };
+            if index == 0 {
+                let rival = config
+                    .trial
+                    .and_then(|i| config.trials.get(i))
+                    .and_then(|t| t.rival);
+                commands.spawn((
+                    RivalLane {
+                        origin_x: config.cells(config.lanes.spacing(2)) * 0.5,
+                        rival,
+                    },
+                    Transform::default(),
+                ));
+            }
+        }
         // Human players first, then the AI wizards.
         let human = index < humans;
         let mut tower = commands.spawn((
@@ -932,9 +961,15 @@ fn start_match(
             Transform::from_xyz(origin_x, -c * 0.5, 0.0),
         ));
         if floor.is_empty() {
-            // The base's boxes, placed from its top (half a cell above the centre).
-            let parts = config
-                .base_boxes(config.mode)
+            // The base's boxes, placed from its top (half a cell above the centre),
+            // or a trial's own floor in place of or on top of them.
+            let trial_floor = config.trial_floor();
+            let mut boxes = match trial_floor {
+                Some(f) if !f.keep_base => Vec::new(),
+                _ => config.base_boxes(config.mode),
+            };
+            boxes.extend(trial_floor.iter().flat_map(|f| f.boxes.iter().copied()));
+            let parts = boxes
                 .iter()
                 .map(|b| {
                     let size = Vec2::new(b.x.1 - b.x.0, b.y.1 - b.y.0) * c;
@@ -1910,6 +1945,14 @@ fn place_obstacles(
         }
         state.obstacles_placed = due;
     }
+}
+
+/// A trial's enemy lane, right of the player's: the race house and a rival tower
+/// (1-13) in race trials, empty otherwise. Scenery only, no tower of its own.
+#[derive(Component, Debug)]
+pub struct RivalLane {
+    pub origin_x: f32,
+    pub rival: Option<u32>,
 }
 
 /// An Endless Puzzle block put down at a level-up.
