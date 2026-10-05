@@ -86,6 +86,28 @@ background camera, 41.54 units tall):
   OutElastic). The bricks also go black and white over 1 s after 1 s (InOutQuad).
 - Christmas: 25% of bricks get snow. Spring (Easter) has its own modifier, not read.
 
+## Endless Survival curse waves (the pc-tasks.md Endless questions)
+- The gap counts from a wave's **end**: when a wave finishes, the next starts after a whole
+  number of seconds from 15 to 28 (random, seeded per run).
+- Waves per level: **2**. Each wave is drawn from its level without repeats; after 2 waves
+  (or when the level runs out) the next level starts, and level 4 repeats for good,
+  refilled each time.
+- Every wave, counted or timed, starts the same way: brick control pauses, the brick in hand
+  shakes and moves to the top, 1 s wait, the shake stops, control resumes. The first brick is
+  cursed at once; then each new brick until the wave's count is reached.
+- Only Mist hits just the wave's first brick; Large, No Rotate, Fast,
+  Ice, Mystery and Ghost hit every brick of the wave. A Mist cloud emits for 10 s, its puffs
+  live 5 s, so it clears about 15 s after it appears (fading over the last 1 s); a new Mist
+  replaces any that is still there.
+
+## Endless Race and Endless Survival spells and speed
+- Spell lines hand out spells by a random pick from the mode's list, never the same as the
+  last one picked: Endless Race Ivy, Undo, Ivy, Undo, Petrify (so Ivy and Undo twice as
+  likely as Petrify); Endless Survival Ivy, Minibase, Petrify.
+- Drop speed starts at 4 in both; Endless Race caps it at 15.
+- Endless Race uses `FLOOR_RACE_ENDLESS` at 12.5, Endless Survival `FLOOR_LWS` at 12.5; both
+  pick random bricks. Other rules come from the game's general settings, not from a
+  difficulty.
+
 ## Still open
-Cup screen layout and wording, the Endless questions in pc-tasks.md, Galaxy texture scale,
-the Spring pack look.
+Cup screen layout and wording, Galaxy texture scale, the Spring pack look.
