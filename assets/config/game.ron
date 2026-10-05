@@ -357,7 +357,7 @@
         drop_speed: 3.0,
     ),
     endless_play: (
-        survival_lives: 5,
+        survival_lives: 3,
         survival_drop_speed: 4.0,
         survival_light: [
             Ivy,
@@ -382,6 +382,10 @@
         rise_seconds: 0.5,
         level_wait: (0.3, 0.3),
         level_spell: Some(Undo),
+        obstacles: 4,
+        obstacle_delay: 0.1,
+        obstacle_columns: [(6.5, 2.0), (5.5, 0.5), (4.5, 0.3), (3.5, 0.2), (2.5, 0.1), (1.5, 0.05), (0.5, 0.01)],
+        obstacle_looks: [0, 1, 2, 0, 1, 2, 2, 1, 0, 1, 0],
     ),
     trials: [
         (
@@ -1242,9 +1246,6 @@
             (255, 110, 200),
             (200, 235, 80),
         ],
-        roof_from: 12.0,
-        roof_drop: 1.25,
-        roof_size: (3.0, 3.0),
         loser_tint: (0.78, 0.82, 0.88),
         loser_mix: 0.7,
         wizard_vanish: 0.6,

@@ -108,6 +108,54 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Batch for the trials/obstacles/values thread (2026-10-05, read in one go, notes in
+  docs/research/, plain language, no code or assets in the repo; no screenshots needed).**
+  Write each part's notes and push them as soon as that part is done, so the cloud can code it
+  while you read the next.
+  1. **Rival towers** (trials.md, ENEMY_TOWER_LEVEL_01..13): for each level, what it is made
+     of (one picture, or bricks with shapes, cells and rotations: list them in pop-in order),
+     where it stands (x offset from the player's base in cells, or its own lane), which floor
+     it stands on, its scale, and whether it ever changes during the trial. The pop-in: per
+     brick time, poof art and size, the bubble pop sound name and its pitch steps. Stage any
+     art as `rival_tower_NN` / `rival_floor` and say the names.
+  2. **Trial floors**: what "FLOOR_LWS at 12.5" means (a y offset, an x position, a scale?),
+     and FLOOR_LWS_PETRIFIED_BRICK's stone I (is it a real physics brick the player can knock
+     off, or part of the floor; its art). Also how puzzle trials' floors differ from battle
+     Puzzle's, if they do.
+  3. **Tier unlock animation** (menus.md "Locked tier"): when it plays (on entering the Trials
+     screen after the medal count passes the tier, or right after the trial), whether the page
+     turns to the new tier first, the 4 chain sound names and the brick spawn / roof placed
+     sound names; the start stinger name per mode.
+  4. **Endless Puzzle obstacle blocks** (modes.md step 3): what a block is (shape, size, a
+     brick that is petrified/ice, or a fixed piece; its art), how many per level-up, and the
+     rule that picks each position from the tower height, the new laser height and the camera,
+     in words or as a short formula (no code). Also the 1.2x zoom's effect on the lane, and the
+     3 move-laser and 3 spawn sound names.
+  5. **Survival roof and Puzzle roof** (ROOF_02 and the Survival one): art names and sizes,
+     whether the roof is a physics body or a picture, where it lands (centred on what), how it
+     comes in (drop from where, time, ease, bounce, poof, sound), what happens to the tower
+     after (frozen, sensors, still loses bricks?), and the 3 s countdown's look. Also the race
+     winner's roof if it differs.
+  6. **Guessed values** still marked `(?)` in the code. For each, the original's value or
+     rule, or "not in the original":
+     - config.rs: race `hold_seconds`; drop speeds marked `(?)` (Race/Puzzle base drop
+       speed); Endless Survival lives (the max health setting's value) and drop speed; trial
+       `medals_per_trial`; `minibase_width`; Auto Rotate `auto_rotate_interval` and
+       `auto_rotate_back`; No Rotate `no_rotate_shake` and `no_rotate_reach`; results
+       `sunray_spin`; Puzzle `sand_strip`; wizard `names` and `master`; casts `beam_width`,
+       `beam_reach`, `lightning`, `lightning_wobble`, `cloud_size`, `cloud_icon`; hud
+       `heart_size`, `heart_below`, `bubble_size`, `bubble_at`.
+     - Endless: whether the wave gap counts from a wave's start or end; waves before the next
+       wave level; lift/hold/shake at a counted wave's start; how long a counted Mist fogs;
+       whether Endless runs use Normal's other values; how Endless Race hands out spells.
+     - Menus: Trials and Settings page slide time; trial button order (down the left column
+       first?); where the trial rows and the medal panel sit; the medal count's total; the
+       chain's place on the locked panel; the cup screen's layout and wording; the popup's
+       first item during a cup; cup ranking ties; whose XP (profile or seat); the Settings
+       icon box and arrow art direction.
+     - Looks: the WAVE N message's length; particle speed units; the spell cloud's pop-away;
+       Diamond gloss (how often, sweep or flash); Hologram flicker period; the pack that pulses
+       to 0.8x (period); Galaxy texture scale and drift speed.
 - Bevy now builds without its 3D parts (Cargo.toml). After the next pull, take the usual
   offscreen pictures of each mode and a menu, and say if anything looks different (colours,
   missing sprites or text) or if the log shows new errors.

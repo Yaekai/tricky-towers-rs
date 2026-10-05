@@ -364,6 +364,15 @@ foreach ($k in $icons.Keys) { Add-Sprite "spell_icon_$k" $icons[$k] "icons\$k.pn
 Add-Sprite 'spell_slot_light' 'gph_spellBackground_white' 'icons\slot_light.png' 'Light spell slot background'
 Add-Sprite 'spell_slot_dark'  'gph_spellBackground_black' 'icons\slot_dark.png'  'Dark spell slot background'
 
+# --- The original's on-screen text, every language (Resources\language\*.txt, XML key/translation pairs) ---
+foreach ($lf in Get-ChildItem (Join-Path $A 'Resources\language') -Filter *.txt) {
+  New-Item -ItemType Directory -Force (Join-Path $X 'language') | Out-Null
+  Copy-Item $lf.FullName (Join-Path $X "language\$($lf.Name)") -Force
+  $manifest.Add("    `"text_$($lf.BaseName)`": (file: `"language/$($lf.Name)`"),")
+  $notes.Add("- text_$($lf.BaseName) : the original's UI text for language $($lf.BaseName) (key -> translation).")
+  $stagedMap.Add("text`t$($lf.BaseName)`ttext_$($lf.BaseName)")
+}
+
 # --- Gap scan 2026-10-05: Puzzle Pro sky, sandstorm, brick particles, in-match messages ---
 Add-Sprite 'puzzle_pro_sun' 'gph_eclipsedSun' 'background\puzzle_pro_sun.png' 'Puzzle Pro: eclipsed sun, 9 units above the screen centre'
 Add-Sprite 'puzzle_pro_corona' 'gph_corona' 'background\puzzle_pro_corona.png' 'Puzzle Pro: corona ray around the eclipsed sun (several copies, stretched)'
@@ -385,6 +394,26 @@ Add-Sprite 'hourglass' 'icn_time' 'hud\hourglass.png' 'Hourglass beside the time
 Add-Texture 'key_background' 'gph_KBKeyBackground.png' 'hud\key_background.png' 'Keyboard key cap behind the J/K hint on the spell bubbles'
 Add-Texture 'pad_x_up' 'gph_xButton_up.png' 'hud\pad_x_up.png' 'Pad X button hint (up)'
 Add-Texture 'pad_x_down' 'gph_xButton_down.png' 'hud\pad_x_down.png' 'Pad X button hint (pressed)'
+
+# --- Roofs, rival towers, trial floors, Endless Puzzle blocks (docs/research/trials-obstacles-roofs.md) ---
+Add-Sprite 'roof_race' 'gph_roof01' 'match\roof_race.png' 'Race roof (ROOF_01), drawn at the roof body origin'
+Add-Sprite 'roof_survival' 'gph_roof02' 'match\roof_survival.png' 'Survival roof (ROOF_02), drawn 7.13 below the roof body origin'
+foreach ($b in 'I','O','T','S','Z','J','L') {
+  Add-Sprite "rival_brick_$b" "gph_brick$($b)_stone" "trials\rival_brick_$b.png" "Rival tower stone brick $b"
+  Add-Sprite "desert_stone_$b" "gph_brick$($b)_petrified_desert" "trials\desert_stone_$b.png" "Petrified desert brick $b set into a puzzle trial floor"
+}
+foreach ($s in 'L','R') { Add-Sprite "rival_minibase_$s" "gph_towerPiece01$($s)_var01" "trials\rival_minibase_$s.png" "Rival tower minibase ledge ($s)" }
+Add-Sprite 'floor_block_4' 'gph_house04_world03' 'trials\floor_block_4.png' 'Puzzle trial floor block (house 04)'
+Add-Sprite 'floor_block_5' 'gph_house05_world03' 'trials\floor_block_5.png' 'Puzzle trial floor block (house 05)'
+Add-Sprite 'nudge_sign_left' 'gph_nudgeSignLeft' 'trials\nudge_sign_left.png' 'Nudge tutorial sign (left)'
+Add-Sprite 'nudge_sign_right' 'gph_nudgeSignRight' 'trials\nudge_sign_right.png' 'Nudge tutorial sign (right)'
+foreach ($i in 1..7) { Add-Sprite "grass_tuft_$i" "gph_grass_var0$i" "effects\grass_tuft_$i.png" "Grass tuft $i (on Endless Puzzle blocks, tinted #9DA247)" }
+
+Add-Sprite 'page_dot_on''gph_menuPagination_active' 'menu\page_dot_on.png' 'Page dot, current (20x20)'
+Add-Sprite 'page_dot_off' 'gph_menuPagination_inactive' 'menu\page_dot_off.png' 'Page dot, other pages (20x20)'
+foreach ($d in 'Easy','Normal','Special','Total') { Add-Texture "stats_icon_$($d.ToLower())" "icn_statsPopup$d.png" "menu\stats_icon_$($d.ToLower()).png" "Stats popup column icon ($d)" }
+Add-Texture 'player_left_cross' 'icn_gameInfoPlayerLeft.png' 'menu\player_left_cross.png' 'Game Info: player left'
+Add-Sprite 'modal_tile' 'gph_modalTile' 'menu\modal_tile.png' 'Dark tiled overlay behind popups'
 
 # --- Brick packs (BrickPack folders; picked per player on Select Players) ---
 foreach ($pk in @(@('candy','candy'), @('christmas','christmas'), @('diamond','diamond'), @('spring','easter'), @('halloween','halloween'))) {

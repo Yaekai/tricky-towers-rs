@@ -98,7 +98,10 @@ fn measure(label: &str, mode: ModeKind, mut app: App) {
         for entity in humans {
             world.entity_mut(entity).insert(AiControlled);
         }
-        if world.get_resource::<Match>().is_some_and(|m| m.phase == Phase::Over) {
+        if world
+            .get_resource::<Match>()
+            .is_some_and(|m| m.phase == Phase::Over)
+        {
             world.resource_mut::<MatchRequest>().pending = true;
         }
         let start = Instant::now();

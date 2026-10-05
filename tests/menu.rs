@@ -221,6 +221,14 @@ fn game_completed_popup_rematches_selects_a_mode_or_goes_to_the_title() {
         let mut game = app.world_mut().resource_mut::<Match>();
         game.phase = Phase::Over;
         game.winner = Some(0);
+        // The winner's roof is already on.
+        let world = app.world_mut();
+        for mut state in world
+            .query::<&mut tricky_towers::gameplay::TowerState>()
+            .iter_mut(world)
+        {
+            state.roof = tricky_towers::gameplay::RoofStage::Done;
+        }
         for _ in 0..12 {
             app.update();
         }
