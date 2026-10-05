@@ -378,3 +378,11 @@ and nothing gets installed without Max's own go-ahead.
   (FLOOR_LWS at 12.5, FLOOR_LWS_PETRIFIED_BRICK, puzzle floors), the rival tower pictures
   (ENEMY_TOWER_LEVEL_NN), the trial names shown on the list (we show the ids). Check: play
   SR_10, SS_10 and SS_11 against the original and compare when the curses land.
+- **Trials screen now follows the layout readout** (menus.md; src/trials_menu.rs): one sliding
+  page per tier with the tier name as title, 10 trial buttons in 2 columns of 5 (mode picture,
+  number, wizard face, medal once beaten, small corners on the pick), medal panel top right,
+  locked panel with chain and padlock over unearned tiers, page arrows and bumpers. Guessed (?):
+  where the rows sit (top row at y 230), that trials run down the left column first, the medal
+  panel's place (read "120 right / 100 above the corner" as inward), the count's total (all
+  medals), the face size, the chain's place and the slide time. Not done: the unlock animation
+  and the start stinger. Picture it: `--menu trials --offscreen <dir>`.
