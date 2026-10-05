@@ -27,6 +27,8 @@ impl Plugin for EffectsPlugin {
                 show_collapse,
                 fly_shards,
                 stop_rumble,
+                level_up_sounds,
+                grow_tufts,
                 unshake_camera.before(FramedCamera),
                 shake_camera.after(FramedCamera).after(show_collapse),
             ),
@@ -528,4 +530,96 @@ fn shake_camera(
         transform.translation += offset.extend(0.0);
         shake.applied = offset;
     }
+}
+
+/// Endless Puzzle level-ups: a laser move sound as the laser rises, a spawn sound
+/// with each block (half of them grow a grass tuft), the laser start sound at the end.
+fn level_up_sounds(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    towers: Query<(Entity, &crate::gameplay::TowerState)>,
+    blocks: Query<Entity, Added<crate::gameplay::Obstacle>>,
+    mut seen: Local<Vec<(Entity, bool)>>,
+) {
+    let play = |commands: &mut Commands, name: &str| {
+        if let Some(sound) = art.sounds.get(name) {
+            commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+    };
+    let roll = || (rand_seed() % 1000) as u32;
+    let wait = config.endless_play.level_wait.0;
+    for (tower, state) in &towers {
+        let rising = state.level_up.is_some_and(|t| t >= wait);
+        let was = seen.iter().find(|s| s.0 == tower).is_some_and(|s| s.1);
+        if rising && !was {
+            play(
+                &mut commands,
+                &format!("sfx_laser_move_0{}", roll() % 3 + 1),
+            );
+        }
+        if !rising && was && state.level_up.is_none() {
+            play(&mut commands, "sfx_spawn_laser");
+        }
+        seen.retain(|s| s.0 != tower);
+        seen.push((tower, rising));
+    }
+    for block in &blocks {
+        play(
+            &mut commands,
+            &format!("sfx_spawn_block_puzzle_0{}", roll() % 3 + 1),
+        );
+        if roll() % 2 == 0
+            && let Some((mut sprite, anchor, mut transform)) = crate::visuals::art_sprite(
+                &art,
+                &format!("grass_tuft_{}", roll() % 7 + 1),
+                config.cell_size,
+            )
+        {
+            sprite.color = Color::srgb_u8(0x9D, 0xA2, 0x47);
+            sprite.flip_x = roll() % 2 == 0;
+            transform.translation = Vec3::new(0.0, config.cell_size * 0.5, 0.2);
+            transform.scale = Vec3::ZERO;
+            commands
+                .entity(block)
+                .with_child((sprite, anchor, transform, Tuft(0.0)));
+        }
+    }
+}
+
+/// A grass tuft on an Endless Puzzle block: waits 0.5 s, grows to 0.7x in 0.1 s,
+/// then springs to full size over 0.4 s.
+#[derive(Component)]
+struct Tuft(f32);
+
+fn grow_tufts(time: Res<Time>, mut tufts: Query<(&mut Tuft, &mut Transform)>) {
+    for (mut tuft, mut transform) in &mut tufts {
+        tuft.0 += time.delta_secs();
+        let t = tuft.0 - 0.5;
+        let s = if t < 0.0 {
+            0.0
+        } else if t < 0.1 {
+            0.7 * t / 0.1
+        } else {
+            // Ease out elastic from 0.7 to 1.
+            let k = ((t - 0.1) / 0.4).min(1.0);
+            let e = if k >= 1.0 {
+                1.0
+            } else {
+                1.0 + 2f32.powf(-10.0 * k) * ((k * 10.0 - 0.75) * std::f32::consts::TAU / 3.0).sin()
+            };
+            0.7 + 0.3 * e
+        };
+        transform.scale = Vec3::new(s, s, 1.0);
+    }
+}
+
+/// A cheap seed for picking sound and look variants.
+fn rand_seed() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEED: AtomicU64 = AtomicU64::new(0x9E37_79B9_7F4A_7C15);
+    let mut s = SEED.load(Ordering::Relaxed);
+    let r = crate::gameplay::xorshift(&mut s);
+    SEED.store(s, Ordering::Relaxed);
+    r
 }

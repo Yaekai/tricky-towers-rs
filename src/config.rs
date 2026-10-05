@@ -75,6 +75,7 @@ pub struct GameConfig {
     pub water: WaterRules,
     /// Each base's collider, as read from the original.
     pub bases: Bases,
+    pub roofs: Roofs,
     /// How far above the tower top a new brick appears, in cells.
     pub spawn_gap: f32,
     /// Bricks that fall this far below the platform are counted as dropped.
@@ -358,7 +359,7 @@ impl EndlessRules {
 #[serde(default)]
 pub struct EndlessPlay {
     /// Endless Survival (docs/research/modes.md): lives are the game's maximum
-    /// health setting, which the scripts don't hold (?).
+    /// health setting, 3.
     pub survival_lives: u32,
     pub survival_drop_speed: f32,
     /// Spell lines give one of these at random, light only.
@@ -379,6 +380,15 @@ pub struct EndlessPlay {
     pub rise_seconds: f32,
     pub level_wait: (f32, f32),
     pub level_spell: Option<SpellKind>,
+    /// After the rise, `obstacles` 1-cell blocks pop in `obstacle_delay` s apart
+    /// (before the second wait), each drawn by weight from the free spots: rows
+    /// from the tower top + 1 up to the new laser, columns at these (x from the
+    /// lane centre, weight) on both sides (docs/research/trials-obstacles-roofs.md).
+    pub obstacles: u32,
+    pub obstacle_delay: f32,
+    pub obstacle_columns: Vec<(f32, f32)>,
+    /// The Pro ledge look (0-2) of each of the original's 11 block pieces.
+    pub obstacle_looks: Vec<u32>,
 }
 
 impl Default for EndlessPlay {
@@ -386,7 +396,7 @@ impl Default for EndlessPlay {
         use SpellKind::{Fast, Ghost, Ice, Large, Mist, Mystery, NoRotate as NoTurn};
         let w = Wave::bricks;
         Self {
-            survival_lives: crate::trial_list::MAX_TRIAL_LIVES,
+            survival_lives: 3,
             survival_drop_speed: 4.0,
             survival_light: vec![SpellKind::Ivy, SpellKind::Minibase, SpellKind::Petrify],
             survival_waves: WaveRules {
@@ -446,6 +456,18 @@ impl Default for EndlessPlay {
             rise_seconds: 0.5,
             level_wait: (0.3, 0.3),
             level_spell: Some(SpellKind::Undo),
+            obstacles: 4,
+            obstacle_delay: 0.1,
+            obstacle_columns: vec![
+                (6.5, 2.0),
+                (5.5, 0.5),
+                (4.5, 0.3),
+                (3.5, 0.2),
+                (2.5, 0.1),
+                (1.5, 0.05),
+                (0.5, 0.01),
+            ],
+            obstacle_looks: vec![0, 1, 2, 0, 1, 2, 2, 1, 0, 1, 0],
         }
     }
 }
@@ -457,6 +479,52 @@ impl EndlessPlay {
             return self.first_bricks;
         }
         (self.first_bricks + self.bricks_per_level * (level - 1)).min(self.most_bricks)
+    }
+
+    /// Seconds a level-up lasts: wait, rise, the blocks popping in, wait.
+    pub fn level_up_seconds(&self) -> f32 {
+        self.level_wait.0
+            + self.rise_seconds
+            + self.obstacles as f32 * self.obstacle_delay
+            + self.level_wait.1
+    }
+
+    /// Where the level-up's blocks go: cell centres (x from the lane centre, y),
+    /// each block filling the cell under a row line from `tower + 1` up to the
+    /// laser. `roll` gives numbers in 0..1.
+    pub fn obstacle_spots(
+        &self,
+        tower: f32,
+        laser: f32,
+        mut roll: impl FnMut() -> f32,
+    ) -> Vec<Vec2> {
+        let (low, high) = (tower.ceil() as i32 + 1, laser.floor() as i32);
+        let mut spots: Vec<(Vec2, f32)> = Vec::new();
+        for &(x, weight) in &self.obstacle_columns {
+            for row in low..=high {
+                for side in [x, -x] {
+                    spots.push((Vec2::new(side, row as f32 - 0.5), weight));
+                }
+            }
+        }
+        let mut picked = Vec::new();
+        for _ in 0..self.obstacles {
+            let total: f32 = spots.iter().map(|s| s.1).sum();
+            if spots.is_empty() || total <= 0.0 {
+                break;
+            }
+            let target = roll() * total;
+            let mut sum = 0.0;
+            let i = spots
+                .iter()
+                .position(|s| {
+                    sum += s.1;
+                    sum >= target
+                })
+                .unwrap_or(spots.len() - 1);
+            picked.push(spots.remove(i).0);
+        }
+        picked
     }
 
     /// Puts Endless Survival's or Endless Puzzle's rules over the battle mode's.
@@ -1777,6 +1845,51 @@ impl Default for Bases {
     }
 }
 
+/// The winner's roof (docs/research/trials-obstacles-roofs.md, "Roofs"): the boxes
+/// of `ROOF_01` (Race) and `ROOF_02` (Survival) in cells from the roof's origin,
+/// where its art is drawn `art_y` cells below, its fall speed and the seconds it
+/// rests before the match moves on.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct Roofs {
+    pub race: Vec<BaseBox>,
+    pub survival: Vec<BaseBox>,
+    pub race_art_y: f32,
+    pub survival_art_y: f32,
+    pub drop_speed: f32,
+    pub rest_seconds: f32,
+}
+
+impl Default for Roofs {
+    fn default() -> Self {
+        // Boxes given as centre and size in the original.
+        let at = |x: f32, y: f32, w: f32, h: f32| {
+            base_box((x - w / 2.0, x + w / 2.0), (y - h / 2.0, y + h / 2.0))
+        };
+        Self {
+            race: vec![
+                at(-1.0, -2.911, 1.0, 1.0),
+                at(0.0, -0.415, 4.5, 2.0),
+                at(1.0, -2.911, 1.0, 1.0),
+                at(0.0, -1.915, 3.0, 1.0),
+                at(0.0, 1.085, 3.0, 1.0),
+                at(0.0, 2.085, 2.0, 1.0),
+                at(0.0, 3.085, 1.0, 1.0),
+            ],
+            survival: vec![
+                at(0.0, -5.13, 1.0, 0.5),
+                at(0.0, -6.88, 4.0, 3.0),
+                at(1.5, -8.88, 1.0, 1.0),
+                at(-1.5, -8.88, 1.0, 1.0),
+            ],
+            race_art_y: 0.0,
+            survival_art_y: -7.13,
+            drop_speed: 2.0,
+            rest_seconds: 0.7,
+        }
+    }
+}
+
 impl GameConfig {
     /// The boxes of this mode's base, or a plain `platform_width` slab when the
     /// mode has no read shape.
@@ -2411,6 +2524,7 @@ impl Default for GameConfig {
             weather: WeatherLook::default(),
             water: WaterRules::default(),
             bases: Bases::default(),
+            roofs: Roofs::default(),
             spawn_gap: 17.0,
             kill_depth: 8.5,
             collider_scale: 0.98,
@@ -2741,11 +2855,6 @@ pub struct HudLook {
     pub diamond_size: f32,
     pub diamond_step: f32,
     pub line_colors: Vec<[u8; 3]>,
-    /// The roof dropped onto the winner: cells above the tower top it starts, the
-    /// seconds the fall takes, and its size in cells when no art is staged.
-    pub roof_from: f32,
-    pub roof_drop: f32,
-    pub roof_size: (f32, f32),
     /// Losing towers turn this colour (0-1) by this much once the match is over.
     pub loser_tint: [f32; 3],
     pub loser_mix: f32,
@@ -2787,9 +2896,6 @@ impl Default for HudLook {
                 [255, 110, 200],
                 [200, 235, 80],
             ],
-            roof_from: 12.0,
-            roof_drop: 1.25,
-            roof_size: (3.0, 3.0),
             loser_tint: [0.78, 0.82, 0.88],
             loser_mix: 0.7,
             wizard_vanish: 0.6,

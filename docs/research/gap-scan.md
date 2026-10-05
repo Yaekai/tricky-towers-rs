@@ -77,3 +77,54 @@ skins.md.
 Explanation and tutorial popups, the player overview popup, the Stats, Credits, Keybinding and
 Graphics popups, the bottom navigation bar and page dots, the attract demo. Achievements: not
 read; ask Max.
+
+## 5. On-screen text
+- The original keeps all its UI wording in `Resources\language\<lang>.txt` (XML key/translation
+  pairs, 271 keys, 19 languages). They're now staged as `text_<lang>` (`extracted/language/`),
+  so menus, popups and messages can show the exact wording at runtime, looked up by key
+  (e.g. `MESSAGE_WIZARD_OUT`, `EXPLANATION_TITLE_MULTIPLAYER_RACE`, `WIZARD_LEVEL_9`). Nothing
+  from them goes into the repo. Character and brick pack names aren't in the text: their
+  cards are pictures.
+
+## 6. Explanation (tutorial) popups
+- The first time a mode and difficulty is played, an explanation popup opens before the match
+  (unless Explanations is off in Settings). One per local mode and difficulty (Race, Survival,
+  Puzzle × Easy/Normal/Pro) and one per single-player mode (first trial of each). Each has a
+  title and text (language keys `EXPLANATION_TITLE_*` / `EXPLANATION_*`), a mode picture
+  (race, race single player, survival, survival easy, puzzle), the difficulty, a Pro subtitle
+  on Pro, and up to two icons: magic disabled (Easy), Undo (Puzzle Easy start spell), Ivy
+  (Puzzle Normal start spell).
+- An overview popup lists all of them with page dots (`gph_menuPagination_active/inactive`,
+  20×20).
+- A controls explanation page shows the controls with keyboard or pad pictures (keyboard keys,
+  arrows, D-pad, sticks, A/X buttons).
+- Seen explanations are remembered; Settings can reset them.
+
+## 7. Popups from Settings and the pause/overview button
+- **Game Info** (Tab / Y in a match): a 750×550 panel (`gph_popupBackgroundPanel`) 265 px from
+  the top, title "Game Info" (46), "Game Mode:" (22) and the mode's name (32), then one row per
+  player (`gph_popupTextBackground02`): name (26) and wizard level (18) beside the avatar, or
+  "Left the game" with a cross for players who left.
+- **Stats:** two panels side by side over a dark modal (`gph_modalTile`): Game stats (730×900,
+  per mode: games, wins…, in columns Easy / Normal / Pro / Total with small icons
+  `icn_statsPopupEasy/Normal/Special/Total`) and Other stats (730×695: cups, time played,
+  high scores). "BACK" with the back button icon under them.
+- **Keybinding:** a list of actions (rows 65 px, `gph_settingsMenuItemBackground`, action name
+  size 32 at x 50; the key in a 300 px box `gph_settingsMenuItemCheckbox` 30 px from the right,
+  size 28), with the small corners on the picked row and a reset row.
+- **Credits:** the logo (818×420) over "THANK YOU SO MUCH FOR PLAYING!" (size 60), then
+  scrolling titles and names, ending on the WeirdBeard logo.
+- **Graphics settings popup:** confirms graphics changes.
+
+## 8. Menu navigation bar
+- Every menu screen shows button hints in the bottom corners: on the right, yellow
+  "CONTINUE [button]" (size 46) and red "BACK [button]" under it; extra items stack upward
+  60 px apart. The bar sits 30 px in from the sides and 50 px up from the bottom; each item is
+  400×50 and right aligned (left aligned on the left side). The [button] is an inline icon of
+  the bound key or pad button.
+
+## 9. Not real features
+- The "demo" scripts and `gph_demoMessage` are for a trade-show demo build, not an attract mode;
+  there's no idle demo in the shipped game.
+- Auto Build (P on the title screen) is a debug-only option.
+- Achievements: 29 Steam achievements (not read in detail; only if Max wants them).

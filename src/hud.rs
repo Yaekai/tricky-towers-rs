@@ -11,7 +11,9 @@ use bevy::prelude::*;
 
 use crate::art::{Animated, Art};
 use crate::config::{GameConfig, HudLook, ModeKind, SpellKind};
-use crate::gameplay::{Brick, BrickBag, Match, Phase, Tower, TowerState, TowerStatus, placings};
+use crate::gameplay::{
+    Brick, BrickBag, Match, Phase, RoofPiece, RoofStage, Tower, TowerState, TowerStatus, placings,
+};
 use crate::visuals::{FramedCamera, ViewSize};
 use crate::wizards::Wizard;
 
@@ -78,13 +80,6 @@ struct HudItem {
     shows: Option<Shows>,
     /// The view height the item was built at; sizes follow it.
     built_at: f32,
-}
-
-/// The roof dropped onto a finished tower, and how long it has fallen.
-#[derive(Component)]
-struct Roof {
-    tower: Entity,
-    time: f32,
 }
 
 /// A brick sprite already turned pale for a lost match.
@@ -590,95 +585,64 @@ fn place_items(
     }
 }
 
-/// Drops a roof onto each finished tower: the race winner, or a Survival tower
-/// that placed all its bricks. Art `roof_<mode>` or `roof`, else a stepped red spire.
+/// Draws the roof the winner steers (art `roof_race` / `roof_survival`, else its
+/// boxes in red) and plays its drum roll until it lands, then the landing sound.
+#[allow(clippy::type_complexity)]
 fn drop_roofs(
     mut commands: Commands,
-    time: Res<Time>,
     config: Res<GameConfig>,
-    game: Res<Match>,
     art: Res<Art>,
-    towers: Query<(Entity, &Tower, &TowerState)>,
-    mut roofs: Query<(Entity, &mut Roof, &mut Transform)>,
+    new_roofs: Query<(Entity, &RoofPiece), Added<RoofPiece>>,
+    towers: Query<(Entity, &TowerState)>,
+    mut drums: Local<Vec<(Entity, Entity)>>,
 ) {
-    let look = &config.hud;
     let c = config.cell_size;
-    for (entity, mut roof, mut transform) in &mut roofs {
-        let Ok((_, tower, state)) = towers.get(roof.tower) else {
-            commands.entity(entity).despawn();
-            continue;
+    for (entity, roof) in &new_roofs {
+        let (key, art_y, boxes) = if roof.survival {
+            (
+                "roof_survival",
+                config.roofs.survival_art_y,
+                &config.roofs.survival,
+            )
+        } else {
+            ("roof_race", config.roofs.race_art_y, &config.roofs.race)
         };
-        if game.phase == Phase::Menu {
-            commands.entity(entity).despawn();
-            continue;
-        }
-        roof.time += time.delta_secs();
-        // Falls like a dropped weight: slow at first, fast at the end.
-        let t = (roof.time / look.roof_drop.max(0.01)).min(1.0);
-        let top = config.cells(state.height) + c * 0.5;
-        transform.translation.x = tower.origin_x;
-        transform.translation.y = top + config.cells(look.roof_from) * (1.0 - t * t);
-    }
-    if !matches!(game.mode.rules(), ModeKind::Race | ModeKind::Survival) {
-        return;
-    }
-    for (entity, tower, state) in &towers {
-        let finished = state.status == TowerStatus::Won
-            || (game.phase == Phase::Over && game.winner == Some(tower.index));
-        if !finished || roofs.iter().any(|(_, r, _)| r.tower == entity) {
-            continue;
-        }
-        let key = format!("roof_{}", crate::visuals::mode_key(game.mode));
-        let image = art.image(&key).or_else(|| art.image("roof"));
-        let (w, h) = (
-            config.cells(look.roof_size.0),
-            config.cells(look.roof_size.1),
-        );
-        let mut roof = commands.spawn((
-            Roof {
-                tower: entity,
-                time: 0.0,
-            },
-            Transform::from_xyz(
-                tower.origin_x,
-                config.cells(state.height + look.roof_from),
-                6.0,
-            ),
-            Visibility::default(),
-        ));
-        match image {
-            Some(image) => {
-                roof.with_child((
-                    Sprite {
-                        image,
-                        custom_size: Some(Vec2::new(w, h)),
-                        ..default()
-                    },
-                    bevy::sprite::Anchor::BOTTOM_CENTER,
+        let mut node = commands.entity(entity);
+        node.insert(Visibility::default());
+        if let Some((sprite, anchor, mut transform)) = crate::visuals::art_sprite(&art, key, c) {
+            transform.translation = Vec3::new(0.0, c * art_y, 6.0);
+            node.with_child((sprite, anchor, transform));
+        } else {
+            for b in boxes {
+                let size = Vec2::new(b.x.1 - b.x.0, b.y.1 - b.y.0) * c;
+                let centre = Vec2::new(b.x.0 + b.x.1, b.y.0 + b.y.1) * 0.5 * c;
+                node.with_child((
+                    Sprite::from_color(Color::srgb(0.85, 0.22, 0.2), size),
+                    Transform::from_translation(centre.extend(6.0)),
                 ));
             }
-            None => {
-                // A spire of narrowing red steps with a gold tip.
-                let steps = 6;
-                roof.with_children(|roof| {
-                    for i in 0..steps {
-                        let share = 1.0 - i as f32 / steps as f32;
-                        roof.spawn((
-                            Sprite::from_color(
-                                Color::srgb(0.85, 0.2 + 0.03 * i as f32, 0.2),
-                                Vec2::new(w * share, h / steps as f32),
-                            ),
-                            Transform::from_xyz(0.0, h * (i as f32 + 0.5) / steps as f32, 0.0),
-                        ));
-                    }
-                    roof.spawn((
-                        Sprite::from_color(Color::srgb(1.0, 0.8, 0.3), Vec2::splat(w * 0.12)),
-                        Transform::from_xyz(0.0, h + w * 0.06, 0.1),
-                    ));
-                });
-            }
+        }
+        if let Some(sound) = art.sounds.get("sfx_drum_roll") {
+            let drum = commands
+                .spawn((AudioPlayer(sound.clone()), PlaybackSettings::LOOP))
+                .id();
+            drums.push((roof.tower, drum));
         }
     }
+    drums.retain(|&(tower, drum)| {
+        let steering = towers
+            .get(tower)
+            .is_ok_and(|(_, s)| s.roof == RoofStage::Steering);
+        if !steering {
+            commands.entity(drum).despawn();
+            if towers.get(tower).is_ok_and(|(_, s)| s.roof_pending())
+                && let Some(sound) = art.sounds.get("sfx_roof_placed")
+            {
+                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+            }
+        }
+        steering
+    });
 }
 
 /// Losing towers turn pale blue-grey at once when the match is decided.

@@ -1728,3 +1728,85 @@ fn debug_commands_and_scripts_drive_a_match() {
     let log = app.world().resource::<tricky_towers::spells::SpellLog>();
     assert!(log.0.iter().any(|c| c.spell == SpellKind::Large));
 }
+
+#[test]
+fn endless_puzzle_level_ups_put_down_four_blocks_by_the_original_rule() {
+    use tricky_towers::gameplay::Obstacle;
+    let mut config = fast_config();
+    config.mode = ModeKind::EndlessPuzzle;
+    let rules = &mut config.endless_play;
+    rules.puzzle_drop_speed = 8.0;
+    rules.laser_start = 30.0;
+    rules.first_bricks = 2;
+    let mut app = headless_app(config);
+    assert!(run_until(&mut app, 30.0, |app| count::<With<Obstacle>>(
+        app
+    ) == 4));
+    // All four come from distinct spots, at the original's columns and above the tower.
+    let world = app.world_mut();
+    let spots: Vec<Vec2> = world
+        .query_filtered::<&Transform, With<Obstacle>>()
+        .iter(world)
+        .map(|t| t.translation.truncate())
+        .collect();
+    let config = app.world().resource::<GameConfig>().clone();
+    for (i, a) in spots.iter().enumerate() {
+        let x = a.x / config.cell_size;
+        assert!(
+            (x.abs() - x.abs().floor() - 0.5).abs() < 0.01 && x.abs() <= 6.5,
+            "{x}"
+        );
+        assert!(spots[i + 1..].iter().all(|b| b.distance(*a) > 1.0));
+    }
+}
+
+#[test]
+fn obstacle_spots_follow_the_weights_and_never_repeat() {
+    let rules = tricky_towers::config::EndlessPlay::default();
+    let mut seed = 7u64;
+    let mut far = 0;
+    for _ in 0..200 {
+        let spots = rules.obstacle_spots(2.3, 10.2, || {
+            (tricky_towers::gameplay::xorshift(&mut seed) % 10_000) as f32 / 10_000.0
+        });
+        assert_eq!(spots.len(), 4);
+        for (i, s) in spots.iter().enumerate() {
+            assert!(s.y >= 3.5 && s.y <= 9.5, "rows 4 to 10: {s}");
+            assert!(spots[i + 1..].iter().all(|o| o != s));
+            far += (s.x.abs() == 6.5) as u32;
+        }
+    }
+    // The outer columns carry most of the weight.
+    assert!(far > 400, "{far}");
+}
+
+#[test]
+fn the_survival_winner_steers_a_roof_onto_the_tower_before_winner_shows() {
+    use tricky_towers::gameplay::{RoofPiece, RoofStage};
+    let mut config = fast_config();
+    config.survival.bricks_to_place = 3;
+    config.survival.finish_countdown = 0.5;
+    let mut app = headless_app(config);
+    assert!(run_until(&mut app, 15.0, |app| tower(app, 0).roof
+        == RoofStage::Steering));
+    assert_eq!(count::<With<RoofPiece>>(&mut app), 1);
+    assert!(tower(&mut app, 0).active.is_none());
+    // Held down, it lands on the tower and rests 0.7 s.
+    assert!(run_until(&mut app, 20.0, |app| {
+        human_input(app).fast_fall_held = true;
+        tower(app, 0).roof == RoofStage::Done
+    }));
+    let world = app.world_mut();
+    let y = world
+        .query_filtered::<&Transform, With<RoofPiece>>()
+        .iter(world)
+        .next()
+        .expect("the roof stays on the tower")
+        .translation
+        .y;
+    let state = tower(&mut app, 0);
+    assert!(
+        y > 0.0 && y / app.world().resource::<GameConfig>().cell_size < state.height + 10.0,
+        "{y} {state:?}"
+    );
+}

@@ -29,6 +29,8 @@ impl Plugin for GameplayPlugin {
                 (
                     start_match,
                     spawn_next_brick,
+                    // Before the brick controls, which take the presses.
+                    steer_roofs,
                     control_active_brick,
                     blow_wind,
                     push_wind,
@@ -46,6 +48,7 @@ impl Plugin for GameplayPlugin {
                     )
                         .chain(),
                     judge_match,
+                    place_obstacles,
                     drain_water,
                 )
                     .chain()
@@ -425,6 +428,10 @@ pub struct TowerState {
     pub puzzle_level: u32,
     pub level_end: u32,
     pub level_up: Option<f32>,
+    /// Blocks placed so far in the running level-up.
+    pub obstacles_placed: u32,
+    /// The winner's roof.
+    pub roof: RoofStage,
     pub wave_lift: (f32, f32),
     /// Endless Race: the pacer line's height in cells, checkpoints reached, its speed
     /// and the step the next checkpoint adds, seconds left of the checkpoint stop, the
@@ -491,6 +498,8 @@ impl TowerState {
             puzzle_level: 1,
             level_end: config.endless_play.level_bricks(1),
             level_up: None,
+            obstacles_placed: 0,
+            roof: RoofStage::None,
             wave_lift: (0.0, 0.0),
             pacer: config.endless.intro_from,
             pacer_stages: 0,
@@ -540,6 +549,11 @@ impl TowerState {
             *lives = lives.saturating_sub(1);
             self.invincible = config.survival.invincible_seconds;
         }
+    }
+
+    /// True while the winner's roof is still being steered or settling.
+    pub fn roof_pending(&self) -> bool {
+        matches!(self.roof, RoofStage::Steering | RoofStage::Resting(_))
     }
 
     /// Bricks used so far, placed or dropped.
@@ -805,6 +819,7 @@ fn start_match(
             With<Brick>,
             With<Platform>,
             With<crate::spells::LifeOrb>,
+            With<RoofPiece>,
         )>,
     >,
     joints: Query<(Entity, &crate::spells::VineJoint)>,
@@ -1575,7 +1590,7 @@ fn track_towers(
             Option<&Cursed>,
             Option<&AngularVelocity>,
         ),
-        Without<ActiveBrick>,
+        (Without<ActiveBrick>, Without<FloorBlock>),
     >,
     joints: Query<(Entity, &crate::spells::VineJoint)>,
     mut lost: MessageWriter<BrickLost>,
@@ -1750,7 +1765,7 @@ fn judge_match(
                 let rules = &config.endless_play;
                 if let Some(t) = state.level_up.as_mut() {
                     *t += dt;
-                    if *t >= rules.level_wait.0 + rules.rise_seconds + rules.level_wait.1 {
+                    if *t >= rules.level_up_seconds() {
                         state.level_up = None;
                         state.laser_base += rules.laser_rise;
                         state.puzzle_level += 1;
@@ -1769,6 +1784,7 @@ fn judge_match(
                     && state.all_settled
                 {
                     state.level_up = Some(0.0);
+                    state.obstacles_placed = 0;
                 }
             }
             ModeKind::Puzzle => {
@@ -1831,6 +1847,262 @@ fn judge_match(
     if winner.is_some() || building.is_empty() || (humans > 0 && humans_building == 0) {
         game.phase = Phase::Over;
         game.winner = winner;
+    }
+}
+
+/// Endless Puzzle: once the laser has risen in a level-up, the blocks pop in one
+/// by one, static and left out of the tower height.
+fn place_obstacles(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    mut towers: Query<(Entity, &Tower, &mut TowerState)>,
+) {
+    if game.mode != ModeKind::EndlessPuzzle || game.phase != Phase::Playing {
+        return;
+    }
+    let rules = &config.endless_play;
+    for (entity, tower, mut state) in &mut towers {
+        let Some(t) = state.level_up else { continue };
+        let since = t - rules.level_wait.0 - rules.rise_seconds;
+        let due = ((since / rules.obstacle_delay.max(0.001)).floor() as i64)
+            .clamp(0, rules.obstacles as i64) as u32;
+        if since < 0.0 || state.obstacles_placed >= due {
+            continue;
+        }
+        // Every spot is drawn at the first block, so none repeats.
+        let laser = state.laser_base + rules.laser_rise;
+        let offset = config.puzzle.drop_penalty * state.bricks_dropped as f32;
+        let height = state.height;
+        let spots = rules.obstacle_spots(height, laser - offset, || {
+            (state.random() % 10_000) as f32 / 10_000.0
+        });
+        for spot in spots
+            .iter()
+            .skip(state.obstacles_placed as usize)
+            .take((due - state.obstacles_placed) as usize)
+        {
+            let look = rules
+                .obstacle_looks
+                .get(state.random() as usize % rules.obstacle_looks.len().max(1));
+            let block = Brick {
+                tower: entity,
+                piece: 0,
+                cells: vec![Vec2::ZERO],
+                color: Color::srgb(0.62, 0.52, 0.40),
+                scale: 1.0,
+                mass: 1.0,
+                ice: false,
+            };
+            let (collider, _) = brick_body(&config, &block);
+            let at = Vec2::new(tower.origin_x + config.cells(spot.x), config.cells(spot.y));
+            commands.spawn((
+                block,
+                FloorBlock {
+                    part: FloorPart::Ledge(look.copied().unwrap_or(0)),
+                },
+                Obstacle,
+                RigidBody::Static,
+                collider,
+                Friction::new(config.brick_friction),
+                Transform::from_translation(at.extend(0.0)),
+            ));
+        }
+        state.obstacles_placed = due;
+    }
+}
+
+/// An Endless Puzzle block put down at a level-up.
+#[derive(Component, Debug)]
+pub struct Obstacle;
+
+/// True while this tower won and its roof isn't on yet: the match moments and
+/// the popup wait for it.
+pub fn roof_waiting(game: &Match, tower: &Tower, state: &TowerState) -> bool {
+    matches!(game.mode, ModeKind::Race | ModeKind::Survival)
+        && game.phase == Phase::Over
+        && game.winner == Some(tower.index)
+        && state.roof != RoofStage::Done
+}
+
+/// The roof the winner of a Race or Survival match steers onto the tower.
+#[derive(Component, Debug)]
+pub struct RoofPiece {
+    pub tower: Entity,
+    /// `roofs.race` or `roofs.survival`.
+    pub survival: bool,
+    speed: f32,
+    repeat_timer: f32,
+    repeating: bool,
+}
+
+/// Where a tower's roof is: none yet, steered, resting before the match moves on,
+/// or done.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum RoofStage {
+    #[default]
+    None,
+    Steering,
+    Resting(f32),
+    Done,
+}
+
+/// The winner of a Race or Survival match gets a roof to place, as in the
+/// original: it comes from the brick spawn height over the lane centre, moves and
+/// nudges like a brick but never turns, falls at `roofs.drop_speed` (faster while
+/// held), and the winner's tower stops moving meanwhile. The first touch sets it
+/// down; `roofs.rest_seconds` later the match moves on.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn steer_roofs(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    spatial: SpatialQuery,
+    mut towers: Query<(Entity, &Tower, &mut TowerState, &mut PlayerInput)>,
+    mut roofs: Query<(Entity, &mut RoofPiece, &Position, &Collider)>,
+    bricks: Query<(Entity, &Brick, &RigidBody), Without<RoofPiece>>,
+) {
+    let dt = time.delta_secs();
+    let rules = &config.roofs;
+    let roofed = matches!(game.mode, ModeKind::Race | ModeKind::Survival);
+    for (entity, tower, mut state, mut input) in &mut towers {
+        match state.roof {
+            RoofStage::None => {
+                if !roofed || game.phase != Phase::Over || game.winner != Some(tower.index) {
+                    continue;
+                }
+                if let Some(active) = state.active.take() {
+                    commands.entity(active).despawn();
+                }
+                // The winner's tower stops moving for the roof.
+                for (brick, b, body) in &bricks {
+                    if b.tower == entity && *body == RigidBody::Dynamic {
+                        commands.entity(brick).insert(RigidBody::Static);
+                    }
+                }
+                let survival = game.mode == ModeKind::Survival;
+                let boxes = if survival {
+                    &rules.survival
+                } else {
+                    &rules.race
+                };
+                let c = config.cell_size;
+                let parts: Vec<_> = boxes
+                    .iter()
+                    .map(|b| {
+                        let size = Vec2::new(b.x.1 - b.x.0, b.y.1 - b.y.0) * c;
+                        let centre = Vec2::new(b.x.0 + b.x.1, b.y.0 + b.y.1) * 0.5 * c;
+                        (
+                            centre,
+                            Rotation::IDENTITY,
+                            Collider::rectangle(size.x, size.y),
+                        )
+                    })
+                    .collect();
+                let at = Vec2::new(
+                    tower.origin_x,
+                    config.cells(state.stack_top + config.spawn_gap),
+                );
+                commands.spawn((
+                    RoofPiece {
+                        tower: entity,
+                        survival,
+                        speed: rules.drop_speed,
+                        repeat_timer: 0.0,
+                        repeating: false,
+                    },
+                    RigidBody::Kinematic,
+                    Collider::compound(parts),
+                    Transform::from_translation(at.extend(0.0)),
+                    Position(at),
+                    Rotation::IDENTITY,
+                ));
+                state.roof = RoofStage::Steering;
+            }
+            RoofStage::Steering => {
+                let Some((roof_entity, mut roof, position, shape)) =
+                    roofs.iter_mut().find(|(_, r, _, _)| r.tower == entity)
+                else {
+                    continue;
+                };
+                let left = std::mem::take(&mut input.left_pressed);
+                let right = std::mem::take(&mut input.right_pressed);
+                let nudge_left = std::mem::take(&mut input.nudge_left_pressed);
+                let nudge_right = std::mem::take(&mut input.nudge_right_pressed);
+                let filter = SpatialQueryFilter::from_excluded_entities([roof_entity]);
+                let cast = |from: Vec2, dir: Dir2, max: f32| {
+                    spatial.cast_shape(
+                        shape,
+                        from,
+                        0.0,
+                        dir,
+                        &ShapeCastConfig::from_max_distance(max),
+                        &filter,
+                    )
+                };
+                let mut at = position.0;
+                let reach = config.cells(config.lane_reach(state.half_width));
+                // Moves: a step on press, repeating while held; nudges a full cell.
+                let dir = (input.right_held || right) as i32 - (input.left_held || left) as i32;
+                let mut step = left || right;
+                if dir == 0 || step {
+                    roof.repeat_timer = 0.0;
+                    roof.repeating = false;
+                } else {
+                    roof.repeat_timer += dt;
+                    let wait = if roof.repeating {
+                        config.move_repeat_interval
+                    } else {
+                        config.move_repeat_delay
+                    };
+                    if roof.repeat_timer >= wait {
+                        roof.repeat_timer = 0.0;
+                        roof.repeating = true;
+                        step = true;
+                    }
+                }
+                let nudge = nudge_right as i32 - nudge_left as i32;
+                for (go, sign, want) in [
+                    (step && dir != 0, dir as f32, config.move_step),
+                    (nudge != 0, nudge as f32, config.nudge_distance),
+                ] {
+                    let want = config.cells(want);
+                    if go && (at.x + sign * want - tower.origin_x).abs() <= reach {
+                        let along = if sign > 0.0 { Dir2::X } else { Dir2::NEG_X };
+                        at.x += sign * cast(at, along, want).map_or(want, |hit| hit.distance);
+                    }
+                }
+                roof.speed = if input.fast_fall_held {
+                    (roof.speed + config.drop_acceleration * dt).min(config.drop_max_speed)
+                } else {
+                    (roof.speed - config.drop_deceleration * dt).max(rules.drop_speed)
+                };
+                let fall = config.cells(roof.speed) * dt;
+                match cast(at, Dir2::NEG_Y, fall) {
+                    Some(hit) => {
+                        at.y -= hit.distance;
+                        commands.entity(roof_entity).insert(RigidBody::Static);
+                        state.roof = RoofStage::Resting(0.0);
+                    }
+                    None => at.y -= fall,
+                }
+                // Steered past the tower and out of sight: it counts as set down.
+                if at.y < -config.cells(config.kill_depth) {
+                    commands.entity(roof_entity).despawn();
+                    state.roof = RoofStage::Resting(0.0);
+                }
+                commands.entity(roof_entity).insert(Position(at));
+            }
+            RoofStage::Resting(t) => {
+                state.roof = if t + dt >= rules.rest_seconds {
+                    RoofStage::Done
+                } else {
+                    RoofStage::Resting(t + dt)
+                };
+            }
+            RoofStage::Done => {}
+        }
     }
 }
 

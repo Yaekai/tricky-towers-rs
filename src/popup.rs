@@ -189,6 +189,13 @@ fn time_popup(
         popup.shown = false;
         return;
     }
+    // The winner's roof goes on first.
+    if towers
+        .iter()
+        .any(|(tower, state, _)| crate::gameplay::roof_waiting(&game, tower, state))
+    {
+        return;
+    }
     popup.clock += time.delta_secs();
     if !popup.shown
         && popup.clock >= config.moments.popup_after

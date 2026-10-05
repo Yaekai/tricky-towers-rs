@@ -321,6 +321,10 @@ fn load_entries(
             .extension()
             .map(|e| e.to_string_lossy().to_lowercase())
             .unwrap_or_default();
+        // Text files (the original's UI wording, `text_<lang>`) are read where used.
+        if ext == "txt" {
+            continue;
+        }
         let is_font = matches!(ext.as_str(), "ttf" | "otf");
         let is_sound = matches!(ext.as_str(), "ogg" | "wav" | "mp3" | "flac")
             || name.starts_with("sfx_")

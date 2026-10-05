@@ -192,7 +192,7 @@ fn fit_strips(images: Res<Assets<Image>>, mut strips: Query<(&Strip, &mut Sprite
     }
 }
 
-fn art_sprite(art: &Art, name: &str, cell: f32) -> Option<(Sprite, Anchor, Transform)> {
+pub(crate) fn art_sprite(art: &Art, name: &str, cell: f32) -> Option<(Sprite, Anchor, Transform)> {
     let image = art.image(name)?;
     let entry = art.entries.get(name)?;
     let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));

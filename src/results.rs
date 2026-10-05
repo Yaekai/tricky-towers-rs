@@ -196,6 +196,13 @@ fn start_moments(
         _ => look.spotlight_alpha.0,
     };
     let over = game.phase == Phase::Over;
+    // The winner's roof goes on before WINNER!, the spotlight and the veils.
+    if towers
+        .iter()
+        .any(|(_, tower, state)| crate::gameplay::roof_waiting(&game, tower, state))
+    {
+        return;
+    }
     for (entity, tower, state) in &towers {
         let won = state.status == TowerStatus::Won || (over && game.winner == Some(tower.index));
         if won && seen.1.insert((entity, true)) {
