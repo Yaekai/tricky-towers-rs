@@ -577,6 +577,8 @@ pub(crate) fn show_single_screens(
             },
             _ => continue,
         };
+        // Menu text is in capitals, as in the original.
+        let words = words.to_uppercase();
         if let Some(mut text) = text
             && text.0 != words
         {

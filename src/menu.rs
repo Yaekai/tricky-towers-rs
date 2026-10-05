@@ -442,7 +442,7 @@ pub const TILES: [Tile; 7] = [
     },
     Tile {
         key: "quit",
-        label: "Quit",
+        label: "Exit Game",
         size: (436.0, 68.0),
         at: (0.0, -406.0),
         color: (0.7, 0.2, 0.25),
@@ -467,7 +467,7 @@ struct TileChosen {
     picked: bool,
 }
 #[derive(Component)]
-struct TileLabel(usize);
+struct TileLabel;
 /// A corner of the picked tile's frame, and which way it pulses (UI y is down).
 #[derive(Component)]
 struct TileCorner(Vec2);
@@ -631,31 +631,55 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
                                 }
                             });
                     }
-                    // The label, in the header bar on big tiles.
-                    let mut header = t.spawn((
-                        Node {
+                    // The Help tile's big question mark.
+                    if tile.key == "help" {
+                        t.spawn(Node {
                             position_type: PositionType::Absolute,
                             width: Val::Percent(100.0),
-                            height: Val::Percent(if small { 100.0 } else { 22.0 }),
+                            height: Val::Percent(100.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             ..default()
-                        },
-                        TileLabel(i),
-                        Visibility::Hidden,
-                    ));
-                    if !small && let Some(art) = image("menu_tile_header") {
-                        header.insert(ImageNode::new(art));
+                        })
+                        .with_children(|q| {
+                            q.spawn(crate::select::label(7.0, "?"));
+                        });
                     }
-                    header.with_children(|h| {
+                    // The header bar on the picked big tile.
+                    if !small && let Some(art) = image("menu_tile_header") {
+                        t.spawn((
+                            Node {
+                                position_type: PositionType::Absolute,
+                                width: Val::Percent(100.0),
+                                height: Val::Percent(22.0),
+                                ..default()
+                            },
+                            ImageNode::new(art),
+                            TileLabel,
+                            Visibility::Hidden,
+                        ));
+                    }
+                    // Every tile's name, always shown as in the original: across the
+                    // top of big tiles, above small ones, in outlined capitals.
+                    t.spawn(Node {
+                        position_type: PositionType::Absolute,
+                        width: Val::Percent(100.0),
+                        top: Val::Percent(if small { -30.0 } else { -6.0 }),
+                        height: Val::Percent(if small { 30.0 } else { 22.0 }),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    })
+                    .with_children(|h| {
                         h.spawn((
-                            Text::new(tile.label),
+                            Text::new(tile.label.to_uppercase()),
                             TextFont {
-                                font_size: FontSize::Vh(if small { 2.6 } else { 3.2 }),
+                                font_size: FontSize::Vh(if small { 2.4 } else { 3.2 }),
                                 ..default()
                             },
                             TextColor(Color::WHITE),
                             TextLayout::justify(Justify::Center),
+                            crate::letters::TextLook::TITLE,
                         ));
                     });
                 });
@@ -766,7 +790,6 @@ fn show_main_menu(
     game: Res<Match>,
     screen: Res<MenuScreen>,
     menu: Res<MainMenu>,
-    art: Option<Res<Art>>,
     mut root: Query<&mut Visibility, With<MainMenuRoot>>,
     mut parts: Query<
         (&mut Visibility, Option<&TileChosen>, Option<&TileLabel>),
@@ -788,10 +811,6 @@ fn show_main_menu(
     if !shown {
         return;
     }
-    let staged = |key: &str| {
-        art.as_ref()
-            .is_some_and(|a| a.image(&format!("menu_tile_{key}_deselected")).is_some())
-    };
     for (back, children) in &tiles {
         let on = back.0 == menu.selected;
         for &child in children {
@@ -800,7 +819,7 @@ fn show_main_menu(
             };
             let want = match (chosen, label) {
                 (Some(chosen), _) => chosen.picked == on,
-                (None, Some(label)) => on || !staged(TILES[label.0].key),
+                (None, Some(_)) => on,
                 (None, None) => continue,
             };
             v.set_if_neq(if want {
