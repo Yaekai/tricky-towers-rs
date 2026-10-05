@@ -49,6 +49,44 @@ the steps below are from their READMEs on 2026-10-05.
    its recommendations here, and apply only the ones Max agrees to. Any hook it adds must keep
    the rules in AGENTS.md (nothing from `extracted/` or `research/` committed or sent out).
 
+### Setup status (PC, 2026-10-05)
+- Installed (user scope): `ponytail@ponytail` 4.12.0, `claude-code-setup@claude-plugins-official`
+  1.0.0, and uv (winget `astral-sh.uv`, Graphify's prerequisite). Python itself isn't installed;
+  uv fetches its own.
+- Not installed, blocked by the PC session's auto-mode safety check (it refuses installing
+  third-party packages unasked): `uv tool install graphifyy` and `npm install -g omniroute`.
+  Max runs those two himself, or approves them in a Claude session, then `graphify install` and
+  `/graphify .` here, and the OmniRoute setup in item 3.
+- claude-code-setup was run without the graph (Graphify missing); it only reads the repo.
+
+### claude-code-setup recommendations (waiting for Max; none applied)
+Note first: the whitelist `.gitignore` ignores `.claude/`, so a project hook, skill or agent
+there stays on this PC unless `.gitignore` gets an exception like `!.claude/settings.json`.
+Pick per item.
+1. **Plugin `rust-analyzer-lsp`** (same official marketplace): gives the agent go-to-definition
+   and errors in Rust without a full `cargo check`. Needs rust-analyzer on PATH (rustup
+   component). Cheapest token win after Graphify.
+2. **MCP `context7`**: live docs lookup for Bevy 0.19, avian2d 0.7 and bevy_egui 0.42, whose
+   APIs change between versions and are past most models' training. Sends only library names
+   and questions out, never repo files.
+3. **Hook, PreToolUse guard**: refuse any Bash/Edit/Write/Read call whose command or path
+   touches `extracted/`, `research/`, `game/` or the Steam install when it also involves
+   `git add -f`, `curl`, `gh`, upload or a non-Claude endpoint. Enforces the clean-room rule
+   in code instead of by memory.
+4. **Hook, PostToolUse `rustfmt`** on edited `.rs` files: keeps diffs small and consistent.
+   Only worth it if the code is already rustfmt-clean (run `cargo fmt --check` first).
+5. **Skill `offscreen-shot`** (user-only): runs `cargo run -- --offscreen <dir> --shots ...`
+   or a `--script file.ron`, saves to the scratch folder, never opens a window or plays sound.
+   Matches the "PC work stays headless" rule and replaces retyping the flags.
+6. **Skill `project-conventions`** (Claude-only): the AGENTS.md rules as a checklist the agent
+   applies on every change (values in `GameConfig`, `DEBUG-TOOL` tags plus
+   release-checklist entry, headless-safe gameplay files, AGENTS.md log line).
+7. **Subagent `one-to-one-reviewer`**: reviews a diff against `docs/research/*.md` and flags
+   guessed values not marked as guesses, literals outside `GameConfig`, and untagged debug
+   tools. Read-only.
+Skipped as not useful here: GitHub MCP (the cloud threads already handle PRs), database,
+frontend and test-writer suggestions.
+
 ## After every pull
 1. Build and run `cargo test`.
 2. Re-stage `extracted\` per `docs/art-layout.md`, filling in any newly documented names or
