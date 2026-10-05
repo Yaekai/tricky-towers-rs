@@ -2880,7 +2880,8 @@ pub struct HudLook {
     pub place_below: f32,
     pub place_first: [u8; 3],
     pub place_other: [u8; 3],
-    /// Hearts under the wizard: size and cells below the wizard (?).
+    /// Hearts under the wizard: size (the original's 1.12 cells over the 30-cell view) and
+    /// cells from the wizard down to the row's centre (1.53 + 0.3).
     pub heart_size: f32,
     pub heart_below: f32,
     /// Spell bubbles: size, where the first sits from the wizard in cells (x toward
@@ -2923,8 +2924,8 @@ impl Default for HudLook {
             place_below: 2.2,
             place_first: [255, 190, 60],
             place_other: [205, 190, 240],
-            heart_size: 18.0 / 720.0,
-            heart_below: 2.2,
+            heart_size: 1.12 / 30.0,
+            heart_below: 1.83,
             bubble_size: 45.0 / 720.0,
             bubble_at: (1.6, 1.8),
             bubble_step: (0.9, -0.9),
