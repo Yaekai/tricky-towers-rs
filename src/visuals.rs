@@ -36,6 +36,7 @@ impl Plugin for VisualsPlugin {
                     track_view_size.before(fit_backgrounds).before(frame_towers),
                     spawn_backgrounds,
                     fit_backgrounds,
+                    light_layers,
                     scroll_lane_layers,
                     fit_strips,
                     redress_on_art_change,
@@ -565,7 +566,14 @@ struct ScreenLayer {
     pixels_per_unit: f32,
     scale: f32,
     parallax: f32,
+    /// Sideways drift in screen units a second, and how far it has gone.
+    drift: f32,
+    drifted: f32,
 }
+
+/// The brighter copy of a layer, shown as the lightning flashes.
+#[derive(Component)]
+struct LitLayer;
 
 /// The sky gradient behind every other layer.
 #[derive(Component)]
@@ -672,7 +680,17 @@ fn spawn_backgrounds(
         }
     }
     let band = for_mode("water_band");
-    let water_off = band.is_some_and(|b| b.colors().is_empty());
+    // Race Pro's water band from the readout when its own isn't staged.
+    let pro_band = (pro == Some("race_pro") && !art.entries.contains_key("water_band_race_pro"))
+        .then(|| {
+            (
+                rgb(&weather.race_pro_water),
+                weather.race_pro_water_height,
+                weather.race_pro_water_parallax,
+                band.and_then(|b| b.view_height).unwrap_or(10.0),
+            )
+        });
+    let water_off = pro_band.is_none() && band.is_some_and(|b| b.colors().is_empty());
     for mut visibility in &mut water {
         visibility.set_if_neq(if water_off {
             Visibility::Hidden
@@ -680,7 +698,18 @@ fn spawn_backgrounds(
             Visibility::Inherited
         });
     }
-    if let Some(band) = band {
+    if let Some((colors, height, parallax, view_height)) = pro_band {
+        commands.entity(camera).with_child((
+            WaterBand {
+                height,
+                view_height: view_height.max(0.01),
+                parallax,
+            },
+            Sprite::from_image(images.add(gradient_image(&colors))),
+            Anchor::BOTTOM_CENTER,
+            Transform::from_xyz(0.0, 0.0, -900.5),
+        ));
+    } else if let Some(band) = band {
         let colors = band.colors();
         if !colors.is_empty() {
             commands.entity(camera).with_child((
@@ -711,7 +740,22 @@ fn spawn_backgrounds(
         match (entry.screen, entry.position) {
             (Some((ax, ay)), position) => {
                 let (x, y) = position.unwrap_or_default();
-                commands.entity(camera).with_child((
+                // Each drifting layer picks its speed in the range, by its order.
+                let drift = entry.drift.map_or(0.0, |(lo, hi)| {
+                    let roll = ((order as f32 + 1.0) * 0.618_034).fract();
+                    lo + (hi - lo) * roll
+                });
+                let lit = entry
+                    .lit
+                    .as_ref()
+                    .and_then(|name| art.image(name))
+                    .map(|image| Sprite {
+                        image,
+                        color: Color::WHITE.with_alpha(0.0),
+                        ..default()
+                    });
+                let anchor = base.1;
+                let mut layer = commands.spawn((
                     ScreenLayer {
                         anchor: Vec2::new(ax, ay),
                         position: Vec2::new(x, y),
@@ -719,9 +763,20 @@ fn spawn_backgrounds(
                         pixels_per_unit: entry.pixels_per_unit.unwrap_or(100.0).max(1.0),
                         scale: entry.scale.unwrap_or(1.0),
                         parallax: entry.parallax.unwrap_or(0.0),
+                        drift,
+                        drifted: 0.0,
                     },
                     base,
+                    ChildOf(camera),
                 ));
+                if let Some(sprite) = lit {
+                    layer.with_child((
+                        LitLayer,
+                        sprite,
+                        anchor,
+                        Transform::from_xyz(0.0, 0.0, 0.01),
+                    ));
+                }
             }
             // Drawn in each lane by `spawn_lane_layers`.
             (None, Some(_)) => {}
@@ -734,6 +789,7 @@ fn spawn_backgrounds(
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn fit_backgrounds(
+    time: Res<Time>,
     view_size: Res<ViewSize>,
     images: Res<Assets<Image>>,
     camera: Query<(&Projection, &Transform), (With<Camera2d>, Without<Background>)>,
@@ -748,7 +804,7 @@ fn fit_backgrounds(
         ),
     >,
     mut screen: Query<
-        (&ScreenLayer, &mut Transform),
+        (&mut ScreenLayer, &mut Transform),
         (Without<Background>, Without<Camera2d>, Without<Sky>),
     >,
     mut bands: Query<
@@ -782,9 +838,15 @@ fn fit_backgrounds(
     let low = lowest.get_or_insert(camera.translation.y);
     *low = low.min(camera.translation.y);
     let climb = camera.translation.y - *low;
-    for (layer, mut transform) in &mut screen {
+    for (mut layer, mut transform) in &mut screen {
         let unit = view.y / layer.view_height;
-        let at = (layer.anchor - Vec2::splat(0.5)) * view + layer.position * unit
+        // A drifting layer wraps round the view with half a view to spare each side.
+        let span = view.x / unit * 2.0;
+        layer.drifted =
+            (layer.drifted + layer.drift * time.delta_secs()).rem_euclid(span.max(0.01));
+        let slide =
+            Vec2::X * (layer.drifted - if layer.drift != 0.0 { span * 0.5 } else { 0.0 }) * unit;
+        let at = (layer.anchor - Vec2::splat(0.5)) * view + layer.position * unit + slide
             - Vec2::Y * climb * layer.parallax;
         transform.translation.x = at.x;
         transform.translation.y = at.y;
@@ -794,6 +856,19 @@ fn fit_backgrounds(
         let unit = view.y / band.view_height;
         sprite.custom_size = Some(Vec2::new(view.x, band.height * unit));
         transform.translation.y = -view.y * 0.5 - climb * band.parallax;
+    }
+}
+
+/// Layers lit by the lightning show their bright picture as the flash fades.
+fn light_layers(
+    flash: Option<Res<crate::weather::Flash>>,
+    mut lit: Query<&mut Sprite, With<LitLayer>>,
+) {
+    let alpha = flash.map_or(0.0, |f| f.0);
+    for mut sprite in &mut lit {
+        if sprite.color.alpha() != alpha {
+            sprite.color.set_alpha(alpha);
+        }
     }
 }
 
