@@ -83,6 +83,8 @@ fn menu_escape(
     mut screen: ResMut<MenuScreen>,
     mut pause: ResMut<PauseMenu>,
     mut lobby: ResMut<Lobby>,
+    mut binds: ResMut<crate::keybinding::KeybindingMenu>,
+    mut stats: ResMut<crate::stats::StatsMenu>,
 ) {
     let Some(keys) = keys else { return };
     if !keys.just_pressed(KeyCode::Escape) {
@@ -112,7 +114,14 @@ fn menu_escape(
         (Phase::Menu, MenuScreen::Single) => *screen = MenuScreen::Main,
         (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
-        (Phase::Menu, MenuScreen::Settings) => *screen = MenuScreen::Main,
+        // A popup over Settings closes first.
+        (Phase::Menu, MenuScreen::Settings) => {
+            if stats.open {
+                stats.open = false;
+            } else if !crate::keybinding::keybinding_escape(&mut binds) {
+                *screen = MenuScreen::Main;
+            }
+        }
         (Phase::Menu, MenuScreen::Start) => {}
     }
 }

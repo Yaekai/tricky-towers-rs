@@ -30,6 +30,11 @@ impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Settings>()
             .init_resource::<SettingsMenu>()
+            .init_resource::<crate::keybinding::KeybindingMenu>()
+            .init_resource::<crate::keybinding::KeyBindings>()
+            .add_plugins(crate::stats::StatsPlugin)
+            .add_systems(Startup, crate::keybinding::spawn_keybinding_popup)
+            .add_systems(Update, crate::keybinding::show_keybinding_popup)
             .add_systems(Startup, spawn_settings_screen)
             .add_systems(Update, (apply_settings, set_effect_volume));
     }
@@ -556,6 +561,7 @@ fn spawn_row(
 /// Up/Down pick a row, Left/Right change it (or turn the page on a row without
 /// a value), the bumpers turn the page, Enter toggles, applies or opens, Esc or
 /// B goes back to the title tiles.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn settings_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
@@ -563,8 +569,14 @@ pub(crate) fn settings_input(
     mut screen: ResMut<MenuScreen>,
     mut menu: ResMut<SettingsMenu>,
     mut settings: ResMut<Settings>,
+    mut binds: ResMut<crate::keybinding::KeybindingMenu>,
+    mut bindings: ResMut<crate::keybinding::KeyBindings>,
+    mut stats: ResMut<crate::stats::StatsMenu>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Settings {
+        stats.open = false;
+        binds.open = false;
+        binds.waiting = false;
         // Page 2's unapplied changes are dropped on leaving.
         if menu.pending.is_some() {
             menu.pending = None;
@@ -572,6 +584,24 @@ pub(crate) fn settings_input(
         return;
     }
     let taps = read_taps(keys.as_deref(), &pads);
+    // The Stats popup only closes: Enter, B or Esc (in the menu's Esc handling).
+    if stats.open {
+        if taps.key_pick || !taps.pad_pick.is_empty() || !taps.pad_back.is_empty() {
+            stats.open = false;
+        }
+        return;
+    }
+    // The Keybinding list takes the keys while it's open; B closes it.
+    if binds.open {
+        if !taps.pad_back.is_empty() {
+            crate::keybinding::keybinding_escape(&mut binds);
+        } else if let Some(keys) = keys.as_deref()
+            && crate::keybinding::keybinding_input(keys, &taps, &mut binds, &mut bindings)
+        {
+            bindings.save();
+        }
+        return;
+    }
     if !taps.pad_back.is_empty() {
         *screen = MenuScreen::Main;
         return;
@@ -597,7 +627,13 @@ pub(crate) fn settings_input(
                 changed = true;
             }
         }
-        // Stats, Credits and Keybinding open popups that aren't built yet.
+        Kind::Popup if row == Row::Keybinding && pick => {
+            binds.open = true;
+            binds.selected = 0;
+            binds.waiting = false;
+        }
+        Kind::Popup if row == Row::Stats && pick => stats.open = true,
+        // Credits opens a popup that isn't built yet.
         Kind::Popup => turn += dir,
         Kind::Toggle if pick || dir != 0 => changed = step(&mut menu, &mut settings, row, 1),
         _ if dir != 0 => changed = step(&mut menu, &mut settings, row, dir),
