@@ -96,3 +96,4 @@ Append a short dated line here after each working session: what changed, what br
 - 2026-10-05: Trials screen from the layout readout: tier pages that slide (`TrialPart`), 2×5 trial buttons, medal panel, locked panel; arrows move in columns and turn pages at the edges (`trials_menu::step`). Not yet pictured (no GPU in the cloud).
 - 2026-10-05: Ponytail, Graphify and OmniRoute queued for the PC (pc-tasks.md, first section) and set as always-on tools in this file.
 - 2026-10-05: OmniRoute changed to a fallback for when the daily limit is hit, with all providers on (Max).
+- 2026-10-05: Anthropic's claude-code-setup plugin queued for the PC (pc-tasks.md, first section, item 4): run once, apply only what Max agrees to.

@@ -6,7 +6,7 @@ Read-only on the Steam install, nothing from the game goes into the repo (see AG
 and nothing gets installed without Max's own go-ahead.
 
 ## First: install the token-saving tools (Max's go-ahead given 2026-10-05)
-Max wants these three in use on this project at all times. Install them once on the PC, then
+Max wants these in use on this project. Install them once on the PC, then
 check they're active at the start of every session. Read each repo's own install notes first;
 the steps below are from their READMEs on 2026-10-05.
 
@@ -40,6 +40,14 @@ the steps below are from their READMEs on 2026-10-05.
    - The model doing the work may not be Claude. Add the AGENTS.md log line for that session
      with "via OmniRoute", so the next Claude session reviews that work before building on it.
    Write the setup actually used (combo name, compression profile) here once done.
+4. **claude-code-setup** (Anthropic's official plugin, from
+   https://github.com/anthropics/claude-plugins-official, `plugins/claude-code-setup`): looks
+   at the codebase and recommends Claude Code automations (hooks, skills, MCP servers,
+   subagents). Install: `/plugin marketplace add anthropics/claude-plugins-official`, then
+   `/plugin install claude-code-setup@claude-plugins-official` (or enable it from claude.ai
+   if Max already added it there). Run it once on this repo after Graphify is set up, write
+   its recommendations here, and apply only the ones Max agrees to. Any hook it adds must keep
+   the rules in AGENTS.md (nothing from `extracted/` or `research/` committed or sent out).
 
 ## After every pull
 1. Build and run `cargo test`.
