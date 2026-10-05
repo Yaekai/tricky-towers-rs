@@ -35,10 +35,10 @@ J light spell, K dark spell, Esc pause. Players 2 to 4 use gamepads.
 | Local multiplayer (1-4 players) | ✅ | |
 | Wizards (14), animations and voices | ✅ | |
 | Brick packs (8) | 🟡 | Diamond's gloss angle sweep (needs the original shader); Spring's look |
-| Trials (50 in 5 tiers) and tier unlock | 🟡 | draw the enemy wizard; the mode stinger at the start |
+| Trials (50 in 5 tiers) and tier unlock | 🟡 | the mode stinger at the start |
 | Endless Race / Survival / Puzzle | 🟡 | Endless Puzzle obstacle blocks |
 | Backgrounds and weather | 🟡 | Race Pro's wave rows |
-| In-match HUD and effects | 🟡 | remove the extra spell bubbles; cast beam foot decorations; explosion art |
+| In-match HUD and effects | 🟡 | cast beam foot decorations; explosion art |
 | Match end (WINNER!, collapse, Game Completed) | 🟡 | second sunray layer |
 | Menus: start, title, players, modes, single player, endless, trials, settings, pause | 🟡 | key caps cut "Enter"; Stats shows an extra BACK; the cup screen's layout |
 | Tutorial (explanation) and Credits popups | ❌ | layouts read (`docs/research/menus.md`), not built |
