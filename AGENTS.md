@@ -108,4 +108,5 @@ Append a short dated line here after each working session: what changed, what br
 
 - 2026-10-05 (PC): back after the cloud session. Finish line staging swapped (the original's "End" picture is the tile; caps turned 180° on the right), Puzzle Pro ruins and Race Pro clouds staged as background_puzzle_pro_N / background_race_pro_N, sfx_chain_N and popup_text_background staged. Values read: Puzzle drop speed 2, Endless Race 4, minibase 2 wide, Auto Rotate eased in-out elastic (gameplay::in_out_elastic), No Rotate shakes by random jumps (
 o_rotate_jump). Race Pro's dark islands weren't found by name.
+- 2026-10-05 (PC): release exe built for Max (local only); handover for the move to a new PC in docs/handover-new-pc.md.
 - 2026-10-05 (new PC): set up from the handover (AssetRipper headless export, same 519 staged). Fixed the BACK hint never being placed. Scripts gained `Tap(key)`, offscreen runs `--trials file.ron`. Read and staged per-character voice lines, the text format and keys, explanation and Credits popups (`credits_content`), the trial enemy wizard, Race Pro dark islands with `lit`. The art loader skips .json.
