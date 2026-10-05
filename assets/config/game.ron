@@ -97,7 +97,7 @@
         beam_width: 1.76,
         beam_reach: 30.0,
         lightning: 0.4,
-        lightning_wobble: 0.6,
+        lightning_wobble: 2.0,
         cloud_show: 0.83,
         cloud_float: 3.0,
         cloud_used: 1.22,

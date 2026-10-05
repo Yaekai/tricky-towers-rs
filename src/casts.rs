@@ -402,14 +402,22 @@ fn run_lightning(
                 .collect();
             continue;
         }
-        // A sine wobble that is widest in the middle and shifts every frame.
+        // The original's wobble: sin(phase + 5s) × amplitude × sin(πs) along the bolt, the
+        // phase running 0 → -5 over the cast and the amplitude 0 → peak at 1/6 of it → 0.
         let (from, to) = (bolt.from, bolt.to);
         let side = (to - from).perp().normalize_or(Vec2::X);
-        let phase = bolt.time * 40.0;
-        let wobble = config.cells(look.lightning_wobble);
+        let t = (bolt.time / look.lightning).clamp(0.0, 1.0);
+        let phase = -5.0 * t;
+        let rise = 1.0 / 2.4;
+        let envelope = if t < rise {
+            t / rise
+        } else {
+            (1.0 - t) / (1.0 - rise)
+        };
+        let wobble = config.cells(look.lightning_wobble) * envelope;
         let point = |i: usize| {
             let s = i as f32 / BOLT_PIECES as f32;
-            let swing = (s * std::f32::consts::PI).sin() * wobble * (s * 9.0 + phase).sin();
+            let swing = (s * std::f32::consts::PI).sin() * wobble * (s * 5.0 + phase).sin();
             from.lerp(to, s) + side * swing
         };
         let fade = 1.0 - bolt.time / look.lightning;
