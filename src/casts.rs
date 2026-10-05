@@ -49,7 +49,10 @@ fn wizard_spot(
     solo: bool,
     wizards: &Query<(&Wizard, &GlobalTransform)>,
 ) -> (Vec2, bool) {
-    if let Some((_, at)) = wizards.iter().find(|(w, _)| w.tower() == tower_entity) {
+    if let Some((_, at)) = wizards
+        .iter()
+        .find(|(w, _)| !w.enemy() && w.tower() == tower_entity)
+    {
         return (at.translation().truncate(), solo);
     }
     let look = &config.wizards;

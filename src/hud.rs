@@ -445,7 +445,7 @@ fn place_items(
         let size = computed.size() * computed.inverse_scale_factor();
         let wizard = wizards
             .iter()
-            .find(|(w, _)| w.tower() == item.tower)
+            .find(|(w, _)| !w.enemy() && w.tower() == item.tower)
             .map(|(_, t)| t.translation().truncate())
             .unwrap_or_else(|| wizard_point(&config, solo, tower, state));
         let card_h = look.card_height * view.0.y;
