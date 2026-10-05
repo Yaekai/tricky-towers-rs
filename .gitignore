@@ -12,6 +12,7 @@
 !tests/**/*.rs
 !assets/config/*.ron
 !tools/**/*.py
+!tools/**/*.ps1
 
 # Never commit these, even if they match a rule above.
 /target/

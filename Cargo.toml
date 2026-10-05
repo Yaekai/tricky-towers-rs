@@ -7,14 +7,24 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-bevy = "0.19"
+bevy = { version = "0.19", features = ["wav"] }
 avian2d = "0.7"
 serde = { version = "1", features = ["derive"] }
 ron = "0.10"
+# DEBUG-TOOL: the F1 debug panel (src/debug_panel.rs); build without it with
+# `--no-default-features` for the final build (docs/release-checklist.md).
+bevy_egui = { version = "0.42", optional = true, default-features = false, features = ["render", "default_fonts", "bevy_ui"] }
+
+[features]
+default = ["debug-panel"]
+debug-panel = ["dep:bevy_egui"]
 
 # Compile dependencies with optimizations so physics runs at full speed in dev builds.
 [profile.dev]
 opt-level = 1
+# Full debug info for Bevy makes the build folder tens of gigabytes.
+debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 3
+debug = false

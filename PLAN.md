@@ -17,9 +17,9 @@ Following the "Rust rewrites and ports" guide's order of preference:
    standard tools (AssetRipper/UABEA for data, ILSpy/dnSpy for logic). Rules for that work:
    it stays on your machine in the ignored `research/` folder, only plain-language notes come
    into the repo, and nothing is redistributed. Leave DRM and online services alone.
-4. **Assets.** The repo ships placeholder art. A later `tools/extract.py` can convert sprites and
-   sounds from the player's own install into `extracted/` (gitignored) for the engine to load at
-   runtime, the same pattern as gang-beasts-rust. Mods can also ship their own art.
+4. **Assets.** The repo ships placeholder art. `tools/extract/` (PowerShell, see its README)
+   converts sprites, sounds, the letters and the wizards from the player's own install into
+   `extracted/` (gitignored) for the engine to load at runtime. Mods can also ship their own art.
 
 ## Architecture
 | Layer | Where | Swap it to... |
@@ -28,28 +28,42 @@ Following the "Rust rewrites and ports" guide's order of preference:
 | Core loop (headless) | `src/gameplay.rs` | new modes, spells, AI |
 | Input | `src/input.rs` writes `PlayerInput` | gamepad, bots, replays, netplay |
 | Visuals | `src/visuals.rs` | real art, themes |
+| Match end (headless) | `src/collapse.rs` | how losing towers fall apart |
+| Effects | `src/effects.rs`, `src/casts.rs` | splashes, blasts, cast beams, spell clouds |
 
 Physics: avian2d (Bevy-native, deterministic fixed step). The controlled brick is kinematic and
 moved with shape queries for crisp control; on contact it becomes dynamic.
 
 ## Milestones
-1. **Core loop** (done in the scaffold): spawn, steer, rotate, land, physics hand-off, camera,
-   race finish line with hold timer, survival lives, dropped-brick detection, restart.
-2. **Feel pass:** side-by-side tuning against the original; brick outline/rounded colliders to
-   avoid snagging; ghost/drop guide line; "next brick" preview box.
-3. **Spells.** Light magic helps you, dark magic hinders opponents. Rebuild from observed
-   behaviour, verify each against the game before calling it done. From memory (unverified):
-   light examples are vines that bind nearby bricks and a spell that turns a brick solid;
-   dark examples are an oversized next brick, a slippery brick, and fog over the tower.
-   Each spell is a plugin + a data entry, so mods can add more.
-4. **Puzzle mode:** fit a set of bricks under a line without falling below/above it.
-5. **Opponents:** local split-screen first (2 to 4 towers side by side), then simple AI
-   opponents driving `PlayerInput`.
-6. **Presentation:** menus, wizard characters (original art only), sound, themes.
-7. **Trials/campaign** levels described in RON files.
-8. **Mod loading:** a `mods/` folder of RON configs and asset packs, merged at startup.
+1. **Core loop** (done): spawn, steer, rotate, land, physics hand-off, camera, race finish,
+   survival lives, dropped bricks, restart.
+2. **Opponents, spells, puzzle, menu** (done).
+3. **Match the original's rules** (mostly done, notes in `docs/research/`): controls, physics,
+   spell awards and all 17 spells, Survival grace and countdown, Puzzle lasers, floors and
+   scoring, difficulty levels, Survival Pro curse waves, cursed-brick respawn, Endless Race (all
+   values from the original). Race Pro wind and the wider Puzzle lane, from the original.
+   Survival Pro curse waves follow the original's four tables. Losing towers fall apart before
+   the popup (`src/collapse.rs`). XP and wizard levels are in as data (`XpRules`) for when cups
+   exist. The 50 original trials and the Endless Survival/Puzzle rules follow the PC readouts.
+   Still to do: trial floors and rival towers, Endless Puzzle obstacle blocks, cups, the
+   Survival roof (all wait on readouts queued in `docs/pc-tasks.md`).
+4. **Local multiplayer** (done): up to 4 players, keyboard and gamepads.
+5. **The original's look and sound** (in progress): loaded at runtime from the player's own
+   install via the gitignored `extracted/` folder (`docs/art-layout.md`). Done: bricks, bases,
+   backgrounds, skies, water, lines, panels, letters, animated wizards, music and sounds,
+   countdown, win/lose moments, the start screen, title tiles, player and mode select, pause,
+   the Game Completed popup, the lost-brick splash, vines growing, the Slow balloon, Ghost
+   skulls, cast beams, lightning, spell clouds and the Large grow (`src/casts.rs`), tower
+   collapse blasts and shakes. To do: check the cast effects and collapse against the original
+   on Max's PC and fix the `(?)` sizes, the Auto Rotate wind-up, stone and ice transitions, the
+   decorations at a beam's foot, and the explosion art.
+6. **Trials/campaign** levels described in RON files, with the scripted enemy wizard.
+7. **Mod loading** (done): a `mods/` folder of RON config changes and art packs, merged at
+   startup in name order (`src/mods.rs`, `docs/modding.md`).
 
-## Open questions for Max
-- Where should the code live (new GitHub repo under your account, or an existing one)?
-- Do you own the game on PC and want to measure or extract from your install? That decides
-  whether milestone 2 can be tuned against the real thing.
+## How work is split
+- Code is written in the cloud on a `claude/*` branch and merged into
+  `features/spells-puzzle-menu` through a pull request once `cargo test` passes.
+- A Claude session on Max's PC follows `docs/pc-tasks.md` after every pull: build, test,
+  re-stage `extracted\` from the install, screenshot each mode with `--play`, and report. Queue
+  PC work by adding to that file.
