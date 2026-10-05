@@ -47,12 +47,16 @@ struct Snow {
     full: Vec3,
 }
 
-/// A Halloween decoration that pulses to 0.8× every 5 to 15 s.
+/// A Halloween decoration that, every 5 to 15 s, either squashes one axis to 0.8× and
+/// springs back (the other axis 0.1 s later) or wobbles 25° and springs back.
 #[derive(Component)]
 struct Pulse {
     wait: f32,
     time: f32,
     seed: u32,
+    /// 0: wobble (±1 picks the side in `side`), 1: squash x first, 2: squash y first.
+    kind: u8,
+    side: f32,
 }
 
 /// A Hologram brick: glitches for 0.1 to 0.5 s every 6 to 15 s.
@@ -63,7 +67,7 @@ struct Glitch {
     seed: u32,
 }
 
-/// A Diamond brick: a gloss flash every few seconds (?).
+/// A Diamond brick: a 0.6 s gloss every 6 to 15 s, the first right away.
 #[derive(Component)]
 struct Gloss {
     wait: f32,
@@ -75,12 +79,14 @@ struct Gloss {
 #[derive(Component)]
 struct GalaxyCell;
 
-/// A star on a Galaxy brick; one twirls every 2 to 6 s.
+/// A star on a Galaxy brick. Every 2 to 6 s one random star twirls: grows to 2× in
+/// 0.3 s, turns 180° over 1 s (in-back), spins on from 600°/s slowing by 200°/s², and
+/// shrinks back after 2 s. Otherwise it breathes 1 ± 0.3.
 #[derive(Component)]
 struct Star {
-    wait: f32,
+    /// Seconds into a twirl, if one is playing.
+    twirl: Option<f32>,
     spin: f32,
-    seed: u32,
 }
 
 /// The Galaxy border colour (docs/research/skins.md).
@@ -180,8 +186,10 @@ fn decorate_bricks(
                     brick_entity.with_child((
                         Pulse {
                             wait: between(&mut seed, 5.0, 15.0),
-                            time: 0.0,
+                            time: -1.0,
                             seed,
+                            kind: 0,
+                            side: 1.0,
                         },
                         Sprite {
                             image,
@@ -194,14 +202,14 @@ fn decorate_bricks(
             }
             BrickPack::Hologram => {
                 brick_entity.insert(Glitch {
-                    wait: between(&mut seed, 6.0, 15.0),
+                    wait: 0.0,
                     left: 0.0,
                     seed,
                 });
             }
             BrickPack::Diamond => {
                 brick_entity.insert(Gloss {
-                    wait: between(&mut seed, 2.0, 5.0),
+                    wait: 0.0,
                     time: -1.0,
                     seed,
                 });
@@ -240,16 +248,18 @@ fn decorate_bricks(
                         let jitter = Vec2::new(roll(&mut seed) - 0.5, roll(&mut seed) - 0.5) * 0.6;
                         brick_entity.with_child((
                             Star {
-                                wait: between(&mut seed, 2.0, 6.0),
+                                twirl: None,
                                 spin: 0.0,
-                                seed,
                             },
                             Sprite {
                                 image: star.clone(),
                                 custom_size: Some(Vec2::splat(c * 0.35)),
                                 ..default()
                             },
-                            Transform::from_translation(((cell + jitter) * c).extend(0.03)),
+                            Transform::from_translation(((cell + jitter) * c).extend(0.03))
+                                .with_rotation(Quat::from_rotation_z(
+                                    roll(&mut seed) * std::f32::consts::TAU,
+                                )),
                         ));
                     }
                 }
@@ -282,23 +292,77 @@ fn grow_snow(time: Res<Time>, mut snow: Query<(&mut Snow, &mut Transform)>) {
     }
 }
 
+/// DOTween's OutElastic.
+fn out_elastic(x: f32) -> f32 {
+    if x <= 0.0 || x >= 1.0 {
+        return x.clamp(0.0, 1.0);
+    }
+    2f32.powf(-10.0 * x) * ((x * 10.0 - 0.75) * std::f32::consts::TAU / 3.0).sin() + 1.0
+}
+
+/// DOTween's InBack.
+fn in_back(x: f32) -> f32 {
+    let c = 1.70158;
+    (c + 1.0) * x * x * x - c * x * x
+}
+
+/// One axis squashing to 0.8× in 0.1 s and springing back over 1 s.
+fn squash(t: f32) -> f32 {
+    if t < 0.1 {
+        1.0 - 2.0 * t.max(0.0)
+    } else {
+        0.8 + 0.2 * out_elastic(t - 0.1)
+    }
+}
+
 fn pulse_decorations(time: Res<Time>, mut items: Query<(&mut Pulse, &mut Transform)>) {
     let dt = time.delta_secs();
     for (mut pulse, mut transform) in &mut items {
-        pulse.wait -= dt;
-        if pulse.wait > 0.0 {
-            continue;
-        }
-        // Down to 0.8× and back over 0.4 s (?), then wait again.
-        pulse.time += dt;
-        let s = (pulse.time / 0.4).min(1.0);
-        let scale = 1.0 - 0.2 * (s * std::f32::consts::PI).sin();
-        transform.scale = Vec3::splat(scale);
-        if s >= 1.0 {
-            pulse.time = 0.0;
+        if pulse.time < 0.0 {
+            pulse.wait -= dt;
+            if pulse.wait > 0.0 {
+                continue;
+            }
             let mut seed = pulse.seed;
+            pulse.kind = if roll(&mut seed) < 0.5 {
+                0
+            } else if roll(&mut seed) < 0.5 {
+                1
+            } else {
+                2
+            };
+            pulse.side = if roll(&mut seed) < 0.5 { 1.0 } else { -1.0 };
             pulse.wait = between(&mut seed, 5.0, 15.0);
             pulse.seed = seed;
+            pulse.time = 0.0;
+        }
+        pulse.time += dt;
+        let t = pulse.time;
+        let done = match pulse.kind {
+            0 => {
+                // 25° over 0.926 s (in-back), then back over 0.45 s (out-elastic).
+                let angle = if t < 0.926 {
+                    25.0 * in_back(t / 0.926)
+                } else {
+                    25.0 * (1.0 - out_elastic((t - 0.926) / 0.45))
+                };
+                transform.rotation = Quat::from_rotation_z((angle * pulse.side).to_radians());
+                t >= 0.926 + 0.45
+            }
+            kind => {
+                let (first, second) = (squash(t), squash(t - 0.1));
+                transform.scale = if kind == 1 {
+                    Vec3::new(first, second, 1.0)
+                } else {
+                    Vec3::new(second, first, 1.0)
+                };
+                t >= 1.2
+            }
+        };
+        if done {
+            transform.rotation = Quat::IDENTITY;
+            transform.scale = Vec3::ONE;
+            pulse.time = -1.0;
         }
     }
 }
@@ -343,7 +407,8 @@ fn glitch_holograms(
     }
 }
 
-/// A short bright flash every few seconds stands in for the gloss sweep (?).
+/// The gloss: up to 0.7 in 0.15 s, held, back to 0 in the last 0.15 s of 0.6 s. The
+/// original also turns the gloss angle a full circle; here it brightens the cells.
 fn gloss_diamonds(
     time: Res<Time>,
     mut bricks: Query<(&mut Gloss, &Children)>,
@@ -354,12 +419,12 @@ fn gloss_diamonds(
         let mut seed = gloss.seed;
         let glow = if gloss.time >= 0.0 {
             gloss.time += dt;
-            let s = (gloss.time / 0.5).min(1.0);
-            if s >= 1.0 {
+            let t = gloss.time;
+            if t >= 0.6 {
                 gloss.time = -1.0;
-                gloss.wait = between(&mut seed, 2.0, 5.0);
+                gloss.wait = between(&mut seed, 6.0, 15.0);
             }
-            (s * std::f32::consts::PI).sin() * 0.45
+            0.7 * (t / 0.15).min(1.0).min((0.6 - t).max(0.0) / 0.15)
         } else {
             gloss.wait -= dt;
             if gloss.wait <= 0.0 {
@@ -389,9 +454,10 @@ fn scroll_galaxy(
         let Some(size) = images.get(&sprite.image).map(|i| i.size_f32()) else {
             continue;
         };
-        // One field cell maps to 64 texture pixels (?), drifting slowly.
+        // One field cell maps to 64 texture pixels (?); the field drifts (0.05, -0.07) of
+        // the texture a second, as in the original.
         let scale = 64.0 / config.cell_size;
-        let p = at.translation().truncate() * scale + Vec2::new(t * 6.0, t * 2.0);
+        let p = at.translation().truncate() * scale + size * Vec2::new(0.05, 0.07) * t;
         let side = 64.0 * 0.84;
         let x = p.x.rem_euclid((size.x - side).max(1.0));
         let y = (-p.y).rem_euclid((size.y - side).max(1.0));
@@ -399,23 +465,74 @@ fn scroll_galaxy(
     }
 }
 
-fn twirl_stars(time: Res<Time>, mut stars: Query<(&mut Star, &mut Transform)>) {
+fn twirl_stars(
+    time: Res<Time>,
+    mut next: Local<(f32, u32)>,
+    mut stars: Query<(&mut Star, &mut Transform, &GlobalTransform)>,
+) {
     let dt = time.delta_secs();
-    for (mut star, mut transform) in &mut stars {
-        let mut seed = star.seed;
-        if star.spin > 0.0 {
-            star.spin -= dt;
-            transform.rotate_z(std::f32::consts::TAU * dt);
-        } else {
-            star.wait -= dt;
-            if star.wait <= 0.0 {
-                star.spin = 1.0;
-                star.wait = between(&mut seed, 2.0, 6.0);
+    let now = time.elapsed_secs();
+    // One shared clock picks a random star every 2 to 6 s.
+    let (wait, seed) = &mut *next;
+    if *seed == 0 {
+        *seed = 0x9e37_79b9;
+    }
+    *wait -= dt;
+    if *wait <= 0.0 {
+        *wait = between(seed, 2.0, 6.0);
+        let count = stars.iter().len();
+        if count > 0 {
+            let pick = (roll(seed) * count as f32) as usize % count;
+            if let Some((mut star, ..)) = stars.iter_mut().nth(pick)
+                && star.twirl.is_none()
+            {
+                star.twirl = Some(0.0);
             }
         }
-        star.seed = seed;
-        // A gentle twinkle.
-        let twinkle = 0.85 + 0.15 * (time.elapsed_secs() * 3.0 + seed as f32 * 0.001).sin();
-        transform.scale = Vec3::splat(twinkle);
+    }
+    for (mut star, mut transform, at) in &mut stars {
+        transform.rotate_z((star.spin * dt).to_radians());
+        star.spin = (star.spin - 200.0 * dt).max(0.0);
+        let Some(t) = star.twirl else {
+            let p = at.translation();
+            transform.scale = Vec3::splat(1.0 + 0.3 * (now * 2.0 + p.x * p.y).sin());
+            continue;
+        };
+        let t = t + dt;
+        star.twirl = Some(t);
+        let scale = if t < 0.3 {
+            1.0 + (t / 0.3)
+        } else if t < 3.3 {
+            2.0
+        } else {
+            2.0 - ((t - 3.3) / 0.3).min(1.0)
+        };
+        transform.scale = Vec3::splat(scale);
+        let turned = |x: f32| 180.0 * in_back(x.clamp(0.0, 1.0));
+        if t > 0.3 && t - dt < 1.3 {
+            let step = turned(t - 0.3) - turned(t - dt - 0.3);
+            transform.rotate_z(step.to_radians());
+            if t >= 1.3 {
+                star.spin = 600.0;
+            }
+        }
+        if t >= 3.6 {
+            star.twirl = None;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pack_eases_start_and_end_where_the_original_does() {
+        assert_eq!(out_elastic(0.0), 0.0);
+        assert_eq!(out_elastic(1.0), 1.0);
+        assert!(in_back(0.0).abs() < 1e-6 && (in_back(1.0) - 1.0).abs() < 1e-5);
+        assert!(in_back(0.2) < 0.0, "in-back dips first");
+        assert!((squash(0.1) - 0.8).abs() < 1e-5);
+        assert!((squash(1.1) - 1.0).abs() < 1e-5);
     }
 }
