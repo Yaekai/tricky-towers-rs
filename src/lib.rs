@@ -24,6 +24,7 @@ pub mod input;
 pub mod letters;
 pub mod menu;
 pub mod mods;
+pub mod navbar;
 pub mod offscreen;
 pub mod packs;
 pub mod particles;

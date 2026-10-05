@@ -397,3 +397,41 @@ fn each_seat_picks_its_wizard_and_brick_pack() {
         }
     );
 }
+
+#[test]
+fn an_earned_tier_plays_its_unlock_once_then_opens() {
+    use tricky_towers::trials::TrialProgress;
+    use tricky_towers::trials_menu::TrialsMenu;
+    let mut app = app();
+    // Eight trials beaten: Apprentice (8 medals) opens.
+    {
+        let names: Vec<String> = app.world().resource::<GameConfig>().trials[..8]
+            .iter()
+            .map(|t| t.name.clone())
+            .collect();
+        app.world_mut().resource_mut::<TrialProgress>().done = names;
+    }
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::ArrowUp);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Trials);
+    let menu = app.world().resource::<TrialsMenu>();
+    assert_eq!(menu.unlock.map(|(tier, _)| tier), Some(1));
+    // The screen turns to the tier's first trial, and keys wait for the unlock.
+    assert_eq!(menu.selected, 10);
+    tap(&mut app, KeyCode::ArrowDown);
+    assert_eq!(app.world().resource::<TrialsMenu>().selected, 10);
+    for _ in 0..(5.0 * 64.0) as usize {
+        app.update();
+    }
+    assert_eq!(app.world().resource::<TrialsMenu>().unlock, None);
+    assert_eq!(app.world().resource::<TrialProgress>().tiers_shown, 2);
+    tap(&mut app, KeyCode::ArrowDown);
+    assert_eq!(app.world().resource::<TrialsMenu>().selected, 11);
+    // Back and in again: it doesn't play twice.
+    tap(&mut app, KeyCode::Escape);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Trials);
+    assert_eq!(app.world().resource::<TrialsMenu>().unlock, None);
+}
