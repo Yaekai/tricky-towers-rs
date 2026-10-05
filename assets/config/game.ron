@@ -102,8 +102,8 @@
         cloud_float: 3.0,
         cloud_used: 1.22,
         cloud_hide: 0.38,
-        cloud_size: 2.4,
-        cloud_icon: 0.6,
+        cloud_size: 3.5,
+        cloud_icon: 0.69,
         cloud_bob: 0.12,
         cloud_spots: [
             ((0.58, 4.8), (2.87, 3.53)),

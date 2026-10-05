@@ -2236,8 +2236,9 @@ pub struct CastLook {
     pub cloud_float: f32,
     pub cloud_used: f32,
     pub cloud_hide: f32,
-    /// Cloud size (drawn ×1.31 of its picture; ? until the picture size is read),
-    /// the icon's share of it, and how far it bobs while floating (?).
+    /// Cloud size in cells (the 139 px backing at 52 px a unit, drawn ×1.31), the icon's
+    /// share of it (126 px icons at 52 px a unit, unscaled), and how far it bobs while
+    /// floating (?).
     pub cloud_size: f32,
     pub cloud_icon: f32,
     pub cloud_bob: f32,
@@ -2265,8 +2266,8 @@ impl Default for CastLook {
             cloud_float: 3.0,
             cloud_used: 1.22,
             cloud_hide: 0.38,
-            cloud_size: 2.4,
-            cloud_icon: 0.6,
+            cloud_size: 3.5,
+            cloud_icon: 0.69,
             cloud_bob: 0.12,
             cloud_spots: vec![
                 ((0.58, 4.8), (2.87, 3.53)),
