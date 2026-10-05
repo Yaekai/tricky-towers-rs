@@ -507,7 +507,7 @@ fn survival_wave_sky(
     // Timed waves (Survival Pro) and waves counted in bricks (Endless Survival).
     let wave = towers
         .iter()
-        .any(|s| s.wave_left > 0.0 || s.wave_bricks > 0);
+        .any(|s| s.wave_left > 0.0 || s.wave_bricks > 0 || s.wave_mod.is_some());
     let step = time.delta_secs() / weather.wave_shift.max(0.01);
     state.wave_mix = if wave {
         (state.wave_mix + step).min(1.0)

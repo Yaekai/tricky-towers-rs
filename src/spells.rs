@@ -865,12 +865,14 @@ pub(crate) fn grow_ivy(
             Has<BodyIslandNode>,
             Has<IvyPending>,
             Option<&ChildOf>,
+            Has<Bubbled>,
+            Has<Ghosted>,
         ),
         Without<ActiveBrick>,
     >,
     clusters: Query<(&Children, &RigidBody), With<IvyCluster>>,
 ) {
-    for (entity, brick, position, rotation, body, _, in_island, pending, _) in &bricks {
+    for (entity, brick, position, rotation, body, _, in_island, pending, ..) in &bricks {
         if !pending {
             continue;
         }
@@ -892,10 +894,21 @@ pub(crate) fn grow_ivy(
         let filter = SpatialQueryFilter::from_excluded_entities([entity]);
         let mut members: Vec<Entity> = vec![entity];
         let mut old_clusters: Vec<Entity> = Vec::new();
+        // A fixed piece that isn't stone (a Puzzle floor block, an obstacle) holds the
+        // cluster still but never joins it, so it can't be let go of and fall later.
+        let mut on_fixed = false;
         for other in spatial.shape_intersections(&reach, position.0, rotation.as_radians(), &filter)
         {
             let Ok(b) = bricks.get(other) else { continue };
             if b.1.tower != brick.tower {
+                continue;
+            }
+            // Bubbled and ghosted bricks are on their way out; they don't join.
+            if b.9 || b.10 {
+                continue;
+            }
+            if !b.5 && b.4.is_some_and(|r| *r == RigidBody::Static) && b.8.is_none() {
+                on_fixed = true;
                 continue;
             }
             match b.8.map(|c| c.parent()).filter(|p| clusters.contains(*p)) {
@@ -912,15 +925,21 @@ pub(crate) fn grow_ivy(
         members.sort();
         members.dedup();
         if members.len() < 2 {
+            // Alone on a fixed piece, the Ivy brick is simply held there.
+            if on_fixed {
+                commands.entity(entity).insert((RigidBody::Static, Vined));
+            }
             continue;
         }
-        let solid = members.iter().any(|&m| {
-            bricks
-                .get(m)
-                .is_ok_and(|b| b.5 || b.4.is_some_and(|r| *r == RigidBody::Static))
-        }) || old_clusters
-            .iter()
-            .any(|&c| clusters.get(c).is_ok_and(|(_, r)| *r == RigidBody::Static));
+        let solid = on_fixed
+            || members.iter().any(|&m| {
+                bricks
+                    .get(m)
+                    .is_ok_and(|b| b.5 || b.4.is_some_and(|r| *r == RigidBody::Static))
+            })
+            || old_clusters
+                .iter()
+                .any(|&c| clusters.get(c).is_ok_and(|(_, r)| *r == RigidBody::Static));
         let cluster = commands
             .spawn((
                 IvyCluster,

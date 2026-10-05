@@ -695,6 +695,7 @@ fn spawn_backgrounds(
                 rgb(&weather.race_pro_water),
                 weather.race_pro_water_height,
                 weather.race_pro_water_parallax,
+                // The shared band's screen height, else 10 units like other layers (?).
                 band.and_then(|b| b.view_height).unwrap_or(10.0),
             )
         });
@@ -748,10 +749,9 @@ fn spawn_backgrounds(
         match (entry.screen, entry.position) {
             (Some((ax, ay)), position) => {
                 let (x, y) = position.unwrap_or_default();
-                // Each drifting layer picks its speed in the range, by its order.
+                // Each drifting layer picks its speed in the range at random.
                 let drift = entry.drift.map_or(0.0, |(lo, hi)| {
-                    let roll = ((order as f32 + 1.0) * 0.618_034).fract();
-                    lo + (hi - lo) * roll
+                    lo + (hi - lo) * crate::art::roll(10_000) as f32 / 10_000.0
                 });
                 let lit = entry
                     .lit
@@ -1138,34 +1138,35 @@ fn dress_platforms(
                     .filter(|_| game.mode.rules() == ModeKind::Race);
                 if clock.is_some() {
                     // Its place on the line and its size are guesses (?).
-                    let x = lane * 0.5 - c * 3.0;
+                    let (inset, above, glass_size, glass_gap, text) = config.hud.trial_clock;
+                    let x = lane * 0.5 - c * inset;
                     let glass = match art.image("hourglass") {
                         Some(image) => Sprite {
                             image,
-                            custom_size: Some(Vec2::splat(c * 1.2)),
+                            custom_size: Some(Vec2::splat(c * glass_size)),
                             color: Color::WHITE.with_alpha(0.0),
                             ..default()
                         },
                         None => Sprite::from_color(
                             Color::srgba(1.0, 0.85, 0.4, 0.0),
-                            Vec2::splat(c * 0.8),
+                            Vec2::splat(c * glass_size * 0.7),
                         ),
                     };
                     line.with_children(|l| {
                         l.spawn((
                             TrialClock,
                             glass,
-                            Transform::from_xyz(x - c * 1.3, c * 0.9, 1.0),
+                            Transform::from_xyz(x - c * glass_gap, c * above, 1.0),
                         ));
                         l.spawn((
                             TrialClock,
                             Text2d::new(""),
                             TextFont {
-                                font_size: FontSize::Px(c * 1.1),
+                                font_size: FontSize::Px(c * text),
                                 ..default()
                             },
                             TextColor(Color::WHITE.with_alpha(0.0)),
-                            Transform::from_xyz(x, c * 0.9, 1.0),
+                            Transform::from_xyz(x, c * above, 1.0),
                         ));
                     });
                 }

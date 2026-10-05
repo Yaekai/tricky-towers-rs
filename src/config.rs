@@ -118,6 +118,9 @@ pub struct GameConfig {
     pub trials: Vec<TrialDef>,
     /// The trials' own floors by the original's name (docs/research/trials-obstacles-roofs.md).
     pub trial_floors: std::collections::BTreeMap<String, TrialFloor>,
+    /// A race trial's rival tower pops in over this many seconds, with a bubble pop
+    /// sound at most this often (trials-obstacles-roofs.md 1).
+    pub rival_pop: (f32, f32),
     /// The trial tiers: each holds `TrialTiers::size` trials in order and opens at a
     /// medal count.
     pub trial_tiers: TrialTiers,
@@ -391,6 +394,10 @@ pub struct EndlessPlay {
     pub obstacle_columns: Vec<(f32, f32)>,
     /// The Pro ledge look (0-2) of each of the original's 11 block pieces.
     pub obstacle_looks: Vec<u32>,
+    /// The grass tuft on half the obstacle blocks: its tint, and its growth (wait,
+    /// first growth's seconds and size, then the spring to full size's seconds).
+    pub tuft_color: [u8; 3],
+    pub tuft_grow: (f32, f32, f32, f32),
 }
 
 impl Default for EndlessPlay {
@@ -470,6 +477,8 @@ impl Default for EndlessPlay {
                 (0.5, 0.01),
             ],
             obstacle_looks: vec![0, 1, 2, 0, 1, 2, 2, 1, 0, 1, 0],
+            tuft_color: [0x9D, 0xA2, 0x47],
+            tuft_grow: (0.5, 0.1, 0.7, 0.4),
         }
     }
 }
@@ -1733,6 +1742,9 @@ impl Default for WaveRules {
 pub struct MatchMoments {
     /// Size of banner text (WINNER!, WIZARD OUT!) and of the countdown, in pixels.
     pub banner_size: f32,
+    /// CHALLENGE COMPLETE / FAILED, the trials' banners, as a share of
+    /// `banner_size` (their size not read, ?).
+    pub trial_banner_scale: f32,
     pub countdown_size: f32,
     /// Shadow under match text, as a share of the text size, and its colour (0-255).
     pub shadow_drop: f32,
@@ -1787,6 +1799,7 @@ impl Default for MatchMoments {
     fn default() -> Self {
         Self {
             banner_size: 96.0,
+            trial_banner_scale: 0.6,
             countdown_size: 72.0,
             shadow_drop: 0.06,
             shadow_color: [227, 33, 61],
@@ -2588,6 +2601,7 @@ impl Default for GameConfig {
             endless_play: EndlessPlay::default(),
             trials: crate::trial_list::original_trials(),
             trial_floors: crate::trial_list::original_trial_floors(),
+            rival_pop: (1.5, 0.075),
             trial_tiers: TrialTiers::default(),
             trial: None,
             skins: Vec::new(),
@@ -2864,6 +2878,10 @@ pub struct HudLook {
     /// the view height, width over height, its top bar's share of its height, and
     /// how far left of the lane's drop column its centre sits (share of view width).
     pub card_height: f32,
+    /// The race trial's clock on the finish line, in cells: in from the lane's right
+    /// end, height above the line, hourglass size, hourglass gap left of the number,
+    /// and the number's size (all guesses, ?).
+    pub trial_clock: (f32, f32, f32, f32, f32),
     pub card_aspect: f32,
     pub card_bar: f32,
     pub card_left: f32,
@@ -2911,6 +2929,7 @@ impl Default for HudLook {
     fn default() -> Self {
         Self {
             card_height: 65.0 / 720.0,
+            trial_clock: (3.0, 0.9, 1.2, 1.3, 1.1),
             card_aspect: 75.0 / 65.0,
             card_bar: 0.2,
             card_left: 78.0 / 1280.0,

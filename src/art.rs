@@ -696,6 +696,15 @@ fn play_sounds(
     heard.phase = Some(game.phase);
 }
 
+/// A random number below `n` (0 when `n` is 0), for picking sound and look variants
+/// where the original picks at random.
+pub fn roll(n: usize) -> usize {
+    use std::hash::{BuildHasher, Hasher};
+    let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+    hasher.write_u64(n as u64);
+    (hasher.finish() % n.max(1) as u64) as usize
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
