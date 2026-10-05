@@ -2228,7 +2228,7 @@ pub struct CastLook {
     pub beam_width: f32,
     pub beam_reach: f32,
     /// Light cast: the lightning from the wizard to the brick lasts this long, and
-    /// wobbles this far at its middle (?).
+    /// its wobble peaks at this many cells (a sixth of the way in; clip `Lightning`).
     pub lightning: f32,
     pub lightning_wobble: f32,
     /// Spell clouds: Show, one Floating cycle, Used and Hide clip lengths.
@@ -2260,7 +2260,7 @@ impl Default for CastLook {
             beam_width: 1.76,
             beam_reach: 30.0,
             lightning: 0.4,
-            lightning_wobble: 0.6,
+            lightning_wobble: 2.0,
             cloud_show: 0.83,
             cloud_float: 3.0,
             cloud_used: 1.22,
