@@ -2894,14 +2894,6 @@ pub struct HudLook {
     /// cells from the wizard down to the row's centre (1.53 + 0.3).
     pub heart_size: f32,
     pub heart_below: f32,
-    /// Spell bubbles: size, where the first sits from the wizard in cells (x toward
-    /// the tower, up), and the second's step from the first in cells (?).
-    pub bubble_size: f32,
-    pub bubble_at: (f32, f32),
-    pub bubble_step: (f32, f32),
-    /// Light and dark bubble colours when no bubble art is staged (0-255).
-    pub bubble_light: [u8; 3],
-    pub bubble_dark: [u8; 3],
     /// The drop guide's colour in Race (and Puzzle, Endless) and in Survival (0-1, with alpha).
     pub guide_race: [f32; 4],
     pub guide_survival: [f32; 4],
@@ -2936,11 +2928,6 @@ impl Default for HudLook {
             place_other: [205, 190, 240],
             heart_size: 1.12 / 30.0,
             heart_below: 1.83,
-            bubble_size: 45.0 / 720.0,
-            bubble_at: (1.6, 1.8),
-            bubble_step: (0.9, -0.9),
-            bubble_light: [110, 210, 90],
-            bubble_dark: [235, 90, 170],
             guide_race: [0.65, 0.95, 1.0, 0.3],
             guide_survival: [0.8, 0.7, 1.0, 0.3],
             diamond_size: 0.45,
