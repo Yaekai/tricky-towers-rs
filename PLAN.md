@@ -1,7 +1,8 @@
 # Plan: Tricky Towers in Rust + Bevy
 
-**One-sentence goal for v0:** a single-player race against the finish line that feels like the
-original: steer a brick down in half-cell steps, it lands, the tower wobbles under real physics.
+**Goal:** a 1:1 rebuild of the original: the same rules, values, menus, look and sound, with the
+art and sound loaded from the player's own install, and easy to mod. Where a value isn't read
+from the original yet, the code marks it `(?)` and `docs/pc-tasks.md` lists it for checking.
 
 ## Approach: clean-room, rules first
 Following the "Rust rewrites and ports" guide's order of preference:
@@ -25,11 +26,14 @@ Following the "Rust rewrites and ports" guide's order of preference:
 | Layer | Where | Swap it to... |
 |---|---|---|
 | Config (physics feel, bricks, mode rules) | `src/config.rs`, `assets/config/game.ron` | tune or add bricks without code |
-| Core loop (headless) | `src/gameplay.rs` | new modes, spells, AI |
+| Core loop (headless) | `src/gameplay.rs`, `src/spells.rs`, `src/ai.rs` | new modes, spells, AI |
+| Trials, cups, match end (headless) | `src/trials.rs`, `src/trial_list.rs`, `src/cups.rs`, `src/collapse.rs` | new trials, cup rules |
 | Input | `src/input.rs` writes `PlayerInput` | gamepad, bots, replays, netplay |
-| Visuals | `src/visuals.rs` | real art, themes |
-| Match end (headless) | `src/collapse.rs` | how losing towers fall apart |
-| Effects | `src/effects.rs`, `src/casts.rs` | splashes, blasts, cast beams, spell clouds |
+| Art and sound loading | `src/art.rs`, `src/letters.rs`, `src/mods.rs` | art packs, other installs |
+| In-match look | `src/visuals.rs`, `src/hud.rs`, `src/wizards.rs`, `src/packs.rs`, `src/weather.rs` | themes, brick packs |
+| Effects | `src/effects.rs`, `src/casts.rs`, `src/particles.rs`, `src/results.rs` | splashes, beams, banners |
+| Menus | `src/menu.rs`, `src/start.rs`, `src/select.rs`, `src/single.rs`, `src/trials_menu.rs`, `src/settings.rs`, `src/popup.rs`, `src/cups_menu.rs` | new screens |
+| Debug tools (removed before release) | `src/debug.rs`, `src/debug_panel.rs`, `src/offscreen.rs` | scripted pictures, testing |
 
 Physics: avian2d (Bevy-native, deterministic fixed step). The controlled brick is kinematic and
 moved with shape queries for crisp control; on contact it becomes dynamic.
@@ -43,10 +47,11 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    scoring, difficulty levels, Survival Pro curse waves, cursed-brick respawn, Endless Race (all
    values from the original). Race Pro wind and the wider Puzzle lane, from the original.
    Survival Pro curse waves follow the original's four tables. Losing towers fall apart before
-   the popup (`src/collapse.rs`). XP and wizard levels are in as data (`XpRules`) for when cups
-   exist. The 50 original trials and the Endless Survival/Puzzle rules follow the PC readouts.
-   Still to do: trial floors and rival towers, Endless Puzzle obstacle blocks, cups, the
-   Survival roof (all wait on readouts queued in `docs/pc-tasks.md`).
+   the popup (`src/collapse.rs`). Endless Survival and Endless Puzzle, local cups (a debug
+   extra: first to 6/12/18 points with overtime) and the pad defaults follow the PC readouts.
+   XP and wizard levels are in as data (`XpRules`); only online play gives XP in the original.
+   Still to do: Endless Puzzle obstacle blocks, the Survival roof (both wait on readouts queued
+   in `docs/pc-tasks.md`).
 4. **Local multiplayer** (done): up to 4 players, keyboard and gamepads.
 5. **The original's look and sound** (in progress): loaded at runtime from the player's own
    install via the gitignored `extracted/` folder (`docs/art-layout.md`). Done: bricks, bases,
@@ -54,16 +59,25 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    countdown, win/lose moments, the start screen, title tiles, player and mode select, pause,
    the Game Completed popup, the lost-brick splash, vines growing, the Slow balloon, Ghost
    skulls, cast beams, lightning, spell clouds and the Large grow (`src/casts.rs`), tower
-   collapse blasts and shakes. To do: check the cast effects and collapse against the original
+   collapse blasts and shakes, wizard and brick-pack skins, Race Pro rain and lightning, Puzzle
+   sandstorm and eclipse, Survival's wave sky, spawn puffs and landing dust, the Single Player,
+   Endless, Trials and Settings screens. None of the newer screens has been pictured yet (the
+   cloud has no GPU). To do: check the cast effects and collapse against the original
    on Max's PC and fix the `(?)` sizes, the Auto Rotate wind-up, stone and ice transitions, the
    decorations at a beam's foot, and the explosion art.
-6. **Trials/campaign** levels described in RON files, with the scripted enemy wizard.
+6. **Trials** (mostly done): the original's 50 trials in 5 tiers opened by medals
+   (`src/trial_list.rs`, also editable in `game.ron`), with goals, fixed brick orders, their own
+   spell lines and the enemy wizard's curses. To do: trial floors and rival towers, the tier
+   unlock animation.
 7. **Mod loading** (done): a `mods/` folder of RON config changes and art packs, merged at
    startup in name order (`src/mods.rs`, `docs/modding.md`).
+8. **Not planned yet:** Online battle, Shop, Help, the Stats/Credits/Keybinding popups, text in
+   languages other than English.
 
 ## How work is split
 - Code is written in the cloud on a `claude/*` branch and merged into
-  `features/spells-puzzle-menu` through a pull request once `cargo test` passes.
+  `features/spells-puzzle-menu` through a pull request once `cargo test` passes; that branch
+  is merged into `main` (the GitHub front page) from time to time.
 - A Claude session on Max's PC follows `docs/pc-tasks.md` after every pull: build, test,
   re-stage `extracted\` from the install, screenshot each mode with `--play`, and report. Queue
   PC work by adding to that file.
