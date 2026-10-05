@@ -1471,7 +1471,7 @@
         veil_solo_width: 120.0,
         veil_alpha: 0.1,
         trophy_pop: (0.4, 0.6),
-        sunray_spin: 20.0,
+        sunray_spin: 60.0,
         collapse_wait: 1.5,
         blast_every: 3,
         blast_limit: 100,

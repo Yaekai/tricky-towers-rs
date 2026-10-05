@@ -1758,7 +1758,8 @@ pub struct MatchMoments {
     pub veil_alpha: f32,
     /// The trophy pops from this share of its size to full over this many seconds.
     pub trophy_pop: (f32, f32),
-    /// Degrees a second the sunrays behind WINNER! turn (?).
+    /// Degrees a second the sunrays behind WINNER! turn (the original has two ray layers,
+    /// 60 and -90; this is the first).
     pub sunray_spin: f32,
     /// Each losing tower's end sequence: seconds before it gives way; every n-th
     /// brick blows up (every brick if the wizard was already out), at most this
@@ -1802,7 +1803,7 @@ impl Default for MatchMoments {
             veil_solo_width: 120.0,
             veil_alpha: 0.1,
             trophy_pop: (0.4, 0.6),
-            sunray_spin: 20.0,
+            sunray_spin: 60.0,
             collapse_wait: 1.5,
             blast_every: 3,
             blast_limit: 100,
