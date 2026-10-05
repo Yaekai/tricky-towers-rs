@@ -62,6 +62,10 @@ islands on the water band), by adding `screen`:
   units (10 if left out). Use the original background camera's height.
 - `parallax`: how far the layer slides down as the camera climbs the tower, as a share of the
   climb (0, fixed, if left out).
+- `drift: (min, max)`: slides sideways at a speed picked from that range, in screen units a
+  second, wrapping round the view (Race Pro's clouds).
+- `lit: "name"`: a brighter picture drawn over the layer while the lightning flashes (Race
+  Pro's `_DARK` islands, with the day island as `lit`).
 - `sky` has no file: `colors` are the gradient behind everything, top to bottom, 0 to 255.
 - `water_band` has no file either: a gradient along the bottom of the screen, `colors` top to
   bottom, `position: (0, height)` in screen units (6 if left out), with `view_height`, `z` and

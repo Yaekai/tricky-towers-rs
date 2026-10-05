@@ -108,6 +108,14 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Race Pro background, ready for staging** (2026-10-05, cloud): screen layers now take
+  `drift` and `lit` (docs/art-layout.md), and Race Pro's water band falls back to the read
+  gradient (13,119,154 → 49,21,138, parallax 0.3, height 6) when `water_band_race_pro` isn't
+  staged. Stage `background_race_pro_N`: the clouds (`race_pro_cloud`, parallax 0.2,
+  `drift: (0.15, 0.25)`, in the units you read them in; say which), the race islands' `_DARK`
+  pictures at parallax 0.3 with the day picture as `lit`, and `water_pro` (stretched 80×).
+  Then picture Race Pro with a strike and compare. The waves' rows (y 3 / 2.5, scales
+  0.2-0.5 / 0.5-0.7) aren't drawn yet: say how the original lays out a wave row.
 - **Game Info and Stats popups are in** (2026-10-05, cloud; src/game_info.rs, src/stats.rs,
   stats saved as `stats.ron`). Read from the original and picture with a script:
   1. Game Info (Tab / Y): where the title, mode lines and player rows sit inside the 750×550
