@@ -389,7 +389,9 @@ fn lightning(
             alpha: flash_alpha,
         },
         Sprite::from_color(Color::srgba(1.0, 1.0, 1.0, flash_alpha), size),
-        Transform::from_xyz(0.0, 0.0, 450.0),
+        // Behind the islands, like the original's flash on its background landscape layer
+        // (screen layers sit at -900 + z; the clouds are 0 and 1).
+        Transform::from_xyz(0.0, 0.0, -898.5),
     ));
     // The bolt: from a random point on the top edge to the bottom edge, shifted up to
     // ±5/48 of the width, jagged, with a few shorter branches.
@@ -423,7 +425,7 @@ fn lightning(
                 alpha: 1.0,
             },
             sprite,
-            Transform::from_translation(((a + b) * 0.5).extend(440.0))
+            Transform::from_translation(((a + b) * 0.5).extend(-898.2))
                 .with_rotation(Quat::from_rotation_z(along.to_angle())),
         ));
     };
