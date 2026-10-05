@@ -211,6 +211,8 @@ pub(crate) const SEAT_RAYS_CLIP: (f32, f32) = (327.0, 267.0);
 const SEAT_ARROW: (f32, f32) = (38.0, 64.0);
 const SEAT_ARROW_X: f32 = 165.0;
 pub(crate) const PACK_PANEL: ((f32, f32), f32) = ((332.0, 100.0), -110.0);
+/// The brick pack cards are about 252 x 100 px.
+const PACK_CARD: (f32, f32) = (252.0, 100.0);
 pub(crate) const NAME_PLATE: ((f32, f32), f32) = ((367.0, 78.0), -230.0);
 /// The Character and Brick pack picker lines under each name plate: size and pitch
 /// (guessed until the original's Select Players pickers are read, ?).
@@ -220,11 +222,11 @@ const PICK_STEP: f32 = 52.0;
 pub(crate) const PANEL_SLICE: f32 = 60.0;
 pub(crate) const PLATE_SLICE: f32 = 13.0;
 
-/// Each seat's wizard, asleep and awake: centre offset from the panel centre
-/// and size.
+/// Each wizard's picture on Select Players, asleep and awake: centre offset from
+/// the seat panel's centre and size (the original's Character01..14).
 /// A picture's centre offset and size, in pixels.
 pub(crate) type Spot = ((f32, f32), (f32, f32));
-pub(crate) const WIZARDS: [[Spot; 2]; 4] = [
+pub(crate) const WIZARDS: [[Spot; 2]; WIZARD_COUNT] = [
     [((0.0, 0.0), (213.0, 250.0)), ((0.0, 0.0), (235.0, 314.0))],
     [((0.0, 38.0), (225.0, 323.0)), ((0.0, 21.0), (259.0, 344.0))],
     [
@@ -232,7 +234,39 @@ pub(crate) const WIZARDS: [[Spot; 2]; 4] = [
         ((-3.0, 4.0), (279.0, 300.0)),
     ],
     [((0.0, 11.7), (212.0, 267.0)), ((7.5, 7.0), (253.0, 322.0))],
+    [
+        ((-12.0, 1.0), (259.0, 246.0)),
+        ((-3.0, -13.0), (307.0, 281.0)),
+    ],
+    [
+        ((16.0, 0.0), (271.0, 244.0)),
+        ((-8.0, 18.0), (258.0, 347.0)),
+    ],
+    [((-1.0, 1.0), (288.0, 245.0)), ((9.0, 11.0), (282.0, 330.0))],
+    [((9.0, 9.0), (269.0, 264.0)), ((14.0, 2.0), (282.0, 290.0))],
+    [((-3.0, 0.0), (234.0, 258.0)), ((-5.0, 1.0), (231.0, 291.0))],
+    [((3.5, -1.6), (299.0, 263.0)), ((5.0, 34.0), (305.0, 385.0))],
+    [
+        ((-7.1, -2.5), (241.0, 251.0)),
+        ((11.4, 25.5), (257.0, 341.0)),
+    ],
+    [((1.2, 1.2), (290.0, 268.0)), ((-1.6, 6.1), (256.0, 302.0))],
+    [
+        ((-2.3, -1.4), (215.0, 263.0)),
+        ((-0.7, 4.4), (233.0, 302.0)),
+    ],
+    [((2.0, 3.0), (215.0, 253.0)), ((-6.0, -0.1), (233.0, 280.0))],
 ];
+
+/// The staged Select Players picture of `wizard` (0 for wizard 1) in `pose`:
+/// wizards 1-4, the spirit animals, then the indie guests.
+fn seat_picture(wizard: usize, pose: &str) -> String {
+    match wizard {
+        0..=3 => format!("menu_player_select_wizard{}_{pose}", wizard + 1),
+        4..=7 => format!("menu_player_select_wizard_animal0{}_{pose}", wizard - 3),
+        _ => format!("menu_player_select_wizard_indie0{}_{pose}", wizard - 7),
+    }
+}
 
 /// Select Mode's columns: centre x of each, the picked tile's frame, the
 /// arrows and where the difficulty tile's background sits.
@@ -321,6 +355,8 @@ pub(crate) enum Part {
     SeatRays(usize, usize),
     /// A seat's wizard, asleep or awake.
     SeatWizard(usize),
+    /// A seat's brick pack card.
+    SeatPack(usize),
     /// A seat's name plate text.
     SeatName(usize),
     /// A seated person's picker line: 0 the character, 1 the brick pack.
@@ -387,7 +423,7 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
     let players = spawn_page(&mut commands, art, "Select Players");
     commands.entity(players).insert(PlayersRoot);
     commands.entity(players).with_children(|page| {
-        for (seat, wizard) in WIZARDS.iter().enumerate() {
+        for (seat, wizard) in WIZARDS.iter().take(MAX_TOWERS).enumerate() {
             let x = seat_x(seat);
             let at = (x, SEAT_Y);
             // Asleep: the grey panel.
@@ -483,6 +519,12 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
             plate.with_children(|p| {
                 p.spawn((label(2.4, ""), Part::SeatName(seat)));
             });
+            // The picked brick pack's card in the pack panel, once someone sits here.
+            page.spawn((
+                ImageNode::default(),
+                place(PACK_CARD, (x, PACK_PANEL.1)),
+                Part::SeatPack(seat),
+            ));
             // The Character and Brick pack pickers under the name plate (layout ?).
             for row in 0..2 {
                 page.spawn((
@@ -895,21 +937,36 @@ pub(crate) fn show_select_screens(
             Part::SeatWizard(seat) => {
                 let awake = lobby.seats[seat] != Seat::Empty;
                 let pose = if awake { "ready" } else { "sleeping" };
-                let (offset, size) = WIZARDS[seat][awake as usize];
+                let picked = lobby.skins[seat].0.min(WIZARD_COUNT - 1);
+                let (offset, size) = WIZARDS[picked][awake as usize];
                 move_node(
                     &mut node,
                     size,
                     (seat_x(seat) + offset.0, SEAT_Y + offset.1),
                 );
                 // The picked wizard's picture, else the seat's own.
-                let picked = image(&format!(
-                    "menu_player_select_wizard{}_{pose}",
-                    lobby.skins[seat].0 + 1
-                ));
                 match (
-                    picked.or_else(|| {
-                        image(&format!("menu_player_select_wizard{}_{pose}", seat + 1))
-                    }),
+                    image(&seat_picture(picked, pose)).or_else(|| image(&seat_picture(seat, pose))),
+                    image_node,
+                ) {
+                    (Some(handle), Some(mut img)) => {
+                        if img.image != handle {
+                            img.image = handle;
+                        }
+                        true
+                    }
+                    _ => false,
+                }
+            }
+            Part::SeatPack(seat) => {
+                // The Spring pack's card is the original's Easter one.
+                let key = match lobby.skins[seat].1 {
+                    BrickPack::Spring => "easter",
+                    pack => pack.key(),
+                };
+                match (
+                    image(&format!("brick_pack_{key}"))
+                        .filter(|_| lobby.seats[seat] != Seat::Empty),
                     image_node,
                 ) {
                     (Some(handle), Some(mut img)) => {
