@@ -76,9 +76,8 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    languages other than English.
 
 ## How work is split
-- Code is written in the cloud on a `claude/*` branch and merged into
-  `features/spells-puzzle-menu` through a pull request once `cargo test` passes; that branch
-  is merged into `main` (the GitHub front page) from time to time.
+- Code is written on a `claude/*` branch (cloud or PC) and merged into `main` through a pull
+  request once `cargo test` passes. `features/spells-puzzle-menu` is retired.
 - A Claude session on Max's PC follows `docs/pc-tasks.md` after every pull: build, test,
   re-stage `extracted\` from the install, screenshot each mode with `--play`, and report. Queue
   PC work by adding to that file.
