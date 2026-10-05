@@ -157,23 +157,26 @@ fn wanted(
                 Shows::Text(left.to_string(), rgb(look.place_first))
             }
         }
-        Kind::Place if game.mode == ModeKind::Race && playing => match place {
-            Some(p) => {
-                let text = match p {
-                    0 => "1ST".to_string(),
-                    1 => "2ND".to_string(),
-                    2 => "3RD".to_string(),
-                    n => format!("{}TH", n + 1),
-                };
-                let color = if p == 0 {
-                    look.place_first
-                } else {
-                    look.place_other
-                };
-                Shows::Text(text, rgb(color))
+        // Places only in battles: trials show none.
+        Kind::Place if game.mode == ModeKind::Race && config.trial.is_none() && playing => {
+            match place {
+                Some(p) => {
+                    let text = match p {
+                        0 => "1ST".to_string(),
+                        1 => "2ND".to_string(),
+                        2 => "3RD".to_string(),
+                        n => format!("{}TH", n + 1),
+                    };
+                    let color = if p == 0 {
+                        look.place_first
+                    } else {
+                        look.place_other
+                    };
+                    Shows::Text(text, rgb(color))
+                }
+                None => Shows::Nothing,
             }
-            None => Shows::Nothing,
-        },
+        }
         Kind::Hearts if state.status != TowerStatus::Out && game.phase != Phase::Over => {
             match state.lives {
                 Some(lives) if lives > 0 => Shows::Hearts(lives, lives.max(config.survival.lives)),

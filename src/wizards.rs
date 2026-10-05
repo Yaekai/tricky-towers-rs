@@ -388,9 +388,12 @@ fn move_wizards(
     config: Res<GameConfig>,
     game: Res<crate::gameplay::Match>,
     towers: Query<(&Tower, &TowerState)>,
+    rivals: Query<&crate::gameplay::RivalLane>,
     mut wizards: Query<(&mut Wizard, &mut Transform, &mut Visibility)>,
 ) {
     let look = &config.wizards;
+    // A trial's enemy wizard floats by the enemy lane (right of the player's).
+    let enemy_lane = rivals.iter().next().map(|r| r.origin_x);
     let dt = time.delta_secs();
     let solo = towers.iter().count() == 1;
     for (mut wizard, mut transform, mut visibility) in &mut wizards {
@@ -439,7 +442,12 @@ fn move_wizards(
                 look.shake.1 * (t * 73.0).cos(),
             );
         }
-        transform.translation.x = tower.origin_x + config.cells(at.x);
+        let lane_x = if wizard.enemy {
+            enemy_lane.unwrap_or(tower.origin_x)
+        } else {
+            tower.origin_x
+        };
+        transform.translation.x = lane_x + config.cells(at.x);
         transform.translation.y = config.cells(at.y);
         // Alone, the wizard floats on the left and turns to face the tower.
         let size = 1.0 - gone * gone;
