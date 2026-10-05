@@ -91,6 +91,8 @@ foreach ($w in 5..14) {
 foreach ($w in 2..4) {
   $clipMap[$w] = [ordered]@{ idle = "Wizard0$($w)Idle"; action = "Wizard0$($w)Action"; cheer = "Wizard0$($w)Cheer"; cast_self = "Wizard0$($w)CastSelf"; casting = "Wizard0$($w)Casting"; laugh_evil = "Wizard0$($w)Laugh"; startle = "Wizard0$($w)Startle"; dying = $(if ($w -eq 4) { 'Wizard04SDying' } else { "Wizard0$($w)Dying" }) }
 }
+# The enemy wizard's hard laugh (trials).
+foreach ($w in 1..14) { $clipMap[$w]['laugh_hard'] = "$($prefabName[$w])LaughHard" }
 # Voice lines: Wizard01-04 share one pool and the original picks one at random each time; this
 # stages the first line of each pool.
 $say = [ordered]@{ action = 'wizard_cast_3'; cheer = 'yay_02'; cast_self = 'wizard_cast_1'; casting = 'cast_02'; laugh_evil = 'laugh_evil_short01'; startle = 'sad_01'; dying = 'sad_02' }
