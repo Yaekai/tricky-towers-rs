@@ -184,7 +184,10 @@
         sandstorm_front: ((233, 170, 93), 0.37),
         sandstorm_speed: 0.035,
         sandstorm_offset: 0.025,
-        sand_strip: 0.08,
+        sand_strip: 0.085,
+        sand_lift: 0.027,
+        sand_alpha: 0.803,
+        sand_front: 0.089,
         puzzle_pro_sky: [
             (171, 5, 76),
             (184, 68, 66),

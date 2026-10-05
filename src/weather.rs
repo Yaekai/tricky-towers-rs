@@ -79,8 +79,11 @@ struct SandLayer {
     copy: u32,
 }
 
+/// A Puzzle sand strip along the screen bottom; `front` is the one before the front ruins.
 #[derive(Component)]
-struct SandStrip;
+struct SandStrip {
+    front: bool,
+}
 
 #[derive(Component)]
 struct EclipseSun;
@@ -157,13 +160,25 @@ fn set_up_weather(
     }
     let weather = &config.weather;
     if look.0 == ModeKind::Puzzle {
-        if let Some(sand) = art.image("puzzle_sand") {
-            commands.entity(camera).with_child((
-                Weather,
-                SandStrip,
-                Sprite::from_image(sand),
-                Transform::from_xyz(0.0, 0.0, -890.0),
-            ));
+        // Back strip between the middle and front ruins (screen layers sit at -900 + z),
+        // front strip just in front of the front ruins.
+        for (front, name, z) in [
+            (false, "puzzle_sand", -895.5),
+            (true, "puzzle_sand_front", -893.5),
+        ] {
+            if let Some(sand) = art.image(name) {
+                let alpha = if front { 1.0 } else { weather.sand_alpha };
+                commands.entity(camera).with_child((
+                    Weather,
+                    SandStrip { front },
+                    Sprite {
+                        image: sand,
+                        color: Color::WHITE.with_alpha(alpha),
+                        ..default()
+                    },
+                    Transform::from_xyz(0.0, 0.0, z),
+                ));
+            }
         }
         for (front, names, (tint, alpha), z) in [
             (
@@ -448,7 +463,7 @@ fn fit_weather(
     view_size: Res<ViewSize>,
     camera: Query<(&Transform, &Projection), With<Camera2d>>,
     mut parts: ParamSet<(
-        Query<(&mut Sprite, &mut Transform), (With<SandStrip>, Without<Camera2d>)>,
+        Query<(&SandStrip, &mut Sprite, &mut Transform), Without<Camera2d>>,
         Query<(&SandLayer, &mut Sprite, &mut Transform), Without<Camera2d>>,
         Query<(&mut Sprite, &mut Transform), (With<EclipseSun>, Without<Camera2d>)>,
         Query<(&CoronaRay, &mut Sprite, &mut Transform), Without<Camera2d>>,
@@ -457,10 +472,15 @@ fn fit_weather(
     let weather = &config.weather;
     let (_, size) = view(&camera, view_size.0);
     let t = time.elapsed_secs();
-    for (mut sprite, mut transform) in &mut parts.p0() {
-        let h = size.y * weather.sand_strip;
+    for (strip, mut sprite, mut transform) in &mut parts.p0() {
+        let (h, lift) = if strip.front {
+            (weather.sand_front, 0.0)
+        } else {
+            (weather.sand_strip, weather.sand_lift)
+        };
+        let h = size.y * h;
         sprite.custom_size = Some(Vec2::new(size.x, h));
-        transform.translation.y = -size.y * 0.5 + h * 0.5;
+        transform.translation.y = -size.y * (0.5 - lift) + h * 0.5;
     }
     for (layer, mut sprite, mut transform) in &mut parts.p1() {
         sprite.custom_size = Some(size);
