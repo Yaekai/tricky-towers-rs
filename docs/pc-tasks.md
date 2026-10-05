@@ -108,6 +108,27 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Game Info and Stats popups are in** (2026-10-05, cloud; src/game_info.rs, src/stats.rs,
+  stats saved as `stats.ron`). Read from the original and picture with a script:
+  1. Game Info (Tab / Y): where the title, mode lines and player rows sit inside the 750×550
+     panel; the row art (`gph_popupTextBackground02`, stage it as `popup_text_background`);
+     what the name and level lines say for local players and AI; whether it pauses the
+     match or closes by itself; the avatar's size and which picture each of the 14 wizards
+     uses (we use `wizard_N`, staged for 1-4 only).
+  2. Stats: the rows of Game stats (we show games and wins per mode) and Other stats (we show
+     cups won, time played and the 3 Endless bests), their wording (language keys), text
+     sizes, the gap between the panels and their heights on screen, the time format, and
+     what counts (we count player 1's local battles, not trials or Endless runs).
+- **Readout for the original's text and tutorials (next cloud work, plain notes only):**
+  1. The format of `Resources\language\<lang>.txt`: one example line pattern with the value
+     replaced by `...`, and the full list of key names (names only, no translations) in
+     docs/research/text-keys.md. With that the game can show the original's wording from the
+     staged `text_<lang>` files at runtime.
+  2. The explanation (tutorial) popups' layout: panel art and size, where the title, text,
+     mode picture, difficulty, Pro subtitle and the two icons sit, sizes, and the keys that
+     close it; which key each popup's title and text use.
+  3. The Credits popup's layout and scroll speed. The names themselves stay in the game's
+     files: say where they live (a language key, a text asset) so they can be read at runtime.
 - **Keybinding popup is in** (2026-10-05, cloud; src/keybinding.rs, saved as `keys.ron`):
   Settings → Keybinding lists the 10 keyboard actions with their keys, Enter waits for a new
   key, a Reset row, Esc closes. Read from the original: the action list, order and wording

@@ -12,6 +12,11 @@ use tricky_towers::menu::{MainMenu, MenuPlugin, MenuScreen};
 use tricky_towers::select::{Lobby, Seat};
 
 fn app() -> App {
+    app_with(|_| {})
+}
+
+/// The menu app, with `extra` plugins added before it starts.
+fn app_with(extra: impl FnOnce(&mut App)) -> App {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, TransformPlugin, AssetPlugin::default()))
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
@@ -23,6 +28,7 @@ fn app() -> App {
         })
         .init_resource::<ButtonInput<KeyCode>>()
         .add_plugins((TowerCorePlugin, MenuPlugin));
+    extra(&mut app);
     app.finish();
     app.cleanup();
     app.update();
@@ -472,4 +478,65 @@ fn keybinding_rebinds_a_key_and_escape_closes_the_list_first() {
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Settings);
     tap(&mut app, KeyCode::Escape);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
+}
+
+#[test]
+fn tab_opens_game_info_in_a_match_and_pausing_closes_it() {
+    use tricky_towers::game_info::{GameInfo, GameInfoPlugin};
+    let mut app = app_with(|app| {
+        app.add_plugins(GameInfoPlugin);
+    });
+    start(&mut app);
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
+    tap(&mut app, KeyCode::Tab);
+    assert!(app.world().resource::<GameInfo>().open);
+    tap(&mut app, KeyCode::Tab);
+    assert!(!app.world().resource::<GameInfo>().open);
+    tap(&mut app, KeyCode::Tab);
+    tap(&mut app, KeyCode::Escape);
+    assert!(!app.world().resource::<GameInfo>().open);
+}
+
+#[test]
+fn a_finished_battle_counts_in_stats_and_the_stats_popup_opens_from_settings() {
+    use tricky_towers::menu::TILES;
+    use tricky_towers::settings::{Row, SettingsMenu};
+    use tricky_towers::stats::{Stats, StatsMenu};
+    let mut app = app();
+    start(&mut app);
+    // Player 1 wins: the match ends.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &tricky_towers::gameplay::Tower,
+            &mut tricky_towers::gameplay::TowerState,
+        )>();
+        for (tower, mut state) in q.iter_mut(world) {
+            if tower.is_first_player() {
+                state.status = tricky_towers::gameplay::TowerStatus::Won;
+            }
+        }
+    }
+    for _ in 0..64 {
+        app.update();
+    }
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Over);
+    app.update();
+    let stats = app.world().resource::<Stats>();
+    let mode = app.world().resource::<Match>().mode;
+    assert_eq!(stats.get(mode, None), (1, 1), "{:?}", stats.records);
+    // Back to the title, into Settings, and Stats (page 1's fourth row).
+    tap(&mut app, KeyCode::Escape);
+    let settings_tile = TILES.iter().position(|t| t.key == "settings").unwrap();
+    app.world_mut().resource_mut::<MainMenu>().selected = settings_tile;
+    tap(&mut app, KeyCode::Enter);
+    for _ in 0..3 {
+        tap(&mut app, KeyCode::ArrowDown);
+    }
+    assert_eq!(app.world().resource::<SettingsMenu>().row(), Row::Stats);
+    tap(&mut app, KeyCode::Enter);
+    assert!(app.world().resource::<StatsMenu>().open);
+    tap(&mut app, KeyCode::Escape);
+    assert!(!app.world().resource::<StatsMenu>().open);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Settings);
 }

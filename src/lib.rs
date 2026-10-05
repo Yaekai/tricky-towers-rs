@@ -18,6 +18,7 @@ pub mod debug;
 #[cfg(feature = "debug-panel")]
 pub mod debug_panel;
 pub mod effects;
+pub mod game_info;
 pub mod gameplay;
 pub mod hud;
 pub mod input;
@@ -37,6 +38,7 @@ pub mod settings;
 pub mod single;
 pub mod spells;
 pub mod start;
+pub mod stats;
 pub mod trial_list;
 pub mod trials;
 pub mod trials_menu;

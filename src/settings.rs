@@ -32,6 +32,7 @@ impl Plugin for SettingsPlugin {
             .init_resource::<SettingsMenu>()
             .init_resource::<crate::keybinding::KeybindingMenu>()
             .init_resource::<crate::keybinding::KeyBindings>()
+            .add_plugins(crate::stats::StatsPlugin)
             .add_systems(Startup, crate::keybinding::spawn_keybinding_popup)
             .add_systems(Update, crate::keybinding::show_keybinding_popup)
             .add_systems(Startup, spawn_settings_screen)
@@ -570,8 +571,10 @@ pub(crate) fn settings_input(
     mut settings: ResMut<Settings>,
     mut binds: ResMut<crate::keybinding::KeybindingMenu>,
     mut bindings: ResMut<crate::keybinding::KeyBindings>,
+    mut stats: ResMut<crate::stats::StatsMenu>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Settings {
+        stats.open = false;
         binds.open = false;
         binds.waiting = false;
         // Page 2's unapplied changes are dropped on leaving.
@@ -581,6 +584,13 @@ pub(crate) fn settings_input(
         return;
     }
     let taps = read_taps(keys.as_deref(), &pads);
+    // The Stats popup only closes: Enter, B or Esc (in the menu's Esc handling).
+    if stats.open {
+        if taps.key_pick || !taps.pad_pick.is_empty() || !taps.pad_back.is_empty() {
+            stats.open = false;
+        }
+        return;
+    }
     // The Keybinding list takes the keys while it's open; B closes it.
     if binds.open {
         if !taps.pad_back.is_empty() {
@@ -622,7 +632,8 @@ pub(crate) fn settings_input(
             binds.selected = 0;
             binds.waiting = false;
         }
-        // Stats and Credits open popups that aren't built yet.
+        Kind::Popup if row == Row::Stats && pick => stats.open = true,
+        // Credits opens a popup that isn't built yet.
         Kind::Popup => turn += dir,
         Kind::Toggle if pick || dir != 0 => changed = step(&mut menu, &mut settings, row, 1),
         _ if dir != 0 => changed = step(&mut menu, &mut settings, row, dir),
