@@ -21,6 +21,7 @@ pub mod effects;
 pub mod gameplay;
 pub mod hud;
 pub mod input;
+pub mod keybinding;
 pub mod letters;
 pub mod menu;
 pub mod mods;

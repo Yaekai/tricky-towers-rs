@@ -148,6 +148,8 @@ fn main() {
     if offscreen.is_none() {
         let file = tricky_towers::single::save_dir().join("leaderboard.ron");
         app.insert_resource(tricky_towers::single::Leaderboard::load(file));
+        let file = tricky_towers::single::save_dir().join("keys.ron");
+        app.insert_resource(tricky_towers::keybinding::KeyBindings::load(file));
         let file = tricky_towers::single::save_dir().join("settings.ron");
         app.insert_resource(tricky_towers::settings::Settings::load(file));
         let file = tricky_towers::single::save_dir().join("xp.ron");

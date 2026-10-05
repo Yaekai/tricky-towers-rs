@@ -612,6 +612,7 @@ fn play_sounds(
     game: Res<Match>,
     log: Res<SpellLog>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
+    bindings: Option<Res<crate::keybinding::KeyBindings>>,
     towers: Query<(&Tower, &TowerState)>,
     active: Query<(), With<ActiveBrick>>,
     mut heard: Local<Heard>,
@@ -644,13 +645,19 @@ fn play_sounds(
         heard.countdown = countdown;
         let steering = you.active.is_some_and(|e| active.contains(e));
         if let Some(keys) = keys.filter(|_| steering) {
-            use crate::input::{LEFT, NUDGE_LEFT, NUDGE_RIGHT, RIGHT, ROTATE, ROTATE_CCW};
-            if keys.any_just_pressed(NUDGE_LEFT) || keys.any_just_pressed(NUDGE_RIGHT) {
+            use crate::keybinding::Action;
+            let key = |action| {
+                bindings
+                    .as_ref()
+                    .map_or(Action::default_key(action), |b| b.key(action))
+            };
+            let any = |actions: &[Action]| actions.iter().any(|a| keys.just_pressed(key(*a)));
+            if any(&[Action::NudgeLeft, Action::NudgeRight]) {
                 play("sfx_nudge");
-            } else if keys.any_just_pressed(LEFT) || keys.any_just_pressed(RIGHT) {
+            } else if any(&[Action::MoveLeft, Action::MoveRight]) {
                 play("sfx_move");
             }
-            if keys.any_just_pressed(ROTATE) || keys.any_just_pressed(ROTATE_CCW) {
+            if any(&[Action::TurnRight, Action::TurnLeft]) {
                 play("sfx_rotate");
             }
         }

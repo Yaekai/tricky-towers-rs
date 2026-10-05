@@ -8,24 +8,26 @@ use bevy::prelude::*;
 
 use crate::collapse::{CollapseEvent, CollapseKind};
 use crate::gameplay::{Match, MatchRequest, Phase, PlayerInput, Tower};
+use crate::keybinding::{Action, KeyBindings};
 
 pub struct KeyboardInputPlugin;
 
 impl Plugin for KeyboardInputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreUpdate,
-            (
-                read_keyboard.run_if(resource_exists::<ButtonInput<KeyCode>>),
-                read_gamepads,
+        app.init_resource::<KeyBindings>()
+            .add_systems(
+                PreUpdate,
+                (
+                    read_keyboard.run_if(resource_exists::<ButtonInput<KeyCode>>),
+                    read_gamepads,
+                )
+                    .chain()
+                    .after(bevy::input::InputSystems),
             )
-                .chain()
-                .after(bevy::input::InputSystems),
-        )
-        .add_systems(
-            Update,
-            rumble_losers.run_if(resource_exists::<Messages<GamepadRumbleRequest>>),
-        );
+            .add_systems(
+                Update,
+                rumble_losers.run_if(resource_exists::<Messages<GamepadRumbleRequest>>),
+            );
     }
 }
 
@@ -74,18 +76,8 @@ fn rumble_losers(
     }
 }
 
-// The original's default keyboard keys (docs/research/wiki-notes.md, "Default keyboard
-// controls"; to be confirmed on the install): arrows move and drop, Up turns right,
-// Space turns left, U/I nudge, J/K cast the light and dark spell.
-pub(crate) const LEFT: [KeyCode; 1] = [KeyCode::ArrowLeft];
-pub(crate) const RIGHT: [KeyCode; 1] = [KeyCode::ArrowRight];
-const DOWN: [KeyCode; 1] = [KeyCode::ArrowDown];
-pub(crate) const ROTATE: [KeyCode; 1] = [KeyCode::ArrowUp];
-pub(crate) const ROTATE_CCW: [KeyCode; 1] = [KeyCode::Space];
-pub(crate) const NUDGE_LEFT: [KeyCode; 1] = [KeyCode::KeyU];
-pub(crate) const NUDGE_RIGHT: [KeyCode; 1] = [KeyCode::KeyI];
-const CAST_LIGHT: [KeyCode; 1] = [KeyCode::KeyJ];
-const CAST_DARK: [KeyCode; 1] = [KeyCode::KeyK];
+// The keys are player 1's `KeyBindings` (src/keybinding.rs), the original's defaults
+// unless changed in Settings → Keybinding.
 // Our earlier keys, not the original's; kept here to put back if wanted:
 // const LEFT: [KeyCode; 2] = [KeyCode::ArrowLeft, KeyCode::KeyA];
 // const RIGHT: [KeyCode; 2] = [KeyCode::ArrowRight, KeyCode::KeyD];
@@ -102,6 +94,7 @@ const RESTART: [KeyCode; 1] = [KeyCode::KeyR];
 
 fn read_keyboard(
     keys: Res<ButtonInput<KeyCode>>,
+    bindings: Res<KeyBindings>,
     game: Res<Match>,
     mut request: ResMut<MatchRequest>,
     mut towers: Query<(&Tower, &mut PlayerInput)>,
@@ -116,15 +109,16 @@ fn read_keyboard(
     let Some((_, mut input)) = towers.iter_mut().find(|(tower, _)| tower.is_first_player()) else {
         return;
     };
-    input.left_held = keys.any_pressed(LEFT);
-    input.right_held = keys.any_pressed(RIGHT);
-    input.fast_fall_held = keys.any_pressed(DOWN);
+    let key = |action| bindings.key(action);
+    input.left_held = keys.pressed(key(Action::MoveLeft));
+    input.right_held = keys.pressed(key(Action::MoveRight));
+    input.fast_fall_held = keys.pressed(key(Action::Drop));
     // Presses accumulate until a fixed step consumes them, so quick taps
     // between steps are never lost.
-    input.left_pressed |= keys.any_just_pressed(LEFT);
-    input.right_pressed |= keys.any_just_pressed(RIGHT);
-    input.nudge_left_pressed |= keys.any_just_pressed(NUDGE_LEFT);
-    input.nudge_right_pressed |= keys.any_just_pressed(NUDGE_RIGHT);
+    input.left_pressed |= keys.just_pressed(key(Action::MoveLeft));
+    input.right_pressed |= keys.just_pressed(key(Action::MoveRight));
+    input.nudge_left_pressed |= keys.just_pressed(key(Action::NudgeLeft));
+    input.nudge_right_pressed |= keys.just_pressed(key(Action::NudgeRight));
     // Shift + Left/Right nudged before the original's U/I keys were known:
     // let nudge = keys.any_pressed(NUDGE);
     // input.left_held = !nudge && keys.any_pressed(LEFT);
@@ -136,10 +130,10 @@ fn read_keyboard(
     //     input.left_pressed |= keys.any_just_pressed(LEFT);
     //     input.right_pressed |= keys.any_just_pressed(RIGHT);
     // }
-    input.rotate_pressed |= keys.any_just_pressed(ROTATE);
-    input.rotate_ccw_pressed |= keys.any_just_pressed(ROTATE_CCW);
-    input.cast_light_pressed |= keys.any_just_pressed(CAST_LIGHT);
-    input.cast_dark_pressed |= keys.any_just_pressed(CAST_DARK);
+    input.rotate_pressed |= keys.just_pressed(key(Action::TurnRight));
+    input.rotate_ccw_pressed |= keys.just_pressed(key(Action::TurnLeft));
+    input.cast_light_pressed |= keys.just_pressed(key(Action::LightMagic));
+    input.cast_dark_pressed |= keys.just_pressed(key(Action::DarkMagic));
 }
 
 /// Stick or d-pad direction last frame, to turn holds into presses.

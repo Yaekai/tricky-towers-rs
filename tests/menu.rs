@@ -435,3 +435,41 @@ fn an_earned_tier_plays_its_unlock_once_then_opens() {
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Trials);
     assert_eq!(app.world().resource::<TrialsMenu>().unlock, None);
 }
+
+#[test]
+fn keybinding_rebinds_a_key_and_escape_closes_the_list_first() {
+    use tricky_towers::keybinding::{Action, KeyBindings, KeybindingMenu};
+    use tricky_towers::menu::TILES;
+    use tricky_towers::settings::{Row, SettingsMenu};
+    let mut app = app();
+    let settings_tile = TILES.iter().position(|t| t.key == "settings").unwrap();
+    app.world_mut().resource_mut::<MainMenu>().selected = settings_tile;
+    tap(&mut app, KeyCode::Enter);
+    // Keybinding is page 1's last row.
+    for _ in 0..5 {
+        tap(&mut app, KeyCode::ArrowDown);
+    }
+    assert_eq!(
+        app.world().resource::<SettingsMenu>().row(),
+        Row::Keybinding
+    );
+    tap(&mut app, KeyCode::Enter);
+    assert!(app.world().resource::<KeybindingMenu>().open);
+    // Drop is the third action: Enter waits, S binds it.
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::Enter);
+    assert!(app.world().resource::<KeybindingMenu>().waiting);
+    tap(&mut app, KeyCode::KeyS);
+    assert_eq!(
+        app.world().resource::<KeyBindings>().key(Action::Drop),
+        KeyCode::KeyS
+    );
+    assert!(!app.world().resource::<KeybindingMenu>().waiting);
+    // Esc closes the list, then leaves Settings.
+    tap(&mut app, KeyCode::Escape);
+    assert!(!app.world().resource::<KeybindingMenu>().open);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Settings);
+    tap(&mut app, KeyCode::Escape);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
+}

@@ -108,6 +108,12 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Keybinding popup is in** (2026-10-05, cloud; src/keybinding.rs, saved as `keys.ron`):
+  Settings → Keybinding lists the 10 keyboard actions with their keys, Enter waits for a new
+  key, a Reset row, Esc closes. Read from the original: the action list, order and wording
+  (language keys), the reset row's wording, how the waited-on key looks, what happens when a
+  key is already used (we swap), which keys can be bound, whether pads can be rebound, and
+  the row width/height and the list's place on screen.
 - **Trials unlock animation and menu button hints are in** (2026-10-05, cloud;
   src/trials_menu.rs, src/navbar.rs), both from the readouts, neither pictured yet:
   1. Stage the unlock's sounds as `sfx_chain_1` .. `sfx_chain_4` (SFX_CHAIN_1..4) and
