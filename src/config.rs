@@ -114,8 +114,10 @@ pub struct GameConfig {
     pub endless: EndlessRules,
     /// Endless Survival and Endless Puzzle (guesses until read).
     pub endless_play: EndlessPlay,
-    /// The Trials, in order (samples until the original's are read).
+    /// The Trials, in order.
     pub trials: Vec<TrialDef>,
+    /// The trials' own floors by the original's name (docs/research/trials-obstacles-roofs.md).
+    pub trial_floors: std::collections::BTreeMap<String, TrialFloor>,
     /// The trial tiers: each holds `TrialTiers::size` trials in order and opens at a
     /// medal count.
     pub trial_tiers: TrialTiers,
@@ -759,6 +761,10 @@ pub struct TrialDef {
     pub drop_speed: Option<f32>,
     /// A light spell in hand at the start.
     pub start_spell: Option<SpellKind>,
+    /// The trial's own floor (a key of `trial_floors`), else the mode's base.
+    pub floor: Option<String>,
+    /// Race trials: the rival tower (1-13) standing in the enemy's lane.
+    pub rival: Option<u32>,
     /// The enemy wizard's casts.
     pub enemy: Vec<EnemyCast>,
     /// A fixed brick order (shape names), else random bricks.
@@ -787,11 +793,24 @@ impl Default for TrialDef {
             laser: None,
             drop_speed: None,
             start_spell: None,
+            floor: None,
+            rival: None,
             enemy: Vec::new(),
             order: Vec::new(),
             lines: None,
         }
     }
+}
+
+/// A trial's floor: static boxes in cells (x from the lane centre, y from the base's
+/// top) and the pictures drawn on it (art key, spot, mirrored, turn in degrees).
+/// keep_base adds them to the mode's base instead of replacing it.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct TrialFloor {
+    pub keep_base: bool,
+    pub boxes: Vec<BaseBox>,
+    pub art: Vec<(String, f32, f32, bool, f32)>,
 }
 
 /// Brick packs (brick skins), from docs/research/skins.md. Each player picks one on
@@ -1891,6 +1910,16 @@ impl Default for Roofs {
 }
 
 impl GameConfig {
+    /// The floor of the trial being played, if it has its own.
+    pub fn trial_floor(&self) -> Option<&TrialFloor> {
+        let name = self
+            .trial
+            .and_then(|i| self.trials.get(i))?
+            .floor
+            .as_ref()?;
+        self.trial_floors.get(name)
+    }
+
     /// The boxes of this mode's base, or a plain `platform_width` slab when the
     /// mode has no read shape.
     pub fn base_boxes(&self, mode: ModeKind) -> Vec<BaseBox> {
@@ -2546,6 +2575,7 @@ impl Default for GameConfig {
             endless: EndlessRules::default(),
             endless_play: EndlessPlay::default(),
             trials: crate::trial_list::original_trials(),
+            trial_floors: crate::trial_list::original_trial_floors(),
             trial_tiers: TrialTiers::default(),
             trial: None,
             skins: Vec::new(),

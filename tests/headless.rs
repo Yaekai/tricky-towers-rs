@@ -13,7 +13,7 @@ use tricky_towers::config::{
 use tricky_towers::gameplay::{
     ActiveBrick, Brick, Match, Phase, PlayerInput, Tower, TowerState, TowerStatus,
 };
-use tricky_towers::spells::{Stone, VineJoint};
+use tricky_towers::spells::{IvyCluster, Stone};
 
 const STEP: f32 = 1.0 / 64.0;
 
@@ -462,7 +462,7 @@ fn ivy_vines_the_brick_to_what_it_lands_on() {
     human_input(&mut app).cast_light_pressed = true;
     let dropped = tower(&mut app, 0).bricks_dropped;
     assert!(
-        run_until(&mut app, 3.0, |app| count::<With<VineJoint>>(app) >= 1),
+        run_until(&mut app, 3.0, |app| count::<With<IvyCluster>>(app) >= 1),
         "Ivy joined nothing"
     );
     run_seconds(&mut app, 1.0, |_| {});
@@ -484,7 +484,7 @@ fn ivy_vines_the_brick_to_what_it_lands_on() {
 }
 
 #[test]
-fn ivy_onto_stone_petrifies_the_cluster() {
+fn ivy_onto_stone_makes_the_cluster_static() {
     // Regression: joining a stone (static) brick panicked inside avian
     // ("Neither body ... is in an island").
     let mut app = headless_app(magic_config(SpellKind::Petrify, &[]));
@@ -500,10 +500,19 @@ fn ivy_onto_stone_petrifies_the_cluster() {
         ..default()
     };
     your_tower_mut(&mut app).queue_mod(0, &ivy);
+    // As in the original, the cluster holds still like the stone, without
+    // turning its other bricks to stone.
     assert!(
-        run_until(&mut app, 4.0, |app| count::<With<Stone>>(app) > stones),
-        "the Ivy brick on stone did not petrify"
+        run_until(&mut app, 4.0, |app| {
+            let world = app.world_mut();
+            world
+                .query_filtered::<&avian2d::prelude::RigidBody, With<IvyCluster>>()
+                .iter(world)
+                .any(|b| *b == avian2d::prelude::RigidBody::Static)
+        }),
+        "the Ivy brick on stone did not make a static cluster"
     );
+    assert_eq!(count::<With<Stone>>(&mut app), stones);
     run_seconds(&mut app, 0.5, |_| {});
 }
 
@@ -1809,4 +1818,69 @@ fn the_survival_winner_steers_a_roof_onto_the_tower_before_winner_shows() {
         y > 0.0 && y / app.world().resource::<GameConfig>().cell_size < state.height + 10.0,
         "{y} {state:?}"
     );
+}
+
+#[test]
+fn a_trial_has_its_own_floor_lane_and_rival_tower() {
+    use tricky_towers::gameplay::{Platform, RivalLane};
+    let mut config = fast_config();
+    config.opponents = 2;
+    // SR_10 (rival tower 1) and SP_20 (FLOOR_PUZZLE_BASIC).
+    config.trial = config.trials.iter().position(|t| t.name == "SR_10");
+    let mut app = headless_app(config.clone());
+    let world = app.world_mut();
+    let lanes: Vec<(f32, Option<u32>)> = world
+        .query::<&RivalLane>()
+        .iter(world)
+        .map(|l| (l.origin_x, l.rival))
+        .collect();
+    assert_eq!(lanes.len(), 1);
+    assert_eq!(lanes[0].1, Some(1));
+    let towers: Vec<f32> = world
+        .query::<&Tower>()
+        .iter(world)
+        .map(|t| t.origin_x)
+        .collect();
+    assert_eq!(
+        towers.len(),
+        1,
+        "a trial is one player, whatever the lobby says"
+    );
+    assert!(towers[0] < 0.0 && lanes[0].0 > 0.0);
+
+    config.trial = config.trials.iter().position(|t| t.name == "SP_20");
+    let floor = config
+        .trial_floor()
+        .expect("SP_20 has its own floor")
+        .clone();
+    assert_eq!(floor.boxes.len(), 5);
+    let mut app = headless_app(config);
+    let world = app.world_mut();
+    // No random Puzzle columns: the floor is the platform's own boxes.
+    assert_eq!(
+        world
+            .query::<&tricky_towers::gameplay::FloorBlock>()
+            .iter(world)
+            .count(),
+        0
+    );
+    assert_eq!(world.query::<&Platform>().iter(world).count(), 1);
+}
+
+#[test]
+fn ivy_bricks_are_drawn_where_their_bodies_are() {
+    let mut app = headless_app(magic_config(SpellKind::Ivy, &[]));
+    wait_for_light(&mut app, SpellKind::Ivy);
+    human_input(&mut app).cast_light_pressed = true;
+    assert!(run_until(&mut app, 3.0, |app| count::<With<IvyCluster>>(
+        app
+    ) >= 1));
+    run_seconds(&mut app, 1.0, |_| {});
+    let world = app.world_mut();
+    for (p, g) in world
+        .query_filtered::<(&avian2d::prelude::Position, &GlobalTransform), (With<Brick>, With<ChildOf>)>()
+        .iter(world)
+    {
+        assert!(p.0.distance(g.translation().truncate()) < 1.0, "{p:?} drawn at {g:?}");
+    }
 }

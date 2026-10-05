@@ -7,7 +7,6 @@
 
 use avian2d::dynamics::solver::islands::{BodyIslandNode, WakeBody};
 use avian2d::prelude::*;
-use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 
 use crate::config::{
@@ -18,12 +17,9 @@ use crate::gameplay::{
     TowerStatus, brick_body, brick_collider, piece_def,
 };
 
-/// A vine holding two bricks together.
+/// Bricks held together by Ivy: one rigid body whose children are the bricks.
 #[derive(Component, Debug)]
-pub struct VineJoint {
-    pub a: Entity,
-    pub b: Entity,
-}
+pub struct IvyCluster;
 
 /// A brick turned to stone: static, like the ground.
 #[derive(Component, Debug)]
@@ -272,7 +268,7 @@ pub(crate) fn run_curse_waves(
             Entity,
             &Brick,
             &Position,
-            &RigidBody,
+            Option<&RigidBody>,
             Has<Stone>,
             Has<Vined>,
         ),
@@ -511,7 +507,7 @@ pub(crate) fn cast_spells(
             Entity,
             &Brick,
             &Position,
-            &RigidBody,
+            Option<&RigidBody>,
             Has<Stone>,
             Has<Vined>,
         ),
@@ -688,7 +684,7 @@ fn cast_on_tower(
             Entity,
             &Brick,
             &Position,
-            &RigidBody,
+            Option<&RigidBody>,
             Has<Stone>,
             Has<Vined>,
         ),
@@ -761,7 +757,7 @@ fn cast_on_tower(
         SpellKind::Mist => state.mist_timer = magic.mist_seconds,
         SpellKind::Bubble => {
             // Only a loose brick can float off.
-            if let Some((entity, _, _, RigidBody::Dynamic, false, false)) = last {
+            if let Some((entity, _, _, Some(RigidBody::Dynamic), false, false)) = last {
                 let tilt = (3.0 + (state.random() % 900) as f32 / 100.0).to_radians();
                 let sign = if state.random().is_multiple_of(2) {
                     1.0
@@ -783,7 +779,7 @@ fn cast_on_tower(
         }
         SpellKind::Ghost => {
             // Only a loose brick can be carried off.
-            if let Some((entity, _, at, RigidBody::Dynamic, false, false)) = last {
+            if let Some((entity, _, at, Some(RigidBody::Dynamic), false, false)) = last {
                 let outward = if at.0.x >= tower.origin_x { 1.0 } else { -1.0 };
                 let to = at.0
                     + Vec2::new(
@@ -849,8 +845,10 @@ pub(crate) fn reshape_active_bricks(
     }
 }
 
-/// Vines a freshly placed Ivy brick to every brick of its tower it touches.
-/// Touching a stone brick petrifies the whole cluster instead.
+/// Ivy, as in the original: a freshly placed Ivy brick and every brick of its tower
+/// it touches (with the clusters those already belong to) become one rigid body,
+/// static if any of them is. The bricks become the cluster's children and keep
+/// their own colliders and looks.
 #[allow(clippy::type_complexity)]
 pub(crate) fn grow_ivy(
     mut commands: Commands,
@@ -862,29 +860,25 @@ pub(crate) fn grow_ivy(
             &Brick,
             &Position,
             &Rotation,
-            &RigidBody,
+            Option<&RigidBody>,
             Has<Stone>,
             Has<BodyIslandNode>,
             Has<IvyPending>,
+            Option<&ChildOf>,
         ),
         Without<ActiveBrick>,
     >,
-    joints: Query<(Entity, &VineJoint)>,
+    clusters: Query<(&Children, &RigidBody), With<IvyCluster>>,
 ) {
-    let mut joined: HashSet<(Entity, Entity)> = joints
-        .iter()
-        .map(|(_, v)| (v.a.min(v.b), v.a.max(v.b)))
-        .collect();
-    let mut cut: HashSet<Entity> = HashSet::default();
-    for (entity, brick, position, rotation, body, stone, in_island, pending) in &bricks {
+    for (entity, brick, position, rotation, body, _, in_island, pending, _) in &bricks {
         if !pending {
             continue;
         }
-        if *body == RigidBody::Static || stone {
+        if body.is_none_or(|b| *b == RigidBody::Static) {
             commands.entity(entity).remove::<IvyPending>();
             continue;
         }
-        // Avian can only join bodies already in its island graph.
+        // Wait until the physics has taken the brick in.
         if !in_island {
             continue;
         }
@@ -896,80 +890,142 @@ pub(crate) fn grow_ivy(
             config.collider_scale + 2.0 * config.magic.ivy_reach / brick.scale,
         );
         let filter = SpatialQueryFilter::from_excluded_entities([entity]);
-        let touching: Vec<_> = spatial
-            .shape_intersections(&reach, position.0, rotation.as_radians(), &filter)
-            .into_iter()
-            .filter_map(|e| bricks.get(e).ok())
-            .filter(|b| b.1.tower == brick.tower)
-            .collect();
-        if touching.iter().any(|b| b.5) {
-            // Part of the cluster is stone, so all of it turns to stone.
-            let mut cluster = vec![entity];
-            let mut seen: HashSet<Entity> = cluster.iter().copied().collect();
-            while let Some(e) = cluster.pop() {
-                for (joint, vine) in &joints {
-                    let other = if vine.a == e {
-                        vine.b
-                    } else if vine.b == e {
-                        vine.a
-                    } else {
-                        continue;
-                    };
-                    if cut.insert(joint) {
-                        commands.entity(joint).despawn();
-                    }
-                    if seen.insert(other) {
-                        cluster.push(other);
+        let mut members: Vec<Entity> = vec![entity];
+        let mut old_clusters: Vec<Entity> = Vec::new();
+        for other in spatial.shape_intersections(&reach, position.0, rotation.as_radians(), &filter)
+        {
+            let Ok(b) = bricks.get(other) else { continue };
+            if b.1.tower != brick.tower {
+                continue;
+            }
+            match b.8.map(|c| c.parent()).filter(|p| clusters.contains(*p)) {
+                Some(cluster) if !old_clusters.contains(&cluster) => {
+                    old_clusters.push(cluster);
+                    if let Ok((children, _)) = clusters.get(cluster) {
+                        members.extend(children.iter().filter(|c| bricks.contains(*c)));
                     }
                 }
+                Some(_) => {}
+                None => members.push(other),
             }
-            for e in seen {
-                commands.entity(e).insert((
-                    RigidBody::Static,
-                    Stone,
-                    LinearVelocity::ZERO,
-                    AngularVelocity::ZERO,
-                ));
-            }
+        }
+        members.sort();
+        members.dedup();
+        if members.len() < 2 {
             continue;
         }
-        for (other, _, other_position, _, _, _, other_in_island, _) in touching {
-            if !other_in_island {
-                continue;
-            }
-            let pair = (entity.min(other), entity.max(other));
-            if !joined.insert(pair) {
-                continue;
-            }
-            let anchor = (position.0 + other_position.0) * 0.5;
-            commands.spawn((
-                // Global anchor and basis keep the bricks' current relative pose;
-                // a local identity basis would snap them to the same angle.
-                FixedJoint::new(pair.0, pair.1)
-                    .with_anchor(anchor)
-                    .with_basis(Rotation::IDENTITY),
-                VineJoint {
-                    a: pair.0,
-                    b: pair.1,
+        let solid = members.iter().any(|&m| {
+            bricks
+                .get(m)
+                .is_ok_and(|b| b.5 || b.4.is_some_and(|r| *r == RigidBody::Static))
+        }) || old_clusters
+            .iter()
+            .any(|&c| clusters.get(c).is_ok_and(|(_, r)| *r == RigidBody::Static));
+        let cluster = commands
+            .spawn((
+                IvyCluster,
+                if solid {
+                    RigidBody::Static
+                } else {
+                    RigidBody::Dynamic
                 },
+                *position,
+                *rotation,
+                Transform::from_translation(position.0.extend(0.0))
+                    .with_rotation(Quat::from_rotation_z(rotation.as_radians())),
+                LinearVelocity::ZERO,
+                AngularVelocity::ZERO,
+                AngularDamping(config.angular_damping),
+                Visibility::default(),
+            ))
+            .id();
+        let inverse = rotation.inverse();
+        for &m in &members {
+            let Ok((_, _, p, r, ..)) = bricks.get(m) else {
+                continue;
+            };
+            let local = inverse * (p.0 - position.0);
+            let turn = (inverse * *r).as_radians();
+            commands.entity(m).remove::<RigidBody>().insert((
+                ChildOf(cluster),
+                Transform::from_translation(local.extend(0.0))
+                    .with_rotation(Quat::from_rotation_z(turn)),
+                LinearVelocity::ZERO,
+                Vined,
             ));
-            commands.entity(pair.0).insert(Vined);
-            commands.entity(pair.1).insert(Vined);
+        }
+        // Their bricks have moved over; the old clusters go.
+        for old in old_clusters {
+            commands.entity(old).despawn();
         }
     }
 }
 
-/// Despawns every vine on `brick`, once each.
-pub(crate) fn cut_vines(
-    commands: &mut Commands,
-    joints: &Query<(Entity, &VineJoint)>,
-    cut: &mut HashSet<Entity>,
-    brick: Entity,
+/// Ivy clusters fall apart into loose bricks when one of their bricks is lost,
+/// zapped, bubbled, carried off by a ghost or blown up, or only one is left; a
+/// brick turned to stone makes its whole cluster static.
+#[allow(clippy::type_complexity)]
+pub(crate) fn loosen_ivy(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    clusters: Query<
+        (
+            Entity,
+            &Children,
+            &RigidBody,
+            &Position,
+            &LinearVelocity,
+            &AngularVelocity,
+        ),
+        With<IvyCluster>,
+    >,
+    members: Query<(
+        &Position,
+        &Rotation,
+        Has<Brick>,
+        Has<Stone>,
+        Has<Zapped>,
+        Has<Bubbled>,
+        Has<Ghosted>,
+        Has<Sensor>,
+    )>,
 ) {
-    for (joint, vine) in joints {
-        if (vine.a == brick || vine.b == brick) && cut.insert(joint) {
-            commands.entity(joint).despawn();
+    let kill_y = -config.cells(config.kill_depth);
+    for (cluster, children, body, centre, velocity, spin) in &clusters {
+        let kids: Vec<_> = children
+            .iter()
+            .filter_map(|c| members.get(c).ok().map(|m| (c, m)))
+            .collect();
+        let stone = kids.iter().any(|(_, m)| m.3);
+        let loose = kids.len() < 2
+            || kids
+                .iter()
+                .any(|(_, (p, _, brick, _, zapped, bubbled, ghosted, sensor))| {
+                    !brick || *zapped || *bubbled || *ghosted || *sensor || p.0.y < kill_y
+                });
+        if !loose {
+            if stone && *body != RigidBody::Static {
+                commands.entity(cluster).insert(RigidBody::Static);
+            }
+            continue;
         }
+        for (child, (p, r, _, stone, ..)) in kids {
+            let offset = p.0 - centre.0;
+            commands.entity(child).remove::<ChildOf>().insert((
+                if stone {
+                    RigidBody::Static
+                } else {
+                    RigidBody::Dynamic
+                },
+                *p,
+                *r,
+                Transform::from_translation(p.0.extend(0.0))
+                    .with_rotation(Quat::from_rotation_z(r.as_radians())),
+                LinearVelocity(velocity.0 + Vec2::new(-offset.y, offset.x) * spin.0),
+                AngularVelocity(spin.0),
+            ));
+        }
+        commands.entity(cluster).despawn();
     }
 }
 
@@ -978,14 +1034,10 @@ pub(crate) fn zap_bricks(
     mut commands: Commands,
     time: Res<Time>,
     mut zapped: Query<(Entity, &mut Zapped)>,
-    joints: Query<(Entity, &VineJoint)>,
 ) {
-    let mut cut = HashSet::default();
     for (entity, mut zap) in &mut zapped {
         zap.timer -= time.delta_secs();
         if zap.timer <= 0.0 {
-            // Joints go before the bodies they hold.
-            cut_vines(&mut commands, &joints, &mut cut, entity);
             commands.entity(entity).despawn();
         }
     }

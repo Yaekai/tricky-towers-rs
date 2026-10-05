@@ -1,17 +1,19 @@
 //! The original's 50 trials, in the order the game lists them, from the PC readout
 //! (docs/research/trials.md). Generated from that table; edit the table and regenerate
-//! rather than editing by hand. Floors other than the mode's default and the race
-//! trials' rival tower pictures aren't built yet.
+//! rather than editing by hand. Each trial's own floor and rival tower are set from
+//! `FLOORS_AND_RIVALS` below.
 
 use bevy::prelude::*;
 
-use crate::config::{CastWhen, EnemyCast, ModeKind, SpellKind, TrialDef, TrialLines};
+use crate::config::{
+    BaseBox, CastWhen, EnemyCast, ModeKind, SpellKind, TrialDef, TrialFloor, TrialLines,
+};
 
-/// Lives in the last Master trial ("the game's maximum lives"; the number isn't read, ?).
-pub const MAX_TRIAL_LIVES: u32 = 5;
+/// Lives in the last Master trial: the game's maximum health setting.
+pub const MAX_TRIAL_LIVES: u32 = 3;
 
 pub fn original_trials() -> Vec<TrialDef> {
-    vec![
+    let mut trials = vec![
         // Rookie (0 medals) 1: reach 14 cells in 60 s
         TrialDef {
             name: "SR_10".into(),
@@ -2053,5 +2055,517 @@ pub fn original_trials() -> Vec<TrialDef> {
             ],
             ..default()
         },
-    ]
+    ];
+    for trial in &mut trials {
+        if let Some(&(_, floor, rival)) = FLOORS_AND_RIVALS.iter().find(|f| f.0 == trial.name) {
+            trial.floor = floor.map(String::from);
+            trial.rival = rival;
+        }
+    }
+    trials
+}
+
+/// Each trial's own floor and rival tower (docs/research/trials.md, "Base"). Survival
+/// trials on the plain castle (FLOOR_LWS) aren't listed.
+const FLOORS_AND_RIVALS: &[(&str, Option<&str>, Option<u32>)] = &[
+    ("SR_10", None, Some(1)),
+    ("SP_20", Some("FLOOR_PUZZLE_BASIC"), None),
+    ("SP_16", Some("FLOOR_OVERHANG_TUTORIAL"), None),
+    ("SR_11", None, Some(2)),
+    ("SS_10", Some("FLOOR_LWS_PETRIFIED_BRICK"), None),
+    ("SP_15", Some("FLOOR_PUZZLE_LEVEL01"), None),
+    ("SR_18", None, Some(3)),
+    ("SP_10", Some("FLOOR_PUZZLE_LONG_I"), None),
+    ("SP_21", Some("FLOOR_OVERHANG_CHALLENGE_J"), None),
+    ("SR_22", None, Some(4)),
+    ("SR_14", None, Some(5)),
+    ("SP_12", Some("FLOOR_PUZZLE_LARGE_INTRO"), None),
+    ("SP_29", Some("FLOOR_PUZZLE_NO_ROTATE_NEED_EASY"), None),
+    ("SP_22", Some("FLOOR_OVERHANG_CHALLENGE_J_I"), None),
+    ("SP_24", Some("FLOOR_PUZZLE_SPARE_UNIT"), None),
+    ("SP_18", Some("FLOOR_PUZZLE_NUDGE_TUTORIAL"), None),
+    ("SP_11", Some("FLOOR_PUZZLE_FILLER_01"), None),
+    ("SP_30", Some("FLOOR_PUZZLE_BRIDGE"), None),
+    ("SR_16", None, Some(6)),
+    ("SP_17", Some("FLOOR_PUZZLE_NO_ROTATE"), None),
+    ("SR_17", None, Some(7)),
+    ("SP_28", Some("FLOOR_PUZZLE_NO_ROTATE_NEED"), None),
+    ("SP_13", Some("FLOOR_PUZZLE_BAK"), None),
+    ("SR_19", None, Some(8)),
+    ("SP_25", Some("FLOOR_PUZZLE_DOUBLE"), None),
+    ("SP_23", Some("FLOOR_OVERHANG_CHALLENGE"), None),
+    ("SR_20", None, Some(9)),
+    ("SP_31", Some("FLOOR_PUZZLE_BRIDGE01"), None),
+    ("SR_21", None, Some(10)),
+    ("SP_14", Some("FLOOR_PUZZLE_LOCKS"), None),
+    ("SR_24", None, Some(11)),
+    ("SP_33", Some("FLOOR_PUZZLE_BLOCK"), None),
+    ("SP_27", Some("FLOOR_PUZZLE_SOLID_BRICKS02"), None),
+    ("SR_03", None, Some(12)),
+    ("SP_19", Some("FLOOR_PUZZLE_HARD"), None),
+    ("SR_23", None, Some(13)),
+    ("SP_26", Some("FLOOR_PUZZLE_SOLID_BRICKS"), None),
+];
+
+/// The trials' own floors (docs/research/trials-obstacles-roofs.md): boxes as
+/// (x from, x to, y from, y to) and pictures as (art, x, y, mirrored, turn).
+#[allow(clippy::type_complexity)]
+pub fn original_trial_floors() -> std::collections::BTreeMap<String, TrialFloor> {
+    let puzzle: &[(
+        &str,
+        &[(f32, f32, f32, f32)],
+        &[(&str, f32, f32, bool, f32)],
+    )] = &[
+        (
+            "FLOOR_PUZZLE_BASIC",
+            &[
+                (-2.0, -1.0, -18.0, -5.0),
+                (-1.0, 1.0, -19.0, -6.0),
+                (1.0, 2.0, -18.0, -5.0),
+                (-3.0, -2.0, -13.0, 0.0),
+                (2.0, 3.0, -13.0, 0.0),
+            ],
+            &[
+                ("puzzle_piece_3", -0.97, -4.97, true, 0.0),
+                ("puzzle_piece_2", -1.03, -5.97, false, 0.0),
+                ("puzzle_piece_3", 0.97, -4.97, false, 0.0),
+                ("puzzle_piece_1", -1.97, 0.03, true, 0.0),
+                ("puzzle_piece_1", 1.97, 0.03, false, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_OVERHANG_TUTORIAL",
+            &[
+                (-1.0, 1.0, -13.0, 0.0),
+                (0.03, 0.98, 0.0, 1.0),
+                (1.02, 1.98, -2.0, 1.0),
+            ],
+            &[
+                ("puzzle_piece_2", -1.03, 0.03, false, 0.0),
+                ("desert_stone_L", 1.0, -0.5, false, -90.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_LEVEL01",
+            &[
+                (-2.0, -1.0, -17.0, -4.0),
+                (-1.0, 1.0, -18.0, -5.0),
+                (1.0, 2.0, -17.0, -4.0),
+                (-3.0, -2.0, -13.0, 0.0),
+                (2.0, 3.0, -13.0, 0.0),
+            ],
+            &[
+                ("puzzle_piece_3", -0.97, -3.97, true, 0.0),
+                ("puzzle_piece_2", -1.03, -4.97, false, 0.0),
+                ("puzzle_piece_3", 0.97, -3.97, false, 0.0),
+                ("puzzle_piece_1", -1.97, 0.03, true, 0.0),
+                ("puzzle_piece_1", 1.97, 0.03, false, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_LONG_I",
+            &[
+                (-1.5, -0.5, -14.0, -1.0),
+                (0.5, 1.5, -14.0, -1.0),
+                (-2.5, -1.5, -12.0, 1.0),
+                (1.5, 2.5, -13.0, 0.0),
+                (-0.5, 0.5, -20.0, -7.0),
+            ],
+            &[
+                ("puzzle_piece_3", -0.47, -0.97, true, 0.0),
+                ("puzzle_piece_3", 0.47, -0.97, false, 0.0),
+                ("puzzle_piece_1", -1.47, 1.03, true, 0.0),
+                ("puzzle_piece_1", 1.47, 0.03, false, 0.0),
+                ("puzzle_piece_3", 0.53, -6.97, true, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_OVERHANG_CHALLENGE",
+            &[(-1.0, 1.0, -13.0, 0.0)],
+            &[("puzzle_piece_2", -1.03, 0.03, false, 0.0)],
+        ),
+        (
+            "FLOOR_OVERHANG_CHALLENGE_J",
+            &[
+                (-1.0, 1.0, -13.0, 0.0),
+                (1.0, 2.0, -0.97, -0.03),
+                (-1.0, 2.0, 0.03, 0.98),
+            ],
+            &[
+                ("puzzle_piece_2", -1.03, 0.03, false, 0.0),
+                ("desert_stone_L", 0.5, 0.0, true, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_OVERHANG_CHALLENGE_J_I",
+            &[
+                (-1.0, 1.0, -13.0, 0.0),
+                (1.0, 2.0, -0.97, -0.03),
+                (-1.0, 2.0, 0.03, 0.98),
+                (-2.0, 2.0, 1.02, 1.98),
+            ],
+            &[
+                ("puzzle_piece_2", -1.03, 0.03, false, 0.0),
+                ("desert_stone_L", 0.5, 0.0, true, 0.0),
+                ("desert_stone_I", 0.0, 1.5, false, 180.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_LARGE_INTRO",
+            &[
+                (-1.25, 0.75, -13.0, 0.0),
+                (-2.5, -1.5, -13.0, 0.0),
+                (0.5, 1.5, -12.0, 1.0),
+                (1.5, 2.5, -13.0, 0.0),
+            ],
+            &[
+                ("puzzle_piece_2", -1.5, 0.03, false, 0.0),
+                ("puzzle_piece_1", -1.47, 0.03, true, 0.0),
+                ("puzzle_piece_3", 0.47, 1.03, false, 0.0),
+                ("puzzle_piece_1", 1.47, 0.03, false, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_NO_ROTATE_NEED_EASY",
+            &[
+                (-1.0, 0.0, -12.0, 1.0),
+                (-3.0, -1.0, -13.0, 0.0),
+                (0.0, 1.0, -14.0, -1.0),
+                (2.0, 3.0, -1.0, 1.0),
+                (1.0, 2.0, 0.0, 2.0),
+                (1.0, 2.0, -13.0, 0.0),
+                (2.0, 3.0, -14.0, -1.0),
+            ],
+            &[
+                ("puzzle_piece_3", -1.03, 1.03, false, 0.0),
+                ("puzzle_piece_2", -3.03, 0.03, false, 0.0),
+                ("puzzle_piece_3", 1.03, -0.97, true, 0.0),
+                ("desert_stone_S", 2.0, 0.5, false, 90.0),
+                ("puzzle_piece_3", 2.03, 0.03, true, 0.0),
+                ("puzzle_piece_3", 3.03, -0.97, true, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_NO_ROTATE_NEED",
+            &[
+                (0.0, 1.0, -13.0, 0.0),
+                (-2.0, 0.0, -17.0, -4.0),
+                (1.0, 2.0, -13.0, 0.0),
+            ],
+            &[
+                ("puzzle_piece_3", 1.03, 0.03, true, 0.0),
+                ("puzzle_piece_2", -2.03, -3.97, false, 0.0),
+                ("puzzle_piece_1", 0.97, 0.03, false, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_SPARE_UNIT",
+            &[
+                (-1.5, -0.5, -13.0, 0.0),
+                (0.5, 1.5, -13.0, 0.0),
+                (-0.5, 0.5, -14.0, -1.0),
+            ],
+            &[
+                ("puzzle_piece_1", -0.47, 0.03, true, 0.0),
+                ("puzzle_piece_1", 0.47, 0.03, false, 0.0),
+                ("puzzle_piece_3", 0.53, -0.97, true, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_NUDGE_TUTORIAL",
+            &[
+                (-1.0, 0.9, -5.0, -4.0),
+                (-1.0, 1.0, -3.0, 0.0),
+                (0.0, 1.0, -4.0, -3.0),
+                (-1.0, -0.1, -6.0, -5.0),
+                (-1.0, 1.0, -7.0, -6.0),
+                (0.0, 1.0, -8.0, -7.0),
+                (-1.0, 1.0, -15.0, -8.0),
+                (-1.0, 0.0, -21.0, -8.0),
+                (0.0, 1.0, -22.0, -9.0),
+            ],
+            &[
+                ("puzzle_piece_1", 0.03, -7.97, true, 0.0),
+                ("puzzle_piece_3", -0.03, -8.97, false, 0.0),
+                ("desert_stone_S", 0.0, -4.5, true, 90.0),
+                ("desert_stone_L", 0.0, -7.5, false, -90.0),
+                ("floor_block_4", -1.05, 0.0, false, 0.0),
+                ("nudge_sign_right", 8.49, -9.65, false, 0.0),
+                ("nudge_sign_left", -7.71, -10.12, false, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_FILLER_01",
+            &[
+                (-2.06, -1.06, -13.0, 0.0),
+                (0.94, 1.94, -13.0, 0.0),
+                (-0.06, 0.94, -15.0, -2.0),
+                (-1.06, -0.06, -14.0, -1.0),
+            ],
+            &[
+                ("puzzle_piece_1", -1.03, 0.03, true, 0.0),
+                ("puzzle_piece_1", 0.91, 0.03, false, 0.0),
+                ("puzzle_piece_3", -0.09, -1.97, false, 0.0),
+                ("puzzle_piece_3", -0.03, -0.97, true, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_BRIDGE",
+            &[
+                (-6.0, -5.0, -1.0, 0.0),
+                (5.0, 6.0, -1.0, 0.0),
+                (4.0, 6.0, -16.0, -3.0),
+                (-6.0, -5.0, -16.0, -3.0),
+                (-5.0, -4.0, -16.0, -3.0),
+            ],
+            &[
+                ("floor_block_5", -5.5, -0.5, false, 0.0),
+                ("floor_block_5", 5.5, -0.5, true, 0.0),
+                ("puzzle_piece_2", 3.97, -2.97, false, 0.0),
+                ("puzzle_piece_1", -4.97, -2.97, true, 0.0),
+                ("puzzle_piece_1", -5.03, -2.97, false, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_BRIDGE01",
+            &[
+                (-5.5, -3.5, -13.0, 0.0),
+                (4.0, 5.0, -14.0, -1.0),
+                (5.0, 6.0, -14.0, -1.0),
+                (-3.5, -2.5, -0.97, -0.03),
+                (-5.5, -2.5, 0.03, 0.98),
+                (6.0, 7.0, -15.0, -2.0),
+                (5.03, 5.98, 0.0, 1.0),
+                (6.03, 6.98, -2.0, 1.0),
+            ],
+            &[
+                ("puzzle_piece_2", -5.53, 0.03, false, 0.0),
+                ("puzzle_piece_1", 5.03, -0.97, true, 0.0),
+                ("puzzle_piece_1", 4.97, -0.97, false, 0.0),
+                ("desert_stone_L", -4.0, 0.0, true, 0.0),
+                ("puzzle_piece_1", 5.97, -1.97, false, 0.0),
+                ("desert_stone_L", 6.0, -0.5, false, -90.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_NO_ROTATE",
+            &[
+                (0.47, 1.47, -4.0, 0.0),
+                (-1.53, -0.53, -1.0, 0.0),
+                (-0.53, 0.37, -5.0, -3.0),
+                (-1.53, -0.63, -19.0, -4.0),
+                (-0.53, 0.47, -2.0, 0.0),
+                (-0.53, 1.47, -19.0, -6.0),
+            ],
+            &[
+                ("desert_stone_J", 0.47, -2.5, false, -90.0),
+                ("desert_stone_T", -0.03, -1.0, false, 0.0),
+                ("desert_stone_J", -0.58, -5.5, false, 90.0),
+                ("puzzle_piece_3", -1.58, -7.0, false, 0.0),
+                ("puzzle_piece_2", -0.56, -5.97, false, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_HARD",
+            &[
+                (-1.0, 1.0, -13.0, 0.0),
+                (-2.0, -1.0, -13.0, 0.0),
+                (1.0, 2.0, -13.0, 0.0),
+            ],
+            &[
+                ("puzzle_piece_2", -1.03, 0.03, false, 0.0),
+                ("puzzle_piece_1", -0.97, 0.03, true, 0.0),
+                ("puzzle_piece_1", 0.97, 0.03, false, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_BAK",
+            &[
+                (-3.0, -2.0, -21.0, -8.0),
+                (0.0, 2.0, -21.0, -8.0),
+                (-1.0, 0.0, -21.0, -8.0),
+                (2.0, 3.0, -21.0, -8.0),
+                (2.03, 2.98, -8.0, -4.0),
+                (2.03, 2.98, -4.0, 0.0),
+                (-2.97, -2.02, -4.0, 0.0),
+                (-2.97, -2.02, -8.0, -4.0),
+                (-2.0, -1.0, -22.0, -9.0),
+            ],
+            &[
+                ("puzzle_piece_1", -1.97, -7.97, true, 0.0),
+                ("puzzle_piece_2", -0.03, -7.97, false, 0.0),
+                ("puzzle_piece_3", 0.03, -7.97, true, 0.0),
+                ("puzzle_piece_1", 1.97, -7.97, false, 0.0),
+                ("desert_stone_I", 2.5, -6.0, false, 90.0),
+                ("desert_stone_I", 2.5, -2.0, false, 90.0),
+                ("desert_stone_I", -2.5, -2.0, false, 90.0),
+                ("desert_stone_I", -2.5, -6.0, false, 90.0),
+                ("puzzle_piece_3", -2.03, -8.97, false, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_LOCKS",
+            &[
+                (-1.5, -0.5, 0.0, 2.0),
+                (0.5, 1.5, 4.0, 5.0),
+                (1.5, 2.5, 4.0, 5.0),
+                (2.5, 3.5, 4.0, 6.0),
+                (-3.5, -1.5, 0.0, 1.0),
+                (-1.5, 0.5, -13.0, 0.0),
+                (0.5, 1.5, -9.0, 4.0),
+            ],
+            &[
+                ("desert_stone_L", -2.0, 1.0, false, 180.0),
+                ("desert_stone_L", 2.0, 5.0, false, 180.0),
+                ("puzzle_piece_2", -1.53, 0.03, false, 0.0),
+                ("puzzle_piece_1", 0.47, 4.03, false, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_DOUBLE",
+            &[
+                (-5.5, -4.5, -20.0, -7.0),
+                (-3.5, -2.5, -20.0, -7.0),
+                (-6.5, -5.5, -20.0, -7.0),
+                (-2.5, -1.5, -20.0, -7.0),
+                (-4.5, -3.5, -20.0, -7.0),
+                (-7.5, -6.5, -29.0, 0.0),
+                (-1.5, -0.5, -30.0, -1.0),
+                (6.5, 7.5, -21.0, 0.0),
+                (0.5, 1.5, -21.0, 0.0),
+                (5.5, 6.5, -18.0, -5.0),
+                (2.5, 3.5, -18.0, -5.0),
+                (3.5, 4.5, -18.0, -5.0),
+                (1.5, 2.5, -18.0, -5.0),
+                (4.5, 5.5, -18.0, -5.0),
+                (-2.5, -1.5, -7.0, -3.0),
+                (1.5, 5.5, -5.0, -4.0),
+                (-6.5, -5.5, -7.0, -4.0),
+                (-5.5, -4.5, -7.0, -6.0),
+            ],
+            &[
+                ("puzzle_piece_3", -4.47, -6.97, true, 0.0),
+                ("puzzle_piece_3", -3.53, -6.97, false, 0.0),
+                ("puzzle_piece_3", -5.47, -6.97, true, 0.0),
+                ("puzzle_piece_3", -2.53, -6.97, false, 0.0),
+                ("puzzle_piece_3", -3.47, -6.97, true, 0.0),
+                ("puzzle_piece_1", -6.47, -7.97, true, 0.0),
+                ("desert_stone_I", -7.0, -6.0, true, 90.0),
+                ("desert_stone_I", -7.0, -2.0, true, 90.0),
+                ("desert_stone_I", -1.0, -3.0, false, 90.0),
+                ("desert_stone_I", -1.0, -7.0, false, 90.0),
+                ("puzzle_piece_1", -1.53, -8.97, false, 0.0),
+                ("desert_stone_I", 7.0, -2.0, false, 90.0),
+                ("puzzle_piece_1", 6.47, -3.97, false, 0.0),
+                ("puzzle_piece_1", 1.53, -3.97, true, 0.0),
+                ("desert_stone_I", 1.0, -2.0, true, 90.0),
+                ("puzzle_piece_3", 5.47, -4.97, false, 0.0),
+                ("puzzle_piece_3", 3.53, -4.97, true, 0.0),
+                ("puzzle_piece_3", 4.53, -4.97, true, 0.0),
+                ("puzzle_piece_3", 2.53, -4.97, true, 0.0),
+                ("puzzle_piece_3", 4.47, -4.97, false, 0.0),
+                ("desert_stone_I", -2.0, -5.0, true, 90.0),
+                ("desert_stone_I", 3.5, -4.5, true, 180.0),
+                ("desert_stone_L", -5.5, -5.5, false, 90.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_SOLID_BRICKS",
+            &[
+                (0.0, 1.0, -4.0, -3.0),
+                (0.0, 1.0, -20.0, -7.0),
+                (-2.0, 0.0, -19.0, -6.0),
+                (1.0, 2.0, -20.0, -7.0),
+                (1.0, 2.0, -7.0, -6.0),
+                (0.05, 0.95, -7.0, -4.0),
+                (0.05, 0.95, -4.0, -3.0),
+                (-1.95, 0.95, -3.0, -2.0),
+                (-0.95, -0.05, -2.0, -1.0),
+                (-1.0, 2.0, -1.0, 0.0),
+                (-3.0, -1.0, -2.0, -1.0),
+                (-4.0, -2.0, -1.0, 0.0),
+            ],
+            &[
+                ("puzzle_piece_3", -0.03, -6.97, false, 0.0),
+                ("puzzle_piece_2", -2.03, -5.97, false, 0.0),
+                ("puzzle_piece_3", 2.03, -6.97, true, 0.0),
+                ("desert_stone_L", 1.0, -5.5, false, 90.0),
+                ("desert_stone_L", -0.5, -3.0, true, 180.0),
+                ("desert_stone_L", 0.5, -1.0, false, 0.0),
+                ("desert_stone_S", -2.5, -1.0, true, 0.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_SOLID_BRICKS02",
+            &[
+                (-1.0, 1.0, -18.0, -5.0),
+                (-0.95, -0.05, -5.0, -4.0),
+                (-2.95, -0.05, -4.0, -3.0),
+                (-0.95, 0.95, -3.0, -2.0),
+                (-1.95, -0.05, -2.0, -1.0),
+                (-3.0, 1.0, -0.97, -0.03),
+            ],
+            &[
+                ("puzzle_piece_2", -1.03, -4.97, false, 0.0),
+                ("desert_stone_L", -1.5, -4.0, true, 180.0),
+                ("desert_stone_S", -0.5, -2.0, true, 0.0),
+                ("desert_stone_I", -1.0, -0.5, false, 180.0),
+            ],
+        ),
+        (
+            "FLOOR_PUZZLE_BLOCK",
+            &[
+                (0.0, 2.0, -13.0, 0.0),
+                (-1.0, 0.0, -13.0, 0.0),
+                (-1.0, 0.0, 5.0, 6.0),
+                (-2.0, -1.0, 5.0, 6.0),
+                (1.0, 2.0, 5.0, 6.0),
+                (2.0, 3.0, 5.0, 6.0),
+                (-1.0, 0.0, 4.0, 5.0),
+                (-1.0, 0.0, 3.0, 4.0),
+                (1.0, 2.0, 4.0, 5.0),
+            ],
+            &[
+                ("puzzle_piece_2", -0.03, 0.03, false, 0.0),
+                ("puzzle_piece_1", 0.03, 0.03, true, 0.0),
+                ("floor_block_5", -0.5, 5.5, false, 0.0),
+                ("floor_block_5", -1.5, 5.5, true, 0.0),
+                ("floor_block_5", 1.5, 5.5, true, 0.0),
+                ("floor_block_5", 2.5, 5.5, false, 0.0),
+                ("puzzle_pro_ledge_1", -0.5, 4.5, false, 0.0),
+                ("puzzle_pro_ledge_1", -0.5, 3.5, false, 0.0),
+                ("puzzle_pro_ledge_1", 1.5, 4.5, false, 0.0),
+            ],
+        ),
+    ];
+    let floor = |keep_base, boxes: &[(f32, f32, f32, f32)], art: &[(&str, f32, f32, bool, f32)]| {
+        TrialFloor {
+            keep_base,
+            boxes: boxes
+                .iter()
+                .map(|&(x0, x1, y0, y1)| BaseBox {
+                    x: (x0, x1),
+                    y: (y0, y1),
+                })
+                .collect(),
+            art: art
+                .iter()
+                .map(|&(a, x, y, flip, turn)| (a.to_string(), x, y, flip, turn))
+                .collect(),
+        }
+    };
+    let mut floors: std::collections::BTreeMap<String, TrialFloor> = puzzle
+        .iter()
+        .map(|(name, boxes, art)| (name.to_string(), floor(false, boxes, art)))
+        .collect();
+    // The castle with a stone I lying on its right merlon, overhanging to the right.
+    floors.insert(
+        "FLOOR_LWS_PETRIFIED_BRICK".into(),
+        floor(
+            true,
+            &[(2.0, 6.0, 0.0, 1.0)],
+            &[("brick_I_stone", 4.0, 0.5, false, 0.0)],
+        ),
+    );
+    floors
 }

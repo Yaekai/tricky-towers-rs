@@ -29,6 +29,7 @@ pub mod packs;
 pub mod particles;
 pub mod popup;
 pub mod results;
+pub mod rival;
 pub mod select;
 pub mod settings;
 pub mod single;

@@ -798,7 +798,12 @@ fn fit_backgrounds(
 }
 
 /// Spawns the positioned background layers into a new platform's lane.
-fn spawn_lane_layers(parent: &mut ChildSpawnerCommands, art: &Art, mode: ModeKind, cell: f32) {
+pub(crate) fn spawn_lane_layers(
+    parent: &mut ChildSpawnerCommands,
+    art: &Art,
+    mode: ModeKind,
+    cell: f32,
+) {
     for (order, name) in background_names(art, mode).iter().enumerate() {
         let Some(entry) = art.entries.get(name) else {
             continue;
@@ -868,6 +873,43 @@ fn redress_on_art_change(
     }
 }
 
+/// A trial's own floor: its pictures (mirrored ones flipped about their pivot, like
+/// the original), or one plain block per box when none is staged.
+fn dress_trial_floor(
+    base: &mut EntityCommands,
+    art: &Art,
+    floor: &crate::config::TrialFloor,
+    c: f32,
+) {
+    let pictures: Vec<_> = floor
+        .art
+        .iter()
+        .filter_map(|(key, x, y, flip, turn)| {
+            let (sprite, anchor, mut transform) = art_sprite(art, key, c)?;
+            transform.translation = Vec3::new(x * c, y * c + c * 0.5, 0.1);
+            transform.rotation = Quat::from_rotation_z(turn.to_radians());
+            if *flip {
+                transform.scale.x = -transform.scale.x;
+            }
+            Some((sprite, anchor, transform))
+        })
+        .collect();
+    if pictures.is_empty() {
+        base.with_children(|parent| {
+            for b in &floor.boxes {
+                let size = Vec2::new(b.x.1 - b.x.0, b.y.1 - b.y.0) * c;
+                let centre = Vec2::new(b.x.0 + b.x.1, b.y.0 + b.y.1) * 0.5 * c;
+                parent.spawn((
+                    Sprite::from_color(Color::srgb(0.62, 0.52, 0.40), size),
+                    Transform::from_translation((centre + Vec2::Y * c * 0.5).extend(0.0)),
+                ));
+            }
+        });
+    }
+    for picture in pictures {
+        base.with_child(picture);
+    }
+}
 /// Draws each new platform and its goal line (race finish or puzzle laser).
 fn dress_platforms(
     mut commands: Commands,
@@ -881,9 +923,12 @@ fn dress_platforms(
     let art_name = art_name.as_str();
     for (entity, platform) in &platforms {
         let mut base = commands.entity(entity);
-        // In Puzzle the floor blocks stand in for the base.
-        let floor = game.mode.rules() == ModeKind::Puzzle
-            && config.puzzle.floor != crate::config::PuzzleFloor::Plain;
+        // In Puzzle the floor blocks stand in for the base, and a trial's own floor
+        // may replace it.
+        let trial = config.trial_floor();
+        let floor = (game.mode.rules() == ModeKind::Puzzle
+            && config.puzzle.floor != crate::config::PuzzleFloor::Plain)
+            || trial.is_some_and(|f| !f.keep_base);
         match art_sprite(&art, art_name, c).filter(|_| !floor) {
             // A child, so the sprite's scale never touches the platform's collider.
             // Its pivot sits on the platform's top, half a cell above the centre.
@@ -908,6 +953,9 @@ fn dress_platforms(
                     }
                 });
             }
+        }
+        if let Some(trial) = trial {
+            dress_trial_floor(&mut base, &art, trial, c);
         }
         base.with_children(|parent| {
             spawn_lane_layers(parent, &art, game.mode, c);
@@ -1104,6 +1152,7 @@ fn frame_towers(
     game: Res<Match>,
     view_size: Res<ViewSize>,
     towers: Query<(&Tower, &TowerState)>,
+    rival_lanes: Query<&crate::gameplay::RivalLane>,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
 ) {
     let Ok((mut transform, mut projection)) = camera.single_mut() else {
@@ -1118,6 +1167,11 @@ fn frame_towers(
         min_x = min_x.min(tower.origin_x);
         max_x = max_x.max(tower.origin_x);
         top = top.max(state.stack_top);
+    }
+    // A trial's enemy lane is framed too.
+    for lane in &rival_lanes {
+        min_x = min_x.min(lane.origin_x);
+        max_x = max_x.max(lane.origin_x);
     }
     // Follow the tower tops; the race finish only comes into view as towers near it.
     let goal = match game.mode.rules() {
