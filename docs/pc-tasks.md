@@ -65,6 +65,9 @@ the steps below are from their READMEs on 2026-10-05.
    can decide.
 
 ## Queued
+- Bevy now builds without its 3D parts (Cargo.toml). After the next pull, take the usual
+  offscreen pictures of each mode and a menu, and say if anything looks different (colours,
+  missing sprites or text) or if the log shows new errors.
 - Write `extracted\inventory.md` and stage everything it lists.
 - Convert the Survival and Puzzle backgrounds to screen layers, with their own `sky` and
   `water_band` (as `background_survival_*`, `background_puzzle_*`; a per-mode sky can be added

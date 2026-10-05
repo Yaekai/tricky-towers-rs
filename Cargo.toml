@@ -7,7 +7,9 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-bevy = { version = "0.19", features = ["wav"] }
+# Only the 2D, UI and audio parts of Bevy: the game draws no 3D, so leaving out
+# the 3D renderer, glTF and their textures cuts build time and binary size.
+bevy = { version = "0.19", default-features = false, features = ["2d", "ui", "audio", "wav"] }
 avian2d = "0.7"
 serde = { version = "1", features = ["derive"] }
 ron = "0.10"
