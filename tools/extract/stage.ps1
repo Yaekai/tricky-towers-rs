@@ -391,6 +391,11 @@ foreach ($lf in Get-ChildItem (Join-Path $A 'Resources\language') -Filter *.txt)
   $stagedMap.Add("text`t$($lf.BaseName)`ttext_$($lf.BaseName)")
 }
 
+# --- The Credits roll's list (Resources\content\credits.json: groups of titles and names) ---
+Copy-Item (Join-Path $A 'Resources\content\credits.json') (Join-Path $X 'language\credits.json') -Force
+$manifest.Add("    `"credits_content`": (file: `"language/credits.json`"),")
+$notes.Add('- credits_content : the Credits roll, JSON groups of titles and names (title texts are language keys).')
+
 # --- Gap scan 2026-10-05: Puzzle Pro sky, sandstorm, brick particles, in-match messages ---
 Add-Sprite 'puzzle_pro_sun' 'gph_eclipsedSun' 'background\puzzle_pro_sun.png' 'Puzzle Pro: eclipsed sun, 9 units above the screen centre'
 Add-Sprite 'puzzle_pro_corona' 'gph_corona' 'background\puzzle_pro_corona.png' 'Puzzle Pro: corona ray around the eclipsed sun (several copies, stretched)'
