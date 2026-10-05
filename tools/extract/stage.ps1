@@ -411,6 +411,7 @@ $notes.Add('- credits_content : the Credits roll, JSON groups of titles and name
 Add-Sprite 'puzzle_pro_sun' 'gph_eclipsedSun' 'background\puzzle_pro_sun.png' 'Puzzle Pro: eclipsed sun, 9 units above the screen centre'
 Add-Sprite 'puzzle_pro_corona' 'gph_corona' 'background\puzzle_pro_corona.png' 'Puzzle Pro: corona ray around the eclipsed sun (several copies, stretched)'
 Add-Texture 'puzzle_sand' 'gph_pinkSand.png' 'background\puzzle_sand.png' 'Puzzle: sand strip along the bottom of the background'
+Add-Texture 'puzzle_sand_front' 'gph_foregroundSand.png' 'background\puzzle_sand_front.png' 'Puzzle: front sand strip, in front of the front ruins'
 Add-Texture 'sandstorm_front_1' 'gph_sand.png' 'background\sandstorm_front_1.png' 'Puzzle: front sandstorm layer 1 (scrolling, tinted)'
 Add-Texture 'sandstorm_front_2' 'gph_sand02.png' 'background\sandstorm_front_2.png' 'Puzzle: front sandstorm layer 2'
 Add-Texture 'sandstorm_back_1' 'gph_sand03.png' 'background\sandstorm_back_1.png' 'Puzzle: back sandstorm layer 1'

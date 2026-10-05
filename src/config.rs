@@ -2013,8 +2013,14 @@ pub struct WeatherLook {
     pub sandstorm_front: ([u8; 3], f32),
     pub sandstorm_speed: f32,
     pub sandstorm_offset: f32,
-    /// Puzzle sand strip height as a share of the view (?).
+    /// Puzzle sand strips along the screen bottom, as shares of the view height: the back
+    /// strip's height, how far its bottom sits above the screen bottom, and its opacity
+    /// (drawn behind the front ruins); then the front strip's height (in front of them,
+    /// on the screen bottom).
     pub sand_strip: f32,
+    pub sand_lift: f32,
+    pub sand_alpha: f32,
+    pub sand_front: f32,
     /// Puzzle Pro sky, the eclipsed sun's height above the view centre as a share of the
     /// view height (9 units in the original's background camera, ?), its size, and its
     /// corona: rays, width and height ranges (multiples of the ray picture).
@@ -2053,7 +2059,10 @@ impl Default for WeatherLook {
             sandstorm_front: ([0xE9, 0xAA, 0x5D], 0.37),
             sandstorm_speed: 0.035,
             sandstorm_offset: 0.025,
-            sand_strip: 0.08,
+            sand_strip: 0.085,
+            sand_lift: 0.027,
+            sand_alpha: 0.803,
+            sand_front: 0.089,
             puzzle_pro_sky: vec![[0xAB, 0x05, 0x4C], [0xB8, 0x44, 0x42]],
             eclipse_height: 0.3,
             eclipse_size: 0.22,
