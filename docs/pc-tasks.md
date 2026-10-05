@@ -108,6 +108,20 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Wizard voice lines (readout, then the cloud codes it)** (Max, 2026-10-05). Today each
+  clip plays one shared file for every wizard (`wizards.ps1`'s `$say` map: `yay_02`,
+  `sad_01`, ...), which isn't the original. Read and write in docs/research/wizards.md:
+  1. Each of the 14 characters' voice pack: which files belong to whom (the voice-pack
+     folders `inventory.ps1` lists), per line kind (STARTLE, LAUGH, LAUGH_EVIL, LAUGH_HARD,
+     CHEER, ACTION, CAST_SELF, and any others such as dying or the Select Players pick).
+  2. How a line is chosen when there are several (random, in turn, never the same twice) and
+     any pitch or volume variation.
+  3. What triggers each kind in a match (which events laugh, laugh hard or laugh evil), the
+     cooldowns (Laugh and Startle 7 s; others?), and whether two wizards can talk at once.
+  4. The voice on Select Players when a wizard is picked (skins.md), and any in menus.
+  5. Which volume slider the voices follow (Sound effects?).
+  Then stage them as `wizard<n>_say_<kind>_<i>` (i from 1) for every character and say the
+  names; the cloud will switch the code to per-character lines with variants.
 - **Puzzle ruins colours (staging only, no code needed)** (gap-scan.md 1): stage the Puzzle
   ruins with `mask` from the read colours: back #F4D9B0 → #F7E0BE (parallax 0.3), middle
   #E0AC92 → #D69883 (0.5), front #C47464 (0.5). For Puzzle Pro, stage the same layers again as
