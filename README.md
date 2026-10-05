@@ -33,11 +33,11 @@ J light spell, K dark spell, Esc pause. Players 2 to 4 use gamepads.
 | Spells (17) and how they're awarded | ✅ | Auto Rotate wind-up, stone and ice transitions |
 | Local multiplayer (1-4 players) | ✅ | |
 | Wizards (14), animations and voices | ✅ | |
-| Brick packs (8) | 🟡 | Diamond gloss, Hologram glitch and Galaxy stars as read (`docs/research/values-read.md`) |
+| Brick packs (8) | 🟡 | Diamond's gloss angle sweep (needs the original shader); Spring's look |
 | Trials (50 in 5 tiers) and tier unlock | 🟡 | draw the enemy wizard; the mode stinger at the start |
 | Endless Race / Survival / Puzzle | 🟡 | Endless Puzzle obstacle blocks |
-| Backgrounds and weather | 🟡 | Race Pro: softer lightning flash and the wave rows; Puzzle sand strips as read |
-| In-match HUD and effects | 🟡 | remove the extra spell bubbles; cast beam size and foot decorations; explosion art |
+| Backgrounds and weather | 🟡 | Race Pro: softer lightning flash and the wave rows |
+| In-match HUD and effects | 🟡 | remove the extra spell bubbles; cast beam foot decorations; explosion art |
 | Match end (WINNER!, collapse, Game Completed) | 🟡 | second sunray layer |
 | Menus: start, title, players, modes, single player, endless, trials, settings, pause | 🟡 | key caps cut "Enter"; Stats shows an extra BACK; the cup screen's layout |
 | Tutorial (explanation) and Credits popups | ❌ | layouts read (`docs/research/menus.md`), not built |
