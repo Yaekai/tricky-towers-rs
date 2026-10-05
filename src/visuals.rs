@@ -1166,8 +1166,9 @@ fn dress_platforms(
                                 font_size: FontSize::Px(c * 1.1),
                                 ..default()
                             },
-                            TextColor(Color::WHITE.with_alpha(0.0)),
-                            Transform::from_xyz(x, c * 0.9, 1.0),
+                            // The original's gold.
+                            TextColor(Color::srgba(1.0, 0.78, 0.25, 0.0)),
+                            Transform::from_xyz(x + c * 1.2, c * 0.9, 1.0),
                         ));
                     });
                 }
@@ -1540,14 +1541,20 @@ fn show_trial_clock(
         return;
     };
     let alpha = game.elapsed.clamp(0.0, 1.0);
-    let left = (seconds - game.elapsed).max(0.0).ceil() as u32;
+    // Minutes, seconds and hundredths, as the original's clock reads (0:58:44).
+    let hundredths = ((seconds - game.elapsed).max(0.0) * 100.0) as u32;
+    let words = format!(
+        "{}:{:02}:{:02}",
+        hundredths / 6000,
+        hundredths / 100 % 60,
+        hundredths % 100
+    );
     for mut sprite in &mut sprites {
         sprite.color.set_alpha(alpha);
     }
     for (mut text, mut color) in &mut texts {
-        let words = left.to_string();
         if text.0 != words {
-            text.0 = words;
+            text.0 = words.clone();
         }
         color.0.set_alpha(alpha);
     }

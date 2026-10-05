@@ -196,15 +196,10 @@ fn start_moments(
         _ => look.spotlight_alpha.0,
     };
     let over = game.phase == Phase::Over;
-    // Trials end on CHALLENGE COMPLETE / CHALLENGE FAILED instead (gap-scan.md 4; the
-    // longer words drawn smaller, ?).
+    // Trials end on FINISH / FAILED instead (the original's CHALLENGE_FINISH_MESSAGE and
+    // CHALLENGE_FAILED_MESSAGE; same size as WINNER! in Max's screenshots).
     let (win_words, win_size, out_words, out_size) = if config.trial.is_some() {
-        (
-            "CHALLENGE COMPLETE",
-            look.banner_size * 0.6,
-            "CHALLENGE FAILED",
-            look.banner_size * 0.6,
-        )
+        ("FINISH", look.banner_size, "FAILED", look.banner_size)
     } else {
         (
             "WINNER!",
