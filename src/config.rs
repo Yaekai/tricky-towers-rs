@@ -2026,6 +2026,10 @@ pub struct WeatherLook {
     pub survival_sky: Vec<[u8; 3]>,
     pub survival_wave_sky: Vec<[u8; 3]>,
     pub wave_shift: f32,
+    /// During a curse wave the background's clouds and islands grey to this colour,
+    /// and drifting clouds go this many times faster (gap-scan.md 2).
+    pub survival_wave_grey: [u8; 3],
+    pub survival_wave_drift: f32,
 }
 
 impl Default for WeatherLook {
@@ -2057,6 +2061,8 @@ impl Default for WeatherLook {
             survival_sky: vec![[51, 30, 103], [91, 83, 173]],
             survival_wave_sky: vec![[26, 13, 58], [147, 64, 157]],
             wave_shift: 1.0,
+            survival_wave_grey: [166, 166, 166],
+            survival_wave_drift: 138.0,
         }
     }
 }

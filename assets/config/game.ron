@@ -203,6 +203,8 @@
             (147, 64, 157),
         ],
         wave_shift: 1.0,
+        survival_wave_grey: (166, 166, 166),
+        survival_wave_drift: 138.0,
     ),
     water: (
         stop: 0.9,
