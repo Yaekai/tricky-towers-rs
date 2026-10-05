@@ -594,5 +594,4 @@ frontend and test-writer suggestions.
   panel's place (read "120 right / 100 above the corner" as inward), the count's total (all
   medals), the face size, the chain's place and the slide time. Not done: the unlock animation
   and the start stinger. Picture it: `--menu trials --offscreen <dir>`.
-- **Refresh `docs/screenshot.png`** (the README's picture, from 2026-10-03): take a new offscreen
-  shot of a 4-player race with the real art and replace it. It shows on the GitHub page.
+- **README pictures** (done 2026-10-05, PC): `docs/shot-*.png`, offscreen at 960x540.
