@@ -134,7 +134,7 @@ fn run_collapse(
     config: Res<crate::config::GameConfig>,
     mut towers: Query<(Entity, &Tower, &TowerState, &mut Collapse)>,
     bricks: Query<(Entity, &Brick, &Position, &Rotation, Option<&Placed>)>,
-    joints: Query<(Entity, &crate::spells::VineJoint)>,
+
     mut events: MessageWriter<CollapseEvent>,
 ) {
     let look = &config.moments;
@@ -183,11 +183,7 @@ fn run_collapse(
                     let Ok((entity, brick, position, rotation, _)) = bricks.get(next) else {
                         continue;
                     };
-                    for (joint, vine) in &joints {
-                        if vine.a == entity || vine.b == entity {
-                            commands.entity(joint).despawn();
-                        }
-                    }
+
                     commands.entity(entity).despawn();
                     events.write(CollapseEvent {
                         tower: tower.index,

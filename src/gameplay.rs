@@ -40,6 +40,7 @@ impl Plugin for GameplayPlugin {
                     crate::spells::cast_spells,
                     (
                         crate::spells::reshape_active_bricks,
+                        crate::spells::loosen_ivy,
                         crate::spells::grow_ivy,
                         crate::spells::zap_bricks,
                         crate::spells::float_bubbles,
@@ -821,9 +822,9 @@ fn start_match(
             With<crate::spells::LifeOrb>,
             With<RoofPiece>,
             With<RivalLane>,
+            With<crate::spells::IvyCluster>,
         )>,
     >,
-    joints: Query<(Entity, &crate::spells::VineJoint)>,
     mut base: Local<Option<ModeRules>>,
 ) {
     if !std::mem::take(&mut request.pending) {
@@ -852,13 +853,9 @@ fn start_match(
     let endless = config.endless_play.clone();
     endless.apply(&mut config);
     let config = &*config;
-    // Joints go before the bricks they hold; avian's island bookkeeping
-    // breaks if a jointed body disappears first.
-    for (entity, _) in &joints {
-        commands.entity(entity).despawn();
-    }
+    // An Ivy cluster takes its bricks with it, so some may already be gone.
     for entity in &old {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 
     // The puzzle laser is the same for everyone, and new each round.
@@ -1624,15 +1621,14 @@ fn track_towers(
             Has<crate::spells::Ghosted>,
             Option<&Cursed>,
             Option<&AngularVelocity>,
+            Has<ChildOf>,
         ),
         (Without<ActiveBrick>, Without<FloorBlock>),
     >,
-    joints: Query<(Entity, &crate::spells::VineJoint)>,
     mut lost: MessageWriter<BrickLost>,
 ) {
     let kill_y = -config.cells(config.kill_depth);
-    // Two dropped bricks can share a vine; despawn it once.
-    let mut cut: bevy::platform::collections::HashSet<Entity> = default();
+
     let settled_speed = config.cells(0.5);
     let mut tops: Vec<(Entity, f32, bool)> = Vec::new();
 
@@ -1642,20 +1638,17 @@ fn track_towers(
         state.half_width = 0.0;
         state.all_settled = true;
     }
-    for (entity, brick, position, velocity, aabb, bubbled, ghosted, cursed, spin) in &bricks {
+    for (entity, brick, position, velocity, aabb, bubbled, ghosted, cursed, spin, in_ivy) in &bricks
+    {
         let Ok((tower, mut state)) = towers.get_mut(brick.tower) else {
             continue;
         };
-        if position.0.y < kill_y {
+        // A lost brick of an Ivy cluster is counted once the cluster lets go.
+        if position.0.y < kill_y && !in_ivy {
             lost.write(BrickLost {
                 tower: tower.index,
                 at: position.0,
             });
-            for (joint, vine) in &joints {
-                if (vine.a == entity || vine.b == entity) && cut.insert(joint) {
-                    commands.entity(joint).despawn();
-                }
-            }
             let spin = spin.map_or(0.0, |s| s.0);
             sink(&mut commands, &config, entity, velocity.0, spin, !bubbled);
             // Once the match is over (and losing towers fall apart), losses no
