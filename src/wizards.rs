@@ -49,6 +49,31 @@ impl Clip {
     }
 }
 
+/// The original's voice line kind for a clip: a dark cast says a cast_other line,
+/// and a wizard going out a startle line.
+fn voice_kind(clip: Clip) -> &'static str {
+    match clip {
+        Clip::Casting => "cast_other",
+        Clip::Dying => "startle",
+        other => other.name(),
+    }
+}
+
+/// Volume and pitch of wizard `number`'s voice lines of `kind`, from the original's
+/// speech table: wizards 1-4 laugh at 0.8; packs 5 (0.65), 9 (0.3) and 10-14 (1.1) have
+/// their own volume; guest characters 9-14 play at their own pitch, the rest at 1.13.
+fn voice_mix(number: u32, kind: &str) -> (f32, f32) {
+    let pitch = if number >= 9 { 1.0 } else { 1.13 };
+    let volume = match number {
+        5 => 0.65,
+        9 => 0.3,
+        10..=14 => 1.1,
+        1..=4 if kind.starts_with("laugh") => 0.8,
+        _ => 1.0,
+    };
+    (volume, pitch)
+}
+
 /// What the wizard last saw of its tower, to notice events.
 #[derive(Default)]
 struct Seen {
@@ -288,9 +313,30 @@ fn react_wizards(
 
         // Say the line that goes with a clip that just started.
         if wizard.clip != Clip::Idle && (wizard.clip != before || wizard.clip_time < started) {
-            let line = format!("{}_say_{}", wizard.key, wizard.clip.name());
+            // The original picks one of the character's lines of that kind at random
+            // (docs/research/wizards.md, "Voice lines"); older staging has one per clip.
+            let kind = voice_kind(wizard.clip);
+            let count = (1..)
+                .take_while(|i| {
+                    art.sounds
+                        .contains_key(&format!("{}_say_{kind}_{i}", wizard.key))
+                })
+                .count() as u32;
+            let line = if count > 0 {
+                let i = wizard.random(1, count);
+                format!("{}_say_{kind}_{i}", wizard.key)
+            } else {
+                format!("{}_say_{}", wizard.key, wizard.clip.name())
+            };
             if let Some(sound) = art.sounds.get(&line) {
-                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+                let number: u32 = wizard.key.trim_start_matches("wizard").parse().unwrap_or(1);
+                let (volume, pitch) = voice_mix(number, kind);
+                commands.spawn((
+                    AudioPlayer(sound.clone()),
+                    PlaybackSettings::DESPAWN
+                        .with_volume(bevy::audio::Volume::Linear(volume))
+                        .with_speed(pitch),
+                ));
             }
         }
     }
@@ -410,5 +456,21 @@ fn pose_wizards(
                 transform.scale = new_transform.scale;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn voice_lines_follow_the_original_speech_table() {
+        assert_eq!(voice_kind(Clip::Casting), "cast_other");
+        assert_eq!(voice_kind(Clip::Dying), "startle");
+        assert_eq!(voice_mix(2, "laugh_evil"), (0.8, 1.13));
+        assert_eq!(voice_mix(2, "cheer"), (1.0, 1.13));
+        assert_eq!(voice_mix(5, "laugh"), (0.65, 1.13));
+        assert_eq!(voice_mix(9, "startle"), (0.3, 1.0));
+        assert_eq!(voice_mix(12, "cheer"), (1.1, 1.0));
     }
 }
