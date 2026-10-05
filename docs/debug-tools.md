@@ -39,6 +39,8 @@ Run it silently on the PC (no window, no sound), saving the pictures in `screens
 
     tricky_towers.exe --script my_script.ron --offscreen screenshots
 
+`--size 3440x1440` sets the picture size (1280x720 if left out).
+
 With `--script`, an offscreen run doesn't quit after its `--shots`; the script's `Quit` ends
 it. Keep script files outside the repo, or paste them in docs like this one: the repo's
 whitelist `.gitignore` doesn't take loose `.ron` files outside `assets/config/`.

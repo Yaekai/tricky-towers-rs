@@ -55,8 +55,8 @@ impl Quality {
 }
 
 /// Window sizes offered, from 512×384 up to 1920×1080 (the in-between ones are
-/// common sizes, not read from the original, ?).
-pub const RESOLUTIONS: [(u32, u32); 9] = [
+/// common sizes, not read from the original, ?), plus Max's 3440×1440 monitor.
+pub const RESOLUTIONS: [(u32, u32); 10] = [
     (512, 384),
     (640, 480),
     (800, 600),
@@ -66,6 +66,7 @@ pub const RESOLUTIONS: [(u32, u32); 9] = [
     (1366, 768),
     (1600, 900),
     (1920, 1080),
+    (3440, 1440),
 ];
 
 /// The original's 19 language flags, in its order, by name (the original shows
@@ -819,6 +820,8 @@ mod tests {
         assert!(!s.step(Row::Apply, 1), "Apply has nothing to change");
         // Choices wrap around.
         assert_eq!(s.resolution, (1920, 1080));
+        s.step(Row::Resolution, 1);
+        assert_eq!(s.resolution, (3440, 1440));
         s.step(Row::Resolution, 1);
         assert_eq!(s.resolution, RESOLUTIONS[0]);
         assert_eq!(s.quality, Quality::High);
