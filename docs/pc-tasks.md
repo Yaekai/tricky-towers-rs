@@ -5,6 +5,39 @@ work is done, without waiting to be asked. The cloud session edits this file to 
 Read-only on the Steam install, nothing from the game goes into the repo (see AGENTS.md),
 and nothing gets installed without Max's own go-ahead.
 
+## First: install the token-saving tools (Max's go-ahead given 2026-10-05)
+Max wants these three in use on this project at all times. Install them once on the PC, then
+check they're active at the start of every session. Read each repo's own install notes first;
+the steps below are from their READMEs on 2026-10-05.
+
+1. **Ponytail** (https://github.com/dietrichgebert/ponytail): a "lazy senior dev" prompt that
+   makes the agent write the smallest working change (reuse before writing, stdlib before
+   new code, shortest diff). In Claude Code send these as two separate prompts:
+   `/plugin marketplace add DietrichGebert/ponytail`, then `/plugin install ponytail@ponytail`.
+   Needs `node` on PATH for its two hooks. It stays on every session; `/ponytail` changes the
+   level. It doesn't override the 1:1 rule: matching the original exactly still comes first,
+   even when a shorter version would do.
+2. **Graphify** (https://github.com/Graphify-Labs/graphify): maps the repo into a knowledge
+   graph so the agent queries `graphify query` / `graphify explain` instead of reading whole
+   files. Needs Python 3.10+ and uv: `uv tool install graphifyy` (two y's; other `graphify`
+   packages on PyPI aren't theirs), then `graphify install` in the repo, then `/graphify .`
+   in Claude Code. Code is parsed locally (tree-sitter, no LLM). It respects our whitelist
+   `.gitignore`, so `extracted/`, `research/` and the game files stay out of the graph; keep
+   it that way (never `--no-gitignore`). `graphify-out/` stays uncommitted (the whitelist
+   already ignores it). `graphify install --project --strict` makes the agent use the graph
+   before reading files; use it if the plain install gets ignored. Rebuild the graph after
+   big changes (`graphify hook install` adds a post-commit refresh).
+3. **OmniRoute** (https://github.com/diegosouzapw/OmniRoute): NOT a Claude plugin. It's a
+   local proxy server (`npm install -g omniroute`, runs on localhost:20128) that Claude Code
+   is pointed at; it then compresses every request (12 engines, some lossy) and can send it
+   to other AI providers (free tiers, GPT, Gemini...) with automatic fallback. Before setting
+   it up, confirm with Max: (a) which providers it may use; the recommendation is Anthropic
+   only, so the model doing the work doesn't silently change; (b) compression profile
+   `coding-safe` or lossless only, since lossy compression can drop code or numbers from the
+   research notes; (c) that sending this repo's code through it is fine. Never route the
+   extracted game files or anything under `extracted/`/`research/` through a third-party
+   provider. Write the chosen settings here once done.
+
 ## After every pull
 1. Build and run `cargo test`.
 2. Re-stage `extracted\` per `docs/art-layout.md`, filling in any newly documented names or
