@@ -108,20 +108,13 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
-- **Wizard voice lines (readout, then the cloud codes it)** (Max, 2026-10-05). Today each
-  clip plays one shared file for every wizard (`wizards.ps1`'s `$say` map: `yay_02`,
-  `sad_01`, ...), which isn't the original. Read and write in docs/research/wizards.md:
-  1. Each of the 14 characters' voice pack: which files belong to whom (the voice-pack
-     folders `inventory.ps1` lists), per line kind (STARTLE, LAUGH, LAUGH_EVIL, LAUGH_HARD,
-     CHEER, ACTION, CAST_SELF, and any others such as dying or the Select Players pick).
-  2. How a line is chosen when there are several (random, in turn, never the same twice) and
-     any pitch or volume variation.
-  3. What triggers each kind in a match (which events laugh, laugh hard or laugh evil), the
-     cooldowns (Laugh and Startle 7 s; others?), and whether two wizards can talk at once.
-  4. The voice on Select Players when a wizard is picked (skins.md), and any in menus.
-  5. Which volume slider the voices follow (Sound effects?).
-  Then stage them as `wizard<n>_say_<kind>_<i>` (i from 1) for every character and say the
-  names; the cloud will switch the code to per-character lines with variants.
+- **Done on the new PC (2026-10-05)**: wizard voice packs read into docs/research/wizards.md
+  ("Voice lines") and staged as `wizard<n>_say_<kind>_<i>` (439 lines, all 14 characters);
+  the cloud can switch `wizards.rs` to them. Tier unlock, Settings, Stats and Game Info pictured
+  offscreen (new script command `Tap(key: ...)` and `--trials file.ron`, docs/debug-tools.md).
+  Fixed: BACK hint sat mid-screen on every menu (never placed). Still to check against the
+  original: key caps clip "Enter" to "nte"; Stats shows a second BACK at the bottom centre
+  and CONTINUE while open; Stats and Game Info text is pale on the light panels.
 - **Puzzle ruins colours (staging only, no code needed)** (gap-scan.md 1): stage the Puzzle
   ruins with `mask` from the read colours: back #F4D9B0 → #F7E0BE (parallax 0.3), middle
   #E0AC92 → #D69883 (0.5), front #C47464 (0.5). For Puzzle Pro, stage the same layers again as

@@ -46,6 +46,7 @@ fn main() {
                             | "--shots"
                             | "--menu"
                             | "--script"
+                            | "--trials"
                     ))
         })
         .map_or_else(|| DEFAULT_CONFIG_PATH.to_string(), |(_, a)| a.clone());
@@ -159,6 +160,10 @@ fn main() {
         app.insert_resource(tricky_towers::cups::XpBook::load(file));
         let file = tricky_towers::single::save_dir().join("trials.ron");
         app.insert_resource(tricky_towers::trials::TrialProgress::load(file));
+    }
+    // `--trials file.ron`: trial progress from this file, for scripted pictures of the tier unlock.
+    if let Some(file) = value("--trials") {
+        app.insert_resource(tricky_towers::trials::TrialProgress::load(file.into()));
     }
     // `--menu title|players|modes|single|endless|trials|settings|pause` opens on that menu screen, for scripted pictures.
     // Player select shows the keyboard player and one AI wizard seated.

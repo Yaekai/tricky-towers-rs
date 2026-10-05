@@ -110,7 +110,8 @@ fn spawn_nav_bar(mut commands: Commands, art: Option<Res<Art>>) {
                         ..place(ITEM, (0.0, 0.0))
                     },
                     item,
-                    NavSlot(0),
+                    // No slot yet, so the first show places it.
+                    NavSlot(usize::MAX),
                 ))
                 .with_children(|row| {
                     row.spawn((
@@ -176,7 +177,7 @@ fn show_nav_bar(
         let Some(at) = at else {
             continue;
         };
-        if slot.0 != at || node.top == Val::Auto {
+        if slot.0 != at {
             slot.0 = at;
             let x = SCREEN.0 / 2.0 - SIDE - ITEM.0 / 2.0;
             let y = -SCREEN.1 / 2.0 + FOOT + ITEM.1 / 2.0 + STEP * at as f32;

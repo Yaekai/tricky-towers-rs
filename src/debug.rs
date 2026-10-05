@@ -110,6 +110,11 @@ pub enum DebugCommand {
     Lose {
         tower: usize,
     },
+    /// Tap a keyboard key for the menus and popups: `Enter`, `Escape`,
+    /// `Tab`, `Space`, `Up`, `Down`, `Left` or `Right`.
+    Tap {
+        key: String,
+    },
     /// Save a picture named `name` (offscreen runs only).
     Picture {
         name: String,
@@ -186,6 +191,7 @@ fn apply_debug_commands(
     mut towers: Query<(&Tower, &mut TowerState, &mut PlayerInput)>,
     mut pictures: MessageWriter<DebugPicture>,
     mut exit: MessageWriter<AppExit>,
+    mut keyboard: Option<ResMut<ButtonInput<KeyCode>>>,
 ) {
     // The tower with this index, as (state, input).
     macro_rules! tower {
@@ -284,6 +290,28 @@ fn apply_debug_commands(
             DebugCommand::Lose { tower: index } => {
                 if let Some((mut state, _)) = tower!(index) {
                     state.status = TowerStatus::Out;
+                }
+            }
+            DebugCommand::Tap { key } => {
+                let code = match key.as_str() {
+                    "Enter" => KeyCode::Enter,
+                    "Escape" => KeyCode::Escape,
+                    "Tab" => KeyCode::Tab,
+                    "Space" => KeyCode::Space,
+                    "Up" => KeyCode::ArrowUp,
+                    "Down" => KeyCode::ArrowDown,
+                    "Left" => KeyCode::ArrowLeft,
+                    "Right" => KeyCode::ArrowRight,
+                    _ => {
+                        warn!("debug: unknown key {key}");
+                        continue;
+                    }
+                };
+                // Pressed and let go at once: just_pressed stays set until the
+                // next frame's input update, so the menus see one tap.
+                if let Some(keyboard) = keyboard.as_mut() {
+                    keyboard.press(code);
+                    keyboard.release(code);
                 }
             }
             DebugCommand::Picture { name } => {
