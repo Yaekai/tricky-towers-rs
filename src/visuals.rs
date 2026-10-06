@@ -150,7 +150,12 @@ fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
     ));
 }
 
-fn cell_sprites(parent: &mut ChildSpawnerCommands, cells: &[Vec2], cell: f32, color: Color) {
+pub(crate) fn cell_sprites(
+    parent: &mut ChildSpawnerCommands,
+    cells: &[Vec2],
+    cell: f32,
+    color: Color,
+) {
     for &p in cells {
         parent.spawn((
             CellSprite,

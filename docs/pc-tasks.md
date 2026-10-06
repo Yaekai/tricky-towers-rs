@@ -110,7 +110,7 @@ frontend and test-writer suggestions.
 ## Queued
 - **Next: the rest of Max's screenshot comparison** (docs/research/compare-2026-10-06.md; lines
   without ✓ are open; Max's pictures are in `research\screenshotsbymax` on his new PC, never commit
-  them). Left after PRs #62-80: the Puzzle trial enemy's brick column. The Endless screen is done
+  them). Left after PRs #62-84: trial framing (the original shows the player's lane, the orb pillar at 62% and the enemy wizard at 75% of the width, at about 32.5 px per cell at 1440p; ours squeezes them, so the Puzzle trial column keeps to 87.5% of the screen, `rival::COLUMN_SCREEN_X`). The Endless screen is done
   apart from Endless Puzzle's own look: the original starts it as normal Puzzle and tweens to a
   red eclipse (DesertEndlessBackground/DesertBackgroundEndlessSun AnimateIn, 2 s; the menu shows
   it straight away): sky gradient #8B1838 → #4A1117, ruins back #9B1D33/#AE1F3D, middle
