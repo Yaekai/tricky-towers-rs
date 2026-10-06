@@ -54,6 +54,25 @@ impl Plugin for VisualsPlugin {
     }
 }
 
+/// A copy of `source` that stands in for the original's additive beams
+/// (Custom/BeamLaneShaderAdditive) drawn at `strength`: sprites only blend, so each
+/// pixel is whitened and given the alpha its added light would have.
+// ponytail: fixed whitening, not true additive blending; a Material2d with an add blend if it matters.
+pub(crate) fn glow_copy(source: &Image, strength: f32) -> Option<Image> {
+    let mut out = source.clone();
+    let data = out.data.as_mut()?;
+    for px in data.chunks_exact_mut(4) {
+        let peak = px[0].max(px[1]).max(px[2]) as f32 / 255.0;
+        let alpha = (2.0 * strength * peak * px[3] as f32 / 255.0).min(1.0);
+        for c in &mut px[..3] {
+            let bright = if peak > 0.0 { *c as f32 / peak } else { 255.0 };
+            *c = (bright + (255.0 - bright) * 0.6) as u8;
+        }
+        px[3] = (alpha * 255.0) as u8;
+    }
+    Some(out)
+}
+
 /// The mode whose background shows behind a menu (the Endless screen), if any.
 #[derive(Resource, Default, PartialEq)]
 pub struct MenuLook(pub Option<ModeKind>);

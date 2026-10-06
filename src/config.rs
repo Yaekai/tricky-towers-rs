@@ -2229,7 +2229,7 @@ pub struct CastLook {
     pub beam_up: (f32, f32),
     /// Then a beam down onto each victim's brick: grows in, then gives up.
     pub beam_down: (f32, f32),
-    /// Then the wave over each victim's lane: in, out.
+    /// Then the overlay over each victim's lane: shown (opening in 1/6 s), closing.
     pub lane_wave: (f32, f32),
     /// A finished beam squeezes to nothing this fast.
     pub beam_squeeze: f32,
