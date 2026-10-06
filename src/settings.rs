@@ -5,8 +5,8 @@
 //! page 2 has Full screen, Resolution, Quality, V-sync, Language and Apply, and
 //! its changes wait for Apply. Kept between runs in `settings.ron`.
 //!
-//! Not done: the Stats, Credits and Keybinding popups (picking them does nothing
-//! yet), Quality (kept but changes nothing), text in languages other than English,
+//! Stats, Credits and Keybinding open their popups (stats.rs, credits.rs, keybinding.rs).
+//! Not done: Quality (kept but changes nothing), text in languages other than English,
 //! language flags, slider repeat while held (every 0.2 s), and the tips that
 //! Explanations turns on.
 
@@ -32,7 +32,7 @@ impl Plugin for SettingsPlugin {
             .init_resource::<SettingsMenu>()
             .init_resource::<crate::keybinding::KeybindingMenu>()
             .init_resource::<crate::keybinding::KeyBindings>()
-            .add_plugins(crate::stats::StatsPlugin)
+            .add_plugins((crate::stats::StatsPlugin, crate::credits::CreditsPlugin))
             .add_systems(Startup, crate::keybinding::spawn_keybinding_popup)
             .add_systems(Update, crate::keybinding::show_keybinding_popup)
             .add_systems(Startup, spawn_settings_screen)
@@ -626,6 +626,7 @@ pub(crate) fn settings_input(
     mut binds: ResMut<crate::keybinding::KeybindingMenu>,
     mut bindings: ResMut<crate::keybinding::KeyBindings>,
     mut stats: ResMut<crate::stats::StatsMenu>,
+    mut credits: ResMut<crate::credits::CreditsMenu>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Settings {
         stats.open = false;
@@ -635,6 +636,10 @@ pub(crate) fn settings_input(
         if menu.pending.is_some() {
             menu.pending = None;
         }
+        return;
+    }
+    // The Credits popup takes the keys while it runs (credits::run_credits).
+    if credits.open {
         return;
     }
     let taps = read_taps(keys.as_deref(), &pads);
@@ -687,7 +692,10 @@ pub(crate) fn settings_input(
             binds.waiting = false;
         }
         Kind::Popup if row == Row::Stats && pick => stats.open = true,
-        // Credits opens a popup that isn't built yet.
+        Kind::Popup if row == Row::Credits && pick => {
+            credits.open = true;
+            credits.time = 0.0;
+        }
         Kind::Popup => turn += dir,
         Kind::Toggle if pick || dir != 0 => changed = step(&mut menu, &mut settings, row, 1),
         _ if dir != 0 => changed = step(&mut menu, &mut settings, row, dir),
