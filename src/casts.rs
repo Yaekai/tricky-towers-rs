@@ -28,6 +28,7 @@ impl Plugin for CastsPlugin {
                 run_lightning,
                 track_clouds,
                 animate_clouds,
+                flick_hints,
                 grow_large_bricks,
             )
                 .chain(),
@@ -591,11 +592,12 @@ fn spawn_cloud(
             Vec2::splat(size * look.cloud_icon * 0.7),
         ),
     };
-    let hint = art.image(if dark {
-        "spell_cloud_button_dark"
-    } else {
-        "spell_cloud_button_light"
-    });
+    let side = if dark { "dark" } else { "light" };
+    let hint = crate::visuals::art_sprite(
+        art,
+        &format!("spell_cloud_button_{side}_up"),
+        config.cell_size,
+    );
     commands
         .spawn((
             SpellCloud {
@@ -610,17 +612,35 @@ fn spawn_cloud(
         .with_children(|parent| {
             parent.spawn((cloud, Transform::default()));
             parent.spawn((icon, Transform::from_xyz(0.0, 0.0, 0.1)));
-            if let Some(hint) = hint {
-                parent.spawn((
-                    Sprite {
-                        image: hint,
-                        custom_size: Some(Vec2::splat(size * 0.3)),
-                        ..default()
-                    },
-                    Transform::from_xyz(0.0, -size * 0.5, 0.2),
-                ));
+            // The button to press, 1.1 cells out to its side and 1.25 below the
+            // bubble's centre, flicking up and down (SpellButtonIndicator*PC).
+            if let Some((sprite, anchor, mut transform)) = hint {
+                let x = if dark { 1.1 } else { -1.1 };
+                transform.translation =
+                    Vec3::new(x * config.cell_size, -1.25 * config.cell_size, 0.2);
+                parent.spawn((sprite, anchor, transform, ButtonHint { dark }));
             }
         });
+}
+
+/// A spell bubble's button hint.
+#[derive(Component)]
+struct ButtonHint {
+    dark: bool,
+}
+
+/// Up for 0.2 s, down for 0.2 s (ButtonPressLight/DarkPC).
+fn flick_hints(time: Res<Time>, art: Res<Art>, mut hints: Query<(&ButtonHint, &mut Sprite)>) {
+    let down = time.elapsed_secs() % 0.4 >= 0.2;
+    for (hint, mut sprite) in &mut hints {
+        let side = if hint.dark { "dark" } else { "light" };
+        let state = if down { "down" } else { "up" };
+        if let Some(image) = art.image(&format!("spell_cloud_button_{side}_{state}"))
+            && sprite.image != image
+        {
+            sprite.image = image;
+        }
+    }
 }
 
 fn ease_out_back(x: f32) -> f32 {
