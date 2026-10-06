@@ -26,6 +26,7 @@ impl Plugin for VisualsPlugin {
             .init_resource::<MenuLook>()
             .add_systems(Startup, setup_scene)
             .add_systems(Update, wobble_bubbles)
+            .add_systems(Update, twinkle_stars.before(fit_backgrounds))
             .add_systems(
                 Update,
                 (
@@ -71,6 +72,73 @@ pub(crate) fn glow_copy(source: &Image, strength: f32) -> Option<Image> {
         px[3] = (alpha * 255.0) as u8;
     }
     Some(out)
+}
+
+/// A twinkling star (StarrySky): its scale breathes 1 ± 0.3, and now and then one
+/// swells to 2x in 0.3 s, turns half a turn in 1 s (in-back) with a spin that slows,
+/// waits 2 s and shrinks back in 0.3 s; the next comes 2-5 s later.
+#[derive(Component, Default)]
+pub(crate) struct Star {
+    time: f32,
+    turn: f32,
+    spin: f32,
+    twirl: Option<f32>,
+    /// The scale this frame, applied by `fit_backgrounds`.
+    factor: f32,
+}
+
+fn twinkle_stars(
+    time: Res<Time>,
+    mut next: Local<(f32, u32)>,
+    mut stars: Query<(&mut Star, &mut Transform, &GlobalTransform), Without<Camera2d>>,
+) {
+    let dt = time.delta_secs();
+    let count = stars.iter().count() as u32;
+    next.0 -= dt;
+    if next.0 <= 0.0 && count > 0 {
+        next.1 = next.1.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+        let pick = (next.1 >> 8) % count;
+        if let Some((mut star, ..)) = stars.iter_mut().nth(pick as usize)
+            && star.twirl.is_none()
+        {
+            star.twirl = Some(0.0);
+        }
+        next.0 = 2.0 + ((next.1 >> 4) % 1000) as f32 / 1000.0 * 3.0;
+    }
+    for (mut star, mut transform, at) in &mut stars {
+        star.time += dt;
+        star.turn += star.spin * dt;
+        star.spin = (star.spin - 200.0 * dt).max(0.0);
+        let p = at.translation();
+        let mut scale = 1.0 + (star.time * 2.0 + p.x * p.y * 1.0e-4).sin() * 0.3;
+        let mut turn = 0.0;
+        if let Some(t) = star.twirl.as_mut() {
+            *t += dt;
+            let t = *t;
+            let back = |x: f32| {
+                let c = 1.70158;
+                (c + 1.0) * x * x * x - c * x * x
+            };
+            scale = if t < 0.3 {
+                1.0 + t / 0.3
+            } else if t < 3.3 {
+                2.0
+            } else {
+                2.0 - ((t - 3.3) / 0.3).min(1.0)
+            };
+            turn = 180.0 * back(((t - 0.3) / 1.0).clamp(0.0, 1.0));
+            if (1.3..1.3 + dt).contains(&t) {
+                star.spin = 600.0;
+            }
+            if t >= 3.6 {
+                star.turn += 180.0;
+                star.twirl = None;
+                star.time = 0.0;
+            }
+        }
+        transform.rotation = Quat::from_rotation_z((star.turn + turn).to_radians());
+        star.factor = scale;
+    }
 }
 
 /// The mode whose background shows behind a menu (the Endless screen), if any.
@@ -807,8 +875,15 @@ fn spawn_backgrounds(
             continue;
         };
         let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
+        let tint = entry.tint.map_or(Color::WHITE, |(r, g, b)| {
+            Color::srgb(r / 255.0, g / 255.0, b / 255.0)
+        });
         let base = (
-            Sprite::from_image(art.images[name].clone()),
+            Sprite {
+                image: art.images[name].clone(),
+                color: tint,
+                ..default()
+            },
             Anchor(Vec2::new(px - 0.5, py - 0.5)),
             Transform::from_xyz(0.0, 0.0, layer_z(&art, name, order)),
         );
@@ -830,6 +905,7 @@ fn spawn_backgrounds(
                         ..default()
                     });
                 let anchor = base.1;
+                let star = entry.star == Some(true);
                 let mut layer = commands.spawn((
                     ScreenLayer {
                         anchor: Vec2::new(ax, ay),
@@ -845,6 +921,9 @@ fn spawn_backgrounds(
                     base,
                     ChildOf(camera),
                 ));
+                if star {
+                    layer.insert(Star::default());
+                }
                 if let Some(sprite) = lit {
                     layer.with_child((
                         LitLayer,
@@ -880,7 +959,7 @@ fn fit_backgrounds(
         ),
     >,
     mut screen: Query<
-        (&mut ScreenLayer, &mut Transform),
+        (&mut ScreenLayer, &mut Transform, Option<&Star>),
         (Without<Background>, Without<Camera2d>, Without<Sky>),
     >,
     mut bands: Query<
@@ -914,19 +993,26 @@ fn fit_backgrounds(
     let low = lowest.get_or_insert(camera.translation.y);
     *low = low.min(camera.translation.y);
     let climb = camera.translation.y - *low;
-    for (mut layer, mut transform) in &mut screen {
+    for (mut layer, mut transform, star) in &mut screen {
         let unit = view.y / layer.view_height;
         // A drifting layer wraps round the view with half a view to spare each side.
         let span = view.x / unit * 2.0;
         layer.drifted =
             (layer.drifted + layer.drift * time.delta_secs()).rem_euclid(span.max(0.01));
-        let slide =
-            Vec2::X * (layer.drifted - if layer.drift != 0.0 { span * 0.5 } else { 0.0 }) * unit;
+        // A drifting layer starts where it was placed and wraps half a span either side.
+        let slide = Vec2::X
+            * if layer.drift != 0.0 {
+                (layer.drifted + span * 0.5).rem_euclid(span.max(0.01)) - span * 0.5
+            } else {
+                0.0
+            }
+            * unit;
         let at = (layer.anchor - Vec2::splat(0.5)) * view + layer.position * unit + slide
             - Vec2::Y * climb * layer.parallax;
         transform.translation.x = at.x;
         transform.translation.y = at.y;
-        transform.scale = Vec3::splat(unit / layer.pixels_per_unit * layer.scale);
+        let twinkle = star.map_or(1.0, |s| s.factor);
+        transform.scale = Vec3::splat(unit / layer.pixels_per_unit * layer.scale * twinkle);
     }
     for (band, mut sprite, mut transform) in &mut bands {
         let unit = view.y / band.view_height;

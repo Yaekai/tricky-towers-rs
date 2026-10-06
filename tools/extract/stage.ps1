@@ -142,6 +142,36 @@ ModeScreenBg 'survival' 1 'gph_backgroundIsland02' 0.5 0.5 -28.0 -7.6 1 0.25 'Ba
 ModeScreenBg 'survival' 2 'gph_backgroundIsland04' 0.5 0.5 32.5 -8.8  2 0.25 'Back island right, centre + (32.5, -8.8)'
 ModeScreenBg 'survival' 3 'gph_backgroundIsland01' 0.5 0.5 -13.5 -8.8 3 0.35 'Front island left, centre + (-13.5, -8.8)'
 ModeScreenBg 'survival' 4 'gph_backgroundIsland03' 0.5 0.5 21.6 -9.8  4 0.35 'Front island right, centre + (21.6, -9.8)'
+# Survival's starry sky (StarrySky prefab: the stars around the moon, twinkling) and its three
+# cloud layers (SurvivalBackground: CloudLayer x3 rounds of each name spread across the view,
+# drifting right; large clouds tinted (89,80,169) at the bottom, the small ones 0.5-2 views up).
+# Sorting: Stars, BackgroundClouds, Clouds1, Clouds2, then the islands.
+Add-Sprite 'survival_star' 'gph_star' 'backgrounds\survival_star.png' 'Survival star (twinkles; one twirls every 2-5 s)'
+$stars = @(@(32.41,16.16),@(29.07,1.79),@(-24.73,13.15),@(25.918,10.274),@(26.386,10.442),@(26.81,10.62),@(26.608,10.014),@(-29.47,1.95),@(22.4,-3.85),@(3.13,5.99),@(-34.02,17.69),@(-12.9,15.21),@(-23.7,-0.82),@(-33.68,4.07),@(9.8,17.28),@(-5.75,-7.15),@(6.43,-15.47),@(21.98,8.96),@(-21.5,-4.25),@(-11.52,-9.14),@(-0.72,6.89),@(-25.9,15.97),@(-25.486,16.154),@(-25.214,15.754),@(-24.812,15.98),@(-2.59,17.46),@(8.66,7.22),@(9.04,6.21),@(25.09,-2.2),@(-3.66,-11.68),@(22.4,-14.6),@(25,-8.7),@(-29.7,-9.7),@(-29.7,-9.7),@(-27,-13.8),@(29.6,7.7),@(29.6,2.3))
+$svN = 5
+foreach ($st in $stars) { ModeScreenBg 'survival' $svN 'gph_star' 0.5 0.5 $st[0] $st[1] 0.05 0.1 'Survival star' ', star: true'; $svN++ }
+$rng = New-Object System.Random 7
+$cloudLayers = @(
+  @{ names = @('gph_cloudLarge_var01|-25.855|-14.528','gph_cloudLarge_var02_0|31.378|-29.223'); speed = @(0.15,0.25); y = @(0.0,0.0); z = 0.2; par = 0.2; tint = ', tint: (89, 80, 169)' },
+  @{ names = @('gph_cloud_var01|-25.737|-2.866','gph_cloud_var02|-3.477|-1.267','gph_cloud_var03_0|-15.909|11.283','gph_cloud_var04|3.686|10.573','gph_cloud_var05_0|-11.055|-8.667','gph_cloud_var06|7.238|-12.397'); speed = @(0.4,0.5); y = @(0.5,2.0); z = 0.4; par = 0.6; tint = '' },
+  @{ names = @('gph_cloud_var07|-17.271|4.416','gph_cloud_var08|15.171|4.534','gph_cloud_var09_0|-71.1|-54.8','gph_cloud_var10|-36.274|7.909'); speed = @(0.4,0.5); y = @(0.5,2.0); z = 0.6; par = 0.8; tint = '' })
+foreach ($layer in $cloudLayers) {
+  foreach ($round in 1..3) {
+    $left = [System.Collections.ArrayList]@($layer.names)
+    $bin = 1.0 / $layer.names.Count
+    for ($svB = 0.0; $svB -lt 0.999 -and $left.Count -gt 0; $svB += $bin) {
+      $pick = $left[$rng.Next($left.Count)]; $left.Remove($pick)
+      $parts = $pick -split '\|'
+      $svX = $svB + $rng.NextDouble() * $bin
+      $svY = $layer.y[0] + $rng.NextDouble() * ($layer.y[1] - $layer.y[0])
+      $sp = $layer.speed[0] + $rng.NextDouble() * ($layer.speed[1] - $layer.speed[0])
+      $svF = [Globalization.CultureInfo]::InvariantCulture
+      $extra = [string]::Format($svF, ', drift: ({0:0.###}, {0:0.###})', $sp) + $layer.tint
+      ModeScreenBg 'survival' $svN $parts[0] $svX $svY ([double]$parts[1]) ([double]$parts[2]) $layer.z $layer.par 'Survival cloud' $extra
+      $svN++
+    }
+  }
+}
 
 # --- Puzzle: desert ruins anchored to the screen's bottom corners/centre (two-colour mask sprites) ---
 ModeScreenBg 'puzzle' 0 'gph_backgroundBackLeft'     0.0 0.0 15.0 3.8   0 0.3 'Ruins back left (mask: #F4D9B0 / #F7E0BE)' ', mask: ((244, 217, 176), (247, 224, 190))'

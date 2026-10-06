@@ -85,6 +85,26 @@ struct SandStrip {
     front: bool,
 }
 
+/// One of Survival's three mist bands along the bottom (SurvivalBackground's
+/// MistLayers): its top as a share of the view's height, and whether this is the
+/// cloudy edge on top (squashed by `squash`) or the solid fill under it.
+#[derive(Component)]
+struct SurvivalMist {
+    top: f32,
+    edge: bool,
+    squash: f32,
+}
+
+/// The bands: colour, top (14%, 19%, 24% of the view), edge squash, depth (in front
+/// of the front islands, between the islands, behind them).
+const SURVIVAL_MISTS: [([u8; 3], f32, f32, f32); 3] = [
+    ([192, 163, 225], 0.14, 0.8, -895.5),
+    ([207, 163, 222], 0.19, 0.6, -897.5),
+    ([151, 125, 216], 0.24, 0.4, -899.55),
+];
+/// The mist edge's height in background units before its squash (?).
+const MIST_EDGE: f32 = 4.0;
+
 #[derive(Component)]
 struct EclipseSun;
 
@@ -159,6 +179,34 @@ fn set_up_weather(
         return;
     }
     let weather = &config.weather;
+    if look.0 == ModeKind::Survival {
+        let edge = art.image("mist");
+        let solid = art.image("misc_cursed_line_solid");
+        for (color, top, squash, z) in SURVIVAL_MISTS {
+            let color = Color::srgb_u8(color[0], color[1], color[2]);
+            for (is_edge, image) in [(false, solid.clone()), (true, edge.clone())] {
+                let sprite = match image {
+                    Some(image) => Sprite {
+                        image,
+                        color,
+                        ..default()
+                    },
+                    None if !is_edge => Sprite::from_color(color, Vec2::ONE),
+                    None => continue,
+                };
+                commands.entity(camera).with_child((
+                    Weather,
+                    SurvivalMist {
+                        top,
+                        edge: is_edge,
+                        squash,
+                    },
+                    sprite,
+                    Transform::from_xyz(0.0, 0.0, z + if is_edge { 0.01 } else { 0.0 }),
+                ));
+            }
+        }
+    }
     if look.0 == ModeKind::Puzzle {
         // Back strip between the middle and front ruins (screen layers sit at -900 + z),
         // front strip just in front of the front ruins.
@@ -469,6 +517,7 @@ fn fit_weather(
         Query<(&SandLayer, &mut Sprite, &mut Transform), Without<Camera2d>>,
         Query<(&mut Sprite, &mut Transform), (With<EclipseSun>, Without<Camera2d>)>,
         Query<(&CoronaRay, &mut Sprite, &mut Transform), Without<Camera2d>>,
+        Query<(&SurvivalMist, &mut Sprite, &mut Transform), Without<Camera2d>>,
     )>,
 ) {
     let weather = &config.weather;
@@ -490,6 +539,19 @@ fn fit_weather(
         let speed = weather.sandstorm_speed * if layer.front { 1.0 } else { 0.7 };
         let shift = (t * speed + layer.layer as f32 * weather.sandstorm_offset).fract();
         transform.translation.x = (layer.copy as f32 - shift) * size.x;
+    }
+    let unit = size.y / 41.54;
+    for (mist, mut sprite, mut transform) in &mut parts.p4() {
+        let top = -size.y * 0.5 + size.y * mist.top;
+        if mist.edge {
+            let h = MIST_EDGE * mist.squash * unit;
+            sprite.custom_size = Some(Vec2::new(size.x, h));
+            transform.translation.y = top + h * 0.25;
+        } else {
+            let h = size.y * mist.top;
+            sprite.custom_size = Some(Vec2::new(size.x, h));
+            transform.translation.y = top - h * 0.5;
+        }
     }
     let sun_size = size.y * weather.eclipse_size;
     let sun_y = size.y * weather.eclipse_height;

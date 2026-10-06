@@ -118,6 +118,12 @@ pub struct ArtEntry {
     /// flashes (Race Pro's `_DARK` islands lit by the flash).
     #[serde(default)]
     pub lit: Option<String>,
+    /// Screen layers only: a tint (r, g, b) 0 to 255 (Survival's large clouds).
+    #[serde(default)]
+    pub tint: Option<(f32, f32, f32)>,
+    /// Screen layers only: a star that twinkles and now and then twirls.
+    #[serde(default)]
+    pub star: Option<bool>,
     /// An animation instead of a file: `(seconds, image name)` pairs in order, each
     /// image shown from its time until the next.
     #[serde(default)]
