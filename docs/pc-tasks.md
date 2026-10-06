@@ -119,8 +119,10 @@ frontend and test-writer suggestions.
   Mystery spell's castle block and windmill were drawn squashed sideways because their cells were
   4x2 and 4x3 instead of the prefabs' 2x4 and 3x4 (fixed from the box colliders; the windmill now
   carries its rotor and shadow; the piano was already right). The windmill's 45° nub isn't a cell.
-  Still open: the purple full-screen effect when something happens (curse wave or cast flash) is
-  far too bright; compare with the original and tone it down to match. The Survival count reads
+  ✓ The purple flash was the dark cast's lane overlay, drawn opaque over the towers: it now sits
+  behind them, opens across the lane in 1/6 s, and draws as a see-through tint (Race/Puzzle, the
+  original multiplies at 80%) or a whitened glow (Survival, the original adds at 39%); exact
+  multiply/add blending would need a Material2d (`casts::LANE_TINT`, ?). The Survival count reads
   "7/26" and overlaps the next-brick card; check the original's format and spacing.
 - Also queued: tutorial (explanation) and Credits popups (layouts read in menus.md), keyboard key
   hints on the spell clouds, the trial mode stinger.

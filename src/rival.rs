@@ -209,25 +209,6 @@ struct ColumnBeam {
     glowing: bool,
 }
 
-/// The original draws the beam additively (Custom/BeamLaneShaderAdditive) at 39%
-/// alpha, which turns its pink core white on the light desert. Sprites only blend,
-/// so this copy whitens each pixel and gives it the alpha its added light would have.
-// ponytail: fixed whitening, not true additive blending; a Material2d with an add blend if it matters.
-fn glow_copy(source: &Image) -> Option<Image> {
-    let mut out = source.clone();
-    let data = out.data.as_mut()?;
-    for px in data.chunks_exact_mut(4) {
-        let peak = px[0].max(px[1]).max(px[2]) as f32 / 255.0;
-        let alpha = (2.0 * BEAM_ALPHA * peak * px[3] as f32 / 255.0).min(1.0);
-        for c in &mut px[..3] {
-            let bright = if peak > 0.0 { *c as f32 / peak } else { 255.0 };
-            *c = (bright + (255.0 - bright) * 0.6) as u8;
-        }
-        px[3] = (alpha * 255.0) as u8;
-    }
-    Some(out)
-}
-
 /// The bricks a running Puzzle trial deals, in order.
 fn trial_order(config: &GameConfig) -> &[String] {
     config
@@ -415,7 +396,9 @@ fn bob_column(
     }
     for (mut beam, mut transform, mut sprite) in &mut beams {
         if !beam.glowing
-            && let Some(glow) = images.get(&sprite.image).and_then(glow_copy)
+            && let Some(glow) = images
+                .get(&sprite.image)
+                .and_then(|i| crate::visuals::glow_copy(i, BEAM_ALPHA))
         {
             sprite.image = images.add(glow);
             beam.glowing = true;

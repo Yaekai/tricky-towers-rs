@@ -196,6 +196,13 @@ fn start_casts(
     }
 }
 
+/// The lane overlay opens over this long, draws at this strength and sits behind
+/// the towers (in front of the lane's scenery).
+const LANE_OPEN: f32 = 1.0 / 6.0;
+const LANE_TINT: f32 = 0.5;
+const LANE_GLOW: f32 = 0.392;
+const LANE_Z: f32 = -3.0;
+
 /// Seconds before a beam starts.
 #[derive(Component)]
 struct DelayedBy(f32);
@@ -277,6 +284,8 @@ fn run_beams(
         Option<&Children>,
     )>,
     mut feet: Query<&mut Transform, (With<BeamFoot>, Without<Beam>, Without<Camera2d>)>,
+    mut images: Option<ResMut<Assets<Image>>>,
+    mut glow: Local<Option<(Handle<Image>, Handle<Image>)>>,
 ) {
     let look = &config.casts;
     let dt = time.delta_secs();
@@ -311,27 +320,47 @@ fn run_beams(
         };
         let t = beam.time;
         if beam.kind == BeamKind::Lane {
-            // Fades in, then out.
-            let alpha = if t < grow {
-                t / grow
-            } else {
-                1.0 - (t - grow) / last.max(0.01)
-            };
+            // The overlay opens across the lane in 1/6 s, stays, then closes in
+            // `last` (the original's BeamLaneIn / BeamLaneOut clips).
             if t >= grow + last {
                 commands.entity(entity).despawn();
                 continue;
             }
+            let open = if t < grow {
+                (t / LANE_OPEN).min(1.0)
+            } else {
+                1.0 - (t - grow) / last.max(0.01)
+            };
             let lane = config.cells(config.lane_half_width * 2.0 + 2.0);
-            sprite.custom_size = Some(Vec2::new(lane, view_h));
-            sprite.color.set_alpha(
-                alpha.clamp(0.0, 1.0)
-                    * if art.image("cast_lane_beam").is_some() {
-                        1.0
-                    } else {
-                        0.35
-                    },
-            );
-            transform.translation = Vec2::new(beam.lane_x, view_y).extend(15.0);
+            sprite.custom_size = Some(Vec2::new(lane * open.clamp(0.0, 1.0), view_h));
+            // Survival's overlay is added light (BeamBackWorld2Mat, 39%), the others
+            // multiply the background (BeamBackWorld1Mat, 80%); sprites only blend,
+            // so the light one draws a whitened copy and the other a see-through tint.
+            let survival = config.mode.look() == ModeKind::Survival;
+            let alpha = match (survival, art.image("cast_lane_beam").is_some()) {
+                (true, _) => 1.0,
+                (false, true) => LANE_TINT,
+                (false, false) => 0.35,
+            };
+            if survival && let Some(images) = images.as_mut() {
+                let source = sprite.image.clone();
+                if glow.as_ref().is_none_or(|(from, _)| *from != source)
+                    && glow.as_ref().is_none_or(|(_, to)| *to != source)
+                    && let Some(copy) = images
+                        .get(&source)
+                        .and_then(|i| crate::visuals::glow_copy(i, LANE_GLOW))
+                {
+                    *glow = Some((source.clone(), images.add(copy)));
+                }
+                if let Some((from, to)) = glow.as_ref()
+                    && *from == source
+                {
+                    sprite.image = to.clone();
+                }
+            }
+            sprite.color.set_alpha(alpha);
+            // On the background layer: behind the towers, not over them.
+            transform.translation = Vec2::new(beam.lane_x, view_y).extend(LANE_Z);
             continue;
         }
         // Grows out of its foot, holds, then squeezes to nothing.
