@@ -32,7 +32,11 @@ impl Plugin for SettingsPlugin {
             .init_resource::<SettingsMenu>()
             .init_resource::<crate::keybinding::KeybindingMenu>()
             .init_resource::<crate::keybinding::KeyBindings>()
-            .add_plugins((crate::stats::StatsPlugin, crate::credits::CreditsPlugin))
+            .add_plugins((
+                crate::stats::StatsPlugin,
+                crate::credits::CreditsPlugin,
+                crate::explain::ExplainPlugin,
+            ))
             .add_systems(Startup, crate::keybinding::spawn_keybinding_popup)
             .add_systems(Update, crate::keybinding::show_keybinding_popup)
             .add_systems(Startup, spawn_settings_screen)

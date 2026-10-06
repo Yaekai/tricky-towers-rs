@@ -120,7 +120,7 @@ frontend and test-writer suggestions.
   original multiplies at 80%) or a whitened glow (Survival, the original adds at 39%); exact
   multiply/add blending would need a Material2d (`casts::LANE_TINT`, ?). The Survival count reads
   "7/26" and overlaps the next-brick card; check the original's format and spacing.
-- Also queued: tutorial (explanation) popups (layout read in menus.md; Credits is done, src/credits.rs), keyboard key
+- Also queued (explanation and Credits popups done: src/explain.rs, src/credits.rs; still to read: the controls explanation shown first in some modes, and whether modal_tile lets the scene show through), keyboard key
   hints on the spell clouds, the trial mode stinger.
 - **Done on the new PC (2026-10-05)**: wizard voice packs read into docs/research/wizards.md
   ("Voice lines") and staged as `wizard<n>_say_<kind>_<i>` (439 lines, all 14 characters);
