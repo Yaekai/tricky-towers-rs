@@ -585,8 +585,8 @@ frontend and test-writer suggestions.
   WAVE N cloud message, hearts with lost slots, J/K key caps under the spell bubbles. Guessed:
   particle speeds (taken as tenths of the readout's numbers), the WAVE message's place, size and
   2 s length, the key cap's place. Stage `gph_cross` as `heart_lost` and the pad B buttons
-  (`pad_b_up`/`pad_b_down`) so lost hearts and pad hints can use them. Not done: gravel, impact
-  dust on later hard hits (we only puff on landing), confetti (cups are a debug tool), the
+  (`pad_b_up`/`pad_b_down`) so lost hearts and pad hints can use them. Gravel is in (petrified bricks in view shed bits on each placement); impact dust only on
+  placement is right (BRICK_PLACED), confetti (cups are a debug tool), the
   hourglass timer on race trials, the Endless score line, `finish_line_end` flags.
 - **The 50 original trials are in** (src/trial_list.rs, made from docs/research/trials.md):
   goals, drop speeds, fixed brick orders, each trial's own spell lines (spaced `every` cells

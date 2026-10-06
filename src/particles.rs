@@ -1,6 +1,8 @@
 //! Small particle effects from the gap scan (docs/research/gap-scan.md 3-4):
 //! - a white poof where every new brick appears (flash, puffs, star sparks);
 //! - impact dust where a brick lands;
+//! - gravel trickling from every petrified brick in view when a brick is placed
+//!   on its tower (GravelEffect);
 //! - when a brick is lost: a lilac mist burst (Race, Survival) or desert dust (Puzzle),
 //!   and the big red lost cross where it left the screen, spinning and shrinking;
 //! - the WAVE N message when a Survival curse wave starts.
@@ -25,6 +27,7 @@ impl Plugin for ParticlesPlugin {
             (
                 spawn_poofs,
                 landing_dust,
+                gravel,
                 lost_bricks,
                 wave_messages,
                 move_particles,
@@ -217,6 +220,60 @@ fn landing_dust(
                 z: 7.0,
             },
         );
+    }
+}
+
+/// When a brick is placed, each petrified brick of that tower in view sheds a few
+/// dark-red bits across its width (GRAVEL: colour (0.22, 0.11, 0.11), size 0.5,
+/// speed 5 taken as tenths, 1 s; falling).
+#[allow(clippy::type_complexity)]
+fn gravel(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    view_size: Res<ViewSize>,
+    camera: Query<(&Transform, &Projection), With<Camera2d>>,
+    placed: Query<&crate::gameplay::Brick, Added<Placed>>,
+    stones: Query<(Entity, &Transform, &crate::gameplay::Brick), With<crate::spells::Stone>>,
+) {
+    let c = config.cell_size;
+    let (centre, size) = match camera.single() {
+        Ok((t, Projection::Orthographic(o))) => (t.translation.truncate(), view_size.0 * o.scale),
+        _ => return,
+    };
+    for brick in &placed {
+        for (entity, transform, stone) in &stones {
+            let at = transform.translation.truncate();
+            if stone.tower != brick.tower || (at.y - centre.y).abs() > size.y * 0.5 {
+                continue;
+            }
+            let (lo, hi) = stone
+                .cells
+                .iter()
+                .fold((f32::MAX, f32::MIN), |(lo, hi), p| {
+                    (lo.min(p.x), hi.max(p.x))
+                });
+            let width = (hi - lo + 1.0) * stone.scale;
+            let mut seed = (entity.to_bits() as u32).wrapping_mul(2_654_435_761) | 1;
+            burst(
+                &mut commands,
+                &art,
+                c,
+                at,
+                &mut seed,
+                Burst {
+                    image: "gravel",
+                    color: Color::srgb(0.22, 0.11, 0.11),
+                    count: 3,
+                    speed: 0.5,
+                    size: 0.5,
+                    life: 1.0,
+                    gravity: -10.0,
+                    spread: Some(width),
+                    z: 7.0,
+                },
+            );
+        }
     }
 }
 
