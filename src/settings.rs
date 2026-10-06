@@ -353,7 +353,7 @@ const CORNER_GAP: f32 = 10.0;
 const PAGE_ARROW: ((f32, f32), f32) = ((94.0, 55.0), 500.0);
 /// `menu_button_background`'s 9-slice borders, as on the Single Player list.
 const BUTTON_SLICE: [f32; 4] = [18.0, 16.0, 71.0, 15.0];
-/// Seconds a page slide takes (?).
+/// Seconds a page slide takes (SettingsStateController: DOLocalMoveX over 0.3 s).
 const SLIDE_SECONDS: f32 = 0.3;
 
 fn row_y(index: usize) -> f32 {
