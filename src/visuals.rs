@@ -23,6 +23,7 @@ impl Plugin for VisualsPlugin {
         app.insert_resource(ClearColor(Color::srgb(0.12, 0.14, 0.22)))
             .init_resource::<Art>()
             .init_resource::<ViewSize>()
+            .init_resource::<MenuLook>()
             .add_systems(Startup, setup_scene)
             .add_systems(Update, wobble_bubbles)
             .add_systems(
@@ -52,6 +53,10 @@ impl Plugin for VisualsPlugin {
             );
     }
 }
+
+/// The mode whose background shows behind a menu (the Endless screen), if any.
+#[derive(Resource, Default, PartialEq)]
+pub struct MenuLook(pub Option<ModeKind>);
 
 /// The water strip at the depth where dropped bricks are lost. Modes whose water band
 /// is turned off (Survival, Puzzle) have no water at all.
@@ -627,6 +632,7 @@ fn spawn_backgrounds(
     mut commands: Commands,
     art: Res<Art>,
     game: Res<Match>,
+    menu_look: Res<MenuLook>,
     config: Res<GameConfig>,
     mut images: ResMut<Assets<Image>>,
     camera: Query<Entity, With<Camera2d>>,
@@ -645,18 +651,25 @@ fn spawn_backgrounds(
     let Ok(camera) = camera.single() else {
         return;
     };
-    let pro = pro_look(game.mode, config.difficulty);
-    if *shown == Some((game.mode, pro)) && !art.is_changed() {
+    let mode = match menu_look.0 {
+        Some(mode) if game.phase == Phase::Menu => mode,
+        _ => game.mode,
+    };
+    let pro = pro_look(mode, config.difficulty);
+    if *shown == Some((mode, pro)) && !art.is_changed() {
         return;
     }
-    *shown = Some((game.mode, pro));
+    *shown = Some((mode, pro));
     for entity in &existing {
         commands.entity(entity).despawn();
     }
-    let mode_name = mode_key(game.mode);
-    // A Pro look's sky and water band win over the mode's, which win over the shared.
+    let mode_name = mode_key(mode);
+    // A Pro or Endless look's sky and water band win over the mode's, which win over the shared.
+    // Endless Race has its own sunset sky.
+    let endless = (mode == ModeKind::Endless).then_some("endless");
     let for_mode = |name: &str| {
-        pro.and_then(|p| art.entries.get(&format!("{name}_{p}")))
+        pro.or(endless)
+            .and_then(|p| art.entries.get(&format!("{name}_{p}")))
             .or_else(|| art.entries.get(&format!("{name}_{mode_name}")))
             .or_else(|| art.entries.get(name))
     };
@@ -732,10 +745,7 @@ fn spawn_backgrounds(
             ));
         }
     }
-    for (order, name) in background_names_for(&art, game.mode, pro)
-        .iter()
-        .enumerate()
-    {
+    for (order, name) in background_names_for(&art, mode, pro).iter().enumerate() {
         let Some(entry) = art.entries.get(name) else {
             continue;
         };

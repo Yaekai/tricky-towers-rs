@@ -110,9 +110,11 @@ frontend and test-writer suggestions.
 ## Queued
 - **Next: the rest of Max's screenshot comparison** (docs/research/compare-2026-10-06.md; lines
   without ✓ are open; Max's pictures are in `research\screenshotsbymax` on his new PC, never commit
-  them). Left after PRs #62-80: the Endless WEEKLY leaderboard look (header ribbon with arrows,
-  rank medals, YOUR BEST row), the Endless background per picked mode, corners on the picked
-  Endless button, and the Puzzle trial enemy's brick column. Merge only when `cargo test` passes.
+  them). Left after PRs #62-80: the Puzzle trial enemy's brick column. The Endless screen is done
+  apart from Endless Puzzle's own look: the original starts it as normal Puzzle and tweens to a
+  red eclipse (DesertEndlessBackground/DesertBackgroundEndlessSun AnimateIn, 2 s; the menu shows
+  it straight away): sky gradient #8B1838 → #4A1117, ruins back #9B1D33/#AE1F3D, middle
+  #66151D/#4B0F19, front #2C0609, eclipse #FF651F. Stage it like `background_puzzle_pro_N`. Merge only when `cargo test` passes.
 - **From Max's play test (2026-10-06, his screenshot of a Survival trial):** the special bricks
   (trial floor and obstacle pieces drawn from the castle and door art) look badly stretched and cut;
   only the Piano special brick looks right. Read how the original sizes and slices each special

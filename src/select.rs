@@ -435,17 +435,36 @@ pub(crate) fn fit_backdrops(
 
 /// A full-screen page with the title backdrop and the header bar.
 pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str) -> Entity {
+    spawn_page_over(commands, art, title, false)
+}
+
+/// A page, see-through over the world's background when `over_world` and the
+/// art is staged (the Endless screen shows the picked mode's background).
+pub(crate) fn spawn_page_over(
+    commands: &mut Commands,
+    art: Option<&Art>,
+    title: &str,
+    over_world: bool,
+) -> Entity {
+    let clear = over_world && art.is_some();
     let mut page = commands.spawn((
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             ..default()
         },
-        BackgroundColor(Color::srgb(0.05, 0.06, 0.12)),
+        BackgroundColor(if clear {
+            Color::NONE
+        } else {
+            Color::srgb(0.05, 0.06, 0.12)
+        }),
         GlobalZIndex(11),
         Visibility::Hidden,
     ));
-    if let Some(background) = art.and_then(|a| a.image("menu_background")) {
+    if let Some(background) = art
+        .filter(|_| !clear)
+        .and_then(|a| a.image("menu_background"))
+    {
         page.with_child(backdrop(background));
     }
     page.with_children(|page| {
