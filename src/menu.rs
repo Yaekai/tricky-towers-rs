@@ -121,6 +121,8 @@ fn menu_escape(
         (Phase::Menu, MenuScreen::Single) => *screen = MenuScreen::Main,
         (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
+        // The explanation popup waits for Continue.
+        (Phase::Menu, MenuScreen::Explain) => {}
         // A popup over Settings closes first.
         (Phase::Menu, MenuScreen::Settings) => {
             if credits.open {
@@ -162,6 +164,8 @@ pub enum MenuScreen {
     Settings,
     /// "Game Paused" over a match: Resume, Retry, Quit.
     Pause,
+    /// The explanation popup before a match (explain.rs).
+    Explain,
 }
 
 /// The pause menu's highlighted option and the phase Resume goes back to.

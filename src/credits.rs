@@ -78,7 +78,7 @@ fn vh(px: f32) -> Val {
 }
 
 /// The English wording by key, from the staged `text_en` (the original's language XML).
-fn english() -> HashMap<String, String> {
+pub(crate) fn english() -> HashMap<String, String> {
     let text = std::fs::read_to_string(crate::art::extracted_dir().join("language/en.txt"))
         .unwrap_or_default();
     let mut words = HashMap::new();

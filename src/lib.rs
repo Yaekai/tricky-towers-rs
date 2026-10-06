@@ -19,6 +19,7 @@ pub mod debug;
 #[cfg(feature = "debug-panel")]
 pub mod debug_panel;
 pub mod effects;
+pub mod explain;
 pub mod game_info;
 pub mod gameplay;
 pub mod hud;

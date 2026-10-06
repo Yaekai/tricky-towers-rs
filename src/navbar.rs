@@ -66,7 +66,7 @@ impl NavItem {
 fn items(screen: MenuScreen) -> &'static [NavItem] {
     match screen {
         // The pause screen shows its controls instead of hints.
-        MenuScreen::Start | MenuScreen::Pause => &[],
+        MenuScreen::Start | MenuScreen::Pause | MenuScreen::Explain => &[],
         MenuScreen::Main => &[NavItem::Continue],
         _ => &[NavItem::Back, NavItem::Continue],
     }
