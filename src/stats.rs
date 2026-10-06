@@ -2,7 +2,7 @@
 //! (docs/research/gap-scan.md, section 7): two panels side by side over a dark modal,
 //! Game stats (730×900: per mode, games and wins in columns Easy / Normal / Pro / Total
 //! with their small icons) and Other stats (730×695: cups, time played, high scores),
-//! with "BACK" under them. Kept between runs in `stats.ron`.
+//! with the menu's BACK hint in the corner (navbar.rs). Kept between runs in `stats.ron`.
 //!
 //! What counts: local battles only (not trials or Endless runs), from player 1's tower.
 
@@ -165,7 +165,9 @@ const GAP: f32 = 40.0;
 const TOP: f32 = 470.0;
 const COLUMNS_X: [f32; 4] = [20.0, 140.0, 260.0, 380.0];
 const ICON: f32 = 48.0;
-const TEXT: f32 = 28.0;
+/// Numbers and the stat names beside them (SubStatsItem: 26 and 19).
+const TEXT: f32 = 26.0;
+const NAME_TEXT: f32 = 19.0;
 const ROW_STEP: f32 = 62.0;
 
 fn vh(px: f32) -> f32 {
@@ -272,7 +274,7 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
                     ..place((220.0, 40.0), (left + 110.0, y))
                 })
                 .with_children(|t| {
-                    t.spawn(label(vh(TEXT), &name));
+                    t.spawn(label(vh(NAME_TEXT), &name));
                 });
                 for (c, column_x) in COLUMNS_X.iter().enumerate() {
                     root.spawn(place((110.0, 40.0), (gx + column_x, y)))
@@ -310,10 +312,6 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
                     t.spawn((label(vh(TEXT), ""), part));
                 });
         }
-        root.spawn(place((300.0, 60.0), (0.0, -SCREEN.1 / 2.0 + 60.0)))
-            .with_children(|t| {
-                t.spawn(label(vh(46.0), "BACK"));
-            });
     });
 }
 

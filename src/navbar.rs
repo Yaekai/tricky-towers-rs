@@ -53,6 +53,14 @@ impl NavItem {
     }
 
     /// The key that does it: keyboard, then pad.
+    /// Its glyph art (the original's TextMeshPro key sprites): keyboard, then pad.
+    fn glyphs(self) -> (&'static str, &'static str) {
+        match self {
+            NavItem::Continue => ("menu_key_space", "menu_pad_a"),
+            NavItem::Back => ("menu_key_esc", "menu_pad_b"),
+        }
+    }
+
     fn keys(self) -> (&'static str, &'static str) {
         match self {
             NavItem::Continue => ("Enter", "A"),
@@ -78,6 +86,10 @@ struct NavBar;
 /// The text on an item's key cap.
 #[derive(Component)]
 struct NavKey(NavItem);
+
+/// An item's key glyph, when the original's are staged (instead of the cap).
+#[derive(Component)]
+struct NavGlyph(NavItem);
 
 /// An item's words, which change with the screen (SELECT, START GAME...).
 #[derive(Component)]
@@ -138,6 +150,17 @@ fn spawn_nav_bar(mut commands: Commands, art: Option<Res<Art>>) {
                         },
                         TextColor(item.color()),
                     ));
+                    if let Some(glyph) = art.as_deref().and_then(|a| a.image(item.glyphs().0)) {
+                        row.spawn((
+                            ImageNode::new(glyph),
+                            Node {
+                                height: Val::Vh(vh(ITEM.1)),
+                                ..default()
+                            },
+                            NavGlyph(item),
+                        ));
+                        return;
+                    }
                     let mut key = row.spawn(Node {
                         min_width: Val::Vh(vh(ITEM.1)),
                         height: Val::Vh(vh(ITEM.1)),
@@ -180,8 +203,19 @@ fn show_nav_bar(
     mut rows: Query<(&NavItem, &mut NavSlot, &mut Node, &mut Visibility), Without<NavBar>>,
     mut keys: Query<(&NavKey, &mut Text), Without<NavWords>>,
     mut words: Query<(&NavWords, &mut Text), Without<NavKey>>,
+    mut glyphs: Query<(&NavGlyph, &mut ImageNode)>,
+    art: Option<Res<Art>>,
+    stats: Option<Res<crate::stats::StatsMenu>>,
+    credits: Option<Res<crate::credits::CreditsMenu>>,
 ) {
-    let list = items(*screen);
+    // The Stats popup has only its BACK; the credits roll has none.
+    let list = if credits.is_some_and(|c| c.open) {
+        &[]
+    } else if stats.is_some_and(|s| s.open) {
+        &[NavItem::Back]
+    } else {
+        items(*screen)
+    };
     let on = game.phase == Phase::Menu && !list.is_empty();
     for mut visibility in &mut bar {
         visibility.set_if_neq(shown(on));
@@ -214,6 +248,16 @@ fn show_nav_bar(
         }
     }
     let pad = !pads.is_empty();
+    for (glyph, mut image) in &mut glyphs {
+        let (keyboard, button) = glyph.0.glyphs();
+        if let Some(want) = art
+            .as_deref()
+            .and_then(|a| a.image(if pad { button } else { keyboard }))
+            && image.image != want
+        {
+            image.image = want;
+        }
+    }
     for (key, mut text) in &mut keys {
         let (keyboard, button) = key.0.keys();
         let words = if pad { button } else { keyboard };

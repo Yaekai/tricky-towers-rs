@@ -324,6 +324,10 @@ Add-Sprite 'menu_leaderboard_medal_2' 'gph_leaderboardMedalSilver' 'menu\leaderb
 Add-Sprite 'menu_leaderboard_medal_3' 'gph_leaderboardMedalBronze' 'menu\leaderboard_medal_3.png' 'Endless leaderboard rank 3 medal (44x52)'
 Add-Sprite 'menu_personal_best_star'  'gph_personalBestStar'       'menu\personal_best_star.png'  'Star beside YOUR BEST (43x43; the outer pair at 0.75, turned 10 degrees)'
 # Key caps from the TextMeshPro sprite sheet (Resources\fonts), the PC leaderboard arrows.
+# The menu hints' key glyphs (the keyboard profile: continue Space, back Esc, invite C; pads A / B / Y).
+foreach ($g in @(@('menu_key_space','keySpace'), @('menu_key_esc','keyEsc'), @('menu_key_c','keyC'), @('menu_key_tab','keyTab'), @('menu_pad_a','a'), @('menu_pad_b','b'), @('menu_pad_y','y'))) {
+  Add-Sprite $g[0] "..\Resources\fonts\SpriteSymbols_$($g[1])" "menu\$($g[0]).png" "Menu hint glyph $($g[1])"
+}
 Add-Sprite 'menu_key_left'  '..\Resources\fonts\SpriteSymbols_keyLeft'  'menu\key_left.png'  'Left arrow key cap beside WEEKLY (55x51)'
 Add-Sprite 'menu_key_right' '..\Resources\fonts\SpriteSymbols_keyRight' 'menu\key_right.png' 'Right arrow key cap beside WEEKLY (55x51)'
 $notes.Add('- Single Player screen (title "Single Player"): no mode tiles. The seat (one wizard panel 332x283, arrows at x -200/+200, brick pack panel 332x100 at -225 below it) sits 200 px above the centre; under it a list of 550x78 buttons (menu_button_background, corners menu_corner_small 10 px outside) starting 175 px below the centre: "Trials" at 0, then "Endless" 100 px lower (Endless button has the menu_button_cup_background band). Endless opens the "Endless" screen: buttons 690 wide (Race 690x173, Survival 689x167, Puzzle 690x224 with the picture 28 px up) in a container centred at (135, 375) from the screen centre, each with a challenge wizard face (Race wizard 3, Survival wizard 2, Puzzle wizard 4; 110x108 at (33, 6) from the bottom-left), and an 800x800 leaderboard panel (gph_popupBackgroundPanel) at (0, -30). So Endless Race is shown with menu_mode_endless (gph_leaderboardModeRace).')
