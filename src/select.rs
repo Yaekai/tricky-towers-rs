@@ -260,7 +260,7 @@ pub(crate) const WIZARDS: [[Spot; 2]; WIZARD_COUNT] = [
 
 /// The staged Select Players picture of `wizard` (0 for wizard 1) in `pose`:
 /// wizards 1-4, the spirit animals, then the indie guests.
-fn seat_picture(wizard: usize, pose: &str) -> String {
+pub(crate) fn seat_picture(wizard: usize, pose: &str) -> String {
     match wizard {
         0..=3 => format!("menu_player_select_wizard{}_{pose}", wizard + 1),
         4..=7 => format!("menu_player_select_wizard_animal0{}_{pose}", wizard - 3),

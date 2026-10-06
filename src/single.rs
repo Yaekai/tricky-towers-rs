@@ -110,13 +110,29 @@ pub struct SingleMenu {
     pub selected: usize,
     /// Index into Race, Survival, Puzzle.
     pub endless: usize,
+    /// The player's wizard (0 for wizard 1), picked with Left/Right.
+    pub wizard: usize,
 }
+
+/// A wizard in the Single Player carousel: the picked one (0) or its
+/// neighbour on the left (-1) or right (1).
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Carousel(i32);
+
+/// Wizards in the carousel, as many as the original has.
+const CAROUSEL_WIZARDS: usize = 14;
+/// The neighbours' panels and the arrows, from the screen centre (Max's
+/// screenshots of the original, ?).
+const NEIGHBOUR_X: f32 = 405.0;
+const NEIGHBOUR_SCALE: f32 = 0.85;
+const CAROUSEL_ARROW_X: f32 = 205.0;
 
 impl Default for SingleMenu {
     fn default() -> Self {
         Self {
             selected: 1,
             endless: 0,
+            wizard: 0,
         }
     }
 }
@@ -232,11 +248,38 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
             page.spawn((sliced(outline, [PANEL_SLICE; 4]), place(SEAT_PANEL, at)));
         }
         let (offset, size) = WIZARDS[0][1];
-        if let Some(wizard) = image("menu_player_select_wizard1_ready") {
-            page.spawn((
-                ImageNode::new(wizard),
-                place(size, (offset.0, SEAT_Y + offset.1)),
+        page.spawn((
+            ImageNode::default(),
+            place(size, (offset.0, SEAT_Y + offset.1)),
+            Carousel(0),
+        ));
+        // The neighbours on grey panels, and the arrows between.
+        for side in [-1.0f32, 1.0] {
+            let x = NEIGHBOUR_X * side;
+            let panel = (
+                SEAT_PANEL.0 * NEIGHBOUR_SCALE,
+                SEAT_PANEL.1 * NEIGHBOUR_SCALE,
+            );
+            let mut grey = page.spawn((
+                place(panel, (x, SEAT_Y)),
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
             ));
+            if let Some(art) = image("menu_player_select_background_deselected") {
+                grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+            }
+            let small = (size.0 * NEIGHBOUR_SCALE, size.1 * NEIGHBOUR_SCALE);
+            page.spawn((
+                ImageNode::default(),
+                place(small, (x + offset.0 * NEIGHBOUR_SCALE, SEAT_Y + offset.1)),
+                Carousel(side as i32),
+            ));
+            if let Some(art) = image("menu_arrow") {
+                page.spawn((
+                    ImageNode::new(art),
+                    UiTransform::from_rotation(Rot2::degrees(90.0 * side)),
+                    place((40.0, 50.0), (CAROUSEL_ARROW_X * side, SEAT_Y)),
+                ));
+            }
         }
         // The brick pack panel under the seat; no name plate here.
         let mut pack = page.spawn((
@@ -409,6 +452,7 @@ pub(crate) fn single_input(
     game: Res<Match>,
     mut screen: ResMut<MenuScreen>,
     mut menu: ResMut<SingleMenu>,
+    mut config: ResMut<GameConfig>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Single {
         return;
@@ -417,6 +461,13 @@ pub(crate) fn single_input(
     if !taps.pad_back.is_empty() {
         *screen = MenuScreen::Main;
         return;
+    }
+    // Left/Right turn the carousel of wizards; the pick plays as tower 1.
+    if taps.left || taps.right {
+        let step = if taps.right { 1 } else { CAROUSEL_WIZARDS - 1 };
+        menu.wizard = (menu.wizard + step) % CAROUSEL_WIZARDS;
+        let pack = config.skins.first().map_or(Default::default(), |s| s.1);
+        config.skins = vec![(menu.wizard, pack)];
     }
     if taps.up || taps.down {
         menu.selected = (menu.selected + 1) % LIST.len();
@@ -649,5 +700,33 @@ mod tests {
         let again = Leaderboard::load(file.clone());
         assert_eq!(again.scores, [vec![250], vec![], vec![40]]);
         let _ = std::fs::remove_dir_all(file.parent().unwrap());
+    }
+}
+
+/// Shows the picked wizard and its neighbours in the carousel.
+pub(crate) fn show_carousel(
+    menu: Res<SingleMenu>,
+    art: Option<Res<Art>>,
+    mut slots: Query<(&Carousel, &mut ImageNode, &mut Visibility)>,
+) {
+    if !menu.is_changed() && !art.as_ref().is_some_and(|a| a.is_changed()) {
+        return;
+    }
+    let n = CAROUSEL_WIZARDS as i32;
+    for (slot, mut node, mut visibility) in &mut slots {
+        let wizard = (menu.wizard as i32 + slot.0).rem_euclid(n) as usize;
+        let pose = if slot.0 == 0 { "ready" } else { "sleeping" };
+        let picture = art
+            .as_ref()
+            .and_then(|a| a.image(&crate::select::seat_picture(wizard, pose)));
+        match picture {
+            Some(image) => {
+                node.image = image;
+                visibility.set_if_neq(Visibility::Inherited);
+            }
+            None => {
+                visibility.set_if_neq(Visibility::Hidden);
+            }
+        }
     }
 }
