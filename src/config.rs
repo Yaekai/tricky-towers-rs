@@ -1424,8 +1424,9 @@ fn survival_dark_after() -> Vec<(SpellKind, String)> {
     ]
 }
 
-/// The three Mystery shapes: a 2x4 block, a ten-cell blob (exact cells still
-/// to be checked) and a table on two feet.
+/// The three Mystery shapes, from the MysteryBrick prefabs' box colliders: a 2x4
+/// standing block, a ten-cell blob in a 3x4 box (its 45° nub beside the top isn't a
+/// cell) and the piano on two feet.
 pub fn default_mystery_pieces() -> Vec<PieceDef> {
     vec![
         PieceDef::new(
@@ -1434,12 +1435,12 @@ pub fn default_mystery_pieces() -> Vec<PieceDef> {
             &[
                 (0, 0),
                 (1, 0),
-                (2, 0),
-                (3, 0),
                 (0, 1),
                 (1, 1),
-                (2, 1),
-                (3, 1),
+                (0, 2),
+                (1, 2),
+                (0, 3),
+                (1, 3),
             ],
         )
         .with_mass(1.5),
@@ -1447,16 +1448,16 @@ pub fn default_mystery_pieces() -> Vec<PieceDef> {
             "Blob",
             [0.55, 0.80, 0.70],
             &[
+                (0, 0),
                 (1, 0),
-                (2, 0),
                 (0, 1),
                 (1, 1),
                 (2, 1),
-                (3, 1),
                 (0, 2),
                 (1, 2),
                 (2, 2),
-                (3, 2),
+                (1, 3),
+                (2, 3),
             ],
         )
         .with_mass(1.75),
