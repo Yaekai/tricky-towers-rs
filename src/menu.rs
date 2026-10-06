@@ -243,14 +243,18 @@ const CONTROLS_SECTIONS: [(f32, f32, &str, &[KeyCap]); 5] = {
     ]
 };
 
-fn spawn_controls_panel(
+/// The keyboard controls panel centred at `centre` (px from the top-left), or at
+/// the pause screen's place.
+pub(crate) fn spawn_controls_panel(
     root: &mut ChildSpawnerCommands,
     art: Option<&Art>,
     keys: &crate::keybinding::KeyBindings,
-) {
+    centre: Option<(f32, f32)>,
+) -> Entity {
     use crate::popup::px;
     let image = |name: &str| art.and_then(|a| a.image(name));
-    let ((w, h), (cx, cy)) = CONTROLS_PANEL;
+    let ((w, h), at) = CONTROLS_PANEL;
+    let (cx, cy) = centre.unwrap_or(at);
     let mut panel = root.spawn((
         Node {
             position_type: PositionType::Absolute,
@@ -395,6 +399,7 @@ fn spawn_controls_panel(
             });
         }
     });
+    panel.id()
 }
 
 /// "GAME PAUSED" and its options centred in the right half, over a darkened
@@ -434,7 +439,12 @@ fn spawn_pause_menu(
         ))
         .with_children(|root| {
             let defaults = crate::keybinding::KeyBindings::default();
-            spawn_controls_panel(root, art.as_deref(), keys.as_deref().unwrap_or(&defaults));
+            spawn_controls_panel(
+                root,
+                art.as_deref(),
+                keys.as_deref().unwrap_or(&defaults),
+                None,
+            );
             root.spawn((Node {
                 position_type: PositionType::Absolute,
                 left: px(PAUSE_COLUMN.0),
