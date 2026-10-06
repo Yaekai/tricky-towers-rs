@@ -108,6 +108,15 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Next: the rest of Max's screenshot comparison** (2026-10-06, docs/research/compare-2026-10-06.md;
+  lines without ✓ are still open; Max's pictures are in `research\screenshotsbymax`, never commit
+  them). Left, biggest first: trial camera framing both lanes (player wizard is off screen) and the
+  RETRY / SELECT TRIAL panel after a trial; the Pause CONTROLS panel (left half); the Single Player
+  wizard carousel; the Endless WEEKLY leaderboard panel; Settings sliders (10 segments), Quality
+  names ("Magical"), language flag, small Apply button; the Survival count beside the next card;
+  the Puzzle trial laser orb and the enemy's brick column; the title backdrop's sides at 21:9.
+- Also queued: tutorial (explanation) and Credits popups (layouts read in menus.md), keyboard key
+  hints on the spell clouds, the trial mode stinger.
 - **Done on the new PC (2026-10-05)**: wizard voice packs read into docs/research/wizards.md
   ("Voice lines") and staged as `wizard<n>_say_<kind>_<i>` (439 lines, all 14 characters);
   the cloud can switch `wizards.rs` to them. Tier unlock, Settings, Stats and Game Info pictured

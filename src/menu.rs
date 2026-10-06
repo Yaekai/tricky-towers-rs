@@ -168,34 +168,42 @@ pub const PAUSE_OPTIONS: [&str; 3] = ["Resume", "Retry", "Quit"];
 #[derive(Component)]
 struct PauseRoot;
 
-/// Layout of the pause screen in pixels of a 1080-high screen: the title's
-/// and items' left edge, the title's and first item's heights over the
-/// centre, the row pitch, and the bar behind the picked item.
-const PAUSE_LEFT: f32 = 480.0;
+/// Layout of the pause screen in pixels of a 1920x1080 screen (PausePopup): the
+/// title and the options share a column 840 wide centred 480 px right of the
+/// screen centre (the left half holds the controls); the title's and first
+/// option's heights over the centre, the row pitch and text size, and the bar
+/// behind the picked option.
+const PAUSE_COLUMN: (f32, f32) = (1020.0, 840.0);
 const PAUSE_TITLE_Y: f32 = 260.0;
 const PAUSE_ITEMS_Y: f32 = 120.0;
 const PAUSE_ROW: (f32, f32) = (60.0, 30.0);
 const PAUSE_BAR: f32 = 28.0;
-/// The panel behind the column (its size is a guess).
-const PAUSE_PANEL_WIDTH: f32 = 960.0;
+/// The picked option is yellow, the others pink (Max's screenshots).
+const PAUSE_PICKED: Color = Color::srgb(1.0, 0.85, 0.25);
+const PAUSE_OTHER: Color = Color::srgb(1.0, 0.31, 0.55);
 
 #[derive(Component)]
 struct PauseBar(usize);
 
-/// "Game Paused" and its options in a column on the left, over a darkened
-/// match (docs/research/menus.md).
+/// An option's words, coloured by whether it is picked.
+#[derive(Component)]
+struct PauseWords(usize);
+
+/// "GAME PAUSED" and its options centred in the right half, over a darkened
+/// match (the original's PausePopup).
 fn spawn_pause_menu(mut commands: Commands, art: Option<Res<Art>>) {
     use crate::popup::{BAR_SLICE, px, sliced};
     let bar = art.as_ref().and_then(|a| a.image("menu_item_selected"));
-    let text = |size: f32, value: &str| {
+    let text = |size: f32, value: &str, look: crate::letters::TextLook| {
         (
-            Text::new(value),
+            Text::new(value.to_uppercase()),
             TextFont {
                 font_size: FontSize::Vh(size / 10.8),
                 ..default()
             },
             TextColor(Color::WHITE),
-            TextLayout::justify(Justify::Left),
+            TextLayout::justify(Justify::Center),
+            look,
         )
     };
     // Heights over the centre become tops in a 1080-high screen.
@@ -213,37 +221,29 @@ fn spawn_pause_menu(mut commands: Commands, art: Option<Res<Art>>) {
             PauseRoot,
         ))
         .with_children(|root| {
-            root.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(0.0),
-                    top: px(0.0),
-                    width: px(PAUSE_PANEL_WIDTH),
-                    height: Val::Percent(100.0),
-                    ..default()
-                },
-                BackgroundColor(Color::srgba(0.031, 0.020, 0.094, 0.85)),
-            ));
             root.spawn((Node {
                 position_type: PositionType::Absolute,
-                left: px(PAUSE_LEFT),
-                top: top(PAUSE_TITLE_Y, 70.0),
-                height: px(70.0),
+                left: px(PAUSE_COLUMN.0),
+                width: px(PAUSE_COLUMN.1),
+                top: top(PAUSE_TITLE_Y, 100.0),
+                height: px(100.0),
+                justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
             },))
                 .with_children(|t| {
-                    t.spawn(text(64.0, "Game Paused"));
+                    t.spawn(text(75.0, "Game Paused", crate::letters::TextLook::TITLE));
                 });
             for (i, option) in PAUSE_OPTIONS.iter().enumerate() {
                 let y = PAUSE_ITEMS_Y - PAUSE_ROW.0 * i as f32;
                 let mut row = root.spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        left: px(PAUSE_LEFT - 16.0),
+                        left: px(PAUSE_COLUMN.0 + PAUSE_COLUMN.1 / 2.0 - 120.0),
+                        width: px(240.0),
                         top: top(y, PAUSE_BAR),
                         height: px(PAUSE_BAR),
-                        padding: UiRect::new(px(16.0), px(24.0), px(0.0), px(0.0)),
+                        justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
@@ -256,7 +256,10 @@ fn spawn_pause_menu(mut commands: Commands, art: Option<Res<Art>>) {
                     row.insert(node);
                 }
                 row.with_children(|r| {
-                    r.spawn(text(PAUSE_ROW.1, option));
+                    r.spawn((
+                        text(PAUSE_ROW.1, option, crate::letters::TextLook::OUTLINED),
+                        PauseWords(i),
+                    ));
                 });
             }
         });
@@ -337,7 +340,18 @@ fn show_pause_menu(
     pause: Res<PauseMenu>,
     mut root: Query<&mut Visibility, With<PauseRoot>>,
     mut bars: Query<(&PauseBar, Option<&mut ImageNode>, &mut BackgroundColor)>,
+    mut words: Query<(&PauseWords, &mut TextColor)>,
 ) {
+    for (item, mut color) in &mut words {
+        let want = if item.0 == pause.selected {
+            PAUSE_PICKED
+        } else {
+            PAUSE_OTHER
+        };
+        if color.0 != want {
+            color.0 = want;
+        }
+    }
     let shown = game.phase == Phase::Menu && *screen == MenuScreen::Pause;
     for mut v in &mut root {
         v.set_if_neq(if shown {
