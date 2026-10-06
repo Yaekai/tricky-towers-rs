@@ -618,24 +618,37 @@ fn spawn_cloud(
                 let x = if dark { 1.1 } else { -1.1 };
                 transform.translation =
                     Vec3::new(x * config.cell_size, -1.25 * config.cell_size, 0.2);
-                parent.spawn((sprite, anchor, transform, ButtonHint { dark }));
+                parent.spawn((sprite, anchor, transform, ButtonHint { dark, tower }));
             }
         });
 }
 
-/// A spell bubble's button hint.
+/// A spell bubble's button hint, and whose bubble it is.
 #[derive(Component)]
 struct ButtonHint {
     dark: bool,
+    tower: Entity,
 }
 
-/// Up for 0.2 s, down for 0.2 s (ButtonPressLight/DarkPC).
-fn flick_hints(time: Res<Time>, art: Res<Art>, mut hints: Query<(&ButtonHint, &mut Sprite)>) {
+/// Up for 0.2 s, down for 0.2 s (ButtonPressLight/DarkPC and XBox). Players on a
+/// pad (players 2-4) see its X and B; the keyboard player and the AI wizards J and K.
+fn flick_hints(
+    time: Res<Time>,
+    art: Res<Art>,
+    towers: Query<&Tower>,
+    mut hints: Query<(&ButtonHint, &mut Sprite)>,
+) {
     let down = time.elapsed_secs() % 0.4 >= 0.2;
     for (hint, mut sprite) in &mut hints {
         let side = if hint.dark { "dark" } else { "light" };
         let state = if down { "down" } else { "up" };
-        if let Some(image) = art.image(&format!("spell_cloud_button_{side}_{state}"))
+        let pad = towers
+            .get(hint.tower)
+            .is_ok_and(|t| t.player.is_some_and(|p| p >= 1));
+        let kind = if pad { "pad" } else { "button" };
+        if let Some(image) = art
+            .image(&format!("spell_cloud_{kind}_{side}_{state}"))
+            .or_else(|| art.image(&format!("spell_cloud_button_{side}_{state}")))
             && sprite.image != image
         {
             sprite.image = image;
