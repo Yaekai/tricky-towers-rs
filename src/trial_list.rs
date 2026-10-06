@@ -2107,6 +2107,38 @@ const FLOORS_AND_RIVALS: &[(&str, Option<&str>, Option<u32>)] = &[
     ("SP_26", Some("FLOOR_PUZZLE_SOLID_BRICKS"), None),
 ];
 
+/// A trial floor's height (its FloorFactory value): the camera shows this far under
+/// the base top.
+pub fn floor_height(name: &str) -> Option<f32> {
+    let height = match name {
+        "FLOOR_PUZZLE_BASIC" => 15.5,
+        "FLOOR_PUZZLE_SOLID_BRICKS"
+        | "FLOOR_PUZZLE_SOLID_BRICKS02"
+        | "FLOOR_PUZZLE_NUDGE_TUTORIAL"
+        | "FLOOR_PUZZLE_NO_ROTATE"
+        | "FLOOR_PUZZLE_LEVEL01"
+        | "FLOOR_PUZZLE_DOUBLE"
+        | "FLOOR_PUZZLE_BAK" => 15.0,
+        "FLOOR_PUZZLE_SPARE_UNIT"
+        | "FLOOR_PUZZLE_NO_ROTATE_NEED_EASY"
+        | "FLOOR_PUZZLE_NO_ROTATE_NEED"
+        | "FLOOR_PUZZLE_LONG_I"
+        | "FLOOR_PUZZLE_FILLER_01"
+        | "FLOOR_PUZZLE_BRIDGE01"
+        | "FLOOR_PUZZLE_BRIDGE" => 14.0,
+        "FLOOR_PUZZLE_LARGE_INTRO"
+        | "FLOOR_PUZZLE_BLOCK"
+        | "FLOOR_OVERHANG_TUTORIAL"
+        | "FLOOR_OVERHANG_CHALLENGE_J_I"
+        | "FLOOR_OVERHANG_CHALLENGE_J"
+        | "FLOOR_OVERHANG_CHALLENGE" => 12.0,
+        "FLOOR_PUZZLE_HARD" => 11.0,
+        "FLOOR_PUZZLE_LOCKS" => 10.0,
+        _ => 12.5,
+    };
+    Some(height)
+}
+
 /// The trials' own floors (docs/research/trials-obstacles-roofs.md): boxes as
 /// (x from, x to, y from, y to) and pictures as (art, x, y, mirrored, turn).
 #[allow(clippy::type_complexity)]

@@ -2617,6 +2617,23 @@ impl Default for GameConfig {
 impl GameConfig {
     /// The top of the view while a tower's top is at `top` cells: the camera keeps
     /// the spawn point and a little room above it in sight.
+    /// How far under the base top the camera may go: the floor's height (the
+    /// original's FloorFactory height, set as the tower camera's minBottom).
+    pub fn camera_floor(&self) -> f32 {
+        let trial_floor = self
+            .trial
+            .and_then(|i| self.trials.get(i))
+            .and_then(|t| t.floor.as_deref())
+            .and_then(crate::trial_list::floor_height);
+        match (trial_floor, self.mode) {
+            (Some(height), _) => height,
+            (None, ModeKind::Puzzle) if self.difficulty == Some(Difficulty::Pro) => 13.0,
+            (None, ModeKind::Puzzle) => 12.0,
+            (None, ModeKind::EndlessPuzzle) => 10.0,
+            _ => 12.5,
+        }
+    }
+
     pub fn camera_top(&self, top: f32) -> f32 {
         (top + self.spawn_gap + 3.0).max(16.0)
     }
@@ -2908,9 +2925,13 @@ pub struct HudLook {
     pub loser_mix: f32,
     /// Losing wizards shrink away over this many seconds once the match is over.
     pub wizard_vanish: f32,
-    /// How many cells tall the view is while playing (a cell is about 36 px at
-    /// 1080p in the press kit); more when the lanes need the width.
-    pub camera_cells: f32,
+    /// The tower camera (SingleTowerCamera): at least this many cells tall, its top
+    /// this many cells of room above the highest tower minus `camera_tower_room`
+    /// (the original's maxTowerInScreen), its bottom this far under the lowest tower
+    /// but never under the floor.
+    pub camera_height: f32,
+    pub camera_tower_room: f32,
+    pub camera_below_lowest: f32,
 }
 
 impl Default for HudLook {
@@ -2942,7 +2963,9 @@ impl Default for HudLook {
             loser_tint: [0.78, 0.82, 0.88],
             loser_mix: 0.7,
             wizard_vanish: 0.6,
-            camera_cells: 30.0,
+            camera_height: 41.538_46,
+            camera_tower_room: 20.0,
+            camera_below_lowest: 10.0,
         }
     }
 }

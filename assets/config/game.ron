@@ -1514,7 +1514,9 @@
         loser_tint: (0.78, 0.82, 0.88),
         loser_mix: 0.7,
         wizard_vanish: 0.6,
-        camera_cells: 30.0,
+        camera_height: 41.53846,
+        camera_tower_room: 20.0,
+        camera_below_lowest: 10.0,
     ),
     pieces: [
         (

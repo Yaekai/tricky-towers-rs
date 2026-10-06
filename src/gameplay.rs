@@ -894,9 +894,9 @@ fn start_match(
         let mut origin_x = config.cells(spacing) * (index as f32 - (count - 1) as f32 * 0.5);
         if config.trial.is_some() {
             // A trial splits the screen with the enemy wizard's lane on the right;
-            // a Puzzle trial's lane takes the left two thirds.
+            // a Puzzle trial's lane takes the left two thirds, centred in them.
             origin_x = if config.mode == ModeKind::Puzzle {
-                -config.cells(config.lanes.screen_width) / 3.0
+                -config.cells(config.lanes.screen_width) / 6.0
             } else {
                 -config.cells(config.lanes.spacing(2)) * 0.5
             };
