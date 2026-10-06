@@ -339,13 +339,6 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
                 );
             }
         }
-        page.spawn(place((SCREEN_WIDTH, 60.0), (0.0, -540.0 + 60.0)))
-            .with_children(|p| {
-                p.spawn(label(
-                    2.2,
-                    "Up/Down: choose   Enter or A: pick   Esc or B: back",
-                ));
-            });
     });
 
     let endless = spawn_page(&mut commands, art, "Endless");
@@ -367,11 +360,21 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
                     place(entry.size, (at.0, at.1 + entry.lift)),
                 ));
             }
-            if picture.is_none() {
-                node.with_children(|b| {
-                    b.spawn((label(4.0, entry.name), Item::EndlessText(index)));
+            // "RACE CHALLENGE" across the button's upper right, as in the original.
+            node.with_children(|b| {
+                b.spawn(Node {
+                    position_type: PositionType::Absolute,
+                    right: Val::Percent(4.0),
+                    top: Val::Percent(8.0),
+                    ..default()
+                })
+                .with_children(|t| {
+                    t.spawn((
+                        crate::select::label_with(4.0, "", crate::letters::TextLook::OUTLINED),
+                        Item::EndlessText(index),
+                    ));
                 });
-            }
+            });
             if let Some(face) = image(entry.face) {
                 let face_at = (
                     at.0 - ENDLESS_BUTTON.0 / 2.0 + FACE_AT.0 + FACE.0 / 2.0,
@@ -422,23 +425,22 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
                 });
             }
         });
-        page.spawn(place((SCREEN_WIDTH, 60.0), (0.0, -540.0 + 60.0)))
-            .with_children(|p| {
-                p.spawn(label(
-                    2.2,
-                    "Up/Down: choose   Enter or A: play   Esc or B: back",
-                ));
-            });
     });
 }
 
-const SCREEN_WIDTH: f32 = 1920.0;
-
 /// The centre of Endless button `index`'s slot.
+/// The Endless buttons top to bottom, as indexes into `ENDLESS`: the original lists
+/// Race, Puzzle, Survival (the entries keep their order for the saved boards).
+const ENDLESS_ORDER: [usize; 3] = [0, 2, 1];
+
 fn endless_slot(index: usize) -> (f32, f32) {
+    let row = ENDLESS_ORDER
+        .iter()
+        .position(|&i| i == index)
+        .unwrap_or(index);
     (
         ENDLESS_TOP_LEFT.0 + ENDLESS_BUTTON.0 / 2.0,
-        ENDLESS_TOP_LEFT.1 - ENDLESS_BUTTON.1 / 2.0 - ENDLESS_STEP * index as f32,
+        ENDLESS_TOP_LEFT.1 - ENDLESS_BUTTON.1 / 2.0 - ENDLESS_STEP * row as f32,
     )
 }
 /// A list button's colour when its art isn't staged.
@@ -502,12 +504,16 @@ pub(crate) fn endless_input(
         *screen = MenuScreen::Single;
         return;
     }
-    let count = ENDLESS.len();
+    let count = ENDLESS_ORDER.len();
+    let row = ENDLESS_ORDER
+        .iter()
+        .position(|&i| i == menu.endless)
+        .unwrap_or(0);
     if taps.up {
-        menu.endless = (menu.endless + count - 1) % count;
+        menu.endless = ENDLESS_ORDER[(row + count - 1) % count];
     }
     if taps.down {
-        menu.endless = (menu.endless + 1) % count;
+        menu.endless = ENDLESS_ORDER[(row + 1) % count];
     }
     if !(taps.key_pick || !taps.pad_pick.is_empty()) || !ENDLESS[menu.endless].built {
         return;
@@ -614,13 +620,7 @@ pub(crate) fn show_single_screens(
                     format!("{name} (soon)")
                 }
             }
-            Item::EndlessText(i) => {
-                if ENDLESS[i].built {
-                    ENDLESS[i].name.to_string()
-                } else {
-                    format!("{} (soon)", ENDLESS[i].name)
-                }
-            }
+            Item::EndlessText(i) => format!("{} Challenge", ENDLESS[i].name),
             Item::BoardTitle => format!("Endless {}", entry.name),
             Item::BoardRow(row) => match board.scores[menu.endless].get(row) {
                 Some(score) if entry.built => format!("{}.  {score}", row + 1),
@@ -672,6 +672,34 @@ pub(crate) fn record_endless_scores(
     board.save();
 }
 
+/// Shows the picked wizard and its neighbours in the carousel.
+pub(crate) fn show_carousel(
+    menu: Res<SingleMenu>,
+    art: Option<Res<Art>>,
+    mut slots: Query<(&Carousel, &mut ImageNode, &mut Visibility)>,
+) {
+    if !menu.is_changed() && !art.as_ref().is_some_and(|a| a.is_changed()) {
+        return;
+    }
+    let n = CAROUSEL_WIZARDS as i32;
+    for (slot, mut node, mut visibility) in &mut slots {
+        let wizard = (menu.wizard as i32 + slot.0).rem_euclid(n) as usize;
+        let pose = if slot.0 == 0 { "ready" } else { "sleeping" };
+        let picture = art
+            .as_ref()
+            .and_then(|a| a.image(&crate::select::seat_picture(wizard, pose)));
+        match picture {
+            Some(image) => {
+                node.image = image;
+                visibility.set_if_neq(Visibility::Inherited);
+            }
+            None => {
+                visibility.set_if_neq(Visibility::Hidden);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -700,33 +728,5 @@ mod tests {
         let again = Leaderboard::load(file.clone());
         assert_eq!(again.scores, [vec![250], vec![], vec![40]]);
         let _ = std::fs::remove_dir_all(file.parent().unwrap());
-    }
-}
-
-/// Shows the picked wizard and its neighbours in the carousel.
-pub(crate) fn show_carousel(
-    menu: Res<SingleMenu>,
-    art: Option<Res<Art>>,
-    mut slots: Query<(&Carousel, &mut ImageNode, &mut Visibility)>,
-) {
-    if !menu.is_changed() && !art.as_ref().is_some_and(|a| a.is_changed()) {
-        return;
-    }
-    let n = CAROUSEL_WIZARDS as i32;
-    for (slot, mut node, mut visibility) in &mut slots {
-        let wizard = (menu.wizard as i32 + slot.0).rem_euclid(n) as usize;
-        let pose = if slot.0 == 0 { "ready" } else { "sleeping" };
-        let picture = art
-            .as_ref()
-            .and_then(|a| a.image(&crate::select::seat_picture(wizard, pose)));
-        match picture {
-            Some(image) => {
-                node.image = image;
-                visibility.set_if_neq(Visibility::Inherited);
-            }
-            None => {
-                visibility.set_if_neq(Visibility::Hidden);
-            }
-        }
     }
 }
