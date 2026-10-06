@@ -11,7 +11,7 @@
 //! trials-obstacles-roofs.md, section 3). Each tier's unlock plays once
 //! (`TrialProgress::tiers_shown`).
 //!
-//! Not done: the mode stinger when a trial starts.
+//! Starting a trial plays its mode's stinger (art.rs `play_music`).
 
 use bevy::prelude::*;
 

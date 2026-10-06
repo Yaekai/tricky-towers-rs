@@ -583,14 +583,46 @@ fn apply_font(art: Res<Art>, mut texts: Query<&mut TextFont>) {
 #[derive(Component)]
 pub(crate) struct Music(String);
 
-/// Loops the music for the menu or the current mode.
+/// Loops the music for the menu or the current mode. A match started from Select
+/// Mode, the Endless screen or the Trials list opens with its mode's start stinger
+/// (`<MODE>_SFX_START_STINGER`, once, at the music volume).
+#[allow(clippy::too_many_arguments)]
 fn play_music(
     mut commands: Commands,
     art: Res<Art>,
     game: Res<Match>,
     playing: Query<(Entity, &Music)>,
     settings: Option<Res<crate::settings::Settings>>,
+    screen: Option<Res<crate::menu::MenuScreen>>,
+    mut last: Local<(u64, Option<crate::menu::MenuScreen>)>,
 ) {
+    use crate::menu::MenuScreen;
+    let volume = settings.as_ref().map_or(1.0, |s| s.music);
+    if game.phase == Phase::Menu {
+        last.1 = screen.as_deref().copied();
+    }
+    if game.round != last.0 {
+        last.0 = game.round;
+        let from_select = matches!(
+            last.1,
+            Some(MenuScreen::Modes | MenuScreen::Endless | MenuScreen::Trials)
+        );
+        let stinger = match game.mode.look() {
+            ModeKind::Survival => "music_track_02_spooky_stinger",
+            ModeKind::Puzzle => "music_track_03_puzzle_stinger",
+            _ => "music_track_01_race_stinger",
+        };
+        if from_select && let Some(handle) = art.sounds.get(stinger) {
+            commands.spawn((
+                AudioPlayer(handle.clone()),
+                PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+            ));
+        }
+    }
+    // The explanation before a match keeps whatever is playing.
+    if game.phase == Phase::Menu && screen.as_deref() == Some(&MenuScreen::Explain) {
+        return;
+    }
     let want = match (game.phase, game.mode.look()) {
         (Phase::Menu, _) => "music_menu",
         (_, ModeKind::Race) => "music_race",
@@ -608,9 +640,7 @@ fn play_music(
         commands.spawn((
             Music(want.into()),
             AudioPlayer(handle.clone()),
-            PlaybackSettings::LOOP.with_volume(bevy::audio::Volume::Linear(
-                settings.map_or(1.0, |s| s.music),
-            )),
+            PlaybackSettings::LOOP.with_volume(bevy::audio::Volume::Linear(volume)),
         ));
     }
 }
