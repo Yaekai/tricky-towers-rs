@@ -138,10 +138,9 @@ frontend and test-writer suggestions.
 - **Survival curse-wave background is in** (2026-10-05, cloud): during a wave the background
   layers grey to (166,166,166) and drifting layers go 138× faster, shifting with the sky over
   1 s (`WeatherLook::survival_wave_grey/drift`); Endless Survival's counted waves now shift the
-  sky too. Read: which layers count as "clouds and islands" (we grey every background layer),
-  the normal drift speeds of Survival's clouds (stage them with `drift`), what the "overlay"
-  colour (144,52,110 / 91,60,175) is drawn on, the mist's 5× speed-up, and the stars'
-  twinkle (positions, art, one every 2-5 s) and the swinging moon.
+  sky too. Done 2026-10-06: Survival's stars (StarrySky positions, twinkle, twirl every 2-5 s), its three
+  drifting cloud layers and three mist bands. Still to read: what the "overlay" colour
+  (144,52,110 / 91,60,175) is drawn on, the mist's speed-up in waves, dropping the moon and stars.
 - **Trial banners, race-trial clock and finish flags are in** (2026-10-05, cloud): trials end
   on CHALLENGE COMPLETE / CHALLENGE FAILED (drawn at 0.6× the WINNER! size, ?), a race trial's
   finish line shows the seconds left beside `hourglass` (fading in over 1 s; place and size
