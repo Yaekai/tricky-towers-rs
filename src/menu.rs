@@ -75,7 +75,10 @@ impl Plugin for MenuPlugin {
                 .chain()
                 .in_set(MenuSystems),
         )
-        .add_systems(Update, record_endless_scores);
+        .add_systems(
+            Update,
+            (record_endless_scores, crate::select::fit_backdrops),
+        );
     }
 }
 
@@ -735,7 +738,7 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
         MainMenuRoot,
     ));
     if let Some(background) = image("menu_background") {
-        root.insert((ImageNode::new(background), BackgroundColor(Color::NONE)));
+        root.with_child(crate::select::backdrop(background));
     }
     root.with_children(|parent| {
         for (i, tile) in TILES.iter().enumerate() {

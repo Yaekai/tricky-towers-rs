@@ -393,6 +393,46 @@ pub(crate) struct PlayersRoot;
 #[derive(Component)]
 pub(crate) struct ModesRoot;
 
+/// The menus' 16:9 backdrop picture, covering the screen at any shape: it keeps
+/// its proportions and is cut at the top and bottom on wider screens (21:9) or at
+/// the sides on narrower ones, as the original's camera-drawn menus fill the screen.
+#[derive(Component)]
+pub(crate) struct Backdrop;
+
+pub(crate) fn backdrop(image: Handle<Image>) -> impl Bundle {
+    (
+        ImageNode::new(image),
+        Node {
+            position_type: PositionType::Absolute,
+            ..default()
+        },
+        Backdrop,
+    )
+}
+
+/// Sizes every backdrop to cover the view.
+pub(crate) fn fit_backdrops(
+    view: Option<Res<crate::visuals::ViewSize>>,
+    mut backdrops: Query<&mut Node, With<Backdrop>>,
+) {
+    let Some(view) = view else { return };
+    let (w, h) = (view.0.x.max(1.0), view.0.y.max(1.0));
+    let scale = (w / SCREEN.0).max(h / SCREEN.1);
+    let (bw, bh) = (SCREEN.0 * scale / w * 100.0, SCREEN.1 * scale / h * 100.0);
+    let (left, top) = (
+        Val::Percent((100.0 - bw) / 2.0),
+        Val::Percent((100.0 - bh) / 2.0),
+    );
+    for mut node in &mut backdrops {
+        if node.width != Val::Percent(bw) || node.left != left || node.top != top {
+            node.width = Val::Percent(bw);
+            node.height = Val::Percent(bh);
+            node.left = left;
+            node.top = top;
+        }
+    }
+}
+
 /// A full-screen page with the title backdrop and the header bar.
 pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str) -> Entity {
     let mut page = commands.spawn((
@@ -406,7 +446,7 @@ pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str
         Visibility::Hidden,
     ));
     if let Some(background) = art.and_then(|a| a.image("menu_background")) {
-        page.insert((ImageNode::new(background), BackgroundColor(Color::NONE)));
+        page.with_child(backdrop(background));
     }
     page.with_children(|page| {
         let mut header = page.spawn((
