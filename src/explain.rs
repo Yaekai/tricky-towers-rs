@@ -213,8 +213,8 @@ fn spawn_explain(
         // and 50 px up, shown once everything is in.
         let half = (crate::select::SCREEN.0 / 2.0, crate::select::SCREEN.1 / 2.0);
         for (left, words, size) in [
-            (false, "Continue  Enter", (400.0, 50.0)),
-            (true, "K  Disable all explanations", (850.0, 70.0)),
+            (false, "Continue  Space", (400.0, 50.0)),
+            (true, "C  Disable all explanations", (850.0, 70.0)),
         ] {
             let x = if left {
                 -half.0 + 30.0 + size.0 / 2.0
@@ -270,8 +270,8 @@ fn spawn_controls(
             .entity(panel)
             .insert((ControlsPanel, UiTransform::default()));
         for (left, words, size) in [
-            (false, "Continue  Enter", (400.0, 50.0)),
-            (true, "K  Disable all explanations", (935.0, 72.0)),
+            (false, "Continue  Space", (400.0, 50.0)),
+            (true, "C  Disable all explanations", (935.0, 72.0)),
         ] {
             let x = if left {
                 -half.0 + 30.0 + size.0 / 2.0
@@ -493,7 +493,9 @@ fn run_explain(
     let dt = time.delta_secs();
     explain.time += dt;
     let taps = crate::select::read_taps(keys.as_deref(), &pads);
-    let disable = keys.as_ref().is_some_and(|k| k.just_pressed(KeyCode::KeyK))
+    let disable = keys
+        .as_ref()
+        .is_some_and(|k| k.any_just_pressed([KeyCode::KeyK, KeyCode::KeyC]))
         || pads
             .iter()
             .any(|(_, p)| p.just_pressed(GamepadButton::North));
