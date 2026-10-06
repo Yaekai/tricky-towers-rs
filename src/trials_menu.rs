@@ -415,19 +415,39 @@ fn spawn_locked(
                 BackgroundColor(Color::srgba(0.1, 0.08, 0.2, 0.92)),
             ));
             if let Some(art) = image("trial_locked_background") {
-                panel.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
+                // A 9-slice picture (the sprite's borders: left 20, right 24, top 46,
+                // bottom 10).
+                panel.insert((
+                    crate::select::sliced(art, [20.0, 24.0, 46.0, 10.0]),
+                    BackgroundColor(Color::NONE),
+                ));
             }
-            panel.with_children(|p| {
-                p.spawn(Node {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
-                    ..default()
-                })
-                .with_children(|c| {
-                    c.spawn(label(vh(60.0), "LOCKED"));
-                    c.spawn((label(vh(NUMBER_SIZE), ""), TrialPart::LockedText(tier)));
+            // The original's WorldSelectListItem: LOCKED in pink across the panel's top
+            // edge left of centre, "EARN 8 / TO UNLOCK" right of centre and the medal at
+            // the right end.
+            let locked = Color::srgb(1.0, 0.31, 0.55);
+            page.spawn(place((393.0, 80.0), (-105.0, y + LOCKED.1 / 2.0)))
+                .with_children(|t| {
+                    t.spawn(label_with(
+                        vh(60.0),
+                        "LOCKED",
+                        crate::letters::TextLook::OUTLINED,
+                    ))
+                    .insert(TextColor(locked));
                 });
-            });
+            page.spawn(place((348.0, 150.0), (82.5, y)))
+                .with_children(|t| {
+                    t.spawn((
+                        label_with(vh(46.0), "", crate::letters::TextLook::OUTLINED),
+                        TrialPart::LockedText(tier),
+                    ));
+                });
+            if let Some(art) = image("medal_large") {
+                page.spawn((
+                    ImageNode::new(art),
+                    place((70.0, 96.0), (LOCKED.0 / 2.0 - 83.0, y + 0.8)),
+                ));
+            }
             for (i, (link, (x, dy), degrees)) in chain().into_iter().enumerate() {
                 if let Some(art) = image(link.art()) {
                     page.spawn((
@@ -703,7 +723,8 @@ pub(crate) fn show_trials_screen(
             ),
             TrialPart::LockedText(t) => {
                 let need = tier_name(t).map_or(0, |(_, need)| *need);
-                format!("Earn {need} medals to unlock")
+                // The original's SINGLE_PLAYER_LEVEL_UNLOCK_TARGET, on two lines.
+                format!("EARN {need}\nTO UNLOCK")
             }
             _ => continue,
         };
