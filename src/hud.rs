@@ -278,6 +278,8 @@ fn build(
                 offset: Vec2::splat(size * 0.06),
                 color: Color::srgb_u8(40, 20, 60),
             },
+            // The original's display letters with their dark outline.
+            crate::letters::TextLook::OUTLINED,
         ));
     };
     match shows {
@@ -458,7 +460,8 @@ fn place_items(
         // Centre of the item on screen.
         let at = match item.kind {
             Kind::Card => card_x.map(|x| Vec2::new(x, card_h * 0.5)),
-            Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.5, card_h * 0.85)),
+            // Left of the next-brick card, low on it (Max's screenshots of the original).
+            Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.85, card_h * 0.75)),
             Kind::Place => screen(wizard - Vec2::Y * config.cells(look.place_below)),
             Kind::Hearts => screen(wizard - Vec2::Y * config.cells(look.heart_below)),
         };
