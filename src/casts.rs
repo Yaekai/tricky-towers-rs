@@ -284,7 +284,7 @@ fn run_beams(
         Option<&Children>,
     )>,
     mut feet: Query<&mut Transform, (With<BeamFoot>, Without<Beam>, Without<Camera2d>)>,
-    mut images: ResMut<Assets<Image>>,
+    mut images: Option<ResMut<Assets<Image>>>,
     mut glow: Local<Option<(Handle<Image>, Handle<Image>)>>,
 ) {
     let look = &config.casts;
@@ -342,7 +342,7 @@ fn run_beams(
                 (false, true) => LANE_TINT,
                 (false, false) => 0.35,
             };
-            if survival {
+            if survival && let Some(images) = images.as_mut() {
                 let source = sprite.image.clone();
                 if glow.as_ref().is_none_or(|(from, _)| *from != source)
                     && glow.as_ref().is_none_or(|(_, to)| *to != source)
