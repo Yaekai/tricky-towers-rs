@@ -1348,10 +1348,16 @@ fn frame_towers(
         max_x = max_x.max(tower.origin_x);
         top = top.max(state.stack_top);
     }
-    // A trial's enemy lane is framed too.
+    // A trial's enemy lane is framed too, and so is the lone player's wizard floating
+    // left of its tower (both wizards are on screen in the original's trials).
     for lane in &rival_lanes {
         min_x = min_x.min(lane.origin_x);
         max_x = max_x.max(lane.origin_x);
+        if let Some((tower, _)) = towers.iter().next() {
+            let wizard = config.cells(config.wizards.solo_offset_x - 3.0);
+            min_x = min_x
+                .min(tower.origin_x + wizard + config.cells(config.platform_width + 10.0) / 2.0);
+        }
     }
     // Follow the tower tops; the race finish only comes into view as towers near it.
     let goal = match game.mode.rules() {
