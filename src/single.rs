@@ -35,8 +35,7 @@ const CUP_BAND: f32 = 54.0;
 const ENDLESS_TOP_LEFT: (f32, f32) = (135.0, 375.0);
 const ENDLESS_BUTTON: (f32, f32) = (690.0, 173.0);
 const ENDLESS_STEP: f32 = 200.0;
-/// A wizard face's size and its bottom-left corner from the button's bottom-left.
-const FACE: (f32, f32) = (110.0, 108.0);
+/// A wizard face's bottom-left corner from the button's bottom-left.
 const FACE_AT: (f32, f32) = (33.0, 6.0);
 /// The leaderboard on the left, its right edge on the centre line, 30 px below
 /// the centre; its panel's 9-slice borders and its rows'.
@@ -44,11 +43,30 @@ const BOARD: (f32, f32) = (800.0, 800.0);
 const BOARD_AT: (f32, f32) = (-400.0, -30.0);
 const BOARD_SLICE: [f32; 4] = [0.0, 0.0, 51.0, 37.0];
 const ROW_SLICE: [f32; 4] = [6.0, 7.0, 0.0, 0.0];
-/// Rows down the leaderboard (guessed until read): size, the first row's
-/// centre from the board's top and the pitch.
-const ROW: (f32, f32) = (700.0, 56.0);
-const ROW_TOP: f32 = 130.0;
-const ROW_STEP: f32 = 62.0;
+/// Rows down the leaderboard (LeaderboardEntry prefab, list 50 px in from each
+/// side and 70 below the top, one row every 50 px): size, the first row's top
+/// and the pitch; the rank box (width, centre from the left), where the name
+/// starts with no avatar and the room kept right of it, the score box's width.
+const ROW: (f32, f32) = (700.0, 42.0);
+const ROW_TOP: f32 = 70.0;
+const ROW_STEP: f32 = 50.0;
+const RANK: (f32, f32) = (96.5, 15.0 + 96.5 / 2.0);
+const NAME_X: f32 = 125.0;
+const NAME_RIGHT: f32 = 110.0;
+const SCORE_W: f32 = 100.0;
+/// Gold, silver and bronze medal sizes for ranks 1 to 3.
+const MEDALS: [(f32, f32); 3] = [(44.0, 52.0), (40.0, 49.0), (44.0, 52.0)];
+/// Row tints: the list's and YOUR BEST's (darker).
+const ROW_TINT: Color = Color::srgb(0.82, 0.85, 0.95);
+const BEST_TINT: Color = Color::srgb(0.745, 0.784, 0.937);
+/// YOUR BEST block: 50 px in from each side, its bottom 80 px above the panel's.
+const BEST_INSET: f32 = 50.0;
+const BEST_BOTTOM: f32 = 80.0;
+/// EnzoBlackGold / EnzoBlackWhite text faces.
+const GOLD: Color = Color::srgb(1.0, 0.82, 0.31);
+const PALE: Color = Color::srgb(0.918, 0.933, 1.0);
+/// The original shows the Steam name; local runs are all player 1's.
+const PLAYER_NAME: &str = "Player 1";
 /// Scores kept per Endless mode.
 const BOARD_LENGTH: usize = 10;
 
@@ -63,6 +81,7 @@ struct EndlessEntry {
     size: (f32, f32),
     lift: f32,
     face: &'static str,
+    face_size: (f32, f32),
     built: bool,
     color: Color,
     mode: ModeKind,
@@ -75,6 +94,7 @@ const ENDLESS: [EndlessEntry; 3] = [
         size: (690.0, 173.0),
         lift: 0.0,
         face: "menu_challenge_wizard3",
+        face_size: (110.0, 108.0),
         built: true,
         color: Color::srgb(0.85, 0.35, 0.2),
         mode: ModeKind::Endless,
@@ -85,6 +105,7 @@ const ENDLESS: [EndlessEntry; 3] = [
         size: (689.0, 167.0),
         lift: 0.0,
         face: "menu_challenge_wizard2",
+        face_size: (97.0, 102.0),
         // Rules from public descriptions; values are guesses until read (?).
         built: true,
         color: Color::srgb(0.25, 0.55, 0.85),
@@ -96,6 +117,7 @@ const ENDLESS: [EndlessEntry; 3] = [
         size: (690.0, 224.0),
         lift: 28.0,
         face: "menu_challenge_wizard4",
+        face_size: (110.0, 108.0),
         // Rules from public descriptions; values are guesses until read (?).
         built: true,
         color: Color::srgb(0.55, 0.35, 0.75),
@@ -272,9 +294,14 @@ pub(crate) enum Item {
     /// The four corners around a picked list button.
     ListCorner(usize),
     EndlessButton(usize),
+    /// The four corners around the picked Endless button.
+    EndlessCorner(usize),
     EndlessText(usize),
-    BoardTitle,
+    /// A leaderboard row (shown when it holds a score), its name and score.
     BoardRow(usize),
+    BoardName(usize),
+    BoardScore(usize),
+    BestScore,
 }
 
 pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>) {
@@ -425,9 +452,10 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
         }
     });
 
-    let endless = spawn_page(&mut commands, art, "Endless");
+    let endless = crate::select::spawn_page_over(&mut commands, art, "Endless", true);
     commands.entity(endless).insert(EndlessRoot);
     commands.entity(endless).with_children(|page| {
+        let corner = image("menu_corner_small");
         for (index, entry) in ENDLESS.iter().enumerate() {
             let at = endless_slot(index);
             let mut node = page.spawn((
@@ -444,71 +472,217 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
                     place(entry.size, (at.0, at.1 + entry.lift)),
                 ));
             }
-            // "RACE CHALLENGE" across the button's upper right, as in the original.
-            node.with_children(|b| {
-                b.spawn(Node {
-                    position_type: PositionType::Absolute,
-                    right: Val::Percent(4.0),
-                    top: Val::Percent(8.0),
-                    ..default()
-                })
-                .with_children(|t| {
-                    t.spawn((
-                        crate::select::label_with(4.0, "", crate::letters::TextLook::OUTLINED),
-                        Item::EndlessText(index),
-                    ));
-                });
+            // "RACE CHALLENGE" right-aligned in a 60 px box hung from 70 px above the
+            // button's centre, 30 px in from its right edge (TitleLabel, size 46,
+            // pivot top-right as Max's screenshots place it).
+            let mut title = place((ENDLESS_BUTTON.0 - 61.92, 60.0), (at.0 + 0.96, at.1 + 40.0));
+            title.justify_content = JustifyContent::FlexEnd;
+            page.spawn(title).with_children(|t| {
+                t.spawn((
+                    crate::select::label_with(46.0 / 10.8, "", crate::letters::TextLook::OUTLINED),
+                    Item::EndlessText(index),
+                ));
             });
+            // The picked button's corners sit centred on its 690x167 rect's corners.
+            if let Some(corner) = &corner {
+                corners(
+                    page,
+                    corner,
+                    (ENDLESS_BUTTON.0 + CORNER_SMALL.0, 167.0 + CORNER_SMALL.1),
+                    at,
+                    CORNER_SMALL,
+                    Item::EndlessCorner(index),
+                );
+            }
             if let Some(face) = image(entry.face) {
                 let face_at = (
-                    at.0 - ENDLESS_BUTTON.0 / 2.0 + FACE_AT.0 + FACE.0 / 2.0,
-                    at.1 - ENDLESS_BUTTON.1 / 2.0 + FACE_AT.1 + FACE.1 / 2.0,
+                    at.0 - ENDLESS_BUTTON.0 / 2.0 + FACE_AT.0 + entry.face_size.0 / 2.0,
+                    at.1 - ENDLESS_BUTTON.1 / 2.0 + FACE_AT.1 + entry.face_size.1 / 2.0,
                 );
-                page.spawn((ImageNode::new(face), place(FACE, face_at)));
+                page.spawn((ImageNode::new(face), place(entry.face_size, face_at)));
             }
         }
-        let mut board = page.spawn((
-            place(BOARD, BOARD_AT),
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.45)),
-        ));
-        if let Some(art) = image("menu_leaderboard_panel") {
-            board.insert((sliced(art, BOARD_SLICE), BackgroundColor(Color::NONE)));
-        }
-        let row_art = image("menu_leaderboard_row");
-        board.with_children(|b| {
-            b.spawn((Node {
-                position_type: PositionType::Absolute,
-                top: Val::Percent(4.0),
-                width: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                ..default()
-            },))
-                .with_children(|t| {
-                    t.spawn((label(4.0, ""), Item::BoardTitle));
-                });
-            for row in 0..BOARD_LENGTH {
-                let top = ROW_TOP + ROW_STEP * row as f32 - ROW.1 / 2.0;
-                let mut node = b.spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: Val::Percent((BOARD.0 - ROW.0) / 2.0 / BOARD.0 * 100.0),
-                        top: Val::Percent(top / BOARD.1 * 100.0),
-                        width: Val::Percent(ROW.0 / BOARD.0 * 100.0),
-                        height: Val::Percent(ROW.1 / BOARD.1 * 100.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.08)),
-                ));
-                if let Some(art) = &row_art {
-                    node.insert((sliced(art.clone(), ROW_SLICE), BackgroundColor(Color::NONE)));
-                }
-                node.with_children(|r| {
-                    r.spawn((label(2.8, ""), Item::BoardRow(row)));
-                });
-            }
+        spawn_board(page, &image);
+    });
+}
+
+/// A point on the leaderboard panel, in pixels from its top-left (y down), as
+/// a point from the screen centre (y up).
+fn on_board(x: f32, y: f32) -> (f32, f32) {
+    (
+        BOARD_AT.0 - BOARD.0 / 2.0 + x,
+        BOARD_AT.1 + BOARD.1 / 2.0 - y,
+    )
+}
+
+/// A text box `w` wide centred at board point (`x`, `y`), its words lined up
+/// left or centred.
+fn board_text(w: f32, h: f32, x: f32, y: f32, left: bool) -> Node {
+    let mut node = place((w, h), on_board(x, y));
+    if left {
+        node.justify_content = JustifyContent::FlexStart;
+    }
+    node
+}
+
+/// The WEEKLY leaderboard (LeaderboardGameModeSelect scene): panel, title and
+/// arrow keys on its top edge, ten rows, YOUR BEST at the bottom.
+fn spawn_board(page: &mut ChildSpawnerCommands, image: &dyn Fn(&str) -> Option<Handle<Image>>) {
+    let mut board = page.spawn((
+        place(BOARD, BOARD_AT),
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.45)),
+    ));
+    if let Some(art) = image("menu_leaderboard_panel") {
+        board.insert((sliced(art, BOARD_SLICE), BackgroundColor(Color::NONE)));
+    }
+    // Display letters with the dark outline in the given face colour.
+    let outlined = |t: &mut ChildSpawnerCommands, size: f32, text: &str, face: Color| {
+        t.spawn(crate::select::label_with(
+            size,
+            text,
+            crate::letters::TextLook::OUTLINED,
+        ))
+        .insert(TextColor(face))
+        .id()
+    };
+    let px = |p: f32| p / 10.8;
+    page.spawn(board_text(510.0, 75.0, BOARD.0 / 2.0, -10.68, false))
+        .with_children(|t| {
+            outlined(t, px(60.0), "Weekly", GOLD);
         });
+    for (name, x) in [("menu_key_left", 90.0), ("menu_key_right", BOARD.0 - 90.0)] {
+        if let Some(art) = image(name) {
+            page.spawn((ImageNode::new(art), place((55.0, 51.0), on_board(x, -5.0))));
+        }
+    }
+    let row_art = image("menu_leaderboard_row");
+    let row_look = |node: &mut EntityCommands, tint: Color| {
+        node.insert(BackgroundColor(tint.with_alpha(0.5)));
+        if let Some(art) = &row_art {
+            node.insert((sliced(art.clone(), ROW_SLICE), BackgroundColor(Color::NONE)));
+            node.entry::<ImageNode>()
+                .and_modify(move |mut i| i.color = tint);
+        }
+    };
+    let medals = [
+        "menu_leaderboard_medal_1",
+        "menu_leaderboard_medal_2",
+        "menu_leaderboard_medal_3",
+    ];
+    for row in 0..BOARD_LENGTH {
+        let y = ROW_TOP + ROW_STEP * row as f32 + ROW.1 / 2.0;
+        let mut node = page.spawn((
+            place(ROW, on_board(BOARD.0 / 2.0, y)),
+            Item::BoardRow(row),
+            Visibility::Hidden,
+        ));
+        row_look(&mut node, ROW_TINT);
+        node.with_children(|r| {
+            let local = |w: f32, x: f32, left: bool| Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent((x - if left { 0.0 } else { w / 2.0 }) / ROW.0 * 100.0),
+                width: Val::Percent(w / ROW.0 * 100.0),
+                height: Val::Percent(100.0),
+                justify_content: if left {
+                    JustifyContent::FlexStart
+                } else {
+                    JustifyContent::Center
+                },
+                align_items: AlignItems::Center,
+                ..default()
+            };
+            match medals.get(row).and_then(|m| image(m)) {
+                Some(art) => {
+                    let (w, h) = MEDALS[row];
+                    r.spawn((
+                        ImageNode::new(art),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: Val::Percent((RANK.1 - w / 2.0) / ROW.0 * 100.0),
+                            top: Val::Percent(((ROW.1 - h) / 2.0 + 3.0) / ROW.1 * 100.0),
+                            width: Val::Percent(w / ROW.0 * 100.0),
+                            height: Val::Percent(h / ROW.1 * 100.0),
+                            ..default()
+                        },
+                    ));
+                }
+                None => {
+                    r.spawn(local(RANK.0, RANK.1, false))
+                        .with_child(label(px(26.0), &(row + 1).to_string()));
+                }
+            }
+            r.spawn(local(ROW.0 - NAME_X - NAME_RIGHT, NAME_X, true))
+                .with_child((label(px(26.0), ""), Item::BoardName(row)));
+            r.spawn(local(SCORE_W, ROW.0 - SCORE_W / 2.0, false))
+                .with_child((label(px(26.0), ""), Item::BoardScore(row)));
+        });
+    }
+    // YOUR BEST: its tab and row, the title between two pairs of stars.
+    let best_bottom = BOARD.1 - BEST_BOTTOM;
+    let mut tab = page.spawn(place(
+        (BOARD.0 - 2.0 * BEST_INSET - 410.0, 25.0),
+        on_board(BOARD.0 / 2.0, best_bottom - 72.5),
+    ));
+    row_look(&mut tab, BEST_TINT);
+    let row_y = best_bottom - 30.0;
+    let mut best = page.spawn(place(
+        (BOARD.0 - 2.0 * BEST_INSET, 60.0),
+        on_board(BOARD.0 / 2.0, row_y),
+    ));
+    row_look(&mut best, BEST_TINT);
+    let star = image("menu_personal_best_star");
+    for side in [-1.0f32, 1.0] {
+        let edge = |d: f32| BOARD.0 / 2.0 + side * (BOARD.0 / 2.0 - BEST_INSET - d);
+        if let Some(art) = &star {
+            page.spawn((
+                ImageNode::new(art.clone()),
+                place(
+                    (43.0 * 0.75, 43.0 * 0.75),
+                    on_board(edge(192.0), best_bottom - 73.0),
+                ),
+                UiTransform::from_rotation(Rot2::degrees(10.0 * side)),
+            ));
+            page.spawn((
+                ImageNode::new(art.clone()),
+                place((43.0, 43.0), on_board(edge(215.0), best_bottom - 85.0)),
+            ));
+        }
+    }
+    page.spawn(board_text(
+        220.0,
+        40.0,
+        BOARD.0 / 2.0,
+        best_bottom - 85.0,
+        false,
+    ))
+    .with_children(|t| {
+        outlined(t, px(32.0), "Your best", PALE);
+    });
+    page.spawn(board_text(RANK.0, 60.0, BEST_INSET + RANK.1, row_y, false))
+        .with_children(|t| {
+            outlined(t, px(26.0), "-", PALE);
+        });
+    let name_w = BOARD.0 - 2.0 * BEST_INSET - NAME_X - NAME_RIGHT;
+    page.spawn(board_text(
+        name_w,
+        60.0,
+        BEST_INSET + NAME_X + name_w / 2.0,
+        row_y,
+        true,
+    ))
+    .with_children(|t| {
+        outlined(t, px(26.0), PLAYER_NAME, GOLD);
+    });
+    page.spawn(board_text(
+        SCORE_W,
+        60.0,
+        BOARD.0 - BEST_INSET - SCORE_W / 2.0,
+        row_y,
+        false,
+    ))
+    .with_children(|t| {
+        let score = outlined(t, px(26.0), "0", GOLD);
+        t.commands().entity(score).insert(Item::BestScore);
     });
 }
 
@@ -617,6 +791,7 @@ pub(crate) fn show_single_screens(
     screen: Res<MenuScreen>,
     menu: Res<SingleMenu>,
     board: Res<Leaderboard>,
+    mut menu_look: ResMut<crate::visuals::MenuLook>,
     mut roots: ParamSet<(
         Query<&mut Visibility, With<SingleRoot>>,
         Query<&mut Visibility, With<EndlessRoot>>,
@@ -642,6 +817,10 @@ pub(crate) fn show_single_screens(
     for mut v in &mut roots.p1() {
         v.set_if_neq(shown(endless_on));
     }
+    // The original draws the picked Endless mode's own background behind the screen.
+    menu_look.set_if_neq(crate::visuals::MenuLook(
+        endless_on.then(|| ENDLESS[menu.endless].mode),
+    ));
     if !single_on && !endless_on {
         return;
     }
@@ -652,16 +831,32 @@ pub(crate) fn show_single_screens(
         (false, true) => Color::srgb(0.55, 0.55, 0.6),
         (false, false) => Color::srgb(0.35, 0.35, 0.4),
     };
-    let entry = &ENDLESS[menu.endless];
+    let scores: &[u32] = if ENDLESS[menu.endless].built {
+        &board.scores[menu.endless]
+    } else {
+        &[]
+    };
     for (item, image, colour, text, text_colour, visibility) in &mut items {
-        if let (Item::ListCorner(i), Some(mut v)) = (*item, visibility) {
-            v.set_if_neq(shown(menu.selected == i));
-            continue;
+        match (*item, visibility) {
+            (Item::EndlessCorner(i), Some(mut v)) => {
+                v.set_if_neq(shown(menu.endless == i));
+                continue;
+            }
+            (Item::ListCorner(i), Some(mut v)) => {
+                v.set_if_neq(shown(menu.selected == i));
+                continue;
+            }
+            (Item::BoardRow(row), Some(mut v)) => {
+                v.set_if_neq(shown(row < scores.len()));
+                continue;
+            }
+            _ => {}
         }
         let look = match *item {
             // List buttons stay plain; the ribbon marks the picked one.
             Item::ListButton(i) => Some(tint(true, LIST[i].1)),
-            Item::EndlessButton(i) => Some(tint(menu.endless == i, ENDLESS[i].built)),
+            // Endless buttons stay bright too (Max's screenshots); corners mark the picked one.
+            Item::EndlessButton(i) => Some(tint(true, ENDLESS[i].built)),
             _ => None,
         };
         if let Some(look) = look {
@@ -706,11 +901,9 @@ pub(crate) fn show_single_screens(
                 }
             }
             Item::EndlessText(i) => format!("{} Challenge", ENDLESS[i].name),
-            Item::BoardTitle => format!("Endless {}", entry.name),
-            Item::BoardRow(row) => match board.scores[menu.endless].get(row) {
-                Some(score) if entry.built => format!("{}.  {score}", row + 1),
-                _ => format!("{}.  -", row + 1),
-            },
+            Item::BoardName(_) => PLAYER_NAME.to_string(),
+            Item::BoardScore(row) => scores.get(row).map_or(String::new(), u32::to_string),
+            Item::BestScore => scores.first().copied().unwrap_or(0).to_string(),
             _ => continue,
         };
         // Menu text is in capitals, as in the original.

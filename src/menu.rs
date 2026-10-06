@@ -34,6 +34,7 @@ impl Plugin for MenuPlugin {
         .init_resource::<Lobby>()
         .init_resource::<SingleMenu>()
         .init_resource::<Leaderboard>()
+        .init_resource::<crate::visuals::MenuLook>()
         .init_resource::<crate::trials_menu::TrialsMenu>()
         .add_systems(
             Startup,
