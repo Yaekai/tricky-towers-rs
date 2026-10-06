@@ -69,7 +69,7 @@ const BUTTON_GAP: f32 = 0.05;
 const SLIDE_PX: f32 = 1000.0;
 const PAGE_ARROW: ((f32, f32), f32) = ((94.0, 55.0), 500.0);
 const HEADER_Y: f32 = (SCREEN.1 - 90.0) / 2.0;
-/// Seconds a page slide takes (?).
+/// Seconds a page slide takes (LevelDisplay: DOLocalMoveX over 0.3 s).
 const SLIDE_SECONDS: f32 = 0.3;
 
 #[derive(Resource, Debug, Default)]
