@@ -154,6 +154,23 @@ pub(crate) fn show_list_ribbon(
 #[derive(Component)]
 pub(crate) struct PackCard;
 
+/// An Indie guest's game logo over its carousel panel (slot as in `Carousel`).
+#[derive(Component)]
+pub(crate) struct CarouselLogo(i32);
+
+/// The Indie guests' game logos (wizards 9-14) and their sizes in pixels.
+const INDIE_LOGOS: [(&str, (f32, f32)); 6] = [
+    ("menu_logo_lethal_league", (637.0, 459.0)),
+    ("menu_logo_awesomenauts", (525.0, 112.0)),
+    ("menu_logo_towerfall", (397.0, 176.0)),
+    ("menu_logo_armello", (164.0, 100.0)),
+    ("menu_logo_nuclear_throne", (504.0, 181.0)),
+    ("menu_logo_octodad", (518.0, 140.0)),
+];
+/// The box a logo is fitted into, and its centre above the panel's top edge.
+const LOGO_BOX: (f32, f32) = (260.0, 80.0);
+const LOGO_ABOVE: f32 = 10.0;
+
 /// Wizards in the carousel, as many as the original has.
 const CAROUSEL_WIZARDS: usize = 14;
 /// The neighbours' panels and the arrows, from the screen centre (Max's
@@ -288,6 +305,21 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
             place(size, (offset.0, SEAT_Y + offset.1)),
             Carousel(0),
         ));
+        for slot in -1..=1 {
+            let scale = if slot == 0 { 1.0 } else { NEIGHBOUR_SCALE };
+            page.spawn((
+                ImageNode::default(),
+                place(
+                    (LOGO_BOX.0 * scale, LOGO_BOX.1 * scale),
+                    (
+                        NEIGHBOUR_X * slot as f32,
+                        SEAT_Y + SEAT_PANEL.1 * scale / 2.0 + LOGO_ABOVE,
+                    ),
+                ),
+                CarouselLogo(slot),
+                Visibility::Hidden,
+            ));
+        }
         // The neighbours on grey panels, and the arrows between.
         for side in [-1.0f32, 1.0] {
             let x = NEIGHBOUR_X * side;
@@ -726,12 +758,20 @@ pub(crate) fn record_endless_scores(
 }
 
 /// Shows the picked wizard and its neighbours in the carousel.
+#[allow(clippy::type_complexity)]
 pub(crate) fn show_carousel(
     menu: Res<SingleMenu>,
     art: Option<Res<Art>>,
     config: Res<GameConfig>,
-    mut slots: Query<(&Carousel, &mut ImageNode, &mut Visibility), Without<PackCard>>,
-    mut cards: Query<(&mut ImageNode, &mut Visibility), With<PackCard>>,
+    mut slots: Query<
+        (&Carousel, &mut ImageNode, &mut Visibility),
+        (Without<PackCard>, Without<CarouselLogo>),
+    >,
+    mut cards: Query<(&mut ImageNode, &mut Visibility), (With<PackCard>, Without<Carousel>)>,
+    mut logos: Query<
+        (&CarouselLogo, &mut ImageNode, &mut Visibility, &mut Node),
+        (Without<PackCard>, Without<Carousel>),
+    >,
 ) {
     if !menu.is_changed() && !art.as_ref().is_some_and(|a| a.is_changed()) {
         return;
@@ -756,6 +796,32 @@ pub(crate) fn show_carousel(
         }
     }
     let n = CAROUSEL_WIZARDS as i32;
+    for (logo, mut node, mut visibility, mut layout) in &mut logos {
+        let wizard = (menu.wizard as i32 + logo.0).rem_euclid(n) as usize;
+        let picked = wizard
+            .checked_sub(8)
+            .and_then(|i| INDIE_LOGOS.get(i))
+            .and_then(|&(name, size)| Some((art.as_ref()?.image(name)?, size)));
+        match picked {
+            Some((image, (w, h))) => {
+                node.image = image;
+                // Fitted into the box, keeping the logo's shape.
+                let scale = if logo.0 == 0 { 1.0 } else { NEIGHBOUR_SCALE };
+                let fit = (LOGO_BOX.0 / w).min(LOGO_BOX.1 / h) * scale;
+                let x = NEIGHBOUR_X * logo.0 as f32;
+                let y = SEAT_Y + SEAT_PANEL.1 * scale / 2.0 + LOGO_ABOVE;
+                let want = place((w * fit, h * fit), (x, y));
+                layout.left = want.left;
+                layout.top = want.top;
+                layout.width = want.width;
+                layout.height = want.height;
+                visibility.set_if_neq(Visibility::Inherited);
+            }
+            None => {
+                visibility.set_if_neq(Visibility::Hidden);
+            }
+        }
+    }
     for (slot, mut node, mut visibility) in &mut slots {
         let wizard = (menu.wizard as i32 + slot.0).rem_euclid(n) as usize;
         let pose = if slot.0 == 0 { "ready" } else { "sleeping" };
