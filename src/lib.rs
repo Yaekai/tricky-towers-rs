@@ -12,6 +12,7 @@ pub mod art;
 pub mod casts;
 pub mod collapse;
 pub mod config;
+pub mod credits;
 pub mod cups;
 pub mod cups_menu;
 pub mod debug;
