@@ -190,9 +190,208 @@ struct PauseBar(usize);
 #[derive(Component)]
 struct PauseWords(usize);
 
+/// The keyboard controls panel in the pause screen's left half (the original's
+/// ControlsExplanationContentKeyboard, in pixels of a 1920x1080 screen): the panel,
+/// then each section's top below the panel's top, its height, its title and its key
+/// caps as (action, offset from the section's centre, arrows: -1 left, 1 right,
+/// 2 down, 0 none).
+const CONTROLS_PANEL: ((f32, f32), (f32, f32)) = ((480.0, 860.0), (480.0, 554.0));
+const CONTROLS_INSET: f32 = 50.35;
+type KeyCap = (crate::keybinding::Action, (f32, f32), i32);
+const CONTROLS_SECTIONS: [(f32, f32, &str, &[KeyCap]); 5] = {
+    use crate::keybinding::Action::*;
+    [
+        (
+            70.0,
+            155.0,
+            "Move Brick",
+            &[
+                (MoveLeft, (-80.0, 25.0), -1),
+                (MoveRight, (80.0, 25.0), 1),
+                (Drop, (0.0, -25.0), 2),
+            ],
+        ),
+        (260.0, 80.0, "Rotate Brick", &[(TurnRight, (0.0, 0.0), 0)]),
+        (
+            425.0,
+            94.9,
+            "Nudge Brick",
+            &[
+                (NudgeLeft, (-80.0, -10.0), -1),
+                (NudgeRight, (80.0, -10.0), 1),
+            ],
+        ),
+        (
+            535.0,
+            100.0,
+            "Light Magic",
+            &[(LightMagic, (0.0, -10.0), 0)],
+        ),
+        (704.0, 100.0, "Dark Magic", &[(DarkMagic, (0.0, -10.0), 0)]),
+    ]
+};
+
+fn spawn_controls_panel(
+    root: &mut ChildSpawnerCommands,
+    art: Option<&Art>,
+    keys: &crate::keybinding::KeyBindings,
+) {
+    use crate::popup::px;
+    let image = |name: &str| art.and_then(|a| a.image(name));
+    let ((w, h), (cx, cy)) = CONTROLS_PANEL;
+    let mut panel = root.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(cx - w / 2.0),
+            top: px(cy - h / 2.0),
+            width: px(w),
+            height: px(h),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.85, 0.87, 1.0, 0.95)),
+    ));
+    if let Some(art) = image("menu_leaderboard_panel") {
+        panel.insert((
+            crate::select::sliced(art, [0.0, 0.0, 51.0, 37.0]),
+            BackgroundColor(Color::NONE),
+        ));
+    }
+    panel.with_children(|p| {
+        p.spawn(Node {
+            position_type: PositionType::Absolute,
+            top: px(-7.0),
+            width: Val::Percent(100.0),
+            height: px(60.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        })
+        .with_children(|t| {
+            t.spawn(crate::select::label_with(
+                46.0 / 10.8,
+                "Controls",
+                crate::letters::TextLook::TITLE,
+            ));
+        });
+        for (top, height, title, caps) in CONTROLS_SECTIONS {
+            let mut section = p.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(CONTROLS_INSET),
+                    width: px(w - 2.0 * CONTROLS_INSET),
+                    top: px(top),
+                    height: px(height),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.75, 0.78, 0.95, 0.9)),
+            ));
+            if let Some(art) = image("popup_text_background") {
+                section.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
+            }
+            section.with_children(|s| {
+                // The magic sections carry their spell slot behind the title.
+                let slot = match title {
+                    "Light Magic" => image("spell_slot_light"),
+                    "Dark Magic" => image("spell_slot_dark"),
+                    _ => None,
+                };
+                if let Some(art) = slot {
+                    s.spawn((
+                        ImageNode::new(art),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: px((w - 2.0 * CONTROLS_INSET) / 2.0 - 35.0),
+                            top: px(-35.0),
+                            width: px(70.0),
+                            height: px(70.0),
+                            ..default()
+                        },
+                    ));
+                }
+                s.spawn(Node {
+                    position_type: PositionType::Absolute,
+                    top: px(-10.0),
+                    width: Val::Percent(100.0),
+                    height: px(40.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                })
+                .with_children(|l| {
+                    l.spawn(crate::select::label(26.0 / 10.8, title));
+                });
+                let half = (w - 2.0 * CONTROLS_INSET) / 2.0;
+                for &(action, (dx, dy), arrow) in caps {
+                    let name = crate::keybinding::key_name(keys.key(action));
+                    let mut cap = s.spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: px(half + dx - 50.0),
+                            top: px(height / 2.0 - dy - 12.5 + 12.0),
+                            width: px(100.0),
+                            height: px(25.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.95, 0.95, 0.95, 0.9)),
+                    ));
+                    if let Some(art) = image("menu_kbkey_background") {
+                        // The cap stretches around its key's name.
+                        cap.insert((
+                            crate::select::sliced(art, [6.0, 6.0, 6.0, 6.0]),
+                            BackgroundColor(Color::NONE),
+                        ));
+                    }
+                    cap.with_children(|c| {
+                        c.spawn((
+                            Text::new(name),
+                            TextFont {
+                                font_size: FontSize::Vh(16.0 / 10.8),
+                                ..default()
+                            },
+                            TextColor(Color::srgb(0.42, 0.33, 0.55)),
+                            crate::letters::TextLook {
+                                body: true,
+                                face: None,
+                                outline: None,
+                            },
+                        ));
+                        if arrow != 0
+                            && let Some(art) = image("menu_explanation_popup_label_arrow")
+                        {
+                            let (left, top, turn) = match arrow {
+                                -1 => (px(-16.0), px(1.5), 0.0),
+                                1 => (px(103.0), px(1.5), 180.0),
+                                _ => (px(37.0), px(25.0), -90.0),
+                            };
+                            c.spawn((
+                                ImageNode::new(art),
+                                UiTransform::from_rotation(Rot2::degrees(turn)),
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    left,
+                                    top,
+                                    width: px(13.0),
+                                    height: px(22.0),
+                                    ..default()
+                                },
+                            ));
+                        }
+                    });
+                }
+            });
+        }
+    });
+}
+
 /// "GAME PAUSED" and its options centred in the right half, over a darkened
 /// match (the original's PausePopup).
-fn spawn_pause_menu(mut commands: Commands, art: Option<Res<Art>>) {
+fn spawn_pause_menu(
+    mut commands: Commands,
+    art: Option<Res<Art>>,
+    keys: Option<Res<crate::keybinding::KeyBindings>>,
+) {
     use crate::popup::{BAR_SLICE, px, sliced};
     let bar = art.as_ref().and_then(|a| a.image("menu_item_selected"));
     let text = |size: f32, value: &str, look: crate::letters::TextLook| {
@@ -222,6 +421,8 @@ fn spawn_pause_menu(mut commands: Commands, art: Option<Res<Art>>) {
             PauseRoot,
         ))
         .with_children(|root| {
+            let defaults = crate::keybinding::KeyBindings::default();
+            spawn_controls_panel(root, art.as_deref(), keys.as_deref().unwrap_or(&defaults));
             root.spawn((Node {
                 position_type: PositionType::Absolute,
                 left: px(PAUSE_COLUMN.0),

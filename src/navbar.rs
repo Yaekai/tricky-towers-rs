@@ -65,7 +65,8 @@ impl NavItem {
 /// the title tiles have nothing to go back to.
 fn items(screen: MenuScreen) -> &'static [NavItem] {
     match screen {
-        MenuScreen::Start => &[],
+        // The pause screen shows its controls instead of hints.
+        MenuScreen::Start | MenuScreen::Pause => &[],
         MenuScreen::Main => &[NavItem::Continue],
         _ => &[NavItem::Back, NavItem::Continue],
     }
