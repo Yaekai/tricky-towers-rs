@@ -27,6 +27,7 @@ impl Plugin for VisualsPlugin {
             .add_systems(Startup, setup_scene)
             .add_systems(Update, wobble_bubbles)
             .add_systems(Update, twinkle_stars.before(fit_backgrounds))
+            .add_systems(Update, fade_eclipse)
             .add_systems(
                 Update,
                 (
@@ -72,6 +73,41 @@ pub(crate) fn glow_copy(source: &Image, strength: f32) -> Option<Image> {
         px[3] = (alpha * 255.0) as u8;
     }
     Some(out)
+}
+
+/// An Endless Puzzle eclipse layer and its full colour: it fades in over 2 s from
+/// 1.5 s into the match (EndlessPuzzleGameModeIntroController: 0.5 s, the laser
+/// moving in, 0.5 s, the eclipse sound, EclipseEffect; the start is ?).
+#[derive(Component)]
+pub(crate) struct EclipseFade(pub(crate) Color);
+
+const ECLIPSE_START: f32 = 1.5;
+const ECLIPSE_TIME: f32 = 2.0;
+
+fn fade_eclipse(
+    mut commands: Commands,
+    game: Res<Match>,
+    art: Res<Art>,
+    mut layers: Query<(&EclipseFade, &mut Sprite)>,
+    mut played: Local<u64>,
+) {
+    let t = if game.phase == Phase::Menu {
+        1.0
+    } else {
+        ((game.elapsed - ECLIPSE_START) / ECLIPSE_TIME).clamp(0.0, 1.0)
+    };
+    if game.phase == Phase::Playing && game.elapsed >= ECLIPSE_START && *played != game.round {
+        *played = game.round;
+        if let Some(sound) = art.sounds.get("sfx_eclipse") {
+            commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+    }
+    for (fade, mut sprite) in &mut layers {
+        let want = fade.0.with_alpha(fade.0.alpha() * t);
+        if sprite.color != want {
+            sprite.color = want;
+        }
+    }
 }
 
 /// A twinkling star (StarrySky): its scale breathes 1 ± 0.3, and now and then one
@@ -771,7 +807,7 @@ fn spawn_backgrounds(
         )>,
     >,
     mut water: Query<&mut Visibility, With<WaterStrip>>,
-    mut shown: Local<Option<(ModeKind, Option<&'static str>)>>,
+    mut shown: Local<Option<(ModeKind, Option<&'static str>, bool)>>,
 ) {
     let Ok(camera) = camera.single() else {
         return;
@@ -781,10 +817,11 @@ fn spawn_backgrounds(
         _ => game.mode,
     };
     let pro = pro_look(mode, config.difficulty);
-    if *shown == Some((mode, pro)) && !art.is_changed() {
+    let in_match = game.phase != Phase::Menu;
+    if *shown == Some((mode, pro, in_match)) && !art.is_changed() {
         return;
     }
-    *shown = Some((mode, pro));
+    *shown = Some((mode, pro, in_match));
     for entity in &existing {
         commands.entity(entity).despawn();
     }
@@ -818,11 +855,22 @@ fn spawn_backgrounds(
     } else if let Some(sky) = for_mode("sky") {
         let colors = sky.colors();
         if !colors.is_empty() {
-            commands.entity(camera).with_child((
+            let mut layer = commands.spawn((
                 Sky,
                 Sprite::from_image(images.add(gradient_image(&colors))),
                 Transform::from_xyz(0.0, 0.0, -950.0),
+                ChildOf(camera),
             ));
+            if mode == ModeKind::EndlessPuzzle && game.phase != Phase::Menu {
+                layer.insert(EclipseFade(Color::WHITE));
+                if let Some(plain) = art.entries.get("sky_puzzle") {
+                    commands.entity(camera).with_child((
+                        Sky,
+                        Sprite::from_image(images.add(gradient_image(&plain.colors()))),
+                        Transform::from_xyz(0.0, 0.0, -950.5),
+                    ));
+                }
+            }
         }
     }
     let band = for_mode("water_band");
@@ -870,7 +918,23 @@ fn spawn_backgrounds(
             ));
         }
     }
-    for (order, name) in background_names_for(&art, mode, pro).iter().enumerate() {
+    // In a match Endless Puzzle starts as plain Puzzle and its eclipse fades in over
+    // the plain layers during the intro (`fade_eclipse`).
+    let eclipse = mode == ModeKind::EndlessPuzzle && game.phase != Phase::Menu;
+    let mut names: Vec<(String, bool)> = background_names_for(&art, mode, pro)
+        .into_iter()
+        .map(|n| (n, eclipse))
+        .collect();
+    if eclipse {
+        names.extend(
+            background_names_for(&art, ModeKind::Puzzle, None)
+                .into_iter()
+                .map(|n| (n, false)),
+        );
+    }
+    for (order, (name, fades)) in names.iter().enumerate() {
+        let name = name.as_str();
+        let order = order % names.len().max(1);
         let Some(entry) = art.entries.get(name) else {
             continue;
         };
@@ -885,7 +949,11 @@ fn spawn_backgrounds(
                 ..default()
             },
             Anchor(Vec2::new(px - 0.5, py - 0.5)),
-            Transform::from_xyz(0.0, 0.0, layer_z(&art, name, order)),
+            Transform::from_xyz(
+                0.0,
+                0.0,
+                layer_z(&art, name, order) + if *fades { 0.005 } else { 0.0 },
+            ),
         );
         match (entry.screen, entry.position) {
             (Some((ax, ay)), position) => {
@@ -924,6 +992,9 @@ fn spawn_backgrounds(
                 if star {
                     layer.insert(Star::default());
                 }
+                if *fades {
+                    layer.insert(EclipseFade(tint));
+                }
                 if let Some(sprite) = lit {
                     layer.with_child((
                         LitLayer,
@@ -936,7 +1007,10 @@ fn spawn_backgrounds(
             // Drawn in each lane by `spawn_lane_layers`.
             (None, Some(_)) => {}
             (None, None) => {
-                commands.entity(camera).with_child((Background, base));
+                let mut layer = commands.spawn((Background, base, ChildOf(camera)));
+                if *fades {
+                    layer.insert(EclipseFade(tint));
+                }
             }
         }
     }

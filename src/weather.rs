@@ -267,12 +267,17 @@ fn set_up_weather(
     }
     if matches!(look.1, Some("puzzle_pro" | "endless_puzzle")) {
         if let Some(sun) = art.image("puzzle_pro_sun") {
-            commands.entity(camera).with_child((
+            let mut sun = commands.spawn((
                 Weather,
                 EclipseSun,
                 Sprite::from_image(sun),
                 Transform::from_xyz(0.0, 0.0, -930.0),
+                ChildOf(camera),
             ));
+            // Endless Puzzle's eclipse fades in with its intro.
+            if look.1 == Some("endless_puzzle") {
+                sun.insert(crate::visuals::EclipseFade(Color::WHITE));
+            }
         }
         if let Some(ray) = art.image("puzzle_pro_corona") {
             let mut seed = state.seed;
@@ -282,7 +287,7 @@ fn set_up_weather(
                     w.0 + (w.1 - w.0) * roll(&mut seed),
                     h.0 + (h.1 - h.0) * roll(&mut seed),
                 );
-                commands.entity(camera).with_child((
+                let mut corona = commands.spawn((
                     Weather,
                     CoronaRay {
                         angle: i as f32 / weather.corona_rays.max(1) as f32 * std::f32::consts::TAU,
@@ -290,7 +295,11 @@ fn set_up_weather(
                     },
                     Sprite::from_image(ray.clone()),
                     Transform::from_xyz(0.0, 0.0, -935.0),
+                    ChildOf(camera),
                 ));
+                if look.1 == Some("endless_puzzle") {
+                    corona.insert(crate::visuals::EclipseFade(Color::WHITE));
+                }
             }
             state.seed = seed;
         }
