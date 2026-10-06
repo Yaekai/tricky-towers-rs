@@ -346,8 +346,11 @@ Add-Sprite 'cast_lane_beam'       'gph_castBeamLane_World01'          'fx\cast_l
 Add-Sprite 'cast_lane_beam_survival' 'gph_castBeamLane_World02'       'fx\cast_lane_beam_survival.png' 'Lane wave, Survival look (drawn 4.55 units right of the lane centre)'
 Add-Texture 'cast_lightning' 'gph_lightning.png' 'fx\cast_lightning.png' 'Light cast lightning strip texture, repeated along the bolt (0.02 texture repeats per unit)'
 Add-Sprite 'spell_cloud' 'gph_spellBackground_black' 'fx\spell_cloud.png' 'Spell bubble next to the wizard holding the spell icon (drawn x1.31)'
-Add-Sprite 'spell_cloud_button_light' 'gph_PSsquareButton_up' 'fx\spell_cloud_button_light.png' 'Button hint on the light spell bubble'
-Add-Sprite 'spell_cloud_button_dark'  'gph_PSCircleButton_up' 'fx\spell_cloud_button_dark.png'  'Button hint on the dark spell bubble'
+# The keyboard button hints on the spell bubbles (SpellButtonIndicatorLight/DarkPC: J and K,
+# up then down every 0.2 s), 1.1 cells left (light) or right (dark) and 1.25 below the bubble.
+foreach ($hk in @(@('light','J'), @('dark','K'))) { foreach ($hs in 'up','down') {
+  Add-Sprite "spell_cloud_button_$($hk[0])_$hs" "gph_KB$($hk[1])ButtonLarge_$hs" "fx\spell_cloud_button_$($hk[0])_$hs.png" "Keyboard $($hk[1]) hint on the $($hk[0]) spell bubble ($hs)"
+} }
 $notes.Add('- Cast beams: a dark cast is a beam up from the caster (BeamIn 0.33 s, gives up after 1 s), then a beam down onto the victim''s brick (BeamDownIn 0.63 s, timeout 1 s), then the lane wave over the victim''s lane (BeamLaneIn 1 s, BeamLaneOut 0.17 s; the overlay is placed at the background camera''s centre and stretched to its full height). Each beam is: cast_beam stretched (x60 up, x300 down) with two white strokes 0.1 wide at x -0.88 / +0.88 (20 tall), blobs riding it, and at its foot 3 sunray layers (Sunrays clip 2.5 s, looping), thick/thin rings and a glow disc. When it ends it squeezes to 1% width in 0.03 s. Explosion clip 0.46 s. Light cast: a lightning strip from the wizard to the brick (Lightning clip 0.4 s) with rays, rings and glow at both ends; the strip is a mesh wobbling as a sine (amplitude grows towards the middle), texture cast_lightning repeating every 50 units.')
 $notes.Add('- Spell clouds: each wizard carries two bubbles, light (near the head, about (0.6, 4.8) from the wizard) and dark (about (2.9, 3.5)), each spell_cloud x1.31 with the spell icon inside and a button hint below it. Clips: Show 0.83 s, Floating 3 s loop, Used 1.22 s (bubble, hint and icon animate out), Hide 0.38 s. Positions per wizard: 1 light (0.58, 4.8) dark (2.87, 3.53); 2 light (0.38, 5.37) dark (2.67, 4.1); 3 light (0.75, 5) dark (3.04, 3.73).')
 # --- Endless Race: pacer line and the Endless versions of the Race backdrop ---
