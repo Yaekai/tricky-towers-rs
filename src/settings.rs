@@ -93,6 +93,20 @@ pub const LANGUAGES: [&str; 19] = [
     "Romanian",
 ];
 
+/// Each language's flag picture (`menu_language_<code>`), in `LANGUAGES` order.
+const LANGUAGE_FLAGS: [&str; 19] = [
+    "en", "de", "fr", "es", "pt", "it", "ch", "tw", "jp", "ko", "ru", "pl", "ar", "tr", "nl", "sv",
+    "no", "fi", "ro",
+];
+
+/// The flag shown in place of the language's name (on settings page `0`).
+#[derive(Component)]
+pub(crate) struct LanguageFlag(usize);
+
+/// Apply is a small button centred under the rows, not a full row (Max's
+/// screenshots of the original, ?: its exact size).
+const APPLY_BUTTON: (f32, f32) = (390.0, 45.0);
+
 /// The player's settings. Kept in `file` when one is set (the game sets it;
 /// tests and offscreen pictures don't).
 #[derive(Resource, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -440,6 +454,19 @@ fn spawn_row(
 ) {
     let y = row_y(i);
     let left = -ROW.0 / 2.0;
+    if row == Row::Apply {
+        let mut back = page.spawn((
+            place(APPLY_BUTTON, (0.0, y)),
+            BackgroundColor(Color::srgba(0.3, 0.24, 0.55, 0.8)),
+        ));
+        if let Some(art) = image("menu_button_background") {
+            back.insert((sliced(art, BUTTON_SLICE), BackgroundColor(Color::NONE)));
+        }
+        back.with_children(|b| {
+            b.spawn(label(TITLE_SIZE * 0.8 / SCREEN.1 * 100.0, row.title()));
+        });
+        return;
+    }
     let mut back = page.spawn((
         place(ROW, (0.0, y)),
         BackgroundColor(Color::srgba(0.3, 0.24, 0.55, 0.8)),
@@ -528,6 +555,14 @@ fn spawn_row(
                         SettingsPart::Value(p, i),
                     ));
                 });
+            if row == Row::Language {
+                page.spawn((
+                    ImageNode::default(),
+                    place((62.0, 48.0), (value_x(VALUE_WIDTH / 2.0), y)),
+                    LanguageFlag(p),
+                    Visibility::Hidden,
+                ));
+            }
         }
         Kind::Toggle => {
             let x = ROW.0 / 2.0 - CHECKBOX.1;
@@ -693,6 +728,11 @@ pub(crate) fn show_settings_screen(
     mut root: Query<&mut Visibility, With<SettingsRoot>>,
     mut parts: Query<(&SettingsPart, &mut Node, Option<&mut Visibility>), Without<SettingsRoot>>,
     mut texts: Query<(&SettingsPart, &mut Text)>,
+    art: Option<Res<crate::art::Art>>,
+    mut flags: Query<
+        (&LanguageFlag, &mut ImageNode, &mut Visibility),
+        (Without<SettingsPart>, Without<SettingsRoot>),
+    >,
 ) {
     let on = game.phase == Phase::Menu && *screen == MenuScreen::Settings;
     for mut v in &mut root {
@@ -748,9 +788,33 @@ pub(crate) fn show_settings_screen(
             v.set_if_neq(shown(visible));
         }
     }
+    // The language shows as its flag when the flags are staged.
+    let flag_of = |p: usize| {
+        let values = shown_values(p);
+        let at = LANGUAGES.iter().position(|&l| l == values.language)?;
+        art.as_ref()?
+            .image(&format!("menu_language_{}", LANGUAGE_FLAGS[at]))
+    };
+    for (flag, mut node, mut visibility) in &mut flags {
+        match flag_of(flag.0) {
+            Some(image) => {
+                if node.image != image {
+                    node.image = image;
+                }
+                visibility.set_if_neq(Visibility::Inherited);
+            }
+            None => {
+                visibility.set_if_neq(Visibility::Hidden);
+            }
+        }
+    }
     for (part, mut words) in &mut texts {
         if let SettingsPart::Value(p, i) = *part {
-            let line = shown_values(p).choice(PAGES[p][i]);
+            let line = if PAGES[p][i] == Row::Language && flag_of(p).is_some() {
+                String::new()
+            } else {
+                shown_values(p).choice(PAGES[p][i])
+            };
             if words.0 != line {
                 words.0 = line;
             }
