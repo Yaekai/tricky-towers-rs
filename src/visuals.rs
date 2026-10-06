@@ -125,9 +125,11 @@ struct SpellLine {
 #[derive(Component)]
 struct SpellDiamond;
 
-/// The race trial's clock on the finish line: the hourglass and the seconds left.
+/// The race trial's pace line (PaceLinePersonalBest): a thin line across the screen
+/// that climbs from the base to the finish as the time runs out, with the hourglass
+/// and the time left on it; `0` is its height over the line.
 #[derive(Component)]
-struct TrialClock;
+struct TrialClock(f32);
 
 /// The race finish line or puzzle laser over a tower; both can come down.
 #[derive(Component)]
@@ -1270,12 +1272,13 @@ fn dress_platforms(
                     .and_then(|t| t.seconds)
                     .filter(|_| game.mode.rules() == ModeKind::Race);
                 if clock.is_some() {
-                    // Its place on the line and its size are guesses (?).
-                    let x = lane * 0.5 - c * 3.0;
+                    // Centred on the screen (the trial's player lane sits left of it),
+                    // the hourglass 5.3 cells left of the time, both 0.45 over the line.
+                    let centre = config.cells(config.lanes.spacing(2)) * 0.5;
                     let glass = match art.image("hourglass") {
                         Some(image) => Sprite {
                             image,
-                            custom_size: Some(Vec2::splat(c * 1.2)),
+                            custom_size: Some(Vec2::new(c * 1.0, c * 1.75)),
                             color: Color::WHITE.with_alpha(0.0),
                             ..default()
                         },
@@ -1286,20 +1289,28 @@ fn dress_platforms(
                     };
                     line.with_children(|l| {
                         l.spawn((
-                            TrialClock,
-                            glass,
-                            Transform::from_xyz(x - c * 1.3, c * 0.9, 1.0),
+                            TrialClock(0.0),
+                            Sprite::from_color(
+                                Color::srgba(0.94, 0.9, 0.6, 0.0),
+                                Vec2::new(config.cells(config.lanes.screen_width + 10.0), c * 0.12),
+                            ),
+                            Transform::from_xyz(centre, 0.0, 0.9),
                         ));
                         l.spawn((
-                            TrialClock,
+                            TrialClock(c * 0.45),
+                            glass,
+                            Transform::from_xyz(centre - c * 5.3, c * 0.45, 1.0),
+                        ));
+                        l.spawn((
+                            TrialClock(c * 0.45),
                             Text2d::new(""),
                             TextFont {
-                                font_size: FontSize::Px(c * 1.1),
+                                font_size: FontSize::Px(c * 1.75),
                                 ..default()
                             },
-                            // The original's gold.
-                            TextColor(Color::srgba(1.0, 0.78, 0.25, 0.0)),
-                            Transform::from_xyz(x + c * 1.2, c * 0.9, 1.0),
+                            // The original's pale gold face (its orange outline isn't drawn).
+                            TextColor(Color::srgba(1.0, 0.93, 0.6, 0.0)),
+                            Transform::from_xyz(centre, c * 0.45, 1.0),
                         ));
                     });
                 }
@@ -1680,8 +1691,8 @@ fn update_hud(
 fn show_trial_clock(
     config: Res<GameConfig>,
     game: Res<Match>,
-    mut sprites: Query<&mut Sprite, With<TrialClock>>,
-    mut texts: Query<(&mut Text2d, &mut TextColor), With<TrialClock>>,
+    mut sprites: Query<(&TrialClock, &mut Sprite, &mut Transform)>,
+    mut texts: Query<(&TrialClock, &mut Text2d, &mut TextColor, &mut Transform), Without<Sprite>>,
 ) {
     let Some(seconds) = config
         .trial
@@ -1691,6 +1702,10 @@ fn show_trial_clock(
         return;
     };
     let alpha = game.elapsed.clamp(0.0, 1.0);
+    // The line climbs from the base (finish × time used / time) and sits on the
+    // finish when the time is up; the clock is a child of the finish line.
+    let used = (game.elapsed / seconds.max(0.01)).clamp(0.0, 1.0);
+    let drop = config.cells(config.race.finish_height * (used - 1.0));
     // Minutes, seconds and hundredths, as the original's clock reads (0:58:44).
     let hundredths = ((seconds - game.elapsed).max(0.0) * 100.0) as u32;
     let words = format!(
@@ -1699,14 +1714,16 @@ fn show_trial_clock(
         hundredths / 100 % 60,
         hundredths % 100
     );
-    for mut sprite in &mut sprites {
+    for (clock, mut sprite, mut transform) in &mut sprites {
         sprite.color.set_alpha(alpha);
+        transform.translation.y = drop + clock.0;
     }
-    for (mut text, mut color) in &mut texts {
+    for (clock, mut text, mut color, mut transform) in &mut texts {
         if text.0 != words {
             text.0 = words.clone();
         }
         color.0.set_alpha(alpha);
+        transform.translation.y = drop + clock.0;
     }
 }
 
