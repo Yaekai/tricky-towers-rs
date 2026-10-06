@@ -282,6 +282,7 @@ fn popup_input(
     popup.shown = false;
 }
 
+#[allow(clippy::type_complexity)]
 fn show_popup(
     config: Res<GameConfig>,
     popup: Res<Popup>,

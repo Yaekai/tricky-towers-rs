@@ -205,8 +205,14 @@ impl Settings {
     /// The words in a choice row's value area.
     fn choice(&self, row: Row) -> String {
         match row {
-            Row::Resolution => format!("{}x{}", self.resolution.0, self.resolution.1),
-            Row::Quality => format!("{:?}", self.quality),
+            Row::Resolution => format!("{} X {}", self.resolution.0, self.resolution.1),
+            // The original's names for its three levels.
+            Row::Quality => match self.quality {
+                Quality::Low => "Performance",
+                Quality::Medium => "Normal",
+                Quality::High => "Magical",
+            }
+            .to_string(),
             Row::Language => self.language.clone(),
             _ => String::new(),
         }
@@ -254,14 +260,14 @@ impl Row {
         match self {
             Row::Effects => "Sound effects",
             Row::Music => "Music",
-            Row::Explanations => "Explanations",
-            Row::Stats => "Stats",
+            Row::Explanations => "Explanations enabled",
+            Row::Stats => "Statistics",
             Row::Credits => "Credits",
             Row::Keybinding => "Keybinding",
-            Row::Fullscreen => "Full screen",
+            Row::Fullscreen => "Fullscreen",
             Row::Resolution => "Resolution",
             Row::Quality => "Quality",
-            Row::Vsync => "V-sync",
+            Row::Vsync => "V-Sync",
             Row::Language => "Language",
             Row::Apply => "Apply",
         }
@@ -319,6 +325,8 @@ const VALUE_WIDTH: f32 = 360.0;
 const VALUE_ARROW: (f32, f32) = (25.0, 31.0);
 const VALUE_ARROW_INSET: f32 = 40.0;
 const BAR: (f32, f32) = (190.0, 40.0);
+/// The slider's pills.
+const PILLS: usize = 10;
 const BAR_INSET: f32 = 85.0;
 const CHECKBOX: ((f32, f32), f32) = ((43.0, 43.0), 60.0);
 const TICK: ((f32, f32), (f32, f32)) = ((61.0, 49.0), (9.0, 3.0));
@@ -363,7 +371,8 @@ pub(crate) struct SettingsRoot;
 pub(crate) enum SettingsPart {
     Page(usize),
     Corner(usize, usize),
-    Fill(usize, usize),
+    /// One of a slider's ten filled pills (page, row, pill).
+    Pill(usize, usize, usize),
     Tick(usize, usize),
     Cross(usize, usize),
     Value(usize, usize),
@@ -487,21 +496,26 @@ fn spawn_row(
     match row.kind() {
         Kind::Slider => {
             arrows(page);
-            let bar_x = value_x(BAR_INSET) + BAR.0 / 2.0;
-            let mut empty = page.spawn((
-                place(BAR, (bar_x, y)),
-                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
-            ));
-            if let Some(art) = image("settings_slider_empty") {
-                empty.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
-            }
-            let mut fill = page.spawn((
-                place(BAR, (bar_x, y)),
-                BackgroundColor(Color::srgb(0.95, 0.8, 0.3)),
-                SettingsPart::Fill(p, i),
-            ));
-            if let Some(art) = image("settings_slider_fill") {
-                fill.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
+            // Ten pills (the 19x40 slider pictures side by side), filled up to
+            // the value, as the original draws its sliders.
+            let pill = (BAR.0 / PILLS as f32, BAR.1);
+            for k in 0..PILLS {
+                let x = value_x(BAR_INSET) + pill.0 * (k as f32 + 0.5);
+                let mut empty = page.spawn((
+                    place(pill, (x, y)),
+                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+                ));
+                if let Some(art) = image("settings_slider_empty") {
+                    empty.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
+                }
+                let mut fill = page.spawn((
+                    place(pill, (x, y)),
+                    BackgroundColor(Color::srgb(0.95, 0.8, 0.3)),
+                    SettingsPart::Pill(p, i, k),
+                ));
+                if let Some(art) = image("settings_slider_fill") {
+                    fill.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
+                }
             }
         }
         Kind::Choice => {
@@ -710,20 +724,13 @@ pub(crate) fn show_settings_screen(
                 true
             }
             SettingsPart::Corner(p, i) => p == menu.page && i == menu.selected,
-            SettingsPart::Fill(p, i) => {
+            SettingsPart::Pill(p, i, k) => {
                 let values = shown_values(p);
                 let v = match PAGES[p][i] {
                     Row::Effects => values.volume,
                     _ => values.music,
                 };
-                // The fill is cut to the value from the bar's left end.
-                let bar_left = value_x(BAR_INSET);
-                let want = place((BAR.0 * v, BAR.1), (bar_left + BAR.0 * v / 2.0, row_y(i)));
-                if node.left != want.left || node.width != want.width {
-                    node.left = want.left;
-                    node.width = want.width;
-                }
-                v > 0.0
+                k < (v * PILLS as f32).round() as usize
             }
             SettingsPart::Tick(p, i) | SettingsPart::Cross(p, i) => {
                 let values = shown_values(p);
