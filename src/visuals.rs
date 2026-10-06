@@ -558,11 +558,16 @@ pub(crate) fn mode_key(mode: ModeKind) -> &'static str {
 
 /// Background layer names for this mode, back to front: `background_<mode>_N`
 /// when staged for the mode, else `background_N`.
-/// The look a mode swaps to on Pro ("Special"): Race Pro's night, Puzzle Pro's eclipse.
+/// The look a mode swaps to on Pro ("Special"): Race Pro's night, Puzzle Pro's eclipse;
+/// Endless Puzzle always has its red eclipse.
 pub(crate) fn pro_look(
     mode: ModeKind,
     difficulty: Option<crate::config::Difficulty>,
 ) -> Option<&'static str> {
+    // Endless Puzzle plays under its own red eclipse.
+    if mode == ModeKind::EndlessPuzzle {
+        return Some("endless_puzzle");
+    }
     if difficulty != Some(crate::config::Difficulty::Pro) {
         return None;
     }

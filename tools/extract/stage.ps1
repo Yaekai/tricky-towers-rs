@@ -159,6 +159,16 @@ ModeScreenBg 'puzzle_pro' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   3 0.
 ModeScreenBg 'puzzle_pro' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.5 'Pro ruins middle right' ', mask: ((126, 22, 60), (103, 14, 43))'
 ModeScreenBg 'puzzle_pro' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.5 'Pro ruins front left' ', mask: ((46, 4, 5), (46, 4, 5))'
 ModeScreenBg 'puzzle_pro' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.5 'Pro ruins front right' ', mask: ((46, 4, 5), (46, 4, 5))'
+# Endless Puzzle: the ruins in the red eclipse colours it tweens to (DesertEndlessBackground
+# AnimateIn; the menu shows them at once), slower parallax (back 0.1, middle and front 0.3).
+ModeScreenBg 'endless_puzzle' 0 'gph_backgroundBackLeft'     0.0 0.0 15.0 3.8   0 0.1 'Endless Puzzle ruins back left' ', mask: ((155, 29, 51), (174, 31, 61))'
+ModeScreenBg 'endless_puzzle' 1 'gph_backgroundBackRight'    1.0 0.0 -30.3 3.8  1 0.1 'Endless Puzzle ruins back right' ', mask: ((155, 29, 51), (174, 31, 61))'
+ModeScreenBg 'endless_puzzle' 2 'gph_backgroundMiddleLeft'   0.0 0.0 0.0 3.44   2 0.3 'Endless Puzzle ruins middle left' ', mask: ((102, 21, 29), (75, 15, 25))'
+ModeScreenBg 'endless_puzzle' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   3 0.3 'Endless Puzzle ruins middle centre' ', mask: ((102, 21, 29), (75, 15, 25))'
+ModeScreenBg 'endless_puzzle' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.3 'Endless Puzzle ruins middle right' ', mask: ((102, 21, 29), (75, 15, 25))'
+ModeScreenBg 'endless_puzzle' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.3 'Endless Puzzle ruins front left' ', mask: ((44, 6, 9), (44, 6, 9))'
+ModeScreenBg 'endless_puzzle' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.3 'Endless Puzzle ruins front right' ', mask: ((44, 6, 9), (44, 6, 9))'
+$manifest.Add('    "sky_endless_puzzle": (colors: [(139, 23, 56), (159, 38, 49), (255, 105, 39)]),')
 # Race Pro: the stormy clouds drift (screen units a second); the race islands are drawn from their
 # night textures (Resources\game\background\race\islands\Island*Dark.png, plain textures, not
 # sprites) with the day island as `lit`, shown while the lightning flashes (fades over 0.2 s).

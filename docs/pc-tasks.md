@@ -110,11 +110,7 @@ frontend and test-writer suggestions.
 ## Queued
 - **Next: the rest of Max's screenshot comparison** (docs/research/compare-2026-10-06.md; lines
   without ✓ are open; Max's pictures are in `research\screenshotsbymax` on his new PC, never commit
-  them). Left after PRs #62-88: the race trial clock's place (the original shows it big and gold near the middle of the screen, about 68% down, not on the finish line). The Endless screen is done
-  apart from Endless Puzzle's own look: the original starts it as normal Puzzle and tweens to a
-  red eclipse (DesertEndlessBackground/DesertBackgroundEndlessSun AnimateIn, 2 s; the menu shows
-  it straight away): sky gradient #8B1838 → #4A1117, ruins back #9B1D33/#AE1F3D, middle
-  #66151D/#4B0F19, front #2C0609, eclipse #FF651F. Stage it like `background_puzzle_pro_N`. Merge only when `cargo test` passes.
+  them). Left after PRs #62-88: the race trial clock's place (the original shows it big and gold near the middle of the screen, about 68% down, not on the finish line). The Endless screen is done, Endless Puzzle's red eclipse staged as `background_endless_puzzle_N` and `sky_endless_puzzle` (its 2 s tween in at the intro and the sun's eclipse colour #FF641F aren't done; the menu doesn't show the sun). Merge only when `cargo test` passes.
 - **From Max's play test (2026-10-06, his screenshot of a Survival trial):** ✓ special bricks: the
   Mystery spell's castle block and windmill were drawn squashed sideways because their cells were
   4x2 and 4x3 instead of the prefabs' 2x4 and 3x4 (fixed from the box colliders; the windmill now
