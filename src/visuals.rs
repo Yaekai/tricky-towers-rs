@@ -1131,6 +1131,49 @@ fn dress_platforms(
                         }
                     }
                 }
+                // A Puzzle trial's laser comes from a glowing ball on a pillar at its
+                // right end (the original's PuzzleSinglePlayerLaserLayer: PUZZLE_LASER's
+                // Ball and PUZZLE_LASER_PILAR, ?: their size here).
+                if name == "laser"
+                    && config.trial.is_some()
+                    && let Some(ball) = art.image("fx_laserball")
+                {
+                    let x = lane * 0.5 + c * 1.2;
+                    if let Some(tile) = art.image("fx_laser_pillar_tile") {
+                        let depth = config.cells(height) + c * 9.0;
+                        line.with_child((
+                            Sprite {
+                                image: tile,
+                                custom_size: Some(Vec2::new(c * 1.6, depth)),
+                                image_mode: SpriteImageMode::Tiled {
+                                    tile_x: false,
+                                    tile_y: true,
+                                    stretch_value: 1.0,
+                                },
+                                ..default()
+                            },
+                            Transform::from_xyz(x, -depth * 0.5, -0.2),
+                        ));
+                    }
+                    if let Some(top) = art.image("fx_laser_pillar_top") {
+                        line.with_child((
+                            Sprite {
+                                image: top,
+                                custom_size: Some(Vec2::new(c * 2.4, c * 3.0)),
+                                ..default()
+                            },
+                            Transform::from_xyz(x, -c * 0.6, -0.1),
+                        ));
+                    }
+                    line.with_child((
+                        Sprite {
+                            image: ball,
+                            custom_size: Some(Vec2::splat(c * 2.4)),
+                            ..default()
+                        },
+                        Transform::from_xyz(x, 0.0, 0.6),
+                    ));
+                }
                 // A race trial's finish line carries the time left beside an hourglass
                 // (gap-scan.md 4), fading in over the first second.
                 let clock = config
