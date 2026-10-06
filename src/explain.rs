@@ -4,7 +4,8 @@
 //! Battles show it for every mode; single player only before trials SR_10, SS_17
 //! and SP_20. Only while Explanations is on, and only in the real game (tests,
 //! scripts and offscreen pictures keep no settings file).
-//! Not done: the controls explanation that comes first in some modes.
+//! The first battle and the first single-player match of a session open with the
+//! keyboard controls panel first (ControlsExplanation, sliding up in 0.3 s).
 
 use bevy::prelude::*;
 
@@ -32,12 +33,24 @@ pub struct Explain {
     time: f32,
     closing: Option<f32>,
     back_to: MenuScreen,
+    /// Showing the controls step, and whether the mode's explanation follows it.
+    controls: bool,
+    mode_next: bool,
 }
+
+#[derive(Component)]
+struct ControlsRoot;
+
+/// The controls panel, sliding up from 1080 px below.
+#[derive(Component)]
+struct ControlsPanel;
 
 /// Each part slides this far in over this long, after its delay (OutQuad).
 const SLIDE: f32 = 1500.0;
 const SLIDE_TIME: f32 = 0.5;
 const TRIALS: [&str; 3] = ["SR_10", "SS_17", "SP_20"];
+/// The controls panel slides up this fast (OutQuad).
+const CONTROLS_IN: f32 = 0.3;
 
 #[derive(Component)]
 struct ExplainRoot;
@@ -104,7 +117,12 @@ fn part(
     node.id()
 }
 
-fn spawn_explain(mut commands: Commands, art: Option<Res<Art>>) {
+fn spawn_explain(
+    mut commands: Commands,
+    art: Option<Res<Art>>,
+    keys: Option<Res<crate::keybinding::KeyBindings>>,
+) {
+    spawn_controls(&mut commands, art.as_deref(), keys.as_deref());
     let art = art.as_deref();
     let image = |name: &str| art.and_then(|a| a.image(name));
     let mut root = commands.spawn((
@@ -216,6 +234,63 @@ fn spawn_explain(mut commands: Commands, art: Option<Res<Art>>) {
     });
 }
 
+fn spawn_controls(
+    commands: &mut Commands,
+    art: Option<&Art>,
+    keys: Option<&crate::keybinding::KeyBindings>,
+) {
+    let defaults = crate::keybinding::KeyBindings::default();
+    let mut root = commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.75)),
+        GlobalZIndex(13),
+        Visibility::Hidden,
+        ControlsRoot,
+    ));
+    if let Some(tile) = art.and_then(|a| a.image("modal_tile")) {
+        root.insert((
+            ImageNode::new(tile).with_mode(NodeImageMode::Tiled {
+                tile_x: true,
+                tile_y: true,
+                stretch_value: 1.0,
+            }),
+            BackgroundColor(Color::NONE),
+        ));
+    }
+    root.with_children(|root| {
+        let half = (crate::select::SCREEN.0 / 2.0, crate::select::SCREEN.1 / 2.0);
+        let panel =
+            crate::menu::spawn_controls_panel(root, art, keys.unwrap_or(&defaults), Some(half));
+        root.commands()
+            .entity(panel)
+            .insert((ControlsPanel, UiTransform::default()));
+        for (left, words, size) in [
+            (false, "Continue  Enter", (400.0, 50.0)),
+            (true, "K  Disable all explanations", (935.0, 72.0)),
+        ] {
+            let x = if left {
+                -half.0 + 30.0 + size.0 / 2.0
+            } else {
+                half.0 - 30.0 - size.0 / 2.0
+            };
+            let mut node = place(size, (x, -half.1 + 50.0 + size.1 / 2.0));
+            node.justify_content = if left {
+                JustifyContent::FlexStart
+            } else {
+                JustifyContent::FlexEnd
+            };
+            root.spawn(node).with_children(|b| {
+                b.spawn(text(46.0)).insert(Text::new(words.to_uppercase()));
+            });
+        }
+    });
+}
+
 /// The words and pictures for this match, or None when it shows no explanation.
 struct Content {
     title: String,
@@ -282,6 +357,7 @@ fn open_explain(
     mut screen: ResMut<MenuScreen>,
     mut explain: ResMut<Explain>,
     mut last_round: Local<u64>,
+    mut controls_seen: Local<[bool; 2]>,
     mut parts: Query<(
         &Part,
         Option<&mut Text>,
@@ -294,10 +370,29 @@ fn open_explain(
     }
     *last_round = game.round;
     let on = settings.is_some_and(|s| s.explanations && s.file.is_some());
-    let Some(content) = content(&config, game.mode).filter(|_| on && game.phase == Phase::Playing)
-    else {
+    if !on || game.phase != Phase::Playing {
         return;
-    };
+    }
+    // The controls come first once per session, for battles and for single player.
+    let single = config.trial.is_some()
+        || matches!(
+            game.mode,
+            ModeKind::Endless | ModeKind::EndlessSurvival | ModeKind::EndlessPuzzle
+        );
+    let controls_due = !controls_seen[single as usize];
+    controls_seen[single as usize] = true;
+    let content = content(&config, game.mode);
+    if !controls_due && content.is_none() {
+        return;
+    }
+    explain.controls = controls_due;
+    explain.mode_next = content.is_some();
+    let content = content.unwrap_or(Content {
+        title: String::new(),
+        subtitle: String::new(),
+        picture: "",
+        difficulty: None,
+    });
     let words = crate::credits::english();
     let say = |key: &str| words.get(key).cloned().unwrap_or_default().to_uppercase();
     let image = |name: &str| art.as_deref().and_then(|a| a.image(name));
@@ -375,13 +470,21 @@ fn run_explain(
     mut screen: ResMut<MenuScreen>,
     mut explain: ResMut<Explain>,
     mut settings: Option<ResMut<crate::settings::Settings>>,
-    mut root: Query<&mut Visibility, With<ExplainRoot>>,
+    mut root: Query<&mut Visibility, (With<ExplainRoot>, Without<ControlsRoot>)>,
+    mut controls_root: Query<&mut Visibility, (With<ControlsRoot>, Without<ExplainRoot>)>,
+    mut controls_panel: Query<&mut UiTransform, With<ControlsPanel>>,
     mut slides: Query<(&Slide, &mut Node), Without<ExplainRoot>>,
-    mut buttons: Query<(&Part, &mut Visibility), (Without<Slide>, Without<ExplainRoot>)>,
+    mut buttons: Query<
+        (&Part, &mut Visibility),
+        (Without<Slide>, Without<ExplainRoot>, Without<ControlsRoot>),
+    >,
 ) {
     let on = explain.open && *screen == MenuScreen::Explain && game.phase == Phase::Menu;
     for mut v in &mut root {
-        v.set_if_neq(shown(on));
+        v.set_if_neq(shown(on && !explain.controls));
+    }
+    for mut v in &mut controls_root {
+        v.set_if_neq(shown(on && explain.controls));
     }
     if !on {
         explain.open = false;
@@ -389,17 +492,39 @@ fn run_explain(
     }
     let dt = time.delta_secs();
     explain.time += dt;
+    let taps = crate::select::read_taps(keys.as_deref(), &pads);
+    let disable = keys.as_ref().is_some_and(|k| k.just_pressed(KeyCode::KeyK))
+        || pads
+            .iter()
+            .any(|(_, p)| p.just_pressed(GamepadButton::North));
+    if explain.controls {
+        let t = (explain.time / CONTROLS_IN).min(1.0);
+        let below = 1080.0 * (1.0 - t) * (1.0 - t);
+        for mut transform in &mut controls_panel {
+            transform.translation = Val2::new(Val::Px(0.0), Val::Vh(below / 10.8));
+        }
+        let go = disable || taps.key_pick || !taps.pad_pick.is_empty();
+        if explain.time >= CONTROLS_IN && go {
+            if disable && let Some(settings) = settings.as_mut() {
+                settings.explanations = false;
+                settings.save();
+            }
+            explain.controls = false;
+            explain.time = 0.0;
+            if disable || !explain.mode_next {
+                explain.open = false;
+                *screen = explain.back_to;
+                game.phase = Phase::Playing;
+            }
+        }
+        return;
+    }
     let last_in = 0.5 + SLIDE_TIME;
     let all_in = explain.time >= last_in;
     let out_quad = |t: f32| 1.0 - (1.0 - t) * (1.0 - t);
     if let Some(closing) = explain.closing.as_mut() {
         *closing += dt;
     } else if all_in {
-        let taps = crate::select::read_taps(keys.as_deref(), &pads);
-        let disable = keys.as_ref().is_some_and(|k| k.just_pressed(KeyCode::KeyK))
-            || pads
-                .iter()
-                .any(|(_, p)| p.just_pressed(GamepadButton::North));
         if disable && let Some(settings) = settings.as_mut() {
             settings.explanations = false;
             settings.save();
