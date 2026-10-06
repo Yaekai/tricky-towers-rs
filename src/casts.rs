@@ -636,8 +636,10 @@ fn flick_hints(
     time: Res<Time>,
     art: Res<Art>,
     towers: Query<&Tower>,
+    pads: Query<&Gamepad>,
     mut hints: Query<(&ButtonHint, &mut Sprite)>,
 ) {
+    let playstation = pads.iter().next().is_some_and(crate::input::is_playstation);
     let down = time.elapsed_secs() % 0.4 >= 0.2;
     for (hint, mut sprite) in &mut hints {
         let side = if hint.dark { "dark" } else { "light" };
@@ -645,7 +647,11 @@ fn flick_hints(
         let pad = towers
             .get(hint.tower)
             .is_ok_and(|t| t.player.is_some_and(|p| p >= 1));
-        let kind = if pad { "pad" } else { "button" };
+        let kind = match (pad, playstation) {
+            (true, true) => "ps",
+            (true, false) => "pad",
+            _ => "button",
+        };
         if let Some(image) = art
             .image(&format!("spell_cloud_{kind}_{side}_{state}"))
             .or_else(|| art.image(&format!("spell_cloud_button_{side}_{state}")))

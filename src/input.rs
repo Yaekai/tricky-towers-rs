@@ -31,6 +31,12 @@ impl Plugin for KeyboardInputPlugin {
     }
 }
 
+/// Whether a pad is a PlayStation one (Sony's USB vendor id), which shows its own
+/// button pictures in the original (its PlayStation input profile).
+pub(crate) fn is_playstation(pad: &Gamepad) -> bool {
+    pad.vendor_id() == Some(0x054C)
+}
+
 /// Which player a gamepad drives: pads drive players 2, 3, 4 in the order they
 /// connected; alone, the first pad drives player 1.
 fn player_for_slot(players: usize, slot: usize) -> usize {
