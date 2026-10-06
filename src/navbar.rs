@@ -198,7 +198,7 @@ fn spawn_nav_bar(mut commands: Commands, art: Option<Res<Art>>) {
 fn show_nav_bar(
     game: Res<Match>,
     screen: Res<MenuScreen>,
-    pads: Query<(), With<Gamepad>>,
+    pads: Query<&Gamepad>,
     mut bar: Query<&mut Visibility, With<NavBar>>,
     mut rows: Query<(&NavItem, &mut NavSlot, &mut Node, &mut Visibility), Without<NavBar>>,
     mut keys: Query<(&NavKey, &mut Text), Without<NavWords>>,
@@ -248,8 +248,14 @@ fn show_nav_bar(
         }
     }
     let pad = !pads.is_empty();
+    let playstation = pads.iter().next().is_some_and(crate::input::is_playstation);
     for (glyph, mut image) in &mut glyphs {
         let (keyboard, button) = glyph.0.glyphs();
+        let button = match (playstation, glyph.0) {
+            (true, NavItem::Continue) => "menu_pad_cross",
+            (true, NavItem::Back) => "menu_pad_circle",
+            _ => button,
+        };
         if let Some(want) = art
             .as_deref()
             .and_then(|a| a.image(if pad { button } else { keyboard }))
