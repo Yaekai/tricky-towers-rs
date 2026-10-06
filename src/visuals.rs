@@ -1138,6 +1138,25 @@ fn dress_platforms(
         base.with_children(|parent| {
             spawn_lane_layers(parent, &art, game.mode, c);
             let lane = config.cells(config.platform_width + 4.0);
+            // Race lines run across the tower's share of the screen, as each tower's
+            // own camera shows them in the original.
+            let lanes = if config.trial.is_some() {
+                2
+            } else {
+                ((config.players.max(1) + config.opponents) as usize)
+                    .min(crate::gameplay::MAX_TOWERS)
+            };
+            let race_lane = config.cells(config.lanes.width(lanes));
+            // A Puzzle trial's laser runs from the screen's left edge to its ball,
+            // 21 cells right of the lane (the ball's place in Max's screenshot; the
+            // original sets it 9 units into its zoomed background view, ?).
+            let ball_x = c * 21.0;
+            let trial_laser = config.trial.is_some() && game.mode.rules() == ModeKind::Puzzle;
+            let (line_width, line_x) = match game.mode.rules() {
+                ModeKind::Race | ModeKind::Endless => (race_lane, 0.0),
+                ModeKind::Puzzle if trial_laser => (ball_x + c * 24.0, (ball_x - c * 24.0) * 0.5),
+                _ => (lane, 0.0),
+            };
             let line = match game.mode.rules() {
                 ModeKind::Race => Some((
                     config.race.finish_height,
@@ -1166,9 +1185,12 @@ fn dress_platforms(
                     Transform::from_xyz(0.0, config.cells(height) + c * 0.5, -1.0),
                     Visibility::default(),
                 ));
-                match art_strip(&art, name, c, lane, Vec3::ZERO) {
+                match art_strip(&art, name, c, line_width, Vec3::X * line_x) {
                     Some(strip) => line.with_child(strip),
-                    None => line.with_child(Sprite::from_color(color, Vec2::new(lane, 3.0))),
+                    None => line.with_child((
+                        Sprite::from_color(color, Vec2::new(line_width, 3.0)),
+                        Transform::from_xyz(line_x, 0.0, 0.0),
+                    )),
                 };
                 // The finish line's tiles end in a cap at each side, the right one turned
                 // 180° (docs/research/trials-obstacles-roofs.md, "Finish line").
@@ -1179,6 +1201,7 @@ fn dress_platforms(
                         {
                             sprite.flip_x = side > 0.0;
                             sprite.flip_y = side > 0.0;
+                            let lane = line_width;
                             line.with_child((
                                 sprite,
                                 anchor,
@@ -1198,7 +1221,7 @@ fn dress_platforms(
                     && config.trial.is_some()
                     && let Some(ball) = art.image("fx_laserball")
                 {
-                    let x = lane * 0.5 + c * 1.2;
+                    let x = ball_x;
                     if let Some(tile) = art.image("fx_laser_pillar_tile") {
                         let depth = config.cells(height) + c * 9.0;
                         line.with_child((
@@ -1445,50 +1468,63 @@ fn frame_towers(
     if towers.is_empty() {
         return;
     }
-    let (mut min_x, mut max_x, mut top) = (f32::MAX, f32::MIN, 0.0f32);
+    let (mut min_x, mut max_x) = (f32::MAX, f32::MIN);
+    let (mut lowest, mut highest, mut widest) = (f32::MAX, f32::MIN, 0.0f32);
     for (tower, state) in &towers {
         min_x = min_x.min(tower.origin_x);
         max_x = max_x.max(tower.origin_x);
-        top = top.max(state.stack_top);
+        lowest = lowest.min(state.stack_top);
+        highest = highest.max(state.stack_top);
+        widest = widest.max(state.half_width * 2.0);
     }
-    // A trial's enemy lane is framed too, and so is the lone player's wizard floating
-    // left of its tower (both wizards are on screen in the original's trials).
+    let mut lanes = towers.iter().count();
     for lane in &rival_lanes {
         min_x = min_x.min(lane.origin_x);
         max_x = max_x.max(lane.origin_x);
-        if let Some((tower, _)) = towers.iter().next() {
-            let wizard = config.cells(config.wizards.solo_offset_x - 3.0);
-            min_x = min_x
-                .min(tower.origin_x + wizard + config.cells(config.platform_width + 10.0) / 2.0);
-        }
+        lanes += 1;
     }
-    // Follow the tower tops; the race finish only comes into view as towers near it.
-    let goal = match game.mode.rules() {
-        ModeKind::Puzzle => config.puzzle.line_height + config.puzzle.line_random,
-        _ => 0.0,
-    };
-    let view_top = config.camera_top(top.max(goal));
-    // Just past the water line, so the whole base and what hangs under it stay in view.
-    let below = config.kill_depth + 1.5;
-    let width = max_x - min_x + config.cells(config.platform_width + 10.0);
-    // While playing, the camera stays close (about `camera_cells` tall) and follows
-    // the tower tops, so a tall tower's base leaves the screen. Once the match is
-    // over it pulls back until every tower and its base fit.
-    let close = game.phase == Phase::Playing && game.mode.rules() != ModeKind::Puzzle;
-    let full = view_top + below;
-    let cells_tall = if close {
-        config.hud.camera_cells.min(full)
+    // The original gives each tower its own camera over its share of the screen,
+    // all with the same top and bottom; one camera over the screen-split lanes
+    // does the same. Cells under the base top it may show: the floor's height.
+    let floor = -config.camera_floor();
+    let look = &config.hud;
+    let (top, bottom) = if game.mode.rules() == ModeKind::Puzzle {
+        // WidthTowerCamera: the bottom stays on the floor, the height fits the
+        // widest tower (+2, at least 10) across a lane, at least 40 cells. A
+        // Puzzle trial's lane is two thirds of the screen.
+        let share = if config.trial.is_some() {
+            2.0 / 3.0
+        } else {
+            1.0 / lanes.max(1) as f32
+        };
+        let aspect = window.x * share / window.y.max(1.0);
+        let height = ((widest + 2.0).max(10.0) / aspect.max(0.01)).max(40.0);
+        (floor + height, floor)
     } else {
-        full
+        // SingleTowerCamera.
+        let height = look.camera_height;
+        let mut top = (highest + height - look.camera_tower_room).max(floor + height);
+        let mut bottom = (lowest - look.camera_below_lowest).max(floor);
+        bottom = bottom.min(top - height);
+        if game.phase == Phase::Over {
+            // Once the match is over it pulls back until every base fits.
+            bottom = floor;
+        }
+        top = top.max(bottom + height);
+        (top, bottom)
     };
-    let height = config.cells(cells_tall);
-    let scale = (width / window.x).max(height / window.y).max(0.5);
-    // Whatever height the width forces is shown from the top down.
-    let shown = config.cells(full).min(window.y * scale);
-    let bottom = (config.cells(view_top) - shown).max(-config.cells(below));
-    let target = Vec2::new((min_x + max_x) * 0.5, bottom + shown * 0.5);
+    let height = config.cells(top - bottom);
+    let scale = (height / window.y.max(1.0)).max(0.01);
+    // Trials split the screen around its centre; otherwise centre the lanes.
+    let x = if config.trial.is_some() {
+        0.0
+    } else {
+        (min_x + max_x) * 0.5
+    };
+    let target = Vec2::new(x, config.cells(bottom) + height * 0.5);
 
-    let t = 1.0 - (-3.0 * time.delta_secs()).exp();
+    // The original eases top and bottom by 5 × dt each frame.
+    let t = 1.0 - (-5.0 * time.delta_secs()).exp();
     let current = transform.translation.truncate();
     transform.translation += ((target - current) * t).extend(0.0);
     if let Projection::Orthographic(ortho) = &mut *projection {
