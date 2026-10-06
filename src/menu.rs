@@ -11,7 +11,7 @@ use crate::select::{
     Lobby, modes_input, players_input, show_select_screens, spawn_select_screens, step_back,
 };
 use crate::single::{
-    Leaderboard, SingleMenu, endless_input, record_endless_scores, show_carousel,
+    Leaderboard, SingleMenu, endless_input, record_endless_scores, show_carousel, show_list_ribbon,
     show_single_screens, single_input, spawn_single_screens,
 };
 use crate::start::{StartClock, show_start_screen, spawn_start_screen, start_input};
@@ -65,6 +65,7 @@ impl Plugin for MenuPlugin {
                 show_select_screens,
                 show_single_screens,
                 show_carousel,
+                show_list_ribbon,
                 crate::trials_menu::show_trials_screen,
                 crate::settings::show_settings_screen,
                 show_pause_menu,

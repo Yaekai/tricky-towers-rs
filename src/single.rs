@@ -119,6 +119,41 @@ pub struct SingleMenu {
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Carousel(i32);
 
+/// The red ribbon over a picked Single Player list button.
+#[derive(Component)]
+pub(crate) struct ListRibbon(usize);
+
+/// Shows the ribbon on the picked list button, with its words outlined white on it.
+pub(crate) fn show_list_ribbon(
+    menu: Res<SingleMenu>,
+    mut ribbons: Query<(&ListRibbon, &mut Visibility)>,
+    mut words: Query<(&Item, &mut crate::letters::TextLook, &mut TextColor)>,
+) {
+    if !menu.is_changed() {
+        return;
+    }
+    for (ribbon, mut visibility) in &mut ribbons {
+        visibility.set_if_neq(shown(ribbon.0 == menu.selected));
+    }
+    for (item, mut look, mut color) in &mut words {
+        if let Item::ListText(i) = *item {
+            let (want, face) = if i == menu.selected {
+                (crate::letters::TextLook::OUTLINED, Color::WHITE)
+            } else {
+                (crate::letters::TextLook::BODY, color.0)
+            };
+            look.set_if_neq(want);
+            if color.0 != face {
+                color.0 = face;
+            }
+        }
+    }
+}
+
+/// The brick pack card under the carousel.
+#[derive(Component)]
+pub(crate) struct PackCard;
+
 /// Wizards in the carousel, as many as the original has.
 const CAROUSEL_WIZARDS: usize = 14;
 /// The neighbours' panels and the arrows, from the screen centre (Max's
@@ -289,6 +324,20 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
         if let Some(grey) = image("menu_player_select_background_deselected") {
             pack.insert((sliced(grey, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
         }
+        // The picked brick pack's card on it, as on Select Players.
+        pack.with_children(|p| {
+            p.spawn((
+                ImageNode::default(),
+                Node {
+                    width: Val::Percent(90.0),
+                    height: Val::Percent(80.0),
+                    margin: UiRect::AUTO,
+                    ..default()
+                },
+                PackCard,
+                Visibility::Hidden,
+            ));
+        });
         let button = image("menu_button_background");
         let band = image("menu_button_cup_background");
         let corner = image("menu_corner_small");
@@ -305,19 +354,22 @@ pub(crate) fn spawn_single_screens(mut commands: Commands, art: Option<Res<Art>>
                     BackgroundColor(Color::NONE),
                 ));
             }
-            // Endless carries the cup band across it, as wide as the button.
-            if *name == "Endless"
-                && let Some(band) = &band
-            {
+            // The picked button carries the red ribbon across it, a little wider
+            // (Max's screenshots of the original).
+            if let Some(band) = &band {
                 node.with_children(|b| {
                     b.spawn((
-                        ImageNode::new(band.clone()),
+                        sliced(band.clone(), [26.0, 26.0, 0.0, 0.0]),
                         Node {
                             position_type: PositionType::Absolute,
-                            width: Val::Percent(100.0),
+                            left: Val::Percent(-3.0),
+                            width: Val::Percent(106.0),
+                            top: Val::Percent((1.0 - CUP_BAND / LIST_BUTTON.1) * 50.0),
                             height: Val::Percent(CUP_BAND / LIST_BUTTON.1 * 100.0),
                             ..default()
                         },
+                        ListRibbon(index),
+                        Visibility::Hidden,
                     ));
                 });
             }
@@ -575,7 +627,8 @@ pub(crate) fn show_single_screens(
             continue;
         }
         let look = match *item {
-            Item::ListButton(i) => Some(tint(menu.selected == i, LIST[i].1)),
+            // List buttons stay plain; the ribbon marks the picked one.
+            Item::ListButton(i) => Some(tint(true, LIST[i].1)),
             Item::EndlessButton(i) => Some(tint(menu.endless == i, ENDLESS[i].built)),
             _ => None,
         };
@@ -676,10 +729,31 @@ pub(crate) fn record_endless_scores(
 pub(crate) fn show_carousel(
     menu: Res<SingleMenu>,
     art: Option<Res<Art>>,
-    mut slots: Query<(&Carousel, &mut ImageNode, &mut Visibility)>,
+    config: Res<GameConfig>,
+    mut slots: Query<(&Carousel, &mut ImageNode, &mut Visibility), Without<PackCard>>,
+    mut cards: Query<(&mut ImageNode, &mut Visibility), With<PackCard>>,
 ) {
     if !menu.is_changed() && !art.as_ref().is_some_and(|a| a.is_changed()) {
         return;
+    }
+    // The Spring pack's card is the original's Easter one.
+    let key = match config.skins.first().map(|s| s.1).unwrap_or_default() {
+        crate::config::BrickPack::Spring => "easter",
+        pack => pack.key(),
+    };
+    let card = art
+        .as_ref()
+        .and_then(|a| a.image(&format!("brick_pack_{key}")));
+    for (mut node, mut visibility) in &mut cards {
+        match &card {
+            Some(image) => {
+                node.image = image.clone();
+                visibility.set_if_neq(Visibility::Inherited);
+            }
+            None => {
+                visibility.set_if_neq(Visibility::Hidden);
+            }
+        }
     }
     let n = CAROUSEL_WIZARDS as i32;
     for (slot, mut node, mut visibility) in &mut slots {
