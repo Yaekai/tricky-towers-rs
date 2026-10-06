@@ -217,7 +217,7 @@ fn set_up_weather(
             }
         }
     }
-    if look.1 == Some("puzzle_pro") {
+    if matches!(look.1, Some("puzzle_pro" | "endless_puzzle")) {
         if let Some(sun) = art.image("puzzle_pro_sun") {
             commands.entity(camera).with_child((
                 Weather,
