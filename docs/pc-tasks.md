@@ -115,12 +115,13 @@ frontend and test-writer suggestions.
   red eclipse (DesertEndlessBackground/DesertBackgroundEndlessSun AnimateIn, 2 s; the menu shows
   it straight away): sky gradient #8B1838 → #4A1117, ruins back #9B1D33/#AE1F3D, middle
   #66151D/#4B0F19, front #2C0609, eclipse #FF651F. Stage it like `background_puzzle_pro_N`. Merge only when `cargo test` passes.
-- **From Max's play test (2026-10-06, his screenshot of a Survival trial):** the special bricks
-  (trial floor and obstacle pieces drawn from the castle and door art) look badly stretched and cut;
-  only the Piano special brick looks right. Read how the original sizes and slices each special
-  brick and fix them all. The purple full-screen effect when something happens (curse wave or cast
-  flash) is far too bright; compare with the original and tone it down to match. The Survival
-  count reads "7/26" and overlaps the next-brick card; check the original's format and spacing.
+- **From Max's play test (2026-10-06, his screenshot of a Survival trial):** ✓ special bricks: the
+  Mystery spell's castle block and windmill were drawn squashed sideways because their cells were
+  4x2 and 4x3 instead of the prefabs' 2x4 and 3x4 (fixed from the box colliders; the windmill now
+  carries its rotor and shadow; the piano was already right). The windmill's 45° nub isn't a cell.
+  Still open: the purple full-screen effect when something happens (curse wave or cast flash) is
+  far too bright; compare with the original and tone it down to match. The Survival count reads
+  "7/26" and overlaps the next-brick card; check the original's format and spacing.
 - Also queued: tutorial (explanation) and Credits popups (layouts read in menus.md), keyboard key
   hints on the spell clouds, the trial mode stinger.
 - **Done on the new PC (2026-10-05)**: wizard voice packs read into docs/research/wizards.md

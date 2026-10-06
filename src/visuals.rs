@@ -355,6 +355,32 @@ pub(crate) fn dress_bricks(
                     },
                     Transform::from_translation(center.extend(0.0)),
                 ));
+                // Mystery 2 carries its rotor on top, over a dark shadow (MysteryBrick02 prefab).
+                if key == "mystery_blob" && whole {
+                    let rotor = match (stone, brick.ice) {
+                        (true, _) => "brick_mystery02_rotor_petrified",
+                        (false, true) => "brick_mystery02_rotor_ice",
+                        _ => "brick_mystery02_rotor",
+                    };
+                    let shadow = Color::srgba(0.043, 0.051, 0.173, 0.828);
+                    for (name, at, z, tint) in [
+                        (
+                            "brick_mystery02_rotor_white",
+                            Vec2::new(0.1, 0.24),
+                            0.05,
+                            shadow,
+                        ),
+                        (rotor, Vec2::new(-0.02, 0.43), 0.06, Color::WHITE),
+                    ] {
+                        if let Some((mut sprite, anchor, mut transform)) =
+                            art_sprite(&art, name, cell)
+                        {
+                            sprite.color = tint;
+                            transform.translation = (center + at * cell).extend(z);
+                            entity.with_child((sprite, anchor, transform));
+                        }
+                    }
+                }
                 for (z, overlay, name) in
                     [(0.1, vine_art, vine_name.as_str()), (0.2, grass_art, "")]
                 {
