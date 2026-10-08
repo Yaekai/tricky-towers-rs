@@ -1884,3 +1884,45 @@ fn ivy_bricks_are_drawn_where_their_bodies_are() {
         assert!(p.0.distance(g.translation().truncate()) < 1.0, "{p:?} drawn at {g:?}");
     }
 }
+
+#[test]
+fn vined_block_stays_put_under_more_bricks() {
+    let mut app = headless_app(magic_config(SpellKind::Ivy, &[]));
+    let mut start = Vec2::ZERO;
+    for round in 0..4 {
+        wait_for_light(&mut app, SpellKind::Ivy);
+        human_input(&mut app).cast_light_pressed = true;
+        run_seconds(&mut app, 1.0, |_| {});
+        if round == 0 {
+            start = cluster_position(&mut app);
+        }
+        let before = tower(&mut app, 0).bricks_placed;
+        assert!(run_until(&mut app, 8.0, |app| {
+            human_input(app).fast_fall_held = true;
+            tower(app, 0).bricks_placed > before
+        }));
+        human_input(&mut app).fast_fall_held = false;
+        run_seconds(&mut app, 0.5, |_| {});
+        if tower(&mut app, 0).active.is_some() {
+            wait_for_next_brick(&mut app);
+        }
+    }
+    run_seconds(&mut app, 2.0, |_| {});
+    let end = cluster_position(&mut app);
+    let state = tower(&mut app, 0);
+    assert_eq!(state.bricks_dropped, 0, "{state:?}");
+    assert!(
+        start.distance(end) < 2.0,
+        "the vined block slid from {start:?} to {end:?}"
+    );
+}
+
+fn cluster_position(app: &mut App) -> Vec2 {
+    let world = app.world_mut();
+    world
+        .query_filtered::<&avian2d::prelude::Position, With<IvyCluster>>()
+        .iter(world)
+        .map(|p| p.0)
+        .next()
+        .unwrap_or(Vec2::ZERO)
+}
