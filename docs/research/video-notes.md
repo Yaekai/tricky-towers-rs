@@ -73,6 +73,15 @@ in yellow-orange, the others in pink.
 - **Cup standings** (between cup matches): a dark screen with a white panel, "SUPER CUP" title
   between two laurels with small cups, one row per player (wizard face, then a row of trophy
   slots filling up), and "CONTINUE" under it.
+- **Cup standings, Tiny Cup** (Max's 1080p recording, 2026-10-08, two players). Timing from the
+  match end: the WINNER! card is up at 48 s; the panel slides in at 52 s; the medal slots fill
+  one by one until 56 s; CONTINUE appears under the panel at 56 s; at 58 s the panel gives way
+  to "TINY CUP WINNER!" (the cup is decided), otherwise the next match starts. Layout: the match
+  scene dimmed behind, a white panel with a blue top bar, "TINY CUP" in the bar between two small
+  gold cups (not laurels). One row per player: a round wizard portrait, the name above it in small
+  grey text, then 6 medal slots (red 1st, purple 2nd, orange 3rd, blue 4th; empty slots show as
+  grey outlines). A gold trophy sits at the right of the winner's row once it reaches the target.
+  A second seat with the same name is shown as "Name (1)".
 
 ## Dark cast, measured at 10 frames a second (2-player race)
 Time from the caster pressing the dark spell button:
