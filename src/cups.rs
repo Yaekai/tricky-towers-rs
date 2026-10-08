@@ -79,7 +79,8 @@ impl Cup {
         if best < size.target || leaders > 1 {
             return false;
         }
-        // Most points first; lower places by the last match (?).
+        // Most points first; the original sorts by points alone and keeps ties in
+        // seat order, which this does too (CupMatchFlowController).
         let mut standings: Vec<usize> = (0..self.points.len()).collect();
         let last = |t: usize| order.iter().position(|&o| o == t).unwrap_or(usize::MAX);
         standings.sort_by(|&a, &b| {
