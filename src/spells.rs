@@ -887,7 +887,7 @@ pub(crate) fn grow_ivy(
         let reach = brick_collider(
             &brick.cells,
             cell,
-            config.collider_scale + 2.0 * config.magic.ivy_reach / brick.scale,
+            config.collider_scale + config.magic.ivy_reach / brick.scale,
         );
         let filter = SpatialQueryFilter::from_excluded_entities([entity]);
         let mut members: Vec<Entity> = vec![entity];
@@ -914,17 +914,15 @@ pub(crate) fn grow_ivy(
         if members.len() < 2 {
             continue;
         }
-        // Ivy holds what it touches fast: a group of two or more bricks is fixed where it
-        // lands (its tower can't slide out from under it), as a stone brick is.
-        let solid = members.len() >= 2
-            || members.iter().any(|&m| {
-                bricks
-                    .get(m)
-                    .is_ok_and(|b| b.5 || b.4.is_some_and(|r| *r == RigidBody::Static))
-            })
-            || old_clusters
-                .iter()
-                .any(|&c| clusters.get(c).is_ok_and(|(_, r)| *r == RigidBody::Static));
+        // A cluster is static only when one of its bricks is solid (stone, zapped or
+        // petrified), as IvyBrickModifier's `solid`; otherwise it is one dynamic body.
+        let solid = members.iter().any(|&m| {
+            bricks
+                .get(m)
+                .is_ok_and(|b| b.5 || b.4.is_some_and(|r| *r == RigidBody::Static))
+        }) || old_clusters
+            .iter()
+            .any(|&c| clusters.get(c).is_ok_and(|(_, r)| *r == RigidBody::Static));
         let cluster = commands
             .spawn((
                 IvyCluster,
