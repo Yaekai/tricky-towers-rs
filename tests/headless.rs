@@ -533,6 +533,28 @@ fn ivy_casts_stacking_up_do_not_panic() {
 }
 
 #[test]
+fn ivy_clusters_loosened_by_bubbles_and_ghosts_do_not_panic() {
+    for seed in [7777, 23331, 4242] {
+        let mut config = magic_config(SpellKind::Ivy, &[]);
+        config.seed = seed;
+        let mut app = headless_app(config);
+        for round in 0..6 {
+            if tower(&mut app, 0).status == TowerStatus::Out {
+                break;
+            }
+            wait_for_next_brick(&mut app);
+            let loosener = if round % 2 == 0 {
+                SpellKind::Bubble
+            } else {
+                SpellKind::Ghost
+            };
+            cast_now(&mut app, SpellKind::Ivy, Some(loosener));
+            run_seconds(&mut app, 1.5, |_| {});
+        }
+    }
+}
+
+#[test]
 fn curses_hit_every_opponent() {
     let mut config = magic_config(SpellKind::Ivy, &[SpellKind::Large]);
     config.mode = ModeKind::Race;
