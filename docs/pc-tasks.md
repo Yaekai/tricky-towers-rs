@@ -610,3 +610,17 @@ frontend and test-writer suggestions.
   medals), the face size, the chain's place and the slide time. Not done: the unlock animation
   and the start stinger. Picture it: `--menu trials --offscreen <dir>`.
 - **README pictures** (done 2026-10-05, PC): `docs/shot-*.png`, offscreen at 960x540, taken without `extracted\` so they show plain shapes, no original art (Max, 2026-10-05).
+
+## Checked 2026-10-08 (batch 6)
+- Puzzle sand: the sandstorm speeds (0.035 and 0.025 a second, `sandstorm_speed`/`_offset`) and
+  strip heights already match the original's SandStormLayer and the readout.
+- Survival overlay: the original's reflected band (gph_gradientRefelcted, OVERLAY_GRADIENT) takes
+  the curse colours; ours draws the same colours as the sky's middle stop, not the sprite itself.
+  Open: draw the reflected band sprite if it looks wrong on the PC.
+- Losing pad rumble: 2 s on the big motor at full strength after a 1.5 s wait (GameBaskController),
+  now 1.0 in config. The second rumble after the blasts is still a guess (?).
+- Moon drop: needs brick scale 2.5 (AbstractSurvival: 2 + (2 - 1) * 0.5); our Large is 2.0, so it
+  never drops. Open: decide whether to add a bigger brick or leave the moon up.
+- Race sky clouds: layers match the original's RaceBackground. The trial screenshot shows more
+  cloud cover, but the phase and lanes differ, so it isn't a like-for-like check. Open: compare a
+  battle screenshot on the PC.
