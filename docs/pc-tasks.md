@@ -659,3 +659,5 @@ frontend and test-writer suggestions.
   and mountains are mixed in. Not confirmed; needs a clean PC frame at the band height.
 - Hologram alpha: `Hologram.prefab` is the brick-pack selection UI, and the exported shader is a stub.
   Alpha stays 0.85 until it can be tuned on the PC.
+  The export's hologram brick prefab only has an opaque sprite tint (0.63, 0.06, 0.79, alpha 1) and
+  the glitch script sets `_DistortionAmount` only, so no alpha value is in the export.
