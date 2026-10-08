@@ -619,8 +619,9 @@ frontend and test-writer suggestions.
   compare it on the PC against a Survival battle screenshot.
 - Losing pad rumble: 2 s on the big motor at full strength after a 1.5 s wait (GameBaskController),
   now 1.0 in config. The second rumble after the blasts is still a guess (?).
-- Moon drop: needs brick scale 2.5 (AbstractSurvival: 2 + (2 - 1) * 0.5); our Large is 2.0, so it
-  never drops. Open: decide whether to add a bigger brick or leave the moon up.
+- Moon drop: done. Two Large curses stack to brick scale 2.5 (large_scale 2.0 + large_stack 0.5), and
+  a brick at 2.5 or more knocks the moon loose (visuals.rs `drop_stars`, `Falling` at gravity 3x).
+  Checked in an offscreen run; compare on the PC.
 - Race sky clouds: layers match the original's RaceBackground. The trial screenshot shows more
   cloud cover, but the phase and lanes differ, so it isn't a like-for-like check. Open: compare a
   battle screenshot on the PC.
@@ -634,3 +635,7 @@ frontend and test-writer suggestions.
   from the install. Compare a Hologram pack brick on the PC.
 - Moon drop: needs brick scale 2.5; our Large is 2.0. A design choice for Max (a bigger brick, or
   leave the moon up).
+
+## Batch 8 (2026-10-08)
+- Moon drop: built (see Checked above). Our earlier note that Large tops out at 2 was wrong: two Large
+  curses on one brick stack to 2.5.
