@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::{
     ActiveBrick, Brick, GameplaySystems, Match, Phase, Placed, Tower, TowerState, TowerStatus,
-    xorshift,
+    roof_waiting, xorshift,
 };
 
 pub struct CollapsePlugin;
@@ -99,6 +99,13 @@ fn start_collapse(
     mut events: MessageWriter<CollapseEvent>,
 ) {
     if game.phase != Phase::Over {
+        return;
+    }
+    // The losers' clock starts when the winner's banner does, after its roof lands.
+    if towers
+        .iter()
+        .any(|(_, tower, state)| roof_waiting(&game, tower, state))
+    {
         return;
     }
     for (entity, tower, mut state) in &mut towers {

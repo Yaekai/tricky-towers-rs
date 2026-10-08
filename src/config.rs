@@ -62,6 +62,8 @@ pub struct GameConfig {
     pub start: StartLook,
     /// The splash when a brick is lost in the water.
     pub splash: SplashLook,
+    /// The Hologram skin's see-through when a brick lands.
+    pub hologram: HologramLook,
     /// Cast beams, lightning, spell clouds and the Large grow.
     pub casts: CastLook,
     /// Experience per match and the wizard levels it buys.
@@ -2229,11 +2231,16 @@ impl XpRules {
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct CastLook {
-    /// Dark cast, beam up from the caster: grows in, then gives up.
+    /// Dark cast: the beam up and the victim's lane overlay start this long after the
+    /// press, and the beam down onto the victim this long after the press (clip: 0.8 s
+    /// and 1.0 s; the curse's orb isn't staged, so the beam stands in for it).
+    pub dark_start: f32,
+    pub dark_fall: f32,
+    /// Beam up from the caster: grows in, then gives up.
     pub beam_up: (f32, f32),
-    /// Then a beam down onto each victim's brick: grows in, then gives up.
+    /// Beam down onto each victim's brick: grows in, then gives up.
     pub beam_down: (f32, f32),
-    /// Then the overlay over each victim's lane: shown (opening in 1/6 s), closing.
+    /// The overlay over each victim's lane: shown (opening in 1/6 s), closing.
     pub lane_wave: (f32, f32),
     /// A finished beam squeezes to nothing this fast.
     pub beam_squeeze: f32,
@@ -2268,9 +2275,11 @@ pub struct CastLook {
 impl Default for CastLook {
     fn default() -> Self {
         Self {
-            beam_up: (0.33, 1.0),
-            beam_down: (0.63, 1.0),
-            lane_wave: (1.0, 0.17),
+            dark_start: 0.8,
+            dark_fall: 1.0,
+            beam_up: (0.2, 1.0),
+            beam_down: (0.4, 0.5),
+            lane_wave: (0.7, 0.1),
             beam_squeeze: 0.03,
             beam_width: 1.76,
             beam_reach: 30.0,
@@ -2290,6 +2299,30 @@ impl Default for CastLook {
             ],
             large_grow: 0.3,
             large_shake: (0.1, 0.13, 0.3),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct HologramLook {
+    /// Alpha over seconds since the brick landed, from the 2-player Survival clip
+    /// (docs/research/video-notes.md). Past the last point the glitch look takes over.
+    pub touch_alpha: Vec<(f32, f32)>,
+}
+
+impl Default for HologramLook {
+    fn default() -> Self {
+        Self {
+            touch_alpha: vec![
+                (0.0, 0.85),
+                (0.05, 0.45),
+                (0.16, 0.45),
+                (0.33, 0.45),
+                (0.36, 1.0),
+                (0.45, 1.0),
+                (0.5, 0.85),
+            ],
         }
     }
 }
@@ -2576,6 +2609,7 @@ impl Default for GameConfig {
             menu: MenuLook::default(),
             start: StartLook::default(),
             splash: SplashLook::default(),
+            hologram: HologramLook::default(),
             casts: CastLook::default(),
             xp: XpRules::default(),
             cups: CupRules::default(),

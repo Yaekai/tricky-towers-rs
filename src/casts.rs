@@ -78,7 +78,6 @@ struct Beam {
     /// The beam's foot (world pixels) and the lane centre it ends over.
     foot: Vec2,
     lane_x: f32,
-    target: usize,
     time: f32,
 }
 
@@ -138,15 +137,7 @@ fn start_casts(
                 && let Some((_, victim, victim_state)) = find(cast.target)
             {
                 let foot = brick_at(victim_state, victim);
-                spawn_beam(
-                    &mut commands,
-                    &config,
-                    &art,
-                    BeamKind::Down,
-                    foot,
-                    victim.origin_x,
-                    cast.target,
-                );
+                spawn_victim_beams(&mut commands, &config, &art, foot, victim.origin_x);
             }
             continue;
         };
@@ -154,31 +145,21 @@ fn start_casts(
         if cast.spell.is_dark() {
             if !beamed_up.contains(&cast.caster) {
                 beamed_up.push(cast.caster);
-                spawn_beam(
+                let beam = spawn_beam(
                     &mut commands,
                     &config,
                     &art,
                     BeamKind::Up,
                     from,
                     caster.origin_x,
-                    cast.caster,
                 );
+                commands
+                    .entity(beam)
+                    .insert((Visibility::Hidden, DelayedBy(config.casts.dark_start)));
             }
             if let Some((_, victim, victim_state)) = find(cast.target) {
                 let foot = brick_at(victim_state, victim);
-                let beam = spawn_beam(
-                    &mut commands,
-                    &config,
-                    &art,
-                    BeamKind::Down,
-                    foot,
-                    victim.origin_x,
-                    cast.target,
-                );
-                // The down beam waits for the up beam to grow in.
-                commands
-                    .entity(beam)
-                    .insert((Visibility::Hidden, DelayedBy(config.casts.beam_up.0)));
+                spawn_victim_beams(&mut commands, &config, &art, foot, victim.origin_x);
             }
         } else if !lit.contains(&cast.caster) {
             lit.push(cast.caster);
@@ -225,7 +206,6 @@ fn spawn_beam(
     kind: BeamKind,
     foot: Vec2,
     lane_x: f32,
-    target: usize,
 ) -> Entity {
     let image = beam_image(art, kind, config.mode);
     let sprite = match image {
@@ -241,7 +221,6 @@ fn spawn_beam(
             kind,
             foot,
             lane_x,
-            target,
             time: 0.0,
         },
         sprite,
@@ -262,6 +241,24 @@ fn spawn_beam(
         });
     }
     beam.id()
+}
+
+/// A dark cast's victim: the beam down onto its brick and the lane overlay over its lane.
+fn spawn_victim_beams(
+    commands: &mut Commands,
+    config: &GameConfig,
+    art: &Art,
+    foot: Vec2,
+    lane_x: f32,
+) {
+    let beam = spawn_beam(commands, config, art, BeamKind::Down, foot, lane_x);
+    commands
+        .entity(beam)
+        .insert((Visibility::Hidden, DelayedBy(config.casts.dark_fall)));
+    let lane = spawn_beam(commands, config, art, BeamKind::Lane, foot, lane_x);
+    commands
+        .entity(lane)
+        .insert((Visibility::Hidden, DelayedBy(config.casts.dark_start)));
 }
 
 /// The glow at a beam's foot; it stays at the foot, not stretched with the beam.
@@ -368,18 +365,6 @@ fn run_beams(
         let length = reach * (t / grow).clamp(0.0, 1.0);
         let squeeze = ((t - last) / look.beam_squeeze.max(0.001)).clamp(0.0, 1.0);
         if squeeze >= 1.0 {
-            if beam.kind == BeamKind::Down {
-                // The lane wave follows the beam down.
-                spawn_beam(
-                    &mut commands,
-                    &config,
-                    &art,
-                    BeamKind::Lane,
-                    beam.foot,
-                    beam.lane_x,
-                    beam.target,
-                );
-            }
             commands.entity(entity).despawn();
             continue;
         }

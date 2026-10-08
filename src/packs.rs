@@ -1,6 +1,7 @@
 //! What each brick pack adds on top of its textures (docs/research/skins.md):
 //! Christmas lights that blink and snow caps on top edges, Halloween decorations
-//! that pulse, the Hologram glitch, the Diamond gloss and the Galaxy starfield.
+//! that pulse, the Hologram glitch and see-through touch, the Diamond gloss and the
+//! Galaxy starfield.
 //! The bricks themselves are drawn by `visuals::dress_bricks`; this runs right after
 //! it and adds children, so a re-dressed brick gets its decorations again.
 //! Spring's grass and eggs aren't staged yet, so Spring shows its textures only.
@@ -10,8 +11,9 @@ use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::config::{BrickPack, GameConfig};
-use crate::gameplay::{Brick, TowerSkin};
+use crate::gameplay::{Brick, Placed, TowerSkin};
 use crate::spells::{Grassy, Stone, Vined};
+use crate::start::keyed;
 use crate::visuals::{CellSprite, dress_bricks};
 
 pub struct PacksPlugin;
@@ -25,6 +27,7 @@ impl Plugin for PacksPlugin {
                 blink_lights,
                 grow_snow,
                 pulse_decorations,
+                land_holograms.before(glitch_holograms),
                 glitch_holograms,
                 gloss_diamonds,
                 scroll_galaxy,
@@ -61,13 +64,15 @@ struct Pulse {
 
 /// A Hologram brick: glitches every 6 to 15 s, the first right away. A glitch takes
 /// 0.1 to 0.5 s to come in and as long to go out (HologramBrickModifier), its
-/// distortion rising and falling over that time.
+/// distortion rising and falling over that time. A landed brick also goes see-through
+/// for a moment (`HologramLook`): `touch` counts seconds since it landed.
 #[derive(Component)]
 struct Glitch {
     wait: f32,
     left: f32,
     span: f32,
     seed: u32,
+    touch: f32,
 }
 
 /// A Diamond brick: a 0.6 s gloss every 6 to 15 s, the first right away.
@@ -209,6 +214,7 @@ fn decorate_bricks(
                     left: 0.0,
                     span: 0.0,
                     seed,
+                    touch: f32::INFINITY,
                 });
             }
             BrickPack::Diamond => {
@@ -371,15 +377,27 @@ fn pulse_decorations(time: Res<Time>, mut items: Query<(&mut Pulse, &mut Transfo
     }
 }
 
+fn land_holograms(mut bricks: Query<&mut Glitch, Added<Placed>>) {
+    for mut glitch in &mut bricks {
+        glitch.touch = 0.0;
+    }
+}
+
 /// The glitch shakes and tints the brick's sprite while it lasts (the original's
-/// shader distortion, approximated, ?).
+/// shader distortion, approximated, ?). A landed brick's see-through overrides only
+/// the alpha, and only until the touch curve ends; collisions never change.
 fn glitch_holograms(
     time: Res<Time>,
+    config: Res<GameConfig>,
     mut bricks: Query<(&mut Glitch, &Children)>,
     mut sprites: Query<(&mut Sprite, &mut Transform), With<CellSprite>>,
 ) {
     let dt = time.delta_secs();
+    let touch_curve = &config.hologram.touch_alpha;
+    let touch_end = touch_curve.last().map_or(0.0, |key| key.0);
     for (mut glitch, children) in &mut bricks {
+        glitch.touch += dt;
+        let touch = (glitch.touch < touch_end).then(|| keyed(touch_curve, glitch.touch));
         let mut seed = glitch.seed;
         if glitch.left > 0.0 {
             glitch.left -= dt;
@@ -408,11 +426,12 @@ fn glitch_holograms(
         for child in children.iter() {
             if let Ok((mut sprite, mut transform)) = sprites.get_mut(child) {
                 // Hologram bricks are see-through and cyan-tinted, more so in a glitch.
-                sprite.color = if on {
-                    Color::srgba(0.5, 1.0, 1.0, 0.55)
+                let (red, green, blue, alpha) = if on {
+                    (0.5, 1.0, 1.0, 0.55)
                 } else {
-                    Color::srgba(0.8, 1.0, 1.0, 0.85)
+                    (0.8, 1.0, 1.0, 0.85)
                 };
+                sprite.color = Color::srgba(red, green, blue, touch.unwrap_or(alpha));
                 transform.translation.x = shift;
             }
         }
@@ -546,5 +565,20 @@ mod tests {
         assert!(in_back(0.2) < 0.0, "in-back dips first");
         assert!((squash(0.1) - 0.8).abs() < 1e-5);
         assert!((squash(1.1) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn hologram_touch_dips_then_ends_at_rest_alpha() {
+        let curve = crate::config::HologramLook::default().touch_alpha;
+        assert_eq!(
+            curve.last().unwrap().1,
+            0.85,
+            "touch hands back to the resting alpha"
+        );
+        assert!(keyed(&curve, 0.2) < 0.6, "see-through while touching");
+        assert!(
+            keyed(&curve, 0.4) > 0.9,
+            "flashes brighter before going solid"
+        );
     }
 }

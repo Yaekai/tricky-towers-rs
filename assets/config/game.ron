@@ -70,6 +70,17 @@
         prompt_after: 2.62,
         blink: (0.5, 0.5),
     ),
+    hologram: (
+        touch_alpha: [
+            (0.0, 0.85),
+            (0.05, 0.45),
+            (0.16, 0.45),
+            (0.33, 0.45),
+            (0.36, 1.0),
+            (0.45, 1.0),
+            (0.5, 0.85),
+        ],
+    ),
     splash: (
         drop_below: 0.4,
         fronts: 5,
@@ -90,9 +101,11 @@
         drop_shrink: (0.45, 0.93),
     ),
     casts: (
-        beam_up: (0.33, 1.0),
-        beam_down: (0.63, 1.0),
-        lane_wave: (1.0, 0.17),
+        dark_start: 0.8,
+        dark_fall: 1.0,
+        beam_up: (0.2, 1.0),
+        beam_down: (0.4, 0.5),
+        lane_wave: (0.7, 0.1),
         beam_squeeze: 0.03,
         beam_width: 1.76,
         beam_reach: 30.0,

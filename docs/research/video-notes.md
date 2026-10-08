@@ -65,6 +65,9 @@ in yellow-orange, the others in pink.
 
 ## Menus seen in the videos
 - **Select Mode** has a third column after mode and difficulty: "Single match" or a cup.
+- **Difficulty order** on Select Mode (Down arrow): Easy, Normal, Special, Random, then back to
+  Easy. Labels are in the vanilla clip. The wrap back to Easy is Max's report; the clip stops at
+  Random, so it is not seen on video.
 - **A new match** starts with a ribbon banner across the screen naming mode and difficulty
   ("SURVIVAL NORMAL").
 - **Cup standings** (between cup matches): a dark screen with a white panel, "SUPER CUP" title
@@ -120,6 +123,22 @@ every mode at 1080p. Set beside our offscreen pictures at the same size (2-playe
    middle.
 Ours matches on the sky, clouds, islands, the house base, the brick art and the wizard on
 the cloud.
+
+## Hologram skin touch (2-player Survival clip)
+Clip: the 76 s Survival EASY match with two players and the Hologram skin on
+(`clip_1,791,490,737,792.mp4`, 1920x1080).
+- A brick that lands on another brick or on the tower top goes see-through for about 0.2-0.4 s,
+  then flashes brighter and turns solid again. Seen at 43.6 s (orange brick on the pink top:
+  see-through 43.68-43.95 s, flash 43.98-44.07 s, solid by 44.10 s) and at 45.25 s (green brick
+  on the orange top: see-through 45.25-45.42 s, solid by 45.50 s). Dust puffs show at contact.
+- Peak see-through is roughly 0.4-0.6 opacity from compressed video. Not a clean number.
+- The see-through is visual only (Max confirmed). The brick stays solid for collisions at all times.
+- `src/packs.rs` says the Hologram look touches no gameplay. It has a timed glitch only, with no
+  touch-triggered see-through, so that effect is missing from our build.
+- Bricks in the air and at rest look solid. A falling orange brick at 43.00 s shows no sky tint.
+  The 0.85 rest alpha in `docs/pc-tasks.md` is not confirmed by this clip.
+- The vanilla clip (`clip_1,791,489,189,515.mp4`) has a similar 0.4 s see-through moment at
+  192.7-193.1 s. Check which skin that brick used.
 
 ## Still to measure
 The curse-wave start shake (no Survival Pro wave in these videos) and the explosion's frames:
