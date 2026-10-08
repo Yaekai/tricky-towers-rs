@@ -817,6 +817,8 @@ struct ScreenLayer {
     /// Sideways drift in screen units a second, and how far it has gone.
     drift: f32,
     drifted: f32,
+    /// Stretched to the view's width instead of drawn at its size.
+    stretch: bool,
     /// The drift before a curse wave sped it up.
     base_drift: Option<f32>,
 }
@@ -1061,6 +1063,7 @@ fn spawn_backgrounds(
                         drift,
                         drifted: 0.0,
                         base_drift: None,
+                        stretch: entry.stretch == Some(true),
                     },
                     base,
                     ChildOf(camera),
@@ -1073,10 +1076,11 @@ fn spawn_backgrounds(
                 }
                 // How a Survival curse wave changes it (SurvivalBackground): the starry
                 // sky stays, tinted layers (the large clouds) darken, the rest grey.
-                layer.insert(match (entry.star, entry.tint) {
-                    (Some(_), _) => WaveLook::Keep,
-                    (None, Some(_)) => WaveLook::Tint(tint),
-                    (None, None) => WaveLook::Grey,
+                layer.insert(match (entry.star, entry.tint, entry.overlay) {
+                    (Some(_), _, _) => WaveLook::Keep,
+                    (None, _, Some(true)) => WaveLook::Overlay(tint),
+                    (None, Some(_), _) => WaveLook::Tint(tint),
+                    (None, None, _) => WaveLook::Grey,
                 });
                 if let Some(sprite) = lit {
                     layer.with_child((
@@ -1116,7 +1120,7 @@ fn fit_backgrounds(
         ),
     >,
     mut screen: Query<
-        (&mut ScreenLayer, &mut Transform, Option<&mut Star>),
+        (&mut ScreenLayer, &mut Transform, Option<&mut Star>, &Sprite),
         (Without<Background>, Without<Camera2d>, Without<Sky>),
     >,
     mut bands: Query<
@@ -1150,7 +1154,7 @@ fn fit_backgrounds(
     let low = lowest.get_or_insert(camera.translation.y);
     *low = low.min(camera.translation.y);
     let climb = camera.translation.y - *low;
-    for (mut layer, mut transform, mut star) in &mut screen {
+    for (mut layer, mut transform, mut star, sprite) in &mut screen {
         let unit = view.y / layer.view_height;
         // A drifting layer wraps round the view with half a view to spare each side.
         let span = view.x / unit * 2.0;
@@ -1175,7 +1179,15 @@ fn fit_backgrounds(
             *offset += *velocity * time.delta_secs();
             transform.translation += (*offset * unit).extend(0.0);
         }
-        transform.scale = Vec3::splat(unit / layer.pixels_per_unit * layer.scale * twinkle);
+        let height = unit / layer.pixels_per_unit * layer.scale * twinkle;
+        transform.scale = if layer.stretch {
+            let width = images
+                .get(&sprite.image)
+                .map_or(1.0, |i| i.size_f32().x.max(1.0));
+            Vec3::new(view.x / width, height, 1.0)
+        } else {
+            Vec3::splat(height)
+        };
     }
     for (band, mut sprite, mut transform) in &mut bands {
         let unit = view.y / band.view_height;
@@ -1190,6 +1202,8 @@ pub(crate) enum WaveLook {
     Keep,
     /// Tinted layers (the large clouds) shift from their tint to (56, 34, 105).
     Tint(Color),
+    /// The reflected band shifts from its tint to the curse band colour.
+    Overlay(Color),
     /// Islands and the small clouds grey; the small clouds also speed up.
     Grey,
 }
@@ -1218,6 +1232,10 @@ fn grey_wave_layers(
         let want = match look {
             WaveLook::Keep => continue,
             WaveLook::Tint(base) => base.mix(&Color::srgb_u8(56, 34, 105), mix),
+            WaveLook::Overlay(base) => {
+                let [r, g, b] = weather.survival_wave_band;
+                base.mix(&Color::srgb_u8(r, g, b), mix)
+            }
             WaveLook::Grey => grey,
         };
         // An Endless Puzzle eclipse fade owns its alpha.
