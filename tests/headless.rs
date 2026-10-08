@@ -517,6 +517,22 @@ fn ivy_onto_stone_makes_the_cluster_static() {
 }
 
 #[test]
+fn ivy_casts_stacking_up_do_not_panic() {
+    // Regression: a fourth Ivy brick joining three clusters panicked inside avian
+    // ("Neither body ... is in an island") with a stale contact on a released brick.
+    for seed in [7777, 23331] {
+        let mut config = magic_config(SpellKind::Ivy, &[]);
+        config.seed = seed;
+        let mut app = headless_app(config);
+        for _ in 0..4 {
+            wait_for_next_brick(&mut app);
+            cast_now(&mut app, SpellKind::Ivy, None);
+            run_seconds(&mut app, 1.5, |_| {});
+        }
+    }
+}
+
+#[test]
 fn curses_hit_every_opponent() {
     let mut config = magic_config(SpellKind::Ivy, &[SpellKind::Large]);
     config.mode = ModeKind::Race;

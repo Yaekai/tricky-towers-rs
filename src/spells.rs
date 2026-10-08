@@ -943,18 +943,23 @@ pub(crate) fn grow_ivy(
             .id();
         let inverse = rotation.inverse();
         for &m in &members {
-            let Ok((_, _, p, r, ..)) = bricks.get(m) else {
+            let Ok((_, brick_m, p, r, ..)) = bricks.get(m) else {
                 continue;
             };
             let local = inverse * (p.0 - position.0);
             let turn = (inverse * *r).as_radians();
-            commands.entity(m).remove::<RigidBody>().insert((
-                ChildOf(cluster),
-                Transform::from_translation(local.extend(0.0))
-                    .with_rotation(Quat::from_rotation_z(turn)),
-                LinearVelocity::ZERO,
-                Vined,
-            ));
+            // A new collider, so no contact still names the brick as its body.
+            commands
+                .entity(m)
+                .remove::<(RigidBody, Collider)>()
+                .insert((
+                    brick_body(&config, brick_m),
+                    ChildOf(cluster),
+                    Transform::from_translation(local.extend(0.0))
+                        .with_rotation(Quat::from_rotation_z(turn)),
+                    LinearVelocity::ZERO,
+                    Vined,
+                ));
         }
         // Their bricks have moved over; the old clusters go.
         for old in old_clusters {
