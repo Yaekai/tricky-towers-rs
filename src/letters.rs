@@ -8,8 +8,42 @@ use bevy::prelude::*;
 
 use crate::art::{Art, Letters};
 
-/// Which staged letter sheet draws the text.
+/// Which staged letter sheet draws the text: the original's display letters (Enzo,
+/// titles, buttons, hints) and its body letters (Hans Sans Bold, list rows).
 const FONT: &str = "font_main";
+const BODY_FONT: &str = "font_body";
+
+/// How a text looks when drawn with the original's letters, like its TextMeshPro
+/// material: the body letters or the display ones, a face colour that replaces the
+/// `TextColor` (which stays readable on the plain-shape screens), and an outline.
+#[derive(Component, Clone, Copy, PartialEq, Debug, Default)]
+pub struct TextLook {
+    pub body: bool,
+    pub face: Option<Color>,
+    pub outline: Option<Color>,
+}
+
+impl TextLook {
+    /// List rows and buttons: near-black body letters.
+    pub const BODY: Self = Self {
+        body: true,
+        face: Some(Color::srgb(0.07, 0.055, 0.12)),
+        outline: None,
+    };
+    /// Screen titles: milky white display letters with a dark outline
+    /// (the original's EnzoBlackMilkyWhiteOutline26).
+    pub const TITLE: Self = Self {
+        body: false,
+        face: Some(Color::srgb(0.714, 0.773, 0.996)),
+        outline: Some(Color::srgb(0.145, 0.051, 0.157)),
+    };
+    /// Display letters in their own colour with the dark outline (button hints, tiles).
+    pub const OUTLINED: Self = Self {
+        body: false,
+        face: None,
+        outline: Some(Color::srgb(0.145, 0.051, 0.157)),
+    };
+}
 
 pub struct LettersPlugin;
 
@@ -17,7 +51,7 @@ impl Plugin for LettersPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            (mirror_texts, sync_mirrors, draw_letters)
+            (mirror_texts, sync_mirrors, follow_nodes, draw_letters)
                 .chain()
                 .before(bevy::ui::UiSystems::Prepare),
         );
@@ -37,6 +71,8 @@ struct LetterText {
     view_height: bool,
     color: Color,
     centered: bool,
+    body: bool,
+    outline: Option<Color>,
 }
 
 fn letter_text(
@@ -44,7 +80,9 @@ fn letter_text(
     font: &TextFont,
     color: Option<&TextColor>,
     layout: Option<&TextLayout>,
+    look: Option<&TextLook>,
 ) -> LetterText {
+    let look = look.copied().unwrap_or_default();
     let (size, view_height) = match font.font_size {
         FontSize::Px(px) => (px, false),
         FontSize::Vh(vh) => (vh, true),
@@ -54,8 +92,10 @@ fn letter_text(
         text: text.0.clone(),
         size,
         view_height,
-        color: color.map_or(Color::WHITE, |c| c.0),
+        color: look.face.unwrap_or(color.map_or(Color::WHITE, |c| c.0)),
         centered: layout.is_some_and(|l| l.justify == Justify::Center),
+        body: look.body,
+        outline: look.outline,
     }
 }
 
@@ -71,6 +111,7 @@ fn mirror_texts(
             &TextFont,
             Option<&TextColor>,
             Option<&TextLayout>,
+            Option<&TextLook>,
             &mut Node,
             Option<&ChildOf>,
         ),
@@ -81,9 +122,9 @@ fn mirror_texts(
     if !art.letters.contains_key(FONT) {
         return;
     }
-    for (entity, text, font, color, layout, mut node, parent) in &mut texts {
+    for (entity, text, font, color, layout, look, mut node, parent) in &mut texts {
         let mirror = commands
-            .spawn((node.clone(), letter_text(text, font, color, layout)))
+            .spawn((node.clone(), letter_text(text, font, color, layout, look)))
             .id();
         if let Some(parent) = parent {
             let index = children
@@ -108,17 +149,39 @@ fn sync_mirrors(
             &TextFont,
             Option<&TextColor>,
             Option<&TextLayout>,
+            Option<&TextLook>,
         ),
-        Or<(Changed<Text>, Changed<TextColor>, Changed<TextFont>)>,
+        Or<(
+            Changed<Text>,
+            Changed<TextColor>,
+            Changed<TextFont>,
+            Changed<TextLook>,
+        )>,
     >,
     mut mirrors: Query<&mut LetterText>,
 ) {
-    for (mirror, text, font, color, layout) in &texts {
+    for (mirror, text, font, color, layout, look) in &texts {
         if let Ok(mut letters) = mirrors.get_mut(mirror.0) {
-            let new = letter_text(text, font, color, layout);
+            let new = letter_text(text, font, color, layout, look);
             if *letters != new {
                 *letters = new;
             }
+        }
+    }
+}
+
+/// Moves each twin with its text: HUD labels (place, counts) are placed every frame
+/// after the twin was made, and a twin left behind showed at its first spot.
+fn follow_nodes(
+    texts: Query<(&MirroredBy, &Node), Changed<Node>>,
+    mut twins: Query<&mut Node, Without<MirroredBy>>,
+) {
+    for (mirror, node) in &texts {
+        if let Ok(mut twin) = twins.get_mut(mirror.0) {
+            twin.left = node.left;
+            twin.top = node.top;
+            twin.right = node.right;
+            twin.bottom = node.bottom;
         }
     }
 }
@@ -129,10 +192,15 @@ fn draw_letters(
     art: Res<Art>,
     texts: Query<(Entity, &LetterText), Changed<LetterText>>,
 ) {
-    let Some(sheet) = art.letters.get(FONT) else {
+    let Some(main) = art.letters.get(FONT) else {
         return;
     };
     for (entity, text) in &texts {
+        let sheet = if text.body {
+            art.letters.get(BODY_FONT).unwrap_or(main)
+        } else {
+            main
+        };
         let mut node = commands.entity(entity);
         node.despawn_children();
         node.with_children(|lines| {
@@ -193,6 +261,25 @@ fn spawn_line(lines: &mut ChildSpawnerCommands, sheet: &Letters, text: &LetterTe
                 .with_children(|cell| {
                     if w <= 0.0 || h <= 0.0 {
                         return;
+                    }
+                    if let (Some(color), Some(outline)) = (text.outline, &sheet.outline_handle) {
+                        let p = sheet.outline_pad;
+                        cell.spawn((
+                            ImageNode {
+                                image: outline.clone(),
+                                rect: Some(Rect::new(x - p, y - p, x + w + p, y + h + p)),
+                                color,
+                                ..default()
+                            },
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: len((ox - p) * k),
+                                top: len((sheet.ascender - oy - p) * k),
+                                width: len((w + 2.0 * p) * k),
+                                height: len((h + 2.0 * p) * k),
+                                ..default()
+                            },
+                        ));
                     }
                     cell.spawn((
                         ImageNode {

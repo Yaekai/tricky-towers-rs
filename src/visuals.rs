@@ -10,10 +10,10 @@ use bevy::sprite::Anchor;
 
 use crate::art::{Animated, Art};
 use crate::config::{GameConfig, ModeKind};
-use crate::gameplay::piece_def;
 use crate::gameplay::{
     ActiveBrick, Brick, FloorBlock, FloorPart, Match, Phase, Platform, Tower, TowerState,
 };
+use crate::gameplay::{Placed, piece_def};
 use crate::spells::{Bubbled, Grassy, LifeOrb, SpellLog, Stone, Vined, Zapped};
 
 pub struct VisualsPlugin;
@@ -23,8 +23,12 @@ impl Plugin for VisualsPlugin {
         app.insert_resource(ClearColor(Color::srgb(0.12, 0.14, 0.22)))
             .init_resource::<Art>()
             .init_resource::<ViewSize>()
+            .init_resource::<MenuLook>()
             .add_systems(Startup, setup_scene)
             .add_systems(Update, wobble_bubbles)
+            .add_systems(Update, twinkle_stars.before(fit_backgrounds))
+            .add_systems(Update, fade_eclipse)
+            .add_systems(Update, drop_stars.before(twinkle_stars))
             .add_systems(
                 Update,
                 (
@@ -52,6 +56,230 @@ impl Plugin for VisualsPlugin {
             );
     }
 }
+
+/// A copy of `source` that stands in for the original's additive beams
+/// (Custom/BeamLaneShaderAdditive) drawn at `strength`: sprites only blend, so each
+/// pixel is whitened and given the alpha its added light would have.
+// ponytail: fixed whitening, not true additive blending; a Material2d with an add blend if it matters.
+pub(crate) fn glow_copy(source: &Image, strength: f32) -> Option<Image> {
+    let mut out = source.clone();
+    let data = out.data.as_mut()?;
+    for px in data.chunks_exact_mut(4) {
+        let peak = px[0].max(px[1]).max(px[2]) as f32 / 255.0;
+        let alpha = (2.0 * strength * peak * px[3] as f32 / 255.0).min(1.0);
+        for c in &mut px[..3] {
+            let bright = if peak > 0.0 { *c as f32 / peak } else { 255.0 };
+            *c = (bright + (255.0 - bright) * 0.6) as u8;
+        }
+        px[3] = (alpha * 255.0) as u8;
+    }
+    Some(out)
+}
+
+/// An Endless Puzzle eclipse layer and its full colour: it fades in over 2 s from
+/// 1.5 s into the match (EndlessPuzzleGameModeIntroController: 0.5 s, the laser
+/// moving in, 0.5 s, the eclipse sound, EclipseEffect; the start is ?).
+#[derive(Component)]
+pub(crate) struct EclipseFade(pub(crate) Color);
+
+const ECLIPSE_START: f32 = 1.5;
+const ECLIPSE_TIME: f32 = 2.0;
+
+fn fade_eclipse(
+    mut commands: Commands,
+    game: Res<Match>,
+    art: Res<Art>,
+    mut layers: Query<(&EclipseFade, &mut Sprite)>,
+    mut played: Local<u64>,
+) {
+    let t = if game.phase == Phase::Menu {
+        1.0
+    } else {
+        ((game.elapsed - ECLIPSE_START) / ECLIPSE_TIME).clamp(0.0, 1.0)
+    };
+    if game.phase == Phase::Playing && game.elapsed >= ECLIPSE_START && *played != game.round {
+        *played = game.round;
+        if let Some(sound) = art.sounds.get("sfx_eclipse") {
+            commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+    }
+    for (fade, mut sprite) in &mut layers {
+        let want = fade.0.with_alpha(fade.0.alpha() * t);
+        if sprite.color != want {
+            sprite.color = want;
+        }
+    }
+}
+
+/// A twinkling star (StarrySky): its scale breathes 1 ± 0.3, and now and then one
+/// swells to 2x in 0.3 s, turns half a turn in 1 s (in-back) with a spin that slows,
+/// waits 2 s and shrinks back in 0.3 s; the next comes 2-5 s later.
+#[derive(Component, Default)]
+pub(crate) struct Star {
+    time: f32,
+    turn: f32,
+    spin: f32,
+    twirl: Option<f32>,
+    /// The scale this frame, applied by `fit_backgrounds`.
+    factor: f32,
+    /// Knocked loose: how far it has fallen and its speed, in screen units.
+    fall: Option<(Vec2, Vec2)>,
+}
+
+/// Survival's moon: it drops when a brick of 2.5 or more lands (SurvivalBackground
+/// `_HandlePlaceBrick`, where the moon is a hinged rigid body with gravity 3).
+#[derive(Component)]
+pub(crate) struct Moon;
+
+/// A background layer knocked loose and falling: how far it has dropped and its
+/// speed, in screen units. Gravity is 9.81 units/s² (the moon's is 3 times that).
+#[derive(Component, Clone, Copy)]
+pub(crate) struct Falling {
+    offset: Vec2,
+    velocity: Vec2,
+    gravity: f32,
+}
+
+/// Star sounds (SFX_STAR_MOVE_1-4), one picked at random.
+const STAR_SOUNDS: [&str; 4] = [
+    "sfx_amb_ambience_stars_01",
+    "sfx_amb_ambience_stars_02",
+    "sfx_amb_ambience_stars_03",
+    "sfx_amb_ambience_stars_04",
+];
+
+/// A Large brick placed in Survival knocks a star out of the sky (SurvivalBackground
+/// `_HandlePlaceBrick`, StarrySkyLayer.DropStar): it leaves a dark copy (#2E1D5B)
+/// behind and falls from an upward kick of (-2..2, 6) units/s, spinning 40x its
+/// sideways speed. The moon only falls for bricks 2.5x or more (not done: no spell
+/// makes them that big here).
+#[allow(clippy::too_many_arguments)]
+fn drop_stars(
+    mut commands: Commands,
+    game: Res<Match>,
+    art: Res<Art>,
+    placed: Query<&Brick, Added<crate::gameplay::Placed>>,
+    mut stars: Query<(
+        Entity,
+        &mut Star,
+        &ScreenLayer,
+        &Sprite,
+        &Anchor,
+        &Transform,
+        &ChildOf,
+    )>,
+    moons: Query<Entity, (With<Moon>, Without<Falling>)>,
+    mut seed: Local<u32>,
+) {
+    if game.mode.look() != ModeKind::Survival {
+        return;
+    }
+    for brick in &placed {
+        if brick.scale + 0.01 >= 2.5
+            && let Ok(moon) = moons.single()
+        {
+            commands.entity(moon).insert(Falling {
+                offset: Vec2::ZERO,
+                velocity: Vec2::ZERO,
+                gravity: 3.0 * 9.81,
+            });
+        }
+        if brick.scale + 0.01 < 2.0 {
+            continue;
+        }
+        *seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345) | 1;
+        let standing: Vec<Entity> = stars
+            .iter()
+            .filter(|(_, s, ..)| s.fall.is_none())
+            .map(|(e, ..)| e)
+            .collect();
+        if let Some(sound) = art.sounds.get(STAR_SOUNDS[(*seed >> 3) as usize % 4]) {
+            commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+        if standing.is_empty() {
+            continue;
+        }
+        let pick = standing[(*seed >> 8) as usize % standing.len()];
+        let Ok((_, mut star, layer, sprite, anchor, transform, parent)) = stars.get_mut(pick)
+        else {
+            continue;
+        };
+        let kick = (((*seed >> 12) % 400) as f32 / 100.0) - 2.0;
+        star.fall = Some((Vec2::ZERO, Vec2::new(kick, 6.0)));
+        star.spin = kick * 40.0;
+        star.twirl = None;
+        let mut dark = sprite.clone();
+        dark.color = Color::srgb_u8(0x2E, 0x1D, 0x5B);
+        let mut copy = layer.clone();
+        copy.drift = 0.0;
+        commands.spawn((
+            copy,
+            dark,
+            *anchor,
+            Transform::from_translation(transform.translation - Vec3::Z * 0.001),
+            WaveLook::Keep,
+            ChildOf(parent.parent()),
+        ));
+    }
+}
+
+fn twinkle_stars(
+    time: Res<Time>,
+    mut next: Local<(f32, u32)>,
+    mut stars: Query<(&mut Star, &mut Transform, &GlobalTransform), Without<Camera2d>>,
+) {
+    let dt = time.delta_secs();
+    let count = stars.iter().count() as u32;
+    next.0 -= dt;
+    if next.0 <= 0.0 && count > 0 {
+        next.1 = next.1.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+        let pick = (next.1 >> 8) % count;
+        if let Some((mut star, ..)) = stars.iter_mut().nth(pick as usize)
+            && star.twirl.is_none()
+        {
+            star.twirl = Some(0.0);
+        }
+        next.0 = 2.0 + ((next.1 >> 4) % 1000) as f32 / 1000.0 * 3.0;
+    }
+    for (mut star, mut transform, at) in &mut stars {
+        star.time += dt;
+        star.turn += star.spin * dt;
+        star.spin = (star.spin - 200.0 * dt).max(0.0);
+        let p = at.translation();
+        let mut scale = 1.0 + (star.time * 2.0 + p.x * p.y * 1.0e-4).sin() * 0.3;
+        let mut turn = 0.0;
+        if let Some(t) = star.twirl.as_mut() {
+            *t += dt;
+            let t = *t;
+            let back = |x: f32| {
+                let c = 1.70158;
+                (c + 1.0) * x * x * x - c * x * x
+            };
+            scale = if t < 0.3 {
+                1.0 + t / 0.3
+            } else if t < 3.3 {
+                2.0
+            } else {
+                2.0 - ((t - 3.3) / 0.3).min(1.0)
+            };
+            turn = 180.0 * back(((t - 0.3) / 1.0).clamp(0.0, 1.0));
+            if (1.3..1.3 + dt).contains(&t) {
+                star.spin = 600.0;
+            }
+            if t >= 3.6 {
+                star.turn += 180.0;
+                star.twirl = None;
+                star.time = 0.0;
+            }
+        }
+        transform.rotation = Quat::from_rotation_z((star.turn + turn).to_radians());
+        star.factor = scale;
+    }
+}
+
+/// The mode whose background shows behind a menu (the Endless screen), if any.
+#[derive(Resource, Default, PartialEq)]
+pub struct MenuLook(pub Option<ModeKind>);
 
 /// The water strip at the depth where dropped bricks are lost. Modes whose water band
 /// is turned off (Survival, Puzzle) have no water at all.
@@ -101,9 +329,11 @@ struct SpellLine {
 #[derive(Component)]
 struct SpellDiamond;
 
-/// The race trial's clock on the finish line: the hourglass and the seconds left.
+/// The race trial's pace line (PaceLinePersonalBest): a thin line across the screen
+/// that climbs from the base to the finish as the time runs out, with the hourglass
+/// and the time left on it; `0` is its height over the line.
 #[derive(Component)]
-struct TrialClock;
+struct TrialClock(f32);
 
 /// The race finish line or puzzle laser over a tower; both can come down.
 #[derive(Component)]
@@ -145,7 +375,12 @@ fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
     ));
 }
 
-fn cell_sprites(parent: &mut ChildSpawnerCommands, cells: &[Vec2], cell: f32, color: Color) {
+pub(crate) fn cell_sprites(
+    parent: &mut ChildSpawnerCommands,
+    cells: &[Vec2],
+    cell: f32,
+    color: Color,
+) {
     for &p in cells {
         parent.spawn((
             CellSprite,
@@ -266,12 +501,25 @@ pub(crate) fn dress_bricks(
     config: Res<GameConfig>,
     art: Res<Art>,
     bricks: Query<
-        (Entity, &Brick, Has<Stone>, Has<Vined>, Has<Grassy>),
-        Or<(Changed<Brick>, Added<Stone>, Added<Vined>, Added<Grassy>)>,
+        (
+            Entity,
+            &Brick,
+            Has<Stone>,
+            Has<Vined>,
+            Has<Grassy>,
+            Option<&Placed>,
+        ),
+        Or<(
+            Changed<Brick>,
+            Added<Stone>,
+            Added<Vined>,
+            Added<Grassy>,
+            Added<Placed>,
+        )>,
     >,
     skins: Query<&crate::gameplay::TowerSkin>,
 ) {
-    for (entity, brick, stone, vined, grassy) in &bricks {
+    for (entity, brick, stone, vined, grassy, placed) in &bricks {
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
         let pack = skins.get(brick.tower).map(|s| s.pack).unwrap_or_default();
@@ -343,8 +591,38 @@ pub(crate) fn dress_bricks(
                         custom_size: Some(size),
                         ..default()
                     },
-                    Transform::from_translation(center.extend(0.0)),
+                    // Later bricks sit in front of earlier ones: equal depths draw in
+                    // no fixed order, which looked like bricks on different layers.
+                    Transform::from_translation(
+                        center.extend(placed.map_or(0.0, |p| p.0 as f32 * 5.0e-5)),
+                    ),
                 ));
+                // Mystery 2 carries its rotor on top, over a dark shadow (MysteryBrick02 prefab).
+                if key == "mystery_blob" && whole {
+                    let rotor = match (stone, brick.ice) {
+                        (true, _) => "brick_mystery02_rotor_petrified",
+                        (false, true) => "brick_mystery02_rotor_ice",
+                        _ => "brick_mystery02_rotor",
+                    };
+                    let shadow = Color::srgba(0.043, 0.051, 0.173, 0.828);
+                    for (name, at, z, tint) in [
+                        (
+                            "brick_mystery02_rotor_white",
+                            Vec2::new(0.1, 0.24),
+                            0.05,
+                            shadow,
+                        ),
+                        (rotor, Vec2::new(-0.02, 0.43), 0.06, Color::WHITE),
+                    ] {
+                        if let Some((mut sprite, anchor, mut transform)) =
+                            art_sprite(&art, name, cell)
+                        {
+                            sprite.color = tint;
+                            transform.translation = (center + at * cell).extend(z);
+                            entity.with_child((sprite, anchor, transform));
+                        }
+                    }
+                }
                 for (z, overlay, name) in
                     [(0.1, vine_art, vine_name.as_str()), (0.2, grass_art, "")]
                 {
@@ -503,11 +781,16 @@ pub(crate) fn mode_key(mode: ModeKind) -> &'static str {
 
 /// Background layer names for this mode, back to front: `background_<mode>_N`
 /// when staged for the mode, else `background_N`.
-/// The look a mode swaps to on Pro ("Special"): Race Pro's night, Puzzle Pro's eclipse.
+/// The look a mode swaps to on Pro ("Special"): Race Pro's night, Puzzle Pro's eclipse;
+/// Endless Puzzle always has its red eclipse.
 pub(crate) fn pro_look(
     mode: ModeKind,
     difficulty: Option<crate::config::Difficulty>,
 ) -> Option<&'static str> {
+    // Endless Puzzle plays under its own red eclipse.
+    if mode == ModeKind::EndlessPuzzle {
+        return Some("endless_puzzle");
+    }
     if difficulty != Some(crate::config::Difficulty::Pro) {
         return None;
     }
@@ -564,7 +847,7 @@ fn layer_z(art: &Art, name: &str, order: usize) -> f32 {
 }
 
 /// A background layer pinned to the screen (manifest entries with `screen`).
-#[derive(Component)]
+#[derive(Component, Clone)]
 struct ScreenLayer {
     anchor: Vec2,
     position: Vec2,
@@ -575,6 +858,8 @@ struct ScreenLayer {
     /// Sideways drift in screen units a second, and how far it has gone.
     drift: f32,
     drifted: f32,
+    /// Stretched to the view's width instead of drawn at its size.
+    stretch: bool,
     /// The drift before a curse wave sped it up.
     base_drift: Option<f32>,
 }
@@ -627,6 +912,7 @@ fn spawn_backgrounds(
     mut commands: Commands,
     art: Res<Art>,
     game: Res<Match>,
+    menu_look: Res<MenuLook>,
     config: Res<GameConfig>,
     mut images: ResMut<Assets<Image>>,
     camera: Query<Entity, With<Camera2d>>,
@@ -640,23 +926,31 @@ fn spawn_backgrounds(
         )>,
     >,
     mut water: Query<&mut Visibility, With<WaterStrip>>,
-    mut shown: Local<Option<(ModeKind, Option<&'static str>)>>,
+    mut shown: Local<Option<(ModeKind, Option<&'static str>, bool)>>,
 ) {
     let Ok(camera) = camera.single() else {
         return;
     };
-    let pro = pro_look(game.mode, config.difficulty);
-    if *shown == Some((game.mode, pro)) && !art.is_changed() {
+    let mode = match menu_look.0 {
+        Some(mode) if game.phase == Phase::Menu => mode,
+        _ => game.mode,
+    };
+    let pro = pro_look(mode, config.difficulty);
+    let in_match = game.phase != Phase::Menu;
+    if *shown == Some((mode, pro, in_match)) && !art.is_changed() {
         return;
     }
-    *shown = Some((game.mode, pro));
+    *shown = Some((mode, pro, in_match));
     for entity in &existing {
         commands.entity(entity).despawn();
     }
-    let mode_name = mode_key(game.mode);
-    // A Pro look's sky and water band win over the mode's, which win over the shared.
+    let mode_name = mode_key(mode);
+    // A Pro or Endless look's sky and water band win over the mode's, which win over the shared.
+    // Endless Race has its own sunset sky.
+    let endless = (mode == ModeKind::Endless).then_some("endless");
     let for_mode = |name: &str| {
-        pro.and_then(|p| art.entries.get(&format!("{name}_{p}")))
+        pro.or(endless)
+            .and_then(|p| art.entries.get(&format!("{name}_{p}")))
             .or_else(|| art.entries.get(&format!("{name}_{mode_name}")))
             .or_else(|| art.entries.get(name))
     };
@@ -680,11 +974,22 @@ fn spawn_backgrounds(
     } else if let Some(sky) = for_mode("sky") {
         let colors = sky.colors();
         if !colors.is_empty() {
-            commands.entity(camera).with_child((
+            let mut layer = commands.spawn((
                 Sky,
                 Sprite::from_image(images.add(gradient_image(&colors))),
                 Transform::from_xyz(0.0, 0.0, -950.0),
+                ChildOf(camera),
             ));
+            if mode == ModeKind::EndlessPuzzle && game.phase != Phase::Menu {
+                layer.insert(EclipseFade(Color::WHITE));
+                if let Some(plain) = art.entries.get("sky_puzzle") {
+                    commands.entity(camera).with_child((
+                        Sky,
+                        Sprite::from_image(images.add(gradient_image(&plain.colors()))),
+                        Transform::from_xyz(0.0, 0.0, -950.5),
+                    ));
+                }
+            }
         }
     }
     let band = for_mode("water_band");
@@ -732,18 +1037,42 @@ fn spawn_backgrounds(
             ));
         }
     }
-    for (order, name) in background_names_for(&art, game.mode, pro)
-        .iter()
-        .enumerate()
-    {
+    // In a match Endless Puzzle starts as plain Puzzle and its eclipse fades in over
+    // the plain layers during the intro (`fade_eclipse`).
+    let eclipse = mode == ModeKind::EndlessPuzzle && game.phase != Phase::Menu;
+    let mut names: Vec<(String, bool)> = background_names_for(&art, mode, pro)
+        .into_iter()
+        .map(|n| (n, eclipse))
+        .collect();
+    if eclipse {
+        names.extend(
+            background_names_for(&art, ModeKind::Puzzle, None)
+                .into_iter()
+                .map(|n| (n, false)),
+        );
+    }
+    for (order, (name, fades)) in names.iter().enumerate() {
+        let name = name.as_str();
+        let order = order % names.len().max(1);
         let Some(entry) = art.entries.get(name) else {
             continue;
         };
         let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
+        let tint = entry.tint.map_or(Color::WHITE, |(r, g, b)| {
+            Color::srgb(r / 255.0, g / 255.0, b / 255.0)
+        });
         let base = (
-            Sprite::from_image(art.images[name].clone()),
+            Sprite {
+                image: art.images[name].clone(),
+                color: tint,
+                ..default()
+            },
             Anchor(Vec2::new(px - 0.5, py - 0.5)),
-            Transform::from_xyz(0.0, 0.0, layer_z(&art, name, order)),
+            Transform::from_xyz(
+                0.0,
+                0.0,
+                layer_z(&art, name, order) + if *fades { 0.005 } else { 0.0 },
+            ),
         );
         match (entry.screen, entry.position) {
             (Some((ax, ay)), position) => {
@@ -763,6 +1092,7 @@ fn spawn_backgrounds(
                         ..default()
                     });
                 let anchor = base.1;
+                let star = entry.star == Some(true);
                 let mut layer = commands.spawn((
                     ScreenLayer {
                         anchor: Vec2::new(ax, ay),
@@ -774,10 +1104,28 @@ fn spawn_backgrounds(
                         drift,
                         drifted: 0.0,
                         base_drift: None,
+                        stretch: entry.stretch == Some(true),
                     },
                     base,
                     ChildOf(camera),
                 ));
+                if star {
+                    layer.insert(Star::default());
+                }
+                if mode == ModeKind::Survival && name == "background_survival_0" {
+                    layer.insert(Moon);
+                }
+                if *fades {
+                    layer.insert(EclipseFade(tint));
+                }
+                // How a Survival curse wave changes it (SurvivalBackground): the starry
+                // sky stays, tinted layers (the large clouds) darken, the rest grey.
+                layer.insert(match (entry.star, entry.tint, entry.overlay) {
+                    (Some(_), _, _) => WaveLook::Keep,
+                    (None, _, Some(true)) => WaveLook::Overlay(tint),
+                    (None, Some(_), _) => WaveLook::Tint(tint),
+                    (None, None, _) => WaveLook::Grey,
+                });
                 if let Some(sprite) = lit {
                     layer.with_child((
                         LitLayer,
@@ -790,7 +1138,10 @@ fn spawn_backgrounds(
             // Drawn in each lane by `spawn_lane_layers`.
             (None, Some(_)) => {}
             (None, None) => {
-                commands.entity(camera).with_child((Background, base));
+                let mut layer = commands.spawn((Background, base, ChildOf(camera)));
+                if *fades {
+                    layer.insert(EclipseFade(tint));
+                }
             }
         }
     }
@@ -813,7 +1164,13 @@ fn fit_backgrounds(
         ),
     >,
     mut screen: Query<
-        (&mut ScreenLayer, &mut Transform),
+        (
+            &mut ScreenLayer,
+            &mut Transform,
+            Option<&mut Star>,
+            &Sprite,
+            Option<&mut Falling>,
+        ),
         (Without<Background>, Without<Camera2d>, Without<Sky>),
     >,
     mut bands: Query<
@@ -847,25 +1204,66 @@ fn fit_backgrounds(
     let low = lowest.get_or_insert(camera.translation.y);
     *low = low.min(camera.translation.y);
     let climb = camera.translation.y - *low;
-    for (mut layer, mut transform) in &mut screen {
+    for (mut layer, mut transform, mut star, sprite, falling) in &mut screen {
         let unit = view.y / layer.view_height;
         // A drifting layer wraps round the view with half a view to spare each side.
         let span = view.x / unit * 2.0;
         layer.drifted =
             (layer.drifted + layer.drift * time.delta_secs()).rem_euclid(span.max(0.01));
-        let slide =
-            Vec2::X * (layer.drifted - if layer.drift != 0.0 { span * 0.5 } else { 0.0 }) * unit;
+        // A drifting layer starts where it was placed and wraps half a span either side.
+        let slide = Vec2::X
+            * if layer.drift != 0.0 {
+                (layer.drifted + span * 0.5).rem_euclid(span.max(0.01)) - span * 0.5
+            } else {
+                0.0
+            }
+            * unit;
         let at = (layer.anchor - Vec2::splat(0.5)) * view + layer.position * unit + slide
             - Vec2::Y * climb * layer.parallax;
         transform.translation.x = at.x;
         transform.translation.y = at.y;
-        transform.scale = Vec3::splat(unit / layer.pixels_per_unit * layer.scale);
+        let twinkle = star.as_ref().map_or(1.0, |s| s.factor);
+        if let Some(mut falling) = falling {
+            let dt = time.delta_secs();
+            let gravity = falling.gravity;
+            let velocity = falling.velocity + Vec2::NEG_Y * gravity * dt;
+            falling.velocity = velocity;
+            falling.offset += velocity * dt;
+            transform.translation += (falling.offset * unit).extend(0.0);
+        }
+        // A falling star drops under gravity (9.81 units/s²) from its kick.
+        if let Some((offset, velocity)) = star.as_mut().and_then(|s| s.fall.as_mut()) {
+            *velocity += Vec2::NEG_Y * 9.81 * time.delta_secs();
+            *offset += *velocity * time.delta_secs();
+            transform.translation += (*offset * unit).extend(0.0);
+        }
+        let height = unit / layer.pixels_per_unit * layer.scale * twinkle;
+        transform.scale = if layer.stretch {
+            let width = images
+                .get(&sprite.image)
+                .map_or(1.0, |i| i.size_f32().x.max(1.0));
+            Vec3::new(view.x / width, height, 1.0)
+        } else {
+            Vec3::splat(height)
+        };
     }
     for (band, mut sprite, mut transform) in &mut bands {
         let unit = view.y / band.view_height;
         sprite.custom_size = Some(Vec2::new(view.x, band.height * unit));
         transform.translation.y = -view.y * 0.5 - climb * band.parallax;
     }
+}
+
+/// What a Survival curse wave does to a screen layer.
+#[derive(Component, Clone, Copy)]
+pub(crate) enum WaveLook {
+    Keep,
+    /// Tinted layers (the large clouds) shift from their tint to (56, 34, 105).
+    Tint(Color),
+    /// The reflected band shifts from its tint to the curse band colour.
+    Overlay(Color),
+    /// Islands and the small clouds grey; the small clouds also speed up.
+    Grey,
 }
 
 /// Survival's curse waves grey the background layers (clouds and islands) and speed
@@ -876,7 +1274,7 @@ fn grey_wave_layers(
     game: Res<Match>,
     mix: Option<Res<crate::weather::WaveMix>>,
     mut layers: Query<
-        (&mut Sprite, Option<&mut ScreenLayer>),
+        (&mut Sprite, Option<&mut ScreenLayer>, Option<&WaveLook>),
         (Or<(With<ScreenLayer>, With<Background>)>, Without<LitLayer>),
     >,
 ) {
@@ -886,12 +1284,24 @@ fn grey_wave_layers(
     let mix = mix.map_or(0.0, |m| m.0);
     let weather = &config.weather;
     let [r, g, b] = weather.survival_wave_grey;
-    let tint = Color::WHITE.mix(&Color::srgb_u8(r, g, b), mix);
-    for (mut sprite, layer) in &mut layers {
-        if sprite.color != tint {
-            sprite.color = tint;
+    let grey = Color::WHITE.mix(&Color::srgb_u8(r, g, b), mix);
+    for (mut sprite, layer, look) in &mut layers {
+        let look = look.copied().unwrap_or(WaveLook::Grey);
+        let want = match look {
+            WaveLook::Keep => continue,
+            WaveLook::Tint(base) => base.mix(&Color::srgb_u8(56, 34, 105), mix),
+            WaveLook::Overlay(base) => {
+                let [r, g, b] = weather.survival_wave_band;
+                base.mix(&Color::srgb_u8(r, g, b), mix)
+            }
+            WaveLook::Grey => grey,
+        };
+        // An Endless Puzzle eclipse fade owns its alpha.
+        let want = want.with_alpha(sprite.color.alpha());
+        if sprite.color != want {
+            sprite.color = want;
         }
-        if let Some(mut layer) = layer {
+        if let Some(mut layer) = layer.filter(|_| matches!(look, WaveLook::Grey)) {
             let current = layer.drift;
             let base = *layer.base_drift.get_or_insert(current);
             let drift = base * (1.0 + (weather.survival_wave_drift - 1.0) * mix);
@@ -1078,6 +1488,25 @@ fn dress_platforms(
         base.with_children(|parent| {
             spawn_lane_layers(parent, &art, game.mode, c);
             let lane = config.cells(config.platform_width + 4.0);
+            // Race lines run across the tower's share of the screen, as each tower's
+            // own camera shows them in the original.
+            let lanes = if config.trial.is_some() {
+                2
+            } else {
+                ((config.players.max(1) + config.opponents) as usize)
+                    .min(crate::gameplay::MAX_TOWERS)
+            };
+            let race_lane = config.cells(config.lanes.width(lanes));
+            // A Puzzle trial's laser runs from the screen's left edge to its ball,
+            // 21 cells right of the lane (the ball's place in Max's screenshot; the
+            // original sets it 9 units into its zoomed background view, ?).
+            let ball_x = c * 21.0;
+            let trial_laser = config.trial.is_some() && game.mode.rules() == ModeKind::Puzzle;
+            let (line_width, line_x) = match game.mode.rules() {
+                ModeKind::Race | ModeKind::Endless => (race_lane, 0.0),
+                ModeKind::Puzzle if trial_laser => (ball_x + c * 24.0, (ball_x - c * 24.0) * 0.5),
+                _ => (lane, 0.0),
+            };
             let line = match game.mode.rules() {
                 ModeKind::Race => Some((
                     config.race.finish_height,
@@ -1106,9 +1535,12 @@ fn dress_platforms(
                     Transform::from_xyz(0.0, config.cells(height) + c * 0.5, -1.0),
                     Visibility::default(),
                 ));
-                match art_strip(&art, name, c, lane, Vec3::ZERO) {
+                match art_strip(&art, name, c, line_width, Vec3::X * line_x) {
                     Some(strip) => line.with_child(strip),
-                    None => line.with_child(Sprite::from_color(color, Vec2::new(lane, 3.0))),
+                    None => line.with_child((
+                        Sprite::from_color(color, Vec2::new(line_width, 3.0)),
+                        Transform::from_xyz(line_x, 0.0, 0.0),
+                    )),
                 };
                 // The finish line's tiles end in a cap at each side, the right one turned
                 // 180° (docs/research/trials-obstacles-roofs.md, "Finish line").
@@ -1119,6 +1551,7 @@ fn dress_platforms(
                         {
                             sprite.flip_x = side > 0.0;
                             sprite.flip_y = side > 0.0;
+                            let lane = line_width;
                             line.with_child((
                                 sprite,
                                 anchor,
@@ -1131,6 +1564,49 @@ fn dress_platforms(
                         }
                     }
                 }
+                // A Puzzle trial's laser comes from a glowing ball on a pillar at its
+                // right end (the original's PuzzleSinglePlayerLaserLayer: PUZZLE_LASER's
+                // Ball and PUZZLE_LASER_PILAR, ?: their size here).
+                if name == "laser"
+                    && config.trial.is_some()
+                    && let Some(ball) = art.image("fx_laserball")
+                {
+                    let x = ball_x;
+                    if let Some(tile) = art.image("fx_laser_pillar_tile") {
+                        let depth = config.cells(height) + c * 9.0;
+                        line.with_child((
+                            Sprite {
+                                image: tile,
+                                custom_size: Some(Vec2::new(c * 1.6, depth)),
+                                image_mode: SpriteImageMode::Tiled {
+                                    tile_x: false,
+                                    tile_y: true,
+                                    stretch_value: 1.0,
+                                },
+                                ..default()
+                            },
+                            Transform::from_xyz(x, -depth * 0.5, -0.2),
+                        ));
+                    }
+                    if let Some(top) = art.image("fx_laser_pillar_top") {
+                        line.with_child((
+                            Sprite {
+                                image: top,
+                                custom_size: Some(Vec2::new(c * 2.4, c * 3.0)),
+                                ..default()
+                            },
+                            Transform::from_xyz(x, -c * 0.6, -0.1),
+                        ));
+                    }
+                    line.with_child((
+                        Sprite {
+                            image: ball,
+                            custom_size: Some(Vec2::splat(c * 2.4)),
+                            ..default()
+                        },
+                        Transform::from_xyz(x, 0.0, 0.6),
+                    ));
+                }
                 // A race trial's finish line carries the time left beside an hourglass
                 // (gap-scan.md 4), fading in over the first second.
                 let clock = config
@@ -1139,12 +1615,13 @@ fn dress_platforms(
                     .and_then(|t| t.seconds)
                     .filter(|_| game.mode.rules() == ModeKind::Race);
                 if clock.is_some() {
-                    // Its place on the line and its size are guesses (?).
-                    let x = lane * 0.5 - c * 3.0;
+                    // Centred on the screen (the trial's player lane sits left of it),
+                    // the hourglass 5.3 cells left of the time, both 0.45 over the line.
+                    let centre = config.cells(config.lanes.spacing(2)) * 0.5;
                     let glass = match art.image("hourglass") {
                         Some(image) => Sprite {
                             image,
-                            custom_size: Some(Vec2::splat(c * 1.2)),
+                            custom_size: Some(Vec2::new(c * 1.0, c * 1.75)),
                             color: Color::WHITE.with_alpha(0.0),
                             ..default()
                         },
@@ -1155,19 +1632,28 @@ fn dress_platforms(
                     };
                     line.with_children(|l| {
                         l.spawn((
-                            TrialClock,
-                            glass,
-                            Transform::from_xyz(x - c * 1.3, c * 0.9, 1.0),
+                            TrialClock(0.0),
+                            Sprite::from_color(
+                                Color::srgba(0.94, 0.9, 0.6, 0.0),
+                                Vec2::new(config.cells(config.lanes.screen_width + 10.0), c * 0.12),
+                            ),
+                            Transform::from_xyz(centre, 0.0, 0.9),
                         ));
                         l.spawn((
-                            TrialClock,
+                            TrialClock(c * 0.45),
+                            glass,
+                            Transform::from_xyz(centre - c * 5.3, c * 0.45, 1.0),
+                        ));
+                        l.spawn((
+                            TrialClock(c * 0.45),
                             Text2d::new(""),
                             TextFont {
-                                font_size: FontSize::Px(c * 1.1),
+                                font_size: FontSize::Px(c * 1.75),
                                 ..default()
                             },
-                            TextColor(Color::WHITE.with_alpha(0.0)),
-                            Transform::from_xyz(x, c * 0.9, 1.0),
+                            // The original's pale gold face (its orange outline isn't drawn).
+                            TextColor(Color::srgba(1.0, 0.93, 0.6, 0.0)),
+                            Transform::from_xyz(centre, c * 0.45, 1.0),
                         ));
                     });
                 }
@@ -1341,44 +1827,63 @@ fn frame_towers(
     if towers.is_empty() {
         return;
     }
-    let (mut min_x, mut max_x, mut top) = (f32::MAX, f32::MIN, 0.0f32);
+    let (mut min_x, mut max_x) = (f32::MAX, f32::MIN);
+    let (mut lowest, mut highest, mut widest) = (f32::MAX, f32::MIN, 0.0f32);
     for (tower, state) in &towers {
         min_x = min_x.min(tower.origin_x);
         max_x = max_x.max(tower.origin_x);
-        top = top.max(state.stack_top);
+        lowest = lowest.min(state.stack_top);
+        highest = highest.max(state.stack_top);
+        widest = widest.max(state.half_width * 2.0);
     }
-    // A trial's enemy lane is framed too.
+    let mut lanes = towers.iter().count();
     for lane in &rival_lanes {
         min_x = min_x.min(lane.origin_x);
         max_x = max_x.max(lane.origin_x);
+        lanes += 1;
     }
-    // Follow the tower tops; the race finish only comes into view as towers near it.
-    let goal = match game.mode.rules() {
-        ModeKind::Puzzle => config.puzzle.line_height + config.puzzle.line_random,
-        _ => 0.0,
-    };
-    let view_top = config.camera_top(top.max(goal));
-    // Just past the water line, so the whole base and what hangs under it stay in view.
-    let below = config.kill_depth + 1.5;
-    let width = max_x - min_x + config.cells(config.platform_width + 10.0);
-    // While playing, the camera stays close (about `camera_cells` tall) and follows
-    // the tower tops, so a tall tower's base leaves the screen. Once the match is
-    // over it pulls back until every tower and its base fit.
-    let close = game.phase == Phase::Playing && game.mode.rules() != ModeKind::Puzzle;
-    let full = view_top + below;
-    let cells_tall = if close {
-        config.hud.camera_cells.min(full)
+    // The original gives each tower its own camera over its share of the screen,
+    // all with the same top and bottom; one camera over the screen-split lanes
+    // does the same. Cells under the base top it may show: the floor's height.
+    let floor = -config.camera_floor();
+    let look = &config.hud;
+    let (top, bottom) = if game.mode.rules() == ModeKind::Puzzle {
+        // WidthTowerCamera: the bottom stays on the floor, the height fits the
+        // widest tower (+2, at least 10) across a lane, at least 40 cells. A
+        // Puzzle trial's lane is two thirds of the screen.
+        let share = if config.trial.is_some() {
+            2.0 / 3.0
+        } else {
+            1.0 / lanes.max(1) as f32
+        };
+        let aspect = window.x * share / window.y.max(1.0);
+        let height = ((widest + 2.0).max(10.0) / aspect.max(0.01)).max(40.0);
+        (floor + height, floor)
     } else {
-        full
+        // SingleTowerCamera.
+        let height = look.camera_height;
+        let mut top = (highest + height - look.camera_tower_room).max(floor + height);
+        let mut bottom = (lowest - look.camera_below_lowest).max(floor);
+        bottom = bottom.min(top - height);
+        if game.phase == Phase::Over {
+            // Once the match is over it pulls back until every base fits.
+            bottom = floor;
+        }
+        top = top.max(bottom + height);
+        (top, bottom)
     };
-    let height = config.cells(cells_tall);
-    let scale = (width / window.x).max(height / window.y).max(0.5);
-    // Whatever height the width forces is shown from the top down.
-    let shown = config.cells(full).min(window.y * scale);
-    let bottom = (config.cells(view_top) - shown).max(-config.cells(below));
-    let target = Vec2::new((min_x + max_x) * 0.5, bottom + shown * 0.5);
+    let height = config.cells(top - bottom);
+    let scale = (height / window.y.max(1.0)).max(0.01);
+    // Trials split the screen around its centre; otherwise centre the lanes.
+    let x = if config.trial.is_some() {
+        0.0
+    } else {
+        (min_x + max_x) * 0.5
+    };
+    let target = Vec2::new(x, config.cells(bottom) + height * 0.5);
 
-    let t = 1.0 - (-3.0 * time.delta_secs()).exp();
+    // The original eases top and bottom by 5 × dt each frame.
+    let t = 1.0 - (-5.0 * time.delta_secs()).exp();
     let current = transform.translation.truncate();
     transform.translation += ((target - current) * t).extend(0.0);
     if let Projection::Orthographic(ortho) = &mut *projection {
@@ -1529,8 +2034,8 @@ fn update_hud(
 fn show_trial_clock(
     config: Res<GameConfig>,
     game: Res<Match>,
-    mut sprites: Query<&mut Sprite, With<TrialClock>>,
-    mut texts: Query<(&mut Text2d, &mut TextColor), With<TrialClock>>,
+    mut sprites: Query<(&TrialClock, &mut Sprite, &mut Transform)>,
+    mut texts: Query<(&TrialClock, &mut Text2d, &mut TextColor, &mut Transform), Without<Sprite>>,
 ) {
     let Some(seconds) = config
         .trial
@@ -1540,16 +2045,28 @@ fn show_trial_clock(
         return;
     };
     let alpha = game.elapsed.clamp(0.0, 1.0);
-    let left = (seconds - game.elapsed).max(0.0).ceil() as u32;
-    for mut sprite in &mut sprites {
+    // The line climbs from the base (finish × time used / time) and sits on the
+    // finish when the time is up; the clock is a child of the finish line.
+    let used = (game.elapsed / seconds.max(0.01)).clamp(0.0, 1.0);
+    let drop = config.cells(config.race.finish_height * (used - 1.0));
+    // Minutes, seconds and hundredths, as the original's clock reads (0:58:44).
+    let hundredths = ((seconds - game.elapsed).max(0.0) * 100.0) as u32;
+    let words = format!(
+        "{}:{:02}:{:02}",
+        hundredths / 6000,
+        hundredths / 100 % 60,
+        hundredths % 100
+    );
+    for (clock, mut sprite, mut transform) in &mut sprites {
         sprite.color.set_alpha(alpha);
+        transform.translation.y = drop + clock.0;
     }
-    for (mut text, mut color) in &mut texts {
-        let words = left.to_string();
+    for (clock, mut text, mut color, mut transform) in &mut texts {
         if text.0 != words {
-            text.0 = words;
+            text.0 = words.clone();
         }
         color.0.set_alpha(alpha);
+        transform.translation.y = drop + clock.0;
     }
 }
 

@@ -260,7 +260,7 @@ pub(crate) const WIZARDS: [[Spot; 2]; WIZARD_COUNT] = [
 
 /// The staged Select Players picture of `wizard` (0 for wizard 1) in `pose`:
 /// wizards 1-4, the spirit animals, then the indie guests.
-fn seat_picture(wizard: usize, pose: &str) -> String {
+pub(crate) fn seat_picture(wizard: usize, pose: &str) -> String {
     match wizard {
         0..=3 => format!("menu_player_select_wizard{}_{pose}", wizard + 1),
         4..=7 => format!("menu_player_select_wizard_animal0{}_{pose}", wizard - 3),
@@ -295,9 +295,16 @@ pub(crate) fn place(size: (f32, f32), at: (f32, f32)) -> Node {
     }
 }
 
+/// A menu text: the original's body letters, near-black, in capitals.
 pub(crate) fn label(size: f32, text: &str) -> impl Bundle {
+    label_with(size, text, crate::letters::TextLook::BODY)
+}
+
+/// A menu text in capitals with the given look.
+pub(crate) fn label_with(size: f32, text: &str, look: crate::letters::TextLook) -> impl Bundle {
     (
-        Text::new(text),
+        Text::new(text.to_uppercase()),
+        look,
         TextFont {
             font_size: FontSize::Vh(size),
             ..default()
@@ -386,20 +393,79 @@ pub(crate) struct PlayersRoot;
 #[derive(Component)]
 pub(crate) struct ModesRoot;
 
+/// The menus' 16:9 backdrop picture, covering the screen at any shape: it keeps
+/// its proportions and is cut at the top and bottom on wider screens (21:9) or at
+/// the sides on narrower ones, as the original's camera-drawn menus fill the screen.
+#[derive(Component)]
+pub(crate) struct Backdrop;
+
+pub(crate) fn backdrop(image: Handle<Image>) -> impl Bundle {
+    (
+        ImageNode::new(image),
+        Node {
+            position_type: PositionType::Absolute,
+            ..default()
+        },
+        Backdrop,
+    )
+}
+
+/// Sizes every backdrop to cover the view.
+pub(crate) fn fit_backdrops(
+    view: Option<Res<crate::visuals::ViewSize>>,
+    mut backdrops: Query<&mut Node, With<Backdrop>>,
+) {
+    let Some(view) = view else { return };
+    let (w, h) = (view.0.x.max(1.0), view.0.y.max(1.0));
+    let scale = (w / SCREEN.0).max(h / SCREEN.1);
+    let (bw, bh) = (SCREEN.0 * scale / w * 100.0, SCREEN.1 * scale / h * 100.0);
+    let (left, top) = (
+        Val::Percent((100.0 - bw) / 2.0),
+        Val::Percent((100.0 - bh) / 2.0),
+    );
+    for mut node in &mut backdrops {
+        if node.width != Val::Percent(bw) || node.left != left || node.top != top {
+            node.width = Val::Percent(bw);
+            node.height = Val::Percent(bh);
+            node.left = left;
+            node.top = top;
+        }
+    }
+}
+
 /// A full-screen page with the title backdrop and the header bar.
 pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str) -> Entity {
+    spawn_page_over(commands, art, title, false)
+}
+
+/// A page, see-through over the world's background when `over_world` and the
+/// art is staged (the Endless screen shows the picked mode's background).
+pub(crate) fn spawn_page_over(
+    commands: &mut Commands,
+    art: Option<&Art>,
+    title: &str,
+    over_world: bool,
+) -> Entity {
+    let clear = over_world && art.is_some();
     let mut page = commands.spawn((
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             ..default()
         },
-        BackgroundColor(Color::srgb(0.05, 0.06, 0.12)),
+        BackgroundColor(if clear {
+            Color::NONE
+        } else {
+            Color::srgb(0.05, 0.06, 0.12)
+        }),
         GlobalZIndex(11),
         Visibility::Hidden,
     ));
-    if let Some(background) = art.and_then(|a| a.image("menu_background")) {
-        page.insert((ImageNode::new(background), BackgroundColor(Color::NONE)));
+    if let Some(background) = art
+        .filter(|_| !clear)
+        .and_then(|a| a.image("menu_background"))
+    {
+        page.with_child(backdrop(background));
     }
     page.with_children(|page| {
         let mut header = page.spawn((
@@ -410,7 +476,7 @@ pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str
             header.insert((sliced(bar, HEADER_SLICE), BackgroundColor(Color::NONE)));
         }
         header.with_children(|h| {
-            h.spawn(label(4.5, title));
+            h.spawn(label_with(4.5, title, crate::letters::TextLook::TITLE));
         });
     });
     page.id()
@@ -442,7 +508,10 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
                 Part::SeatTaken(seat),
             ));
             if let Some(colour) = image("menu_player_select_background_selected") {
-                taken.insert((sliced(colour, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+                taken.insert((
+                    sliced(colour, [PANEL_SLICE; 4]),
+                    BackgroundColor(Color::NONE),
+                ));
             }
             page.spawn((
                 Node {
@@ -458,8 +527,12 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
                             ImageNode::new(rays),
                             Node {
                                 position_type: PositionType::Absolute,
-                                left: Val::Percent((SEAT_RAYS_CLIP.0 - 556.0) / 2.0 / SEAT_RAYS_CLIP.0 * 100.0),
-                                top: Val::Percent((SEAT_RAYS_CLIP.1 - 556.0) / 2.0 / SEAT_RAYS_CLIP.1 * 100.0),
+                                left: Val::Percent(
+                                    (SEAT_RAYS_CLIP.0 - 556.0) / 2.0 / SEAT_RAYS_CLIP.0 * 100.0,
+                                ),
+                                top: Val::Percent(
+                                    (SEAT_RAYS_CLIP.1 - 556.0) / 2.0 / SEAT_RAYS_CLIP.1 * 100.0,
+                                ),
                                 width: Val::Percent(556.0 / SEAT_RAYS_CLIP.0 * 100.0),
                                 height: Val::Percent(556.0 / SEAT_RAYS_CLIP.1 * 100.0),
                                 ..default()
@@ -477,10 +550,22 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
                     Part::SeatTaken(seat),
                 ));
             }
-            page.spawn((ImageNode::default(), place(wizard[0].1, at), Part::SeatWizard(seat)));
+            page.spawn((
+                ImageNode::default(),
+                place(wizard[0].1, at),
+                Part::SeatWizard(seat),
+            ));
             // "To join" fills the empty panel.
-            page.spawn((place(SEAT_PANEL, at), Visibility::Hidden, Part::SeatJoinBox(seat))).with_children(|p| {
-                p.spawn((label(3.6, ""), Part::SeatJoin(seat)));
+            page.spawn((
+                place(SEAT_PANEL, at),
+                Visibility::Hidden,
+                Part::SeatJoinBox(seat),
+            ))
+            .with_children(|p| {
+                p.spawn((
+                    label_with(3.6, "", crate::letters::TextLook::TITLE),
+                    Part::SeatJoin(seat),
+                ));
             });
             if let Some(arrow) = image("menu_arrow_small") {
                 for flip_x in [true, false] {
@@ -497,9 +582,11 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
                 }
             }
             // The brick pack panel and the name plate.
+            // Only a taken seat has its pack panel.
             let mut pack = page.spawn((
                 place(PACK_PANEL.0, (x, PACK_PANEL.1)),
                 BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
+                Part::SeatTaken(seat),
             ));
             if let Some(grey) = image("menu_player_select_background_deselected") {
                 pack.insert((sliced(grey, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
@@ -507,9 +594,17 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
             if let Some(corner) = image("menu_corner_small") {
                 // Only the panel a player is choosing on has corners: the
                 // character panel (brick packs can't be picked yet).
-                corners(page, &corner, SEAT_PANEL, at, CORNER_SMALL, Part::SeatFocus(seat));
+                corners(
+                    page,
+                    &corner,
+                    SEAT_PANEL,
+                    at,
+                    CORNER_SMALL,
+                    Part::SeatFocus(seat),
+                );
             }
             let mut plate = page.spawn((
+                Visibility::Hidden,
                 place(NAME_PLATE.0, (x, NAME_PLATE.1)),
                 BackgroundColor(Color::srgba(0.1, 0.08, 0.2, 0.85)),
             ));
@@ -528,22 +623,18 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
             // The Character and Brick pack pickers under the name plate (layout ?).
             for row in 0..2 {
                 page.spawn((
-                    place(PICK_LINE, (x, NAME_PLATE.1 - PICK_STEP * (row as f32 + 1.0))),
+                    place(
+                        PICK_LINE,
+                        (x, NAME_PLATE.1 - PICK_STEP * (row as f32 + 1.0)),
+                    ),
                     BackgroundColor(Color::srgba(0.1, 0.08, 0.2, 0.7)),
-                    Part::SeatPick(seat, row),
+                    Visibility::Hidden,
                 ))
                 .with_children(|p| {
                     p.spawn((label(2.0, ""), Part::SeatPick(seat, row)));
                 });
             }
         }
-        page.spawn(place((SCREEN.0, 60.0), (0.0, -SCREEN.1 / 2.0 + 60.0)))
-            .with_children(|p| {
-                p.spawn(label(
-                    2.2,
-                    "Enter or A: join, then start   Tab or X: add an AI wizard   Backspace or Y: remove one   Esc or B: back",
-                ));
-            });
     });
 
     let modes = spawn_page(&mut commands, art, "Select Mode");
@@ -886,6 +977,7 @@ pub(crate) fn show_select_screens(
     screen: Res<MenuScreen>,
     lobby: Res<Lobby>,
     art: Option<Res<Art>>,
+    gamepads: Query<(), With<Gamepad>>,
     mut roots: ParamSet<(
         Query<&mut Visibility, With<PlayersRoot>>,
         Query<&mut Visibility, With<ModesRoot>>,
@@ -917,6 +1009,9 @@ pub(crate) fn show_select_screens(
     }
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
     let first_empty = lobby.seats.iter().position(|s| *s == Seat::Empty);
+    // With no pad connected the original's empty seats just ask for a controller,
+    // with no wizard on them.
+    let no_pads = gamepads.is_empty() && lobby.seats.contains(&Seat::Keyboard);
     let player_number = |seat: usize| lobby.seats[..=seat].iter().filter(|s| s.human()).count();
     let modes = lobby.modes();
     let mode = modes[lobby.mode.min(modes.len() - 1)];
@@ -934,6 +1029,7 @@ pub(crate) fn show_select_screens(
                 }
                 lobby.seats[seat] != Seat::Empty
             }
+            Part::SeatWizard(seat) if no_pads && lobby.seats[seat] == Seat::Empty => false,
             Part::SeatWizard(seat) => {
                 let awake = lobby.seats[seat] != Seat::Empty;
                 let pose = if awake { "ready" } else { "sleeping" };
@@ -992,10 +1088,12 @@ pub(crate) fn show_select_screens(
                 true
             }
             Part::SeatJoin(_) => {
-                let join = if lobby.seats.contains(&Seat::Keyboard) {
-                    "[A]\nTo join"
+                let join = if no_pads {
+                    "CONNECT\nCONTROLLER"
+                } else if lobby.seats.contains(&Seat::Keyboard) {
+                    "[A]\nTO JOIN"
                 } else {
-                    "[Enter]\nTo join"
+                    "[ENTER]\nTO JOIN"
                 };
                 if let Some(mut text) = text
                     && text.0 != join
@@ -1004,7 +1102,9 @@ pub(crate) fn show_select_screens(
                 }
                 true
             }
-            Part::SeatJoinBox(seat) => Some(seat) == first_empty,
+            Part::SeatJoinBox(seat) => {
+                Some(seat) == first_empty || (no_pads && lobby.seats[seat] == Seat::Empty)
+            }
             Part::SeatFocus(seat) => lobby.seats[seat].human(),
             Part::SeatPick(seat, row) => {
                 let (wizard, pack) = lobby.skins[seat];

@@ -131,7 +131,8 @@ fn single_player_opens_endless_and_plays_endless_race() {
 
 #[test]
 fn endless_survival_and_puzzle_start_from_the_endless_screen() {
-    for (downs, mode) in [(1, ModeKind::EndlessSurvival), (2, ModeKind::EndlessPuzzle)] {
+    // The original lists Race, Puzzle, Survival.
+    for (downs, mode) in [(1, ModeKind::EndlessPuzzle), (2, ModeKind::EndlessSurvival)] {
         let mut app = app();
         // Title → Single Player → Endless.
         tap(&mut app, KeyCode::ArrowDown);

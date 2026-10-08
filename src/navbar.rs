@@ -53,6 +53,14 @@ impl NavItem {
     }
 
     /// The key that does it: keyboard, then pad.
+    /// Its glyph art (the original's TextMeshPro key sprites): keyboard, then pad.
+    fn glyphs(self) -> (&'static str, &'static str) {
+        match self {
+            NavItem::Continue => ("menu_key_space", "menu_pad_a"),
+            NavItem::Back => ("menu_key_esc", "menu_pad_b"),
+        }
+    }
+
     fn keys(self) -> (&'static str, &'static str) {
         match self {
             NavItem::Continue => ("Enter", "A"),
@@ -65,7 +73,8 @@ impl NavItem {
 /// the title tiles have nothing to go back to.
 fn items(screen: MenuScreen) -> &'static [NavItem] {
     match screen {
-        MenuScreen::Start => &[],
+        // The pause screen shows its controls instead of hints.
+        MenuScreen::Start | MenuScreen::Pause | MenuScreen::Explain => &[],
         MenuScreen::Main => &[NavItem::Continue],
         _ => &[NavItem::Back, NavItem::Continue],
     }
@@ -77,6 +86,23 @@ struct NavBar;
 /// The text on an item's key cap.
 #[derive(Component)]
 struct NavKey(NavItem);
+
+/// An item's key glyph, when the original's are staged (instead of the cap).
+#[derive(Component)]
+struct NavGlyph(NavItem);
+
+/// An item's words, which change with the screen (SELECT, START GAME...).
+#[derive(Component)]
+struct NavWords(NavItem);
+
+/// What the go-on hint says on a screen, as the original words it.
+fn continue_words(screen: MenuScreen) -> &'static str {
+    match screen {
+        MenuScreen::Settings | MenuScreen::Single => "SELECT",
+        MenuScreen::Trials | MenuScreen::Endless => "START GAME",
+        _ => "CONTINUE",
+    }
+}
 
 /// An item's place in the stack, bottom first.
 #[derive(Component)]
@@ -110,17 +136,31 @@ fn spawn_nav_bar(mut commands: Commands, art: Option<Res<Art>>) {
                         ..place(ITEM, (0.0, 0.0))
                     },
                     item,
-                    NavSlot(0),
+                    // No slot yet, so the first show places it.
+                    NavSlot(usize::MAX),
                 ))
                 .with_children(|row| {
                     row.spawn((
                         Text::new(item.words()),
+                        NavWords(item),
+                        crate::letters::TextLook::OUTLINED,
                         TextFont {
                             font_size: FontSize::Vh(vh(TEXT_SIZE)),
                             ..default()
                         },
                         TextColor(item.color()),
                     ));
+                    if let Some(glyph) = art.as_deref().and_then(|a| a.image(item.glyphs().0)) {
+                        row.spawn((
+                            ImageNode::new(glyph),
+                            Node {
+                                height: Val::Vh(vh(ITEM.1)),
+                                ..default()
+                            },
+                            NavGlyph(item),
+                        ));
+                        return;
+                    }
                     let mut key = row.spawn(Node {
                         min_width: Val::Vh(vh(ITEM.1)),
                         height: Val::Vh(vh(ITEM.1)),
@@ -140,7 +180,8 @@ fn spawn_nav_bar(mut commands: Commands, art: Option<Res<Art>>) {
                     key.with_child((
                         Text::new(item.keys().0),
                         TextFont {
-                            font_size: FontSize::Vh(vh(TEXT_SIZE * 0.6)),
+                            // Small enough that "Enter" stays on its cap.
+                            font_size: FontSize::Vh(vh(TEXT_SIZE * 0.4)),
                             ..default()
                         },
                         TextColor(Color::srgb(0.15, 0.1, 0.25)),
@@ -157,12 +198,24 @@ fn spawn_nav_bar(mut commands: Commands, art: Option<Res<Art>>) {
 fn show_nav_bar(
     game: Res<Match>,
     screen: Res<MenuScreen>,
-    pads: Query<(), With<Gamepad>>,
+    pads: Query<&Gamepad>,
     mut bar: Query<&mut Visibility, With<NavBar>>,
     mut rows: Query<(&NavItem, &mut NavSlot, &mut Node, &mut Visibility), Without<NavBar>>,
-    mut keys: Query<(&NavKey, &mut Text)>,
+    mut keys: Query<(&NavKey, &mut Text), Without<NavWords>>,
+    mut words: Query<(&NavWords, &mut Text), Without<NavKey>>,
+    mut glyphs: Query<(&NavGlyph, &mut ImageNode)>,
+    art: Option<Res<Art>>,
+    stats: Option<Res<crate::stats::StatsMenu>>,
+    credits: Option<Res<crate::credits::CreditsMenu>>,
 ) {
-    let list = items(*screen);
+    // The Stats popup has only its BACK; the credits roll has none.
+    let list = if credits.is_some_and(|c| c.open) {
+        &[]
+    } else if stats.is_some_and(|s| s.open) {
+        &[NavItem::Back]
+    } else {
+        items(*screen)
+    };
     let on = game.phase == Phase::Menu && !list.is_empty();
     for mut visibility in &mut bar {
         visibility.set_if_neq(shown(on));
@@ -176,7 +229,7 @@ fn show_nav_bar(
         let Some(at) = at else {
             continue;
         };
-        if slot.0 != at || node.top == Val::Auto {
+        if slot.0 != at {
             slot.0 = at;
             let x = SCREEN.0 / 2.0 - SIDE - ITEM.0 / 2.0;
             let y = -SCREEN.1 / 2.0 + FOOT + ITEM.1 / 2.0 + STEP * at as f32;
@@ -185,7 +238,32 @@ fn show_nav_bar(
             node.top = want.top;
         }
     }
+    for (item, mut text) in &mut words {
+        let want = match item.0 {
+            NavItem::Continue => continue_words(*screen),
+            other => other.words(),
+        };
+        if text.0 != want {
+            text.0 = want.to_string();
+        }
+    }
     let pad = !pads.is_empty();
+    let playstation = pads.iter().next().is_some_and(crate::input::is_playstation);
+    for (glyph, mut image) in &mut glyphs {
+        let (keyboard, button) = glyph.0.glyphs();
+        let button = match (playstation, glyph.0) {
+            (true, NavItem::Continue) => "menu_pad_cross",
+            (true, NavItem::Back) => "menu_pad_circle",
+            _ => button,
+        };
+        if let Some(want) = art
+            .as_deref()
+            .and_then(|a| a.image(if pad { button } else { keyboard }))
+            && image.image != want
+        {
+            image.image = want;
+        }
+    }
     for (key, mut text) in &mut keys {
         let (keyboard, button) = key.0.keys();
         let words = if pad { button } else { keyboard };

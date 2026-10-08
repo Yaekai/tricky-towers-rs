@@ -124,7 +124,9 @@ ScreenBg 9 'gph_cloud_var04_0'      0.6 0.85 0.0 0.0 9 0.6 'Small cloud'
 ScreenBg 10 'gph_cloud_var07_0'     0.85 1.3 0.0 0.0 10 0.8 'Small cloud (parallax 0.8)'
 $manifest.Add('    "sky": (colors: [(108, 152, 223), (125, 192, 239), (179, 196, 251)]),')
 $manifest.Add('    "sky_race": (colors: [(108, 152, 223), (125, 192, 239), (179, 196, 251)]),')
-$manifest.Add('    "sky_survival": (colors: [(51, 30, 103), (91, 60, 175), (91, 83, 173)]),')
+# Endless Race's sunset (RaceEndlessGradientBackground), in the same order as the race sky.
+$manifest.Add('    "sky_endless": (colors: [(228, 56, 89), (237, 164, 105), (253, 155, 90)]),')
+$manifest.Add('    "sky_survival": (colors: [(51, 30, 103), (91, 83, 173)]),')
 $manifest.Add('    "sky_puzzle": (colors: [(252, 219, 144), (244, 230, 177)]),')
 $notes.Add('- sky_survival : night gradient top (51,30,103), band (91,60,175), bottom (91,83,173). sky_puzzle : desert gradient top #FCDB90 to bottom #F4E6B1 (plus 4 soft overlay gradients in the original).')
 $notes.Add('- sky : Race sky gradient, top (108,152,223) to bottom (179,196,251); the middle stop is the original overlay band (125,192,239) at 65% height.')
@@ -135,11 +137,45 @@ function ModeScreenBg($mode, $n, $sprite, $sx, $sy, $px, $py, $bz, $par, $what, 
   $extra = [string]::Format($f, ', screen: ({0:0.0##}, {1:0.0##}), position: ({2:0.0##}, {3:0.0##}), view_height: 41.54, z: {4}, parallax: {5:0.0#}', $sx, $sy, $px, $py, $bz, $par) + $mask
   Add-Sprite "background_$($mode)_$n" $sprite "backgrounds\$($mode)_$n.png" $what $null $extra
 }
-ModeScreenBg 'survival' 0 'gph_moon'               0.5 0.5 -14.3 9.7  0 0.1  'Moon, centre + (-14.3, 9.7); in the original it hangs on a hinge and can be knocked down'
+ModeScreenBg 'survival' 0 'gph_moon'               0.5 0.5 -14.3 9.7  0 0.1  'Moon, centre + (-14.3, 9.7); in the original it hangs on a hinge and can be knocked down' ', star: false'
 ModeScreenBg 'survival' 1 'gph_backgroundIsland02' 0.5 0.5 -28.0 -7.6 1 0.25 'Back island left, centre + (-28, -7.6)'
 ModeScreenBg 'survival' 2 'gph_backgroundIsland04' 0.5 0.5 32.5 -8.8  2 0.25 'Back island right, centre + (32.5, -8.8)'
 ModeScreenBg 'survival' 3 'gph_backgroundIsland01' 0.5 0.5 -13.5 -8.8 3 0.35 'Front island left, centre + (-13.5, -8.8)'
 ModeScreenBg 'survival' 4 'gph_backgroundIsland03' 0.5 0.5 21.6 -9.8  4 0.35 'Front island right, centre + (21.6, -9.8)'
+# The reflected band across the sky at 65% of the view (BackgroundOverlayGradient): a 4x255 strip
+# stretched to the view's width and 2 units tall, tinted with the mode's overlay colour (91,60,175),
+# curse waves change it to (144,52,110). Overlay and stretch are read by visuals.rs.
+ModeScreenBg 'survival' 20 'gph_gradientRefelcted' 0.5 0.65 0.0 0.0 0.5 1.0 'Survival reflected band across the sky (overlay)' ', tint: (91, 60, 175), overlay: true, stretch: true, scale: 2.0'
+# Survival's starry sky (StarrySky prefab: the stars around the moon, twinkling) and its three
+# cloud layers (SurvivalBackground: CloudLayer x3 rounds of each name spread across the view,
+# drifting right; large clouds tinted (89,80,169) at the bottom, the small ones 0.5-2 views up).
+# Sorting: Stars, BackgroundClouds, Clouds1, Clouds2, then the islands.
+Add-Sprite 'survival_star' 'gph_star' 'backgrounds\survival_star.png' 'Survival star (twinkles; one twirls every 2-5 s)'
+$stars = @(@(32.41,16.16),@(29.07,1.79),@(-24.73,13.15),@(25.918,10.274),@(26.386,10.442),@(26.81,10.62),@(26.608,10.014),@(-29.47,1.95),@(22.4,-3.85),@(3.13,5.99),@(-34.02,17.69),@(-12.9,15.21),@(-23.7,-0.82),@(-33.68,4.07),@(9.8,17.28),@(-5.75,-7.15),@(6.43,-15.47),@(21.98,8.96),@(-21.5,-4.25),@(-11.52,-9.14),@(-0.72,6.89),@(-25.9,15.97),@(-25.486,16.154),@(-25.214,15.754),@(-24.812,15.98),@(-2.59,17.46),@(8.66,7.22),@(9.04,6.21),@(25.09,-2.2),@(-3.66,-11.68),@(22.4,-14.6),@(25,-8.7),@(-29.7,-9.7),@(-29.7,-9.7),@(-27,-13.8),@(29.6,7.7),@(29.6,2.3))
+$svN = 5
+foreach ($st in $stars) { ModeScreenBg 'survival' $svN 'gph_star' 0.5 0.5 $st[0] $st[1] 0.05 0.1 'Survival star' ', star: true'; $svN++ }
+$rng = New-Object System.Random 7
+$cloudLayers = @(
+  @{ names = @('gph_cloudLarge_var01|-25.855|-14.528','gph_cloudLarge_var02_0|31.378|-29.223'); speed = @(0.15,0.25); y = @(0.0,0.0); z = 0.2; par = 0.2; tint = ', tint: (89, 80, 169)' },
+  @{ names = @('gph_cloud_var01|-25.737|-2.866','gph_cloud_var02|-3.477|-1.267','gph_cloud_var03_0|-15.909|11.283','gph_cloud_var04|3.686|10.573','gph_cloud_var05_0|-11.055|-8.667','gph_cloud_var06|7.238|-12.397'); speed = @(0.4,0.5); y = @(0.5,2.0); z = 0.4; par = 0.6; tint = '' },
+  @{ names = @('gph_cloud_var07|-17.271|4.416','gph_cloud_var08|15.171|4.534','gph_cloud_var09_0|-71.1|-54.8','gph_cloud_var10|-36.274|7.909'); speed = @(0.4,0.5); y = @(0.5,2.0); z = 0.6; par = 0.8; tint = '' })
+foreach ($layer in $cloudLayers) {
+  foreach ($round in 1..3) {
+    $left = [System.Collections.ArrayList]@($layer.names)
+    $bin = 1.0 / $layer.names.Count
+    for ($svB = 0.0; $svB -lt 0.999 -and $left.Count -gt 0; $svB += $bin) {
+      $pick = $left[$rng.Next($left.Count)]; $left.Remove($pick)
+      $parts = $pick -split '\|'
+      $svX = $svB + $rng.NextDouble() * $bin
+      $svY = $layer.y[0] + $rng.NextDouble() * ($layer.y[1] - $layer.y[0])
+      $sp = $layer.speed[0] + $rng.NextDouble() * ($layer.speed[1] - $layer.speed[0])
+      $svF = [Globalization.CultureInfo]::InvariantCulture
+      $extra = [string]::Format($svF, ', drift: ({0:0.###}, {0:0.###})', $sp) + $layer.tint
+      ModeScreenBg 'survival' $svN $parts[0] $svX $svY ([double]$parts[1]) ([double]$parts[2]) $layer.z $layer.par 'Survival cloud' $extra
+      $svN++
+    }
+  }
+}
 
 # --- Puzzle: desert ruins anchored to the screen's bottom corners/centre (two-colour mask sprites) ---
 ModeScreenBg 'puzzle' 0 'gph_backgroundBackLeft'     0.0 0.0 15.0 3.8   0 0.3 'Ruins back left (mask: #F4D9B0 / #F7E0BE)' ', mask: ((244, 217, 176), (247, 224, 190))'
@@ -157,8 +193,19 @@ ModeScreenBg 'puzzle_pro' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   3 0.
 ModeScreenBg 'puzzle_pro' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.5 'Pro ruins middle right' ', mask: ((126, 22, 60), (103, 14, 43))'
 ModeScreenBg 'puzzle_pro' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.5 'Pro ruins front left' ', mask: ((46, 4, 5), (46, 4, 5))'
 ModeScreenBg 'puzzle_pro' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.5 'Pro ruins front right' ', mask: ((46, 4, 5), (46, 4, 5))'
-# Race Pro: the stormy clouds drift (screen units a second); the race islands as by day
-# (their dark versions weren't found under any sprite name, so no `lit` yet).
+# Endless Puzzle: the ruins in the red eclipse colours it tweens to (DesertEndlessBackground
+# AnimateIn; the menu shows them at once), slower parallax (back 0.1, middle and front 0.3).
+ModeScreenBg 'endless_puzzle' 0 'gph_backgroundBackLeft'     0.0 0.0 15.0 3.8   0 0.1 'Endless Puzzle ruins back left' ', mask: ((155, 29, 51), (174, 31, 61))'
+ModeScreenBg 'endless_puzzle' 1 'gph_backgroundBackRight'    1.0 0.0 -30.3 3.8  1 0.1 'Endless Puzzle ruins back right' ', mask: ((155, 29, 51), (174, 31, 61))'
+ModeScreenBg 'endless_puzzle' 2 'gph_backgroundMiddleLeft'   0.0 0.0 0.0 3.44   2 0.3 'Endless Puzzle ruins middle left' ', mask: ((102, 21, 29), (75, 15, 25))'
+ModeScreenBg 'endless_puzzle' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   3 0.3 'Endless Puzzle ruins middle centre' ', mask: ((102, 21, 29), (75, 15, 25))'
+ModeScreenBg 'endless_puzzle' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.3 'Endless Puzzle ruins middle right' ', mask: ((102, 21, 29), (75, 15, 25))'
+ModeScreenBg 'endless_puzzle' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.3 'Endless Puzzle ruins front left' ', mask: ((44, 6, 9), (44, 6, 9))'
+ModeScreenBg 'endless_puzzle' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.3 'Endless Puzzle ruins front right' ', mask: ((44, 6, 9), (44, 6, 9))'
+$manifest.Add('    "sky_endless_puzzle": (colors: [(139, 23, 56), (159, 38, 49), (255, 105, 39)]),')
+# Race Pro: the stormy clouds drift (screen units a second); the race islands are drawn from their
+# night textures (Resources\game\background\race\islands\Island*Dark.png, plain textures, not
+# sprites) with the day island as `lit`, shown while the lightning flashes (fades over 0.2 s).
 ModeScreenBg 'race_pro' 0 'gph_cloudLargePro_var01' 0.3 0.0 0.0 0.0 0 0.2 'Race Pro cloud' ', drift: (0.15, 0.25)'
 ModeScreenBg 'race_pro' 1 'gph_cloudLargePro_var01' 0.8 0.0 0.0 0.0 1 0.2 'Race Pro cloud 2' ', drift: (0.15, 0.25)'
 ModeScreenBg 'race_pro' 2 'gph_backgroundBack01'   0.5 0.0 0.0 6.0 2 0.3 'Back island'
@@ -167,6 +214,16 @@ ModeScreenBg 'race_pro' 4 'gph_backgroundMiddle02' 1.0 0.0 -9.5 5.1 4 0.3 'Middl
 ModeScreenBg 'race_pro' 5 'gph_backgroundFront01'  0.0 0.0 0.0 3.5 5 0.3 'Front island left'
 ModeScreenBg 'race_pro' 6 'gph_backgroundFront02'  0.0 0.0 10.0 4.8 6 0.3 'Front island left + 10'
 ModeScreenBg 'race_pro' 7 'gph_backgroundFront03'  1.0 0.0 0.0 3.6 7 0.3 'Front island right'
+$darkIslands = @{ 2 = 'IslandBackBottomCenterDark'; 3 = 'IslandMiddleBottomLeftDark'; 4 = 'IslandMiddleBottomRightDark'; 5 = 'IslandFrontBottomLeftDark'; 6 = 'IslandFrontBottomCenterDark'; 7 = 'IslandFrontBottomRightDark' }
+foreach ($n in $darkIslands.Keys) {
+  $src = Join-Path $A "Resources\game\background\race\islands\$($darkIslands[$n]).png"
+  $i = $manifest.FindLastIndex([Predicate[string]]{ param($l) $l -like "*`"background_race_pro_$n`"*" })
+  if ($i -lt 0 -or -not (Test-Path $src)) { $missing.Add("background_race_pro_$n dark ($($darkIslands[$n]))"); continue }
+  Copy-Item $src (Join-Path $X "backgrounds\race_pro_$($n)_dark.png") -Force
+  $day = $manifest[$i]
+  $manifest.Add((($day -replace '"background_race_pro_\d+"', "`"race_pro_island_$($n)_lit`"") -replace ', screen:.*\),$', '),'))
+  $manifest[$i] = ($day -replace "race_pro_$n\.png", "race_pro_$($n)_dark.png") -replace '\),$', ", lit: `"race_pro_island_$($n)_lit`"),"
+}
 
 # --- Race water band (original BackgroundWater: bottom 6 screen units) ---
 $manifest.Add('    "water_band": (colors: [(61, 82, 201), (137, 146, 217)], position: (0.0, 6.0), view_height: 41.54, z: 1, parallax: 0.3),')
@@ -296,6 +353,17 @@ Add-Sprite 'menu_button_background' 'gph_settingsMenuItemBackground' 'menu\butto
 Add-Sprite 'menu_button_cup_background' 'gph_cupOnlineButtonBackground' 'menu\button_cup_background.png' 'Band across a Single Player button (Endless / Cup), stretched to the button width, 54 high'
 Add-Sprite 'menu_leaderboard_panel' 'gph_popupBackgroundPanel' 'menu\leaderboard_panel.png' 'Endless leaderboard panel (800x800), 9-sliced top 51 / bottom 37'
 Add-Sprite 'menu_leaderboard_row' 'gph_leaderboardEntryBackground' 'menu\leaderboard_row.png' 'Endless leaderboard row, 9-sliced left 6 / right 7'
+Add-Sprite 'menu_leaderboard_medal_1' 'gph_leaderboardMedalGold'   'menu\leaderboard_medal_1.png' 'Endless leaderboard rank 1 medal (44x52)'
+Add-Sprite 'menu_leaderboard_medal_2' 'gph_leaderboardMedalSilver' 'menu\leaderboard_medal_2.png' 'Endless leaderboard rank 2 medal (40x49)'
+Add-Sprite 'menu_leaderboard_medal_3' 'gph_leaderboardMedalBronze' 'menu\leaderboard_medal_3.png' 'Endless leaderboard rank 3 medal (44x52)'
+Add-Sprite 'menu_personal_best_star'  'gph_personalBestStar'       'menu\personal_best_star.png'  'Star beside YOUR BEST (43x43; the outer pair at 0.75, turned 10 degrees)'
+# Key caps from the TextMeshPro sprite sheet (Resources\fonts), the PC leaderboard arrows.
+# The menu hints' key glyphs (the keyboard profile: continue Space, back Esc, invite C; pads A / B / Y).
+foreach ($g in @(@('menu_key_space','keySpace'), @('menu_key_esc','keyEsc'), @('menu_key_c','keyC'), @('menu_key_tab','keyTab'), @('menu_pad_a','a'), @('menu_pad_b','b'), @('menu_pad_y','y'), @('menu_pad_cross','buttonCross'), @('menu_pad_circle','buttonCircle'), @('menu_pad_triangle','buttonTriangle'))) {
+  Add-Sprite $g[0] "..\Resources\fonts\SpriteSymbols_$($g[1])" "menu\$($g[0]).png" "Menu hint glyph $($g[1])"
+}
+Add-Sprite 'menu_key_left'  '..\Resources\fonts\SpriteSymbols_keyLeft'  'menu\key_left.png'  'Left arrow key cap beside WEEKLY (55x51)'
+Add-Sprite 'menu_key_right' '..\Resources\fonts\SpriteSymbols_keyRight' 'menu\key_right.png' 'Right arrow key cap beside WEEKLY (55x51)'
 $notes.Add('- Single Player screen (title "Single Player"): no mode tiles. The seat (one wizard panel 332x283, arrows at x -200/+200, brick pack panel 332x100 at -225 below it) sits 200 px above the centre; under it a list of 550x78 buttons (menu_button_background, corners menu_corner_small 10 px outside) starting 175 px below the centre: "Trials" at 0, then "Endless" 100 px lower (Endless button has the menu_button_cup_background band). Endless opens the "Endless" screen: buttons 690 wide (Race 690x173, Survival 689x167, Puzzle 690x224 with the picture 28 px up) in a container centred at (135, 375) from the screen centre, each with a challenge wizard face (Race wizard 3, Survival wizard 2, Puzzle wizard 4; 110x108 at (33, 6) from the bottom-left), and an 800x800 leaderboard panel (gph_popupBackgroundPanel) at (0, -30). So Endless Race is shown with menu_mode_endless (gph_leaderboardModeRace).')
 
 # --- Game Completed popup and pause menu ---
@@ -316,8 +384,19 @@ Add-Sprite 'cast_lane_beam'       'gph_castBeamLane_World01'          'fx\cast_l
 Add-Sprite 'cast_lane_beam_survival' 'gph_castBeamLane_World02'       'fx\cast_lane_beam_survival.png' 'Lane wave, Survival look (drawn 4.55 units right of the lane centre)'
 Add-Texture 'cast_lightning' 'gph_lightning.png' 'fx\cast_lightning.png' 'Light cast lightning strip texture, repeated along the bolt (0.02 texture repeats per unit)'
 Add-Sprite 'spell_cloud' 'gph_spellBackground_black' 'fx\spell_cloud.png' 'Spell bubble next to the wizard holding the spell icon (drawn x1.31)'
-Add-Sprite 'spell_cloud_button_light' 'gph_PSsquareButton_up' 'fx\spell_cloud_button_light.png' 'Button hint on the light spell bubble'
-Add-Sprite 'spell_cloud_button_dark'  'gph_PSCircleButton_up' 'fx\spell_cloud_button_dark.png'  'Button hint on the dark spell bubble'
+# The keyboard button hints on the spell bubbles (SpellButtonIndicatorLight/DarkPC: J and K,
+# up then down every 0.2 s), 1.1 cells left (light) or right (dark) and 1.25 below the bubble.
+foreach ($hk in @(@('light','J'), @('dark','K'))) { foreach ($hs in 'up','down') {
+  Add-Sprite "spell_cloud_button_$($hk[0])_$hs" "gph_KB$($hk[1])ButtonLarge_$hs" "fx\spell_cloud_button_$($hk[0])_$hs.png" "Keyboard $($hk[1]) hint on the $($hk[0]) spell bubble ($hs)"
+} }
+# The same on a pad (SpellButtonIndicator*XBox): X for light, B for dark.
+foreach ($hk in @(@('light','gph_xButton'), @('dark','gph_XboxBButton'))) { foreach ($hs in 'up','down') {
+  Add-Sprite "spell_cloud_pad_$($hk[0])_$hs" "$($hk[1])_$hs" "fx\spell_cloud_pad_$($hk[0])_$hs.png" "Pad hint on the $($hk[0]) spell bubble ($hs)"
+} }
+# And on a PlayStation pad (SpellButtonIndicator*PlayStation): square for light, circle for dark.
+foreach ($hk in @(@('light','gph_PSSquareButton'), @('dark','gph_PSCircleButton'))) { foreach ($hs in 'up','down') {
+  Add-Sprite "spell_cloud_ps_$($hk[0])_$hs" "$($hk[1])_$hs" "fx\spell_cloud_ps_$($hk[0])_$hs.png" "PlayStation hint on the $($hk[0]) spell bubble ($hs)"
+} }
 $notes.Add('- Cast beams: a dark cast is a beam up from the caster (BeamIn 0.33 s, gives up after 1 s), then a beam down onto the victim''s brick (BeamDownIn 0.63 s, timeout 1 s), then the lane wave over the victim''s lane (BeamLaneIn 1 s, BeamLaneOut 0.17 s; the overlay is placed at the background camera''s centre and stretched to its full height). Each beam is: cast_beam stretched (x60 up, x300 down) with two white strokes 0.1 wide at x -0.88 / +0.88 (20 tall), blobs riding it, and at its foot 3 sunray layers (Sunrays clip 2.5 s, looping), thick/thin rings and a glow disc. When it ends it squeezes to 1% width in 0.03 s. Explosion clip 0.46 s. Light cast: a lightning strip from the wizard to the brick (Lightning clip 0.4 s) with rays, rings and glow at both ends; the strip is a mesh wobbling as a sine (amplitude grows towards the middle), texture cast_lightning repeating every 50 units.')
 $notes.Add('- Spell clouds: each wizard carries two bubbles, light (near the head, about (0.6, 4.8) from the wizard) and dark (about (2.9, 3.5)), each spell_cloud x1.31 with the spell icon inside and a button hint below it. Clips: Show 0.83 s, Floating 3 s loop, Used 1.22 s (bubble, hint and icon animate out), Hide 0.38 s. Positions per wizard: 1 light (0.58, 4.8) dark (2.87, 3.53); 2 light (0.38, 5.37) dark (2.67, 4.1); 3 light (0.75, 5) dark (3.04, 3.73).')
 # --- Endless Race: pacer line and the Endless versions of the Race backdrop ---
@@ -339,6 +418,9 @@ $notes.Add('- Endless Race: pacer starts at height -5 (slides in from -15 over 1
 # --- The original's letters (Enzo), as a letter picture plus sheet ---
 & (Join-Path $PSScriptRoot 'font.ps1') -Repo $Repo
 $manifest.Add('    "font_main": (file: "fonts/main.ron"),')
+# The body letters (list rows, settings labels): Hans Sans Bold.
+& (Join-Path $PSScriptRoot 'font.ps1') -Repo $Repo -FontName 'HansSansBold SDF' -OutName 'body'
+$manifest.Add('    "font_body": (file: "fonts/body.ron"),')
 $notes.Add('- font_main : the original''s Enzo letters, from its distance-field atlas turned into plain white letters (fonts/main.png, 1024x1024) with 199 glyph metrics (fonts/main.ron). The original also draws an outline and gradient on titles.')
 
 # --- Title screen ---
@@ -391,10 +473,16 @@ foreach ($lf in Get-ChildItem (Join-Path $A 'Resources\language') -Filter *.txt)
   $stagedMap.Add("text`t$($lf.BaseName)`ttext_$($lf.BaseName)")
 }
 
+# --- The Credits roll's list (Resources\content\credits.json: groups of titles and names) ---
+Copy-Item (Join-Path $A 'Resources\content\credits.json') (Join-Path $X 'language\credits.json') -Force
+$manifest.Add("    `"credits_content`": (file: `"language/credits.json`"),")
+$notes.Add('- credits_content : the Credits roll, JSON groups of titles and names (title texts are language keys).')
+
 # --- Gap scan 2026-10-05: Puzzle Pro sky, sandstorm, brick particles, in-match messages ---
 Add-Sprite 'puzzle_pro_sun' 'gph_eclipsedSun' 'background\puzzle_pro_sun.png' 'Puzzle Pro: eclipsed sun, 9 units above the screen centre'
 Add-Sprite 'puzzle_pro_corona' 'gph_corona' 'background\puzzle_pro_corona.png' 'Puzzle Pro: corona ray around the eclipsed sun (several copies, stretched)'
 Add-Texture 'puzzle_sand' 'gph_pinkSand.png' 'background\puzzle_sand.png' 'Puzzle: sand strip along the bottom of the background'
+Add-Texture 'puzzle_sand_front' 'gph_foregroundSand.png' 'background\puzzle_sand_front.png' 'Puzzle: front sand strip, in front of the front ruins'
 Add-Texture 'sandstorm_front_1' 'gph_sand.png' 'background\sandstorm_front_1.png' 'Puzzle: front sandstorm layer 1 (scrolling, tinted)'
 Add-Texture 'sandstorm_front_2' 'gph_sand02.png' 'background\sandstorm_front_2.png' 'Puzzle: front sandstorm layer 2'
 Add-Texture 'sandstorm_back_1' 'gph_sand03.png' 'background\sandstorm_back_1.png' 'Puzzle: back sandstorm layer 1'

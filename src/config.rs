@@ -1424,8 +1424,9 @@ fn survival_dark_after() -> Vec<(SpellKind, String)> {
     ]
 }
 
-/// The three Mystery shapes: a 2x4 block, a ten-cell blob (exact cells still
-/// to be checked) and a table on two feet.
+/// The three Mystery shapes, from the MysteryBrick prefabs' box colliders: a 2x4
+/// standing block, a ten-cell blob in a 3x4 box (its 45° nub beside the top isn't a
+/// cell) and the piano on two feet.
 pub fn default_mystery_pieces() -> Vec<PieceDef> {
     vec![
         PieceDef::new(
@@ -1434,12 +1435,12 @@ pub fn default_mystery_pieces() -> Vec<PieceDef> {
             &[
                 (0, 0),
                 (1, 0),
-                (2, 0),
-                (3, 0),
                 (0, 1),
                 (1, 1),
-                (2, 1),
-                (3, 1),
+                (0, 2),
+                (1, 2),
+                (0, 3),
+                (1, 3),
             ],
         )
         .with_mass(1.5),
@@ -1447,16 +1448,16 @@ pub fn default_mystery_pieces() -> Vec<PieceDef> {
             "Blob",
             [0.55, 0.80, 0.70],
             &[
+                (0, 0),
                 (1, 0),
-                (2, 0),
                 (0, 1),
                 (1, 1),
                 (2, 1),
-                (3, 1),
                 (0, 2),
                 (1, 2),
                 (2, 2),
-                (3, 2),
+                (1, 3),
+                (2, 3),
             ],
         )
         .with_mass(1.75),
@@ -1758,7 +1759,8 @@ pub struct MatchMoments {
     pub veil_alpha: f32,
     /// The trophy pops from this share of its size to full over this many seconds.
     pub trophy_pop: (f32, f32),
-    /// Degrees a second the sunrays behind WINNER! turn (?).
+    /// Degrees a second the sunrays behind WINNER! turn (the original has two ray layers,
+    /// 60 and -90; this is the first).
     pub sunray_spin: f32,
     /// Each losing tower's end sequence: seconds before it gives way; every n-th
     /// brick blows up (every brick if the wizard was already out), at most this
@@ -1773,8 +1775,9 @@ pub struct MatchMoments {
     /// sideways, cells up, seconds.
     pub blast_shake: (f32, f32, f32),
     pub rumble: (f32, f32, f32),
-    /// The losing player's controller rumbles this long when the sequence starts and
-    /// again with the rumble after the blasts, at this strength (0 to 1, ?).
+    /// The losing player's controller rumbles this long when the sequence starts (the
+    /// original: 2 s on the big motor after a 1.5 s wait, GameBaskController) and
+    /// again with the rumble after the blasts (?), at this strength (0 to 1).
     pub pad_rumble: (f32, f32),
     pub pad_rumble_strength: f32,
     /// The popup opens once every loser's sequence is done, and at least this
@@ -1802,7 +1805,7 @@ impl Default for MatchMoments {
             veil_solo_width: 120.0,
             veil_alpha: 0.1,
             trophy_pop: (0.4, 0.6),
-            sunray_spin: 20.0,
+            sunray_spin: 60.0,
             collapse_wait: 1.5,
             blast_every: 3,
             blast_limit: 100,
@@ -1811,7 +1814,7 @@ impl Default for MatchMoments {
             blast_shake: (0.2, 0.26, 0.05),
             rumble: (0.1, 0.13, 2.5),
             pad_rumble: (2.0, 2.5),
-            pad_rumble_strength: 0.6,
+            pad_rumble_strength: 1.0,
             popup_after: 0.0,
             popup_slide: 0.25,
         }
@@ -2012,8 +2015,14 @@ pub struct WeatherLook {
     pub sandstorm_front: ([u8; 3], f32),
     pub sandstorm_speed: f32,
     pub sandstorm_offset: f32,
-    /// Puzzle sand strip height as a share of the view (?).
+    /// Puzzle sand strips along the screen bottom, as shares of the view height: the back
+    /// strip's height, how far its bottom sits above the screen bottom, and its opacity
+    /// (drawn behind the front ruins); then the front strip's height (in front of them,
+    /// on the screen bottom).
     pub sand_strip: f32,
+    pub sand_lift: f32,
+    pub sand_alpha: f32,
+    pub sand_front: f32,
     /// Puzzle Pro sky, the eclipsed sun's height above the view centre as a share of the
     /// view height (9 units in the original's background camera, ?), its size, and its
     /// corona: rays, width and height ranges (multiples of the ray picture).
@@ -2030,6 +2039,8 @@ pub struct WeatherLook {
     /// During a curse wave the background's clouds and islands grey to this colour,
     /// and drifting clouds go this many times faster (gap-scan.md 2).
     pub survival_wave_grey: [u8; 3],
+    /// The reflected band's colour in a curse wave (its normal colour is the manifest's tint).
+    pub survival_wave_band: [u8; 3],
     pub survival_wave_drift: f32,
 }
 
@@ -2046,13 +2057,16 @@ impl Default for WeatherLook {
             lightning_every: (5.0, 14.0),
             lightning_quiet_start: 3.0,
             lightning_flash: (0.65, 0.1),
-            lightning_bolt: (0.2, 0.2),
+            lightning_bolt: (0.4, 0.2),
             lightning_branches: 4,
             sandstorm_back: ([0x9B, 0x86, 0x44], 0.38),
             sandstorm_front: ([0xE9, 0xAA, 0x5D], 0.37),
             sandstorm_speed: 0.035,
             sandstorm_offset: 0.025,
-            sand_strip: 0.08,
+            sand_strip: 0.085,
+            sand_lift: 0.027,
+            sand_alpha: 0.803,
+            sand_front: 0.089,
             puzzle_pro_sky: vec![[0xAB, 0x05, 0x4C], [0xB8, 0x44, 0x42]],
             eclipse_height: 0.3,
             eclipse_size: 0.22,
@@ -2063,6 +2077,7 @@ impl Default for WeatherLook {
             survival_wave_sky: vec![[26, 13, 58], [147, 64, 157]],
             wave_shift: 1.0,
             survival_wave_grey: [166, 166, 166],
+            survival_wave_band: [144, 52, 110],
             survival_wave_drift: 138.0,
         }
     }
@@ -2218,7 +2233,7 @@ pub struct CastLook {
     pub beam_up: (f32, f32),
     /// Then a beam down onto each victim's brick: grows in, then gives up.
     pub beam_down: (f32, f32),
-    /// Then the wave over each victim's lane: in, out.
+    /// Then the overlay over each victim's lane: shown (opening in 1/6 s), closing.
     pub lane_wave: (f32, f32),
     /// A finished beam squeezes to nothing this fast.
     pub beam_squeeze: f32,
@@ -2227,7 +2242,7 @@ pub struct CastLook {
     pub beam_width: f32,
     pub beam_reach: f32,
     /// Light cast: the lightning from the wizard to the brick lasts this long, and
-    /// wobbles this far at its middle (?).
+    /// its wobble peaks at this many cells (a sixth of the way in; clip `Lightning`).
     pub lightning: f32,
     pub lightning_wobble: f32,
     /// Spell clouds: Show, one Floating cycle, Used and Hide clip lengths.
@@ -2235,8 +2250,9 @@ pub struct CastLook {
     pub cloud_float: f32,
     pub cloud_used: f32,
     pub cloud_hide: f32,
-    /// Cloud size (drawn ×1.31 of its picture; ? until the picture size is read),
-    /// the icon's share of it, and how far it bobs while floating (?).
+    /// Cloud size in cells (the 139 px backing at 52 px a unit, drawn ×1.31), the icon's
+    /// share of it (126 px icons at 52 px a unit, unscaled), and how far it bobs while
+    /// floating (?).
     pub cloud_size: f32,
     pub cloud_icon: f32,
     pub cloud_bob: f32,
@@ -2259,13 +2275,13 @@ impl Default for CastLook {
             beam_width: 1.76,
             beam_reach: 30.0,
             lightning: 0.4,
-            lightning_wobble: 0.6,
+            lightning_wobble: 2.0,
             cloud_show: 0.83,
             cloud_float: 3.0,
             cloud_used: 1.22,
             cloud_hide: 0.38,
-            cloud_size: 2.4,
-            cloud_icon: 0.6,
+            cloud_size: 3.5,
+            cloud_icon: 0.69,
             cloud_bob: 0.12,
             cloud_spots: vec![
                 ((0.58, 4.8), (2.87, 3.53)),
@@ -2605,6 +2621,23 @@ impl Default for GameConfig {
 impl GameConfig {
     /// The top of the view while a tower's top is at `top` cells: the camera keeps
     /// the spawn point and a little room above it in sight.
+    /// How far under the base top the camera may go: the floor's height (the
+    /// original's FloorFactory height, set as the tower camera's minBottom).
+    pub fn camera_floor(&self) -> f32 {
+        let trial_floor = self
+            .trial
+            .and_then(|i| self.trials.get(i))
+            .and_then(|t| t.floor.as_deref())
+            .and_then(crate::trial_list::floor_height);
+        match (trial_floor, self.mode) {
+            (Some(height), _) => height,
+            (None, ModeKind::Puzzle) if self.difficulty == Some(Difficulty::Pro) => 13.0,
+            (None, ModeKind::Puzzle) => 12.0,
+            (None, ModeKind::EndlessPuzzle) => 10.0,
+            _ => 12.5,
+        }
+    }
+
     pub fn camera_top(&self, top: f32) -> f32 {
         (top + self.spawn_gap + 3.0).max(16.0)
     }
@@ -2879,17 +2912,10 @@ pub struct HudLook {
     pub place_below: f32,
     pub place_first: [u8; 3],
     pub place_other: [u8; 3],
-    /// Hearts under the wizard: size and cells below the wizard (?).
+    /// Hearts under the wizard: size (the original's 1.12 cells over the 30-cell view) and
+    /// cells from the wizard down to the row's centre (1.53 + 0.3).
     pub heart_size: f32,
     pub heart_below: f32,
-    /// Spell bubbles: size, where the first sits from the wizard in cells (x toward
-    /// the tower, up), and the second's step from the first in cells (?).
-    pub bubble_size: f32,
-    pub bubble_at: (f32, f32),
-    pub bubble_step: (f32, f32),
-    /// Light and dark bubble colours when no bubble art is staged (0-255).
-    pub bubble_light: [u8; 3],
-    pub bubble_dark: [u8; 3],
     /// The drop guide's colour in Race (and Puzzle, Endless) and in Survival (0-1, with alpha).
     pub guide_race: [f32; 4],
     pub guide_survival: [f32; 4],
@@ -2903,9 +2929,13 @@ pub struct HudLook {
     pub loser_mix: f32,
     /// Losing wizards shrink away over this many seconds once the match is over.
     pub wizard_vanish: f32,
-    /// How many cells tall the view is while playing (a cell is about 36 px at
-    /// 1080p in the press kit); more when the lanes need the width.
-    pub camera_cells: f32,
+    /// The tower camera (SingleTowerCamera): at least this many cells tall, its top
+    /// this many cells of room above the highest tower minus `camera_tower_room`
+    /// (the original's maxTowerInScreen), its bottom this far under the lowest tower
+    /// but never under the floor.
+    pub camera_height: f32,
+    pub camera_tower_room: f32,
+    pub camera_below_lowest: f32,
 }
 
 impl Default for HudLook {
@@ -2922,13 +2952,8 @@ impl Default for HudLook {
             place_below: 2.2,
             place_first: [255, 190, 60],
             place_other: [205, 190, 240],
-            heart_size: 18.0 / 720.0,
-            heart_below: 2.2,
-            bubble_size: 45.0 / 720.0,
-            bubble_at: (1.6, 1.8),
-            bubble_step: (0.9, -0.9),
-            bubble_light: [110, 210, 90],
-            bubble_dark: [235, 90, 170],
+            heart_size: 1.12 / 30.0,
+            heart_below: 1.83,
             guide_race: [0.65, 0.95, 1.0, 0.3],
             guide_survival: [0.8, 0.7, 1.0, 0.3],
             diamond_size: 0.45,
@@ -2942,7 +2967,9 @@ impl Default for HudLook {
             loser_tint: [0.78, 0.82, 0.88],
             loser_mix: 0.7,
             wizard_vanish: 0.6,
-            camera_cells: 30.0,
+            camera_height: 41.538_46,
+            camera_tower_room: 20.0,
+            camera_below_lowest: 10.0,
         }
     }
 }

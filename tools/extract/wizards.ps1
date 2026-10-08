@@ -91,9 +91,41 @@ foreach ($w in 5..14) {
 foreach ($w in 2..4) {
   $clipMap[$w] = [ordered]@{ idle = "Wizard0$($w)Idle"; action = "Wizard0$($w)Action"; cheer = "Wizard0$($w)Cheer"; cast_self = "Wizard0$($w)CastSelf"; casting = "Wizard0$($w)Casting"; laugh_evil = "Wizard0$($w)Laugh"; startle = "Wizard0$($w)Startle"; dying = $(if ($w -eq 4) { 'Wizard04SDying' } else { "Wizard0$($w)Dying" }) }
 }
+# The enemy wizard's hard laugh (trials).
+foreach ($w in 1..14) { $clipMap[$w]['laugh_hard'] = "$($prefabName[$w])LaughHard" }
 # Voice lines: Wizard01-04 share one pool and the original picks one at random each time; this
 # stages the first line of each pool.
 $say = [ordered]@{ action = 'wizard_cast_3'; cheer = 'yay_02'; cast_self = 'wizard_cast_1'; casting = 'cast_02'; laugh_evil = 'laugh_evil_short01'; startle = 'sad_01'; dying = 'sad_02' }
+
+# Per-character voice lines by kind (the original's speech table): every line of each kind is
+# staged as wizard<n>_say_<kind>_<i>; the original picks one at random each time. Wizards 1-4,
+# and laugh_hard for every character, use the shared pool in Resources\audio\speech.
+$voiceDefault = [ordered]@{
+  startle = 'sad_01', 'sad_02', 'sad_05'
+  laugh = 1..8 | ForEach-Object { "laugh_happy_short0$_" }
+  laugh_evil = 1, 2, 3, 4, 5, 7, 8 | ForEach-Object { "laugh_evil_short0$_" }
+  laugh_hard = 'laugh_long_01', 'laugh_long_02', 'laugh_long_03'
+  cheer = 'yay_02', 'yay_05', 'yay_07', 'yay_09'
+  action = 'wizard_cast_1', 'wizard_cast_2', 'wizard_cast_3', 'cast_03', 'cast_04', 'cast_06', 'cast_08'
+  cast_self = 'wizard_cast_1', 'wizard_cast_2', 'cast_02', 'cast_06', 'cast_08'
+  cast_other = 'cast_02', 'cast_06', 'cast_08', 'wizard_cast_1', 'wizard_cast_2'
+}
+# Wizard number -> folder, then per kind the file prefix and line count, in the order sad
+# (startle), laugh, laugh_evil, cheer, cast (cast serves action, cast_self and cast_other).
+$voicePacks = @{
+  5 = 'animals\platypus', 'sad_platypus_', 2, 'laugh_platypus_', 3, 'laugh_evil_platypus_', 2, 'cheer_platypus_', 5, 'cast_platypus_', 5
+  6 = 'animals\toucan', 'sad_toucan_', 4, 'laugh_toucan_', 3, 'laugh_evil_toucan_', 5, 'cheer_toucan_', 4, 'cast_toucan_', 5
+  7 = 'animals\tanuki', 'sad_tanuki_', 3, 'laugh_tanuki_', 3, 'laugh_evil_tanuki_', 4, 'cheer_tanuki_', 4, 'cast_tanuki_', 3
+  8 = 'animals\fish', 'sad_fish_', 3, 'laugh_fish_', 2, 'laugh_evil_fish_', 3, 'cheer_fish_', 3, 'cast_fish_', 5
+  9 = 'indie\lethalleague', 'sad_lethal_league_', 2, 'laugh_lethal_league_', 4, 'laugh_evil_lethal_league_', 2, 'cheer_lethal_league_', 3, 'cast_lethal_league_', 6
+  10 = 'indie\awesomenauts', '225_Clunk_sad_0', 3, '224_Clunk_laugh_0', 3, '225_Clunk_laugh_evil_0', 3, '223_Clunk_cheer_0', 3, '222_Clunk_cast_0', 3
+  11 = 'indie\towerfall', '221_Last_sad_0', 3, '219_Last_laugh_0', 3, '220_Last_laugh_evil_0', 3, '218_Last_cheer_0', 3, '217_Last_cast_0', 3
+  12 = 'indie\armello', '231_Thane_sad_0', 3, '229_Thane_laugh_0', 3, '230_Thane_laugh_evil_0', 3, '228_Thane_cheer_0', 3, '227_Thane_cast_0', 3
+  13 = 'indie\nuclearthrone', '211_Fish_sad_0', 3, '209_Fish_laugh_0', 3, '209_Fish_laugh_evil_0', 3, '208_Fish_cheer_0', 3, '207_Fish_cast_0', 3
+  14 = 'indie\octodad', '216_Octo_sad_0', 3, '214_Octo_laugh_0', 3, '215_Octo_laugh_evil_0', 3, '213_Octo_cheer_0', 3, '212_Octo_cast_0', 3
+}
+$speech = Join-Path $A 'Resources\audio\speech'
+New-Item -ItemType Directory -Force (Join-Path $X 'audio\voice') | Out-Null
 
 foreach ($n in 1..14) {
   $prefab = Join-Path $A "Resources\game\wizards\$($prefabName[$n]).prefab"
@@ -137,6 +169,27 @@ foreach ($n in 1..14) {
     New-Item -ItemType Directory -Force (Join-Path $X 'audio\voice') | Out-Null
     Copy-Item $src.FullName (Join-Path $X $rel) -Force
     $entries.Add("    `"wizard$($n)_say_$clip`": (file: `"$($rel -replace '\\','/')`"),")
+  }
+  $lines = [ordered]@{}
+  foreach ($kind in $voiceDefault.Keys) { $lines[$kind] = @($voiceDefault[$kind] | ForEach-Object { Join-Path $speech "$_.ogg" }) }
+  if ($voicePacks.Contains($n)) {
+    $v = $voicePacks[$n]
+    $files = { param($i) @(1..$v[$i + 1] | ForEach-Object { Join-Path $speech "$($v[0])\$($v[$i])$_.ogg" }) }
+    $lines['startle'] = & $files 1
+    $lines['laugh'] = & $files 3
+    $lines['laugh_evil'] = & $files 5
+    $lines['cheer'] = & $files 7
+    foreach ($kind in 'action', 'cast_self', 'cast_other') { $lines[$kind] = & $files 9 }
+  }
+  foreach ($kind in $lines.Keys) {
+    $i = 0
+    foreach ($src in $lines[$kind]) {
+      $i++
+      if (-not (Test-Path $src)) { Write-Warning "missing voice line $src"; continue }
+      $rel = 'audio\voice\' + (Split-Path (Split-Path $src) -Leaf) + '_' + (Split-Path $src -Leaf)
+      Copy-Item $src (Join-Path $X $rel) -Force
+      $entries.Add("    `"wizard$($n)_say_$($kind)_$i`": (file: `"$($rel -replace '\\','/')`"),")
+    }
   }
 }
 $texCache.Values | ForEach-Object { $_.Dispose() }

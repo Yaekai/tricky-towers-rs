@@ -108,20 +108,28 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
-- **Wizard voice lines (readout, then the cloud codes it)** (Max, 2026-10-05). Today each
-  clip plays one shared file for every wizard (`wizards.ps1`'s `$say` map: `yay_02`,
-  `sad_01`, ...), which isn't the original. Read and write in docs/research/wizards.md:
-  1. Each of the 14 characters' voice pack: which files belong to whom (the voice-pack
-     folders `inventory.ps1` lists), per line kind (STARTLE, LAUGH, LAUGH_EVIL, LAUGH_HARD,
-     CHEER, ACTION, CAST_SELF, and any others such as dying or the Select Players pick).
-  2. How a line is chosen when there are several (random, in turn, never the same twice) and
-     any pitch or volume variation.
-  3. What triggers each kind in a match (which events laugh, laugh hard or laugh evil), the
-     cooldowns (Laugh and Startle 7 s; others?), and whether two wizards can talk at once.
-  4. The voice on Select Players when a wizard is picked (skins.md), and any in menus.
-  5. Which volume slider the voices follow (Sound effects?).
-  Then stage them as `wizard<n>_say_<kind>_<i>` (i from 1) for every character and say the
-  names; the cloud will switch the code to per-character lines with variants.
+- **Next: the rest of Max's screenshot comparison** (docs/research/compare-2026-10-06.md; lines
+  without ✓ are open; Max's pictures are in `research\screenshotsbymax` on his new PC, never commit
+  them). Left after PRs #62-94: the race trial clock's orange outline (world text has none). The Endless screen is done, Endless Puzzle's red eclipse staged as `background_endless_puzzle_N` and `sky_endless_puzzle` (its 2 s tween in at the intro and the sun's eclipse colour #FF641F aren't done; the menu doesn't show the sun). Merge only when `cargo test` passes.
+- **From Max's play test (2026-10-06, his screenshot of a Survival trial):** ✓ special bricks: the
+  Mystery spell's castle block and windmill were drawn squashed sideways because their cells were
+  4x2 and 4x3 instead of the prefabs' 2x4 and 3x4 (fixed from the box colliders; the windmill now
+  carries its rotor and shadow; the piano was already right). The windmill's 45° nub isn't a cell.
+  ✓ The purple flash was the dark cast's lane overlay, drawn opaque over the towers: it now sits
+  behind them, opens across the lane in 1/6 s, and draws as a see-through tint (Race/Puzzle, the
+  original multiplies at 80%) or a whitened glow (Survival, the original adds at 39%); exact
+  multiply/add blending would need a Material2d (`casts::LANE_TINT`, ?). The Survival count reads
+  "7/26" and overlaps the next-brick card; check the original's format and spacing.
+- Also queued (explanation and Credits popups done: src/explain.rs, src/credits.rs; and the controls explanation first in a session; still to read: whether modal_tile lets the scene show through), the trial mode stinger. Spell bubble key hints are in (keyboard J/K,
+  Xbox X/B for players on a pad, PlayStation square/circle and cross/circle menu glyphs when the
+  first pad is a Sony one).
+- **Done on the new PC (2026-10-05)**: wizard voice packs read into docs/research/wizards.md
+  ("Voice lines") and staged as `wizard<n>_say_<kind>_<i>` (439 lines, all 14 characters);
+  the cloud can switch `wizards.rs` to them. Tier unlock, Settings, Stats and Game Info pictured
+  offscreen (new script command `Tap(key: ...)` and `--trials file.ron`, docs/debug-tools.md).
+  Fixed: BACK hint sat mid-screen on every menu (never placed). Still to check against the
+  original: key caps clip "Enter" to "nte"; Stats shows a second BACK at the bottom centre
+  and CONTINUE while open; Stats and Game Info text is pale on the light panels.
 - **Puzzle ruins colours (staging only, no code needed)** (gap-scan.md 1): stage the Puzzle
   ruins with `mask` from the read colours: back #F4D9B0 → #F7E0BE (parallax 0.3), middle
   #E0AC92 → #D69883 (0.5), front #C47464 (0.5). For Puzzle Pro, stage the same layers again as
@@ -131,10 +139,10 @@ frontend and test-writer suggestions.
 - **Survival curse-wave background is in** (2026-10-05, cloud): during a wave the background
   layers grey to (166,166,166) and drifting layers go 138× faster, shifting with the sky over
   1 s (`WeatherLook::survival_wave_grey/drift`); Endless Survival's counted waves now shift the
-  sky too. Read: which layers count as "clouds and islands" (we grey every background layer),
-  the normal drift speeds of Survival's clouds (stage them with `drift`), what the "overlay"
-  colour (144,52,110 / 91,60,175) is drawn on, the mist's 5× speed-up, and the stars'
-  twinkle (positions, art, one every 2-5 s) and the swinging moon.
+  sky too. Done 2026-10-06: Survival's stars (StarrySky positions, twinkle, twirl every 2-5 s), its three
+  drifting cloud layers and three mist bands. Done: curse waves tint the large clouds to (56,34,105) and grey the rest, stars keep their colour,
+  and a Large brick knocks a star loose (dark copy left, falls). Still to read: the overlay colour
+  (144,52,110 / 91,60,175) and the moon drop (it needs bricks 2.5x or bigger, not done).
 - **Trial banners, race-trial clock and finish flags are in** (2026-10-05, cloud): trials end
   on CHALLENGE COMPLETE / CHALLENGE FAILED (drawn at 0.6× the WINNER! size, ?), a race trial's
   finish line shows the seconds left beside `hourglass` (fading in over 1 s; place and size
@@ -144,14 +152,16 @@ frontend and test-writer suggestions.
   size and place. Still not done from gap-scan.md 3-4: gravel (when does it spawn?), impact
   dust on later hard hits (what counts as hard enough?), the Endless Race score line's look,
   the "continue" prompt after a trial or Endless run, and DRAW.
-- **Race Pro background, ready for staging** (2026-10-05, cloud): screen layers now take
-  `drift` and `lit` (docs/art-layout.md), and Race Pro's water band falls back to the read
-  gradient (13,119,154 → 49,21,138, parallax 0.3, height 6) when `water_band_race_pro` isn't
-  staged. Stage `background_race_pro_N`: the clouds (`race_pro_cloud`, parallax 0.2,
-  `drift: (0.15, 0.25)`, in the units you read them in; say which), the race islands' `_DARK`
-  pictures at parallax 0.3 with the day picture as `lit`, and `water_pro` (stretched 80×).
-  Then picture Race Pro with a strike and compare. The waves' rows (y 3 / 2.5, scales
-  0.2-0.5 / 0.5-0.7) aren't drawn yet: say how the original lays out a wave row.
+- **Race Pro islands staged (2026-10-05, PC)**: the `_DARK` pictures are plain textures in
+  `Resources\game\background\race\islands\Island*Dark.png` (not sprites, hence not found by
+  name). `background_race_pro_2..7` now use them, each with its day island as `lit`
+  (`race_pro_island_N_lit`). The shader that mixes them can't be read (AssetRipper exports a
+  stub), so dark-by-default and lit-on-flash is from the pictures, not the code (?). In our
+  pictures the flash washes the whole screen almost white; the original only brightens the
+  islands over 0.2 s plus its bolt layer, and never flashes during the intro. The waves' rows
+  (`WavesLayer`): a wave every 1.4 s, each grows from y-scale 0.2 to 0.7 over 6 s, moving 4
+  units sideways and fading in from 0 to 1, in a band starting 3 units up, 2 high, scale
+  0.2-0.5.
 - **Game Info and Stats popups are in** (2026-10-05, cloud; src/game_info.rs, src/stats.rs,
   stats saved as `stats.ron`). Read from the original and picture with a script:
   1. Game Info (Tab / Y): where the title, mode lines and player rows sit inside the 750×550
@@ -163,16 +173,9 @@ frontend and test-writer suggestions.
      cups won, time played and the 3 Endless bests), their wording (language keys), text
      sizes, the gap between the panels and their heights on screen, the time format, and
      what counts (we count player 1's local battles, not trials or Endless runs).
-- **Readout for the original's text and tutorials (next cloud work, plain notes only):**
-  1. The format of `Resources\language\<lang>.txt`: one example line pattern with the value
-     replaced by `...`, and the full list of key names (names only, no translations) in
-     docs/research/text-keys.md. With that the game can show the original's wording from the
-     staged `text_<lang>` files at runtime.
-  2. The explanation (tutorial) popups' layout: panel art and size, where the title, text,
-     mode picture, difficulty, Pro subtitle and the two icons sit, sizes, and the keys that
-     close it; which key each popup's title and text use.
-  3. The Credits popup's layout and scroll speed. The names themselves stay in the game's
-     files: say where they live (a language key, a text asset) so they can be read at runtime.
+- **Text, tutorials and Credits read (2026-10-05, PC)**: format and 271 key names in
+  docs/research/text-keys.md; explanation popups and the Credits roll in docs/research/menus.md
+  (end); the credits list is staged as `credits_content` (`stage.ps1`).
 - **Keybinding popup is in** (2026-10-05, cloud; src/keybinding.rs, saved as `keys.ron`):
   Settings → Keybinding lists the 10 keyboard actions with their keys, Enter waits for a new
   key, a Reset row, Esc closes. Read from the original: the action list, order and wording
@@ -584,8 +587,8 @@ frontend and test-writer suggestions.
   WAVE N cloud message, hearts with lost slots, J/K key caps under the spell bubbles. Guessed:
   particle speeds (taken as tenths of the readout's numbers), the WAVE message's place, size and
   2 s length, the key cap's place. Stage `gph_cross` as `heart_lost` and the pad B buttons
-  (`pad_b_up`/`pad_b_down`) so lost hearts and pad hints can use them. Not done: gravel, impact
-  dust on later hard hits (we only puff on landing), confetti (cups are a debug tool), the
+  (`pad_b_up`/`pad_b_down`) so lost hearts and pad hints can use them. Gravel is in (petrified bricks in view shed bits on each placement); impact dust only on
+  placement is right (BRICK_PLACED), confetti (cups are a debug tool), the
   hourglass timer on race trials, the Endless score line, `finish_line_end` flags.
 - **The 50 original trials are in** (src/trial_list.rs, made from docs/research/trials.md):
   goals, drop speeds, fixed brick orders, each trial's own spell lines (spaced `every` cells
@@ -606,5 +609,42 @@ frontend and test-writer suggestions.
   panel's place (read "120 right / 100 above the corner" as inward), the count's total (all
   medals), the face size, the chain's place and the slide time. Not done: the unlock animation
   and the start stinger. Picture it: `--menu trials --offscreen <dir>`.
-- **Refresh `docs/screenshot.png`** (the README's picture, from 2026-10-03): take a new offscreen
-  shot of a 4-player race with the real art and replace it. It shows on the GitHub page.
+- **README pictures** (done 2026-10-05, PC): `docs/shot-*.png`, offscreen at 960x540, taken without `extracted\` so they show plain shapes, no original art (Max, 2026-10-05).
+
+## Checked 2026-10-08 (batch 6)
+- Puzzle sand: the sandstorm speeds (0.035 and 0.025 a second, `sandstorm_speed`/`_offset`) and
+  strip heights already match the original's SandStormLayer and the readout.
+- Survival reflected band: drawn as the original's sprite now (gph_gradientRefelcted, stretched across
+  the view at 65% height, tinted (91,60,175), (144,52,110) in a curse wave). Checked by eye only;
+  compare it on the PC against a Survival battle screenshot.
+- Losing pad rumble: 2 s on the big motor at full strength after a 1.5 s wait (GameBaskController),
+  now 1.0 in config. The second rumble after the blasts is still a guess (?).
+- Moon drop: done. Two Large curses stack to brick scale 2.5 (large_scale 2.0 + large_stack 0.5), and
+  a brick at 2.5 or more knocks the moon loose (visuals.rs `drop_stars`, `Falling` at gravity 3x).
+  Checked in an offscreen run; compare on the PC.
+- Race sky clouds: layers match the original's RaceBackground. The trial screenshot shows more
+  cloud cover, but the phase and lanes differ, so it isn't a like-for-like check. Open: compare a
+  battle screenshot on the PC.
+
+## Batch 7 (2026-10-08): what is left and why
+- Race cloud density: Max's originals have no Race battle screenshot (only the Race trial and Endless
+  menus), so it can't be checked against a like-for-like picture. Needs a Race battle screenshot from
+  Max's PC (any Race battle, both at 2560x1440).
+- Hologram shake amount: World_Bricks_Hologram.shader in the install is an exported stub with the
+  distortion maths stripped, so the shake size (currently 3 units at full strength) can't be read
+  from the install. Compare a Hologram pack brick on the PC.
+- Moon drop: needs brick scale 2.5; our Large is 2.0. A design choice for Max (a bigger brick, or
+  leave the moon up).
+
+## Batch 8 (2026-10-08)
+- Moon drop: built (see Checked above). Our earlier note that Large tops out at 2 was wrong: two Large
+  curses on one brick stack to 2.5.
+
+## Batch 9 (2026-10-08): Max's three new screenshots
+- Race battle (Capture 2026-10-08 150031, 3440x1440): compared with our Race battle at 1720x720. The
+  cloud layers and placement match in kind and density; the original's camera is at a different stage
+  (finish line in view), so no change. Race clouds: checked.
+- Hologram (hologram brick skin.png): the original's Hologram bricks are translucent cyan. Ours are
+  cyan too, but a bit more opaque at rest (0.8, 1.0, 1.0, alpha 0.85). The install's shader is a
+  stub, so the exact alpha can't be read; left as is. Open: tune alpha on the PC if it looks solid.
+- Select Mode (150002): no game change.

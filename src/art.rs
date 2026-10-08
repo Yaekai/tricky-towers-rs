@@ -118,6 +118,20 @@ pub struct ArtEntry {
     /// flashes (Race Pro's `_DARK` islands lit by the flash).
     #[serde(default)]
     pub lit: Option<String>,
+    /// Screen layers only: a tint (r, g, b) 0 to 255 (Survival's large clouds).
+    #[serde(default)]
+    pub tint: Option<(f32, f32, f32)>,
+    /// Screen layers only: stretched across the view's width (the reflected band).
+    #[serde(default)]
+    pub stretch: Option<bool>,
+    /// Screen layers only: the Survival reflected band, tinted by the mode's overlay
+    /// colour, which a curse wave moves to `weather.survival_wave_band`.
+    #[serde(default)]
+    pub overlay: Option<bool>,
+    /// Screen layers only: part of Survival's starry sky (the moon and stars), which
+    /// curse waves leave alone; `true` for a star that twinkles and now and then twirls.
+    #[serde(default)]
+    pub star: Option<bool>,
     /// An animation instead of a file: `(seconds, image name)` pairs in order, each
     /// image shown from its time until the next.
     #[serde(default)]
@@ -247,9 +261,17 @@ pub struct Letters {
     /// Distance from a line's top down to its base line.
     pub ascender: f32,
     pub glyphs: HashMap<char, Glyph>,
+    /// The same letters grown into an outline, at the same glyph rectangles
+    /// (padded by `outline_pad` pixels on every side).
+    #[serde(default)]
+    pub outline: Option<String>,
+    #[serde(default)]
+    pub outline_pad: f32,
     /// The loaded picture.
     #[serde(skip)]
     pub handle: Handle<Image>,
+    #[serde(skip)]
+    pub outline_handle: Option<Handle<Image>>,
 }
 
 /// One letter in a [`Letters`] picture.
@@ -329,8 +351,8 @@ fn load_entries(
             .extension()
             .map(|e| e.to_string_lossy().to_lowercase())
             .unwrap_or_default();
-        // Text files (the original's UI wording, `text_<lang>`) are read where used.
-        if ext == "txt" {
+        // Text files (the original's UI wording, `text_<lang>`, and the credits list) are read where used.
+        if ext == "txt" || ext == "json" {
             continue;
         }
         let is_font = matches!(ext.as_str(), "ttf" | "otf");
@@ -344,6 +366,11 @@ fn load_entries(
             match sheet {
                 Ok(mut letters) if dir.join(&letters.image).is_file() => {
                     letters.handle = assets.load(format!("{prefix}{}", letters.image));
+                    letters.outline_handle = letters
+                        .outline
+                        .as_ref()
+                        .filter(|file| dir.join(file).is_file())
+                        .map(|file| assets.load(format!("{prefix}{file}")));
                     art.letters.insert(name.clone(), letters);
                 }
                 Ok(letters) => warn!("{name}: {} is missing", letters.image),
@@ -570,14 +597,46 @@ fn apply_font(art: Res<Art>, mut texts: Query<&mut TextFont>) {
 #[derive(Component)]
 pub(crate) struct Music(String);
 
-/// Loops the music for the menu or the current mode.
+/// Loops the music for the menu or the current mode. A match started from Select
+/// Mode, the Endless screen or the Trials list opens with its mode's start stinger
+/// (`<MODE>_SFX_START_STINGER`, once, at the music volume).
+#[allow(clippy::too_many_arguments)]
 fn play_music(
     mut commands: Commands,
     art: Res<Art>,
     game: Res<Match>,
     playing: Query<(Entity, &Music)>,
     settings: Option<Res<crate::settings::Settings>>,
+    screen: Option<Res<crate::menu::MenuScreen>>,
+    mut last: Local<(u64, Option<crate::menu::MenuScreen>)>,
 ) {
+    use crate::menu::MenuScreen;
+    let volume = settings.as_ref().map_or(1.0, |s| s.music);
+    if game.phase == Phase::Menu {
+        last.1 = screen.as_deref().copied();
+    }
+    if game.round != last.0 {
+        last.0 = game.round;
+        let from_select = matches!(
+            last.1,
+            Some(MenuScreen::Modes | MenuScreen::Endless | MenuScreen::Trials)
+        );
+        let stinger = match game.mode.look() {
+            ModeKind::Survival => "music_track_02_spooky_stinger",
+            ModeKind::Puzzle => "music_track_03_puzzle_stinger",
+            _ => "music_track_01_race_stinger",
+        };
+        if from_select && let Some(handle) = art.sounds.get(stinger) {
+            commands.spawn((
+                AudioPlayer(handle.clone()),
+                PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+            ));
+        }
+    }
+    // The explanation before a match keeps whatever is playing.
+    if game.phase == Phase::Menu && screen.as_deref() == Some(&MenuScreen::Explain) {
+        return;
+    }
     let want = match (game.phase, game.mode.look()) {
         (Phase::Menu, _) => "music_menu",
         (_, ModeKind::Race) => "music_race",
@@ -595,9 +654,7 @@ fn play_music(
         commands.spawn((
             Music(want.into()),
             AudioPlayer(handle.clone()),
-            PlaybackSettings::LOOP.with_volume(bevy::audio::Volume::Linear(
-                settings.map_or(1.0, |s| s.music),
-            )),
+            PlaybackSettings::LOOP.with_volume(bevy::audio::Volume::Linear(volume)),
         ));
     }
 }

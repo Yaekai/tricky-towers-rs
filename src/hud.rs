@@ -9,8 +9,8 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 
-use crate::art::{Animated, Art};
-use crate::config::{GameConfig, HudLook, ModeKind, SpellKind};
+use crate::art::Art;
+use crate::config::{GameConfig, HudLook, ModeKind};
 use crate::gameplay::{
     Brick, BrickBag, Match, Phase, RoofPiece, RoofStage, Tower, TowerState, TowerStatus, placings,
 };
@@ -47,18 +47,11 @@ enum Kind {
     Count,
     Place,
     Hearts,
-    /// The light (0) or dark (1) spell bubble.
-    Bubble(u8),
 }
 
-const KINDS: [Kind; 6] = [
-    Kind::Card,
-    Kind::Count,
-    Kind::Place,
-    Kind::Hearts,
-    Kind::Bubble(0),
-    Kind::Bubble(1),
-];
+// The held spells show in the spell clouds beside each wizard (casts.rs), as in
+// the original; there are no separate HUD bubbles.
+const KINDS: [Kind; 4] = [Kind::Card, Kind::Count, Kind::Place, Kind::Hearts];
 
 /// What an item showed last, so it is only rebuilt when that changes.
 #[derive(Clone, PartialEq, Debug)]
@@ -69,8 +62,6 @@ enum Shows {
     Text(String, Color),
     /// Lives left and the most there have been: filled hearts, then crosses.
     Hearts(u32, u32),
-    Light(SpellKind),
-    Dark,
 }
 
 #[derive(Component)]
@@ -166,37 +157,30 @@ fn wanted(
                 Shows::Text(left.to_string(), rgb(look.place_first))
             }
         }
-        Kind::Place if game.mode == ModeKind::Race && playing => match place {
-            Some(p) => {
-                let text = match p {
-                    0 => "1ST".to_string(),
-                    1 => "2ND".to_string(),
-                    2 => "3RD".to_string(),
-                    n => format!("{}TH", n + 1),
-                };
-                let color = if p == 0 {
-                    look.place_first
-                } else {
-                    look.place_other
-                };
-                Shows::Text(text, rgb(color))
+        // Places only in battles: trials show none.
+        Kind::Place if game.mode == ModeKind::Race && config.trial.is_none() && playing => {
+            match place {
+                Some(p) => {
+                    let text = match p {
+                        0 => "1ST".to_string(),
+                        1 => "2ND".to_string(),
+                        2 => "3RD".to_string(),
+                        n => format!("{}TH", n + 1),
+                    };
+                    let color = if p == 0 {
+                        look.place_first
+                    } else {
+                        look.place_other
+                    };
+                    Shows::Text(text, rgb(color))
+                }
+                None => Shows::Nothing,
             }
-            None => Shows::Nothing,
-        },
+        }
         Kind::Hearts if state.status != TowerStatus::Out && game.phase != Phase::Over => {
             match state.lives {
                 Some(lives) if lives > 0 => Shows::Hearts(lives, lives.max(config.survival.lives)),
                 _ => Shows::Nothing,
-            }
-        }
-        Kind::Bubble(0) if config.magic.enabled && playing => {
-            state.light_spell.map_or(Shows::Nothing, Shows::Light)
-        }
-        Kind::Bubble(_) if config.magic.enabled && playing => {
-            if state.dark_spell.is_some() {
-                Shows::Dark
-            } else {
-                Shows::Nothing
             }
         }
         _ => Shows::Nothing,
@@ -294,6 +278,8 @@ fn build(
                 offset: Vec2::splat(size * 0.06),
                 color: Color::srgb_u8(40, 20, 60),
             },
+            // The original's display letters with their dark outline.
+            crate::letters::TextLook::OUTLINED,
         ));
     };
     match shows {
@@ -341,98 +327,8 @@ fn build(
                 ),
             }
             Node {
-                column_gap: Val::Px(size * 0.1),
-                ..base
-            }
-        }
-        Shows::Light(_) | Shows::Dark => {
-            let size = look.bubble_size * height;
-            let (frame, color) = match shows {
-                Shows::Light(_) => ("spell_bubble_light", rgb(look.bubble_light)),
-                _ => ("spell_bubble_dark", rgb(look.bubble_dark)),
-            };
-            match art.image(frame) {
-                Some(image) => {
-                    node.insert(ImageNode::new(image));
-                }
-                None => {
-                    node.insert(BackgroundColor(color.with_alpha(0.85)));
-                }
-            }
-            // The key to press under the bubble: J (light) or K (dark) on a key cap
-            // (`key_background`); pads show X / B (gap-scan.md 4; pad art partly unstaged).
-            let key = if matches!(shows, Shows::Light(_)) {
-                "J"
-            } else {
-                "K"
-            };
-            node.with_children(|bubble| {
-                let mut cap = bubble.spawn(Node {
-                    position_type: PositionType::Absolute,
-                    bottom: Val::Px(-size * 0.32),
-                    width: Val::Px(size * 0.36),
-                    height: Val::Px(size * 0.36),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                });
-                match art.image("key_background") {
-                    Some(image) => {
-                        cap.insert(ImageNode::new(image));
-                    }
-                    None => {
-                        cap.insert(BackgroundColor(Color::srgba(0.95, 0.95, 0.95, 0.9)));
-                    }
-                }
-                cap.with_child((
-                    Text::new(key),
-                    TextFont {
-                        font_size: FontSize::Px(size * 0.24),
-                        ..default()
-                    },
-                    TextColor(Color::srgb(0.15, 0.1, 0.25)),
-                ));
-            });
-            node.with_children(|bubble| match shows {
-                Shows::Light(spell) => match art.image(&format!("spell_icon_{spell:?}")) {
-                    Some(image) => {
-                        let mut icon = bubble.spawn((
-                            ImageNode::new(image),
-                            Node {
-                                width: Val::Px(size * 0.7),
-                                height: Val::Px(size * 0.7),
-                                ..default()
-                            },
-                        ));
-                        let name = format!("spell_icon_{spell:?}");
-                        if art.is_animation(&name) {
-                            icon.insert(Animated::new(name));
-                        }
-                    }
-                    None => {
-                        bubble.spawn((
-                            Text::new(spell.name()),
-                            TextFont {
-                                font_size: FontSize::Px(size * 0.22),
-                                ..default()
-                            },
-                        ));
-                    }
-                },
-                _ => {
-                    bubble.spawn((
-                        Text::new("?"),
-                        TextFont {
-                            font_size: FontSize::Px(size * 0.6),
-                            ..default()
-                        },
-                    ));
-                }
-            });
-            Node {
-                width: Val::Px(size),
-                height: Val::Px(size),
-                border_radius: BorderRadius::MAX,
+                // Hearts 1.3 cells apart, each 1.12 wide (the original's health view).
+                column_gap: Val::Px(size * 0.16),
                 ..base
             }
         }
@@ -554,11 +450,9 @@ fn place_items(
         let size = computed.size() * computed.inverse_scale_factor();
         let wizard = wizards
             .iter()
-            .find(|(w, _)| w.tower() == item.tower)
+            .find(|(w, _)| !w.enemy() && w.tower() == item.tower)
             .map(|(_, t)| t.translation().truncate())
             .unwrap_or_else(|| wizard_point(&config, solo, tower, state));
-        // Toward the tower: left of a wizard floating right of it.
-        let toward = if wizard.x > tower.origin_x { -1.0 } else { 1.0 };
         let card_h = look.card_height * view.0.y;
         let card_w = card_h * look.card_aspect;
         let column = screen(Vec2::new(tower.origin_x, 0.0)).map(|p| p.x);
@@ -566,16 +460,10 @@ fn place_items(
         // Centre of the item on screen.
         let at = match item.kind {
             Kind::Card => card_x.map(|x| Vec2::new(x, card_h * 0.5)),
-            Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.5, card_h * 0.85)),
+            // Left of the next-brick card, low on it (Max's screenshots of the original).
+            Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.85, card_h * 0.75)),
             Kind::Place => screen(wizard - Vec2::Y * config.cells(look.place_below)),
             Kind::Hearts => screen(wizard - Vec2::Y * config.cells(look.heart_below)),
-            Kind::Bubble(i) => {
-                let (x, y) = look.bubble_at;
-                let (sx, sy) = look.bubble_step;
-                let i = i as f32;
-                let offset = Vec2::new(toward * (x + sx * i), y + sy * i);
-                screen(wizard + config.cells(1.0) * offset)
-            }
         };
         let Some(at) = at else {
             continue;

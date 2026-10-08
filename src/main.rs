@@ -44,8 +44,10 @@ fn main() {
                             | "--difficulty"
                             | "--offscreen"
                             | "--shots"
+                            | "--size"
                             | "--menu"
                             | "--script"
+                            | "--trials"
                     ))
         })
         .map_or_else(|| DEFAULT_CONFIG_PATH.to_string(), |(_, a)| a.clone());
@@ -160,6 +162,10 @@ fn main() {
         let file = tricky_towers::single::save_dir().join("trials.ron");
         app.insert_resource(tricky_towers::trials::TrialProgress::load(file));
     }
+    // `--trials file.ron`: trial progress from this file, for scripted pictures of the tier unlock.
+    if let Some(file) = value("--trials") {
+        app.insert_resource(tricky_towers::trials::TrialProgress::load(file.into()));
+    }
     // `--menu title|players|modes|single|endless|trials|settings|pause` opens on that menu screen, for scripted pictures.
     // Player select shows the keyboard player and one AI wizard seated.
     if let Some(menu) = value("--menu") {
@@ -186,7 +192,13 @@ fn main() {
         app.add_plugins(tricky_towers::offscreen::OffscreenPlugin {
             dir,
             shots,
-            size: UVec2::new(1280, 720),
+            // `--size 3440x1440`: picture size (1280x720 if left out).
+            size: value("--size")
+                .and_then(|s| {
+                    let (w, h) = s.split_once('x')?;
+                    Some(UVec2::new(w.parse().ok()?, h.parse().ok()?))
+                })
+                .unwrap_or(UVec2::new(1280, 720)),
             scripted: script.is_some(),
         });
     }

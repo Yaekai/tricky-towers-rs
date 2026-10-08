@@ -28,6 +28,7 @@ impl Plugin for CastsPlugin {
                 run_lightning,
                 track_clouds,
                 animate_clouds,
+                flick_hints,
                 grow_large_bricks,
             )
                 .chain(),
@@ -49,7 +50,10 @@ fn wizard_spot(
     solo: bool,
     wizards: &Query<(&Wizard, &GlobalTransform)>,
 ) -> (Vec2, bool) {
-    if let Some((_, at)) = wizards.iter().find(|(w, _)| w.tower() == tower_entity) {
+    if let Some((_, at)) = wizards
+        .iter()
+        .find(|(w, _)| !w.enemy() && w.tower() == tower_entity)
+    {
         return (at.translation().truncate(), solo);
     }
     let look = &config.wizards;
@@ -193,6 +197,13 @@ fn start_casts(
     }
 }
 
+/// The lane overlay opens over this long, draws at this strength and sits behind
+/// the towers (in front of the lane's scenery).
+const LANE_OPEN: f32 = 1.0 / 6.0;
+const LANE_TINT: f32 = 0.5;
+const LANE_GLOW: f32 = 0.392;
+const LANE_Z: f32 = -3.0;
+
 /// Seconds before a beam starts.
 #[derive(Component)]
 struct DelayedBy(f32);
@@ -274,6 +285,8 @@ fn run_beams(
         Option<&Children>,
     )>,
     mut feet: Query<&mut Transform, (With<BeamFoot>, Without<Beam>, Without<Camera2d>)>,
+    mut images: Option<ResMut<Assets<Image>>>,
+    mut glow: Local<Option<(Handle<Image>, Handle<Image>)>>,
 ) {
     let look = &config.casts;
     let dt = time.delta_secs();
@@ -308,27 +321,47 @@ fn run_beams(
         };
         let t = beam.time;
         if beam.kind == BeamKind::Lane {
-            // Fades in, then out.
-            let alpha = if t < grow {
-                t / grow
-            } else {
-                1.0 - (t - grow) / last.max(0.01)
-            };
+            // The overlay opens across the lane in 1/6 s, stays, then closes in
+            // `last` (the original's BeamLaneIn / BeamLaneOut clips).
             if t >= grow + last {
                 commands.entity(entity).despawn();
                 continue;
             }
+            let open = if t < grow {
+                (t / LANE_OPEN).min(1.0)
+            } else {
+                1.0 - (t - grow) / last.max(0.01)
+            };
             let lane = config.cells(config.lane_half_width * 2.0 + 2.0);
-            sprite.custom_size = Some(Vec2::new(lane, view_h));
-            sprite.color.set_alpha(
-                alpha.clamp(0.0, 1.0)
-                    * if art.image("cast_lane_beam").is_some() {
-                        1.0
-                    } else {
-                        0.35
-                    },
-            );
-            transform.translation = Vec2::new(beam.lane_x, view_y).extend(15.0);
+            sprite.custom_size = Some(Vec2::new(lane * open.clamp(0.0, 1.0), view_h));
+            // Survival's overlay is added light (BeamBackWorld2Mat, 39%), the others
+            // multiply the background (BeamBackWorld1Mat, 80%); sprites only blend,
+            // so the light one draws a whitened copy and the other a see-through tint.
+            let survival = config.mode.look() == ModeKind::Survival;
+            let alpha = match (survival, art.image("cast_lane_beam").is_some()) {
+                (true, _) => 1.0,
+                (false, true) => LANE_TINT,
+                (false, false) => 0.35,
+            };
+            if survival && let Some(images) = images.as_mut() {
+                let source = sprite.image.clone();
+                if glow.as_ref().is_none_or(|(from, _)| *from != source)
+                    && glow.as_ref().is_none_or(|(_, to)| *to != source)
+                    && let Some(copy) = images
+                        .get(&source)
+                        .and_then(|i| crate::visuals::glow_copy(i, LANE_GLOW))
+                {
+                    *glow = Some((source.clone(), images.add(copy)));
+                }
+                if let Some((from, to)) = glow.as_ref()
+                    && *from == source
+                {
+                    sprite.image = to.clone();
+                }
+            }
+            sprite.color.set_alpha(alpha);
+            // On the background layer: behind the towers, not over them.
+            transform.translation = Vec2::new(beam.lane_x, view_y).extend(LANE_Z);
             continue;
         }
         // Grows out of its foot, holds, then squeezes to nothing.
@@ -402,14 +435,22 @@ fn run_lightning(
                 .collect();
             continue;
         }
-        // A sine wobble that is widest in the middle and shifts every frame.
+        // The original's wobble: sin(phase + 5s) × amplitude × sin(πs) along the bolt, the
+        // phase running 0 → -5 over the cast and the amplitude 0 → peak at 1/6 of it → 0.
         let (from, to) = (bolt.from, bolt.to);
         let side = (to - from).perp().normalize_or(Vec2::X);
-        let phase = bolt.time * 40.0;
-        let wobble = config.cells(look.lightning_wobble);
+        let t = (bolt.time / look.lightning).clamp(0.0, 1.0);
+        let phase = -5.0 * t;
+        let rise = 1.0 / 2.4;
+        let envelope = if t < rise {
+            t / rise
+        } else {
+            (1.0 - t) / (1.0 - rise)
+        };
+        let wobble = config.cells(look.lightning_wobble) * envelope;
         let point = |i: usize| {
             let s = i as f32 / BOLT_PIECES as f32;
-            let swing = (s * std::f32::consts::PI).sin() * wobble * (s * 9.0 + phase).sin();
+            let swing = (s * std::f32::consts::PI).sin() * wobble * (s * 5.0 + phase).sin();
             from.lerp(to, s) + side * swing
         };
         let fade = 1.0 - bolt.time / look.lightning;
@@ -551,11 +592,12 @@ fn spawn_cloud(
             Vec2::splat(size * look.cloud_icon * 0.7),
         ),
     };
-    let hint = art.image(if dark {
-        "spell_cloud_button_dark"
-    } else {
-        "spell_cloud_button_light"
-    });
+    let side = if dark { "dark" } else { "light" };
+    let hint = crate::visuals::art_sprite(
+        art,
+        &format!("spell_cloud_button_{side}_up"),
+        config.cell_size,
+    );
     commands
         .spawn((
             SpellCloud {
@@ -570,17 +612,54 @@ fn spawn_cloud(
         .with_children(|parent| {
             parent.spawn((cloud, Transform::default()));
             parent.spawn((icon, Transform::from_xyz(0.0, 0.0, 0.1)));
-            if let Some(hint) = hint {
-                parent.spawn((
-                    Sprite {
-                        image: hint,
-                        custom_size: Some(Vec2::splat(size * 0.3)),
-                        ..default()
-                    },
-                    Transform::from_xyz(0.0, -size * 0.5, 0.2),
-                ));
+            // The button to press, 1.1 cells out to its side and 1.25 below the
+            // bubble's centre, flicking up and down (SpellButtonIndicator*PC).
+            if let Some((sprite, anchor, mut transform)) = hint {
+                let x = if dark { 1.1 } else { -1.1 };
+                transform.translation =
+                    Vec3::new(x * config.cell_size, -1.25 * config.cell_size, 0.2);
+                parent.spawn((sprite, anchor, transform, ButtonHint { dark, tower }));
             }
         });
+}
+
+/// A spell bubble's button hint, and whose bubble it is.
+#[derive(Component)]
+struct ButtonHint {
+    dark: bool,
+    tower: Entity,
+}
+
+/// Up for 0.2 s, down for 0.2 s (ButtonPressLight/DarkPC and XBox). Players on a
+/// pad (players 2-4) see its X and B; the keyboard player and the AI wizards J and K.
+fn flick_hints(
+    time: Res<Time>,
+    art: Res<Art>,
+    towers: Query<&Tower>,
+    pads: Query<&Gamepad>,
+    mut hints: Query<(&ButtonHint, &mut Sprite)>,
+) {
+    let playstation = pads.iter().next().is_some_and(crate::input::is_playstation);
+    let down = time.elapsed_secs() % 0.4 >= 0.2;
+    for (hint, mut sprite) in &mut hints {
+        let side = if hint.dark { "dark" } else { "light" };
+        let state = if down { "down" } else { "up" };
+        let pad = towers
+            .get(hint.tower)
+            .is_ok_and(|t| t.player.is_some_and(|p| p >= 1));
+        let kind = match (pad, playstation) {
+            (true, true) => "ps",
+            (true, false) => "pad",
+            _ => "button",
+        };
+        if let Some(image) = art
+            .image(&format!("spell_cloud_{kind}_{side}_{state}"))
+            .or_else(|| art.image(&format!("spell_cloud_button_{side}_{state}")))
+            && sprite.image != image
+        {
+            sprite.image = image;
+        }
+    }
 }
 
 fn ease_out_back(x: f32) -> f32 {

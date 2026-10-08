@@ -12,12 +12,14 @@ pub mod art;
 pub mod casts;
 pub mod collapse;
 pub mod config;
+pub mod credits;
 pub mod cups;
 pub mod cups_menu;
 pub mod debug;
 #[cfg(feature = "debug-panel")]
 pub mod debug_panel;
 pub mod effects;
+pub mod explain;
 pub mod game_info;
 pub mod gameplay;
 pub mod hud;

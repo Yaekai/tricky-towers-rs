@@ -134,3 +134,13 @@ Race: bricks may be lost freely (no lives) as long as the tower stays above the 
 - **Endless Puzzle groups:** the first group is 6 bricks, each later one min(26, 6 + 2 × level)
   bricks. After each finished group the laser rises 4 cells (not 1) and obstacle blocks are
   added. The score is the bricks in the tower. Details in modes.md.
+
+## Ivy (checked 2026-10-08)
+- Fan wiki spell list (tricky-towers.fandom.com, Spells): Ivy is a light spell that binds the bricks
+  it touches together; the wiki's achievement note says it binds up to 7 bricks.
+- Steam guide: Ivy adds stability when a tower looks shaky. Trophy guide: it's best used on a brick
+  touching six or more others.
+- The install's IvyBrickModifier is the rule source: the cluster is static only when a member brick
+  is solid (stone, zapped or petrified), joins bricks that touch (Tower.GetTowerPartsTouching) and
+  takes the sum of their masses. Open: why a vined block still slides in an unsteered test; the
+  wiki notes don't describe the physics.

@@ -11,8 +11,8 @@ use crate::select::{
     Lobby, modes_input, players_input, show_select_screens, spawn_select_screens, step_back,
 };
 use crate::single::{
-    Leaderboard, SingleMenu, endless_input, record_endless_scores, show_single_screens,
-    single_input, spawn_single_screens,
+    Leaderboard, SingleMenu, endless_input, record_endless_scores, show_carousel, show_list_ribbon,
+    show_single_screens, single_input, spawn_single_screens,
 };
 use crate::start::{StartClock, show_start_screen, spawn_start_screen, start_input};
 
@@ -34,6 +34,7 @@ impl Plugin for MenuPlugin {
         .init_resource::<Lobby>()
         .init_resource::<SingleMenu>()
         .init_resource::<Leaderboard>()
+        .init_resource::<crate::visuals::MenuLook>()
         .init_resource::<crate::trials_menu::TrialsMenu>()
         .add_systems(
             Startup,
@@ -64,6 +65,8 @@ impl Plugin for MenuPlugin {
                 show_start_screen,
                 show_select_screens,
                 show_single_screens,
+                show_carousel,
+                show_list_ribbon,
                 crate::trials_menu::show_trials_screen,
                 crate::settings::show_settings_screen,
                 show_pause_menu,
@@ -73,7 +76,10 @@ impl Plugin for MenuPlugin {
                 .chain()
                 .in_set(MenuSystems),
         )
-        .add_systems(Update, record_endless_scores);
+        .add_systems(
+            Update,
+            (record_endless_scores, crate::select::fit_backdrops),
+        );
     }
 }
 
@@ -85,6 +91,7 @@ fn menu_escape(
     mut lobby: ResMut<Lobby>,
     mut binds: ResMut<crate::keybinding::KeybindingMenu>,
     mut stats: ResMut<crate::stats::StatsMenu>,
+    mut credits: ResMut<crate::credits::CreditsMenu>,
 ) {
     let Some(keys) = keys else { return };
     if !keys.just_pressed(KeyCode::Escape) {
@@ -114,9 +121,13 @@ fn menu_escape(
         (Phase::Menu, MenuScreen::Single) => *screen = MenuScreen::Main,
         (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
+        // The explanation popup waits for Continue.
+        (Phase::Menu, MenuScreen::Explain) => {}
         // A popup over Settings closes first.
         (Phase::Menu, MenuScreen::Settings) => {
-            if stats.open {
+            if credits.open {
+                credits.open = false;
+            } else if stats.open {
                 stats.open = false;
             } else if !crate::keybinding::keybinding_escape(&mut binds) {
                 *screen = MenuScreen::Main;
@@ -153,6 +164,8 @@ pub enum MenuScreen {
     Settings,
     /// "Game Paused" over a match: Resume, Retry, Quit.
     Pause,
+    /// The explanation popup before a match (explain.rs).
+    Explain,
 }
 
 /// The pause menu's highlighted option and the phase Resume goes back to.
@@ -168,34 +181,246 @@ pub const PAUSE_OPTIONS: [&str; 3] = ["Resume", "Retry", "Quit"];
 #[derive(Component)]
 struct PauseRoot;
 
-/// Layout of the pause screen in pixels of a 1080-high screen: the title's
-/// and items' left edge, the title's and first item's heights over the
-/// centre, the row pitch, and the bar behind the picked item.
-const PAUSE_LEFT: f32 = 480.0;
+/// Layout of the pause screen in pixels of a 1920x1080 screen (PausePopup): the
+/// title and the options share a column 840 wide centred 480 px right of the
+/// screen centre (the left half holds the controls); the title's and first
+/// option's heights over the centre, the row pitch and text size, and the bar
+/// behind the picked option.
+const PAUSE_COLUMN: (f32, f32) = (1020.0, 840.0);
 const PAUSE_TITLE_Y: f32 = 260.0;
 const PAUSE_ITEMS_Y: f32 = 120.0;
 const PAUSE_ROW: (f32, f32) = (60.0, 30.0);
 const PAUSE_BAR: f32 = 28.0;
-/// The panel behind the column (its size is a guess).
-const PAUSE_PANEL_WIDTH: f32 = 960.0;
+/// The picked option is yellow, the others pink (Max's screenshots).
+const PAUSE_PICKED: Color = Color::srgb(1.0, 0.85, 0.25);
+const PAUSE_OTHER: Color = Color::srgb(1.0, 0.31, 0.55);
 
 #[derive(Component)]
 struct PauseBar(usize);
 
-/// "Game Paused" and its options in a column on the left, over a darkened
-/// match (docs/research/menus.md).
-fn spawn_pause_menu(mut commands: Commands, art: Option<Res<Art>>) {
+/// An option's words, coloured by whether it is picked.
+#[derive(Component)]
+struct PauseWords(usize);
+
+/// The keyboard controls panel in the pause screen's left half (the original's
+/// ControlsExplanationContentKeyboard, in pixels of a 1920x1080 screen): the panel,
+/// then each section's top below the panel's top, its height, its title and its key
+/// caps as (action, offset from the section's centre, arrows: -1 left, 1 right,
+/// 2 down, 0 none).
+const CONTROLS_PANEL: ((f32, f32), (f32, f32)) = ((480.0, 860.0), (480.0, 554.0));
+const CONTROLS_INSET: f32 = 50.35;
+type KeyCap = (crate::keybinding::Action, (f32, f32), i32);
+const CONTROLS_SECTIONS: [(f32, f32, &str, &[KeyCap]); 5] = {
+    use crate::keybinding::Action::*;
+    [
+        (
+            70.0,
+            155.0,
+            "Move Brick",
+            &[
+                (MoveLeft, (-80.0, 25.0), -1),
+                (MoveRight, (80.0, 25.0), 1),
+                (Drop, (0.0, -25.0), 2),
+            ],
+        ),
+        (260.0, 80.0, "Rotate Brick", &[(TurnRight, (0.0, 0.0), 0)]),
+        (
+            425.0,
+            94.9,
+            "Nudge Brick",
+            &[
+                (NudgeLeft, (-80.0, -10.0), -1),
+                (NudgeRight, (80.0, -10.0), 1),
+            ],
+        ),
+        (
+            535.0,
+            100.0,
+            "Light Magic",
+            &[(LightMagic, (0.0, -10.0), 0)],
+        ),
+        (704.0, 100.0, "Dark Magic", &[(DarkMagic, (0.0, -10.0), 0)]),
+    ]
+};
+
+/// The keyboard controls panel centred at `centre` (px from the top-left), or at
+/// the pause screen's place.
+pub(crate) fn spawn_controls_panel(
+    root: &mut ChildSpawnerCommands,
+    art: Option<&Art>,
+    keys: &crate::keybinding::KeyBindings,
+    centre: Option<(f32, f32)>,
+) -> Entity {
+    use crate::popup::px;
+    let image = |name: &str| art.and_then(|a| a.image(name));
+    let ((w, h), at) = CONTROLS_PANEL;
+    let (cx, cy) = centre.unwrap_or(at);
+    let mut panel = root.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(cx - w / 2.0),
+            top: px(cy - h / 2.0),
+            width: px(w),
+            height: px(h),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.85, 0.87, 1.0, 0.95)),
+    ));
+    if let Some(art) = image("menu_leaderboard_panel") {
+        panel.insert((
+            crate::select::sliced(art, [0.0, 0.0, 51.0, 37.0]),
+            BackgroundColor(Color::NONE),
+        ));
+    }
+    panel.with_children(|p| {
+        p.spawn(Node {
+            position_type: PositionType::Absolute,
+            top: px(-7.0),
+            width: Val::Percent(100.0),
+            height: px(60.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        })
+        .with_children(|t| {
+            t.spawn(crate::select::label_with(
+                46.0 / 10.8,
+                "Controls",
+                crate::letters::TextLook::TITLE,
+            ));
+        });
+        for (top, height, title, caps) in CONTROLS_SECTIONS {
+            let mut section = p.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(CONTROLS_INSET),
+                    width: px(w - 2.0 * CONTROLS_INSET),
+                    top: px(top),
+                    height: px(height),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.75, 0.78, 0.95, 0.9)),
+            ));
+            if let Some(art) = image("popup_text_background") {
+                section.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
+            }
+            section.with_children(|s| {
+                // The magic sections carry their spell slot behind the title.
+                let slot = match title {
+                    "Light Magic" => image("spell_slot_light"),
+                    "Dark Magic" => image("spell_slot_dark"),
+                    _ => None,
+                };
+                if let Some(art) = slot {
+                    s.spawn((
+                        ImageNode::new(art),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: px((w - 2.0 * CONTROLS_INSET) / 2.0 - 35.0),
+                            top: px(-35.0),
+                            width: px(70.0),
+                            height: px(70.0),
+                            ..default()
+                        },
+                    ));
+                }
+                s.spawn(Node {
+                    position_type: PositionType::Absolute,
+                    top: px(-10.0),
+                    width: Val::Percent(100.0),
+                    height: px(40.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                })
+                .with_children(|l| {
+                    l.spawn(crate::select::label(26.0 / 10.8, title));
+                });
+                let half = (w - 2.0 * CONTROLS_INSET) / 2.0;
+                for &(action, (dx, dy), arrow) in caps {
+                    let name = crate::keybinding::key_name(keys.key(action));
+                    let mut cap = s.spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: px(half + dx - 50.0),
+                            top: px(height / 2.0 - dy - 12.5 + 12.0),
+                            width: px(100.0),
+                            height: px(25.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.95, 0.95, 0.95, 0.9)),
+                    ));
+                    if let Some(art) = image("menu_kbkey_background") {
+                        // The cap stretches around its key's name.
+                        cap.insert((
+                            crate::select::sliced(art, [6.0, 6.0, 6.0, 6.0]),
+                            BackgroundColor(Color::NONE),
+                        ));
+                    }
+                    cap.with_children(|c| {
+                        c.spawn((
+                            Text::new(name),
+                            TextFont {
+                                font_size: FontSize::Vh(16.0 / 10.8),
+                                ..default()
+                            },
+                            TextColor(Color::srgb(0.42, 0.33, 0.55)),
+                            crate::letters::TextLook {
+                                body: true,
+                                face: None,
+                                outline: None,
+                            },
+                        ));
+                        if arrow != 0
+                            && let Some(art) = image("menu_explanation_popup_label_arrow")
+                        {
+                            let (left, top, turn) = match arrow {
+                                -1 => (px(-16.0), px(1.5), 0.0),
+                                1 => (px(103.0), px(1.5), 180.0),
+                                _ => (px(37.0), px(25.0), -90.0),
+                            };
+                            c.spawn((
+                                ImageNode::new(art),
+                                UiTransform::from_rotation(Rot2::degrees(turn)),
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    left,
+                                    top,
+                                    width: px(13.0),
+                                    height: px(22.0),
+                                    ..default()
+                                },
+                            ));
+                        }
+                    });
+                }
+            });
+        }
+    });
+    panel.id()
+}
+
+/// "GAME PAUSED" and its options centred in the right half, over a darkened
+/// match (the original's PausePopup).
+fn spawn_pause_menu(
+    mut commands: Commands,
+    art: Option<Res<Art>>,
+    keys: Option<Res<crate::keybinding::KeyBindings>>,
+) {
     use crate::popup::{BAR_SLICE, px, sliced};
     let bar = art.as_ref().and_then(|a| a.image("menu_item_selected"));
-    let text = |size: f32, value: &str| {
+    let text = |size: f32, value: &str, look: crate::letters::TextLook| {
         (
-            Text::new(value),
+            Text::new(value.to_uppercase()),
             TextFont {
                 font_size: FontSize::Vh(size / 10.8),
                 ..default()
             },
             TextColor(Color::WHITE),
-            TextLayout::justify(Justify::Left),
+            TextLayout::justify(Justify::Center),
+            look,
         )
     };
     // Heights over the centre become tops in a 1080-high screen.
@@ -213,37 +438,36 @@ fn spawn_pause_menu(mut commands: Commands, art: Option<Res<Art>>) {
             PauseRoot,
         ))
         .with_children(|root| {
-            root.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(0.0),
-                    top: px(0.0),
-                    width: px(PAUSE_PANEL_WIDTH),
-                    height: Val::Percent(100.0),
-                    ..default()
-                },
-                BackgroundColor(Color::srgba(0.031, 0.020, 0.094, 0.85)),
-            ));
+            let defaults = crate::keybinding::KeyBindings::default();
+            spawn_controls_panel(
+                root,
+                art.as_deref(),
+                keys.as_deref().unwrap_or(&defaults),
+                None,
+            );
             root.spawn((Node {
                 position_type: PositionType::Absolute,
-                left: px(PAUSE_LEFT),
-                top: top(PAUSE_TITLE_Y, 70.0),
-                height: px(70.0),
+                left: px(PAUSE_COLUMN.0),
+                width: px(PAUSE_COLUMN.1),
+                top: top(PAUSE_TITLE_Y, 100.0),
+                height: px(100.0),
+                justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
             },))
                 .with_children(|t| {
-                    t.spawn(text(64.0, "Game Paused"));
+                    t.spawn(text(75.0, "Game Paused", crate::letters::TextLook::TITLE));
                 });
             for (i, option) in PAUSE_OPTIONS.iter().enumerate() {
                 let y = PAUSE_ITEMS_Y - PAUSE_ROW.0 * i as f32;
                 let mut row = root.spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        left: px(PAUSE_LEFT - 16.0),
+                        left: px(PAUSE_COLUMN.0 + PAUSE_COLUMN.1 / 2.0 - 120.0),
+                        width: px(240.0),
                         top: top(y, PAUSE_BAR),
                         height: px(PAUSE_BAR),
-                        padding: UiRect::new(px(16.0), px(24.0), px(0.0), px(0.0)),
+                        justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
@@ -256,7 +480,10 @@ fn spawn_pause_menu(mut commands: Commands, art: Option<Res<Art>>) {
                     row.insert(node);
                 }
                 row.with_children(|r| {
-                    r.spawn(text(PAUSE_ROW.1, option));
+                    r.spawn((
+                        text(PAUSE_ROW.1, option, crate::letters::TextLook::OUTLINED),
+                        PauseWords(i),
+                    ));
                 });
             }
         });
@@ -337,7 +564,18 @@ fn show_pause_menu(
     pause: Res<PauseMenu>,
     mut root: Query<&mut Visibility, With<PauseRoot>>,
     mut bars: Query<(&PauseBar, Option<&mut ImageNode>, &mut BackgroundColor)>,
+    mut words: Query<(&PauseWords, &mut TextColor)>,
 ) {
+    for (item, mut color) in &mut words {
+        let want = if item.0 == pause.selected {
+            PAUSE_PICKED
+        } else {
+            PAUSE_OTHER
+        };
+        if color.0 != want {
+            color.0 = want;
+        }
+    }
     let shown = game.phase == Phase::Menu && *screen == MenuScreen::Pause;
     for mut v in &mut root {
         v.set_if_neq(if shown {
@@ -442,7 +680,7 @@ pub const TILES: [Tile; 7] = [
     },
     Tile {
         key: "quit",
-        label: "Quit",
+        label: "Exit Game",
         size: (436.0, 68.0),
         at: (0.0, -406.0),
         color: (0.7, 0.2, 0.25),
@@ -467,7 +705,7 @@ struct TileChosen {
     picked: bool,
 }
 #[derive(Component)]
-struct TileLabel(usize);
+struct TileLabel;
 /// A corner of the picked tile's frame, and which way it pulses (UI y is down).
 #[derive(Component)]
 struct TileCorner(Vec2);
@@ -518,7 +756,7 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
         MainMenuRoot,
     ));
     if let Some(background) = image("menu_background") {
-        root.insert((ImageNode::new(background), BackgroundColor(Color::NONE)));
+        root.with_child(crate::select::backdrop(background));
     }
     root.with_children(|parent| {
         for (i, tile) in TILES.iter().enumerate() {
@@ -631,31 +869,55 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
                                 }
                             });
                     }
-                    // The label, in the header bar on big tiles.
-                    let mut header = t.spawn((
-                        Node {
+                    // The Help tile's big question mark.
+                    if tile.key == "help" {
+                        t.spawn(Node {
                             position_type: PositionType::Absolute,
                             width: Val::Percent(100.0),
-                            height: Val::Percent(if small { 100.0 } else { 22.0 }),
+                            height: Val::Percent(100.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             ..default()
-                        },
-                        TileLabel(i),
-                        Visibility::Hidden,
-                    ));
-                    if !small && let Some(art) = image("menu_tile_header") {
-                        header.insert(ImageNode::new(art));
+                        })
+                        .with_children(|q| {
+                            q.spawn(crate::select::label(7.0, "?"));
+                        });
                     }
-                    header.with_children(|h| {
+                    // The header bar on the picked big tile.
+                    if !small && let Some(art) = image("menu_tile_header") {
+                        t.spawn((
+                            Node {
+                                position_type: PositionType::Absolute,
+                                width: Val::Percent(100.0),
+                                height: Val::Percent(22.0),
+                                ..default()
+                            },
+                            ImageNode::new(art),
+                            TileLabel,
+                            Visibility::Hidden,
+                        ));
+                    }
+                    // Every tile's name, always shown as in the original: across the
+                    // top of big tiles, above small ones, in outlined capitals.
+                    t.spawn(Node {
+                        position_type: PositionType::Absolute,
+                        width: Val::Percent(100.0),
+                        top: Val::Percent(if small { -30.0 } else { -6.0 }),
+                        height: Val::Percent(if small { 30.0 } else { 22.0 }),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    })
+                    .with_children(|h| {
                         h.spawn((
-                            Text::new(tile.label),
+                            Text::new(tile.label.to_uppercase()),
                             TextFont {
-                                font_size: FontSize::Vh(if small { 2.6 } else { 3.2 }),
+                                font_size: FontSize::Vh(if small { 2.4 } else { 3.2 }),
                                 ..default()
                             },
                             TextColor(Color::WHITE),
                             TextLayout::justify(Justify::Center),
+                            crate::letters::TextLook::TITLE,
                         ));
                     });
                 });
@@ -766,7 +1028,6 @@ fn show_main_menu(
     game: Res<Match>,
     screen: Res<MenuScreen>,
     menu: Res<MainMenu>,
-    art: Option<Res<Art>>,
     mut root: Query<&mut Visibility, With<MainMenuRoot>>,
     mut parts: Query<
         (&mut Visibility, Option<&TileChosen>, Option<&TileLabel>),
@@ -788,10 +1049,6 @@ fn show_main_menu(
     if !shown {
         return;
     }
-    let staged = |key: &str| {
-        art.as_ref()
-            .is_some_and(|a| a.image(&format!("menu_tile_{key}_deselected")).is_some())
-    };
     for (back, children) in &tiles {
         let on = back.0 == menu.selected;
         for &child in children {
@@ -800,7 +1057,7 @@ fn show_main_menu(
             };
             let want = match (chosen, label) {
                 (Some(chosen), _) => chosen.picked == on,
-                (None, Some(label)) => on || !staged(TILES[label.0].key),
+                (None, Some(_)) => on,
                 (None, None) => continue,
             };
             v.set_if_neq(if want {

@@ -57,7 +57,7 @@ pub(crate) fn spawn_start_screen(mut commands: Commands, art: Option<Res<Art>>) 
         StartRoot,
     ));
     if let Some(background) = image("menu_background") {
-        root.insert((ImageNode::new(background), BackgroundColor(Color::NONE)));
+        root.with_child(crate::select::backdrop(background));
     }
     // The pieces, back to front: plants behind the logo, then the logo, the
     // rubble and the brick. With only the combined logo staged it moves alone.

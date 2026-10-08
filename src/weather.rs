@@ -79,8 +79,31 @@ struct SandLayer {
     copy: u32,
 }
 
+/// A Puzzle sand strip along the screen bottom; `front` is the one before the front ruins.
 #[derive(Component)]
-struct SandStrip;
+struct SandStrip {
+    front: bool,
+}
+
+/// One of Survival's three mist bands along the bottom (SurvivalBackground's
+/// MistLayers): its top as a share of the view's height, and whether this is the
+/// cloudy edge on top (squashed by `squash`) or the solid fill under it.
+#[derive(Component)]
+struct SurvivalMist {
+    top: f32,
+    edge: bool,
+    squash: f32,
+}
+
+/// The bands: colour, top (14%, 19%, 24% of the view), edge squash, depth (in front
+/// of the front islands, between the islands, behind them).
+const SURVIVAL_MISTS: [([u8; 3], f32, f32, f32); 3] = [
+    ([192, 163, 225], 0.14, 0.8, -895.5),
+    ([207, 163, 222], 0.19, 0.6, -897.5),
+    ([151, 125, 216], 0.24, 0.4, -899.55),
+];
+/// The mist edge's height in background units before its squash (?).
+const MIST_EDGE: f32 = 4.0;
 
 #[derive(Component)]
 struct EclipseSun;
@@ -156,14 +179,54 @@ fn set_up_weather(
         return;
     }
     let weather = &config.weather;
+    if look.0 == ModeKind::Survival {
+        let edge = art.image("mist");
+        let solid = art.image("misc_cursed_line_solid");
+        for (color, top, squash, z) in SURVIVAL_MISTS {
+            let color = Color::srgb_u8(color[0], color[1], color[2]);
+            for (is_edge, image) in [(false, solid.clone()), (true, edge.clone())] {
+                let sprite = match image {
+                    Some(image) => Sprite {
+                        image,
+                        color,
+                        ..default()
+                    },
+                    None if !is_edge => Sprite::from_color(color, Vec2::ONE),
+                    None => continue,
+                };
+                commands.entity(camera).with_child((
+                    Weather,
+                    SurvivalMist {
+                        top,
+                        edge: is_edge,
+                        squash,
+                    },
+                    sprite,
+                    Transform::from_xyz(0.0, 0.0, z + if is_edge { 0.01 } else { 0.0 }),
+                ));
+            }
+        }
+    }
     if look.0 == ModeKind::Puzzle {
-        if let Some(sand) = art.image("puzzle_sand") {
-            commands.entity(camera).with_child((
-                Weather,
-                SandStrip,
-                Sprite::from_image(sand),
-                Transform::from_xyz(0.0, 0.0, -890.0),
-            ));
+        // Back strip between the middle and front ruins (screen layers sit at -900 + z),
+        // front strip just in front of the front ruins.
+        for (front, name, z) in [
+            (false, "puzzle_sand", -895.5),
+            (true, "puzzle_sand_front", -893.5),
+        ] {
+            if let Some(sand) = art.image(name) {
+                let alpha = if front { 1.0 } else { weather.sand_alpha };
+                commands.entity(camera).with_child((
+                    Weather,
+                    SandStrip { front },
+                    Sprite {
+                        image: sand,
+                        color: Color::WHITE.with_alpha(alpha),
+                        ..default()
+                    },
+                    Transform::from_xyz(0.0, 0.0, z),
+                ));
+            }
         }
         for (front, names, (tint, alpha), z) in [
             (
@@ -202,14 +265,19 @@ fn set_up_weather(
             }
         }
     }
-    if look.1 == Some("puzzle_pro") {
+    if matches!(look.1, Some("puzzle_pro" | "endless_puzzle")) {
         if let Some(sun) = art.image("puzzle_pro_sun") {
-            commands.entity(camera).with_child((
+            let mut sun = commands.spawn((
                 Weather,
                 EclipseSun,
                 Sprite::from_image(sun),
                 Transform::from_xyz(0.0, 0.0, -930.0),
+                ChildOf(camera),
             ));
+            // Endless Puzzle's eclipse fades in with its intro.
+            if look.1 == Some("endless_puzzle") {
+                sun.insert(crate::visuals::EclipseFade(Color::WHITE));
+            }
         }
         if let Some(ray) = art.image("puzzle_pro_corona") {
             let mut seed = state.seed;
@@ -219,7 +287,7 @@ fn set_up_weather(
                     w.0 + (w.1 - w.0) * roll(&mut seed),
                     h.0 + (h.1 - h.0) * roll(&mut seed),
                 );
-                commands.entity(camera).with_child((
+                let mut corona = commands.spawn((
                     Weather,
                     CoronaRay {
                         angle: i as f32 / weather.corona_rays.max(1) as f32 * std::f32::consts::TAU,
@@ -227,7 +295,11 @@ fn set_up_weather(
                     },
                     Sprite::from_image(ray.clone()),
                     Transform::from_xyz(0.0, 0.0, -935.0),
+                    ChildOf(camera),
                 ));
+                if look.1 == Some("endless_puzzle") {
+                    corona.insert(crate::visuals::EclipseFade(Color::WHITE));
+                }
             }
             state.seed = seed;
         }
@@ -374,7 +446,9 @@ fn lightning(
             alpha: flash_alpha,
         },
         Sprite::from_color(Color::srgba(1.0, 1.0, 1.0, flash_alpha), size),
-        Transform::from_xyz(0.0, 0.0, 450.0),
+        // Behind the islands, like the original's flash on its background landscape layer
+        // (screen layers sit at -900 + z; the clouds are 0 and 1).
+        Transform::from_xyz(0.0, 0.0, -898.5),
     ));
     // The bolt: from a random point on the top edge to the bottom edge, shifted up to
     // ±5/48 of the width, jagged, with a few shorter branches.
@@ -408,7 +482,7 @@ fn lightning(
                 alpha: 1.0,
             },
             sprite,
-            Transform::from_translation(((a + b) * 0.5).extend(440.0))
+            Transform::from_translation(((a + b) * 0.5).extend(-898.2))
                 .with_rotation(Quat::from_rotation_z(along.to_angle())),
         ));
     };
@@ -448,19 +522,25 @@ fn fit_weather(
     view_size: Res<ViewSize>,
     camera: Query<(&Transform, &Projection), With<Camera2d>>,
     mut parts: ParamSet<(
-        Query<(&mut Sprite, &mut Transform), (With<SandStrip>, Without<Camera2d>)>,
+        Query<(&SandStrip, &mut Sprite, &mut Transform), Without<Camera2d>>,
         Query<(&SandLayer, &mut Sprite, &mut Transform), Without<Camera2d>>,
         Query<(&mut Sprite, &mut Transform), (With<EclipseSun>, Without<Camera2d>)>,
         Query<(&CoronaRay, &mut Sprite, &mut Transform), Without<Camera2d>>,
+        Query<(&SurvivalMist, &mut Sprite, &mut Transform), Without<Camera2d>>,
     )>,
 ) {
     let weather = &config.weather;
     let (_, size) = view(&camera, view_size.0);
     let t = time.elapsed_secs();
-    for (mut sprite, mut transform) in &mut parts.p0() {
-        let h = size.y * weather.sand_strip;
+    for (strip, mut sprite, mut transform) in &mut parts.p0() {
+        let (h, lift) = if strip.front {
+            (weather.sand_front, 0.0)
+        } else {
+            (weather.sand_strip, weather.sand_lift)
+        };
+        let h = size.y * h;
         sprite.custom_size = Some(Vec2::new(size.x, h));
-        transform.translation.y = -size.y * 0.5 + h * 0.5;
+        transform.translation.y = -size.y * (0.5 - lift) + h * 0.5;
     }
     for (layer, mut sprite, mut transform) in &mut parts.p1() {
         sprite.custom_size = Some(size);
@@ -468,6 +548,19 @@ fn fit_weather(
         let speed = weather.sandstorm_speed * if layer.front { 1.0 } else { 0.7 };
         let shift = (t * speed + layer.layer as f32 * weather.sandstorm_offset).fract();
         transform.translation.x = (layer.copy as f32 - shift) * size.x;
+    }
+    let unit = size.y / 41.54;
+    for (mist, mut sprite, mut transform) in &mut parts.p4() {
+        let top = -size.y * 0.5 + size.y * mist.top;
+        if mist.edge {
+            let h = MIST_EDGE * mist.squash * unit;
+            sprite.custom_size = Some(Vec2::new(size.x, h));
+            transform.translation.y = top + h * 0.25;
+        } else {
+            let h = size.y * mist.top;
+            sprite.custom_size = Some(Vec2::new(size.x, h));
+            transform.translation.y = top - h * 0.5;
+        }
     }
     let sun_size = size.y * weather.eclipse_size;
     let sun_y = size.y * weather.eclipse_height;

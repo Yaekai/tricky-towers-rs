@@ -30,6 +30,7 @@ pub enum Clip {
     CastSelf,
     Casting,
     LaughEvil,
+    LaughHard,
     Startle,
     Dying,
 }
@@ -43,10 +44,36 @@ impl Clip {
             Clip::CastSelf => "cast_self",
             Clip::Casting => "casting",
             Clip::LaughEvil => "laugh_evil",
+            Clip::LaughHard => "laugh_hard",
             Clip::Startle => "startle",
             Clip::Dying => "dying",
         }
     }
+}
+
+/// The original's voice line kind for a clip: a dark cast says a cast_other line,
+/// and a wizard going out a startle line.
+fn voice_kind(clip: Clip) -> &'static str {
+    match clip {
+        Clip::Casting => "cast_other",
+        Clip::Dying => "startle",
+        other => other.name(),
+    }
+}
+
+/// Volume and pitch of wizard `number`'s voice lines of `kind`, from the original's
+/// speech table: wizards 1-4 laugh at 0.8; packs 5 (0.65), 9 (0.3) and 10-14 (1.1) have
+/// their own volume; guest characters 9-14 play at their own pitch, the rest at 1.13.
+fn voice_mix(number: u32, kind: &str) -> (f32, f32) {
+    let pitch = if number >= 9 { 1.0 } else { 1.13 };
+    let volume = match number {
+        5 => 0.65,
+        9 => 0.3,
+        10..=14 => 1.1,
+        1..=4 if kind.starts_with("laugh") => 0.8,
+        _ => 1.0,
+    };
+    (volume, pitch)
 }
 
 /// What the wizard last saw of its tower, to notice events.
@@ -81,12 +108,19 @@ pub struct Wizard {
     vanish: f32,
     seen: Seen,
     rng: u64,
+    /// The trial's enemy wizard: floats by the player's tower, only laughs.
+    enemy: bool,
 }
 
 impl Wizard {
     /// The tower this wizard belongs to.
     pub fn tower(&self) -> Entity {
         self.tower
+    }
+
+    /// Whether this is a trial's enemy wizard rather than the tower's own.
+    pub fn enemy(&self) -> bool {
+        self.enemy
     }
 
     fn random(&mut self, lo: u32, hi: u32) -> u32 {
@@ -136,11 +170,28 @@ fn spawn_wizards(
     }
     let cell = config.cell_size;
     for (tower_entity, tower, state, skin) in &towers {
-        if wizards.iter().any(|(_, w)| w.tower == tower_entity) {
+        let has = |enemy: bool| {
+            wizards
+                .iter()
+                .any(|(_, w)| w.tower == tower_entity && w.enemy == enemy)
+        };
+        // A trial's enemy wizard by the player's tower: Wizard02 in Survival trials,
+        // Wizard03 in Race and Wizard04 in Puzzle (docs/research/trials.md).
+        let enemy = config.trial.is_some() && tower.index == 0 && !has(true);
+        if has(false) && !enemy {
             continue;
         }
-        // The tower's picked wizard (Select Players), else one per lane.
-        let number = skin.map_or(tower.index, |s| s.wizard) + 1;
+        let number = if has(false) {
+            match config.mode.rules() {
+                ModeKind::Survival => 2,
+                ModeKind::Puzzle => 4,
+                _ => 3,
+            }
+        } else {
+            // The tower's picked wizard (Select Players), else one per lane.
+            skin.map_or(tower.index, |s| s.wizard) + 1
+        };
+        let enemy = has(false);
         let key = format!("wizard{number}");
         let Some(parts) = art.entries.get(&key).and_then(|e| e.parts.clone()) else {
             continue;
@@ -169,8 +220,13 @@ fn spawn_wizards(
                 casts: 0,
             },
             rng: config.seed ^ ((tower.index as u64 + 1) * 0x9E37_79B9),
+            enemy,
         };
         wizard.action_countdown = wizard.random(look.action_every.0, look.action_every.1);
+        if enemy {
+            // It laughs hard in the trial's intro.
+            wizard.clip = Clip::LaughHard;
+        }
         commands
             .spawn((
                 wizard,
@@ -229,68 +285,99 @@ fn react_wizards(
         let before = wizard.clip;
         let started = wizard.clip_time;
         wizard.laugh_cooldown -= dt;
-        wizard.startle_cooldown -= dt;
-        wizard.shake -= dt;
-
-        if state.bricks_placed > wizard.seen.placed {
-            wizard.action_countdown = wizard.action_countdown.saturating_sub(1);
-            if wizard.action_countdown == 0 {
-                play(&mut wizard, Clip::Action, None);
-                wizard.action_countdown = wizard.random(look.action_every.0, look.action_every.1);
+        if wizard.enemy {
+            let failed = state.status == TowerStatus::Out;
+            if failed && wizard.clip == Clip::Idle && wizard.laugh_cooldown <= 0.0 {
+                let wait = wizard.random(300, 400) as f32 / 100.0;
+                wizard.laugh_cooldown = wait;
+                play(&mut wizard, Clip::LaughHard, None);
             }
-        }
-        if state.lines_reached > wizard.seen.lines {
-            play(&mut wizard, Clip::Cheer, None);
-        }
-        // Spells: casting your own, or being hit by someone else's dark one.
-        let new = (log.1 - wizard.seen.casts.min(log.1)) as usize;
-        let casts: Vec<_> = log.0.iter().rev().take(new).cloned().collect();
-        for cast in casts.iter().rev() {
-            let dark = cast.spell.is_dark();
-            if cast.caster == wizard.lane && (!dark || cast.target != wizard.lane) {
-                if dark {
-                    let laugh = wizard.laugh_cooldown <= 0.0;
-                    if laugh {
-                        wizard.laugh_cooldown = look.reaction_cooldown;
-                    }
-                    play(&mut wizard, Clip::Casting, laugh.then_some(Clip::LaughEvil));
-                } else {
-                    play(&mut wizard, Clip::CastSelf, None);
+        } else {
+            wizard.startle_cooldown -= dt;
+            wizard.shake -= dt;
+
+            if state.bricks_placed > wizard.seen.placed {
+                wizard.action_countdown = wizard.action_countdown.saturating_sub(1);
+                if wizard.action_countdown == 0 {
+                    play(&mut wizard, Clip::Action, None);
+                    wizard.action_countdown =
+                        wizard.random(look.action_every.0, look.action_every.1);
                 }
-            } else if dark && cast.target == wizard.lane && wizard.startle_cooldown <= 0.0 {
+            }
+            if state.lines_reached > wizard.seen.lines {
+                play(&mut wizard, Clip::Cheer, None);
+            }
+            // Spells: casting your own, or being hit by someone else's dark one.
+            let new = (log.1 - wizard.seen.casts.min(log.1)) as usize;
+            let casts: Vec<_> = log.0.iter().rev().take(new).cloned().collect();
+            for cast in casts.iter().rev() {
+                let dark = cast.spell.is_dark();
+                if cast.caster == wizard.lane && (!dark || cast.target != wizard.lane) {
+                    if dark {
+                        let laugh = wizard.laugh_cooldown <= 0.0;
+                        if laugh {
+                            wizard.laugh_cooldown = look.reaction_cooldown;
+                        }
+                        play(&mut wizard, Clip::Casting, laugh.then_some(Clip::LaughEvil));
+                    } else {
+                        play(&mut wizard, Clip::CastSelf, None);
+                    }
+                } else if dark && cast.target == wizard.lane && wizard.startle_cooldown <= 0.0 {
+                    wizard.startle_cooldown = look.reaction_cooldown;
+                    play(&mut wizard, Clip::Startle, None);
+                }
+            }
+            if state.lives.unwrap_or(0) < wizard.seen.lives.unwrap_or(0) {
+                // Losing a life always startles, cooldown or not.
                 wizard.startle_cooldown = look.reaction_cooldown;
+                wizard.shake = look.shake.2;
                 play(&mut wizard, Clip::Startle, None);
             }
+            let out = state.status == TowerStatus::Out;
+            if out && !wizard.seen.out {
+                play(&mut wizard, Clip::Dying, None);
+            }
+            // The Survival roof going on: Action, then Cheer.
+            let won = state.status == TowerStatus::Won;
+            if won && !wizard.seen.won && game.mode.rules() == ModeKind::Survival {
+                play(&mut wizard, Clip::Action, Some(Clip::Cheer));
+            }
+            wizard.seen = Seen {
+                placed: state.bricks_placed,
+                lives: state.lives,
+                lines: state.lines_reached,
+                out,
+                won,
+                casts: log.1,
+            };
         }
-        if state.lives.unwrap_or(0) < wizard.seen.lives.unwrap_or(0) {
-            // Losing a life always startles, cooldown or not.
-            wizard.startle_cooldown = look.reaction_cooldown;
-            wizard.shake = look.shake.2;
-            play(&mut wizard, Clip::Startle, None);
-        }
-        let out = state.status == TowerStatus::Out;
-        if out && !wizard.seen.out {
-            play(&mut wizard, Clip::Dying, None);
-        }
-        // The Survival roof going on: Action, then Cheer.
-        let won = state.status == TowerStatus::Won;
-        if won && !wizard.seen.won && game.mode.rules() == ModeKind::Survival {
-            play(&mut wizard, Clip::Action, Some(Clip::Cheer));
-        }
-        wizard.seen = Seen {
-            placed: state.bricks_placed,
-            lives: state.lives,
-            lines: state.lines_reached,
-            out,
-            won,
-            casts: log.1,
-        };
 
         // Say the line that goes with a clip that just started.
         if wizard.clip != Clip::Idle && (wizard.clip != before || wizard.clip_time < started) {
-            let line = format!("{}_say_{}", wizard.key, wizard.clip.name());
+            // The original picks one of the character's lines of that kind at random
+            // (docs/research/wizards.md, "Voice lines"); older staging has one per clip.
+            let kind = voice_kind(wizard.clip);
+            let count = (1..)
+                .take_while(|i| {
+                    art.sounds
+                        .contains_key(&format!("{}_say_{kind}_{i}", wizard.key))
+                })
+                .count() as u32;
+            let line = if count > 0 {
+                let i = wizard.random(1, count);
+                format!("{}_say_{kind}_{i}", wizard.key)
+            } else {
+                format!("{}_say_{}", wizard.key, wizard.clip.name())
+            };
             if let Some(sound) = art.sounds.get(&line) {
-                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+                let number: u32 = wizard.key.trim_start_matches("wizard").parse().unwrap_or(1);
+                let (volume, pitch) = voice_mix(number, kind);
+                commands.spawn((
+                    AudioPlayer(sound.clone()),
+                    PlaybackSettings::DESPAWN
+                        .with_volume(bevy::audio::Volume::Linear(volume))
+                        .with_speed(pitch),
+                ));
             }
         }
     }
@@ -301,9 +388,12 @@ fn move_wizards(
     config: Res<GameConfig>,
     game: Res<crate::gameplay::Match>,
     towers: Query<(&Tower, &TowerState)>,
+    rivals: Query<&crate::gameplay::RivalLane>,
     mut wizards: Query<(&mut Wizard, &mut Transform, &mut Visibility)>,
 ) {
     let look = &config.wizards;
+    // A trial's enemy wizard floats by the enemy lane (right of the player's).
+    let enemy_lane = rivals.iter().next().map(|r| r.origin_x);
     let dt = time.delta_secs();
     let solo = towers.iter().count() == 1;
     for (mut wizard, mut transform, mut visibility) in &mut wizards {
@@ -311,7 +401,7 @@ fn move_wizards(
             continue;
         };
         // A lost match: the wizard shrinks away in a moment, like a poof.
-        let gone = if crate::hud::lost(&game, tower, state) {
+        let gone = if !wizard.enemy && crate::hud::lost(&game, tower, state) {
             wizard.vanish += dt;
             (wizard.vanish / config.hud.wizard_vanish.max(0.01)).min(1.0)
         } else {
@@ -324,11 +414,19 @@ fn move_wizards(
             Visibility::Inherited
         });
         wizard.time += dt;
-        let target = state.height + look.lift;
+        // The enemy floats 4 cells over the tower top (the original's EnemyWizard).
+        let target = state.height + if wizard.enemy { 4.0 } else { look.lift };
         let y = wizard.y.get_or_insert(target);
         *y += (target - *y) * dt.min(1.0);
         let y = *y;
-        let offset = if solo {
+        let offset = if wizard.enemy {
+            // 7 cells left of the lane centre, 2 right in Puzzle trials.
+            if config.mode.rules() == ModeKind::Puzzle {
+                2.0
+            } else {
+                -7.0
+            }
+        } else if solo {
             look.solo_offset_x
         } else {
             look.offset_x
@@ -344,7 +442,12 @@ fn move_wizards(
                 look.shake.1 * (t * 73.0).cos(),
             );
         }
-        transform.translation.x = tower.origin_x + config.cells(at.x);
+        let lane_x = if wizard.enemy {
+            enemy_lane.unwrap_or(tower.origin_x)
+        } else {
+            tower.origin_x
+        };
+        transform.translation.x = lane_x + config.cells(at.x);
         transform.translation.y = config.cells(at.y);
         // Alone, the wizard floats on the left and turns to face the tower.
         let size = 1.0 - gone * gone;
@@ -410,5 +513,21 @@ fn pose_wizards(
                 transform.scale = new_transform.scale;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn voice_lines_follow_the_original_speech_table() {
+        assert_eq!(voice_kind(Clip::Casting), "cast_other");
+        assert_eq!(voice_kind(Clip::Dying), "startle");
+        assert_eq!(voice_mix(2, "laugh_evil"), (0.8, 1.13));
+        assert_eq!(voice_mix(2, "cheer"), (1.0, 1.13));
+        assert_eq!(voice_mix(5, "laugh"), (0.65, 1.13));
+        assert_eq!(voice_mix(9, "startle"), (0.3, 1.0));
+        assert_eq!(voice_mix(12, "cheer"), (1.1, 1.0));
     }
 }

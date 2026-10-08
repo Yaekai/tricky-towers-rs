@@ -93,8 +93,16 @@ struct PopupRoot;
 #[derive(Component)]
 struct PopupBar(usize);
 /// The words of the first item: Rematch, or Next match during a cup.
+/// An item's words, which depend on the match (Next match in a cup, the trial items).
 #[derive(Component)]
-struct FirstItem;
+struct PopupWords(usize);
+
+/// The picked item is yellow, the others pink, as on the original's trial panel.
+const PICKED: Color = Color::srgb(1.0, 0.85, 0.25);
+const OTHER: Color = Color::srgb(1.0, 0.31, 0.55);
+
+/// The items after a trial: Retry and Select Trial (the original's slanted panel).
+const TRIAL_ITEMS: [&str; 2] = ["Retry", "Select Trial"];
 
 fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
@@ -153,18 +161,17 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
                 row.insert(node);
             }
             row.with_children(|r| {
-                let mut text = r.spawn((
-                    Text::new(*item),
+                r.spawn((
+                    Text::new(item.to_uppercase()),
                     TextFont {
                         font_size: FontSize::Vh(LABEL.1 / 10.8),
                         ..default()
                     },
                     TextColor(Color::WHITE),
                     TextLayout::justify(Justify::Right),
+                    crate::letters::TextLook::OUTLINED,
+                    PopupWords(i),
                 ));
-                if i == 0 {
-                    text.insert(FirstItem);
-                }
             });
         }
     });
@@ -223,7 +230,11 @@ fn popup_input(
     if !popup.shown || game.phase != Phase::Over {
         return;
     }
-    let count = POPUP_ITEMS.len();
+    let count = if config.trial.is_some() {
+        TRIAL_ITEMS.len()
+    } else {
+        POPUP_ITEMS.len()
+    };
     let (mut up, mut down, mut pick) = (false, false, false);
     if let Some(keys) = keys {
         up |= keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Numpad8]);
@@ -244,7 +255,7 @@ fn popup_input(
     if !pick {
         return;
     }
-    match POPUP_ITEMS[popup.selected] {
+    match POPUP_ITEMS[popup.selected.min(POPUP_ITEMS.len() - 1)] {
         "Main menu" => {
             game.phase = Phase::Menu;
             *screen = MenuScreen::Main;
@@ -271,22 +282,38 @@ fn popup_input(
     popup.shown = false;
 }
 
+#[allow(clippy::type_complexity)]
 fn show_popup(
     config: Res<GameConfig>,
     popup: Res<Popup>,
-    mut root: Query<(&mut Visibility, &mut Node), With<PopupRoot>>,
-    mut bars: Query<(&PopupBar, Option<&mut ImageNode>, &mut BackgroundColor)>,
+    mut root: Query<(&mut Visibility, &mut Node), (With<PopupRoot>, Without<PopupBar>)>,
+    mut bars: Query<(
+        &PopupBar,
+        Option<&mut ImageNode>,
+        &mut BackgroundColor,
+        &mut Visibility,
+    )>,
     cup: Res<crate::cups::Cup>,
-    mut first: Query<&mut Text, With<FirstItem>>,
+    mut texts: Query<(&PopupWords, &mut Text, &mut TextColor)>,
 ) {
-    let words = if cup.in_progress() {
-        "Next match"
-    } else {
-        POPUP_ITEMS[0]
-    };
-    for mut text in &mut first {
+    let trial = config.trial.is_some();
+    for (item, mut text, mut color) in &mut texts {
+        let words = match (trial, item.0) {
+            (true, i) => TRIAL_ITEMS.get(i).copied().unwrap_or(""),
+            (false, 0) if cup.in_progress() => "Next match",
+            (false, i) => POPUP_ITEMS[i],
+        }
+        .to_uppercase();
         if text.0 != words {
-            text.0 = words.into();
+            text.0 = words;
+        }
+        let want = if item.0 == popup.selected {
+            PICKED
+        } else {
+            OTHER
+        };
+        if color.0 != want {
+            color.0 = want;
         }
     }
     // Slides up from below the bottom edge, easing out.
@@ -310,7 +337,12 @@ fn show_popup(
     if !popup.shown {
         return;
     }
-    for (bar, image, mut colour) in &mut bars {
+    for (bar, image, mut colour, mut shown) in &mut bars {
+        shown.set_if_neq(if trial && bar.0 >= TRIAL_ITEMS.len() {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
         let picked = bar.0 == popup.selected;
         match image {
             Some(mut image) => {
