@@ -25,6 +25,7 @@ impl Plugin for CastsPlugin {
             (
                 start_casts,
                 run_beams,
+                run_orbs,
                 run_lightning,
                 track_clouds,
                 animate_clouds,
@@ -160,6 +161,7 @@ fn start_casts(
             if let Some((_, victim, victim_state)) = find(cast.target) {
                 let foot = brick_at(victim_state, victim);
                 spawn_victim_beams(&mut commands, &config, &art, foot, victim.origin_x);
+                spawn_curse_orb(&mut commands, &config, &art, from, foot);
             }
         } else if !lit.contains(&cast.caster) {
             lit.push(cast.caster);
@@ -379,6 +381,73 @@ fn run_beams(
                 }
             }
         }
+    }
+}
+
+/// Dark cast's curse orb: the spiky blob with the curse icon, dropped onto the victim's brick.
+#[derive(Component)]
+struct CurseOrb {
+    from: Vec2,
+    to: Vec2,
+    time: f32,
+}
+
+fn spawn_curse_orb(commands: &mut Commands, config: &GameConfig, art: &Art, from: Vec2, to: Vec2) {
+    let size = config.cells(config.casts.dark_orb_size);
+    let blob = match art.image("fx_cast_effect2_blob01") {
+        Some(image) => Sprite {
+            image,
+            custom_size: Some(Vec2::splat(size)),
+            ..default()
+        },
+        None => Sprite::from_color(DARK_FALLBACK, Vec2::splat(size)),
+    };
+    let orb = commands
+        .spawn((
+            CurseOrb {
+                from,
+                to,
+                time: 0.0,
+            },
+            blob,
+            Transform::from_translation(from.extend(17.0)),
+            Visibility::Hidden,
+        ))
+        .id();
+    if let Some(icon) = art.image("spell_orb_dark") {
+        commands.entity(orb).with_children(|parent| {
+            parent.spawn((
+                Sprite {
+                    image: icon,
+                    custom_size: Some(Vec2::splat(size * 0.6)),
+                    ..default()
+                },
+                Transform::from_xyz(0.0, 0.0, 0.1),
+            ));
+        });
+    }
+}
+
+fn run_orbs(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut orbs: Query<(Entity, &mut CurseOrb, &mut Transform, &mut Visibility)>,
+) {
+    let look = &config.casts;
+    let dt = time.delta_secs();
+    for (entity, mut orb, mut transform, mut visibility) in &mut orbs {
+        orb.time += dt;
+        if orb.time < look.dark_start {
+            continue;
+        }
+        if orb.time >= look.dark_orb_land {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        *visibility = Visibility::Inherited;
+        let fall = (orb.time - look.dark_fall) / (look.dark_orb_land - look.dark_fall).max(0.01);
+        transform.translation = orb.from.lerp(orb.to, fall.clamp(0.0, 1.0)).extend(17.0);
     }
 }
 

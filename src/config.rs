@@ -2231,11 +2231,14 @@ impl XpRules {
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct CastLook {
-    /// Dark cast: the beam up and the victim's lane overlay start this long after the
-    /// press, and the beam down onto the victim this long after the press (clip: 0.8 s
-    /// and 1.0 s; the curse's orb isn't staged, so the beam stands in for it).
+    /// Dark cast: the beam up, the curse orb at the caster's hand and the victim's lane
+    /// overlay start this long after the press, and the beam down onto the victim this
+    /// long after the press (clip: 0.8 s and 1.0 s). The orb drops onto the brick by
+    /// `dark_orb_land` (clip: 1.4 s); its size is a guess in cells.
     pub dark_start: f32,
     pub dark_fall: f32,
+    pub dark_orb_land: f32,
+    pub dark_orb_size: f32,
     /// Beam up from the caster: grows in, then gives up.
     pub beam_up: (f32, f32),
     /// Beam down onto each victim's brick: grows in, then gives up.
@@ -2277,6 +2280,8 @@ impl Default for CastLook {
         Self {
             dark_start: 0.8,
             dark_fall: 1.0,
+            dark_orb_land: 1.4,
+            dark_orb_size: 2.0,
             beam_up: (0.2, 1.0),
             beam_down: (0.4, 0.5),
             lane_wave: (0.7, 0.1),
