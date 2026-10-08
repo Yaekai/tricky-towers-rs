@@ -648,3 +648,14 @@ frontend and test-writer suggestions.
   cyan too, but a bit more opaque at rest (0.8, 1.0, 1.0, alpha 0.85). The install's shader is a
   stub, so the exact alpha can't be read; left as is. Open: tune alpha on the PC if it looks solid.
 - Select Mode (150002): no game change.
+
+## Batch 10 (2026-10-08): headless checks from files, no PC
+- Ivy four-cast slide: a 3x zoom of four vine casts shows the bricks tilting and sliding off the stack.
+  Looks right; no change. Compare on the PC if a stack slides wrong.
+- Survival wave tint: 9 calm and 14 wave frames from the Survival video show no 166 grey. Cloud colour
+  stays blue-violet and magenta with drift. No change to `survival_wave_grey`; revisit if a PC
+  screenshot shows washout.
+- Survival reflected band: the mid-height wave average (82,56,117) is near the noted tints, but clouds
+  and mountains are mixed in. Not confirmed; needs a clean PC frame at the band height.
+- Hologram alpha: `Hologram.prefab` is the brick-pack selection UI, and the exported shader is a stub.
+  Alpha stays 0.85 until it can be tuned on the PC.
