@@ -59,11 +59,14 @@ struct Pulse {
     side: f32,
 }
 
-/// A Hologram brick: glitches for 0.1 to 0.5 s every 6 to 15 s.
+/// A Hologram brick: glitches every 6 to 15 s, the first right away. A glitch takes
+/// 0.1 to 0.5 s to come in and as long to go out (HologramBrickModifier), its
+/// distortion rising and falling over that time.
 #[derive(Component)]
 struct Glitch {
     wait: f32,
     left: f32,
+    span: f32,
     seed: u32,
 }
 
@@ -204,6 +207,7 @@ fn decorate_bricks(
                 brick_entity.insert(Glitch {
                     wait: 0.0,
                     left: 0.0,
+                    span: 0.0,
                     seed,
                 });
             }
@@ -382,13 +386,21 @@ fn glitch_holograms(
         } else {
             glitch.wait -= dt;
             if glitch.wait <= 0.0 {
-                glitch.left = between(&mut seed, 0.1, 0.5);
+                glitch.span = 2.0 * between(&mut seed, 0.1, 0.5);
+                glitch.left = glitch.span;
                 glitch.wait = between(&mut seed, 6.0, 15.0);
             }
         }
         let on = glitch.left > 0.0;
+        // Rises to full distortion halfway through, then falls back.
+        let progress = if glitch.span > 0.0 {
+            (1.0 - glitch.left / glitch.span).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let amount = 1.0 - (2.0 * progress - 1.0).abs();
         let shift = if on {
-            (roll(&mut seed) - 0.5) * 6.0
+            (roll(&mut seed) - 0.5) * 6.0 * amount
         } else {
             0.0
         };
