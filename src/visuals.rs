@@ -10,10 +10,10 @@ use bevy::sprite::Anchor;
 
 use crate::art::{Animated, Art};
 use crate::config::{GameConfig, ModeKind};
-use crate::gameplay::piece_def;
 use crate::gameplay::{
     ActiveBrick, Brick, FloorBlock, FloorPart, Match, Phase, Platform, Tower, TowerState,
 };
+use crate::gameplay::{Placed, piece_def};
 use crate::spells::{Bubbled, Grassy, LifeOrb, SpellLog, Stone, Vined, Zapped};
 
 pub struct VisualsPlugin;
@@ -501,12 +501,25 @@ pub(crate) fn dress_bricks(
     config: Res<GameConfig>,
     art: Res<Art>,
     bricks: Query<
-        (Entity, &Brick, Has<Stone>, Has<Vined>, Has<Grassy>),
-        Or<(Changed<Brick>, Added<Stone>, Added<Vined>, Added<Grassy>)>,
+        (
+            Entity,
+            &Brick,
+            Has<Stone>,
+            Has<Vined>,
+            Has<Grassy>,
+            Option<&Placed>,
+        ),
+        Or<(
+            Changed<Brick>,
+            Added<Stone>,
+            Added<Vined>,
+            Added<Grassy>,
+            Added<Placed>,
+        )>,
     >,
     skins: Query<&crate::gameplay::TowerSkin>,
 ) {
-    for (entity, brick, stone, vined, grassy) in &bricks {
+    for (entity, brick, stone, vined, grassy, placed) in &bricks {
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
         let pack = skins.get(brick.tower).map(|s| s.pack).unwrap_or_default();
@@ -578,7 +591,11 @@ pub(crate) fn dress_bricks(
                         custom_size: Some(size),
                         ..default()
                     },
-                    Transform::from_translation(center.extend(0.0)),
+                    // Later bricks sit in front of earlier ones: equal depths draw in
+                    // no fixed order, which looked like bricks on different layers.
+                    Transform::from_translation(
+                        center.extend(placed.map_or(0.0, |p| p.0 as f32 * 5.0e-5)),
+                    ),
                 ));
                 // Mystery 2 carries its rotor on top, over a dark shadow (MysteryBrick02 prefab).
                 if key == "mystery_blob" && whole {
