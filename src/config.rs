@@ -1775,8 +1775,9 @@ pub struct MatchMoments {
     /// sideways, cells up, seconds.
     pub blast_shake: (f32, f32, f32),
     pub rumble: (f32, f32, f32),
-    /// The losing player's controller rumbles this long when the sequence starts and
-    /// again with the rumble after the blasts, at this strength (0 to 1, ?).
+    /// The losing player's controller rumbles this long when the sequence starts (the
+    /// original: 2 s on the big motor after a 1.5 s wait, GameBaskController) and
+    /// again with the rumble after the blasts (?), at this strength (0 to 1).
     pub pad_rumble: (f32, f32),
     pub pad_rumble_strength: f32,
     /// The popup opens once every loser's sequence is done, and at least this
@@ -1813,7 +1814,7 @@ impl Default for MatchMoments {
             blast_shake: (0.2, 0.26, 0.05),
             rumble: (0.1, 0.13, 2.5),
             pad_rumble: (2.0, 2.5),
-            pad_rumble_strength: 0.6,
+            pad_rumble_strength: 1.0,
             popup_after: 0.0,
             popup_slide: 0.25,
         }
