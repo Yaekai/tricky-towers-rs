@@ -639,3 +639,12 @@ frontend and test-writer suggestions.
 ## Batch 8 (2026-10-08)
 - Moon drop: built (see Checked above). Our earlier note that Large tops out at 2 was wrong: two Large
   curses on one brick stack to 2.5.
+
+## Batch 9 (2026-10-08): Max's three new screenshots
+- Race battle (Capture 2026-10-08 150031, 3440x1440): compared with our Race battle at 1720x720. The
+  cloud layers and placement match in kind and density; the original's camera is at a different stage
+  (finish line in view), so no change. Race clouds: checked.
+- Hologram (hologram brick skin.png): the original's Hologram bricks are translucent cyan. Ours are
+  cyan too, but a bit more opaque at rest (0.8, 1.0, 1.0, alpha 0.85). The install's shader is a
+  stub, so the exact alpha can't be read; left as is. Open: tune alpha on the PC if it looks solid.
+- Select Mode (150002): no game change.
