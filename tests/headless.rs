@@ -1922,3 +1922,29 @@ fn ivy_bricks_are_drawn_where_their_bodies_are() {
         assert!(p.0.distance(g.translation().truncate()) < 1.0, "{p:?} drawn at {g:?}");
     }
 }
+
+#[test]
+fn two_large_curses_stack_to_2_5() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    config.opponents = 1;
+    config.magic.enabled = true;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 0.1, |_| {});
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Large));
+    let brick = tower(&mut app, 1).active.unwrap();
+    assert_eq!(app.world().get::<Brick>(brick).unwrap().scale, 2.0);
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Large));
+    run_seconds(&mut app, 0.1, |_| {});
+    assert_eq!(tower(&mut app, 1).active, Some(brick));
+    let world = app.world();
+    assert_eq!(world.get::<Brick>(brick).unwrap().scale, 2.5);
+    assert_eq!(
+        world
+            .get::<tricky_towers::gameplay::ActiveBrick>(brick)
+            .unwrap()
+            .mods
+            .large,
+        2
+    );
+}
