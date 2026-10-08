@@ -914,13 +914,17 @@ pub(crate) fn grow_ivy(
         if members.len() < 2 {
             continue;
         }
-        let solid = members.iter().any(|&m| {
-            bricks
-                .get(m)
-                .is_ok_and(|b| b.5 || b.4.is_some_and(|r| *r == RigidBody::Static))
-        }) || old_clusters
-            .iter()
-            .any(|&c| clusters.get(c).is_ok_and(|(_, r)| *r == RigidBody::Static));
+        // Ivy holds what it touches fast: a group of two or more bricks is fixed where it
+        // lands (its tower can't slide out from under it), as a stone brick is.
+        let solid = members.len() >= 2
+            || members.iter().any(|&m| {
+                bricks
+                    .get(m)
+                    .is_ok_and(|b| b.5 || b.4.is_some_and(|r| *r == RigidBody::Static))
+            })
+            || old_clusters
+                .iter()
+                .any(|&c| clusters.get(c).is_ok_and(|(_, r)| *r == RigidBody::Static));
         let cluster = commands
             .spawn((
                 IvyCluster,
