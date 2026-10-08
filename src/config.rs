@@ -2039,6 +2039,8 @@ pub struct WeatherLook {
     /// During a curse wave the background's clouds and islands grey to this colour,
     /// and drifting clouds go this many times faster (gap-scan.md 2).
     pub survival_wave_grey: [u8; 3],
+    /// The reflected band's colour in a curse wave (its normal colour is the manifest's tint).
+    pub survival_wave_band: [u8; 3],
     pub survival_wave_drift: f32,
 }
 
@@ -2075,6 +2077,7 @@ impl Default for WeatherLook {
             survival_wave_sky: vec![[26, 13, 58], [147, 64, 157]],
             wave_shift: 1.0,
             survival_wave_grey: [166, 166, 166],
+            survival_wave_band: [144, 52, 110],
             survival_wave_drift: 138.0,
         }
     }

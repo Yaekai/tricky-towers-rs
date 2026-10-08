@@ -207,6 +207,7 @@
         ],
         wave_shift: 1.0,
         survival_wave_grey: (166, 166, 166),
+        survival_wave_band: (144, 52, 110),
         survival_wave_drift: 138.0,
     ),
     water: (

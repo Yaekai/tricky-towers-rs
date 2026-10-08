@@ -614,9 +614,9 @@ frontend and test-writer suggestions.
 ## Checked 2026-10-08 (batch 6)
 - Puzzle sand: the sandstorm speeds (0.035 and 0.025 a second, `sandstorm_speed`/`_offset`) and
   strip heights already match the original's SandStormLayer and the readout.
-- Survival overlay: the original's reflected band (gph_gradientRefelcted, OVERLAY_GRADIENT) takes
-  the curse colours; ours draws the same colours as the sky's middle stop, not the sprite itself.
-  Open: draw the reflected band sprite if it looks wrong on the PC.
+- Survival reflected band: drawn as the original's sprite now (gph_gradientRefelcted, stretched across
+  the view at 65% height, tinted (91,60,175), (144,52,110) in a curse wave). Checked by eye only;
+  compare it on the PC against a Survival battle screenshot.
 - Losing pad rumble: 2 s on the big motor at full strength after a 1.5 s wait (GameBaskController),
   now 1.0 in config. The second rumble after the blasts is still a guess (?).
 - Moon drop: needs brick scale 2.5 (AbstractSurvival: 2 + (2 - 1) * 0.5); our Large is 2.0, so it

@@ -121,6 +121,13 @@ pub struct ArtEntry {
     /// Screen layers only: a tint (r, g, b) 0 to 255 (Survival's large clouds).
     #[serde(default)]
     pub tint: Option<(f32, f32, f32)>,
+    /// Screen layers only: stretched across the view's width (the reflected band).
+    #[serde(default)]
+    pub stretch: Option<bool>,
+    /// Screen layers only: the Survival reflected band, tinted by the mode's overlay
+    /// colour, which a curse wave moves to `weather.survival_wave_band`.
+    #[serde(default)]
+    pub overlay: Option<bool>,
     /// Screen layers only: part of Survival's starry sky (the moon and stars), which
     /// curse waves leave alone; `true` for a star that twinkles and now and then twirls.
     #[serde(default)]

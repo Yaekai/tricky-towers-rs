@@ -126,7 +126,7 @@ $manifest.Add('    "sky": (colors: [(108, 152, 223), (125, 192, 239), (179, 196,
 $manifest.Add('    "sky_race": (colors: [(108, 152, 223), (125, 192, 239), (179, 196, 251)]),')
 # Endless Race's sunset (RaceEndlessGradientBackground), in the same order as the race sky.
 $manifest.Add('    "sky_endless": (colors: [(228, 56, 89), (237, 164, 105), (253, 155, 90)]),')
-$manifest.Add('    "sky_survival": (colors: [(51, 30, 103), (91, 60, 175), (91, 83, 173)]),')
+$manifest.Add('    "sky_survival": (colors: [(51, 30, 103), (91, 83, 173)]),')
 $manifest.Add('    "sky_puzzle": (colors: [(252, 219, 144), (244, 230, 177)]),')
 $notes.Add('- sky_survival : night gradient top (51,30,103), band (91,60,175), bottom (91,83,173). sky_puzzle : desert gradient top #FCDB90 to bottom #F4E6B1 (plus 4 soft overlay gradients in the original).')
 $notes.Add('- sky : Race sky gradient, top (108,152,223) to bottom (179,196,251); the middle stop is the original overlay band (125,192,239) at 65% height.')
@@ -142,6 +142,10 @@ ModeScreenBg 'survival' 1 'gph_backgroundIsland02' 0.5 0.5 -28.0 -7.6 1 0.25 'Ba
 ModeScreenBg 'survival' 2 'gph_backgroundIsland04' 0.5 0.5 32.5 -8.8  2 0.25 'Back island right, centre + (32.5, -8.8)'
 ModeScreenBg 'survival' 3 'gph_backgroundIsland01' 0.5 0.5 -13.5 -8.8 3 0.35 'Front island left, centre + (-13.5, -8.8)'
 ModeScreenBg 'survival' 4 'gph_backgroundIsland03' 0.5 0.5 21.6 -9.8  4 0.35 'Front island right, centre + (21.6, -9.8)'
+# The reflected band across the sky at 65% of the view (BackgroundOverlayGradient): a 4x255 strip
+# stretched to the view's width and 2 units tall, tinted with the mode's overlay colour (91,60,175),
+# curse waves change it to (144,52,110). Overlay and stretch are read by visuals.rs.
+ModeScreenBg 'survival' 20 'gph_gradientRefelcted' 0.5 0.65 0.0 0.0 0.5 1.0 'Survival reflected band across the sky (overlay)' ', tint: (91, 60, 175), overlay: true, stretch: true, scale: 2.0'
 # Survival's starry sky (StarrySky prefab: the stars around the moon, twinkling) and its three
 # cloud layers (SurvivalBackground: CloudLayer x3 rounds of each name spread across the view,
 # drifting right; large clouds tinted (89,80,169) at the bottom, the small ones 0.5-2 views up).
