@@ -126,6 +126,20 @@ pub(crate) struct Star {
     fall: Option<(Vec2, Vec2)>,
 }
 
+/// Survival's moon: it drops when a brick of 2.5 or more lands (SurvivalBackground
+/// `_HandlePlaceBrick`, where the moon is a hinged rigid body with gravity 3).
+#[derive(Component)]
+pub(crate) struct Moon;
+
+/// A background layer knocked loose and falling: how far it has dropped and its
+/// speed, in screen units. Gravity is 9.81 units/s² (the moon's is 3 times that).
+#[derive(Component, Clone, Copy)]
+pub(crate) struct Falling {
+    offset: Vec2,
+    velocity: Vec2,
+    gravity: f32,
+}
+
 /// Star sounds (SFX_STAR_MOVE_1-4), one picked at random.
 const STAR_SOUNDS: [&str; 4] = [
     "sfx_amb_ambience_stars_01",
@@ -154,12 +168,22 @@ fn drop_stars(
         &Transform,
         &ChildOf,
     )>,
+    moons: Query<Entity, (With<Moon>, Without<Falling>)>,
     mut seed: Local<u32>,
 ) {
     if game.mode.look() != ModeKind::Survival {
         return;
     }
     for brick in &placed {
+        if brick.scale + 0.01 >= 2.5
+            && let Ok(moon) = moons.single()
+        {
+            commands.entity(moon).insert(Falling {
+                offset: Vec2::ZERO,
+                velocity: Vec2::ZERO,
+                gravity: 3.0 * 9.81,
+            });
+        }
         if brick.scale + 0.01 < 2.0 {
             continue;
         }
@@ -1071,6 +1095,9 @@ fn spawn_backgrounds(
                 if star {
                     layer.insert(Star::default());
                 }
+                if mode == ModeKind::Survival && name == "background_survival_0" {
+                    layer.insert(Moon);
+                }
                 if *fades {
                     layer.insert(EclipseFade(tint));
                 }
@@ -1120,7 +1147,13 @@ fn fit_backgrounds(
         ),
     >,
     mut screen: Query<
-        (&mut ScreenLayer, &mut Transform, Option<&mut Star>, &Sprite),
+        (
+            &mut ScreenLayer,
+            &mut Transform,
+            Option<&mut Star>,
+            &Sprite,
+            Option<&mut Falling>,
+        ),
         (Without<Background>, Without<Camera2d>, Without<Sky>),
     >,
     mut bands: Query<
@@ -1154,7 +1187,7 @@ fn fit_backgrounds(
     let low = lowest.get_or_insert(camera.translation.y);
     *low = low.min(camera.translation.y);
     let climb = camera.translation.y - *low;
-    for (mut layer, mut transform, mut star, sprite) in &mut screen {
+    for (mut layer, mut transform, mut star, sprite, falling) in &mut screen {
         let unit = view.y / layer.view_height;
         // A drifting layer wraps round the view with half a view to spare each side.
         let span = view.x / unit * 2.0;
@@ -1173,6 +1206,14 @@ fn fit_backgrounds(
         transform.translation.x = at.x;
         transform.translation.y = at.y;
         let twinkle = star.as_ref().map_or(1.0, |s| s.factor);
+        if let Some(mut falling) = falling {
+            let dt = time.delta_secs();
+            let gravity = falling.gravity;
+            let velocity = falling.velocity + Vec2::NEG_Y * gravity * dt;
+            falling.velocity = velocity;
+            falling.offset += velocity * dt;
+            transform.translation += (falling.offset * unit).extend(0.0);
+        }
         // A falling star drops under gravity (9.81 units/s²) from its kick.
         if let Some((offset, velocity)) = star.as_mut().and_then(|s| s.fall.as_mut()) {
             *velocity += Vec2::NEG_Y * 9.81 * time.delta_secs();
