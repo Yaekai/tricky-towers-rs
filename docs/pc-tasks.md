@@ -624,3 +624,13 @@ frontend and test-writer suggestions.
 - Race sky clouds: layers match the original's RaceBackground. The trial screenshot shows more
   cloud cover, but the phase and lanes differ, so it isn't a like-for-like check. Open: compare a
   battle screenshot on the PC.
+
+## Batch 7 (2026-10-08): what is left and why
+- Race cloud density: Max's originals have no Race battle screenshot (only the Race trial and Endless
+  menus), so it can't be checked against a like-for-like picture. Needs a Race battle screenshot from
+  Max's PC (any Race battle, both at 2560x1440).
+- Hologram shake amount: World_Bricks_Hologram.shader in the install is an exported stub with the
+  distortion maths stripped, so the shake size (currently 3 units at full strength) can't be read
+  from the install. Compare a Hologram pack brick on the PC.
+- Moon drop: needs brick scale 2.5; our Large is 2.0. A design choice for Max (a bigger brick, or
+  leave the moon up).
