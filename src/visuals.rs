@@ -28,6 +28,7 @@ impl Plugin for VisualsPlugin {
             .add_systems(Update, wobble_bubbles)
             .add_systems(Update, twinkle_stars.before(fit_backgrounds))
             .add_systems(Update, fade_eclipse)
+            .add_systems(Update, drop_stars.before(twinkle_stars))
             .add_systems(
                 Update,
                 (
@@ -121,6 +122,81 @@ pub(crate) struct Star {
     twirl: Option<f32>,
     /// The scale this frame, applied by `fit_backgrounds`.
     factor: f32,
+    /// Knocked loose: how far it has fallen and its speed, in screen units.
+    fall: Option<(Vec2, Vec2)>,
+}
+
+/// Star sounds (SFX_STAR_MOVE_1-4), one picked at random.
+const STAR_SOUNDS: [&str; 4] = [
+    "sfx_amb_ambience_stars_01",
+    "sfx_amb_ambience_stars_02",
+    "sfx_amb_ambience_stars_03",
+    "sfx_amb_ambience_stars_04",
+];
+
+/// A Large brick placed in Survival knocks a star out of the sky (SurvivalBackground
+/// `_HandlePlaceBrick`, StarrySkyLayer.DropStar): it leaves a dark copy (#2E1D5B)
+/// behind and falls from an upward kick of (-2..2, 6) units/s, spinning 40x its
+/// sideways speed. The moon only falls for bricks 2.5x or more (not done: no spell
+/// makes them that big here).
+#[allow(clippy::too_many_arguments)]
+fn drop_stars(
+    mut commands: Commands,
+    game: Res<Match>,
+    art: Res<Art>,
+    placed: Query<&Brick, Added<crate::gameplay::Placed>>,
+    mut stars: Query<(
+        Entity,
+        &mut Star,
+        &ScreenLayer,
+        &Sprite,
+        &Anchor,
+        &Transform,
+        &ChildOf,
+    )>,
+    mut seed: Local<u32>,
+) {
+    if game.mode.look() != ModeKind::Survival {
+        return;
+    }
+    for brick in &placed {
+        if brick.scale + 0.01 < 2.0 {
+            continue;
+        }
+        *seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345) | 1;
+        let standing: Vec<Entity> = stars
+            .iter()
+            .filter(|(_, s, ..)| s.fall.is_none())
+            .map(|(e, ..)| e)
+            .collect();
+        if let Some(sound) = art.sounds.get(STAR_SOUNDS[(*seed >> 3) as usize % 4]) {
+            commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+        if standing.is_empty() {
+            continue;
+        }
+        let pick = standing[(*seed >> 8) as usize % standing.len()];
+        let Ok((_, mut star, layer, sprite, anchor, transform, parent)) = stars.get_mut(pick)
+        else {
+            continue;
+        };
+        let kick = (((*seed >> 12) % 400) as f32 / 100.0) - 2.0;
+        star.fall = Some((Vec2::ZERO, Vec2::new(kick, 6.0)));
+        star.spin = kick * 40.0;
+        star.twirl = None;
+        let mut dark = sprite.clone();
+        dark.color = Color::srgb_u8(0x2E, 0x1D, 0x5B);
+        let mut copy = layer.clone();
+        copy.drift = 0.0;
+        commands.spawn((
+            copy,
+            dark,
+            *anchor,
+            Transform::from_translation(transform.translation - Vec3::Z * 0.001),
+            WaveLook::Keep,
+            ChildOf(parent.parent()),
+        ));
+    }
 }
 
 fn twinkle_stars(
@@ -730,7 +806,7 @@ fn layer_z(art: &Art, name: &str, order: usize) -> f32 {
 }
 
 /// A background layer pinned to the screen (manifest entries with `screen`).
-#[derive(Component)]
+#[derive(Component, Clone)]
 struct ScreenLayer {
     anchor: Vec2,
     position: Vec2,
@@ -995,6 +1071,13 @@ fn spawn_backgrounds(
                 if *fades {
                     layer.insert(EclipseFade(tint));
                 }
+                // How a Survival curse wave changes it (SurvivalBackground): the starry
+                // sky stays, tinted layers (the large clouds) darken, the rest grey.
+                layer.insert(match (entry.star, entry.tint) {
+                    (Some(_), _) => WaveLook::Keep,
+                    (None, Some(_)) => WaveLook::Tint(tint),
+                    (None, None) => WaveLook::Grey,
+                });
                 if let Some(sprite) = lit {
                     layer.with_child((
                         LitLayer,
@@ -1033,7 +1116,7 @@ fn fit_backgrounds(
         ),
     >,
     mut screen: Query<
-        (&mut ScreenLayer, &mut Transform, Option<&Star>),
+        (&mut ScreenLayer, &mut Transform, Option<&mut Star>),
         (Without<Background>, Without<Camera2d>, Without<Sky>),
     >,
     mut bands: Query<
@@ -1067,7 +1150,7 @@ fn fit_backgrounds(
     let low = lowest.get_or_insert(camera.translation.y);
     *low = low.min(camera.translation.y);
     let climb = camera.translation.y - *low;
-    for (mut layer, mut transform, star) in &mut screen {
+    for (mut layer, mut transform, mut star) in &mut screen {
         let unit = view.y / layer.view_height;
         // A drifting layer wraps round the view with half a view to spare each side.
         let span = view.x / unit * 2.0;
@@ -1085,7 +1168,13 @@ fn fit_backgrounds(
             - Vec2::Y * climb * layer.parallax;
         transform.translation.x = at.x;
         transform.translation.y = at.y;
-        let twinkle = star.map_or(1.0, |s| s.factor);
+        let twinkle = star.as_ref().map_or(1.0, |s| s.factor);
+        // A falling star drops under gravity (9.81 units/s²) from its kick.
+        if let Some((offset, velocity)) = star.as_mut().and_then(|s| s.fall.as_mut()) {
+            *velocity += Vec2::NEG_Y * 9.81 * time.delta_secs();
+            *offset += *velocity * time.delta_secs();
+            transform.translation += (*offset * unit).extend(0.0);
+        }
         transform.scale = Vec3::splat(unit / layer.pixels_per_unit * layer.scale * twinkle);
     }
     for (band, mut sprite, mut transform) in &mut bands {
@@ -1093,6 +1182,16 @@ fn fit_backgrounds(
         sprite.custom_size = Some(Vec2::new(view.x, band.height * unit));
         transform.translation.y = -view.y * 0.5 - climb * band.parallax;
     }
+}
+
+/// What a Survival curse wave does to a screen layer.
+#[derive(Component, Clone, Copy)]
+pub(crate) enum WaveLook {
+    Keep,
+    /// Tinted layers (the large clouds) shift from their tint to (56, 34, 105).
+    Tint(Color),
+    /// Islands and the small clouds grey; the small clouds also speed up.
+    Grey,
 }
 
 /// Survival's curse waves grey the background layers (clouds and islands) and speed
@@ -1103,7 +1202,7 @@ fn grey_wave_layers(
     game: Res<Match>,
     mix: Option<Res<crate::weather::WaveMix>>,
     mut layers: Query<
-        (&mut Sprite, Option<&mut ScreenLayer>),
+        (&mut Sprite, Option<&mut ScreenLayer>, Option<&WaveLook>),
         (Or<(With<ScreenLayer>, With<Background>)>, Without<LitLayer>),
     >,
 ) {
@@ -1113,12 +1212,20 @@ fn grey_wave_layers(
     let mix = mix.map_or(0.0, |m| m.0);
     let weather = &config.weather;
     let [r, g, b] = weather.survival_wave_grey;
-    let tint = Color::WHITE.mix(&Color::srgb_u8(r, g, b), mix);
-    for (mut sprite, layer) in &mut layers {
-        if sprite.color != tint {
-            sprite.color = tint;
+    let grey = Color::WHITE.mix(&Color::srgb_u8(r, g, b), mix);
+    for (mut sprite, layer, look) in &mut layers {
+        let look = look.copied().unwrap_or(WaveLook::Grey);
+        let want = match look {
+            WaveLook::Keep => continue,
+            WaveLook::Tint(base) => base.mix(&Color::srgb_u8(56, 34, 105), mix),
+            WaveLook::Grey => grey,
+        };
+        // An Endless Puzzle eclipse fade owns its alpha.
+        let want = want.with_alpha(sprite.color.alpha());
+        if sprite.color != want {
+            sprite.color = want;
         }
-        if let Some(mut layer) = layer {
+        if let Some(mut layer) = layer.filter(|_| matches!(look, WaveLook::Grey)) {
             let current = layer.drift;
             let base = *layer.base_drift.get_or_insert(current);
             let drift = base * (1.0 + (weather.survival_wave_drift - 1.0) * mix);

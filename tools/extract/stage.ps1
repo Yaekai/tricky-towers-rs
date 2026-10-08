@@ -137,7 +137,7 @@ function ModeScreenBg($mode, $n, $sprite, $sx, $sy, $px, $py, $bz, $par, $what, 
   $extra = [string]::Format($f, ', screen: ({0:0.0##}, {1:0.0##}), position: ({2:0.0##}, {3:0.0##}), view_height: 41.54, z: {4}, parallax: {5:0.0#}', $sx, $sy, $px, $py, $bz, $par) + $mask
   Add-Sprite "background_$($mode)_$n" $sprite "backgrounds\$($mode)_$n.png" $what $null $extra
 }
-ModeScreenBg 'survival' 0 'gph_moon'               0.5 0.5 -14.3 9.7  0 0.1  'Moon, centre + (-14.3, 9.7); in the original it hangs on a hinge and can be knocked down'
+ModeScreenBg 'survival' 0 'gph_moon'               0.5 0.5 -14.3 9.7  0 0.1  'Moon, centre + (-14.3, 9.7); in the original it hangs on a hinge and can be knocked down' ', star: false'
 ModeScreenBg 'survival' 1 'gph_backgroundIsland02' 0.5 0.5 -28.0 -7.6 1 0.25 'Back island left, centre + (-28, -7.6)'
 ModeScreenBg 'survival' 2 'gph_backgroundIsland04' 0.5 0.5 32.5 -8.8  2 0.25 'Back island right, centre + (32.5, -8.8)'
 ModeScreenBg 'survival' 3 'gph_backgroundIsland01' 0.5 0.5 -13.5 -8.8 3 0.35 'Front island left, centre + (-13.5, -8.8)'
