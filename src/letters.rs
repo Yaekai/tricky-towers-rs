@@ -51,7 +51,7 @@ impl Plugin for LettersPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            (mirror_texts, sync_mirrors, follow_nodes, draw_letters)
+            (mirror_texts, sync_mirrors, tidy_mirrors, follow_nodes, draw_letters)
                 .chain()
                 .before(bevy::ui::UiSystems::Prepare),
         );
@@ -61,6 +61,10 @@ impl Plugin for LettersPlugin {
 /// On a hidden `Text`: the node that draws it with the original's letters.
 #[derive(Component)]
 struct MirroredBy(Entity);
+
+/// On a twin: the text it draws.
+#[derive(Component)]
+struct Mirrors(Entity);
 
 /// Text to draw with the letter sheet.
 #[derive(Component, Clone, PartialEq)]
@@ -124,7 +128,11 @@ fn mirror_texts(
     }
     for (entity, text, font, color, layout, look, mut node, parent) in &mut texts {
         let mirror = commands
-            .spawn((node.clone(), letter_text(text, font, color, layout, look)))
+            .spawn((
+                node.clone(),
+                letter_text(text, font, color, layout, look),
+                Mirrors(entity),
+            ))
             .id();
         if let Some(parent) = parent {
             let index = children
@@ -165,6 +173,28 @@ fn sync_mirrors(
             let new = letter_text(text, font, color, layout, look);
             if *letters != new {
                 *letters = new;
+            }
+        }
+    }
+}
+
+/// Twins show and hide with their text, and go when it does: HUD labels have no
+/// parent, so a twin left behind kept showing an old 1ST over the next match.
+fn tidy_mirrors(
+    mut commands: Commands,
+    mut twins: Query<(Entity, &Mirrors, &mut Visibility)>,
+    texts: Query<&Visibility, (With<Text>, With<MirroredBy>, Without<Mirrors>)>,
+) {
+    for (twin, text, mut visibility) in &mut twins {
+        match texts.get(text.0) {
+            Ok(shown) => {
+                visibility.set_if_neq(*shown);
+            }
+            Err(_) => {
+                commands.entity(twin).despawn();
+                if let Ok(mut text) = commands.get_entity(text.0) {
+                    text.remove::<MirroredBy>();
+                }
             }
         }
     }
