@@ -675,45 +675,49 @@ pub(crate) fn spawn_water_scene_into(parent: &mut ChildSpawnerCommands, art: Opt
             ));
         }
     }
-    // The wave crests run along the top of the water band, tiled and scrolling.
+    // The original's wave crests are small chevrons spaced apart on the water, drifting
+    // along it (checked against the title clip): spaced crests that scroll and wrap.
     if let Some(wave) = image("bg_race_wave") {
-        parent.spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(-TITLE_WAVE_TILE),
-                top: px(1080.0 - 6.0 * TITLE_PIXELS - 21.0),
-                width: px(1920.0 + 2.0 * TITLE_WAVE_TILE),
-                height: px(21.0),
-                ..default()
-            },
-            ImageNode::new(wave).with_mode(NodeImageMode::Tiled {
-                tile_x: true,
-                tile_y: false,
-                stretch_value: 1.0,
-            }),
-            TitleWaves,
-        ));
+        for i in 0..TITLE_WAVE_COUNT {
+            parent.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0.0),
+                    top: px(1080.0 - 6.0 * TITLE_PIXELS - 21.0),
+                    width: px(TITLE_WAVE_TILE),
+                    height: px(21.0),
+                    ..default()
+                },
+                ImageNode::new(wave.clone()),
+                TitleWaves(i),
+            ));
+        }
     }
 }
 
 /// Pixels per unit of the title backdrop's layout.
 const TITLE_PIXELS: f32 = 26.0;
 
-/// The wave crests' width in pixels, the distance they tile over.
+/// A wave crest's width in pixels, how far apart the crests sit, and how many there are
+/// (enough to cover the screen as they wrap).
 const TITLE_WAVE_TILE: f32 = 64.0;
+const TITLE_WAVE_SPACING: f32 = 360.0;
+const TITLE_WAVE_COUNT: usize = 7;
 
-/// The wave crests along the title water; they scroll left.
+/// One wave crest along the title water, by its place in the row.
 #[derive(Component)]
-struct TitleWaves;
+struct TitleWaves(usize);
 
 fn scroll_title_waves(
     time: Res<Time>,
     config: Res<GameConfig>,
-    mut waves: Query<&mut Node, With<TitleWaves>>,
+    mut waves: Query<(&TitleWaves, &mut Node)>,
 ) {
-    let shift = (time.elapsed_secs() * config.title_wave_speed) % TITLE_WAVE_TILE;
-    for mut node in &mut waves {
-        node.left = px(-TITLE_WAVE_TILE - shift);
+    let row = TITLE_WAVE_SPACING * TITLE_WAVE_COUNT as f32;
+    let shift = time.elapsed_secs() * config.title_wave_speed;
+    for (wave, mut node) in &mut waves {
+        let x = (wave.0 as f32 * TITLE_WAVE_SPACING - shift).rem_euclid(row) - TITLE_WAVE_TILE;
+        node.left = px(x);
     }
 }
 
