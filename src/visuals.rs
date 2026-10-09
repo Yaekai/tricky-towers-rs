@@ -25,7 +25,7 @@ impl Plugin for VisualsPlugin {
             .init_resource::<ViewSize>()
             .init_resource::<MenuLook>()
             .add_systems(Startup, setup_scene)
-            .add_systems(Update, (wobble_bubbles, show_edge_delays))
+            .add_systems(Update, (wobble_bubbles, show_edge_delays, turn_flowers))
             .add_systems(Update, twinkle_stars.before(fit_backgrounds))
             .add_systems(Update, fade_eclipse)
             .add_systems(Update, sweep_lasers)
@@ -570,6 +570,34 @@ fn dress_floor(
 /// stone or ice version when the brick is petrified or iced), else coloured cells.
 /// Runs again when a brick changes, turns to stone, or gets vines or grass.
 #[allow(clippy::type_complexity)]
+/// An Easter flower that turns after its delay: a quarter turn (back ease, 0.5 s), then a
+/// fast spin back (expo, 1.5 s), ending where it started, as the original's rotation tween.
+#[derive(Component)]
+struct FlowerTurn {
+    start: f32,
+    turn: f32,
+}
+
+fn turn_flowers(time: Res<Time>, mut flowers: Query<(&FlowerTurn, &mut Transform)>) {
+    let now = time.elapsed_secs();
+    let ease_in_back = |x: f32| {
+        let c = 1.70158;
+        x * x * ((c + 1.0) * x - c)
+    };
+    let ease_out_expo = |x: f32| if x >= 1.0 { 1.0 } else { 1.0 - 2f32.powf(-10.0 * x) };
+    for (flower, mut transform) in &mut flowers {
+        let t = now - flower.start;
+        let angle = if t < 0.0 {
+            0.0
+        } else if t < 0.5 {
+            ease_in_back(t / 0.5) * 90.0 * flower.turn
+        } else {
+            90.0 * flower.turn - ease_out_expo(((t - 0.5) / 1.5).min(1.0)) * 450.0 * flower.turn
+        };
+        transform.rotation = Quat::from_rotation_z(angle.to_radians());
+    }
+}
+
 /// An edge decoration that shows once its time comes.
 #[derive(Component)]
 struct EdgeDelay {
@@ -767,13 +795,21 @@ pub(crate) fn dress_bricks(
                         transform.translation = (top + Vec2::Y * cell * 0.1).extend(z);
                         // The original's decorations start after a short random delay.
                         let show_at = time.elapsed_secs() + delay + roll(7) * 0.3;
-                        entity.with_child((
+                        let turn = if roll(9) < 0.5 { -1.0 } else { 1.0 };
+                        let piece = entity.with_child((
                             sprite,
                             anchor,
                             transform,
                             Visibility::Hidden,
                             EdgeDelay { show_at },
                         ));
+                        // Flowers turn after a random 5 to 15 s (the original's tween delay).
+                        if name.contains("flower") {
+                            piece.insert(FlowerTurn {
+                                start: time.elapsed_secs() + 5.0 + roll(8) * 10.0,
+                                turn,
+                            });
+                        }
                     }
                 }
             }
