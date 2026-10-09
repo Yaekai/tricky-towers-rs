@@ -258,6 +258,40 @@ fn puzzle_battle_has_no_brick_limit() {
 }
 
 #[test]
+fn puzzle_round_stops_the_tower_then_ends_after_the_count() {
+    // Once a brick touches the laser, that tower takes no more bricks, and the
+    // round ends when its 3-2-1 has run (the original counts before the popup).
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.puzzle = PuzzleRules {
+        bricks: 2,
+        line_height: 6.0,
+        settle_seconds: 1.0,
+        ..config.puzzle.clone()
+    };
+    let count_seconds = config.puzzle.count_seconds;
+    let mut app = headless_app(config);
+    let (mut frame, mut presses) = (0, 0);
+    let touched = run_until(&mut app, 30.0, |app| {
+        frame += 1;
+        let mut input = human_input(app);
+        if frame % 4 == 0 && presses < 8 {
+            presses += 1;
+            input.left_pressed = true;
+        }
+        tower(app, 0).laser_count.is_some()
+    });
+    assert!(touched, "no brick reached the laser");
+    let placed = tower(&mut app, 0).bricks_placed;
+    run_seconds(&mut app, 1.0, |_| {});
+    assert_eq!(tower(&mut app, 0).bricks_placed, placed, "a stopped tower took a brick");
+    let ended = run_until(&mut app, count_seconds + 5.0, |app| {
+        app.world().resource::<Match>().phase == Phase::Over
+    });
+    assert!(ended, "the round did not end after the count");
+}
+
+#[test]
 fn puzzle_fails_when_crossing_the_line() {
     let mut config = fast_config();
     config.mode = ModeKind::Puzzle;
