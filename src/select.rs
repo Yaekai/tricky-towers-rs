@@ -373,8 +373,11 @@ pub(crate) fn corners(
 pub(crate) enum Part {
     /// A seat's grey panel, shown while nobody sits there.
     SeatIdle(usize),
-    /// A taken seat's coloured panel, rays, outline, arrows and corners.
+    /// A taken seat's outline and grey panels.
     SeatTaken(usize),
+    /// A confirmed panel's colour and turning rays: 0 the wizard, 1 the brick pack
+    /// (PlayerSlotComponent SetReady; an AI wizard's seat is always ready).
+    SeatReady(usize, usize),
     /// A seat's turning rays, by layer.
     SeatRays(usize, usize),
     /// A seat's wizard, asleep or awake.
@@ -389,8 +392,9 @@ pub(crate) enum Part {
     SeatJoin(usize),
     /// The box holding the join text; the letter copy hides with its parent.
     SeatJoinBox(usize),
-    /// The corners on the panel a seated player is choosing on.
-    SeatFocus(usize),
+    /// The corners and side arrows on the panel a seated player is choosing on:
+    /// 0 the wizard until it's confirmed, then 1 the brick pack until that is.
+    SeatFocus(usize, usize),
     /// A column's tile picture (mode or difficulty), and the difficulty background.
     ColumnPicture(usize),
     DifficultyBack,
@@ -535,11 +539,20 @@ pub(crate) fn spawn_select_screens(
             if let Some(grey) = image("menu_player_select_background_deselected") {
                 idle.insert((sliced(grey, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
             }
-            // Taken: the coloured panel with turning rays, then the outline.
+            // Taken: grey while the wizard is being chosen, then the coloured panel
+            // with turning rays once it's confirmed; the outline over both.
+            let mut choosing = page.spawn((
+                place(SEAT_PANEL, at),
+                BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.12)),
+                Part::SeatTaken(seat),
+            ));
+            if let Some(grey) = image("menu_player_select_background_deselected") {
+                choosing.insert((sliced(grey, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+            }
             let mut taken = page.spawn((
                 place(SEAT_PANEL, at),
                 BackgroundColor(Color::srgba(1.0, 0.8, 0.3, 0.35)),
-                Part::SeatTaken(seat),
+                Part::SeatReady(seat, 0),
             ));
             if let Some(colour) = image("menu_player_select_background_selected") {
                 taken.insert((
@@ -552,7 +565,7 @@ pub(crate) fn spawn_select_screens(
                     overflow: Overflow::clip(),
                     ..place(SEAT_RAYS_CLIP, at)
                 },
-                Part::SeatTaken(seat),
+                Part::SeatReady(seat, 0),
             ))
             .with_children(|clip| {
                 for layer in 0..5 {
@@ -611,7 +624,16 @@ pub(crate) fn spawn_select_screens(
                             ..default()
                         },
                         place(SEAT_ARROW, (x + side * SEAT_ARROW_X, SEAT_Y)),
-                        Part::SeatTaken(seat),
+                        Part::SeatFocus(seat, 0),
+                    ));
+                    page.spawn((
+                        ImageNode {
+                            image: arrow.clone(),
+                            flip_x,
+                            ..default()
+                        },
+                        place(SEAT_ARROW, (x + side * SEAT_ARROW_X, PACK_PANEL.1)),
+                        Part::SeatFocus(seat, 1),
                     ));
                 }
             }
@@ -625,16 +647,52 @@ pub(crate) fn spawn_select_screens(
             if let Some(grey) = image("menu_player_select_background_deselected") {
                 pack.insert((sliced(grey, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
             }
+            // A confirmed pack's panel is coloured with turning rays, like the wizard's.
+            if let Some(colour) = image("menu_player_select_background_selected") {
+                page.spawn((
+                    sliced(colour, [PANEL_SLICE; 4]),
+                    place(PACK_PANEL.0, (x, PACK_PANEL.1)),
+                    Part::SeatReady(seat, 1),
+                ));
+            }
+            let inset = (SEAT_PANEL.0 - SEAT_RAYS_CLIP.0, SEAT_PANEL.1 - SEAT_RAYS_CLIP.1);
+            let clip = (PACK_PANEL.0.0 - inset.0, PACK_PANEL.0.1 - inset.1);
+            page.spawn((
+                Node {
+                    overflow: Overflow::clip(),
+                    ..place(clip, (x, PACK_PANEL.1))
+                },
+                Part::SeatReady(seat, 1),
+            ))
+            .with_children(|clip_node| {
+                for layer in 0..5 {
+                    if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
+                        clip_node.spawn((
+                            ImageNode::new(rays),
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: Val::Px((clip.0 - 556.0) / 2.0),
+                                top: Val::Px((clip.1 - 556.0) / 2.0),
+                                width: Val::Px(556.0),
+                                height: Val::Px(556.0),
+                                ..default()
+                            },
+                            UiTransform::default(),
+                            Part::SeatRays(seat, layer),
+                        ));
+                    }
+                }
+            });
             if let Some(corner) = image("menu_corner_small") {
-                // Only the panel a player is choosing on has corners: the
-                // character panel (brick packs can't be picked yet).
+                // Only the panel a player is choosing on has corners.
+                corners(page, &corner, SEAT_PANEL, at, CORNER_SMALL, Part::SeatFocus(seat, 0));
                 corners(
                     page,
                     &corner,
-                    SEAT_PANEL,
-                    at,
+                    PACK_PANEL.0,
+                    (x, PACK_PANEL.1),
                     CORNER_SMALL,
-                    Part::SeatFocus(seat),
+                    Part::SeatFocus(seat, 1),
                 );
             }
             let mut plate = page.spawn((
@@ -873,27 +931,91 @@ pub(crate) fn players_input(
             mouse_move = (arrow as i32, if arrow == 0.0 { 1 } else { 0 });
         }
     }
+    // Each seat steps through the original's states (PlayerSlotComponent): Continue
+    // or Down joins, then confirms the wizard (it shines), then the brick pack (it
+    // shines too); Continue on a seat with both confirmed starts Select Mode. Back
+    // or Up undoes the last step: the pack, the wizard, then leaves the seat.
+    // Left/Right turn the wizard until it's confirmed, then the pack until that is.
+    let wizards = available_wizards(art.as_deref());
+    let packs = available_packs(art.as_deref());
+    // (who, continue pressed, down, up/back, left/right)
+    let mut steps: Vec<(Seat, bool, bool, bool, i32)> = Vec::new();
+    {
+        let (key_dx, key_down, key_up) = keys.as_deref().map_or((0, false, false), |keys| {
+            (
+                keys.just_pressed(KeyCode::ArrowRight) as i32 - keys.just_pressed(KeyCode::ArrowLeft) as i32,
+                keys.just_pressed(KeyCode::ArrowDown),
+                keys.just_pressed(KeyCode::ArrowUp),
+            )
+        });
+        steps.push((
+            Seat::Keyboard,
+            taps.key_pick,
+            key_down || mouse_move.1 > 0,
+            key_up,
+            key_dx + mouse_move.0,
+        ));
+    }
+    for (entity, pad) in &pads {
+        steps.push((
+            Seat::Pad(entity),
+            taps.pad_pick.contains(&entity),
+            pad.just_pressed(GamepadButton::DPadDown),
+            pad.just_pressed(GamepadButton::DPadUp) || taps.pad_back.contains(&entity),
+            pad.just_pressed(GamepadButton::DPadRight) as i32
+                - pad.just_pressed(GamepadButton::DPadLeft) as i32,
+        ));
+    }
     let mut go = false;
-    if taps.key_pick {
-        if lobby.seats.contains(&Seat::Keyboard) {
-            go = true;
-        } else {
-            lobby.seat(Seat::Keyboard);
+    for (who, pick, down, up, dx) in steps {
+        let Some(seat) = lobby.seats.iter().position(|s| *s == who) else {
+            // Not seated yet: Continue or Down joins; a pad's B on no seat goes back
+            // when nobody is seated.
+            if pick || down {
+                lobby.seat(who);
+            } else if up
+                && matches!(who, Seat::Pad(_))
+                && !lobby.seats.iter().any(|s| s.human())
+                && taps.pad_back.iter().any(|&p| Seat::Pad(p) == who)
+            {
+                *screen = MenuScreen::Main;
+                return;
+            }
+            continue;
+        };
+        let [wizard_done, pack_done] = lobby.confirmed[seat];
+        if pick || down {
+            if !wizard_done {
+                lobby.confirmed[seat][0] = true;
+            } else if !pack_done {
+                lobby.confirmed[seat][1] = true;
+            } else if pick {
+                go = true;
+            }
+        } else if up {
+            if pack_done {
+                lobby.confirmed[seat][1] = false;
+            } else if wizard_done {
+                lobby.confirmed[seat][0] = false;
+            } else {
+                lobby.seats[seat] = Seat::Empty;
+            }
+        } else if dx != 0 {
+            let (wizard, pack) = lobby.skins[seat];
+            if !wizard_done {
+                lobby.skins[seat].0 = step_in(&wizards, wizard, dx);
+            } else if !pack_done {
+                lobby.skins[seat].1 = step_in(&packs, pack, dx);
+            }
         }
+        let [wizard_done, _] = lobby.confirmed[seat];
+        lobby.skin_row[seat] = wizard_done as usize;
     }
-    for pad in taps.pad_pick {
-        if lobby.seats.contains(&Seat::Pad(pad)) {
-            go = true;
-        } else {
-            lobby.seat(Seat::Pad(pad));
-        }
-    }
-    for pad in taps.pad_back {
-        if let Some(seat) = lobby.seats.iter_mut().find(|s| **s == Seat::Pad(pad)) {
-            *seat = Seat::Empty;
-        } else if !lobby.seats.iter().any(|s| s.human()) {
-            *screen = MenuScreen::Main;
-            return;
+    // A freed seat starts over.
+    for seat in 0..MAX_TOWERS {
+        if lobby.seats[seat] == Seat::Empty {
+            lobby.confirmed[seat] = [false; 2];
+            lobby.skin_row[seat] = 0;
         }
     }
     if taps.key_add || taps.pad_add {
@@ -901,47 +1023,6 @@ pub(crate) fn players_input(
     }
     if taps.key_remove || taps.pad_remove {
         lobby.unseat_last_ai();
-    }
-    // Each seated person steers their own pickers: Up/Down between Character and
-    // Brick pack, Left/Right through what's there (docs/research/skins.md).
-    let wizards = available_wizards(art.as_deref());
-    let packs = available_packs(art.as_deref());
-    let mut moves: Vec<(Seat, i32, i32)> = Vec::new();
-    moves.push((Seat::Keyboard, mouse_move.0, mouse_move.1));
-    if let Some(keys) = keys.as_deref() {
-        let dx = keys.just_pressed(KeyCode::ArrowRight) as i32
-            - keys.just_pressed(KeyCode::ArrowLeft) as i32;
-        let dy = keys.just_pressed(KeyCode::ArrowDown) as i32
-            - keys.just_pressed(KeyCode::ArrowUp) as i32;
-        moves.push((Seat::Keyboard, dx, dy));
-    }
-    for (entity, pad) in &pads {
-        let dx = pad.just_pressed(GamepadButton::DPadRight) as i32
-            - pad.just_pressed(GamepadButton::DPadLeft) as i32;
-        let dy = pad.just_pressed(GamepadButton::DPadDown) as i32
-            - pad.just_pressed(GamepadButton::DPadUp) as i32;
-        moves.push((Seat::Pad(entity), dx, dy));
-    }
-    for (who, dx, dy) in moves {
-        let Some(seat) = lobby.seats.iter().position(|s| *s == who) else {
-            continue;
-        };
-        // Down on a row confirms it, and on the wizard row also moves to the packs.
-        if dy > 0 {
-            let row = lobby.skin_row[seat];
-            lobby.confirmed[seat][row] = true;
-            lobby.skin_row[seat] = (row + 1).min(1);
-        } else if dy < 0 {
-            lobby.skin_row[seat] = lobby.skin_row[seat].saturating_sub(1);
-        }
-        if dx != 0 {
-            let (wizard, pack) = lobby.skins[seat];
-            if lobby.skin_row[seat] == 0 {
-                lobby.skins[seat].0 = step_in(&wizards, wizard, dx);
-            } else {
-                lobby.skins[seat].1 = step_in(&packs, pack, dx);
-            }
-        }
     }
     if go && lobby.humans() > 0 {
         config.players = lobby.humans();
@@ -1171,6 +1252,10 @@ pub(crate) fn show_select_screens(
         let want = match *part {
             Part::SeatIdle(seat) => lobby.seats[seat] == Seat::Empty,
             Part::SeatTaken(seat) => lobby.seats[seat] != Seat::Empty,
+            Part::SeatReady(seat, n) => {
+                lobby.seats[seat] == Seat::Ai
+                    || (lobby.seats[seat] != Seat::Empty && lobby.confirmed[seat][n])
+            }
             Part::SeatRays(seat, layer) => {
                 if let (Some(mut transform), Some(&(degrees, seconds))) =
                     (transform, config.menu.ray_turns.get(layer))
@@ -1181,7 +1266,7 @@ pub(crate) fn show_select_screens(
             }
             Part::SeatWizard(seat) if no_pads && lobby.seats[seat] == Seat::Empty => false,
             Part::SeatWizard(seat) => {
-                let awake = lobby.confirmed[seat][0];
+                let awake = lobby.confirmed[seat][0] || lobby.seats[seat] == Seat::Ai;
                 let pose = if awake { "ready" } else { "sleeping" };
                 let picked = lobby.skins[seat].0.min(WIZARD_COUNT - 1);
                 let (offset, size) = WIZARDS[picked][awake as usize];
@@ -1255,7 +1340,11 @@ pub(crate) fn show_select_screens(
             Part::SeatJoinBox(seat) => {
                 Some(seat) == first_empty || (no_pads && lobby.seats[seat] == Seat::Empty)
             }
-            Part::SeatFocus(seat) => lobby.seats[seat].human(),
+            Part::SeatFocus(seat, n) => {
+                let [wizard_done, pack_done] = lobby.confirmed[seat];
+                lobby.seats[seat].human()
+                    && if n == 0 { !wizard_done } else { wizard_done && !pack_done }
+            }
             Part::SeatPick(seat, row) => {
                 let (wizard, pack) = lobby.skins[seat];
                 let name = if row == 0 {

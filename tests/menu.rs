@@ -55,7 +55,8 @@ fn tap(app: &mut App, key: KeyCode) {
 /// Local Battle, join with the keyboard, on to the modes, take the first mode,
 /// difficulty and single match, play.
 fn start(app: &mut App) {
-    for _ in 0..6 {
+    // Title, seat, confirm the wizard, confirm the pack, Select Mode, then its columns.
+    for _ in 0..8 {
         tap(app, KeyCode::Enter);
     }
 }
@@ -77,6 +78,11 @@ fn local_battle_seats_players_then_starts_the_picked_mode() {
         app.world().resource::<Lobby>().seats[..2],
         [Seat::Keyboard, Seat::Ai]
     );
+    assert_eq!(screen(&app), MenuScreen::Players);
+    // Enter confirms the wizard, then the brick pack, then goes on.
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(app.world().resource::<Lobby>().confirmed[0], [true, true]);
     assert_eq!(screen(&app), MenuScreen::Players);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(screen(&app), MenuScreen::Modes);
@@ -308,6 +314,8 @@ fn the_cup_column_picks_a_cup_and_starting_begins_it() {
     tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Tab);
+    tap(&mut app, KeyCode::Enter); // wizard
+    tap(&mut app, KeyCode::Enter); // brick pack
     tap(&mut app, KeyCode::Enter);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
     // The third column: single match → Tiny → Big → Super → single match → Tiny.
@@ -377,10 +385,19 @@ fn each_seat_picks_its_wizard_and_brick_pack() {
     // Character: two to the right (wizard 1 → 3); then the brick pack: one to the right.
     tap(&mut app, KeyCode::ArrowRight);
     tap(&mut app, KeyCode::ArrowRight);
-    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowDown); // confirm the wizard: the cursor moves to the packs
     tap(&mut app, KeyCode::ArrowRight);
     let lobby = app.world().resource::<Lobby>();
     assert_eq!(lobby.skins[0], (2, BrickPack::Christmas));
+    // Up undoes the wizard's confirmation: Left/Right turn the wizard again.
+    tap(&mut app, KeyCode::ArrowUp);
+    tap(&mut app, KeyCode::ArrowLeft);
+    assert_eq!(app.world().resource::<Lobby>().skins[0], (1, BrickPack::Christmas));
+    tap(&mut app, KeyCode::ArrowRight);
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowDown); // confirm the pack: Left/Right do nothing now
+    tap(&mut app, KeyCode::ArrowRight);
+    assert_eq!(app.world().resource::<Lobby>().skins[0], (2, BrickPack::Christmas));
     tap(&mut app, KeyCode::Tab); // an AI wizard keeps its seat's default
     tap(&mut app, KeyCode::Enter); // on to Select Mode
     tap(&mut app, KeyCode::Enter);
