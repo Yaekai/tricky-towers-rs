@@ -1033,7 +1033,9 @@ fn start_match(
                 mass: 1.0,
                 ice: false,
             };
-            let (collider, _) = brick_body(config, &block);
+            // Solid like the base's boxes, not the shrunk brick shape: a brick hangs over a
+            // floor block the way it does over a base, and not over a brick.
+            let collider = Collider::rectangle(c, rows as f32 * c);
             let centre = Vec2::new(
                 origin_x + config.cells(x),
                 config.cells((top + bottom) * 0.5),
