@@ -428,7 +428,7 @@ fn run_orbs(
     mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
-    view: Res<crate::visuals::ViewSize>,
+    view: Option<Res<crate::visuals::ViewSize>>,
     camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<CurseOrb>)>,
     mut orbs: Query<(Entity, &mut CurseOrb, &mut Transform, &mut Visibility)>,
 ) {
@@ -440,7 +440,7 @@ fn run_orbs(
             Projection::Orthographic(ortho) => ortho.scale,
             _ => 1.0,
         };
-        eye.translation.y + view.0.y * 0.5 * scale + size * 0.5
+        eye.translation.y + view.as_ref().map_or(0.0, |v| v.0.y) * 0.5 * scale + size * 0.5
     });
     for (entity, mut orb, mut transform, mut visibility) in &mut orbs {
         orb.time += dt;
