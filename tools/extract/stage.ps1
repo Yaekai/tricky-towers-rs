@@ -58,14 +58,14 @@ function Add-Sprite($key, $sprite, $rel, $what, $pivot = $null, $extra = '') {
 }
 
 # Image that is a whole texture file.
-function Add-Texture($key, $file, $rel, $what) {
+function Add-Texture($key, $file, $rel, $what, $extra = '') {
   $src = Join-Path $A "Texture2D\$file"
   if (-not (Test-Path $src)) { $missing.Add("$key (texture $file)"); return }
   $out = Join-Path $X $rel
   New-Item -ItemType Directory -Force (Split-Path $out) | Out-Null
   Copy-Item $src $out -Force
   $img = Get-Tex $src
-  $manifest.Add("    `"$key`": (file: `"$($rel -replace '\\','/')`"),")
+  $manifest.Add("    `"$key`": (file: `"$($rel -replace '\\','/')`"$extra),")
   $notes.Add("- $key : $what. $($img.Width)x$($img.Height) px, from texture $file.")
   $stagedMap.Add("texture`t$([IO.Path]::GetFileNameWithoutExtension($file))`t$key")
 }
@@ -82,34 +82,29 @@ function Add-Audio($key, $clip, $what) {
 }
 
 # --- Bricks (whole-brick textures, spawn orientation) ---
-# The original's default brick is lit from its normal map (the dark edges and cracks come from
-# it); the staged colour is baked with that light: a fixed direction from the upper left, and an ambient floor (guesses).
-function Bake-Lit($colour, $normal, $ambient = 0.62, $light = @(-0.35, 0.55, 0.75)) {
-  $c = [System.Drawing.Bitmap]::FromFile($colour)
-  $n = [System.Drawing.Bitmap]::FromFile($normal)
-  $len = [Math]::Sqrt($light[0]*$light[0] + $light[1]*$light[1] + $light[2]*$light[2])
-  $lx = $light[0]/$len; $ly = $light[1]/$len; $lz = $light[2]/$len
-  $out = New-Object System.Drawing.Bitmap $c.Width, $c.Height, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-  for ($y = 0; $y -lt $c.Height; $y++) {
-    for ($x = 0; $x -lt $c.Width; $x++) {
-      $px = $c.GetPixel($x, $y)
-      $nm = $n.GetPixel([Math]::Min($x, $n.Width-1), [Math]::Min($y, $n.Height-1))
-      $nx = $nm.R / 127.5 - 1.0; $ny = $nm.G / 127.5 - 1.0
-      $nz = [Math]::Sqrt([Math]::Max(0.0, 1.0 - $nx*$nx - $ny*$ny))
-      $diffuse = [Math]::Max(0.0, $nx*$lx + $ny*$ly + $nz*$lz)
-      $k = $ambient + (1.0 - $ambient) * $diffuse
-      $r = [int][Math]::Min(255, $px.R * $k); $g = [int][Math]::Min(255, $px.G * $k); $b2 = [int][Math]::Min(255, $px.B * $k)
-      $out.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($px.A, $r, $g, $b2))
-    }
+# A brick-pack brick drawn by the World/Bricks/Default shader: the prefab's sprite is a
+# bevel map (red/green the bevel's slope, blue the outline and cracks), the material
+# gives the colour pattern and the highlight and shadow colours. The game lights them.
+function Add-LitBrick($key, $pack, $shape, $dir, $what) {
+  $prefab = Join-Path $A "Resources\game\bricks\brickpack\$pack\Brick$shape.prefab"
+  if (-not (Test-Path $prefab)) { $missing.Add("$key (prefab $pack/Brick$shape)"); return }
+  $p = Get-Content $prefab -Raw
+  $sprite = [IO.Path]::GetFileNameWithoutExtension($idx[[regex]::Match($p, 'm_Sprite: \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value])
+  $mat = Get-Content $idx[[regex]::Match($p, 'm_Materials:\s*\n\s*- \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value] -Raw
+  $pattern = Split-Path -Leaf $idx[[regex]::Match($mat, '_PatternTex\s*\n\s*second:\s*\n\s*m_Texture: \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value]
+  $num = '(-?[0-9.]+(?:[eE][-+]?\d+)?)'
+  $color = {
+    param($n)
+    $m = [regex]::Match($mat, "name: $n\s*\n\s*second: \{r: $num, g: $num, b: $num, a: $num\}")
+    '(' + ((1..4 | ForEach-Object { Inv ([double]$m.Groups[$_].Value) }) -join ', ') + ')'
   }
-  $c.Dispose(); $n.Dispose()
-  $out.Save($colour, [System.Drawing.Imaging.ImageFormat]::Png); $out.Dispose()
+  # Not every material sets _Angle (Christmas); the game then keeps its default.
+  $angle = [regex]::Match($mat, "name: _Angle\s*\n\s*second: $num").Groups[1].Value
+  if ($angle) { $angle = ", light_angle: $(Inv ([double]$angle))" }
+  Add-Sprite "$($key)_bevel" $sprite "$dir\bevel_$shape.png" "$what, bevel and outline map"
+  Add-Texture $key $pattern "$dir\$shape.png" $what ", bevel: `"$($key)_bevel`", light: ($(& $color '_HighlightColor'), $(& $color '_ShadowColor'))$angle"
 }
-foreach ($b in 'I','O','T','S','Z','J','L') {
-  Add-Texture "brick_$b" "gph_brick$($b)_default_texture.png" "bricks\$b.png" "Brick $b, default pack (lit from its normal map)"
-  $normal = Join-Path $A "Texture2D\gph_brick$($b)_default_normalMap.png"
-  if (Test-Path $normal) { Bake-Lit (Join-Path $X "bricks\$b.png") $normal }
-}
+foreach ($b in 'I','O','T','S','Z','J','L') { Add-LitBrick "brick_$b" 'default' $b 'bricks' "Brick $b, default pack" }
 Add-Sprite 'mystery_block' 'gph_brickMystery01' 'bricks\mystery_block.png' 'Mystery 1, 2x4 block'
 Add-Sprite 'mystery_blob'  'gph_brickMystery02' 'bricks\mystery_blob.png'  'Mystery 2, blob in a 3x4 box (cells: 2x3 at x -1.5..0.5 y -2..1, 1x3 at x 0.5..1.5 y -1..2, 1x1 at x -0.5..0.5 y 1..2; plus a decorative rotor, gph_brickMystery02Rotor, drawn on top)'
 Add-Sprite 'mystery_table' 'gph_brickMystery03' 'bricks\mystery_table.png' 'Mystery 3, table: 4x2 slab on two 1x1 feet'
@@ -229,6 +224,31 @@ ModeScreenBg 'endless_puzzle' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   
 ModeScreenBg 'endless_puzzle' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.3 'Endless Puzzle ruins middle right' ', mask: ((102, 21, 29), (75, 15, 25))'
 ModeScreenBg 'endless_puzzle' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.3 'Endless Puzzle ruins front left' ', mask: ((44, 6, 9), (44, 6, 9))'
 ModeScreenBg 'endless_puzzle' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.3 'Endless Puzzle ruins front right' ', mask: ((44, 6, 9), (44, 6, 9))'
+# The floating rocks: the ruins prefabs' Head children (IslandBackLeft, IslandMiddleLeft/Center/Right),
+# static, recoloured with their ruin layer's mask (RuinsLayer), at the prefab's anchor and parallax,
+# drawn just in front of their layer. Index, layer, sprite, anchor x, offset x, offset y.
+$heads = @(
+  @(7, 0, 'gph_backgroundBackLeftHead', 0.0, 15.7, 15.2),
+  @(8, 2, 'gph_backgroundMiddleLeftHead', 0.0, 5.49, 22.82),
+  @(9, 3, 'gph_backgroundMiddleCenterHead', 0.5, -1.34, 14.78),
+  @(10, 4, 'gph_backgroundMiddleRightHead01', 1.0, -5.27, 24.31),
+  @(11, 4, 'gph_backgroundMiddleRightHead02', 1.0, -18.75, 13.97),
+  @(12, 4, 'gph_backgroundMiddleRightHead03', 1.0, -14.4, 16.9))
+# Per mode: back layer mask and parallax, middle layer mask and parallax.
+$headLooks = @{
+  'puzzle' = @(', mask: ((244, 217, 176), (247, 224, 190))', 0.3, ', mask: ((224, 172, 146), (214, 152, 131))', 0.5)
+  'puzzle_pro' = @(', mask: ((200, 36, 70), (215, 44, 83))', 0.3, ', mask: ((126, 22, 60), (103, 14, 43))', 0.5)
+  'endless_puzzle' = @(', mask: ((155, 29, 51), (174, 31, 61))', 0.1, ', mask: ((102, 21, 29), (75, 15, 25))', 0.3)
+}
+foreach ($look in $headLooks.Keys) {
+  $l = $headLooks[$look]
+  foreach ($h in $heads) {
+    $back = $h[1] -eq 0
+    $mask = if ($back) { $l[0] } else { $l[2] }
+    $par = if ($back) { $l[1] } else { $l[3] }
+    ModeScreenBg $look $h[0] $h[2] $h[3] 0.0 $h[4] $h[5] ($h[1] + 0.5) $par "Floating rock over the $look ruins ($($h[2]))" $mask
+  }
+}
 $manifest.Add('    "sky_endless_puzzle": (colors: [(139, 23, 56), (159, 38, 49), (255, 105, 39)]),')
 # Race Pro: the stormy clouds drift (screen units a second); the race islands are drawn from their
 # night textures (Resources\game\background\race\islands\Island*Dark.png, plain textures, not
@@ -520,6 +540,7 @@ $notes.Add('- credits_content : the Credits roll, JSON groups of titles and name
 
 # --- Gap scan 2026-10-05: Puzzle Pro sky, sandstorm, brick particles, in-match messages ---
 Add-Sprite 'puzzle_pro_sun' 'gph_eclipsedSun' 'background\puzzle_pro_sun.png' 'Puzzle Pro: eclipsed sun, 9 units above the screen centre'
+Add-Sprite 'puzzle_sun' 'gph_sun' 'background\puzzle_sun.png' 'Puzzle Easy/Normal: the sun (DesertSun), 9 units above the screen centre'
 Add-Sprite 'puzzle_pro_corona' 'gph_corona' 'background\puzzle_pro_corona.png' 'Puzzle Pro: corona ray around the eclipsed sun (several copies, stretched)'
 Add-Texture 'puzzle_sand' 'gph_pinkSand.png' 'background\puzzle_sand.png' 'Puzzle: sand strip along the bottom of the background'
 Add-Texture 'puzzle_sand_front' 'gph_foregroundSand.png' 'background\puzzle_sand_front.png' 'Puzzle: front sand strip, in front of the front ruins'
@@ -564,11 +585,15 @@ Add-Texture 'player_left_cross' 'icn_gameInfoPlayerLeft.png' 'menu\player_left_c
 Add-Sprite 'modal_tile' 'gph_modalTile' 'menu\modal_tile.png' 'Dark tiled overlay behind popups'
 
 # --- Brick packs (BrickPack folders; picked per player on Select Players) ---
-foreach ($pk in @(@('candy','candy'), @('christmas','christmas'), @('diamond','diamond'), @('spring','easter'), @('halloween','halloween'))) {
+foreach ($s in 'I','O','T','S','Z','J','L') { Add-LitBrick "brick_christmas_$s" 'christmas' $s 'bricks\christmas' "Brick $s, christmas pack" }
+foreach ($pk in @(@('candy','candy'), @('diamond','diamond'), @('spring','easter'), @('halloween','halloween'))) {
   foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_$($pk[0])_$s" "gph_brick$($s)_$($pk[1])_texture.png" "bricks\$($pk[0])\$s.png" "Brick $s, $($pk[0]) pack" }
 }
 foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_christmas_lights_$s" "gph_brick$($s)_christmas_lightsTexture03.png" "bricks\christmas\lights_$s.png" "Christmas pack: blinking lights layer for brick $s" }
 foreach ($pk in 'default','candy','christmas','diamond','easter','galaxy','halloween','hologram') { Add-Texture "brick_pack_icon_$pk" "icn_brickPack_$pk.png" "bricks\icons\pack_$pk.png" "Select Players: brick pack icon ($pk)" }
+# The next-brick card (NextBrickView: 126x101 Background) and the default pack's card icons.
+Add-Sprite 'next_card' 'gph_nextBrickBackground' 'hud\next_card.png' 'Next-brick card (NextBrickView background, 126x101 px)'
+foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "next_brick_default_$s" "icn_nextBrick_$s.png" "bricks\icons\next_default_$s.png" 'Next brick card icon, default pack' }
 foreach ($pk in @(@('candy','Candy'), @('christmas','Christmas'), @('diamond','Diamond'), @('spring','Easter'), @('galaxy','Galaxy'), @('halloween','Halloween'), @('hologram','Hologram'))) { foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "next_brick_$($pk[0])_$s" "icn_nextBrick$($pk[1])_$s.png" "bricks\icons\next_$($pk[0])_$s.png" "Next brick card icon, $($pk[0]) pack" } }
 Add-Texture 'brick_galaxy_background' 'gph_galaxy_background.png' 'bricks\galaxy\background.png' 'Galaxy pack: scrolling starfield drawn inside every brick'
 Add-Texture 'brick_galaxy_star' 'gph_star.png' 'bricks\galaxy\star.png' 'Galaxy pack: twinkling star (one twirls every 2..6 s)'

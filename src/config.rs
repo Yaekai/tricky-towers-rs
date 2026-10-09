@@ -637,7 +637,8 @@ pub struct PuzzleRules {
     /// how many cells lower than the top a column can be.
     pub easy_floor: (u32, u32, u32),
     pub normal_floor: (u32, u32, u32),
-    /// Pro floor: a pillar this wide, with a 1-cell ledge on this share (%) of rows.
+    /// Pro floor (ProRandomPuzzleFloor): the original's floor height (13) and the
+    /// chance (%) of a ledge on each side of each row (`Next(100) > 30`: 69).
     pub pro_floor: (u32, u32),
     /// The lane is this much wider than in the other modes...
     #[serde(default = "default_puzzle_lane_scale")]
@@ -676,7 +677,7 @@ impl Default for PuzzleRules {
             floor_depth: 6.0,
             easy_floor: (5, 0, 2),
             normal_floor: (6, 40, 4),
-            pro_floor: (3, 70),
+            pro_floor: (13, 69),
             lane_scale: 1.2,
             lane_margin: 1.5,
         }
@@ -2030,11 +2031,16 @@ pub struct WeatherLook {
     pub lightning_bolt: (f32, f32),
     pub lightning_branches: u32,
     /// Puzzle sandstorm: back and front tint (RGB) and opacity, scroll speed as a
-    /// share of the view width per second, and the per-layer offset.
+    /// share of the view width per second, and how much faster each later band of a
+    /// prefab scrolls (SandStormLayer: 0.035 + 0.025 per band).
     pub sandstorm_back: ([u8; 3], f32),
     pub sandstorm_front: ([u8; 3], f32),
     pub sandstorm_speed: f32,
     pub sandstorm_offset: f32,
+    /// The sandstorm's bands (the SandStormBack and SandStormFront prefabs' quads): front
+    /// or back, which staged picture (`sandstorm_<back|front>_N`), and the band's centre
+    /// height and height, in view units (41.54 a view) from the view's bottom.
+    pub sandstorm_bands: Vec<(bool, u32, f32, f32)>,
     /// Puzzle sand strips along the screen bottom, as shares of the view height: the back
     /// strip's height, how far its bottom sits above the screen bottom, and its opacity
     /// (drawn behind the front ruins); then the front strip's height (in front of them,
@@ -2049,9 +2055,8 @@ pub struct WeatherLook {
     pub puzzle_pro_sky: Vec<[u8; 3]>,
     pub eclipse_height: f32,
     pub eclipse_size: f32,
-    pub corona_rays: u32,
-    pub corona_width: (f32, f32),
-    pub corona_height: (f32, f32),
+    /// The corona (DesertProSun prefab): soft bars centred on the sun, behind it.
+    pub corona: Vec<CoronaPart>,
     /// Survival night sky and the curse-wave sky it shifts to over `wave_shift` seconds.
     pub survival_sky: Vec<[u8; 3]>,
     pub survival_wave_sky: Vec<[u8; 3]>,
@@ -2083,16 +2088,23 @@ impl Default for WeatherLook {
             sandstorm_front: ([0xE9, 0xAA, 0x5D], 0.37),
             sandstorm_speed: 0.035,
             sandstorm_offset: 0.025,
+            sandstorm_bands: vec![
+                (false, 1, 4.2, 2.0),
+                (false, 1, 4.0, 3.0),
+                (false, 2, 4.2, 3.0),
+                (true, 1, 1.7, 2.5),
+                (true, 2, 2.8, 3.56),
+            ],
             sand_strip: 0.085,
             sand_lift: 0.027,
             sand_alpha: 0.803,
             sand_front: 0.089,
             puzzle_pro_sky: vec![[0xAB, 0x05, 0x4C], [0xB8, 0x44, 0x42]],
-            eclipse_height: 0.3,
-            eclipse_size: 0.22,
-            corona_rays: 7,
-            corona_width: (0.6, 0.8),
-            corona_height: (0.3, 2.0),
+            // DesertProSun sits 9 units above the view centre; gph_eclipsedSun is
+            // 408 px at 26 px a unit; the view is 41.54 units tall.
+            eclipse_height: 9.0 / 41.54,
+            eclipse_size: 408.0 / 26.0 / 41.54,
+            corona: default_corona(),
             survival_sky: vec![[51, 30, 103], [91, 83, 173]],
             survival_wave_sky: vec![[26, 13, 58], [147, 64, 157]],
             wave_shift: 1.0,
@@ -2280,10 +2292,10 @@ impl Default for CupPanel {
 }
 
 impl CupPanel {
-    /// Seconds from the panel coming up until CONTINUE shows, once the medals of
-    /// a cup's target have filled.
-    pub fn continue_at(&self, target: u32) -> f32 {
-        self.fill_start + self.fill_step * target as f32
+    /// Seconds from the panel coming up until CONTINUE shows, once `fresh` new
+    /// medals have filled.
+    pub fn continue_at(&self, fresh: usize) -> f32 {
+        self.fill_start + self.fill_step * fresh as f32
     }
 }
 /// A battle's opening, from the original's intro and countdown (docs/research/
@@ -3195,6 +3207,39 @@ impl GameConfig {
     }
 }
 
+/// One corona bar of the eclipsed sun (a child of the DesertProSun prefab): its start
+/// angle in degrees, its scale of the 683x97 px `puzzle_pro_corona` picture, its tint,
+/// how fast it turns (degrees a second, RotationBehaviour) and how its opacity swings
+/// between `fade.0` and `fade.1` at `fade.2` times a second (FadeBehaviour).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct CoronaPart {
+    pub angle: f32,
+    pub scale: (f32, f32),
+    pub tint: [u8; 3],
+    pub spin: f32,
+    pub fade: (f32, f32, f32),
+}
+
+fn default_corona() -> Vec<CoronaPart> {
+    let part = |angle: f32, scale: (f32, f32), tint: [u8; 3], spin: f32, fade: (f32, f32, f32)| {
+        CoronaPart { angle, scale, tint, spin, fade }
+    };
+    let (pink, rose, orange, red) = ([255, 188, 205], [255, 143, 209], [255, 144, 84], [255, 12, 109]);
+    vec![
+        part(-349.4, (0.8, 1.97), pink, 1.0, (0.5, 1.0, 0.3)),
+        part(-147.4, (0.58, 0.45), rose, 8.0, (0.5, 1.0, 0.3)),
+        part(-184.3, (0.7, 1.52), orange, 3.0, (0.5, 1.0, 0.3)),
+        part(96.3, (0.67, 0.31), red, 4.0, (0.4, 0.8, 0.2)),
+        part(-292.9, (0.7, 0.7), red, -1.0, (0.5, 1.0, 0.2)),
+        part(305.2, (0.79, 1.72), orange, -9.0, (0.5, 1.0, 0.2)),
+        part(-278.1, (0.7, 0.7), rose, -3.0, (0.5, 1.0, 0.1)),
+        part(-18.7, (0.7, 0.7), pink, -4.0, (0.5, 1.0, 0.1)),
+        part(-18.7, (0.7, 2.09), pink, -4.0, (0.5, 1.0, 0.1)),
+        part(-353.3, (0.92, 1.72), [255, 24, 86], -2.0, (0.4, 0.75, 0.02)),
+    ]
+}
+
 /// A title-screen island: its staged picture, the point of the screen its pivot sits
 /// at (in units of 26 px from the bottom left of the 1920×1080 screen, as the original's
 /// backdrop), and how it bobs: each leg goes a random distance above or below its
@@ -3385,6 +3430,10 @@ pub struct HudLook {
     /// how far left of the lane's drop column its centre sits (share of view width).
     pub card_height: f32,
     pub card_aspect: f32,
+    /// With the card art: the brick icon's cell size and its centre, as shares of the
+    /// card's height, width and height (NextBrickView: 18.3 px a cell, icon box 1.4 px
+    /// right of the middle and 55.4 px down a 126x101 card).
+    pub card_icon: [f32; 3],
     pub card_bar: f32,
     pub card_left: f32,
     /// Card and top bar colours (0-255).
@@ -3405,6 +3454,9 @@ pub struct HudLook {
     /// The drop guide's colour in Race (and Puzzle, Endless) and in Survival (0-1, with alpha).
     pub guide_race: [f32; 4],
     pub guide_survival: [f32; 4],
+    /// Puzzle's warm guide (PuzzleGameMode tints it (255, 235, 189) at 0.8 in a blend we
+    /// can't draw; this one is matched to Max's Easy and Special clips by eye).
+    pub guide_puzzle: [f32; 4],
     /// Spell line diamonds: size and gap in cells, and one colour per line in turn
     /// when the art gives none (0-255).
     pub diamond_size: f32,
@@ -3427,8 +3479,10 @@ pub struct HudLook {
 impl Default for HudLook {
     fn default() -> Self {
         Self {
-            card_height: 65.0 / 720.0,
-            card_aspect: 75.0 / 65.0,
+            // NextBrickView's Background, 126x101 px of a 1080 px screen.
+            card_height: 101.0 / 1080.0,
+            card_aspect: 126.0 / 101.0,
+            card_icon: [18.3 / 101.0, 1.4 / 126.0, 55.4 / 101.0],
             card_bar: 0.2,
             card_left: 78.0 / 1280.0,
             card_color: [255, 255, 255],
@@ -3442,6 +3496,7 @@ impl Default for HudLook {
             heart_below: 1.83,
             guide_race: [0.65, 0.95, 1.0, 0.3],
             guide_survival: [0.8, 0.7, 1.0, 0.3],
+            guide_puzzle: [1.0, 0.94, 0.78, 0.3],
             diamond_size: 0.45,
             diamond_step: 0.6,
             line_colors: vec![

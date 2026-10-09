@@ -550,6 +550,30 @@ fn ivy_vines_the_brick_to_what_it_lands_on() {
 }
 
 #[test]
+fn ivy_never_grabs_a_puzzle_floor_block() {
+    // Max: vines must not change the terrain. Floor blocks are bricks in the
+    // ECS, so Ivy must skip them when it looks for what to join.
+    let mut config = magic_config(SpellKind::Ivy, &[]);
+    config.mode = ModeKind::Puzzle;
+    config.puzzle.floor = tricky_towers::config::PuzzleFloor::Easy;
+    let mut app = headless_app(config);
+    assert!(
+        count::<With<tricky_towers::gameplay::FloorBlock>>(&mut app) > 0,
+        "the Puzzle floor has no blocks to test against"
+    );
+    wait_for_light(&mut app, SpellKind::Ivy);
+    human_input(&mut app).cast_light_pressed = true;
+    run_seconds(&mut app, 2.0, |_| {});
+    let world = app.world_mut();
+    let joined_floor = world
+        .query::<(&ChildOf, &tricky_towers::gameplay::FloorBlock)>()
+        .iter(world)
+        .filter(|(child, _)| world.get::<IvyCluster>(child.parent()).is_some())
+        .count();
+    assert_eq!(joined_floor, 0, "Ivy grabbed a floor block");
+}
+
+#[test]
 fn ivy_onto_stone_makes_the_cluster_static() {
     // Regression: joining a stone (static) brick panicked inside avian
     // ("Neither body ... is in an island").
@@ -1056,8 +1080,11 @@ fn puzzle_floors_follow_each_difficulty() {
         );
         config.puzzle.floor = PuzzleFloor::Pro;
         let pro = puzzle_floor(&config, &mut roll);
-        assert_eq!(pro.iter().filter(|c| c.1 == 0.0).count(), 3);
-        assert!(pro.iter().all(|c| c.0.abs() <= 2.0));
+        // ProRandomPuzzleFloor: one full pillar at x 0, ledges 1 cell beside it (its
+        // neighbour columns start below our shallower floor's bottom).
+        assert_eq!(pro.iter().filter(|c| c.0 == 0.0).count(), 1);
+        assert!(pro.iter().all(|c| c.0.abs() <= 1.0));
+        assert!(pro.iter().filter(|c| c.0 != 0.0).all(|c| c.1 - c.2 <= 1.0));
     }
 }
 

@@ -150,6 +150,7 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-09 (PC): Puzzle battles have no brick limit (only trials do), the win by bricks is trial-only, and a battle's bases are kinematic and carried up by velocity while they rise (no clipping).
 - 2026-10-09 (PC): Ivy never joins the Puzzle floor (spells.rs grow_ivy excludes FloorBlock); floor blocks are Brick entities, so the join was merging them into clusters.
 - 2026-10-09 (PC): Puzzle battle scores: the 3-2-1 over the lane that touched the laser, then each tower's brick count above its lane (winner gold, others pink) (results.rs show_puzzle_scores, place_puzzle_scores). Winner popup with the score not done.
+- 2026-10-09 (cloud, cloud-batch-10): Puzzle round test (a stopped tower takes no bricks, the round ends after the count) added to tests/headless.rs. Ivy loosening test now stops when its tower goes out while waiting for a brick (it failed on g9oll8 too). The Large grow and base collider items were already in the code, so nothing changed there. Full headless suite: 68 pass, 1 ignored. Not pushed to main; the PC thread should merge the branch and run the offscreen check.
 - 2026-10-09 (PC): default bricks are lit from their normal map: stage.ps1 Bake-Lit multiplies the colour by a diffuse light from the upper left with an ambient floor (0.62; direction and ambient are guesses, not the original's shader).
 - 2026-10-09 (PC): the water scene (floating islands and wave crests) is shared: menu.rs spawn_water_scene_into, used by the title, Select, Settings, Single, Trials pages and the start screen over menu_background_bare.
 - 2026-10-09 (cloud, cloud-batch-10): Puzzle round test (a stopped tower takes no bricks, the round ends after the count) added to tests/headless.rs. Ivy loosening test now stops when its tower goes out while waiting for a brick (it failed on g9oll8 too). The Large grow and base collider items were already in the code, so nothing changed there. Full headless suite: 68 pass, 1 ignored. Not pushed to main; the PC thread should merge the branch and run the offscreen check.
@@ -159,3 +160,23 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-09 (PC): brick packs have their own landing sound (SFX_BRICK_PLACED__<PACK>_1..3 in the install: 201 Christmas, 202 holo, 203 diamond, 204 candy, 205 galaxy, 206 spring); staged as sfx_brick_placed_<pack>_<n> and played for the first player's pack (art.rs play_sounds). Edge decorations (snow, Easter grass and flowers) not done yet.
 - 2026-10-09 (PC): Christmas bricks get snow on the top edge (25%%), Easter bricks grass (25%%) and flowers (40%%), picked per brick by a hash of its id (visuals.rs dress_bricks). Static: no growth animation yet; not checked in game.
 - 2026-10-09 (PC): Christmas snow and Easter decorations appear after a short random delay (visuals.rs EdgeDelay, show_edge_delays), 0 to 0.3 s as the original's. Easter flower growth still static.
+- 2026-10-09 (PC, tt-next worktree): bricks lit like the original (art.rs light_bricks): the brick
+  prefab's sprite is a bevel map (red/green slope, blue outline and cracks) lighting the colour
+  pattern with the material's highlight/shadow colours; stage.ps1 Add-LitBrick stages default and
+  Christmas (other packs use other shaders, still flat). The blend and the line colour are ours,
+  matched to the pack icon. Also: Survival intro card flips, Settings slider clicks (no drag in
+  the original), title islands bob as BobbingIsland. Re-run stage.ps1 (then wizards.ps1 etc.)
+  on a fresh PC to get the bevel entries.
+- 2026-10-09 (PC, tt-next): cup standings from TournamentResultsItem and Max's Puzzle Tiny Cup clip:
+  earlier matches' medals show at once and only the latest match's fill in (`Cup::before`,
+  `Cup::fresh`, CONTINUE after them), medals past the target show as "+N" (`Part::Extra`), cleared
+  when the trophy comes. The "+N" size and place are by eye.
+- 2026-10-09 (PC, tt-next): Puzzle look from Max's Easy/Special start clips and the prefabs: the sandstorm is
+  five low bands (`WeatherLook::sandstorm_bands`, SandStormBack/Front quads) not full-screen fog; the
+  Easy/Normal sun (`puzzle_sun`, DesertSun) and the eclipse at 9 units up, 408 px (was 0.3/0.22); the
+  corona is the prefab's 10 tinted bars turning and pulsing (`WeatherLook::corona`); the floating rocks
+  are the ruins' Head sprites (`background_<look>_7..12`); the Special floor is a 1-wide pillar with
+  ledges on both sides (ProRandomPuzzleFloor); next-brick card art and icon placement from
+  NextBrickView; Puzzle guide colour. The other thread's old stage.ps1 runs wiped staged entries twice;
+  merge main before staging.
+- 2026-10-09 (cloud, cloud-batch-10, later): Select Players follows the original's steps: Down confirms a seat's wizard (it shines) and moves to the brick pack row, a second Down confirms the pack, and Enter goes on only once every seated human has confirmed both (an early Enter confirms the current line). Mouse: a click on a Character or Brick pack line moves the cursor there, a second click confirms it (line positions are guesses until the clip is checked). select.rs `confirm_row` / `everyone_confirmed`; tests/menu.rs covers the flow. Also: trial table test (tests/trials_table.rs), DEBUG-TOOL tags on the WASD keys in popup.rs and menu.rs and on offscreen.rs. Full `cargo test` passes.

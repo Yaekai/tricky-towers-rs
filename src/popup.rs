@@ -62,9 +62,8 @@ impl Popup {
     /// CONTINUE shows on the panel once its medals have filled.
     pub fn panel_continue(&self, cup: &Cup, config: &GameConfig) -> bool {
         self.panel_up(cup, &config.cup_panel)
-            && cup
-                .rules(&config.cups)
-                .is_some_and(|size| self.since_shown() >= config.cup_panel.continue_at(size.target))
+            && cup.rules(&config.cups).is_some()
+            && self.since_shown() >= config.cup_panel.continue_at(cup.fresh())
     }
 }
 
@@ -283,6 +282,8 @@ fn popup_input(
     };
     let (mut up, mut down, mut pick) = (false, false, false);
     if let Some(keys) = keys {
+        // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
+        // WASD and the numpad arrows: scripted presses on Windows and habit (see menu.rs).
         up |= keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Numpad8]);
         down |= keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS, KeyCode::Numpad2]);
         pick |= keys.any_just_pressed([KeyCode::Enter, KeyCode::Space, KeyCode::NumpadEnter]);

@@ -1,3 +1,4 @@
+// DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
 //! Offscreen runs: no window and no sound. The game draws into a picture instead
 //! of a window and saves it at set times, then quits. Handy for scripted checks
 //! on a computer someone is using: nothing shows up and nothing plays.

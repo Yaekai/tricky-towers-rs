@@ -823,6 +823,26 @@ pub(crate) fn read_taps(
 /// AI wizard to the next empty seat, Backspace or Y takes the last one away,
 /// and B gets a pad up from its seat.
 #[allow(clippy::too_many_arguments)]
+/// Down on a seat's row confirms it (it shines); the wizard row also moves the
+/// cursor to the brick pack row.
+fn confirm_row(lobby: &mut Lobby, seat: usize) {
+    let row = lobby.skin_row[seat];
+    lobby.confirmed[seat][row] = true;
+    lobby.skin_row[seat] = (row + 1).min(1);
+}
+
+/// Every seated human has confirmed both the wizard and the brick pack, so the next
+/// input goes on to the cup and mode choice.
+fn everyone_confirmed(lobby: &Lobby) -> bool {
+    lobby.humans() > 0
+        && lobby
+            .seats
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.human())
+            .all(|(seat, _)| lobby.confirmed[seat] == [true, true])
+}
+
 pub(crate) fn players_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
@@ -862,6 +882,20 @@ pub(crate) fn players_input(
                 };
                 clicked = Some((seat, arrow));
             }
+            // The Character and Brick pack lines under the name plate: the first click
+            // moves the cursor there, a second confirms that line.
+            for row in 0..2 {
+                let y = NAME_PLATE.1 - PICK_STEP * (row as f32 + 1.0);
+                if (p.x - x).abs() <= PICK_LINE.0 / 2.0 && (p.y - y).abs() <= PICK_LINE.1 / 2.0 {
+                    if lobby.seats[seat].human() {
+                        if lobby.skin_row[seat] == row {
+                            confirm_row(&mut lobby, seat);
+                        } else {
+                            lobby.skin_row[seat] = row;
+                        }
+                    }
+                }
+            }
         }
     }
     if let Some((seat, arrow)) = clicked {
@@ -875,15 +909,23 @@ pub(crate) fn players_input(
     }
     let mut go = false;
     if taps.key_pick {
-        if lobby.seats.contains(&Seat::Keyboard) {
-            go = true;
+        if let Some(seat) = lobby.seats.iter().position(|s| *s == Seat::Keyboard) {
+            if everyone_confirmed(&lobby) {
+                go = true;
+            } else {
+                confirm_row(&mut lobby, seat);
+            }
         } else {
             lobby.seat(Seat::Keyboard);
         }
     }
     for pad in taps.pad_pick {
-        if lobby.seats.contains(&Seat::Pad(pad)) {
-            go = true;
+        if let Some(seat) = lobby.seats.iter().position(|s| *s == Seat::Pad(pad)) {
+            if everyone_confirmed(&lobby) {
+                go = true;
+            } else {
+                confirm_row(&mut lobby, seat);
+            }
         } else {
             lobby.seat(Seat::Pad(pad));
         }
@@ -928,9 +970,7 @@ pub(crate) fn players_input(
         };
         // Down on a row confirms it, and on the wizard row also moves to the packs.
         if dy > 0 {
-            let row = lobby.skin_row[seat];
-            lobby.confirmed[seat][row] = true;
-            lobby.skin_row[seat] = (row + 1).min(1);
+            confirm_row(&mut lobby, seat);
         } else if dy < 0 {
             lobby.skin_row[seat] = lobby.skin_row[seat].saturating_sub(1);
         }

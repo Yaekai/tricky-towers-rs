@@ -110,6 +110,17 @@ pub struct ArtEntry {
     /// `(r, g, b, a)` 0 to 255. Transparent if left out, like the original's ruins.
     #[serde(default)]
     pub outline: Option<Pair<(f32, f32, f32, f32)>>,
+    /// Brick-pack bricks: the entry of the bevel map this colour pattern is lit by
+    /// (World/Bricks/Default: red/green the bevel's slope, blue the outline and cracks).
+    #[serde(default)]
+    pub bevel: Option<String>,
+    /// With `bevel`: the highlight and shadow colours `(r, g, b, a)`, 0 to 1, and the
+    /// light's angle in degrees (the brick material's `_HighlightColor`, `_ShadowColor`
+    /// and `_Angle`).
+    #[serde(default)]
+    pub light: Option<Pair<(f32, f32, f32, f32)>>,
+    #[serde(default)]
+    pub light_angle: Option<f32>,
     /// Screen layers only: slides sideways at a speed picked from this range, in
     /// screen units a second, wrapping round the view (Race Pro's clouds: 0.15-0.25).
     #[serde(default)]
@@ -315,6 +326,7 @@ impl Plugin for ArtPlugin {
                 (
                     drop_failed_art,
                     recolor_masks,
+                    light_bricks,
                     play_animations,
                     apply_font,
                     play_music,
@@ -541,6 +553,87 @@ fn recolor_masks(
     }
 }
 
+/// The bricks' outline and crack colour: the median of the darkest brick pixels in
+/// Max's close-up of a Race tower (clip_1,791,559,010,207; the original's shader is a
+/// stub in the export).
+const BRICK_LINE: (f32, f32, f32) = (13.0 / 255.0, 14.0 / 255.0, 35.0 / 255.0);
+
+/// Lights brick-pack bricks once their pattern and bevel map are loaded, as the
+/// original's World/Bricks/Default shader draws them: bevels sloping towards the light
+/// blend to the highlight colour, those sloping away to the shadow colour, by the
+/// slope and the colour's alpha; the bevel map's blue draws the outline and cracks,
+/// and the outline reaches past the brick's own alpha (the map's blue runs 2 px
+/// further out), as thick as in the close-up. The blend is ours (?), matched to it.
+fn light_bricks(
+    mut art: ResMut<Art>,
+    mut images: ResMut<Assets<Image>>,
+    mut done: Local<std::collections::HashSet<String>>,
+) {
+    type Ready = (String, Handle<Image>, Handle<Image>, [Srgba; 2], f32);
+    let ready: Vec<Ready> = art
+        .entries
+        .iter()
+        .filter(|(name, _)| !done.contains(*name))
+        .filter_map(|(name, entry)| {
+            let ((hr, hg, hb, ha), (sr, sg, sb, sa)) = entry.light.as_ref()?.get()?;
+            let pattern = art.images.get(name)?.clone();
+            let bevel = art.images.get(entry.bevel.as_ref()?)?.clone();
+            images.get(&pattern)?;
+            images.get(&bevel)?;
+            let light = [Srgba::new(hr, hg, hb, ha), Srgba::new(sr, sg, sb, sa)];
+            Some((
+                name.clone(),
+                pattern,
+                bevel,
+                light,
+                entry.light_angle.unwrap_or(280.0),
+            ))
+        })
+        .collect();
+    for (name, pattern, bevel, [high, shadow], angle) in ready {
+        done.insert(name.clone());
+        let (Some(pattern), Some(mut out)) =
+            (images.get(&pattern).cloned(), images.get(&bevel).cloned())
+        else {
+            continue;
+        };
+        let size = out.size();
+        // The pattern is stretched over the brick like the original's UVs.
+        let scale = pattern.size().as_vec2() / size.as_vec2();
+        let (ly, lx) = angle.to_radians().sin_cos();
+        for y in 0..size.y {
+            for x in 0..size.x {
+                let (Ok(map), Ok(base)) = (
+                    out.get_color_at(x, y),
+                    pattern.get_color_at((x as f32 * scale.x) as u32, (y as f32 * scale.y) as u32),
+                ) else {
+                    continue;
+                };
+                let (map, base) = (map.to_srgba(), base.to_srgba());
+                let slope = (map.red * 2.0 - 1.0) * lx - (map.green * 2.0 - 1.0) * ly;
+                let (to, by) = if slope > 0.0 {
+                    (high, slope)
+                } else {
+                    (shadow, -slope)
+                };
+                let lit = |c: f32, t: f32, line: f32| {
+                    let c = c + (t - c) * by.min(1.0) * to.alpha;
+                    c + (line - c) * map.blue
+                };
+                let color = Color::srgba(
+                    lit(base.red, to.red, BRICK_LINE.0).clamp(0.0, 1.0),
+                    lit(base.green, to.green, BRICK_LINE.1).clamp(0.0, 1.0),
+                    lit(base.blue, to.blue, BRICK_LINE.2).clamp(0.0, 1.0),
+                    map.alpha.max(map.blue),
+                );
+                let _ = out.set_color_at(x, y, color);
+            }
+        }
+        let lit = images.add(out);
+        art.images.insert(name, lit);
+    }
+}
+
 /// Plays animation `name` (a manifest entry with `frames`) on this entity's
 /// `Sprite` or `ImageNode`.
 #[derive(Component, Debug, Clone)]
@@ -668,7 +761,11 @@ fn play_music(
         if !ambience.iter().any(|(_, a)| a.0 == name)
             && let Some(handle) = art.sounds.get(name)
         {
-            commands.spawn((Ambience(name), AudioPlayer(handle.clone()), PlaybackSettings::LOOP));
+            commands.spawn((
+                Ambience(name),
+                AudioPlayer(handle.clone()),
+                PlaybackSettings::LOOP,
+            ));
         }
     }
     // A battle's music starts with play, after its intro's 3-2-1.
@@ -885,6 +982,13 @@ mod tests {
         assert_eq!(art.frame("wave", 0.7), Some(handle(1)));
         assert_eq!(art.frame("once", 5.0), Some(handle(3)));
         assert_eq!(art.image("wave"), Some(handle(1)));
+    }
+
+    #[test]
+    fn lit_brick_entry_reads() {
+        let e = read_entry(r#"(file: "bricks/T.png", bevel: "brick_T_bevel", light: ((0.7106, 0.9034, 0.9118, 0.903), (0.2279, 0.2974, 0.5, 0.903)), light_angle: 280.0)"#);
+        assert_eq!(e.bevel.as_deref(), Some("brick_T_bevel"));
+        assert!(e.light.unwrap().get().is_some());
     }
 
     fn read_entry(text: &str) -> ArtEntry {
