@@ -391,12 +391,9 @@ fn glitch_holograms(
             0.0
         };
         let amount = 1.0 - (2.0 * progress - 1.0).abs();
-        let shift = if on {
-            (roll(&mut seed) - 0.5) * 6.0 * amount
-        } else {
-            0.0
-        };
-        glitch.seed = seed;
+        // The glitch's width this frame; each cell takes its own share of it, so the
+        // brick tears into slices rather than sliding whole.
+        let width = if on { amount * 6.0 } else { 0.0 };
         for child in children.iter() {
             if let Ok((mut sprite, mut transform)) = sprites.get_mut(child) {
                 // Hologram bricks are see-through and cyan-tinted, more so in a glitch.
@@ -406,44 +403,75 @@ fn glitch_holograms(
                     (0.8, 1.0, 1.0, 0.85)
                 };
                 sprite.color = Color::srgba(red, green, blue, touch.unwrap_or(alpha));
-                transform.translation.x = shift;
+                transform.translation.x = glitch_slice(width, roll(&mut seed));
             }
         }
+        glitch.seed = seed;
     }
 }
 
-/// The gloss: up to 0.7 in 0.15 s, held, back to 0 in the last 0.15 s of 0.6 s. The
-/// original also turns the gloss angle a full circle; here it brightens the cells.
+/// One cell's sideways tear during a glitch: `roll` (0 to 1) picks how far, within
+/// `width` either way.
+pub(crate) fn glitch_slice(width: f32, roll: f32) -> f32 {
+    (roll - 0.5) * 2.0 * width
+}
+
+/// The gloss: a diagonal band of light sweeps across the brick's cells in 0.6 s, each
+/// cell brightening as the band passes it (the original turns the gloss at a random
+/// angle; the diagonal is a guess until a clip shows it).
 fn gloss_diamonds(
     time: Res<Time>,
+    config: Res<GameConfig>,
     mut bricks: Query<(&mut Gloss, &Children)>,
-    mut sprites: Query<&mut Sprite, With<CellSprite>>,
+    mut sprites: Query<(&mut Sprite, &Transform), With<CellSprite>>,
 ) {
     let dt = time.delta_secs();
+    let band = config.cell_size * 0.8;
     for (mut gloss, children) in &mut bricks {
         let mut seed = gloss.seed;
-        let glow = if gloss.time >= 0.0 {
+        let sweep = if gloss.time >= 0.0 {
             gloss.time += dt;
             let t = gloss.time;
             if t >= 0.6 {
                 gloss.time = -1.0;
                 gloss.wait = between(&mut seed, 6.0, 15.0);
+                None
+            } else {
+                Some(t / 0.6)
             }
-            0.7 * (t / 0.15).min(1.0).min((0.6 - t).max(0.0) / 0.15)
         } else {
             gloss.wait -= dt;
             if gloss.wait <= 0.0 {
                 gloss.time = 0.0;
             }
-            0.0
+            None
         };
         gloss.seed = seed;
+        let (mut lo, mut hi) = (f32::MAX, f32::MIN);
         for child in children.iter() {
-            if let Ok(mut sprite) = sprites.get_mut(child) {
+            if let Ok((_, transform)) = sprites.get(child) {
+                let at = transform.translation.x + transform.translation.y;
+                lo = lo.min(at);
+                hi = hi.max(at);
+            }
+        }
+        for child in children.iter() {
+            if let Ok((mut sprite, transform)) = sprites.get_mut(child) {
+                let glow = sweep.map_or(0.0, |progress| {
+                    let at = transform.translation.x + transform.translation.y;
+                    gloss_glow(at, lo, hi, progress, band)
+                });
                 sprite.color = Color::WHITE.mix(&Color::srgb(1.3, 1.3, 1.3), glow);
             }
         }
     }
+}
+
+/// How bright a cell at diagonal `at` is while the gloss sweep is `progress` (0 to 1)
+/// through a brick spanning `lo` to `hi`: up to 0.7 at the front, fading over `band`.
+pub(crate) fn gloss_glow(at: f32, lo: f32, hi: f32, progress: f32, band: f32) -> f32 {
+    let front = (lo - band) + ((hi - lo) + 2.0 * band) * progress.clamp(0.0, 1.0);
+    0.7 * (1.0 - ((at - front).abs() / band).min(1.0))
 }
 
 /// Every Galaxy cell shows the part of one big scrolling starfield behind it, so all
@@ -555,6 +583,25 @@ fn twirl_stars(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_glitch_tears_each_cell_within_its_width() {
+        assert_eq!(glitch_slice(0.0, 0.9), 0.0, "no glitch, no tear");
+        for r in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            assert!(glitch_slice(3.0, r).abs() <= 3.0 + 1e-6);
+        }
+        assert!(glitch_slice(3.0, 0.0) < 0.0 && glitch_slice(3.0, 1.0) > 0.0);
+    }
+
+    #[test]
+    fn the_gloss_band_sweeps_from_one_end_of_the_brick_to_the_other() {
+        // Brick diagonals from 0 to 4 cells, band 1 cell wide.
+        let (lo, hi, band) = (0.0, 4.0, 1.0);
+        assert!(gloss_glow(0.0, lo, hi, 0.0, band) < 0.01, "not yet at the start");
+        assert!((gloss_glow(2.0, lo, hi, 0.5, band) - 0.7).abs() < 1e-5, "centre at mid sweep");
+        assert!(gloss_glow(4.0, lo, hi, 0.0, band) < 0.01, "the far end is still ahead");
+        assert!(gloss_glow(0.0, lo, hi, 1.0, band) < 0.01, "the sweep has passed the near end");
+    }
 
     #[test]
     fn neighbouring_cells_line_up_across_the_whole_field() {

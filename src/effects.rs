@@ -123,6 +123,16 @@ fn sized(
     )
 }
 
+/// The picture names for the Ghost skull that takes grip `n`: the named skulls, then
+/// the staged skull heads (`fx_skull0<1|2>_head`, the head alone; the jaw isn't drawn).
+fn skull_names(n: usize) -> [String; 3] {
+    [
+        format!("ghost_skull_{}", n % 2 + 1),
+        "ghost_skull".into(),
+        format!("fx_skull0{}_head", n % 2 + 1),
+    ]
+}
+
 /// A skull flying in to grab a ghosted brick at one point of its outline.
 #[derive(Component)]
 struct Skull {
@@ -159,8 +169,11 @@ fn attach_skulls(
             pick(|v| v.y) + Vec2::new(0.0, 0.5),
         ];
         for (n, grip) in grips.into_iter().enumerate() {
-            let name = format!("ghost_skull_{}", n % 2 + 1);
-            let Some(image) = art.image(&name).or_else(|| art.image("ghost_skull")) else {
+            let names = skull_names(n);
+            let Some((name, image)) = names
+                .iter()
+                .find_map(|name| art.image(name).map(|image| (name.clone(), image)))
+            else {
                 continue;
             };
             let (sprite, anchor, transform) = sized(&art, &name, image, c);
@@ -622,4 +635,17 @@ fn rand_seed() -> u64 {
     let r = crate::gameplay::xorshift(&mut s);
     SEED.store(s, Ordering::Relaxed);
     r
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::skull_names;
+
+    #[test]
+    fn each_grip_takes_its_skull_then_the_staged_heads() {
+        assert_eq!(skull_names(0)[0], "ghost_skull_1");
+        assert_eq!(skull_names(1)[2], "fx_skull02_head");
+        assert_eq!(skull_names(2)[2], "fx_skull01_head");
+    }
 }
