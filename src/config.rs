@@ -625,6 +625,8 @@ pub struct PuzzleRules {
     pub drop_penalty: f32,
     /// After a brick touches the laser, the 3-2-1 this long before the bricks are counted.
     pub count_seconds: f32,
+    /// After the round is over, each brick is counted this many seconds after the last (guess).
+    pub count_step: f32,
     /// How fast the base rises after a brick falls off, in cells a second.
     pub base_rise_speed: f32,
     /// The floor each round is built on, in place of a flat base.
@@ -668,6 +670,7 @@ impl Default for PuzzleRules {
             start_spell: Some(SpellKind::Ivy),
             drop_penalty: 0.5,
             count_seconds: 3.0,
+            count_step: 0.25,
             base_rise_speed: 3.0,
             floor: PuzzleFloor::Normal,
             floor_depth: 6.0,

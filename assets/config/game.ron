@@ -567,6 +567,7 @@
         start_spell: Some(Ivy),
         drop_penalty: 0.5,
         count_seconds: 3.0,
+        count_step: 0.25,
         base_rise_speed: 3.0,
         floor: Normal,
         floor_depth: 6.0,
