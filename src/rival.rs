@@ -2,8 +2,8 @@
 //! the rival tower popping in brick by brick at the start, as in the original
 //! (docs/research/trials-obstacles-roofs.md, "Rival towers"). The towers' layouts are
 //! staged from the install as `rival_towers.ron` (tools/extract/rival_towers.ps1);
-//! without it the lane shows the house only. Puzzle trials instead show the bricks
-//! still to come floating in a beam (`puzzle_column`). Looks only.
+//! without it the lane shows the house only. Puzzle trials and battles show each
+//! tower's bricks still to come floating in a beam (`puzzle_column`). Looks only.
 
 use std::collections::HashMap;
 
@@ -175,21 +175,27 @@ fn pop_in(
     }
 }
 
-/// A Puzzle trial's column (WizardPuzzleBricksView, PuzzleWizardHUD): the trial's
-/// bricks top to bottom from 36 cells above the camera's lowest bottom down 28 cells in all, each popping in over 0.5 s (out-back) in turn over
-/// the first 0.5 s, then bobbing ±0.5 cell and swaying ±10°; the top one goes as
-/// each brick is used. Behind it a beam grows to half width over 1 s and spans the view.
+/// A Puzzle tower's column (WizardPuzzleBricksView, PuzzleWizardHUD): its bricks
+/// still to come, top to bottom from 36 cells above the camera's lowest bottom down
+/// 28 cells in all, each popping in over 0.5 s (out-back) in turn over the first
+/// 0.5 s, then bobbing ±0.5 cell and swaying ±10°; the top one goes as each brick is
+/// dealt. Behind it a beam grows to half width over 1 s and spans the view. In a
+/// battle every tower has one, 11 cells to its right in its own world.
 const COLUMN_TOP: f32 = 36.0;
 const COLUMN_SPAN: f32 = 28.0;
+const COLUMN_SIDE: f32 = 11.0;
 const BEAM_WIDTH: f32 = 0.5;
 const BEAM_ALPHA: f32 = 0.392;
-/// Where the column stands across the view, from Max's screenshot of the original's
-/// Puzzle trial: our trial lanes aren't framed like the original's yet, so it keeps
-/// to the screen instead of 11 cells into the enemy's world (?).
+/// Where a trial's column stands across the view, from Max's screenshot of the
+/// original's Puzzle trial: our trial lanes aren't framed like the original's yet, so
+/// it keeps to the screen instead of 11 cells into the enemy's world (?).
 const COLUMN_SCREEN_X: f32 = 0.875;
 
 #[derive(Component)]
 struct PuzzleColumn {
+    tower: Entity,
+    /// Centre x in a battle; `None` keeps a trial's to the screen.
+    x: Option<f32>,
     time: f32,
     used: usize,
     /// The lowest the view's bottom has been (the original's camera `minBottom`).
@@ -199,23 +205,24 @@ struct PuzzleColumn {
 #[derive(Component)]
 struct ColumnBrick {
     index: usize,
+    count: usize,
     start: Vec2,
     offset: f32,
 }
 
-/// The beam behind the column, until its art is swapped for a glow copy.
+/// The beam behind a column, until its art is swapped for a glow copy.
 #[derive(Component)]
 struct ColumnBeam {
     glowing: bool,
 }
 
 /// The bricks a running Puzzle trial deals, in order.
-fn trial_order(config: &GameConfig) -> &[String] {
+fn trial_order(config: &GameConfig) -> Vec<String> {
     config
         .trial
         .and_then(|i| config.trials.get(i))
         .filter(|t| t.mode == crate::config::ModeKind::Puzzle)
-        .map(|t| t.order.as_slice())
+        .map(|t| t.order.clone())
         .unwrap_or_default()
 }
 
@@ -230,104 +237,127 @@ fn puzzle_column(
         &crate::gameplay::Tower,
         &crate::gameplay::TowerState,
         Option<&crate::gameplay::TowerSkin>,
+        Option<&crate::gameplay::BrickBag>,
     )>,
     mut columns: Query<(Entity, &mut PuzzleColumn)>,
-    bricks: Query<(Entity, &ColumnBrick)>,
+    bricks: Query<(Entity, &ColumnBrick, &ChildOf)>,
     in_hand: Query<&crate::gameplay::Brick, With<crate::gameplay::ActiveBrick>>,
 ) {
-    let order = trial_order(&config);
-    let wanted = !order.is_empty() && game.phase != crate::gameplay::Phase::Menu;
-    let player = towers.iter().find(|(_, t, ..)| t.index == 0);
-    let Some((id, tower, state, skin)) = player.filter(|_| wanted) else {
-        for (entity, _) in &columns {
+    let trial = trial_order(&config);
+    let battle = config.trial.is_none() && game.mode == crate::config::ModeKind::Puzzle;
+    let wanted = (!trial.is_empty() || battle) && game.phase != crate::gameplay::Phase::Menu;
+    for (entity, column) in &columns {
+        if !wanted || !towers.contains(column.tower) {
             commands.entity(entity).despawn();
         }
+    }
+    if !wanted {
         return;
-    };
+    }
     let c = config.cell_size;
-    if let Ok((_, mut column)) = columns.single_mut() {
-        // Each brick leaves the top as it's dealt (the original's BRICK_LEFT count).
-        let dealt = in_hand.iter().any(|b| b.tower == id) as u32;
-        let used = (state.bricks_used() + dealt) as usize;
-        if used > column.used {
-            for (brick, info) in &bricks {
-                if info.index < used {
-                    commands.entity(brick).despawn();
-                }
-            }
-            column.used = used;
-        }
-        return;
-    }
-    let pack = skin.map(|s| s.pack).unwrap_or_default();
-    let count = order.len();
-    let mut node = commands.spawn((
-        PuzzleColumn {
-            time: 0.0,
-            used: 0,
-            floor: f32::MAX,
-        },
-        Transform::from_xyz(tower.origin_x, 0.0, -1.0),
-        Visibility::default(),
-    ));
-    if let Some(image) = art
-        .image("cast_lane_beam_survival")
-        .or_else(|| art.image("cast_lane_beam"))
-    {
-        node.with_child((
-            ColumnBeam { glowing: false },
-            Sprite::from_image(image),
-            Transform::from_scale(Vec3::new(0.0, 1.0, 1.0)),
-        ));
-    }
-    for (index, name) in order.iter().enumerate() {
-        let Some(def) = config.pieces.iter().find(|p| &p.name == name) else {
+    for (id, tower, state, skin, bag) in &towers {
+        // A trial has one column, the player's.
+        if !battle && tower.index != 0 {
             continue;
-        };
-        let start = Vec2::new(
-            0.0,
-            (COLUMN_TOP - index as f32 * COLUMN_SPAN / count as f32) * c,
-        );
-        let cells = def.centered_cells();
-        let image = [pack.brick_art(&def.name), format!("brick_{}", def.name)]
-            .iter()
-            .find_map(|k| art.image(k));
-        // A fixed offset per brick so they don't bob in step (the original rolls 0-5).
-        let offset = ((index as f32 + 1.0) * 0.618_034).fract() * 5.0;
-        node.with_children(|column| {
-            let mut brick = column.spawn((
-                ColumnBrick {
-                    index,
-                    start,
-                    offset,
-                },
-                Transform::from_translation(start.extend(index as f32 * 0.01))
-                    .with_scale(Vec3::ZERO),
-                Visibility::default(),
-            ));
-            match image {
-                Some(image) => {
-                    let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
-                    let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
-                    brick.with_child((
-                        Sprite {
-                            image,
-                            custom_size: Some((max - min + Vec2::ONE) * c),
-                            ..default()
-                        },
-                        Transform::from_translation(((min + max) * 0.5 * c).extend(0.0)),
-                    ));
+        }
+        if let Some((entity, mut column)) = columns.iter_mut().find(|(_, col)| col.tower == id) {
+            // Each brick leaves the top as it's dealt (the original's BRICK_LEFT count).
+            let dealt = in_hand.iter().any(|b| b.tower == id) as u32;
+            let used = (state.bricks_used() + dealt) as usize;
+            if used > column.used {
+                for (brick, info, parent) in &bricks {
+                    if parent.parent() == entity && info.index < used {
+                        commands.entity(brick).despawn();
+                    }
                 }
-                None => {
-                    let color = Color::srgb(def.color[0], def.color[1], def.color[2]);
-                    brick.with_children(|b| crate::visuals::cell_sprites(b, &cells, c, color));
-                }
+                column.used = used;
             }
-        });
+            continue;
+        }
+        // A battle's bricks are the tower's bag ahead (everyone gets the same).
+        let order: Vec<String> = match (battle, bag) {
+            (true, Some(bag)) => {
+                let mut ahead = bag.clone();
+                (0..config.puzzle.bricks)
+                    .filter_map(|_| config.pieces.get(ahead.draw()).map(|p| p.name.clone()))
+                    .collect()
+            }
+            (true, None) => continue,
+            _ => trial.clone(),
+        };
+        let pack = skin.map(|s| s.pack).unwrap_or_default();
+        let count = order.len();
+        let mut node = commands.spawn((
+            PuzzleColumn {
+                tower: id,
+                x: battle.then(|| tower.origin_x + COLUMN_SIDE * c),
+                time: 0.0,
+                used: 0,
+                floor: f32::MAX,
+            },
+            Transform::from_xyz(tower.origin_x, 0.0, -1.0),
+            Visibility::default(),
+        ));
+        if let Some(image) = art
+            .image("cast_lane_beam_survival")
+            .or_else(|| art.image("cast_lane_beam"))
+        {
+            node.with_child((
+                ColumnBeam { glowing: false },
+                Sprite::from_image(image),
+                Transform::from_scale(Vec3::new(0.0, 1.0, 1.0)),
+            ));
+        }
+        for (index, name) in order.iter().enumerate() {
+            let Some(def) = config.pieces.iter().find(|p| &p.name == name) else {
+                continue;
+            };
+            let start = Vec2::new(
+                0.0,
+                (COLUMN_TOP - index as f32 * COLUMN_SPAN / count as f32) * c,
+            );
+            let cells = def.centered_cells();
+            let image = [pack.brick_art(&def.name), format!("brick_{}", def.name)]
+                .iter()
+                .find_map(|k| art.image(k));
+            // A fixed offset per brick so they don't bob in step (the original rolls 0-5).
+            let offset = ((index as f32 + 1.0) * 0.618_034).fract() * 5.0;
+            node.with_children(|column| {
+                let mut brick = column.spawn((
+                    ColumnBrick {
+                        index,
+                        count,
+                        start,
+                        offset,
+                    },
+                    Transform::from_translation(start.extend(index as f32 * 0.01))
+                        .with_scale(Vec3::ZERO),
+                    Visibility::default(),
+                ));
+                match image {
+                    Some(image) => {
+                        let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
+                        let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
+                        brick.with_child((
+                            Sprite {
+                                image,
+                                custom_size: Some((max - min + Vec2::ONE) * c),
+                                ..default()
+                            },
+                            Transform::from_translation(((min + max) * 0.5 * c).extend(0.0)),
+                        ));
+                    }
+                    None => {
+                        let color = Color::srgb(def.color[0], def.color[1], def.color[2]);
+                        brick.with_children(|b| crate::visuals::cell_sprites(b, &cells, c, color));
+                    }
+                }
+            });
+        }
     }
 }
 
-/// Pops the column's bricks in, bobs them, grows the beam and fits it to the view.
+/// Pops the columns' bricks in, bobs them, grows the beams and fits them to the view.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn bob_column(
     mut commands: Commands,
@@ -358,9 +388,7 @@ fn bob_column(
         ),
     >,
 ) {
-    let (Ok((mut column, mut at)), Ok((camera, projection))) =
-        (columns.single_mut(), camera.single())
-    else {
+    let Ok((camera, projection)) = camera.single() else {
         return;
     };
     let zoom = match projection {
@@ -368,25 +396,36 @@ fn bob_column(
         _ => 1.0,
     };
     let view = view.map_or(Vec2::new(1280.0, 720.0), |v| v.0) * zoom;
-    // Bricks hang from the lowest view bottom; the column keeps its place across the view.
-    column.floor = column.floor.min(camera.translation.y - view.y / 2.0);
-    at.translation.x = camera.translation.x + (COLUMN_SCREEN_X - 0.5) * view.x;
-    at.translation.y = column.floor;
-    let before = column.time;
-    column.time += time.delta_secs();
-    let t = column.time;
-    let count = trial_order(&config).len().max(1) as f32;
+    let dt = time.delta_secs();
+    // Every column hangs from the lowest view bottom and they share one clock.
+    let mut clock = None;
+    for (mut column, mut at) in &mut columns {
+        column.floor = column.floor.min(camera.translation.y - view.y / 2.0);
+        at.translation.x = column
+            .x
+            .unwrap_or(camera.translation.x + (COLUMN_SCREEN_X - 0.5) * view.x);
+        at.translation.y = column.floor;
+        let before = column.time;
+        column.time += dt;
+        clock = Some((before, column.time, at.translation.y));
+    }
+    let Some((before, t, column_y)) = clock else {
+        return;
+    };
     let c = config.cell_size;
+    // The pop sounds play once for all columns: they come in together.
+    let mut popped = Vec::new();
     for (brick, mut transform) in &mut bricks {
+        let count = brick.count.max(1) as f32;
         let delay = brick.index as f32 / count * 0.5;
-        if before <= delay
-            && t > delay
-            && let Some(sound) = art.sounds.get("sfx_bubble_pop")
-        {
-            commands.spawn((
-                AudioPlayer(sound.clone()),
-                PlaybackSettings::DESPAWN.with_speed(1.0 + brick.index as f32 / count * 1.5),
-            ));
+        if before <= delay && t > delay && !popped.contains(&brick.index) {
+            popped.push(brick.index);
+            if let Some(sound) = art.sounds.get("sfx_bubble_pop") {
+                commands.spawn((
+                    AudioPlayer(sound.clone()),
+                    PlaybackSettings::DESPAWN.with_speed(1.0 + brick.index as f32 / count * 1.5),
+                ));
+            }
         }
         let o = brick.offset;
         transform.translation.x = brick.start.x + (o + t * 0.4852).sin() * 0.5 * c;
@@ -407,13 +446,12 @@ fn bob_column(
             .get(&sprite.image)
             .map_or(Vec2::ONE, |i| i.size_f32());
         // Spans the view and follows the camera up and down.
-        transform.translation.y = camera.translation.y - at.translation.y;
+        transform.translation.y = camera.translation.y - column_y;
         transform.scale.y = view.y / size.y.max(1.0);
         // Grows to half its width over 1 s; the art is 26 px per cell.
         transform.scale.x = BEAM_WIDTH * t.min(1.0) * c / 26.0;
     }
 }
-
 /// DOTween's OutBack ease (overshoot 1.70158).
 fn out_back(t: f32) -> f32 {
     let s = 1.70158;
