@@ -99,8 +99,8 @@ fn menu_escape(
     }
     match (game.phase, *screen) {
         // Pause the match.
-        (Phase::Playing, _) => {
-            pause.resume_to = Some(Phase::Playing);
+        (Phase::Playing | Phase::Intro, _) => {
+            pause.resume_to = Some(game.phase);
             pause.selected = 0;
             game.phase = Phase::Menu;
             *screen = MenuScreen::Pause;
@@ -500,12 +500,12 @@ fn pause_input(
     mut request: ResMut<MatchRequest>,
 ) {
     // Start on any pad pauses, as Esc does.
-    if game.phase == Phase::Playing
+    if matches!(game.phase, Phase::Playing | Phase::Intro)
         && gamepads
             .iter()
             .any(|pad| pad.just_pressed(GamepadButton::Start))
     {
-        pause.resume_to = Some(Phase::Playing);
+        pause.resume_to = Some(game.phase);
         pause.selected = 0;
         game.phase = Phase::Menu;
         *screen = MenuScreen::Pause;
@@ -549,6 +549,7 @@ fn pause_input(
         "Retry" => {
             pause.resume_to = None;
             request.pending = true;
+            request.retry = true;
         }
         _ => {
             pause.resume_to = None;

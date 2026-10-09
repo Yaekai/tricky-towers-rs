@@ -306,6 +306,7 @@ fn popup_input(
             // no cup) Rematch starts the same again from scratch.
             if !cup.in_progress() {
                 cup.begin();
+                request.retry = true;
             }
             request.pending = true;
         }

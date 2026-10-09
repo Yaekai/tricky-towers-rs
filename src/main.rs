@@ -146,7 +146,10 @@ fn main() {
         tricky_towers::hud::HudPlugin,
         RivalPlugin,
     ));
-    app.add_plugins(tricky_towers::game_info::GameInfoPlugin);
+    app.add_plugins((
+        tricky_towers::game_info::GameInfoPlugin,
+        tricky_towers::intro::IntroPlugin,
+    ));
     // Endless scores are kept between runs, except in offscreen picture runs.
     if offscreen.is_none() {
         let file = tricky_towers::single::save_dir().join("leaderboard.ron");

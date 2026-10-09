@@ -33,6 +33,8 @@ pub struct Explain {
     time: f32,
     closing: Option<f32>,
     back_to: MenuScreen,
+    /// The phase the match was in (its intro or play), to go back to.
+    resume: Option<Phase>,
     /// Showing the controls step, and whether the mode's explanation follows it.
     controls: bool,
     mode_next: bool,
@@ -370,7 +372,7 @@ fn open_explain(
     }
     *last_round = game.round;
     let on = settings.is_some_and(|s| s.explanations && s.file.is_some());
-    if !on || game.phase != Phase::Playing {
+    if !on || !matches!(game.phase, Phase::Playing | Phase::Intro) {
         return;
     }
     // The controls come first once per session, for battles and for single player.
@@ -455,6 +457,7 @@ fn open_explain(
     explain.time = 0.0;
     explain.closing = None;
     explain.back_to = *screen;
+    explain.resume = Some(game.phase);
     game.phase = Phase::Menu;
     *screen = MenuScreen::Explain;
 }
@@ -516,7 +519,7 @@ fn run_explain(
             if disable || !explain.mode_next {
                 explain.open = false;
                 *screen = explain.back_to;
-                game.phase = Phase::Playing;
+                game.phase = explain.resume.take().unwrap_or(Phase::Playing);
             }
         }
         return;
@@ -560,6 +563,6 @@ fn run_explain(
     if closing.is_some_and(|c| c >= last_in) {
         explain.open = false;
         *screen = explain.back_to;
-        game.phase = Phase::Playing;
+        game.phase = explain.resume.take().unwrap_or(Phase::Playing);
     }
 }

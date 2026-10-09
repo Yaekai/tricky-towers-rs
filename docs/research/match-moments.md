@@ -118,3 +118,27 @@ XP (only used online and in cups; local matches give none)
   (Already staged as `trophy`, `trophy_big`, `trophy_super`.)
 - **XP:** only online, non-friends cups give XP (the level-up popup after the winner popup).
   Local cups give none.
+
+## Match intro (battles)
+Read from the install (intro and countdown states, ModeTitleMessage and CountdownMessage
+prefabs and their clips). Values are `GameConfig::intro`.
+- **Mode title.** 0.3 s, then 0.3 s more, then a ribbon over the middle of the screen: the mode
+  and difficulty in gold display letters ("RACE NORMAL", "SURVIVAL SPECIAL"), with "OVERTIME"
+  under it in a cup tie. One ribbon per difficulty, each with its own picture: Easy 920 px wide
+  with one star at each end, Normal 1220 px with three, Special 1420 px with five; Easy and
+  Special sit 40 px lower than Normal (centre 120 / 160 px above the screen centre). Move-in
+  0.6 s: it opens to full height in 0.08 s while its width overshoots and settles (Normal 642 →
+  1289 → 1209 → 1229 → 1220). It stays 0.7 s, then moves out in 0.37 s: up 15 px, down to 95 px
+  below its place, fading from 0.2 s. A countdown sound plays as it comes up.
+- **Which matches show it.** Every single match; in a one-mode cup only the first match, and any
+  overtime match.
+- **The mode's own intro** (skipped by Rematch and Retry): Race waits 0.5 s, raises the camera's
+  top and bottom together by the finish height less 17 cells over 0.8 s (in-out quad), holds
+  0.5 s, comes back down in 0.386 s, and the countdown starts 0.2 s after it starts down.
+  Survival counts each brick count up from 0, linear over 2 s (1 s with 33 bricks), with a
+  count-up sound, then waits 0.3 s; the next-brick card flips through random bricks meanwhile
+  (not done yet). Puzzle waits 0.5 s, brings the laser in, waits 0.5 s (the laser's entrance isn't
+  done yet).
+- **3-2-1.** Gold numbers 100 px above the centre: 3 at 0 s, 2 at 0.75 s, 1 at 1.5 s, each with
+  the count sound pitched up (1, 1.17, 1.33) and a small pop (scale 1.15 back to 1). Play starts
+  at 2.25 s. In Race the word "RACE" then shows, scaling 1.2 back to 1, until 3.0 s.

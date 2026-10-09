@@ -71,6 +71,9 @@ pub struct GameplaySystems;
 pub enum Phase {
     /// Waiting in the menu; physics is paused.
     Menu,
+    /// A battle's opening (mode title, camera sweep, 3-2-1); src/intro.rs runs it.
+    /// Nothing spawns or moves until it hands over to `Playing`.
+    Intro,
     Playing,
     /// Someone won or everyone is out. Bricks keep simulating.
     Over,
@@ -93,6 +96,8 @@ pub struct Match {
     pub round: u64,
     /// Race Pro wind's side: 1 blows right, -1 left, 0 no wind.
     pub wind: f32,
+    /// Started by Rematch or Retry.
+    pub retry: bool,
 }
 
 impl Default for Match {
@@ -106,6 +111,7 @@ impl Default for Match {
             players: 1,
             round: 0,
             wind: 0.0,
+            retry: false,
         }
     }
 }
@@ -172,11 +178,18 @@ fn drain_water(
     }
 }
 
+/// Present in the full game (src/intro.rs): battles open with their intro instead
+/// of going straight into play. Headless runs leave it out.
+#[derive(Resource)]
+pub struct IntroOn;
+
 /// Set `pending` to start (or restart) a match with the current
 /// [`GameConfig::mode`] and [`GameConfig::opponents`].
 #[derive(Resource, Debug, Default)]
 pub struct MatchRequest {
     pub pending: bool,
+    /// Rematch or Retry: the next match skips the intro's camera sweep and count-up.
+    pub retry: bool,
 }
 
 /// One tower: a platform and the bricks stacked on it.
@@ -809,6 +822,7 @@ type ModeRules = (
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn start_match(
     mut commands: Commands,
+    intro: Option<Res<IntroOn>>,
     mut request: ResMut<MatchRequest>,
     mut game: ResMut<Match>,
     mut config: ResMut<GameConfig>,
@@ -830,6 +844,7 @@ fn start_match(
     if !std::mem::take(&mut request.pending) {
         return;
     }
+    let retry = std::mem::take(&mut request.retry);
     // Trials and the Endless modes change the mode rules for one match; start
     // each match from the rules as loaded.
     let base = base.get_or_insert_with(|| {
@@ -1034,8 +1049,14 @@ fn start_match(
     }
 
     log.0.clear();
+    // Battles open with their intro (mode title, 3-2-1) in the full game.
+    let battle = config.trial.is_none() && !config.mode.is_endless();
     *game = Match {
-        phase: Phase::Playing,
+        phase: if intro.is_some() && battle {
+            Phase::Intro
+        } else {
+            Phase::Playing
+        },
         mode: config.mode,
         winner: None,
         elapsed: 0.0,
@@ -1043,6 +1064,7 @@ fn start_match(
         players: count,
         round,
         wind,
+        retry,
     };
 }
 

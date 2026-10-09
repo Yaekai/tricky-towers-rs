@@ -1,0 +1,466 @@
+//! A battle's opening, like the original's INTRO and COUNTDOWN states
+//! (docs/research/match-moments.md, "Match intro"): the mode title ribbon
+//! ("RACE NORMAL", OVERTIME under it in a tied cup), then the mode's own intro
+//! (Race: the camera up to the finish line and back; Survival: the brick count
+//! counting up; Puzzle: two waits), then 3-2-1 and play. Rematch and Retry skip the
+//! mode's intro; later matches of a cup skip the title unless it's overtime.
+//! Timings and layout are `GameConfig::intro`.
+
+use bevy::prelude::*;
+
+use crate::art::Art;
+use crate::config::{Difficulty, GameConfig, IntroPlan, ModeKind, keyed};
+use crate::cups::Cup;
+use crate::gameplay::{IntroOn, Match, Phase};
+use crate::letters::TextLook;
+use crate::popup::{px, sliced};
+
+pub struct IntroPlugin;
+
+impl Plugin for IntroPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(IntroOn)
+            .init_resource::<Intro>()
+            .init_resource::<CameraLift>()
+            .init_resource::<IntroCount>()
+            .add_systems(Startup, spawn_intro)
+            .add_systems(Update, (run_intro, show_title, show_countdown).chain());
+    }
+}
+
+/// Cells the intro lifts the camera by (Race's sweep up to the finish line).
+#[derive(Resource, Default)]
+pub struct CameraLift(pub f32);
+
+/// The Survival brick count shown while it counts up, instead of the real one.
+#[derive(Resource, Default)]
+pub struct IntroCount(pub Option<u32>);
+
+#[derive(Resource, Default)]
+struct Intro {
+    round: u64,
+    clock: f32,
+    plan: Option<IntroPlan>,
+    /// 0 Easy, 1 Normal, 2 Special.
+    difficulty: usize,
+    overtime: bool,
+    race: bool,
+}
+
+const GOLD: Color = Color::srgb(1.0, 0.824, 0.314);
+
+#[derive(Component, Clone, Copy, PartialEq)]
+enum Part {
+    /// One title band per difficulty, and its words.
+    Band(usize),
+    Words(usize),
+    Overtime(usize),
+    Count,
+    CountBack,
+    CountFace,
+}
+
+fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<Art>>) {
+    let look = &config.intro;
+    let image = |name: &str| art.as_deref().and_then(|a| a.image(name));
+    let outlined = TextLook {
+        body: false,
+        face: None,
+        outline: TextLook::OUTLINED.outline,
+    };
+    let words = |size: f32| {
+        (
+            Text::new(""),
+            TextFont {
+                font_size: FontSize::Vh(size),
+                ..default()
+            },
+            TextColor(GOLD),
+            TextLayout::justify(Justify::Center),
+            outlined,
+        )
+    };
+    for d in 0..3 {
+        let art_name = &look.title_art[d];
+        let (side_w, side_h) = look.title_side;
+        let (star_w, star_h) = look.title_star;
+        let h = look.title_height;
+        let mut band = commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(50.0),
+                height: px(h),
+                ..default()
+            },
+            UiTransform::default(),
+            GlobalZIndex(19),
+            Visibility::Hidden,
+            Part::Band(d),
+        ));
+        band.with_children(|band| {
+            let (left, right) = look.title_slice[d];
+            let mut fill = band.spawn(Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            });
+            if let Some(picture) = image(&format!("menu_mode_title_background_{art_name}")) {
+                fill.insert(sliced(picture, [left, right, 0.0, 0.0]));
+            }
+            // The ribbon ends hang off each end, the right one mirrored.
+            let side = image(&format!("menu_mode_title_side_{art_name}"));
+            let (dx, dy) = look.title_side_at;
+            let top = px(h / 2.0 - dy - side_h / 2.0);
+            for flip in [false, true] {
+                let outside = px(-dx.abs() - side_w / 2.0);
+                let mut node = Node {
+                    position_type: PositionType::Absolute,
+                    top,
+                    width: px(side_w),
+                    height: px(side_h),
+                    ..default()
+                };
+                if flip {
+                    node.right = outside;
+                } else {
+                    node.left = outside;
+                }
+                let mut end = band.spawn(node);
+                if let Some(picture) = side.clone() {
+                    end.insert(ImageNode {
+                        image: picture,
+                        flip_x: flip,
+                        ..default()
+                    });
+                }
+            }
+            let star = image(&format!("menu_mode_title_star_{art_name}"));
+            for &from_end in &look.title_stars[d] {
+                for flip in [false, true] {
+                    let inset = px(from_end - star_w / 2.0);
+                    let mut node = Node {
+                        position_type: PositionType::Absolute,
+                        top: px((h - star_h) / 2.0),
+                        width: px(star_w),
+                        height: px(star_h),
+                        ..default()
+                    };
+                    if flip {
+                        node.right = inset;
+                    } else {
+                        node.left = inset;
+                    }
+                    let mut dot = band.spawn(node);
+                    if let Some(picture) = star.clone() {
+                        dot.insert(ImageNode::new(picture));
+                    }
+                }
+            }
+            // The words' bottom sits `title_bottom` below the band's centre.
+            for (part, size, bottom) in [
+                (Part::Words(d), look.title_size, look.title_bottom),
+                (Part::Overtime(d), look.overtime_size, look.overtime_bottom),
+            ] {
+                band.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: px(-400.0),
+                        right: px(-400.0),
+                        bottom: px(h / 2.0 - bottom),
+                        justify_content: JustifyContent::Center,
+                        ..default()
+                    },
+                    children![(words(size), part)],
+                ));
+            }
+        });
+    }
+    // The 3-2-1: a darker copy behind, stretched 10% taller, and the face.
+    let shadow = config.moments.shadow_color;
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                top: px(540.0 - look.count_y - 100.0),
+                height: px(200.0),
+                display: Display::Grid,
+                justify_items: JustifyItems::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            UiTransform::default(),
+            GlobalZIndex(19),
+            Visibility::Hidden,
+            Part::Count,
+        ))
+        .with_children(|count| {
+            let layer = |color: Color| {
+                (
+                    Text::new(""),
+                    TextFont {
+                        font_size: FontSize::Vh(look.count_size),
+                        ..default()
+                    },
+                    TextColor(color),
+                    TextLayout::justify(Justify::Center),
+                    outlined,
+                    Node {
+                        grid_row: GridPlacement::start(1),
+                        grid_column: GridPlacement::start(1),
+                        ..default()
+                    },
+                )
+            };
+            count.spawn((
+                layer(Color::srgb_u8(shadow[0], shadow[1], shadow[2])),
+                UiTransform::from_scale(Vec2::new(1.0, 1.1)),
+                Part::CountBack,
+            ));
+            count.spawn((layer(GOLD), Part::CountFace));
+        });
+}
+
+fn difficulty_index(d: Difficulty) -> usize {
+    match d {
+        Difficulty::Easy => 0,
+        Difficulty::Normal => 1,
+        Difficulty::Pro => 2,
+    }
+}
+
+/// Starts each battle's intro, keeps its clock (stopped while paused or behind
+/// the explanation popup), plays its sounds, and hands over to play.
+#[allow(clippy::too_many_arguments)]
+fn run_intro(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    cup: Res<Cup>,
+    art: Option<Res<Art>>,
+    mut game: ResMut<Match>,
+    mut intro: ResMut<Intro>,
+    mut lift: ResMut<CameraLift>,
+    mut count: ResMut<IntroCount>,
+) {
+    let look = &config.intro;
+    if game.round != intro.round {
+        intro.round = game.round;
+        intro.clock = 0.0;
+        intro.plan = None;
+        if game.phase == Phase::Intro || game.phase == Phase::Menu {
+            let mode = game.mode.rules();
+            let first_of_cup = cup.size.is_none() || cup.played == 0;
+            intro.overtime = cup.overtime(&config.cups);
+            let title = first_of_cup || intro.overtime;
+            intro.plan = Some(look.plan(mode, title, game.retry, config.survival.bricks_to_place));
+            intro.difficulty = difficulty_index(config.difficulty.unwrap_or(Difficulty::Normal));
+            intro.race = mode == ModeKind::Race;
+        }
+    }
+    let Some(plan) = intro.plan else {
+        lift.0 = 0.0;
+        count.0 = None;
+        return;
+    };
+    let before = intro.clock;
+    let running = game.phase == Phase::Intro
+        || (game.phase == Phase::Playing && before < plan.countdown_at + look.count_end);
+    if running {
+        intro.clock += time.delta_secs();
+    }
+    let now = intro.clock;
+    let crossed = |at: f32| before < at && now >= at;
+    let sound = |commands: &mut Commands, name: &str, speed: f32| {
+        if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
+            commands.spawn((
+                AudioPlayer(handle.clone()),
+                PlaybackSettings::DESPAWN.with_speed(speed),
+            ));
+        }
+    };
+    if plan.title_at.is_some_and(crossed) {
+        sound(&mut commands, "sfx_countdown", 1.0);
+    }
+    for (k, pitch) in look.count_pitch.iter().enumerate() {
+        if crossed(plan.countdown_at + look.count_step * k as f32) {
+            sound(&mut commands, "sfx_count", *pitch);
+        }
+    }
+    if game.phase == Phase::Intro && now >= plan.countdown_at + look.count_go {
+        game.phase = Phase::Playing;
+    }
+    // Race: up to the finish line (less `race_room`), a hold, back down; in-out quad.
+    lift.0 = plan.sweep_at.map_or(0.0, |at| {
+        let height = (game.finish_height - look.race_room).max(0.0);
+        let t = now - at;
+        let quad = |x: f32| {
+            let x = x.clamp(0.0, 1.0);
+            if x < 0.5 {
+                2.0 * x * x
+            } else {
+                1.0 - (-2.0 * x + 2.0).powi(2) / 2.0
+            }
+        };
+        let down_at = look.race_up + look.race_hold;
+        if t < down_at {
+            height * quad(t / look.race_up.max(0.01))
+        } else {
+            height * (1.0 - quad((t - down_at) / look.race_down.max(0.01)))
+        }
+    });
+    // Survival: 0 until the count-up, then up to the bricks to place.
+    count.0 = match plan.count_up {
+        Some((at, long)) if game.phase == Phase::Intro && now < at + long => {
+            if crossed(at) {
+                let name = if long < look.survival_count {
+                    "sfx_count_up_short"
+                } else {
+                    "sfx_count_up_long"
+                };
+                sound(&mut commands, name, 1.0);
+            }
+            let share = ((now - at) / long.max(0.01)).clamp(0.0, 1.0);
+            Some((config.survival.bricks_to_place as f32 * share) as u32)
+        }
+        _ => None,
+    };
+}
+
+/// The mode title: opens to full height, its width bouncing to size, stays, then
+/// rises a little, drops and fades.
+#[allow(clippy::type_complexity)]
+fn show_title(
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    intro: Res<Intro>,
+    mut bands: Query<(
+        &Part,
+        &mut Node,
+        &mut UiTransform,
+        &mut Visibility,
+        &Children,
+    )>,
+    mut images: Query<&mut ImageNode>,
+    kids: Query<&Children>,
+    mut words: Query<(&Part, &mut Text, &mut TextColor)>,
+) {
+    let look = &config.intro;
+    let d = intro.difficulty;
+    let t = intro
+        .plan
+        .and_then(|p| p.title_at)
+        .map(|at| intro.clock - at);
+    let out_at = look.title_in + look.title_hold;
+    let on = t.is_some_and(|t| t >= 0.0 && t < out_at + look.title_out);
+    let t = t.unwrap_or(0.0);
+    let (from, to) = look.title_fade;
+    let alpha = 1.0 - ((t - out_at - from) / (to - from).max(0.01)).clamp(0.0, 1.0);
+    for (part, mut node, mut transform, mut visibility, children) in &mut bands {
+        let Part::Band(band) = *part else {
+            continue;
+        };
+        let show = on && band == d;
+        visibility.set_if_neq(if show {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+        if !show {
+            continue;
+        }
+        let width = keyed(&look.title_widths[d], t);
+        let rise = if t >= out_at {
+            keyed(&look.title_out_y, t - out_at)
+        } else {
+            0.0
+        };
+        let centre = look.title_y[d] + rise;
+        let (left, top, w) = (
+            px(-width / 2.0),
+            px(540.0 - centre - look.title_height / 2.0),
+            px(width),
+        );
+        if node.margin.left != left || node.top != top || node.width != w {
+            node.margin.left = left;
+            node.top = top;
+            node.width = w;
+        }
+        let open = (t / look.title_open.max(0.01)).clamp(0.0, 1.0);
+        transform.scale = Vec2::new(1.0, open);
+        // Pictures fade with the words.
+        let mut stack: Vec<Entity> = children.iter().collect();
+        while let Some(child) = stack.pop() {
+            if let Ok(mut image) = images.get_mut(child)
+                && image.color.alpha() != alpha
+            {
+                image.color.set_alpha(alpha);
+            }
+            if let Ok(more) = kids.get(child) {
+                stack.extend(more.iter());
+            }
+        }
+    }
+    let mode = match game.mode.rules() {
+        ModeKind::Race => "RACE",
+        ModeKind::Survival => "SURVIVAL",
+        _ => "PUZZLE",
+    };
+    let difficulty = ["EASY", "NORMAL", "SPECIAL"][d];
+    for (part, mut text, mut color) in &mut words {
+        let want = match *part {
+            Part::Words(band) if band == d => format!("{mode} {difficulty}"),
+            Part::Overtime(band) if band == d && intro.overtime => "OVERTIME".to_string(),
+            Part::Words(_) | Part::Overtime(_) => String::new(),
+            _ => continue,
+        };
+        if text.0 != want {
+            text.0 = want;
+        }
+        if color.0.alpha() != alpha {
+            color.0.set_alpha(alpha);
+        }
+    }
+}
+
+/// 3, 2, 1 a number every `count_step`, each popping in; Race shows its word as
+/// play starts.
+fn show_countdown(
+    config: Res<GameConfig>,
+    intro: Res<Intro>,
+    mut root: Query<(&Part, &mut UiTransform, &mut Visibility), Without<Text>>,
+    mut layers: Query<(&Part, &mut Text)>,
+) {
+    let look = &config.intro;
+    let t = intro.plan.map(|p| intro.clock - p.countdown_at);
+    let end = if intro.race {
+        look.count_end
+    } else {
+        look.count_go
+    };
+    let on = t.is_some_and(|t| t >= 0.0 && t < end);
+    let t = t.unwrap_or(0.0);
+    let words = match (t / look.count_step.max(0.01)) as usize {
+        0 => "3",
+        1 => "2",
+        2 => "1",
+        _ => "RACE",
+    };
+    for (part, mut transform, mut visibility) in &mut root {
+        if *part != Part::Count {
+            continue;
+        }
+        visibility.set_if_neq(if on {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+        transform.scale = Vec2::splat(keyed(&look.count_scale, t));
+    }
+    for (part, mut text) in &mut layers {
+        if matches!(part, Part::CountBack | Part::CountFace) && text.0 != words {
+            text.0 = words.to_string();
+        }
+    }
+}

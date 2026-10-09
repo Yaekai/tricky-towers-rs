@@ -24,6 +24,7 @@ pub mod game_info;
 pub mod gameplay;
 pub mod hud;
 pub mod input;
+pub mod intro;
 pub mod keybinding;
 pub mod letters;
 pub mod menu;

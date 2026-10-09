@@ -1818,8 +1818,10 @@ fn frame_towers(
     view_size: Res<ViewSize>,
     towers: Query<(&Tower, &TowerState)>,
     rival_lanes: Query<&crate::gameplay::RivalLane>,
+    lift: Option<Res<crate::intro::CameraLift>>,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
 ) {
+    let lift = lift.map_or(0.0, |l| l.0);
     let Ok((mut transform, mut projection)) = camera.single_mut() else {
         return;
     };
@@ -1870,7 +1872,8 @@ fn frame_towers(
             bottom = floor;
         }
         top = top.max(bottom + height);
-        (top, bottom)
+        // The race intro's sweep lifts both edges together.
+        (top + lift, bottom + lift)
     };
     let height = config.cells(top - bottom);
     let scale = (height / window.y.max(1.0)).max(0.01);
@@ -1882,8 +1885,13 @@ fn frame_towers(
     };
     let target = Vec2::new(x, config.cells(bottom) + height * 0.5);
 
-    // The original eases top and bottom by 5 × dt each frame.
-    let t = 1.0 - (-5.0 * time.delta_secs()).exp();
+    // The original eases top and bottom by 5 × dt each frame; the intro's sweep
+    // sets them directly.
+    let t = if lift > 0.0 {
+        1.0
+    } else {
+        1.0 - (-5.0 * time.delta_secs()).exp()
+    };
     let current = transform.translation.truncate();
     transform.translation += ((target - current) * t).extend(0.0);
     if let Projection::Orthographic(ortho) = &mut *projection {

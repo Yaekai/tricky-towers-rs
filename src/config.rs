@@ -72,6 +72,8 @@ pub struct GameConfig {
     pub cups: CupRules,
     /// The standings panel between cup matches, measured from the Tiny Cup screen.
     pub cup_panel: CupPanel,
+    /// A battle's opening: mode title, the mode's intro, the 3-2-1.
+    pub intro: IntroRules,
     /// Per-mode skies and weather: Race Pro night, Puzzle sandstorm and eclipse,
     /// Survival curse-wave sky.
     pub weather: WeatherLook,
@@ -2270,6 +2272,219 @@ impl CupPanel {
         self.fill_start + self.fill_step * target as f32
     }
 }
+/// A battle's opening, from the original's intro and countdown (docs/research/
+/// match-moments.md, "Match intro"): the mode title, the mode's own intro, then the
+/// 3-2-1. Seconds, and pixels of a 1920×1080 screen (y up from the centre).
+/// Keyframes are interpolated in straight lines; the original's curves are smooth (?).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct IntroRules {
+    /// Before the mode title comes up (two 0.3 s waits), its move-in, how long it stays
+    /// after that, and its move-out.
+    pub title_wait: f32,
+    pub title_in: f32,
+    pub title_hold: f32,
+    pub title_out: f32,
+    /// Race: a wait, the camera up to the finish line less `race_room` cells, a wait,
+    /// the camera back down (the countdown doesn't wait for it), a wait.
+    pub race_wait: f32,
+    pub race_up: f32,
+    pub race_hold: f32,
+    pub race_down: f32,
+    pub race_after: f32,
+    pub race_room: f32,
+    /// Survival: the brick count counts up from 0 over this long (`survival_count_short`
+    /// with 33 bricks), then a wait.
+    pub survival_count: f32,
+    pub survival_count_short: f32,
+    pub survival_after: f32,
+    /// Puzzle: the waits before and after the laser comes in.
+    pub puzzle_wait: f32,
+    pub puzzle_after: f32,
+    /// The 3-2-1: a number every `count_step`, play starts at `count_go`, and Race's
+    /// word stays up until `count_end`. Its centre, letter size (Vh), scale keys, and
+    /// each number's sound pitch.
+    pub count_step: f32,
+    pub count_go: f32,
+    pub count_end: f32,
+    pub count_y: f32,
+    pub count_size: f32,
+    pub count_scale: Vec<(f32, f32)>,
+    pub count_pitch: [f32; 3],
+    /// The title band per difficulty (Easy, Normal, Special): its art suffix, centre
+    /// height, width keys of the move-in, the stars' distances from each end.
+    pub title_art: [String; 3],
+    pub title_y: [f32; 3],
+    pub title_widths: [Vec<(f32, f32)>; 3],
+    pub title_stars: [Vec<f32>; 3],
+    /// 9-slice borders (left, right) of the band picture.
+    pub title_slice: [(f32, f32); 3],
+    /// Band height, how fast it opens to full height, the ribbon ends' size and their
+    /// centre from each end of the band, the stars' size.
+    pub title_height: f32,
+    pub title_open: f32,
+    pub title_side: (f32, f32),
+    pub title_side_at: (f32, f32),
+    pub title_star: (f32, f32),
+    /// The words: letter size (Vh), how far below the band's centre their bottom sits,
+    /// and OVERTIME's size and bottom.
+    pub title_size: f32,
+    pub title_bottom: f32,
+    pub overtime_size: f32,
+    pub overtime_bottom: f32,
+    /// Move-out: the band's height keys (relative to where it sits) and its fade.
+    pub title_out_y: Vec<(f32, f32)>,
+    pub title_fade: (f32, f32),
+}
+
+impl Default for IntroRules {
+    fn default() -> Self {
+        Self {
+            title_wait: 0.6,
+            title_in: 0.6,
+            title_hold: 0.7,
+            title_out: 0.367,
+            race_wait: 0.5,
+            race_up: 0.8,
+            race_hold: 0.5,
+            race_down: 0.386,
+            race_after: 0.2,
+            race_room: 17.0,
+            survival_count: 2.0,
+            survival_count_short: 1.0,
+            survival_after: 0.3,
+            puzzle_wait: 0.5,
+            puzzle_after: 0.5,
+            count_step: 0.75,
+            count_go: 2.25,
+            count_end: 3.0,
+            count_y: 100.0,
+            count_size: 12.5,
+            count_scale: vec![
+                (0.0, 1.15),
+                (0.125, 1.035),
+                (0.1875, 1.0),
+                (0.75, 1.15),
+                (0.9375, 1.0),
+                (1.5, 1.15),
+                (1.625, 0.945),
+                (1.6875, 1.0),
+                (2.25, 1.2),
+                (3.0, 1.0),
+            ],
+            count_pitch: [1.0, 1.1667, 1.3333],
+            title_art: ["easy".into(), "normal".into(), "special".into()],
+            title_y: [120.0, 160.0, 120.0],
+            title_widths: [
+                vec![
+                    (0.0, 642.5),
+                    (0.22, 920.8),
+                    (0.32, 870.9),
+                    (0.42, 920.8),
+                    (0.6, 920.0),
+                ],
+                vec![
+                    (0.0, 642.5),
+                    (0.22, 1288.8),
+                    (0.32, 1208.8),
+                    (0.42, 1228.8),
+                    (0.54, 1220.0),
+                ],
+                vec![
+                    (0.0, 642.5),
+                    (0.22, 1422.5),
+                    (0.32, 1370.1),
+                    (0.42, 1420.0),
+                    (0.6, 1422.5),
+                ],
+            ],
+            title_stars: [
+                vec![60.0],
+                vec![40.0, 90.0, 140.0],
+                vec![40.0, 90.0, 140.0, 190.0, 240.0],
+            ],
+            title_slice: [(18.0, 17.0), (30.0, 30.0), (30.0, 30.0)],
+            title_height: 80.0,
+            title_open: 0.08,
+            title_side: (192.0, 98.0),
+            title_side_at: (-7.0, -15.0),
+            title_star: (37.0, 35.0),
+            title_size: 11.0,
+            title_bottom: 40.0,
+            overtime_size: 4.3,
+            overtime_bottom: 96.0,
+            title_out_y: vec![(0.0, 0.0), (0.15, 15.0), (0.367, -95.0)],
+            title_fade: (0.2, 0.367),
+        }
+    }
+}
+
+/// Straight-line value of `keys` (time, value) at `t`, held past either end.
+pub fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
+    let Some(&(first_t, first)) = keys.first() else {
+        return 0.0;
+    };
+    if t <= first_t {
+        return first;
+    }
+    for pair in keys.windows(2) {
+        let ((a, va), (b, vb)) = (pair[0], pair[1]);
+        if t <= b {
+            return va + (vb - va) * ((t - a) / (b - a).max(1e-6));
+        }
+    }
+    keys.last().map_or(first, |k| k.1)
+}
+
+/// When an intro's parts happen, in seconds from its start.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct IntroPlan {
+    /// The mode title comes up, if it shows.
+    pub title_at: Option<f32>,
+    /// Race's camera sweep starts.
+    pub sweep_at: Option<f32>,
+    /// Survival's brick count starts counting up, and for how long.
+    pub count_up: Option<(f32, f32)>,
+    /// The 3-2-1 starts; play starts `count_go` later.
+    pub countdown_at: f32,
+}
+
+impl IntroRules {
+    /// `title`: whether the mode title shows; `retry`: Rematch or Retry (no sweep or
+    /// count-up); `bricks`: Survival's bricks to place.
+    pub fn plan(&self, mode: ModeKind, title: bool, retry: bool, bricks: u32) -> IntroPlan {
+        let mut at = 0.0;
+        let title_at = title.then(|| {
+            at = self.title_wait + self.title_in + self.title_hold + self.title_out;
+            self.title_wait
+        });
+        let (mut sweep_at, mut count_up) = (None, None);
+        if !retry {
+            match mode {
+                ModeKind::Race => {
+                    sweep_at = Some(at + self.race_wait);
+                    at += self.race_wait + self.race_up + self.race_hold + self.race_after;
+                }
+                ModeKind::Survival => {
+                    let long = if bricks == 33 {
+                        self.survival_count_short
+                    } else {
+                        self.survival_count
+                    };
+                    count_up = Some((at, long));
+                    at += long + self.survival_after;
+                }
+                _ => at += self.puzzle_wait + self.puzzle_after,
+            }
+        }
+        IntroPlan {
+            title_at,
+            sweep_at,
+            count_up,
+            countdown_at: at,
+        }
+    }
+}
 
 /// Experience, from the original (docs/research/match-moments.md). Only online
 /// matches and cups give any; a single local match gives none.
@@ -2773,6 +2988,7 @@ impl Default for GameConfig {
             xp: XpRules::default(),
             cups: CupRules::default(),
             cup_panel: CupPanel::default(),
+            intro: IntroRules::default(),
             weather: WeatherLook::default(),
             water: WaterRules::default(),
             bases: Bases::default(),
@@ -2955,6 +3171,21 @@ impl GameConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_battle_intro_follows_the_original() {
+        let intro = IntroRules::default();
+        // Title 0.6 + 0.6 + 0.7 + 0.367, then the race sweep 0.5 + 0.8 + 0.5 + 0.2.
+        let race = intro.plan(ModeKind::Race, true, false, 0);
+        assert_eq!(race.title_at, Some(0.6));
+        assert!((race.countdown_at - 4.267).abs() < 1e-3);
+        // Rematch keeps the title but skips the sweep; a later cup match skips the title.
+        assert!((intro.plan(ModeKind::Race, true, true, 0).countdown_at - 2.267).abs() < 1e-3);
+        assert_eq!(intro.plan(ModeKind::Puzzle, false, true, 0).countdown_at, 0.0);
+        let survival = intro.plan(ModeKind::Survival, false, false, 33);
+        assert_eq!((survival.count_up, survival.countdown_at), (Some((0.0, 1.0)), 1.3));
+        assert_eq!(keyed(&intro.count_scale, 0.0625), (1.15 + 1.035) / 2.0);
+    }
 
     #[test]
     fn shipped_config_matches_defaults() {

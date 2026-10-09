@@ -133,6 +133,7 @@ fn wanted(
     state: &TowerState,
     bag: Option<&mut BrickBag>,
     pack: crate::config::BrickPack,
+    count_up: Option<u32>,
 ) -> Shows {
     let look = &config.hud;
     let playing = game.phase == Phase::Playing && state.status == TowerStatus::Building;
@@ -146,10 +147,12 @@ fn wanted(
             }
         }
         Kind::Count if game.mode == ModeKind::Survival && game.phase != Phase::Menu => {
-            let left = config
-                .survival
-                .bricks_to_place
-                .saturating_sub(state.bricks_used());
+            let left = count_up.unwrap_or(
+                config
+                    .survival
+                    .bricks_to_place
+                    .saturating_sub(state.bricks_used()),
+            );
             let over = game.phase == Phase::Over;
             if over && state.status != TowerStatus::Won && game.winner.is_some() {
                 Shows::Nothing
@@ -202,6 +205,7 @@ fn fill_items(
         Option<&crate::gameplay::TowerSkin>,
     )>,
     mut items: Query<(Entity, &mut HudItem, &mut Visibility)>,
+    count_up: Option<Res<crate::intro::IntroCount>>,
 ) {
     let order: Vec<(usize, TowerState)> = towers
         .iter()
@@ -224,6 +228,7 @@ fn fill_items(
             state,
             bag.map(|b| b.into_inner()),
             skin.map(|s| s.pack).unwrap_or_default(),
+            count_up.as_ref().and_then(|c| c.0),
         );
         if item.shows.as_ref() == Some(&shows) && item.built_at == height && !art.is_changed() {
             continue;

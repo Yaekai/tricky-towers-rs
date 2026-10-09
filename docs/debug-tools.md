@@ -21,7 +21,9 @@ In tests, push commands into the `DebugQueue` resource
 (see `debug_commands_and_scripts_drive_a_match` in tests/headless.rs).
 
 ## Script files
-A RON list of `(at: seconds, run: Command)`, run in time order from the moment the game starts:
+A RON list of `(at: seconds, run: Command)`, run in time order from the moment the game starts.
+Battles open with their intro (mode title, Race's camera sweep, 3-2-1; src/intro.rs), so play
+starts about 6.5 s after a Race `Start` (4.5 s in Survival, 3.5 s in Puzzle):
 
 ```ron
 // Start a race with one AI opponent, curse both towers with Large + Ice,
