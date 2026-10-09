@@ -121,8 +121,10 @@ fn fade_halloween(
     }
 }
 
-/// The Galaxy border colour (docs/research/skins.md).
-const GALAXY_BORDER: Color = Color::srgb(0.12, 0.03, 0.24);
+/// The thin dark purple line between Galaxy cells: (59, 22, 85) from Max's frame. Its
+/// width, a twentieth of a cell, is a guess until the frame's scale is measured.
+const GALAXY_LINE: Color = Color::srgb(0.231, 0.086, 0.333);
+const GALAXY_LINE_WIDTH: f32 = 0.05;
 
 /// A small repeatable random number in 0..1.
 fn roll(seed: &mut u32) -> f32 {
@@ -238,52 +240,38 @@ fn decorate_bricks(
                 });
             }
             BrickPack::Galaxy => {
-                // No texture: each cell is a window onto one shared starfield inside
-                // a dark purple border, with a few stars on top.
+                // No texture: each cell is a window onto one shared starfield, edge to edge
+                // (the original has no border). A thin dark purple line runs along each
+                // cell's edges, so the lines show between cells (Max's frame).
                 let background = art.image("brick_galaxy_background");
-                // The light, shade and dark purple outline over the starfield
-                // (World/Bricks/Galaxy), as one picture over the whole brick.
-                let def = crate::gameplay::piece_def(&config, brick.piece);
-                let outline = art
-                    .image(&format!("brick_galaxy_{}", def.name))
-                    .filter(|_| cells.len() == def.cells.len());
-                let fill = if outline.is_some() { 1.0 } else { 0.84 };
+                let line = c * GALAXY_LINE_WIDTH;
                 for &cell in cells {
                     let at = cell * c;
-                    if outline.is_none() {
-                        brick_entity.with_child((
-                            Sprite::from_color(GALAXY_BORDER, Vec2::splat(c)),
-                            Transform::from_translation(at.extend(0.01)),
-                        ));
-                    }
                     let inner = match &background {
                         Some(image) => Sprite {
                             image: image.clone(),
-                            custom_size: Some(Vec2::splat(c * fill)),
+                            custom_size: Some(Vec2::splat(c)),
                             rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
                             ..default()
                         },
-                        None => {
-                            Sprite::from_color(Color::srgb(0.05, 0.02, 0.12), Vec2::splat(c * fill))
-                        }
+                        None => Sprite::from_color(Color::srgb(0.05, 0.02, 0.12), Vec2::splat(c)),
                     };
                     brick_entity.with_child((
                         GalaxyCell,
                         inner,
                         Transform::from_translation(at.extend(0.02)),
                     ));
-                }
-                if let Some(outline) = outline {
-                    let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
-                    let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
-                    brick_entity.with_child((
-                        Sprite {
-                            image: outline,
-                            custom_size: Some((max - min + Vec2::ONE) * c),
-                            ..default()
-                        },
-                        Transform::from_translation(((min + max) * 0.5 * c).extend(0.025)),
-                    ));
+                    for (dir, size) in [
+                        (Vec2::new(0.0, 0.5), Vec2::new(c, line)),
+                        (Vec2::new(0.0, -0.5), Vec2::new(c, line)),
+                        (Vec2::new(0.5, 0.0), Vec2::new(line, c)),
+                        (Vec2::new(-0.5, 0.0), Vec2::new(line, c)),
+                    ] {
+                        brick_entity.with_child((
+                            Sprite::from_color(GALAXY_LINE, size),
+                            Transform::from_translation((at + dir * c).extend(0.025)),
+                        ));
+                    }
                 }
                 if let Some(star) = art.image("brick_galaxy_star") {
                     for _ in 0..cells.len().div_ceil(2) {

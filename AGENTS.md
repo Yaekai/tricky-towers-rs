@@ -202,3 +202,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
   (manifest `see_through`, `line`). brick_art no longer maps Halloween to the default (a cloud change had).
   Debug `Start(.., skin: Some((wizard, Pack)))` sets every tower's skin. The guid index misses
   gph_brickZ_diamond_normalMap, so stage.ps1 leaves Diamond Z unlit until the index is rebuilt.
+- 2026-10-09 (cloud, galaxy-line): Galaxy bricks drop the staged outline art and the square border; each cell has a thin dark purple line on its four edges (`GALAXY_LINE` (59,22,85) from Max's purple frame, `GALAXY_LINE_WIDTH` 0.05 of a cell, a guess until the frame's scale is measured). Lib tests pass.
