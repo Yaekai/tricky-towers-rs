@@ -562,13 +562,19 @@ fn show_puzzle_scores(
     let gold = tone_color(&art, &images, Tone::Gold);
     let pink = Color::srgb(1.0, 0.45, 0.7);
     let counted_so_far = counted.map_or(0.0, |(_, t)| t);
+    let most = standing.values().copied().max().unwrap_or(0);
+    let draw = over && game.winner.is_none();
     for (entity, tower, state) in &towers {
         let total = standing.get(&entity).copied().unwrap_or(0);
         let shown = if over {
             let winner = game.winner == Some(tower.index);
             let step = config.puzzle.count_step.max(0.01);
             let so_far = ((counted_so_far / step).floor() as u32).min(total);
-            Some((so_far.to_string(), if winner { gold } else { pink }))
+            if draw && total == most {
+                Some((format!("{so_far} DRAW"), pink))
+            } else {
+                Some((so_far.to_string(), if winner { gold } else { pink }))
+            }
         } else {
             state
                 .laser_count

@@ -2033,11 +2033,17 @@ fn judge_match(
     if game.mode.rules() == ModeKind::Puzzle && count > 1 {
         // Everyone plays out their bricks; the tallest pile of bricks wins.
         winner = None;
+        // A tie for the most bricks is a draw: no winner, and both lanes say DRAW.
         if building.is_empty() {
-            winner = towers
+            let most = towers.iter().map(|(_, s)| s.bricks_placed).max().unwrap_or(0);
+            let leaders: Vec<usize> = towers
                 .iter()
-                .max_by_key(|(t, s)| (s.bricks_placed, std::cmp::Reverse(t.index)))
-                .map(|(t, _)| t.index);
+                .filter(|(_, s)| s.bricks_placed == most)
+                .map(|(t, _)| t.index)
+                .collect();
+            if leaders.len() == 1 {
+                winner = leaders.first().copied();
+            }
         }
     } else if winner.is_none() && count > 1 && building.len() == 1 {
         // Last tower standing.
