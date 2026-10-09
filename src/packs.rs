@@ -448,9 +448,9 @@ fn glitch_holograms(
             if let Ok((mut sprite, mut transform)) = sprites.get_mut(child) {
                 // Hologram bricks are see-through and cyan-tinted, more so in a glitch.
                 let (red, green, blue, alpha) = if on {
-                    (0.5, 1.0, 1.0, 0.55)
+                    (0.5, 1.0, 1.0, config.hologram.glitch_alpha)
                 } else {
-                    (0.8, 1.0, 1.0, 0.85)
+                    (0.8, 1.0, 1.0, config.hologram.rest_alpha)
                 };
                 sprite.color = Color::srgba(red, green, blue, touch.unwrap_or(alpha));
                 transform.translation.x = shift;
