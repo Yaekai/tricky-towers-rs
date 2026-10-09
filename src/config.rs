@@ -2168,19 +2168,29 @@ pub struct CupPanel {
     pub panel_width: f32,
     pub panel_height: f32,
     pub panel_colour: (u8, u8, u8),
-    /// How dark the match behind the panel gets (?).
+    /// The overlay over the match behind the panel: colour and opacity (the popup's
+    /// Modal layer (8, 5, 24) at 0.85 over a near-black 0.9 one). We blend in linear
+    /// colour, so 0.96 gives the clip's darkness.
+    pub dim_colour: (u8, u8, u8),
     pub dim: f32,
     /// The blue bar across the top: its top edge (above the panel) and height.
     pub bar_top: f32,
     pub bar_height: f32,
     pub bar_colour: (u8, u8, u8),
-    /// The small cup beside the title for each cup size, in cup order (?).
-    pub badges: Vec<String>,
-    /// Centres of the two small cups either side of the title, and their size (?).
-    pub badge_x: [f32; 2],
-    pub badge_size: f32,
-    /// The title's letter size in Vh (?).
+    /// The decoration on each end of the title bar, per cup size in cup order
+    /// (CUP_DECO_TINY/BIG/SUPER): drawn on the bar's top corners, mirrored on the left.
+    pub decos: Vec<CupDeco>,
+    /// The Tiny Cup's title bar ends (x). The original's bar is (target - 1) * 47 + 420 px
+    /// wide (AbstractTournamentResultsPopup), so a bigger cup widens the panel, its bar
+    /// and its rows by 47 px a point, keeping the slots 47 px apart.
+    pub bar_ends: (f32, f32),
+    /// The title's letter size in Vh and its face colour (yellow to orange in the
+    /// original; its middle, from Max's Super Cup clip), with the usual dark outline.
     pub title_size: f32,
+    pub title_colour: (u8, u8, u8),
+    /// How far the title's middle sits above the bar's middle (the Title rect is
+    /// centred 7 px above the panel's top edge).
+    pub title_lift: f32,
     /// Each player's row band: left edge, width, height, top of the first row, and the step to the next.
     pub row_left: f32,
     pub row_width: f32,
@@ -2197,11 +2207,11 @@ pub struct CupPanel {
     pub portrait_left: f32,
     pub portrait_size: f32,
     /// The medal slots: the first one's left edge, the step between slots, their size,
-    /// and the right edge they must fit before a bigger cup squeezes them (?).
     pub slot_left: f32,
     pub slot_pitch: f32,
     pub slot_size: f32,
-    pub slot_right: f32,
+    /// A medal picture's size (the Gold/Silver/Bronze prefabs' Graphic: 44x52).
+    pub medal_size: (f32, f32),
     /// The grey dot in an empty slot.
     pub dot_size: f32,
     pub dot_colour: (u8, u8, u8),
@@ -2235,18 +2245,16 @@ impl Default for CupPanel {
             panel_width: 628.0,
             panel_height: 301.0,
             panel_colour: (220, 227, 253),
-            dim: 0.5,
+            dim_colour: (8, 5, 24),
+            dim: 0.96,
             bar_top: 254.0,
             bar_height: 18.0,
             bar_colour: (90, 113, 217),
-            badges: vec![
-                "menu_cup_tiny_small".into(),
-                "menu_cup_big_small".into(),
-                "menu_cup_super_small".into(),
-            ],
-            badge_x: [672.0, 1247.0],
-            badge_size: 48.0,
-            title_size: 1.6,
+            decos: default_cup_decos(),
+            bar_ends: (633.0, 1288.0),
+            title_size: 4.2,
+            title_lift: 20.0,
+            title_colour: (250, 160, 35),
             row_left: 758.0,
             row_width: 405.0,
             row_height: 66.0,
@@ -2259,11 +2267,12 @@ impl Default for CupPanel {
             name_colour: (134, 144, 200),
             portrait_left: 778.0,
             portrait_size: 48.0,
-            slot_left: 872.0,
+            // First slot centre 872 px in Max's Tiny and Super Cup clips.
+            slot_left: 852.0,
             slot_pitch: 47.0,
             slot_size: 40.0,
-            slot_right: 1147.0,
-            dot_size: 14.0,
+            medal_size: (44.0, 52.0),
+            dot_size: 13.0,
             dot_colour: (150, 164, 209),
             trophy_x: 1215.0,
             trophy_size: 44.0,
@@ -3205,6 +3214,52 @@ impl GameConfig {
     pub fn cells(&self, n: f32) -> f32 {
         n * self.cell_size
     }
+}
+
+/// A cup's decoration on the right end of its standings title bar (the left one is its
+/// mirror): the cup picture, its size and its centre from the bar's top-right corner
+/// (x right, y up), then the leaves behind it the same way (none on the Tiny Cup). The
+/// leaves are drawn flipped on the right, as the prefab's -1 scale does.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct CupDeco {
+    pub cup: String,
+    pub cup_size: (f32, f32),
+    pub cup_at: (f32, f32),
+    pub leaves: String,
+    pub leaves_size: (f32, f32),
+    pub leaves_at: (f32, f32),
+}
+
+/// TinyCupDeco, BigCupDeco and SuperCupDeco.
+fn default_cup_decos() -> Vec<CupDeco> {
+    let deco = |cup: &str, cup_size, cup_at, leaves: &str, leaves_size, leaves_at| CupDeco {
+        cup: cup.into(),
+        cup_size,
+        cup_at,
+        leaves: leaves.into(),
+        leaves_size,
+        leaves_at,
+    };
+    vec![
+        deco("menu_cup_tiny_medium", (45.0, 53.0), (-40.0, 8.0), "", (0.0, 0.0), (0.0, 0.0)),
+        deco(
+            "menu_cup_big_medium",
+            (64.0, 82.0),
+            (-50.0, 5.0),
+            "menu_cup_mode_top_bar_deco_big",
+            (87.0, 67.0),
+            (-10.0, 0.0),
+        ),
+        deco(
+            "menu_cup_super_medium",
+            (75.0, 99.0),
+            (-60.0, 15.7),
+            "menu_cup_mode_top_bar_deco_super",
+            (181.0, 113.0),
+            (18.0, 10.0),
+        ),
+    ]
 }
 
 /// One corona bar of the eclipsed sun (a child of the DesertProSun prefab): its start
