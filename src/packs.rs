@@ -243,7 +243,9 @@ fn decorate_bricks(
                         (Vec2::X, Vec2::new(line, c)),
                         (Vec2::NEG_X, Vec2::new(line, c)),
                     ] {
-                        if cells.contains(&(cell + dir)) {
+                        // Rotated pieces leave float error in their offsets, so a neighbour
+                        // counts as touching within a tenth of a cell.
+                        if cells.iter().any(|&o| (o - cell - dir).length() < 0.1) {
                             continue;
                         }
                         brick_entity.with_child((
