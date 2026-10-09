@@ -37,6 +37,9 @@ pub struct Cup {
     /// Per tower index, the place (0 = first) that earned each point, in order:
     /// the standings panel draws one medal per point.
     pub medals: Vec<Vec<usize>>,
+    /// Per tower index, how many medals it had before the latest match: the panel
+    /// draws those at once and animates only the new ones (TournamentResultsItem).
+    pub before: Vec<usize>,
     /// The final standings (tower indexes, first first) once the cup is over.
     pub standings: Option<Vec<usize>>,
     /// The mode and difficulty pairs the cup plays (more than one when Select Mode
@@ -111,6 +114,16 @@ impl Cup {
         self.size.and_then(|s| rules.sizes.get(s))
     }
 
+    /// The most medals any player earned in the latest match.
+    pub fn fresh(&self) -> usize {
+        self.medals
+            .iter()
+            .zip(&self.before)
+            .map(|(m, &b)| m.len().saturating_sub(b))
+            .max()
+            .unwrap_or(0)
+    }
+
     /// True while a cup has matches left to play.
     pub fn in_progress(&self) -> bool {
         self.size.is_some() && self.standings.is_none()
@@ -127,7 +140,11 @@ impl Cup {
                 self.points.resize(tower + 1, 0);
                 self.medals.resize(tower + 1, Vec::new());
             }
+            if self.before.len() <= tower {
+                self.before.resize(tower + 1, 0);
+            }
             self.points[tower] += earned;
+            self.before[tower] = self.medals[tower].len();
             let medals = &mut self.medals[tower];
             medals.resize(medals.len() + earned as usize, place);
         }
@@ -252,6 +269,8 @@ mod tests {
         assert!(cup.add_match(&rules, &[0, 2, 1]));
         assert_eq!(cup.points, vec![7, 5, 6]);
         assert_eq!(cup.medals[0], vec![0, 0, 0, 2, 0, 0, 0]);
+        assert_eq!(cup.before, vec![4, 4, 4]);
+        assert_eq!(cup.fresh(), 3);
         assert_eq!(cup.standings, Some(vec![0, 2, 1]));
         assert!(!cup.in_progress());
         // Starting again keeps the pick and clears the score.

@@ -142,6 +142,8 @@ enum Part {
     Face(usize),
     Slot(usize, usize),
     Trophy(usize),
+    /// "+N": medals past the target (TournamentResultsItem's OvertimeLabel).
+    Extra(usize),
     Continue,
 }
 
@@ -283,6 +285,18 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>) {
                                 Visibility::Hidden,
                                 Part::Trophy(i),
                             ));
+                            row.spawn((
+                                at(
+                                    p.trophy_x - p.row_left - p.trophy_size / 2.0,
+                                    0.0,
+                                    p.trophy_size,
+                                    p.row_height,
+                                ),
+                                children![(
+                                    label_with(p.name_size * 1.6, "", name_look),
+                                    Part::Extra(i)
+                                )],
+                            ));
                         });
                 }
             });
@@ -378,7 +392,16 @@ fn show_cup_panel(
     };
     let drop = (1.0 - slide) * (SCREEN.1 - p.bar_top);
     let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
-    let filled = size.is_some_and(|s| since >= p.continue_at(s.target));
+    let filled = size.is_some() && since >= p.continue_at(cup.fresh());
+    // Medals from earlier matches are there at once; the latest match's fill in.
+    let shown_medals = |t: usize| {
+        let (all, before) = (
+            cup.medals.get(t).map_or(0, Vec::len),
+            cup.before.get(t).copied().unwrap_or(0),
+        );
+        let fresh = ((since - p.fill_start) / p.fill_step.max(0.01)).floor().max(-1.0) + 1.0;
+        all.min(before + fresh.max(0.0) as usize)
+    };
 
     for (part, mut node, mut visibility, image_node, colour) in &mut nodes {
         if *part == Part::Root {
@@ -419,9 +442,9 @@ fn show_cup_panel(
                 }
                 let medal = order
                     .get(i)
+                    .filter(|&&t| k < shown_medals(t))
                     .and_then(|&t| cup.medals.get(t))
                     .and_then(|m| m.get(k).copied())
-                    .filter(|_| since >= p.fill_start + p.fill_step * k as f32)
                     .map(|place| place.min(3));
                 let x = p.slot_left - p.row_left + k as f32 * pitch;
                 let y = (p.row_height - cell) / 2.0;
@@ -477,6 +500,12 @@ fn show_cup_panel(
     for (part, mut text) in &mut texts {
         let words = match *part {
             Part::Title => size.map(|s| s.name.to_uppercase()),
+            // Cleared once the trophy comes (ShowWinner).
+            Part::Extra(i) => order.get(i).map(|&t| {
+                let extra = shown_medals(t).saturating_sub(target);
+                let trophy = filled && winner == Some(t);
+                if extra > 0 && !trophy { format!("+{extra}") } else { String::new() }
+            }),
             Part::Name(i) => tower(i).map(|(t, _)| match t.player {
                 Some(n) => format!("PLAYER {}", n + 1),
                 None => format!("WIZARD {}", t.index + 1),

@@ -236,6 +236,8 @@ pub struct FloorBlock {
 pub enum FloorPart {
     /// An Easy or Normal column, in one of the 1-wide looks (0 or 1).
     Column(u32),
+    /// An Easy or Normal piece two cells wide (the original's piece 2).
+    Wide,
     /// One of the Pro pillar's columns.
     Pillar,
     /// A Pro side ledge in one of 3 looks, or the highest ledge on its side.
@@ -243,9 +245,12 @@ pub enum FloorPart {
     TopLedge,
 }
 
-/// The Puzzle floor's columns for one round: each is (x of its centre, top, bottom),
-/// in cells from the middle of the base's top. The same for every tower.
-pub fn puzzle_floor(config: &GameConfig, roll: &mut u64) -> Vec<(f32, f32, f32)> {
+/// The Puzzle floor's pieces for one round: each is (x of its centre, top, bottom, width in
+/// cells), in cells from the middle of the base's top. The same for every tower. Easy and
+/// Normal build it as the original does (docs/research/puzzle-floor.md): a cell is skipped
+/// with the gap chance, otherwise a 1- or 2-cell piece goes down; one piece stays flat and
+/// the rest drop by a random amount.
+pub fn puzzle_floor(config: &GameConfig, roll: &mut u64) -> Vec<(f32, f32, f32, u32)> {
     let depth = config.puzzle.floor_depth.max(1.0).round();
     fn chance(roll: &mut u64, percent: u32) -> bool {
         xorshift(roll) % 100 < percent as u64
@@ -259,28 +264,52 @@ pub fn puzzle_floor(config: &GameConfig, roll: &mut u64) -> Vec<(f32, f32, f32)>
             } else {
                 config.puzzle.normal_floor
             };
-            for i in 0..width {
-                let x = i as f32 - (width - 1) as f32 * 0.5;
-                // The outer columns always stand, so there is something to build on.
-                if i != 0 && i != width - 1 && chance(roll, gaps) {
-                    continue;
+            let mut pieces: Vec<(f32, u32)> = Vec::new();
+            let mut num = 0;
+            while num < width {
+                // The first cell with nothing placed yet always takes a piece.
+                let place = !chance(roll, gaps) || (num + 1 >= width && pieces.is_empty());
+                if place {
+                    let wide = if xorshift(roll) % 3 == 0 { 2 } else { 1 };
+                    let wide = if num + wide > width { 1 } else { wide };
+                    let x = num as f32 + (wide as f32 - 1.0) * 0.5 - (width - 1) as f32 * 0.5;
+                    pieces.push((x, wide));
+                    num += wide;
+                } else {
+                    num += 1;
                 }
-                let drop = (xorshift(roll) % (lowest as u64 + 1)) as f32;
-                columns.push((x, -drop, -depth));
+            }
+            // One piece stays flat, the others drop by a random amount.
+            let flat = (!pieces.is_empty()).then(|| (xorshift(roll) % pieces.len() as u64) as usize);
+            for (k, &(x, wide)) in pieces.iter().enumerate() {
+                let drop = if flat == Some(k) {
+                    0.0
+                } else {
+                    (xorshift(roll) % (lowest as u64 + 1)) as f32
+                };
+                columns.push((x, -drop, -depth, wide));
             }
         }
+        // ProRandomPuzzleFloor: a 1-wide pillar; beside it a column on each side from 4
+        // cells above the original's floor bottom; then on each side, from the top row
+        // down through all but the last 3 rows, a 1-cell ledge on `ledges`% of rows.
+        // Only what reaches above our (shallower) floor's bottom is kept.
         PuzzleFloor::Pro => {
-            let (width, ledges) = config.puzzle.pro_floor;
-            let width = width.max(1);
-            for i in 0..width {
-                columns.push((i as f32 - (width - 1) as f32 * 0.5, 0.0, -depth));
+            let (height, ledges) = config.puzzle.pro_floor;
+            let height = height.max(4) as f32;
+            columns.push((0.0, 0.0, -depth, 1));
+            for side in [1.0, -1.0] {
+                let top = -(height - 4.0);
+                if top > -depth {
+                    columns.push((side, top, -depth, 1));
+                }
             }
-            let edge = (width + 1) as f32 * 0.5;
-            for row in 1..depth as i32 {
-                if chance(roll, ledges) {
-                    let side = if chance(roll, 50) { -edge } else { edge };
+            for side in [1.0, -1.0] {
+                for row in 0..(height as i32 - 3) {
                     let top = -(row as f32);
-                    columns.push((side, top, top - 1.0));
+                    if chance(roll, ledges) && top > -depth {
+                        columns.push((side, top, top - 1.0, 1));
+                    }
                 }
             }
         }
@@ -1067,16 +1096,20 @@ fn start_match(
         let top_ledge = |side: f32| {
             floor
                 .iter()
-                .filter(|&&(x, top, _)| top < 0.0 && x.signum() == side)
-                .map(|&(_, top, _)| top)
+                .filter(|&&(x, top, bottom, _)| x != 0.0 && top - bottom <= 1.0 && x.signum() == side)
+                .map(|&(_, top, _, _)| top)
                 .fold(f32::MIN, f32::max)
         };
         let (left_top, right_top) = (top_ledge(-1.0), top_ledge(1.0));
         let pro = config.puzzle.floor == PuzzleFloor::Pro;
-        for (n, &(x, top, bottom)) in floor.iter().enumerate() {
+        for (n, &(x, top, bottom, wide)) in floor.iter().enumerate() {
             let part = if !pro {
-                FloorPart::Column((n as u64 ^ round) as u32 % 2)
-            } else if top >= 0.0 {
+                if wide == 2 {
+                    FloorPart::Wide
+                } else {
+                    FloorPart::Column((n as u64 ^ round) as u32 % 2)
+                }
+            } else if x == 0.0 || top - bottom > 1.0 {
                 FloorPart::Pillar
             } else if top == if x < 0.0 { left_top } else { right_top } {
                 FloorPart::TopLedge
@@ -1098,7 +1131,7 @@ fn start_match(
             };
             // Solid like the base's boxes, not the shrunk brick shape: a brick hangs over a
             // floor block the way it does over a base, and not over a brick.
-            let collider = Collider::rectangle(c, rows as f32 * c);
+            let collider = Collider::rectangle(wide as f32 * c, rows as f32 * c);
             let centre = Vec2::new(
                 origin_x + config.cells(x),
                 config.cells((top + bottom) * 0.5),
@@ -2008,11 +2041,17 @@ fn judge_match(
     if game.mode.rules() == ModeKind::Puzzle && count > 1 {
         // Everyone plays out their bricks; the tallest pile of bricks wins.
         winner = None;
+        // A tie for the most bricks is a draw: no winner, and both lanes say DRAW.
         if building.is_empty() {
-            winner = towers
+            let most = towers.iter().map(|(_, s)| s.bricks_placed).max().unwrap_or(0);
+            let leaders: Vec<usize> = towers
                 .iter()
-                .max_by_key(|(t, s)| (s.bricks_placed, std::cmp::Reverse(t.index)))
-                .map(|(t, _)| t.index);
+                .filter(|(_, s)| s.bricks_placed == most)
+                .map(|(t, _)| t.index)
+                .collect();
+            if leaders.len() == 1 {
+                winner = leaders.first().copied();
+            }
         }
     } else if winner.is_none() && count > 1 && building.len() == 1 {
         // Last tower standing.

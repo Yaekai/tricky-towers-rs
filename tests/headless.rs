@@ -1067,20 +1067,24 @@ fn puzzle_floors_follow_each_difficulty() {
         let mut roll = seed;
         config.puzzle.floor = PuzzleFloor::Easy;
         let easy = puzzle_floor(&config, &mut roll);
-        assert_eq!(easy.len(), 5);
-        assert!(easy.iter().all(|&(_, top, _)| (-2.0..=0.0).contains(&top)));
+        // Pieces are one or two cells wide and cover at most the floor's width.
+        assert!(easy.iter().map(|p| p.3).sum::<u32>() <= 5);
+        assert!(easy.iter().all(|&(_, top, _, _)| (-2.0..=0.0).contains(&top)));
         config.puzzle.floor = PuzzleFloor::Normal;
         let normal = puzzle_floor(&config, &mut roll);
-        assert!((2..=6).contains(&normal.len()));
+        assert!(normal.iter().map(|p| p.3).sum::<u32>() <= 6);
         assert!(
             normal
                 .iter()
-                .all(|&(_, top, _)| (-4.0..=0.0).contains(&top))
+                .all(|&(_, top, _, _)| (-4.0..=0.0).contains(&top))
         );
         config.puzzle.floor = PuzzleFloor::Pro;
         let pro = puzzle_floor(&config, &mut roll);
-        assert_eq!(pro.iter().filter(|c| c.1 == 0.0).count(), 3);
-        assert!(pro.iter().all(|c| c.0.abs() <= 2.0));
+        // ProRandomPuzzleFloor: one full pillar at x 0, ledges 1 cell beside it (its
+        // neighbour columns start below our shallower floor's bottom).
+        assert_eq!(pro.iter().filter(|c| c.0 == 0.0).count(), 1);
+        assert!(pro.iter().all(|c| c.0.abs() <= 1.0));
+        assert!(pro.iter().filter(|c| c.0 != 0.0).all(|c| c.1 - c.2 <= 1.0));
     }
 }
 

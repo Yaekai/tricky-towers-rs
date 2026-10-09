@@ -41,7 +41,12 @@ ours and need checking against the original (see docs/research/*.md and the vide
 4. "Solo puzzle feel" in local two-player play: Max says it's not the original's multiplayer
    look. Compare a two-player round frame by frame with his videos (lane split, camera
    framing, laser width, where the bricks come from, what the HUD shows).
-5. Puzzle difficulties (Easy, Normal, Pro floors) against the videos: floor heights, ledges.
+5. Puzzle Easy and Special checked against Max's start clips (clip_1,791,559,747,862 and
+   _757,778): sandstorm as low bands, desert sun, eclipse corona, floating rocks (ruin heads),
+   Special pillar 1 wide with ledges both sides, next-brick card art, warm guide (done).
+   Still different: Easy sky lacks the original's 4 soft gradient overlays (BackgroundGradients
+   prefab: Gradient01-04, tints in the prefab); the Special laser sits lower in the original
+   (about 0.6 of the view down vs ours 0.5); the next card hangs slightly tilted in the original.
 6. Laser drop rule: Max confirmed the base rises instead of the line lowering; confirm the
    half-cell amount in the game (puzzle.drop_penalty, 0.5, guess).
 7. Laser zap flash (bright laser flashes when bricks above it are zapped) and the zapped
@@ -61,10 +66,19 @@ ours and need checking against the original (see docs/research/*.md and the vide
 8. Done: slider clicks set the nearest tenth, arrows step (SettingsSliderItem; no drag in the
    original).
 
+9. Max's idle clip of the menus (clip_1,791,559,916,214): start screen, Select Players (join,
+   wizard and pack pick), the title tiles, explanation popup, pause with the CONTROLS panel.
+   Not compared yet.
+
 ## Open: cups
-1. Overtime: no clip with an overtime has been analysed. Ask Max for one (a tie at the target).
-2. Medal rule: one slot per point, the medal of the place that earned it (from the 2-player
-   clip). Confirm with Max.
+1. Overtime: seen in Max's clip_1,791,548,470,628.mp4 (a Puzzle Tiny Cup). The ribbon shows
+   the mode title with OVERTIME under it (ours matches); a draw in overtime gives both players
+   first place (3 gold medals each) and the cup plays on. Medals past the target show as "+N"
+   at the row's end (done). Puzzle draws (both "1 DRAW") belong to Puzzle scoring.
+2. Medal rule confirmed from TournamentResultsItem: 4 - place medals of that place's kind per
+   match; only the latest match's medals animate (done). Not done: a 4th place sometimes (1 in
+   7) shows one empty medal for that match only; the medal sounds (gold LEVEL_UP, silver,
+   bronze, empty 1-6).
 3. Big and Super Cup layout: unmeasured (same as Tiny; slot squeeze guessed).
 4. Cup timing: slide 0.4 s, fill 0.5 s then 0.55 s a slot (guesses).
 5. Trophy and badges: sizes and places are guesses (cup_panel in game.ron).

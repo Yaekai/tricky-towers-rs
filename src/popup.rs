@@ -62,9 +62,8 @@ impl Popup {
     /// CONTINUE shows on the panel once its medals have filled.
     pub fn panel_continue(&self, cup: &Cup, config: &GameConfig) -> bool {
         self.panel_up(cup, &config.cup_panel)
-            && cup
-                .rules(&config.cups)
-                .is_some_and(|size| self.since_shown() >= config.cup_panel.continue_at(size.target))
+            && cup.rules(&config.cups).is_some()
+            && self.since_shown() >= config.cup_panel.continue_at(cup.fresh())
     }
 }
 
