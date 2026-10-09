@@ -244,7 +244,8 @@ fn set_up_weather(
             let mine = |b: &&(bool, u32, f32, f32)| b.0 == front;
             let index = weather.sandstorm_bands[..band].iter().filter(mine).count() as u32;
             let count = weather.sandstorm_bands.iter().filter(mine).count() as u32;
-            let z = if front { 400.0 } else { -600.0 } + index as f32;
+            // The front band over the scenery but behind the towers and bricks.
+            let z = if front { -300.0 } else { -600.0 } + index as f32;
             for copy in 0..2 {
                 commands.entity(camera).with_child((
                     Weather,

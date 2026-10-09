@@ -230,7 +230,7 @@ pub(crate) fn spawn_trials_screen(
     let tiers = &config.trial_tiers;
     let per_tier = tiers.size.max(1);
     let pages = config.trials.len().div_ceil(per_tier);
-    let root = spawn_page(&mut commands, art, "");
+    let root = spawn_page(&mut commands, art, &config, "");
     commands
         .entity(root)
         .insert(TrialsRoot)

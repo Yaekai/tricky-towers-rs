@@ -258,6 +258,44 @@ fn puzzle_battle_has_no_brick_limit() {
 }
 
 #[test]
+fn puzzle_round_stops_the_tower_then_ends_after_the_count() {
+    // Once a brick touches the laser, that tower takes no more bricks, and the
+    // round ends when its 3-2-1 has run (the original counts before the popup).
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.puzzle = PuzzleRules {
+        bricks: 2,
+        line_height: 6.0,
+        settle_seconds: 1.0,
+        ..config.puzzle.clone()
+    };
+    let count_seconds = config.puzzle.count_seconds;
+    let mut app = headless_app(config);
+    let (mut frame, mut presses) = (0, 0);
+    let touched = run_until(&mut app, 30.0, |app| {
+        frame += 1;
+        let mut input = human_input(app);
+        if frame % 4 == 0 && presses < 8 {
+            presses += 1;
+            input.left_pressed = true;
+        }
+        tower(app, 0).laser_count.is_some()
+    });
+    assert!(touched, "no brick reached the laser");
+    let placed = tower(&mut app, 0).bricks_placed;
+    run_seconds(&mut app, 1.0, |_| {});
+    assert_eq!(
+        tower(&mut app, 0).bricks_placed,
+        placed,
+        "a stopped tower took a brick"
+    );
+    let ended = run_until(&mut app, count_seconds + 5.0, |app| {
+        app.world().resource::<Match>().phase == Phase::Over
+    });
+    assert!(ended, "the round did not end after the count");
+}
+
+#[test]
 fn puzzle_fails_when_crossing_the_line() {
     let mut config = fast_config();
     config.mode = ModeKind::Puzzle;
@@ -400,6 +438,23 @@ fn wait_for_next_brick(app: &mut App) {
         app.update();
     }
     panic!("no new brick: {:?}", tower(app, 0));
+}
+
+/// Like `wait_for_next_brick`, but gives up when the tower goes out; returns
+/// whether a new brick arrived.
+fn wait_for_brick_or_out(app: &mut App) -> bool {
+    let first = tower(app, 0).active;
+    for _ in 0..(10.0 / STEP) as usize {
+        let state = tower(app, 0);
+        if state.status == TowerStatus::Out {
+            return false;
+        }
+        if state.active.is_some_and(|a| Some(a) != first) {
+            return true;
+        }
+        app.update();
+    }
+    false
 }
 
 fn count<F: bevy::ecs::query::QueryFilter>(app: &mut App) -> usize {
@@ -553,7 +608,10 @@ fn ivy_clusters_loosened_by_bubbles_and_ghosts_do_not_panic() {
             if tower(&mut app, 0).status == TowerStatus::Out {
                 break;
             }
-            wait_for_next_brick(&mut app);
+            // The tower may go out while we wait (a loosened cluster can cost a life).
+            if !wait_for_brick_or_out(&mut app) {
+                break;
+            }
             let loosener = if round % 2 == 0 {
                 SpellKind::Bubble
             } else {
@@ -985,15 +1043,16 @@ fn puzzle_floors_follow_each_difficulty() {
         let mut roll = seed;
         config.puzzle.floor = PuzzleFloor::Easy;
         let easy = puzzle_floor(&config, &mut roll);
-        assert_eq!(easy.len(), 5);
-        assert!(easy.iter().all(|&(_, top, _)| (-2.0..=0.0).contains(&top)));
+        // Pieces are one or two cells wide and cover at most the floor's width.
+        assert!(easy.iter().map(|p| p.3).sum::<u32>() <= 5);
+        assert!(easy.iter().all(|&(_, top, _, _)| (-2.0..=0.0).contains(&top)));
         config.puzzle.floor = PuzzleFloor::Normal;
         let normal = puzzle_floor(&config, &mut roll);
-        assert!((2..=6).contains(&normal.len()));
+        assert!(normal.iter().map(|p| p.3).sum::<u32>() <= 6);
         assert!(
             normal
                 .iter()
-                .all(|&(_, top, _)| (-4.0..=0.0).contains(&top))
+                .all(|&(_, top, _, _)| (-4.0..=0.0).contains(&top))
         );
         config.puzzle.floor = PuzzleFloor::Pro;
         let pro = puzzle_floor(&config, &mut roll);

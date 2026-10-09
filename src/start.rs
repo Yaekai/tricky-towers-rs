@@ -43,7 +43,11 @@ pub(crate) struct LogoPiece {
 #[derive(Resource, Default)]
 pub(crate) struct StartClock(pub f32);
 
-pub(crate) fn spawn_start_screen(mut commands: Commands, art: Option<Res<Art>>) {
+pub(crate) fn spawn_start_screen(
+    mut commands: Commands,
+    art: Option<Res<Art>>,
+    config: Res<GameConfig>,
+) {
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
     let mut root = commands.spawn((
         Node {
@@ -56,9 +60,10 @@ pub(crate) fn spawn_start_screen(mut commands: Commands, art: Option<Res<Art>>) 
         Visibility::Hidden,
         StartRoot,
     ));
-    if let Some(background) = image("menu_background") {
+    if let Some(background) = image("menu_background_bare") {
         root.with_child(crate::select::backdrop(background));
     }
+    root.with_children(|parent| crate::menu::spawn_water_scene_into(parent, art.as_deref(), &config));
     // The pieces, back to front: plants behind the logo, then the logo, the
     // rubble and the brick. With only the combined logo staged it moves alone.
     let mut pieces: Vec<(String, Vec2, f32, PieceKind)> = Vec::new();

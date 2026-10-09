@@ -442,10 +442,14 @@ pub(crate) enum SettingsPart {
     PageArrow(bool),
 }
 
-fn spawn_settings_screen(mut commands: Commands, art: Option<Res<crate::art::Art>>) {
+fn spawn_settings_screen(
+    mut commands: Commands,
+    art: Option<Res<crate::art::Art>>,
+    config: Res<crate::config::GameConfig>,
+) {
     let art = art.as_deref();
     let image = |name: &str| art.and_then(|a| a.image(name));
-    let root = spawn_page(&mut commands, art, "SETTINGS");
+    let root = spawn_page(&mut commands, art, &config, "SETTINGS");
     commands
         .entity(root)
         .insert(SettingsRoot)

@@ -7,7 +7,8 @@ use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::config::{GameConfig, ModeKind};
-use crate::gameplay::{Match, Phase, Tower, TowerState, TowerStatus};
+use crate::gameplay::{Brick, Match, Phase, Placed, Tower, TowerState, TowerStatus};
+use crate::spells::Zapped;
 use crate::visuals::{FramedCamera, ViewSize};
 
 pub struct ResultsPlugin;
@@ -519,12 +520,16 @@ fn show_puzzle_scores(
     art: Res<Art>,
     images: Res<Assets<Image>>,
     towers: Query<(Entity, &Tower, &TowerState)>,
+    bricks: Query<(&Brick, Has<Placed>, Has<Zapped>)>,
+    time: Res<Time>,
+    mut counted: Local<Option<(u64, f32)>>,
     mut labels: Local<HashMap<Entity, (String, Entity)>>,
 ) {
     let battle = game.mode.rules() == ModeKind::Puzzle
         && config.trial.is_none()
         && game.phase != Phase::Menu;
     if !battle {
+        *counted = None;
         for (_, (_, label)) in labels.drain() {
             if let Ok(mut label) = commands.get_entity(label) {
                 label.despawn();
@@ -534,12 +539,42 @@ fn show_puzzle_scores(
     }
     let count = config.puzzle.count_seconds;
     let over = game.phase == Phase::Over;
+    // Each brick still in a tower (placed and not zapped away), counted one by one.
+    let mut standing: HashMap<Entity, u32> = HashMap::default();
+    for (brick, placed, zapped) in &bricks {
+        if placed && !zapped {
+            *standing.entry(brick.tower).or_insert(0) += 1;
+        }
+    }
+    if over {
+        let since = match *counted {
+            Some((round, t)) if round == game.round => t,
+            _ => {
+                *counted = Some((game.round, 0.0));
+                0.0
+            }
+        };
+        let t = since + time.delta_secs();
+        *counted = Some((game.round, t));
+    } else {
+        *counted = None;
+    }
     let gold = tone_color(&art, &images, Tone::Gold);
     let pink = Color::srgb(1.0, 0.45, 0.7);
+    let counted_so_far = counted.map_or(0.0, |(_, t)| t);
+    let most = standing.values().copied().max().unwrap_or(0);
+    let draw = over && game.winner.is_none();
     for (entity, tower, state) in &towers {
+        let total = standing.get(&entity).copied().unwrap_or(0);
         let shown = if over {
             let winner = game.winner == Some(tower.index);
-            Some((state.bricks_placed.to_string(), if winner { gold } else { pink }))
+            let step = config.puzzle.count_step.max(0.01);
+            let so_far = ((counted_so_far / step).floor() as u32).min(total);
+            if draw && total == most {
+                Some((format!("{so_far} DRAW"), pink))
+            } else {
+                Some((so_far.to_string(), if winner { gold } else { pink }))
+            }
         } else {
             state
                 .laser_count

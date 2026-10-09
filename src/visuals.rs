@@ -532,6 +532,7 @@ fn dress_floor(
         let name = match block.part {
             FloorPart::Column(0) => "puzzle_piece_1".to_string(),
             FloorPart::Column(_) => "puzzle_piece_3".to_string(),
+            FloorPart::Wide => "puzzle_piece_2".to_string(),
             FloorPart::Pillar => "puzzle_pro_center".to_string(),
             FloorPart::Ledge(n) => format!("puzzle_pro_ledge_{}", n + 1),
             FloorPart::TopLedge => "puzzle_pro_ledge_top".to_string(),
@@ -542,9 +543,11 @@ fn dress_floor(
         let half = brick.cells.len() as f32 * 0.5;
         let mut node = commands.entity(entity);
         node.despawn_children();
-        if matches!(block.part, FloorPart::Column(_) | FloorPart::Pillar) {
-            // Pivot on the top-left, a hair left of and above the block's corner.
-            transform.translation = Vec3::new(c * (-0.5 - 0.03), c * (half + 0.03), 0.0);
+        if matches!(block.part, FloorPart::Column(_) | FloorPart::Pillar | FloorPart::Wide) {
+            // Pivot on the top-left, a hair left of and above the block's corner (two cells
+            // wide for the wide piece).
+            let left = if block.part == FloorPart::Wide { -1.0 } else { -0.5 };
+            transform.translation = Vec3::new(c * (left - 0.03), c * (half + 0.03), 0.0);
         }
         node.with_child((sprite, anchor, transform));
         if matches!(block.part, FloorPart::Column(_)) {
