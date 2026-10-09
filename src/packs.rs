@@ -19,8 +19,26 @@ use crate::visuals::{CellSprite, dress_bricks};
 
 pub struct PacksPlugin;
 
+/// DEBUG-TOOL: whether the Galaxy cell lines are drawn and the starfield scrolls. Both on
+/// in the game; the debug command `GalaxyFrame` switches them for a picture of one piece.
+#[derive(Resource)]
+pub struct GalaxyDebug {
+    pub lines: bool,
+    pub scroll: bool,
+}
+
+impl Default for GalaxyDebug {
+    fn default() -> Self {
+        Self {
+            lines: true,
+            scroll: true,
+        }
+    }
+}
+
 impl Plugin for PacksPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<GalaxyDebug>();
         app.add_systems(
             Update,
             (
@@ -128,7 +146,9 @@ fn decorate_bricks(
         )>,
     >,
     skins: Query<&TowerSkin>,
+    galaxy: Option<Res<GalaxyDebug>>,
 ) {
+    let lines = galaxy.as_ref().is_none_or(|g| g.lines);
     for (entity, brick, stone) in &bricks {
         let Ok(skin) = skins.get(brick.tower) else {
             continue;
@@ -247,7 +267,7 @@ fn decorate_bricks(
                     ] {
                         // Rotated pieces leave float error in their offsets, so a neighbour
                         // counts as touching within a tenth of a cell.
-                        if cells.iter().any(|&o| (o - cell - dir).length() < 0.1) {
+                        if !lines || cells.iter().any(|&o| (o - cell - dir).length() < 0.1) {
                             continue;
                         }
                         brick_entity.with_child((
@@ -500,7 +520,11 @@ fn scroll_galaxy(
     config: Res<GameConfig>,
     mut images: ResMut<Assets<Image>>,
     mut cells: Query<(&mut Sprite, &GlobalTransform), With<GalaxyCell>>,
+    galaxy: Res<GalaxyDebug>,
 ) {
+    if !galaxy.scroll {
+        return;
+    }
     let t = time.elapsed_secs();
     for (mut sprite, at) in &mut cells {
         repeat_starfield(&mut images, &sprite.image);

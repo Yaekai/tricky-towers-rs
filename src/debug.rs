@@ -76,6 +76,14 @@ pub enum DebugCommand {
         /// Start this cup (0 Tiny, 1 Big, 2 Super) with the match's mode and difficulty.
         #[serde(default)]
         cup: Option<usize>,
+        /// DEBUG-TOOL: every tower uses this brick pack (as if picked on Select Players).
+        #[serde(default)]
+        pack: Option<crate::config::BrickPack>,
+    },
+    /// DEBUG-TOOL: switch the Galaxy cell lines and the starfield's scroll on or off.
+    GalaxyFrame {
+        lines: bool,
+        scroll: bool,
     },
     /// Press a button once for tower `tower` (0 is player 1).
     Press {
@@ -196,6 +204,7 @@ fn apply_debug_commands(
     mut exit: MessageWriter<AppExit>,
     mut keyboard: Option<ResMut<ButtonInput<KeyCode>>>,
     mut cups: ResMut<crate::cups::Cup>,
+    mut galaxy: Option<ResMut<crate::packs::GalaxyDebug>>,
 ) {
     // The tower with this index, as (state, input).
     macro_rules! tower {
@@ -215,9 +224,13 @@ fn apply_debug_commands(
                 opponents,
                 trial,
                 cup,
+                pack,
             } => {
                 config.mode = mode;
                 config.trial = trial;
+                if let Some(pack) = pack {
+                    config.skins = (0..crate::gameplay::MAX_TOWERS).map(|i| (i, pack)).collect();
+                }
                 if difficulty.is_some() {
                     config.difficulty = difficulty;
                 }
@@ -239,6 +252,12 @@ fn apply_debug_commands(
                     game.phase = crate::gameplay::Phase::Playing;
                 }
                 request.pending = true;
+            }
+            DebugCommand::GalaxyFrame { lines, scroll } => {
+                if let Some(galaxy) = galaxy.as_mut() {
+                    galaxy.lines = lines;
+                    galaxy.scroll = scroll;
+                }
             }
             DebugCommand::Press { tower: index, key } => {
                 if let Some((_, mut input)) = tower!(index) {

@@ -19,3 +19,5 @@ Not tagged, decide before release:
 - The `mods/` folder (`src/mods.rs`, `docs/modding.md`): not in the original, but "easy to mod"
   is one of this project's goals.
 - The next-brick preview (`src/visuals.rs`): not yet confirmed in the original (queued for the PC).
+| Galaxy frame switch | `src/packs.rs` (`GalaxyDebug`), `src/debug.rs` (`GalaxyFrame`) | Turns the Galaxy cell lines off and pauses the starfield's scroll, for a picture of one piece on the PC's black-bar test. |
+| Start with a brick pack | `src/debug.rs` (`Start`, `pack`) | Every tower uses one brick pack in a scripted match, so Galaxy and the others can be pictured without Select Players. |
