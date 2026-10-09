@@ -1880,7 +1880,9 @@ fn judge_match(
                 let rules = &config.puzzle;
                 // In a puzzle trial a dropped brick fails it (1 life, trials.md).
                 let trial_drop = config.trial.is_some() && state.bricks_dropped > 0;
-                if trial_drop || (state.all_settled && state.height > state.laser(&config) + 0.05) {
+                // A brick touching the laser ends that player's round at once; it doesn't
+                // wait for the tower to settle.
+                if trial_drop || state.height > state.laser(&config) + 0.05 {
                     state.status = TowerStatus::Out;
                 } else if state.bricks_used() >= rules.bricks
                     && state.active.is_none()
