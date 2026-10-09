@@ -292,6 +292,27 @@ mod tests {
     }
 
     #[test]
+    fn a_tie_below_the_target_is_not_overtime() {
+        let (rules, mut cup) = cup(6);
+        // 5 each after two matches: tied, but nobody has reached 6 yet.
+        cup.add_match(&rules, &[0, 1]);
+        cup.add_match(&rules, &[1, 0]);
+        assert_eq!(cup.points, vec![5, 5]);
+        assert!(!cup.overtime(&rules));
+        assert!(cup.in_progress());
+    }
+
+    #[test]
+    fn a_lone_leader_at_the_target_wins_even_with_a_close_second() {
+        let (rules, mut cup) = cup(6);
+        cup.add_match(&rules, &[0, 1]); // 3 : 2
+        cup.add_match(&rules, &[0, 1]); // 6 : 4
+        assert!(!cup.in_progress());
+        assert_eq!(cup.standings.as_ref().map(|s| s[0]), Some(0));
+        assert!(!cup.overtime(&rules));
+    }
+
+    #[test]
     fn a_random_cup_plays_a_new_mode_each_match() {
         use ModeKind::*;
         let (_, mut cup) = cup(6);
