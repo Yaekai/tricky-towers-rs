@@ -151,3 +151,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-09 (PC): Ivy never joins the Puzzle floor (spells.rs grow_ivy excludes FloorBlock); floor blocks are Brick entities, so the join was merging them into clusters.
 - 2026-10-09 (PC): Puzzle battle scores: the 3-2-1 over the lane that touched the laser, then each tower's brick count above its lane (winner gold, others pink) (results.rs show_puzzle_scores, place_puzzle_scores). Winner popup with the score not done.
 - 2026-10-09 (PC): default bricks are lit from their normal map: stage.ps1 Bake-Lit multiplies the colour by a diffuse light from the upper left with an ambient floor (0.62; direction and ambient are guesses, not the original's shader).
+- 2026-10-09 (PC): the water scene (floating islands and wave crests) is shared: menu.rs spawn_water_scene_into, used by the title, Select, Settings, Single, Trials pages and the start screen over menu_background_bare.

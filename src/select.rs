@@ -455,8 +455,13 @@ pub(crate) fn fit_backdrops(
 }
 
 /// A full-screen page with the title backdrop and the header bar.
-pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str) -> Entity {
-    spawn_page_over(commands, art, title, false)
+pub(crate) fn spawn_page(
+    commands: &mut Commands,
+    art: Option<&Art>,
+    config: &GameConfig,
+    title: &str,
+) -> Entity {
+    spawn_page_over(commands, art, config, title, false)
 }
 
 /// A page, see-through over the world's background when `over_world` and the
@@ -464,6 +469,7 @@ pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str
 pub(crate) fn spawn_page_over(
     commands: &mut Commands,
     art: Option<&Art>,
+    config: &GameConfig,
     title: &str,
     over_world: bool,
 ) -> Entity {
@@ -484,9 +490,12 @@ pub(crate) fn spawn_page_over(
     ));
     if let Some(background) = art
         .filter(|_| !clear)
-        .and_then(|a| a.image("menu_background"))
+        .and_then(|a| a.image("menu_background_bare"))
     {
         page.with_child(backdrop(background));
+    }
+    if !clear {
+        page.with_children(|p| crate::menu::spawn_water_scene_into(p, art, config));
     }
     page.with_children(|page| {
         let mut header = page.spawn((
@@ -503,11 +512,15 @@ pub(crate) fn spawn_page_over(
     page.id()
 }
 
-pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>) {
+pub(crate) fn spawn_select_screens(
+    mut commands: Commands,
+    art: Option<Res<Art>>,
+    config: Res<GameConfig>,
+) {
     let art = art.as_deref();
     let image = |name: &str| art.and_then(|a| a.image(name));
 
-    let players = spawn_page(&mut commands, art, "Select Players");
+    let players = spawn_page(&mut commands, art, &config, "Select Players");
     commands.entity(players).insert(PlayersRoot);
     commands.entity(players).with_children(|page| {
         for (seat, wizard) in WIZARDS.iter().take(MAX_TOWERS).enumerate() {
@@ -658,7 +671,7 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
         }
     });
 
-    let modes = spawn_page(&mut commands, art, "Select Mode");
+    let modes = spawn_page(&mut commands, art, &config, "Select Mode");
     commands.entity(modes).insert(ModesRoot);
     commands.entity(modes).with_children(|page| {
         let (back_offset, back_size) = DIFFICULTY_BACK;

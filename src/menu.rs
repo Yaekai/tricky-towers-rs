@@ -4,6 +4,7 @@
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use bevy::ecs::hierarchy::ChildSpawnerCommands;
 
 use crate::art::Art;
 use crate::config::GameConfig;
@@ -629,6 +630,72 @@ fn show_pause_menu(
     }
 }
 
+/// The title screen's water: the floating islands and the wave crests. Other screens use it
+/// too, over the bare backdrop.
+pub(crate) fn spawn_water_scene_into(parent: &mut ChildSpawnerCommands, art: Option<&Art>, config: &GameConfig) {
+    let image = |name: &str| art.and_then(|a| a.image(name));
+    // The islands float over the sky, each pivot where the original's backdrop puts it.
+    {
+        let parent = &mut *parent;
+        for (k, island) in config.title_islands.iter().enumerate() {
+            let Some(handle) = image(&island.art) else {
+                continue;
+            };
+            let pivot = art
+                .as_ref()
+                .and_then(|a| a.entries.get(&island.art))
+                .and_then(|e| e.pivot)
+                .unwrap_or((0.5, 0.5));
+            let (x, y) = (island.at.0 * TITLE_PIXELS, island.at.1 * TITLE_PIXELS);
+            parent.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(x),
+                    top: px(1080.0 - y),
+                    ..default()
+                },
+                UiTransform {
+                    translation: Val2::new(
+                        Val::Percent(-pivot.0 * 100.0),
+                        Val::Percent(-(1.0 - pivot.1) * 100.0),
+                    ),
+                    ..default()
+                },
+                ImageNode::new(handle),
+                TitleIsland {
+                    top: 1080.0 - y,
+                    bob: island.bob,
+                    leg: island.leg,
+                    from: 0.0,
+                    to: 0.0,
+                    length: 0.0,
+                    time: 0.0,
+                    seed: 0x9E37_79B9 + k as u64 * 7919,
+                },
+            ));
+        }
+    }
+    // The wave crests run along the top of the water band, tiled and scrolling.
+    if let Some(wave) = image("bg_race_wave") {
+        parent.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(-TITLE_WAVE_TILE),
+                top: px(1080.0 - 6.0 * TITLE_PIXELS - 21.0),
+                width: px(1920.0 + 2.0 * TITLE_WAVE_TILE),
+                height: px(21.0),
+                ..default()
+            },
+            ImageNode::new(wave).with_mode(NodeImageMode::Tiled {
+                tile_x: true,
+                tile_y: false,
+                stretch_value: 1.0,
+            }),
+            TitleWaves,
+        ));
+    }
+}
+
 /// Pixels per unit of the title backdrop's layout.
 const TITLE_PIXELS: f32 = 26.0;
 
@@ -850,65 +917,7 @@ fn spawn_main_menu(
     if let Some(background) = image("menu_background_bare") {
         root.with_child(crate::select::backdrop(background));
     }
-    // The islands float over the sky, each pivot where the original's backdrop puts it.
-    root.with_children(|parent| {
-        for (k, island) in config.title_islands.iter().enumerate() {
-            let Some(handle) = image(&island.art) else {
-                continue;
-            };
-            let pivot = art
-                .as_ref()
-                .and_then(|a| a.entries.get(&island.art))
-                .and_then(|e| e.pivot)
-                .unwrap_or((0.5, 0.5));
-            let (x, y) = (island.at.0 * TITLE_PIXELS, island.at.1 * TITLE_PIXELS);
-            parent.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(x),
-                    top: px(1080.0 - y),
-                    ..default()
-                },
-                UiTransform {
-                    translation: Val2::new(
-                        Val::Percent(-pivot.0 * 100.0),
-                        Val::Percent(-(1.0 - pivot.1) * 100.0),
-                    ),
-                    ..default()
-                },
-                ImageNode::new(handle),
-                TitleIsland {
-                    top: 1080.0 - y,
-                    bob: island.bob,
-                    leg: island.leg,
-                    from: 0.0,
-                    to: 0.0,
-                    length: 0.0,
-                    time: 0.0,
-                    seed: 0x9E37_79B9 + k as u64 * 7919,
-                },
-            ));
-        }
-    });
-    // The wave crests run along the top of the water band, tiled and scrolling.
-    if let Some(wave) = image("bg_race_wave") {
-        root.with_child((
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(-TITLE_WAVE_TILE),
-                top: px(1080.0 - 6.0 * TITLE_PIXELS - 21.0),
-                width: px(1920.0 + 2.0 * TITLE_WAVE_TILE),
-                height: px(21.0),
-                ..default()
-            },
-            ImageNode::new(wave).with_mode(NodeImageMode::Tiled {
-                tile_x: true,
-                tile_y: false,
-                stretch_value: 1.0,
-            }),
-            TitleWaves,
-        ));
-    }
+    root.with_children(|parent| spawn_water_scene_into(parent, art.as_deref(), &config));
     root.with_children(|parent| {
         for (i, tile) in TILES.iter().enumerate() {
             let (r, g, b) = tile.color;
