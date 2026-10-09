@@ -15,6 +15,7 @@ pub mod config;
 pub mod credits;
 pub mod cups;
 pub mod cups_menu;
+pub mod cup_winner;
 pub mod debug;
 #[cfg(feature = "debug-panel")]
 pub mod debug_panel;

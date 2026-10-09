@@ -202,3 +202,9 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
   (manifest `see_through`, `line`). brick_art no longer maps Halloween to the default (a cloud change had).
   Debug `Start(.., skin: Some((wizard, Pack)))` sets every tower's skin. The guid index misses
   gph_brickZ_diamond_normalMap, so stage.ps1 leaves Diamond Z unlit until the index is rebuilt.
+- 2026-10-10 (PC, tt-next): cup winner popup (src/cup_winner.rs, TournamentWinnerPopup): after a decided cup's
+  standings, "<CUP> WINNER!" with the cup decorations, the winner's name, 4th/3rd/2nd/1st medal counters ticking up
+  with rising sfx_countdown beeps under the drum roll, the cup trophy popping in (0.4 to 1, out-elastic) over turning
+  rays with sfx_trophy, then the win music; the winner's wizard appears (static Select Players picture: the original
+  lets the winner fly it; not done) with confetti and fireworks (simple shapes, ponytail note); at 12 s a 3 s fade
+  and Select Mode, no Game Completed popup (`popup::cup_decided`). `Cup::places` keeps each match's place.

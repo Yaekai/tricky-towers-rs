@@ -34,6 +34,11 @@ impl Plugin for PopupPlugin {
 /// The popup's items, top to bottom.
 pub const POPUP_ITEMS: [&str; 3] = ["Rematch", "Select Mode", "Main menu"];
 
+/// A cup that has just been won: no Game Completed popup follows it.
+fn cup_decided(cup: &Cup) -> bool {
+    cup.size.is_some() && cup.standings.is_some()
+}
+
 /// Whether the popup is up, and its highlighted item.
 #[derive(Resource, Default)]
 pub struct Popup {
@@ -272,7 +277,8 @@ fn popup_input(
     mut cup: ResMut<crate::cups::Cup>,
     mut last_cursor: Local<Option<Vec2>>,
 ) {
-    if !popup.shown || game.phase != Phase::Over {
+    // A decided cup ends on its winner's popup (cup_winner.rs), then Select Mode.
+    if !popup.shown || game.phase != Phase::Over || cup_decided(&cup) {
         return;
     }
     let count = if config.trial.is_some() {
@@ -399,7 +405,7 @@ fn show_popup(
     };
     let eased = 1.0 - (1.0 - t) * (1.0 - t);
     let bottom = px(-(height() + SPILL.1) * (1.0 - eased));
-    let visible = popup.shown && !popup.panel_up(&cup, &config.cup_panel);
+    let visible = popup.shown && !popup.panel_up(&cup, &config.cup_panel) && !cup_decided(&cup);
     for (mut v, mut node) in &mut root {
         v.set_if_neq(if visible {
             Visibility::Inherited

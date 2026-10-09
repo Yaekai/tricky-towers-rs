@@ -40,6 +40,8 @@ pub struct Cup {
     /// Per tower index, how many medals it had before the latest match: the panel
     /// draws those at once and animates only the new ones (TournamentResultsItem).
     pub before: Vec<usize>,
+    /// Per tower index, its place (0 = first) in each match, for the winner's popup.
+    pub places: Vec<Vec<usize>>,
     /// The final standings (tower indexes, first first) once the cup is over.
     pub standings: Option<Vec<usize>>,
     /// The mode and difficulty pairs the cup plays (more than one when Select Mode
@@ -143,6 +145,10 @@ impl Cup {
             if self.before.len() <= tower {
                 self.before.resize(tower + 1, 0);
             }
+            if self.places.len() <= tower {
+                self.places.resize(tower + 1, Vec::new());
+            }
+            self.places[tower].push(place);
             self.points[tower] += earned;
             self.before[tower] = self.medals[tower].len();
             let medals = &mut self.medals[tower];
