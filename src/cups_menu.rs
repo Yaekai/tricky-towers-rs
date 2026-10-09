@@ -135,7 +135,11 @@ const SLOTS: usize = 18;
 enum Part {
     Root,
     Panel,
-    Badge,
+    /// The panel's picture (PlayerInfo: gph_popupBackgroundPanel, 9-sliced), sized
+    /// (target - 1) * 47 + 420 by rows * 98 + 180 and centred 102 px above the middle.
+    Frame,
+    /// A cup decoration: right end or not, leaves or cup.
+    Deco(bool, bool),
     Title,
     Row(usize),
     Name(usize),
@@ -172,9 +176,12 @@ fn blank() -> ImageNode {
     }
 }
 
-fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>) {
+fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<Art>>) {
     let p = &config.cup_panel;
     let bar_y = p.bar_top - p.panel_top;
+    let frame = art.as_ref().and_then(|a| a.image("menu_leaderboard_panel"));
+    // With the picture, it draws the panel and its title bar.
+    let fill = |c| if frame.is_some() { Color::NONE } else { rgb(c) };
     commands
         .spawn((
             Node {
@@ -183,12 +190,19 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>) {
                 height: Val::Percent(100.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, p.dim)),
+            BackgroundColor(rgb(p.dim_colour).with_alpha(p.dim)),
             GlobalZIndex(22),
             Visibility::Hidden,
             Part::Root,
         ))
         .with_children(|root| {
+            if let Some(frame) = frame.clone() {
+                root.spawn((
+                    at(0.0, 0.0, 0.0, 0.0),
+                    crate::popup::sliced(frame, [0.0, 0.0, 37.0, 51.0]),
+                    Part::Frame,
+                ));
+            }
             root.spawn((
                 Node {
                     position_type: PositionType::Absolute,
@@ -199,30 +213,29 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>) {
                     height: px(p.panel_height),
                     ..default()
                 },
-                BackgroundColor(rgb(p.panel_colour)),
+                BackgroundColor(fill(p.panel_colour)),
                 Part::Panel,
             ))
             .with_children(|panel| {
                 panel.spawn((
-                    at(0.0, bar_y, p.panel_width, p.bar_height),
-                    BackgroundColor(rgb(p.bar_colour)),
+                    Node {
+                        width: Val::Percent(100.0),
+                        ..at(0.0, bar_y, p.panel_width, p.bar_height)
+                    },
+                    BackgroundColor(fill(p.bar_colour)),
                     children![(
-                        label_with(p.title_size, "", TextLook::OUTLINED),
+                        label_with(
+                            p.title_size,
+                            "",
+                            TextLook {
+                                face: Some(rgb(p.title_colour)),
+                                ..TextLook::OUTLINED
+                            }
+                        ),
+                        UiTransform::from_translation(Val2::px(0.0, -p.title_lift)),
                         Part::Title
                     )],
                 ));
-                for x in p.badge_x {
-                    panel.spawn((
-                        at(
-                            x - p.panel_left - p.badge_size / 2.0,
-                            bar_y + (p.bar_height - p.badge_size) / 2.0,
-                            p.badge_size,
-                            p.badge_size,
-                        ),
-                        blank(),
-                        Part::Badge,
-                    ));
-                }
                 let name_look = TextLook {
                     body: true,
                     face: Some(rgb(p.name_colour)),
@@ -275,23 +288,22 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>) {
                                 ));
                             }
                             row.spawn((
-                                at(
-                                    p.trophy_x - p.row_left - p.trophy_size / 2.0,
-                                    (p.row_height - p.trophy_size) / 2.0,
-                                    p.trophy_size,
-                                    p.trophy_size,
-                                ),
+                                Node {
+                                    left: Val::Auto,
+                                    right: px(p.row_left + p.row_width - p.trophy_x - p.trophy_size / 2.0),
+                                    ..at(0.0, (p.row_height - p.trophy_size) / 2.0, p.trophy_size, p.trophy_size)
+                                },
                                 blank(),
                                 Visibility::Hidden,
                                 Part::Trophy(i),
                             ));
+                            // From the row's right end, so a wider cup's row carries it.
                             row.spawn((
-                                at(
-                                    p.trophy_x - p.row_left - p.trophy_size / 2.0,
-                                    0.0,
-                                    p.trophy_size,
-                                    p.row_height,
-                                ),
+                                Node {
+                                    left: Val::Auto,
+                                    right: px(p.row_left + p.row_width - p.trophy_x - p.trophy_size / 2.0),
+                                    ..at(0.0, 0.0, p.trophy_size, p.row_height)
+                                },
                                 children![(
                                     label_with(p.name_size * 1.6, "", name_look),
                                     Part::Extra(i)
@@ -300,6 +312,12 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>) {
                         });
                 }
             });
+            // Leaves first, so the cups sit over them.
+            for leaves in [true, false] {
+                for right in [false, true] {
+                    root.spawn((at(0.0, 0.0, 0.0, 0.0), blank(), Part::Deco(right, leaves)));
+                }
+            }
             root.spawn((
                 Node {
                     position_type: PositionType::Absolute,
@@ -375,15 +393,10 @@ fn show_cup_panel(
     let target = size.map_or(0, |s| s.target as usize).min(SLOTS);
     let since = popup.since_shown();
     let grow = order.len().saturating_sub(2) as f32 * p.row_pitch;
-    // A bigger cup squeezes its slots to fit the row (?).
-    let pitch = if target > 1 {
-        p.slot_pitch
-            .min((p.slot_right - p.slot_left - p.slot_size) / (target - 1) as f32)
-    } else {
-        p.slot_pitch
-    };
-    let scale = pitch / p.slot_pitch;
-    let (cell, dot) = (p.slot_size * scale, p.dot_size * scale);
+    // A bigger cup is wider by a slot per point past the Tiny Cup's 6, on both sides.
+    let wide = (target as f32 - 6.0) * p.slot_pitch;
+    let pitch = p.slot_pitch;
+    let (cell, dot) = (p.slot_size, p.dot_size);
     let slide = if p.slide > 0.0 {
         let t = (since / p.slide).clamp(0.0, 1.0);
         1.0 - (1.0 - t) * (1.0 - t)
@@ -413,18 +426,72 @@ fn show_cup_panel(
         match *part {
             Part::Panel => {
                 let (top, height) = (px(p.panel_top + drop), px(p.panel_height + grow));
+                let (margin, width) = (
+                    px(p.panel_left - SCREEN.0 / 2.0 - wide / 2.0),
+                    px(p.panel_width + wide),
+                );
                 if node.top != top || node.height != height {
                     (node.top, node.height) = (top, height);
                 }
+                if node.margin.left != margin || node.width != width {
+                    (node.margin.left, node.width) = (margin, width);
+                }
             }
-            Part::Badge => {
-                if let Some(mut badge) = image_node {
-                    let name = cup.size.and_then(|s| p.badges.get(s));
-                    set_image(&mut badge, name.and_then(|n| image(n)));
+            Part::Frame => {
+                let width = (target as f32 - 1.0).max(0.0) * p.slot_pitch + 420.0;
+                let height = order.len() as f32 * 98.0 + 180.0;
+                let want = (
+                    Val::Percent(50.0),
+                    px(-width / 2.0),
+                    px(SCREEN.1 / 2.0 - 102.0 - height / 2.0 + drop),
+                    px(width),
+                    px(height),
+                );
+                if (node.left, node.margin.left, node.top, node.width, node.height) != want {
+                    (node.left, node.margin.left, node.top, node.width, node.height) = want;
+                }
+            }
+            Part::Deco(right, leaves) => {
+                let deco = cup.size.and_then(|s| p.decos.get(s));
+                let (name, size, at) = match deco {
+                    Some(d) if leaves => (d.leaves.as_str(), d.leaves_size, d.leaves_at),
+                    Some(d) => (d.cup.as_str(), d.cup_size, d.cup_at),
+                    None => ("", (0.0, 0.0), (0.0, 0.0)),
+                };
+                // The left end is the right one mirrored about its corner.
+                let corner = if right {
+                    p.bar_ends.1 + wide / 2.0
+                } else {
+                    p.bar_ends.0 - wide / 2.0
+                };
+                let x = if right { corner + at.0 } else { corner - at.0 };
+                let y = p.bar_top + drop - at.1;
+                // Centred like the panel, so wide screens keep it in place.
+                let want = (
+                    Val::Percent(50.0),
+                    px(x - size.0 / 2.0 - SCREEN.0 / 2.0),
+                    px(y - size.1 / 2.0),
+                    px(size.0),
+                    px(size.1),
+                );
+                if (node.left, node.margin.left, node.top, node.width, node.height) != want {
+                    (node.left, node.margin.left, node.top, node.width, node.height) = want;
+                }
+                if let Some(mut deco) = image_node {
+                    set_image(&mut deco, image(name));
+                    // The leaves carry a -1 scale on the right; the left end flips the cup.
+                    let flip = right == leaves;
+                    if deco.flip_x != flip {
+                        deco.flip_x = flip;
+                    }
                 }
             }
             Part::Row(i) => {
                 visibility.set_if_neq(shown(i < order.len()));
+                let width = px(p.row_width + wide);
+                if node.width != width {
+                    node.width = width;
+                }
             }
             Part::Face(i) => {
                 if let Some(mut face) = image_node {
@@ -450,7 +517,8 @@ fn show_cup_panel(
                 let y = (p.row_height - cell) / 2.0;
                 let (picture, fill) = match medal {
                     Some(place) => {
-                        set_box(&mut node, x, y, cell, cell);
+                        let (w, h) = p.medal_size;
+                        set_box(&mut node, x + (cell - w) / 2.0, y + (cell - h) / 2.0, w, h);
                         let picture = p.medals.get(place).and_then(|n| image(n));
                         let fill = match picture {
                             Some(_) => Color::NONE,

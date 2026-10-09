@@ -73,6 +73,9 @@ pub enum DebugCommand {
         /// Play this trial (an index into the trials) instead.
         #[serde(default)]
         trial: Option<usize>,
+        /// Start this cup (0 Tiny, 1 Big, 2 Super) with the match's mode and difficulty.
+        #[serde(default)]
+        cup: Option<usize>,
     },
     /// Press a button once for tower `tower` (0 is player 1).
     Press {
@@ -192,6 +195,7 @@ fn apply_debug_commands(
     mut pictures: MessageWriter<DebugPicture>,
     mut exit: MessageWriter<AppExit>,
     mut keyboard: Option<ResMut<ButtonInput<KeyCode>>>,
+    mut cups: ResMut<crate::cups::Cup>,
 ) {
     // The tower with this index, as (state, input).
     macro_rules! tower {
@@ -210,6 +214,7 @@ fn apply_debug_commands(
                 players,
                 opponents,
                 trial,
+                cup,
             } => {
                 config.mode = mode;
                 config.trial = trial;
@@ -221,6 +226,13 @@ fn apply_debug_commands(
                 }
                 if let Some(opponents) = opponents {
                     config.opponents = opponents;
+                }
+                if let Some(size) = cup {
+                    cups.pick = Some(size);
+                    let pair = (mode, config.difficulty.unwrap_or(Difficulty::Normal));
+                    cups.current = Some(pair);
+                    cups.options = vec![pair];
+                    cups.begin();
                 }
                 // A match started from a menu leaves it.
                 if game.phase == crate::gameplay::Phase::Menu {

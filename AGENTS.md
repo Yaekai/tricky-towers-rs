@@ -179,3 +179,7 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
   merge main before staging.
 - 2026-10-09 (cloud, cloud-batch-10, later): Select Players follows the original's steps: Down confirms a seat's wizard (it shines) and moves to the brick pack row, a second Down confirms the pack, and Enter goes on only once every seated human has confirmed both (an early Enter confirms the current line). Mouse: a click on a Character or Brick pack line moves the cursor there, a second click confirms it (line positions are guesses until the clip is checked). select.rs `confirm_row` / `everyone_confirmed`; tests/menu.rs covers the flow. Also: trial table test (tests/trials_table.rs), DEBUG-TOOL tags on the WASD keys in popup.rs and menu.rs and on offscreen.rs. Full `cargo test` passes.
 - 2026-10-09 (cloud, cloud-batch-10, cups): cup rule tests in src/cups.rs (a tie below the target is not overtime; a lone leader at the target wins even with a close second). Cup rules are still the guesses listed in pc-tasks.md; the tests only pin what we already do.
+- 2026-10-09 (PC, tt-next): cup standings from TournamentResults* and Max's Big/Super Cup clips: the panel is the
+  9-sliced gph_popupBackgroundPanel (`menu_leaderboard_panel`) sized (target-1)*47+420 by rows*98+180, slots stay
+  47 px apart (no squeeze), CUP_DECO cups and laurels on the bar ends (`CupPanel::decos`), orange title over the
+  bar, overlay (8,5,24) at 0.96 (Bevy blends in linear colour). Debug `Start(.., cup: Some(n))` begins a cup.
