@@ -261,6 +261,10 @@ fn apply_debug_commands(
                 request.pending = true;
             }
             DebugCommand::PackLine { pack } => {
+                // Show the row in a match, not over the start or menu screens.
+                if game.phase == crate::gameplay::Phase::Menu {
+                    game.phase = crate::gameplay::Phase::Playing;
+                }
                 // Bricks need a tower for their skin; a bare entity carries it here.
                 let owner = commands.spawn(TowerSkin { wizard: 0, pack }).id();
                 let count = config.pieces.len().min(7);
