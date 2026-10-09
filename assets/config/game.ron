@@ -256,6 +256,8 @@
         survival_after: 0.3,
         puzzle_wait: 0.5,
         puzzle_after: 0.5,
+        laser_sweep: 0.3,
+        laser_fade: 0.5,
         count_step: 0.75,
         count_go: 2.25,
         count_end: 3.0,

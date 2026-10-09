@@ -28,6 +28,7 @@ impl Plugin for VisualsPlugin {
             .add_systems(Update, wobble_bubbles)
             .add_systems(Update, twinkle_stars.before(fit_backgrounds))
             .add_systems(Update, fade_eclipse)
+            .add_systems(Update, sweep_lasers)
             .add_systems(Update, drop_stars.before(twinkle_stars))
             .add_systems(
                 Update,
@@ -412,6 +413,54 @@ fn art_strip(art: &Art, name: &str, cell: f32, width: f32, at: Vec3) -> Option<i
         anchor,
         transform.with_translation(at),
     ))
+}
+
+/// The bright Puzzle laser that sweeps in at a battle's start, and the plain one.
+#[derive(Component)]
+struct LaserSweep {
+    width: f32,
+}
+#[derive(Component)]
+struct LaserRest;
+
+/// The bright laser grows in from the right edge, from 2.5 times its height, then
+/// thins to nothing while the plain laser shows (out-quad, DOTween's default).
+fn sweep_lasers(
+    config: Res<GameConfig>,
+    laser: Option<Res<crate::intro::LaserIn>>,
+    mut bright: Query<(&LaserSweep, &mut Transform, &mut Visibility)>,
+    mut rest: Query<&mut Visibility, (With<LaserRest>, Without<LaserSweep>)>,
+) {
+    let look = &config.intro;
+    let t = laser.and_then(|l| l.0);
+    let out_quad = |x: f32| {
+        let x = x.clamp(0.0, 1.0);
+        1.0 - (1.0 - x) * (1.0 - x)
+    };
+    let resting = t.is_none_or(|t| t >= look.laser_sweep);
+    for mut visibility in &mut rest {
+        visibility.set_if_neq(if resting {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+    }
+    for (sweep, mut transform, mut visibility) in &mut bright {
+        let Some(t) = t.filter(|&t| t >= 0.0) else {
+            visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        };
+        visibility.set_if_neq(Visibility::Inherited);
+        let (x, w, h) = if t < look.laser_sweep {
+            let k = out_quad(t / look.laser_sweep.max(0.01));
+            (sweep.width * 0.5 * (1.0 - k), k, 2.5 + (1.0 - 2.5) * k)
+        } else {
+            let k = out_quad((t - look.laser_sweep) / look.laser_fade.max(0.01));
+            (0.0, 1.0, 1.0 - k)
+        };
+        transform.translation.x = x;
+        transform.scale = Vec3::new(w.max(0.001), h.max(0.001), 1.0);
+    }
 }
 
 /// Sizes strips once their image is loaded: the image repeats at its own size.
@@ -1535,7 +1584,26 @@ fn dress_platforms(
                     Transform::from_xyz(0.0, config.cells(height) + c * 0.5, -1.0),
                     Visibility::default(),
                 ));
-                match art_strip(&art, name, c, line_width, Vec3::X * line_x) {
+                // A battle's Puzzle laser rests as the plain (off) laser; the bright one
+                // only sweeps in at the start (PuzzleMultiplayerLaserLayer).
+                let battle_laser = name == "laser" && !trial_laser;
+                let rest = if battle_laser && art.image("fx_laser_off").is_some() {
+                    "fx_laser_off"
+                } else {
+                    name
+                };
+                if battle_laser && let Some(bright) = art_strip(&art, name, c, line_width, Vec3::ZERO) {
+                    line.with_children(|line| {
+                        line.spawn((
+                            LaserSweep { width: line_width },
+                            Transform::from_xyz(0.0, 0.0, 0.2),
+                            Visibility::Hidden,
+                        ))
+                        .with_child(bright);
+                    });
+                }
+                match art_strip(&art, rest, c, line_width, Vec3::X * line_x) {
+                    Some(strip) if battle_laser => line.with_child((strip, LaserRest)),
                     Some(strip) => line.with_child(strip),
                     None => line.with_child((
                         Sprite::from_color(color, Vec2::new(line_width, 3.0)),

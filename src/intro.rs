@@ -23,6 +23,7 @@ impl Plugin for IntroPlugin {
             .init_resource::<Intro>()
             .init_resource::<CameraLift>()
             .init_resource::<IntroCount>()
+            .init_resource::<LaserIn>()
             .add_systems(Startup, spawn_intro)
             .add_systems(Update, (run_intro, show_title, show_countdown).chain());
     }
@@ -35,6 +36,11 @@ pub struct CameraLift(pub f32);
 /// The Survival brick count shown while it counts up, instead of the real one.
 #[derive(Resource, Default)]
 pub struct IntroCount(pub Option<u32>);
+
+/// Seconds since Puzzle's laser started coming in (below 0 while it waits); `None`
+/// shows the laser as it is.
+#[derive(Resource, Default)]
+pub struct LaserIn(pub Option<f32>);
 
 #[derive(Resource, Default)]
 struct Intro {
@@ -243,6 +249,7 @@ fn run_intro(
     mut intro: ResMut<Intro>,
     mut lift: ResMut<CameraLift>,
     mut count: ResMut<IntroCount>,
+    mut laser: ResMut<LaserIn>,
 ) {
     let look = &config.intro;
     if game.round != intro.round {
@@ -262,6 +269,7 @@ fn run_intro(
     let Some(plan) = intro.plan else {
         lift.0 = 0.0;
         count.0 = None;
+        laser.0 = None;
         return;
     };
     let before = intro.clock;
@@ -285,8 +293,15 @@ fn run_intro(
     }
     for (k, pitch) in look.count_pitch.iter().enumerate() {
         if crossed(plan.countdown_at + look.count_step * k as f32) {
-            sound(&mut commands, "sfx_count", *pitch);
+            sound(&mut commands, "sfx_count_v3", *pitch);
         }
+    }
+    laser.0 = plan
+        .laser_at
+        .map(|at| now - at)
+        .filter(|&t| t < look.laser_sweep + look.laser_fade);
+    if plan.laser_at.is_some_and(crossed) {
+        sound(&mut commands, "sfx_spawn_laser", 1.0);
     }
     if game.phase == Phase::Intro && now >= plan.countdown_at + look.count_go {
         game.phase = Phase::Playing;

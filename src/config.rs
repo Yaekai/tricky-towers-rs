@@ -2298,9 +2298,12 @@ pub struct IntroRules {
     pub survival_count: f32,
     pub survival_count_short: f32,
     pub survival_after: f32,
-    /// Puzzle: the waits before and after the laser comes in.
+    /// Puzzle: the waits before and after the laser comes in, and the laser's
+    /// entrance: the bright laser sweeps across, then thins away as the plain one shows.
     pub puzzle_wait: f32,
     pub puzzle_after: f32,
+    pub laser_sweep: f32,
+    pub laser_fade: f32,
     /// The 3-2-1: a number every `count_step`, play starts at `count_go`, and Race's
     /// word stays up until `count_end`. Its centre, letter size (Vh), scale keys, and
     /// each number's sound pitch.
@@ -2355,6 +2358,8 @@ impl Default for IntroRules {
             survival_after: 0.3,
             puzzle_wait: 0.5,
             puzzle_after: 0.5,
+            laser_sweep: 0.3,
+            laser_fade: 0.5,
             count_step: 0.75,
             count_go: 2.25,
             count_end: 3.0,
@@ -2445,6 +2450,8 @@ pub struct IntroPlan {
     pub sweep_at: Option<f32>,
     /// Survival's brick count starts counting up, and for how long.
     pub count_up: Option<(f32, f32)>,
+    /// Puzzle's laser starts coming in (without it the laser is simply there).
+    pub laser_at: Option<f32>,
     /// The 3-2-1 starts; play starts `count_go` later.
     pub countdown_at: f32,
 }
@@ -2458,7 +2465,7 @@ impl IntroRules {
             at = self.title_wait + self.title_in + self.title_hold + self.title_out;
             self.title_wait
         });
-        let (mut sweep_at, mut count_up) = (None, None);
+        let (mut sweep_at, mut count_up, mut laser_at) = (None, None, None);
         if !retry {
             match mode {
                 ModeKind::Race => {
@@ -2474,13 +2481,17 @@ impl IntroRules {
                     count_up = Some((at, long));
                     at += long + self.survival_after;
                 }
-                _ => at += self.puzzle_wait + self.puzzle_after,
+                _ => {
+                    laser_at = Some(at + self.puzzle_wait);
+                    at += self.puzzle_wait + self.puzzle_after;
+                }
             }
         }
         IntroPlan {
             title_at,
             sweep_at,
             count_up,
+            laser_at,
             countdown_at: at,
         }
     }
