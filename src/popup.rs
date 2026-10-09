@@ -245,7 +245,8 @@ fn time_popup(
 fn popup_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     gamepads: Query<&Gamepad>,
-    config: Res<GameConfig>,
+    time: Res<Time>,
+    mut config: ResMut<GameConfig>,
     mut popup: ResMut<Popup>,
     mut game: ResMut<Match>,
     mut screen: ResMut<MenuScreen>,
@@ -307,6 +308,11 @@ fn popup_input(
             if !cup.in_progress() {
                 cup.begin();
                 request.retry = true;
+            } else if let Some((mode, difficulty)) =
+                cup.next_match(time.elapsed().as_nanos() as usize / 1000)
+            {
+                config.mode = mode;
+                config.difficulty = Some(difficulty);
             }
             request.pending = true;
         }

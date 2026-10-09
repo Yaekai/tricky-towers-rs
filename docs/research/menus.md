@@ -218,5 +218,7 @@ there would be two, ±270. The cup column's items: Single Match (`gph_quickMatch
 (`gph_cupTinyLarge`), Big Cup, Super Cup, each on the difficulty items' background, the picture
 a little above centre (+21 / +24 / +13.2 / +15.3 px), the name 95 px below the centre in white
 outlined display letters (60 px), and "First to {N} points" 144 px below (28 px; none for Single
-Match). Targets 6, 12, 18. The last pick is remembered. In a cup with Random mode the original
-picks a new mode for each match and shows the mode title again (not done yet).
+Match). Targets 6, 12, 18. The last pick is remembered. A cup plays a pool of mode and difficulty pairs: one pair, or
+with Random mode and/or Random difficulty all of them. Each next match picks at random from the
+pairs not just played; with both on Random, never the same mode twice running. The mode title
+shows on the first match and whenever the pair changes (and in overtime).

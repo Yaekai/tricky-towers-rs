@@ -258,9 +258,8 @@ fn run_intro(
         intro.plan = None;
         if game.phase == Phase::Intro || game.phase == Phase::Menu {
             let mode = game.mode.rules();
-            let first_of_cup = cup.size.is_none() || cup.played == 0;
             intro.overtime = cup.overtime(&config.cups);
-            let title = first_of_cup || intro.overtime;
+            let title = cup.size.is_none() || cup.show_title || intro.overtime;
             intro.plan = Some(look.plan(mode, title, game.retry, config.survival.bricks_to_place));
             intro.difficulty = difficulty_index(config.difficulty.unwrap_or(Difficulty::Normal));
             intro.race = mode == ModeKind::Race;

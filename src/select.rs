@@ -963,7 +963,22 @@ pub(crate) fn modes_input(
     }
     lobby.column = 0;
     config.trial = None;
-    // The picked cup (or single matches) starts afresh.
+    // The picked cup (or single matches) starts afresh. A cup with a Random mode or
+    // difficulty picks a new pair for each match.
+    let modes: Vec<ModeKind> = match lobby.modes()[lobby.mode.min(lobby.modes().len() - 1)] {
+        ModePick::Mode(mode) => vec![mode],
+        ModePick::Random => vec![ModeKind::Race, ModeKind::Survival, ModeKind::Puzzle],
+    };
+    let difficulties: Vec<Difficulty> = match DifficultyPick::ALL[lobby.difficulty] {
+        DifficultyPick::Set(d) => vec![d],
+        DifficultyPick::Random => Difficulty::ALL.to_vec(),
+    };
+    let options = modes
+        .iter()
+        .flat_map(|&m| difficulties.iter().map(move |&d| (m, d)))
+        .collect();
+    cup.current = config.difficulty.map(|d| (config.mode, d));
+    cup.options = options;
     cup.begin();
     request.pending = true;
 }

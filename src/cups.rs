@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{CupRules, CupSize, GameConfig};
+use crate::config::{CupRules, CupSize, Difficulty, GameConfig, ModeKind};
 use crate::gameplay::{GameplaySystems, Match, Phase, Tower, TowerState, placings};
 
 pub struct CupsPlugin;
@@ -39,17 +39,72 @@ pub struct Cup {
     pub medals: Vec<Vec<usize>>,
     /// The final standings (tower indexes, first first) once the cup is over.
     pub standings: Option<Vec<usize>>,
+    /// The mode and difficulty pairs the cup plays (more than one when Select Mode
+    /// picked Random), the one being played, and those left to pick from next.
+    pub options: Vec<(ModeKind, Difficulty)>,
+    pub current: Option<(ModeKind, Difficulty)>,
+    pool: Vec<(ModeKind, Difficulty)>,
+    /// Whether the next match opens with its mode title: the first match, and a
+    /// match whose mode or difficulty changed.
+    pub show_title: bool,
     counted: u64,
 }
 
 impl Cup {
     /// Starts the picked cup (or none) from scratch, at the next match.
     pub fn begin(&mut self) {
+        let (options, current) = (std::mem::take(&mut self.options), self.current);
         *self = Self {
             pick: self.pick,
             size: self.pick,
+            show_title: true,
             ..default()
         };
+        self.play(options, current);
+    }
+
+    /// Sets the pairs a cup plays and the first one (CupMatchFlowController).
+    pub fn play(&mut self, options: Vec<(ModeKind, Difficulty)>, first: Option<(ModeKind, Difficulty)>) {
+        self.pool = options.iter().copied().filter(|&o| Some(o) != first).collect();
+        self.options = options;
+        self.current = first;
+    }
+
+    /// The next match's mode and difficulty, from `roll`. With more than one pair,
+    /// one not just played; with Random mode and Random difficulty both, another
+    /// mode altogether. Sets `show_title` when it changes.
+    pub fn next_match(&mut self, roll: usize) -> Option<(ModeKind, Difficulty)> {
+        let current = self.current?;
+        if self.options.len() < 2 {
+            self.show_title = false;
+            return Some(current);
+        }
+        let modes = |o: &[(ModeKind, Difficulty)]| {
+            let mut m: Vec<ModeKind> = o.iter().map(|p| p.0).collect();
+            m.dedup();
+            m.len()
+        };
+        let any = modes(&self.options) > 1 && self.options.len() > modes(&self.options);
+        let mut set_aside = Vec::new();
+        let put_aside = |pool: &mut Vec<(ModeKind, Difficulty)>, aside: &mut Vec<_>| {
+            if any {
+                aside.extend(pool.iter().copied().filter(|p: &(ModeKind, Difficulty)| p.0 == current.0));
+                pool.retain(|p| p.0 != current.0);
+            } else {
+                pool.retain(|&p| p != current);
+            }
+        };
+        put_aside(&mut self.pool, &mut set_aside);
+        if self.pool.is_empty() {
+            self.pool = self.options.clone();
+            put_aside(&mut self.pool, &mut set_aside);
+        }
+        let pick = self.pool[roll % self.pool.len()];
+        self.show_title = pick != current;
+        self.pool.extend(set_aside);
+        self.pool.retain(|&p| p != current);
+        self.current = Some(pick);
+        Some(pick)
     }
 
     pub fn rules<'a>(&self, rules: &'a CupRules) -> Option<&'a CupSize> {
@@ -215,6 +270,29 @@ mod tests {
         assert!(cup.in_progress());
         assert!(cup.add_match(&rules, &[1, 0]));
         assert_eq!(cup.standings, Some(vec![1, 0]));
+    }
+
+    #[test]
+    fn a_random_cup_plays_a_new_mode_each_match() {
+        use ModeKind::*;
+        let (_, mut cup) = cup(6);
+        let all: Vec<_> = [Race, Survival, Puzzle]
+            .iter()
+            .flat_map(|&m| Difficulty::ALL.map(|d| (m, d)))
+            .collect();
+        cup.play(all, Some((Race, Difficulty::Normal)));
+        let mut last = Race;
+        for roll in 0..12 {
+            let (mode, _) = cup.next_match(roll * 7).unwrap();
+            // Random mode and difficulty: always another mode, with its title.
+            assert_ne!(mode, last);
+            assert!(cup.show_title);
+            last = mode;
+        }
+        // One pair: the same match again, no title.
+        cup.play(vec![(Puzzle, Difficulty::Easy)], Some((Puzzle, Difficulty::Easy)));
+        assert_eq!(cup.next_match(3), Some((Puzzle, Difficulty::Easy)));
+        assert!(!cup.show_title);
     }
 
     #[test]
