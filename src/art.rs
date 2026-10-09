@@ -718,6 +718,7 @@ fn menu_cursor_sound(
     mut commands: Commands,
     art: Res<Art>,
     game: Res<Match>,
+    settings: Option<Res<crate::settings::Settings>>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
     mut roll: Local<usize>,
@@ -731,7 +732,11 @@ fn menu_cursor_sound(
     }
     *roll = (*roll * 7 + 3) % 4;
     if let Some(handle) = art.sounds.get(&format!("sfx_menu_select_0{}", *roll + 1)) {
-        commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
+        let volume = settings.as_ref().map_or(1.0, |s| s.volume);
+        commands.spawn((
+            AudioPlayer(handle.clone()),
+            PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+        ));
     }
 }
 

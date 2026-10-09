@@ -671,7 +671,7 @@ impl Default for PuzzleRules {
             drop_penalty: 0.5,
             count_seconds: 3.0,
             count_step: 0.25,
-            base_rise_speed: 3.0,
+            base_rise_speed: 1.0,
             floor: PuzzleFloor::Normal,
             floor_depth: 6.0,
             easy_floor: (5, 0, 2),
