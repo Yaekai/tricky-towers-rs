@@ -25,7 +25,16 @@ impl Plugin for VisualsPlugin {
             .init_resource::<ViewSize>()
             .init_resource::<MenuLook>()
             .add_systems(Startup, setup_scene)
-            .add_systems(Update, wobble_bubbles)
+            .add_systems(
+                Update,
+                (
+                    wobble_bubbles,
+                    show_edge_delays,
+                    turn_flowers,
+                    grow_edges,
+                    pulse_eggs,
+                ),
+            )
             .add_systems(Update, twinkle_stars.before(fit_backgrounds))
             .add_systems(Update, fade_eclipse)
             .add_systems(Update, sweep_lasers)
@@ -570,10 +579,109 @@ fn dress_floor(
 /// stone or ice version when the brick is petrified or iced), else coloured cells.
 /// Runs again when a brick changes, turns to stone, or gets vines or grass.
 #[allow(clippy::type_complexity)]
+/// A decoration that grows in from nothing when it shows (back ease, 0.4 s).
+#[derive(Component)]
+struct EdgeGrow {
+    start: f32,
+}
+
+/// An Easter egg that pulses after its delay: one axis squeezes to 80% in 0.1 s, then springs
+/// back (elastic, 1 s), the other axis after it or before it, as the original's egg tween.
+#[derive(Component)]
+struct EggPulse {
+    start: f32,
+    x_first: bool,
+}
+
+fn grow_edges(time: Res<Time>, mut grows: Query<(&EdgeGrow, &mut Transform)>) {
+    let now = time.elapsed_secs();
+    let back = |x: f32| {
+        let c = 1.70158;
+        let x = x - 1.0;
+        1.0 + x * x * ((c + 1.0) * x + c)
+    };
+    for (grow, mut transform) in &mut grows {
+        let t = ((now - grow.start) / 0.4).clamp(0.0, 1.0);
+        let k = back(t).max(0.0);
+        transform.scale = Vec3::new(k, k, 1.0);
+    }
+}
+
+fn pulse_eggs(time: Res<Time>, mut eggs: Query<(&EggPulse, &mut Transform)>) {
+    let now = time.elapsed_secs();
+    let elastic = |x: f32| {
+        if x >= 1.0 {
+            1.0
+        } else {
+            2f32.powf(-10.0 * x) * ((x - 0.075) * std::f32::consts::TAU / 0.3).sin() + 1.0
+        }
+    };
+    for (egg, mut transform) in &mut eggs {
+        let t = now - egg.start;
+        // Before its time the egg is left to its growth in; then one axis squeezes first.
+        if t < 0.0 {
+            continue;
+        }
+        let squeeze = (t / 0.1).min(1.0);
+        let spring = ((t - 0.1) / 1.0).clamp(0.0, 1.0);
+        let k = if t < 0.1 { 1.0 - 0.2 * squeeze } else { 0.8 + 0.2 * elastic(spring) };
+        let (x, y) = if egg.x_first {
+            (k, if t < 0.1 { 1.0 } else { k })
+        } else {
+            (if t < 0.1 { 1.0 } else { k }, k)
+        };
+        transform.scale = Vec3::new(x, y, 1.0);
+    }
+}
+
+/// An Easter flower that turns after its delay: a quarter turn (back ease, 0.5 s), then a
+/// fast spin back (expo, 1.5 s), ending where it started, as the original's rotation tween.
+#[derive(Component)]
+struct FlowerTurn {
+    start: f32,
+    turn: f32,
+}
+
+fn turn_flowers(time: Res<Time>, mut flowers: Query<(&FlowerTurn, &mut Transform)>) {
+    let now = time.elapsed_secs();
+    let ease_in_back = |x: f32| {
+        let c = 1.70158;
+        x * x * ((c + 1.0) * x - c)
+    };
+    let ease_out_expo = |x: f32| if x >= 1.0 { 1.0 } else { 1.0 - 2f32.powf(-10.0 * x) };
+    for (flower, mut transform) in &mut flowers {
+        let t = now - flower.start;
+        let angle = if t < 0.0 {
+            0.0
+        } else if t < 0.5 {
+            ease_in_back(t / 0.5) * 90.0 * flower.turn
+        } else {
+            90.0 * flower.turn - ease_out_expo(((t - 0.5) / 1.5).min(1.0)) * 450.0 * flower.turn
+        };
+        transform.rotation = Quat::from_rotation_z(angle.to_radians());
+    }
+}
+
+/// An edge decoration that shows once its time comes.
+#[derive(Component)]
+struct EdgeDelay {
+    show_at: f32,
+}
+
+fn show_edge_delays(time: Res<Time>, mut delays: Query<(&EdgeDelay, &mut Visibility)>) {
+    let now = time.elapsed_secs();
+    for (delay, mut visibility) in &mut delays {
+        if now >= delay.show_at {
+            visibility.set_if_neq(Visibility::Inherited);
+        }
+    }
+}
+
 pub(crate) fn dress_bricks(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
+    time: Res<Time>,
     bricks: Query<
         (
             Entity,
@@ -600,6 +708,15 @@ pub(crate) fn dress_bricks(
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
         let pack = skins.get(brick.tower).map(|s| s.pack).unwrap_or_default();
+        // Galaxy bricks are drawn by packs.rs (a starfield in a border), not by a texture.
+        if pack == crate::config::BrickPack::Galaxy
+            && brick.piece < config.pieces.len()
+            && !stone
+            && !brick.ice
+        {
+            commands.entity(entity).insert(Visibility::default()).despawn_children();
+            continue;
+        }
         // A normal brick takes its tower's brick pack art (default when not staged);
         // stone and ice keep their own looks.
         let key = if brick.piece < config.pieces.len() {
@@ -627,6 +744,15 @@ pub(crate) fn dress_bricks(
             },
             (true, false, false) => (art.image(&key), Color::WHITE),
         };
+        // A Halloween brick goes greyish once placed.
+        if pack == crate::config::BrickPack::Halloween
+            && placed.is_some()
+            && image.is_some()
+            && !stone
+            && !brick.ice
+        {
+            color = crate::packs::HALLOWEEN_PLACED;
+        }
         if image.is_none() {
             color = if stone {
                 brick.color.mix(&STONE, 0.75)
@@ -721,12 +847,84 @@ pub(crate) fn dress_bricks(
                         entity.add_child(id);
                     }
                 }
+                // Easter puts grass on a brick's top edge and sometimes a flower (the original's
+                // EdgeDecoration chances: 25% and 40%). Picked per brick by a hash of its id, so
+                // it's the same each time it's drawn. Christmas snow is in packs.rs.
+                let brick_bits = entity.id().to_bits();
+                let roll = |salt: u64| {
+                    let h = (brick_bits ^ salt).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    (h >> 40) as f32 / (1u64 << 24) as f32
+                };
+                // The decorations sit on one of the brick's top cells (not its box top,
+                // which put flowers over empty air on uneven bricks).
+                let tops = top_cells(&brick.cells);
+                let top = match tops.len() {
+                    0 => center + Vec2::Y * size.y * 0.5,
+                    n => {
+                        let pick = tops[(roll(12) * n as f32) as usize % n];
+                        (pick + Vec2::Y * 0.5) * cell
+                    }
+                };
+                let decoration = match pack {
+                    crate::config::BrickPack::Spring if roll(3) < 0.25 => {
+                        let n = 1 + (roll(4) * 3.0) as usize;
+                        Some((format!("fx_grass_easter_var0{}", n.min(3)), 0.0, 0.2))
+                    }
+                    _ => None,
+                };
+                // Half the Easter decorations are flowers (turn), half eggs (pulse).
+                let flower = (pack == crate::config::BrickPack::Spring && roll(5) < 0.4)
+                    .then(|| {
+                        let n = 1 + (roll(6) * 8.0) as usize;
+                        let kind = if roll(10) < 0.5 { "flower" } else { "egg" };
+                        (format!("brick_easter_decorations_{kind}0{}", n.min(8)), 0.0, 0.3)
+                    });
+                for (name, delay, z) in decoration.into_iter().chain(flower) {
+                    if let Some((sprite, anchor, mut transform)) = art_sprite(&art, &name, cell) {
+                        transform.translation = (top + Vec2::Y * cell * 0.1).extend(z);
+                        // The original's decorations start after a short random delay.
+                        let show_at = time.elapsed_secs() + delay + roll(7) * 0.3;
+                        let turn = if roll(9) < 0.5 { -1.0 } else { 1.0 };
+                        let piece = entity.with_child((
+                            sprite,
+                            anchor,
+                            transform,
+                            Visibility::Hidden,
+                            EdgeDelay { show_at },
+                        ));
+                        // Flowers turn after a random 5 to 15 s (the original's tween delay).
+                        // Each decoration grows in as it shows (back ease, 0.4 s).
+                        piece.insert(EdgeGrow {
+                            start: time.elapsed_secs() + roll(7) * 0.3,
+                        });
+                        if name.contains("flower") {
+                            piece.insert(FlowerTurn {
+                                start: time.elapsed_secs() + 5.0 + roll(8) * 10.0,
+                                turn,
+                            });
+                        } else if name.contains("egg") {
+                            piece.insert(EggPulse {
+                                start: time.elapsed_secs() + 5.0 + roll(8) * 10.0,
+                                x_first: roll(11) < 0.5,
+                            });
+                        }
+                    }
+                }
             }
             None => {
                 entity.with_children(|parent| cell_sprites(parent, &brick.cells, cell, color));
             }
         }
     }
+}
+
+/// The cells with nothing above them in the same brick: where edge decorations sit.
+fn top_cells(cells: &[Vec2]) -> Vec<Vec2> {
+    cells
+        .iter()
+        .copied()
+        .filter(|&c| !cells.iter().any(|&o| (o - c - Vec2::Y).length() < 0.1))
+        .collect()
 }
 
 /// The bubble drawn around a brick lifted by the Bubble spell.
@@ -2270,5 +2468,25 @@ fn update_mist(
         ));
         let fade = (state.mist_timer / 1.5).min(1.0);
         sprite.color = sprite.color.with_alpha(fade * 0.92);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::top_cells;
+    use bevy::prelude::Vec2;
+
+    #[test]
+    fn top_cells_are_the_ones_with_nothing_above() {
+        // An L: a column of three with a foot to the right at the bottom.
+        let l = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(0.0, 2.0),
+            Vec2::new(1.0, 0.0),
+        ];
+        let mut tops = top_cells(&l);
+        tops.sort_by(|a, b| (a.x, a.y).partial_cmp(&(b.x, b.y)).unwrap());
+        assert_eq!(tops, vec![Vec2::new(0.0, 2.0), Vec2::new(1.0, 0.0)]);
     }
 }

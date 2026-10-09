@@ -282,6 +282,24 @@ fn puzzle_round_stops_the_tower_then_ends_after_the_count() {
         tower(app, 0).laser_count.is_some()
     });
     assert!(touched, "no brick reached the laser");
+    // The brick that touched the line is zapped away with the bricks above it.
+    let owner = {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &Tower)>()
+            .iter(world)
+            .find(|(_, t)| t.index == 0)
+            .map(|(e, _)| e)
+            .expect("tower exists")
+    };
+    let zapped = run_until(&mut app, 3.0, |app| {
+        let world = app.world_mut();
+        world
+            .query::<(&Brick, &tricky_towers::spells::Zapped)>()
+            .iter(world)
+            .any(|(brick, _)| brick.tower == owner)
+    });
+    assert!(zapped, "the brick touching the line was not zapped");
     let placed = tower(&mut app, 0).bricks_placed;
     run_seconds(&mut app, 1.0, |_| {});
     assert_eq!(
@@ -293,6 +311,64 @@ fn puzzle_round_stops_the_tower_then_ends_after_the_count() {
         app.world().resource::<Match>().phase == Phase::Over
     });
     assert!(ended, "the round did not end after the count");
+}
+
+#[test]
+fn a_base_rise_that_lifts_a_brick_onto_the_line_ends_the_round() {
+    // The base rises with each brick that fell off, and the bricks on it are carried
+    // up. A rise that lifts the highest brick onto the laser must stop the tower, zap
+    // that brick and end the round, as a brick placed onto the line does.
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.puzzle = PuzzleRules {
+        bricks: 50,
+        line_height: 6.0,
+        ..config.puzzle.clone()
+    };
+    let rules = config.puzzle.clone();
+    let mut app = headless_app(config);
+    let (mut frame, mut presses) = (0, 0);
+    run_until(&mut app, 20.0, |app| {
+        frame += 1;
+        let mut input = human_input(app);
+        if frame % 4 == 0 && presses < 3 {
+            presses += 1;
+            input.left_pressed = true;
+        }
+        tower(app, 0).bricks_placed >= 3 && app.world().resource::<Match>().phase == Phase::Playing
+    });
+    let config = app.world().resource::<GameConfig>().clone();
+    let state = tower(&mut app, 0);
+    assert!(state.laser_count.is_none(), "the line should not be touched yet");
+    // Raise the base by enough cells to lift the top of the tower past the line.
+    let needed = (state.laser(&config) + 0.5) - state.height;
+    let falls = (needed / rules.drop_penalty).ceil().max(1.0) as u32;
+    {
+        let world = app.world_mut();
+        let mut query = world.query::<&mut TowerState>();
+        for mut state in query.iter_mut(world) {
+            state.bricks_dropped += falls;
+        }
+    }
+    let touched = run_until(&mut app, 8.0, |app| tower(app, 0).laser_count.is_some());
+    assert!(touched, "the rising base did not lift a brick onto the line");
+    let owner = {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &Tower)>()
+            .iter(world)
+            .find(|(_, t)| t.index == 0)
+            .map(|(e, _)| e)
+            .expect("tower exists")
+    };
+    let zapped = run_until(&mut app, 3.0, |app| {
+        let world = app.world_mut();
+        world
+            .query::<(&Brick, &tricky_towers::spells::Zapped)>()
+            .iter(world)
+            .any(|(brick, _)| brick.tower == owner)
+    });
+    assert!(zapped, "the brick the rising base put on the line was not zapped");
 }
 
 #[test]
@@ -547,6 +623,30 @@ fn ivy_vines_the_brick_to_what_it_lands_on() {
         fastest < 32.0 * 20.0,
         "something is flying at {fastest} units/s"
     );
+}
+
+#[test]
+fn ivy_never_grabs_a_puzzle_floor_block() {
+    // Max: vines must not change the terrain. Floor blocks are bricks in the
+    // ECS, so Ivy must skip them when it looks for what to join.
+    let mut config = magic_config(SpellKind::Ivy, &[]);
+    config.mode = ModeKind::Puzzle;
+    config.puzzle.floor = tricky_towers::config::PuzzleFloor::Easy;
+    let mut app = headless_app(config);
+    assert!(
+        count::<With<tricky_towers::gameplay::FloorBlock>>(&mut app) > 0,
+        "the Puzzle floor has no blocks to test against"
+    );
+    wait_for_light(&mut app, SpellKind::Ivy);
+    human_input(&mut app).cast_light_pressed = true;
+    run_seconds(&mut app, 2.0, |_| {});
+    let world = app.world_mut();
+    let joined_floor = world
+        .query::<(&ChildOf, &tricky_towers::gameplay::FloorBlock)>()
+        .iter(world)
+        .filter(|(child, _)| world.get::<IvyCluster>(child.parent()).is_some())
+        .count();
+    assert_eq!(joined_floor, 0, "Ivy grabbed a floor block");
 }
 
 #[test]

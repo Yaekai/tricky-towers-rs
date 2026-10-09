@@ -282,6 +282,8 @@ fn popup_input(
     };
     let (mut up, mut down, mut pick) = (false, false, false);
     if let Some(keys) = keys {
+        // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
+        // WASD and the numpad arrows: scripted presses on Windows and habit (see menu.rs).
         up |= keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Numpad8]);
         down |= keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS, KeyCode::Numpad2]);
         pick |= keys.any_just_pressed([KeyCode::Enter, KeyCode::Space, KeyCode::NumpadEnter]);
