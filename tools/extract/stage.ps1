@@ -58,14 +58,14 @@ function Add-Sprite($key, $sprite, $rel, $what, $pivot = $null, $extra = '') {
 }
 
 # Image that is a whole texture file.
-function Add-Texture($key, $file, $rel, $what) {
+function Add-Texture($key, $file, $rel, $what, $extra = '') {
   $src = Join-Path $A "Texture2D\$file"
   if (-not (Test-Path $src)) { $missing.Add("$key (texture $file)"); return }
   $out = Join-Path $X $rel
   New-Item -ItemType Directory -Force (Split-Path $out) | Out-Null
   Copy-Item $src $out -Force
   $img = Get-Tex $src
-  $manifest.Add("    `"$key`": (file: `"$($rel -replace '\\','/')`"),")
+  $manifest.Add("    `"$key`": (file: `"$($rel -replace '\\','/')`"$extra),")
   $notes.Add("- $key : $what. $($img.Width)x$($img.Height) px, from texture $file.")
   $stagedMap.Add("texture`t$([IO.Path]::GetFileNameWithoutExtension($file))`t$key")
 }
@@ -82,7 +82,29 @@ function Add-Audio($key, $clip, $what) {
 }
 
 # --- Bricks (whole-brick textures, spawn orientation) ---
-foreach ($b in 'I','O','T','S','Z','J','L') { Add-Texture "brick_$b" "gph_brick$($b)_default_texture.png" "bricks\$b.png" "Brick $b, default pack" }
+# A brick-pack brick drawn by the World/Bricks/Default shader: the prefab's sprite is a
+# bevel map (red/green the bevel's slope, blue the outline and cracks), the material
+# gives the colour pattern and the highlight and shadow colours. The game lights them.
+function Add-LitBrick($key, $pack, $shape, $dir, $what) {
+  $prefab = Join-Path $A "Resources\game\bricks\brickpack\$pack\Brick$shape.prefab"
+  if (-not (Test-Path $prefab)) { $missing.Add("$key (prefab $pack/Brick$shape)"); return }
+  $p = Get-Content $prefab -Raw
+  $sprite = [IO.Path]::GetFileNameWithoutExtension($idx[[regex]::Match($p, 'm_Sprite: \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value])
+  $mat = Get-Content $idx[[regex]::Match($p, 'm_Materials:\s*\n\s*- \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value] -Raw
+  $pattern = Split-Path -Leaf $idx[[regex]::Match($mat, '_PatternTex\s*\n\s*second:\s*\n\s*m_Texture: \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value]
+  $num = '(-?[0-9.]+(?:[eE][-+]?\d+)?)'
+  $color = {
+    param($n)
+    $m = [regex]::Match($mat, "name: $n\s*\n\s*second: \{r: $num, g: $num, b: $num, a: $num\}")
+    '(' + ((1..4 | ForEach-Object { Inv ([double]$m.Groups[$_].Value) }) -join ', ') + ')'
+  }
+  # Not every material sets _Angle (Christmas); the game then keeps its default.
+  $angle = [regex]::Match($mat, "name: _Angle\s*\n\s*second: $num").Groups[1].Value
+  if ($angle) { $angle = ", light_angle: $(Inv ([double]$angle))" }
+  Add-Sprite "$($key)_bevel" $sprite "$dir\bevel_$shape.png" "$what, bevel and outline map"
+  Add-Texture $key $pattern "$dir\$shape.png" $what ", bevel: `"$($key)_bevel`", light: ($(& $color '_HighlightColor'), $(& $color '_ShadowColor'))$angle"
+}
+foreach ($b in 'I','O','T','S','Z','J','L') { Add-LitBrick "brick_$b" 'default' $b 'bricks' "Brick $b, default pack" }
 Add-Sprite 'mystery_block' 'gph_brickMystery01' 'bricks\mystery_block.png' 'Mystery 1, 2x4 block'
 Add-Sprite 'mystery_blob'  'gph_brickMystery02' 'bricks\mystery_blob.png'  'Mystery 2, blob in a 3x4 box (cells: 2x3 at x -1.5..0.5 y -2..1, 1x3 at x 0.5..1.5 y -1..2, 1x1 at x -0.5..0.5 y 1..2; plus a decorative rotor, gph_brickMystery02Rotor, drawn on top)'
 Add-Sprite 'mystery_table' 'gph_brickMystery03' 'bricks\mystery_table.png' 'Mystery 3, table: 4x2 slab on two 1x1 feet'
@@ -537,7 +559,8 @@ Add-Texture 'player_left_cross' 'icn_gameInfoPlayerLeft.png' 'menu\player_left_c
 Add-Sprite 'modal_tile' 'gph_modalTile' 'menu\modal_tile.png' 'Dark tiled overlay behind popups'
 
 # --- Brick packs (BrickPack folders; picked per player on Select Players) ---
-foreach ($pk in @(@('candy','candy'), @('christmas','christmas'), @('diamond','diamond'), @('spring','easter'), @('halloween','halloween'))) {
+foreach ($s in 'I','O','T','S','Z','J','L') { Add-LitBrick "brick_christmas_$s" 'christmas' $s 'bricks\christmas' "Brick $s, christmas pack" }
+foreach ($pk in @(@('candy','candy'), @('diamond','diamond'), @('spring','easter'), @('halloween','halloween'))) {
   foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_$($pk[0])_$s" "gph_brick$($s)_$($pk[1])_texture.png" "bricks\$($pk[0])\$s.png" "Brick $s, $($pk[0]) pack" }
 }
 foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_christmas_lights_$s" "gph_brick$($s)_christmas_lightsTexture03.png" "bricks\christmas\lights_$s.png" "Christmas pack: blinking lights layer for brick $s" }

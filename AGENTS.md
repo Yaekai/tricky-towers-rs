@@ -151,3 +151,10 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-09 (PC): Ivy never joins the Puzzle floor (spells.rs grow_ivy excludes FloorBlock); floor blocks are Brick entities, so the join was merging them into clusters.
 - 2026-10-09 (PC): Puzzle battle scores: the 3-2-1 over the lane that touched the laser, then each tower's brick count above its lane (winner gold, others pink) (results.rs show_puzzle_scores, place_puzzle_scores). Winner popup with the score not done.
 - 2026-10-09 (cloud, cloud-batch-10): Puzzle round test (a stopped tower takes no bricks, the round ends after the count) added to tests/headless.rs. Ivy loosening test now stops when its tower goes out while waiting for a brick (it failed on g9oll8 too). The Large grow and base collider items were already in the code, so nothing changed there. Full headless suite: 68 pass, 1 ignored. Not pushed to main; the PC thread should merge the branch and run the offscreen check.
+- 2026-10-09 (PC, tt-next worktree): bricks lit like the original (art.rs light_bricks): the brick
+  prefab's sprite is a bevel map (red/green slope, blue outline and cracks) lighting the colour
+  pattern with the material's highlight/shadow colours; stage.ps1 Add-LitBrick stages default and
+  Christmas (other packs use other shaders, still flat). The blend and the line colour are ours,
+  matched to the pack icon. Also: Survival intro card flips, Settings slider clicks (no drag in
+  the original), title islands bob as BobbingIsland. Re-run stage.ps1 (then wizards.ps1 etc.)
+  on a fresh PC to get the bevel entries.
