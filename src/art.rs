@@ -748,7 +748,7 @@ fn play_sounds(
     log: Res<SpellLog>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
     bindings: Option<Res<crate::keybinding::KeyBindings>>,
-    towers: Query<(&Tower, &TowerState)>,
+    towers: Query<(&Tower, &TowerState, Option<&crate::gameplay::TowerSkin>)>,
     active: Query<(), With<ActiveBrick>>,
     mut heard: Local<Heard>,
 ) {
@@ -760,12 +760,20 @@ fn play_sounds(
             commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
         }
     };
-    let Some((_, you)) = towers.iter().find(|(t, _)| t.is_first_player()) else {
+    let Some((_, you, skin)) = towers.iter().find(|(t, _, _)| t.is_first_player()) else {
         return;
     };
     if game.phase == Phase::Playing {
         if you.bricks_placed > heard.placed {
-            play("sfx_land");
+            // A brick pack has its own landing sound (three variants); the default one is sfx_land.
+            let pack = skin.map(|s| s.pack).unwrap_or_default();
+            let variant = you.bricks_placed % 3 + 1;
+            let pack_sound = format!("sfx_brick_placed_{}_{variant}", pack.key());
+            if pack != crate::config::BrickPack::Default && art.sounds.contains_key(&pack_sound) {
+                play(&pack_sound);
+            } else {
+                play("sfx_land");
+            }
         }
         if you.bricks_dropped > heard.dropped {
             play("sfx_drop_lost");
