@@ -597,6 +597,11 @@ fn apply_font(art: Res<Art>, mut texts: Query<&mut TextFont>) {
 #[derive(Component)]
 pub(crate) struct Music(String);
 
+/// A looping ambience (the original's AMBIENT channel): the menu's, or the mode's
+/// for the whole match.
+#[derive(Component)]
+struct Ambience(&'static str);
+
 /// Loops the music for the menu or the current mode. A match started from Select
 /// Mode, the Endless screen or the Trials list opens with its mode's start stinger
 /// (`<MODE>_SFX_START_STINGER`, once, at the music volume).
@@ -605,7 +610,9 @@ fn play_music(
     mut commands: Commands,
     art: Res<Art>,
     game: Res<Match>,
+    config: Res<crate::config::GameConfig>,
     playing: Query<(Entity, &Music)>,
+    ambience: Query<(Entity, &Ambience)>,
     settings: Option<Res<crate::settings::Settings>>,
     screen: Option<Res<crate::menu::MenuScreen>>,
     mut last: Local<(u64, Option<crate::menu::MenuScreen>)>,
@@ -633,23 +640,57 @@ fn play_music(
             ));
         }
     }
-    // The explanation before a match keeps whatever is playing.
-    if game.phase == Phase::Menu && screen.as_deref() == Some(&MenuScreen::Explain) {
+    // The explanation before a match and the pause menu keep whatever is playing.
+    if game.phase == Phase::Menu
+        && matches!(
+            screen.as_deref(),
+            Some(MenuScreen::Explain | MenuScreen::Pause)
+        )
+    {
         return;
     }
+    // Each mode's ambience loops through the whole match, the menu's in the menus.
+    let race_pro = config.difficulty == Some(crate::config::Difficulty::Pro);
+    let sounds: &[&'static str] = match (game.phase, game.mode.look()) {
+        (Phase::Menu, _) => &["sfx_amb_ambience_menu"],
+        (_, ModeKind::Race) if race_pro => &["sfx_amb_ambience_storm_v4"],
+        (_, ModeKind::Race) => &["sfx_amb_ambience_water", "sfx_amb_ambience_breeze"],
+        (_, ModeKind::Survival) => &["sfx_amb_ambience_spooky"],
+        (_, _) => &["sfx_amb_ambience_wind"],
+    };
+    for (entity, playing) in &ambience {
+        if !sounds.contains(&playing.0) {
+            commands.entity(entity).despawn();
+        }
+    }
+    for &name in sounds {
+        if !ambience.iter().any(|(_, a)| a.0 == name)
+            && let Some(handle) = art.sounds.get(name)
+        {
+            commands.spawn((Ambience(name), AudioPlayer(handle.clone()), PlaybackSettings::LOOP));
+        }
+    }
+    // A battle's music starts with play, after its intro's 3-2-1.
     let want = match (game.phase, game.mode.look()) {
-        (Phase::Menu, _) => "music_menu",
-        (_, ModeKind::Race) => "music_race",
-        (_, ModeKind::Survival) => "music_survival",
-        (_, ModeKind::Puzzle) => "music_puzzle",
+        (Phase::Menu, _) => Some("music_menu"),
+        (Phase::Intro, _) => None,
+        (_, ModeKind::Race) if race_pro && art.sounds.contains_key("music_racepro_v3") => {
+            Some("music_racepro_v3")
+        }
+        (_, ModeKind::Race) => Some("music_race"),
+        (_, ModeKind::Survival) => Some("music_survival"),
+        (_, ModeKind::Puzzle) => Some("music_puzzle"),
         (_, _) => unreachable!("Endless modes look like their battle mode"),
     };
-    if playing.iter().any(|(_, m)| m.0 == want) {
+    if want.is_some_and(|want| playing.iter().any(|(_, m)| m.0 == want)) {
         return;
     }
     for (entity, _) in &playing {
         commands.entity(entity).despawn();
     }
+    let Some(want) = want else {
+        return;
+    };
     if let Some(handle) = art.sounds.get(want) {
         commands.spawn((
             Music(want.into()),
