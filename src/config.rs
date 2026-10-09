@@ -619,6 +619,8 @@ pub struct PuzzleRules {
     /// A dropped brick costs no life; the tower's base rises this much instead, so
     /// the shared laser is that much lower against the stack.
     pub drop_penalty: f32,
+    /// After a brick touches the laser, the 3-2-1 this long before the bricks are counted.
+    pub count_seconds: f32,
     /// The floor each round is built on, in place of a flat base.
     pub floor: PuzzleFloor,
     /// How far down the floor's columns reach, in cells.
@@ -659,6 +661,7 @@ impl Default for PuzzleRules {
             drop_speed: 2.0,
             start_spell: Some(SpellKind::Ivy),
             drop_penalty: 0.5,
+            count_seconds: 3.0,
             floor: PuzzleFloor::Normal,
             floor_depth: 6.0,
             easy_floor: (5, 0, 2),

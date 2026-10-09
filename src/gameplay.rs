@@ -373,6 +373,9 @@ pub struct TowerState {
     pub status: TowerStatus,
     pub bricks_placed: u32,
     pub bricks_dropped: u32,
+    /// Puzzle: seconds since a brick touched the laser; the round's 3-2-1 before the
+    /// bricks are counted.
+    pub laser_count: Option<f32>,
     /// Remaining lives, for modes that have them.
     pub lives: Option<u32>,
     /// Height of the settled tower above the platform, in cells.
@@ -473,6 +476,7 @@ impl TowerState {
             status: TowerStatus::Building,
             bricks_placed: 0,
             bricks_dropped: 0,
+            laser_count: None,
             lives: match config.mode {
                 // Endless Puzzle has one life: a lost brick ends the run.
                 ModeKind::EndlessPuzzle => Some(1),
@@ -1924,9 +1928,15 @@ fn judge_match(
                 let rules = &config.puzzle;
                 // In a puzzle trial a dropped brick fails it (1 life, trials.md).
                 let trial_drop = config.trial.is_some() && state.bricks_dropped > 0;
-                // A brick touching the laser ends that player's round at once; it doesn't
-                // wait for the tower to settle.
-                if trial_drop || state.height > state.laser(&config) + 0.05 {
+                // A brick touching the laser stops that player's bricks at once; the
+                // round's 3-2-1 runs, then the bricks are counted (judge_match).
+                if state.laser_count.is_none()
+                    && !trial_drop
+                    && state.height > state.laser(&config) + 0.05
+                {
+                    state.laser_count = Some(0.0);
+                }
+                if trial_drop || state.laser_count.is_some() {
                     state.status = TowerStatus::Out;
                 } else if state.bricks_used() >= rules.bricks
                     && state.active.is_none()
@@ -1946,6 +1956,14 @@ fn judge_match(
         }
     }
 
+    // A Puzzle round is counted once every touched tower's 3-2-1 has run.
+    let counting = game.mode.rules() == ModeKind::Puzzle
+        && towers.iter().any(|(_, s)| s.laser_count.is_some_and(|t| t < config.puzzle.count_seconds));
+    for (_, mut state) in &mut towers {
+        if let Some(t) = state.laser_count.as_mut() {
+            *t += dt;
+        }
+    }
     let mut winner = None;
     let mut building = Vec::new();
     let mut humans_building = 0;
@@ -1978,8 +1996,9 @@ fn judge_match(
         // Last tower standing.
         winner = Some(building[0]);
     }
-    // Over when someone wins, nobody is left, or every human is out.
-    if winner.is_some() || building.is_empty() || (humans > 0 && humans_building == 0) {
+    // Over when someone wins, nobody is left, or every human is out (a Puzzle round
+    // waits for its count).
+    if !counting && (winner.is_some() || building.is_empty() || (humans > 0 && humans_building == 0)) {
         game.phase = Phase::Over;
         game.winner = winner;
     }

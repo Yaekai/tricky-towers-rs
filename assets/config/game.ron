@@ -527,6 +527,7 @@
         drop_speed: 2.0,
         start_spell: Some(Ivy),
         drop_penalty: 0.5,
+        count_seconds: 3.0,
         floor: Normal,
         floor_depth: 6.0,
         easy_floor: (5, 0, 2),
