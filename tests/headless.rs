@@ -267,9 +267,19 @@ fn puzzle_fails_when_crossing_the_line() {
         ..config.puzzle.clone()
     };
     let mut app = headless_app(config);
-    run_seconds(&mut app, 20.0, |_| {});
+    // The bricks over the laser are zapped away, like the original's.
+    let mut zapped = false;
+    run_seconds(&mut app, 20.0, |app| {
+        let world = app.world_mut();
+        zapped |= world
+            .query::<&tricky_towers::spells::Zapped>()
+            .iter(world)
+            .next()
+            .is_some();
+    });
     assert_eq!(tower(&mut app, 0).status, TowerStatus::Out);
     assert_eq!(app.world().resource::<Match>().phase, Phase::Over);
+    assert!(zapped);
 }
 
 #[test]

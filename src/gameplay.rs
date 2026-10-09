@@ -49,6 +49,7 @@ impl Plugin for GameplayPlugin {
                     )
                         .chain(),
                     judge_match,
+                    zap_over_laser,
                     place_obstacles,
                     drain_water,
                 )
@@ -1710,6 +1711,42 @@ fn track_towers(
             state.stack_top = state.stack_top.max(top / config.cell_size);
             state.height = state.stack_top;
             state.all_settled &= settled;
+        }
+    }
+}
+
+/// Puzzle battles: once a tower goes out over the laser, its bricks above the laser
+/// are zapped away like Undo's (the original's MaximumHeightGamePlayRule). Bricks
+/// joined by Ivy stay: removing one from a cluster isn't safe.
+#[allow(clippy::type_complexity)]
+fn zap_over_laser(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    towers: Query<&TowerState>,
+    bricks: Query<
+        (Entity, &Brick, &ColliderAabb),
+        (
+            Without<ActiveBrick>,
+            Without<FloorBlock>,
+            Without<crate::spells::Zapped>,
+            Without<ChildOf>,
+        ),
+    >,
+) {
+    if game.mode != ModeKind::Puzzle || config.trial.is_some() {
+        return;
+    }
+    for (entity, brick, aabb) in &bricks {
+        let Ok(state) = towers.get(brick.tower) else {
+            continue;
+        };
+        if state.status == TowerStatus::Out
+            && aabb.max.y / config.cell_size > state.laser(&config) + 0.05
+        {
+            commands.entity(entity).insert(crate::spells::Zapped {
+                timer: config.magic.undo_seconds,
+            });
         }
     }
 }

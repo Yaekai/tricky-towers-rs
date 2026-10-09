@@ -419,16 +419,22 @@ fn art_strip(art: &Art, name: &str, cell: f32, width: f32, at: Vec3) -> Option<i
 #[derive(Component)]
 struct LaserSweep {
     width: f32,
+    tower: Entity,
+    /// Seconds since a zap flashed it.
+    flash: Option<f32>,
 }
 #[derive(Component)]
 struct LaserRest;
 
 /// The bright laser grows in from the right edge, from 2.5 times its height, then
-/// thins to nothing while the plain laser shows (out-quad, DOTween's default).
+/// thins to nothing while the plain laser shows (out-quad, DOTween's default). A zap
+/// flashes it twice as tall, thinning over 1 s.
 fn sweep_lasers(
+    time: Res<Time>,
     config: Res<GameConfig>,
     laser: Option<Res<crate::intro::LaserIn>>,
-    mut bright: Query<(&LaserSweep, &mut Transform, &mut Visibility)>,
+    towers: Query<&TowerState>,
+    mut bright: Query<(&mut LaserSweep, &mut Transform, &mut Visibility)>,
     mut rest: Query<&mut Visibility, (With<LaserRest>, Without<LaserSweep>)>,
 ) {
     let look = &config.intro;
@@ -445,7 +451,23 @@ fn sweep_lasers(
             Visibility::Hidden
         });
     }
-    for (sweep, mut transform, mut visibility) in &mut bright {
+    for (mut sweep, mut transform, mut visibility) in &mut bright {
+        let zapped = towers
+            .get(sweep.tower)
+            .is_ok_and(|s| s.status == crate::gameplay::TowerStatus::Out);
+        if !zapped {
+            sweep.flash = None;
+        } else if let Some(flash) = sweep.flash.as_mut() {
+            *flash += time.delta_secs();
+        } else {
+            sweep.flash = Some(0.0);
+        }
+        if let Some(flash) = sweep.flash.filter(|&f| f < 1.0) {
+            visibility.set_if_neq(Visibility::Inherited);
+            transform.translation.x = 0.0;
+            transform.scale = Vec3::new(1.0, (2.0 * (1.0 - out_quad(flash))).max(0.001), 1.0);
+            continue;
+        }
         let Some(t) = t.filter(|&t| t >= 0.0) else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
@@ -1595,7 +1617,11 @@ fn dress_platforms(
                 if battle_laser && let Some(bright) = art_strip(&art, name, c, line_width, Vec3::ZERO) {
                     line.with_children(|line| {
                         line.spawn((
-                            LaserSweep { width: line_width },
+                            LaserSweep {
+                                width: line_width,
+                                tower: platform.tower,
+                                flash: None,
+                            },
                             Transform::from_xyz(0.0, 0.0, 0.2),
                             Visibility::Hidden,
                         ))

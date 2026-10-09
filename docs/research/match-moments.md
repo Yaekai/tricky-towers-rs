@@ -141,8 +141,8 @@ prefabs and their clips). Values are `GameConfig::intro`.
   It has two pictures: the plain (off) laser it rests as, and a bright (on) laser that sweeps
   in from the lane's right edge to full width over 0.3 s, shrinking from 2.5 times its height,
   then thins to nothing over 0.5 s as the plain one shows (DOTween's default out-quad), with the
-  laser start sound. A zap flashes the bright one again (twice as tall, thinning over 1 s; not
-  done yet).
+  laser start sound. A zap flashes the bright one again (twice as tall, thinning over 1 s). The bricks
+  above the laser are zapped like Undo's (flicker, then gone).
 - **3-2-1.** Gold numbers 100 px above the centre: 3 at 0 s, 2 at 0.75 s, 1 at 1.5 s, each with
   the count sound (`054_Count_v3`) pitched up (1, 1.17, 1.33) and a small pop (scale 1.15 back to 1). Play starts
   at 2.25 s. In Race the word "RACE" then shows, scaling 1.2 back to 1, until 3.0 s.
