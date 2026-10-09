@@ -26,7 +26,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{Curse, Difficulty, GameConfig, ModeKind, SpellKind};
 use crate::gameplay::{
-    GameplaySystems, Match, MatchRequest, PlayerInput, Tower, TowerState, TowerStatus,
+    Brick, GameplaySystems, Match, MatchRequest, PlayerInput, Placed, Tower, TowerSkin,
+    TowerState, TowerStatus, brick_body, piece_def,
 };
 use crate::spells::EnemyCasts;
 
@@ -79,6 +80,11 @@ pub enum DebugCommand {
         /// DEBUG-TOOL: every tower uses this brick pack (as if picked on Select Players).
         #[serde(default)]
         pack: Option<crate::config::BrickPack>,
+    },
+    /// DEBUG-TOOL: one static brick of each shape (up to 7), in a row, in `pack`, for side
+    /// by side comparison with a reference picture. No physics; spawns in place.
+    PackLine {
+        pack: crate::config::BrickPack,
     },
     /// DEBUG-TOOL: switch the Galaxy cell lines and the starfield's scroll on or off.
     GalaxyFrame {
@@ -205,6 +211,7 @@ fn apply_debug_commands(
     mut keyboard: Option<ResMut<ButtonInput<KeyCode>>>,
     mut cups: ResMut<crate::cups::Cup>,
     mut galaxy: Option<ResMut<crate::packs::GalaxyDebug>>,
+    mut commands: Commands,
 ) {
     // The tower with this index, as (state, input).
     macro_rules! tower {
@@ -252,6 +259,34 @@ fn apply_debug_commands(
                     game.phase = crate::gameplay::Phase::Playing;
                 }
                 request.pending = true;
+            }
+            DebugCommand::PackLine { pack } => {
+                // Bricks need a tower for their skin; a bare entity carries it here.
+                let owner = commands.spawn(TowerSkin { wizard: 0, pack }).id();
+                let count = config.pieces.len().min(7);
+                for piece in 0..count {
+                    let def = piece_def(&config, piece);
+                    let brick = Brick {
+                        tower: owner,
+                        piece,
+                        cells: def.centered_cells(),
+                        color: Color::srgb(def.color[0], def.color[1], def.color[2]),
+                        scale: 1.0,
+                        mass: def.mass,
+                        ice: false,
+                    };
+                    let (body, density) = brick_body(&config, &brick);
+                    let x = (piece as f32 - (count as f32 - 1.0) / 2.0) * 4.0;
+                    commands.spawn((
+                        brick,
+                        Placed(0),
+                        avian2d::prelude::RigidBody::Static,
+                        body,
+                        density,
+                        Transform::from_xyz(config.cells(x), 0.0, 0.0),
+                        Visibility::Visible,
+                    ));
+                }
             }
             DebugCommand::GalaxyFrame { lines, scroll } => {
                 if let Some(galaxy) = galaxy.as_mut() {
