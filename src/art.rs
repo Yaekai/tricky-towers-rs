@@ -707,6 +707,7 @@ fn play_music(
     config: Res<crate::config::GameConfig>,
     playing: Query<(Entity, &Music)>,
     ambience: Query<(Entity, &Ambience)>,
+    towers: Query<&Tower>,
     settings: Option<Res<crate::settings::Settings>>,
     screen: Option<Res<crate::menu::MenuScreen>>,
     mut last: Local<(u64, Option<crate::menu::MenuScreen>)>,
@@ -769,7 +770,13 @@ fn play_music(
         }
     }
     // A battle's music starts with play, after its intro's 3-2-1.
-    let want = match (game.phase, game.mode.look()) {
+    // Once a battle is over, the results track plays (win or lose, for the first
+    // player), when it is staged; otherwise the battle music goes on.
+    let you = towers.iter().find(|t| t.is_first_player()).map(|t| t.index);
+    let results = (game.phase == Phase::Over)
+        .then(|| results_music(game.winner, you))
+        .filter(|name| art.sounds.contains_key(*name));
+    let battle = match (game.phase, game.mode.look()) {
         (Phase::Menu, _) => Some("music_menu"),
         (Phase::Intro, _) => None,
         (_, ModeKind::Race) if race_pro && art.sounds.contains_key("music_racepro_v3") => {
@@ -780,6 +787,7 @@ fn play_music(
         (_, ModeKind::Puzzle) => Some("music_puzzle"),
         (_, _) => unreachable!("Endless modes look like their battle mode"),
     };
+    let want = results.or(battle);
     if want.is_some_and(|want| playing.iter().any(|(_, m)| m.0 == want)) {
         return;
     }
@@ -928,9 +936,25 @@ fn play_sounds(
     heard.phase = Some(game.phase);
 }
 
+/// The results track for a finished battle: the win track when the first player's
+/// tower won, otherwise the lose track (a draw counts as a loss).
+pub(crate) fn results_music(winner: Option<usize>, you: Option<usize>) -> &'static str {
+    match (winner, you) {
+        (Some(w), Some(y)) if w == y => "music_win_game_loop",
+        _ => "music_lose_game_loop",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_results_track_follows_the_first_players_result() {
+        assert_eq!(results_music(Some(0), Some(0)), "music_win_game_loop");
+        assert_eq!(results_music(Some(2), Some(0)), "music_lose_game_loop");
+        assert_eq!(results_music(None, Some(0)), "music_lose_game_loop", "a draw");
+    }
 
     #[test]
     fn manifest_reads_layer_fields() {
