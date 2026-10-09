@@ -110,6 +110,7 @@ fn draw_panel(
                         players: Some(1),
                         opponents: Some(state.opponents),
                         trial: None,
+                        cup: None,
                     });
                 }
             }

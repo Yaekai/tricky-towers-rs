@@ -184,3 +184,7 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-09 (PC): removed the duplicate Christmas snow from visuals.rs; snow stays in packs.rs (grow_snow). Easter grass and flowers stay in visuals.rs. Spring eggs not staged.
 - 2026-10-09: Easter decorations: flowers turn and eggs pulse (squeeze 0.1 s, elastic back over 1 s); each grows in over 0.4 s from its own delay (visuals.rs EdgeGrow/EggPulse). Timings are from the Easter clip, egg pulse size is a guess.
 - 2026-10-09 (cloud, cloud-batch-10, cups): cup rule tests in src/cups.rs (a tie below the target is not overtime; a lone leader at the target wins even with a close second). Cup rules are still the guesses listed in pc-tasks.md; the tests only pin what we already do.
+- 2026-10-09 (PC, tt-next): cup standings from TournamentResults* and Max's Big/Super Cup clips: the panel is the
+  9-sliced gph_popupBackgroundPanel (`menu_leaderboard_panel`) sized (target-1)*47+420 by rows*98+180, slots stay
+  47 px apart (no squeeze), CUP_DECO cups and laurels on the bar ends (`CupPanel::decos`), orange title over the
+  bar, overlay (8,5,24) at 0.96 (Bevy blends in linear colour). Debug `Start(.., cup: Some(n))` begins a cup.
