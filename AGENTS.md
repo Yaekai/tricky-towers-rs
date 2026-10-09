@@ -141,3 +141,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-09 (PC): mouse on the Settings rows: hover selects, click acts on the row (settings.rs row_at). Value rows only take a click as Right; not checked in game.
 - 2026-10-09 (PC): mouse on Select Mode: hovering a column selects it, a click on its arrows steps the item, a click on its tile is Enter (select.rs modes_input). Not checked in game.
 - 2026-10-09 (PC): mouse on Select Players: a click on an empty seat seats the keyboard player there, a click on the seated panel steps Down (confirm), and its side arrows step Left or Right (select.rs players_input). Not checked in game.
+- 2026-10-09 (PC): mouse on the Game Completed popup: hovering an item selects it, a click picks it (popup.rs popup_row_at). Positions estimated from its layout; not checked in game.

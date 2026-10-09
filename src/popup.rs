@@ -7,6 +7,7 @@
 //! give none (docs/research/match-moments.md).
 
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy::ui::widget::NodeImageMode;
 
 use crate::art::Art;
@@ -65,6 +66,22 @@ impl Popup {
                 .rules(&config.cups)
                 .is_some_and(|size| self.since_shown() >= config.cup_panel.continue_at(size.target))
     }
+}
+
+/// The popup item under a cursor (top-left origin) in a window `window` big: its labels
+/// sit 40 px in from the right edge, `ROW` apart below the header.
+fn popup_row_at(cursor: Vec2, window: Vec2, count: usize) -> Option<usize> {
+    let x = cursor.x / window.x * 1920.0;
+    let y = cursor.y / window.y * 1080.0;
+    let right = 1920.0 - x;
+    if !(LABEL_RIGHT..=LABEL_RIGHT + LABEL.0).contains(&right) {
+        return None;
+    }
+    let top = 1080.0 - height();
+    (0..count).find(|&i| {
+        let centre = top + HEADER + ROW * i as f32 + ROW / 2.0;
+        (y - centre).abs() <= ROW / 2.0
+    })
 }
 
 /// "1st Place" to "4th Place".
@@ -245,6 +262,8 @@ fn time_popup(
 fn popup_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     gamepads: Query<&Gamepad>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     time: Res<Time>,
     mut config: ResMut<GameConfig>,
     mut popup: ResMut<Popup>,
@@ -252,6 +271,7 @@ fn popup_input(
     mut screen: ResMut<MenuScreen>,
     mut request: ResMut<MatchRequest>,
     mut cup: ResMut<crate::cups::Cup>,
+    mut last_cursor: Local<Option<Vec2>>,
 ) {
     if !popup.shown || game.phase != Phase::Over {
         return;
@@ -271,6 +291,23 @@ fn popup_input(
         up |= pad.just_pressed(GamepadButton::DPadUp);
         down |= pad.just_pressed(GamepadButton::DPadDown);
         pick |= pad.just_pressed(GamepadButton::South);
+    }
+    // The mouse: an item under the cursor is selected as it moves, and a click picks it.
+    if let Ok(window) = windows.single() {
+        let cursor = window.cursor_position();
+        let over = cursor.and_then(|c| popup_row_at(c, window.size(), count));
+        if let Some(i) = over
+            && cursor != *last_cursor
+        {
+            popup.selected = i;
+        }
+        *last_cursor = cursor;
+        if let Some(i) = over
+            && mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left))
+        {
+            popup.selected = i;
+            pick = true;
+        }
     }
     if popup.panel_up(&cup, &config.cup_panel) {
         // CONTINUE takes an unfinished cup on; a decided cup's panel gives way by itself.
