@@ -765,9 +765,9 @@ pub(crate) fn dress_bricks(
                         entity.add_child(id);
                     }
                 }
-                // Christmas puts snow on a brick's top edge, Easter grass and sometimes a
-                // flower (the original's EdgeDecoration chances: 25% and 40%). Picked per
-                // brick by a hash of its id, so it's the same each time it's drawn.
+                // Easter puts grass on a brick's top edge and sometimes a flower (the original's
+                // EdgeDecoration chances: 25% and 40%). Picked per brick by a hash of its id, so
+                // it's the same each time it's drawn. Christmas snow is in packs.rs.
                 let brick_bits = entity.id().to_bits();
                 let roll = |salt: u64| {
                     let h = (brick_bits ^ salt).wrapping_mul(0x9E37_79B9_7F4A_7C15);
@@ -775,10 +775,6 @@ pub(crate) fn dress_bricks(
                 };
                 let top = center + Vec2::Y * size.y * 0.5;
                 let decoration = match pack {
-                    crate::config::BrickPack::Christmas if roll(1) < 0.25 => {
-                        let n = 1 + (roll(2) * 3.0) as usize;
-                        Some((format!("brick_christmas_snow_{}", n.min(3)), 0.0, 0.2))
-                    }
                     crate::config::BrickPack::Spring if roll(3) < 0.25 => {
                         let n = 1 + (roll(4) * 3.0) as usize;
                         Some((format!("fx_grass_easter_var0{}", n.min(3)), 0.0, 0.2))

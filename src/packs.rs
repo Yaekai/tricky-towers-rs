@@ -4,7 +4,7 @@
 //! Galaxy starfield.
 //! The bricks themselves are drawn by `visuals::dress_bricks`; this runs right after
 //! it and adds children, so a re-dressed brick gets its decorations again.
-//! Spring's grass and eggs aren't staged yet, so Spring shows its textures only.
+//! Spring's grass and flowers are in visuals.rs (dress_bricks); its eggs aren't staged yet.
 //! Looks only: nothing here touches gameplay.
 
 use bevy::prelude::*;
