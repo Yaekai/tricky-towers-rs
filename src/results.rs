@@ -259,7 +259,11 @@ fn start_moments(
                 Color::WHITE,
             );
         }
-        if state.status == TowerStatus::Out && seen.1.insert((entity, false)) {
+        // Puzzle has no WIZARD OUT!: a stopped tower just stops (its bricks are counted).
+        if state.status == TowerStatus::Out
+            && game.mode.rules() != ModeKind::Puzzle
+            && seen.1.insert((entity, false))
+        {
             let color = tone_color(&art, &images, Tone::Red);
             let banner = spawn_match_text(&mut commands, &config, out_words, out_size, color);
             commands.entity(banner).insert(Banner {

@@ -244,8 +244,8 @@ fn puzzle_column(
     in_hand: Query<&crate::gameplay::Brick, With<crate::gameplay::ActiveBrick>>,
 ) {
     let trial = trial_order(&config);
-    let battle = config.trial.is_none() && game.mode == crate::config::ModeKind::Puzzle;
-    let wanted = (!trial.is_empty() || battle) && game.phase != crate::gameplay::Phase::Menu;
+    let battle = false;
+    let wanted = !trial.is_empty() && game.phase != crate::gameplay::Phase::Menu;
     for (entity, column) in &columns {
         if !wanted || !towers.contains(column.tower) {
             commands.entity(entity).despawn();

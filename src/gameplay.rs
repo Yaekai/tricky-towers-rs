@@ -376,6 +376,8 @@ pub struct TowerState {
     /// Puzzle: seconds since a brick touched the laser; the round's 3-2-1 before the
     /// bricks are counted.
     pub laser_count: Option<f32>,
+    /// Puzzle: how far the base has risen so far, in cells; it eases up to `base_rise`.
+    pub base_shown: f32,
     /// Remaining lives, for modes that have them.
     pub lives: Option<u32>,
     /// Height of the settled tower above the platform, in cells.
@@ -477,6 +479,7 @@ impl TowerState {
             bricks_placed: 0,
             bricks_dropped: 0,
             laser_count: None,
+            base_shown: 0.0,
             lives: match config.mode {
                 // Endless Puzzle has one life: a lost brick ends the run.
                 ModeKind::EndlessPuzzle => Some(1),
@@ -764,15 +767,24 @@ pub struct Raised {
 /// Puzzle: the tower's base (and its floor blocks) rise as bricks fall off it, while
 /// the laser stays one line for everyone.
 fn raise_bases(
+    time: Res<Time>,
     config: Res<GameConfig>,
-    towers: Query<&TowerState>,
+    mut towers: Query<&mut TowerState>,
     mut bases: Query<(&Raised, &mut Transform)>,
 ) {
+    let step = config.puzzle.base_rise_speed * time.delta_secs();
+    for mut state in &mut towers {
+        let target = state.base_rise(&config);
+        let gap = target - state.base_shown;
+        if gap.abs() > 0.0 {
+            state.base_shown += gap.clamp(-step, step);
+        }
+    }
     for (raised, mut transform) in &mut bases {
         let Ok(state) = towers.get(raised.tower) else {
             continue;
         };
-        let y = raised.rest + state.base_rise(&config) * config.cell_size;
+        let y = raised.rest + state.base_shown * config.cell_size;
         if transform.translation.y != y {
             transform.translation.y = y;
         }

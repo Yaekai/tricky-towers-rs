@@ -1579,6 +1579,9 @@ fn dress_platforms(
             let (line_width, line_x) = match game.mode.rules() {
                 ModeKind::Race | ModeKind::Endless => (race_lane, 0.0),
                 ModeKind::Puzzle if trial_laser => (ball_x + c * 24.0, (ball_x - c * 24.0) * 0.5),
+                // A battle's laser is one line across the screen: each tower's copy is wide
+                // enough that together they cover it.
+                ModeKind::Puzzle => (config.cells(200.0), 0.0),
                 _ => (lane, 0.0),
             };
             let line = match game.mode.rules() {
@@ -2213,7 +2216,7 @@ fn update_lines(
         };
         // The line is a child of its platform, which rises with Puzzle drops: take that rise
         // back out so the line stays where the shared laser is.
-        let rise = towers.get(line.tower).map_or(0.0, |s| s.base_rise(&config)) * c;
+        let rise = towers.get(line.tower).map_or(0.0, |s| s.base_shown) * c;
         transform.translation.y = config.cells(height) + c * 0.5 - rise;
     }
     for (line, children, mut transform, mut visibility) in &mut lines {
