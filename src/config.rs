@@ -3335,6 +3335,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn packs_without_their_own_textures_start_from_the_base_skin() {
+        // Hologram, Galaxy and Halloween bricks start from the base texture; their
+        // looks (glitch, starfield, grey once placed) are added on top.
+        for pack in [BrickPack::Hologram, BrickPack::Galaxy, BrickPack::Halloween] {
+            assert_eq!(pack.brick_art("square"), "brick_square", "{pack:?}");
+        }
+        assert_eq!(BrickPack::Christmas.brick_art("square"), "brick_christmas_square");
+    }
+
+    #[test]
     fn a_battle_intro_follows_the_original() {
         let intro = IntroRules::default();
         // Title 0.6 + 0.6 + 0.7 + 0.367, then the race sweep 0.5 + 0.8 + 0.5 + 0.2.
