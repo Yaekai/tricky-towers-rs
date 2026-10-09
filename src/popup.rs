@@ -1,7 +1,7 @@
 //! The "Game Completed" popup after a match. Like the original it slides up
 //! into the bottom-right corner, beside WINNER! rather than over it, with a
-//! right-aligned list: Rematch, Select Mode, Main menu. While a cup runs (src/cups.rs)
-//! the first item reads Next match instead (?).
+//! right-aligned list: Rematch, Select Mode, Main menu. While a cup runs, its standings
+//! panel (src/cups_menu.rs) takes the popup's place, and CONTINUE plays the next match.
 //!
 //! The original also counts up XP, but only online and in cups; local matches
 //! give none (docs/research/match-moments.md).
@@ -10,7 +10,8 @@ use bevy::prelude::*;
 use bevy::ui::widget::NodeImageMode;
 
 use crate::art::Art;
-use crate::config::GameConfig;
+use crate::config::{CupPanel, GameConfig};
+use crate::cups::Cup;
 use crate::gameplay::{Match, MatchRequest, Phase};
 use crate::menu::{MenuScreen, MenuSystems};
 
@@ -39,7 +40,31 @@ pub struct Popup {
     pub selected: usize,
     /// Seconds since the match ended.
     clock: f32,
+    /// The clock when the popup came up.
+    shown_at: f32,
     round: u64,
+}
+
+impl Popup {
+    pub fn since_shown(&self) -> f32 {
+        self.clock - self.shown_at
+    }
+
+    /// The standings panel takes the popup's place while a cup runs, and for a
+    /// while after it is decided.
+    pub fn panel_up(&self, cup: &Cup, panel: &CupPanel) -> bool {
+        self.shown
+            && cup.size.is_some()
+            && (cup.in_progress() || self.since_shown() < panel.decided_hold)
+    }
+
+    /// CONTINUE shows on the panel once its medals have filled.
+    pub fn panel_continue(&self, cup: &Cup, config: &GameConfig) -> bool {
+        self.panel_up(cup, &config.cup_panel)
+            && cup
+                .rules(&config.cups)
+                .is_some_and(|size| self.since_shown() >= config.cup_panel.continue_at(size.target))
+    }
 }
 
 /// "1st Place" to "4th Place".
@@ -92,8 +117,7 @@ struct PopupRoot;
 /// The bar behind an item, shown on the picked one.
 #[derive(Component)]
 struct PopupBar(usize);
-/// The words of the first item: Rematch, or Next match during a cup.
-/// An item's words, which depend on the match (Next match in a cup, the trial items).
+/// An item's words: the trial items replace the list after a trial.
 #[derive(Component)]
 struct PopupWords(usize);
 
@@ -209,6 +233,7 @@ fn time_popup(
         && crate::collapse::all_done(&game, towers)
     {
         popup.shown = true;
+        popup.shown_at = popup.clock;
         popup.selected = 0;
     }
 }
@@ -245,6 +270,12 @@ fn popup_input(
         up |= pad.just_pressed(GamepadButton::DPadUp);
         down |= pad.just_pressed(GamepadButton::DPadDown);
         pick |= pad.just_pressed(GamepadButton::South);
+    }
+    if popup.panel_up(&cup, &config.cup_panel) {
+        // CONTINUE takes an unfinished cup on; a decided cup's panel gives way by itself.
+        up = false;
+        down = false;
+        pick &= cup.in_progress() && popup.panel_continue(&cup, &config);
     }
     if up {
         popup.selected = (popup.selected + count - 1) % count;
@@ -300,7 +331,6 @@ fn show_popup(
     for (item, mut text, mut color) in &mut texts {
         let words = match (trial, item.0) {
             (true, i) => TRIAL_ITEMS.get(i).copied().unwrap_or(""),
-            (false, 0) if cup.in_progress() => "Next match",
             (false, i) => POPUP_ITEMS[i],
         }
         .to_uppercase();
@@ -324,8 +354,9 @@ fn show_popup(
     };
     let eased = 1.0 - (1.0 - t) * (1.0 - t);
     let bottom = px(-(height() + SPILL.1) * (1.0 - eased));
+    let visible = popup.shown && !popup.panel_up(&cup, &config.cup_panel);
     for (mut v, mut node) in &mut root {
-        v.set_if_neq(if popup.shown {
+        v.set_if_neq(if visible {
             Visibility::Inherited
         } else {
             Visibility::Hidden
@@ -334,7 +365,7 @@ fn show_popup(
             node.bottom = bottom;
         }
     }
-    if !popup.shown {
+    if !visible {
         return;
     }
     for (bar, image, mut colour, mut shown) in &mut bars {

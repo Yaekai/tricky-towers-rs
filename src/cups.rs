@@ -38,6 +38,9 @@ pub struct Cup {
     pub played: u32,
     /// Points per tower index.
     pub points: Vec<u32>,
+    /// Per tower index, the place (0 = first) that earned each point, in order:
+    /// the standings panel draws one medal per point.
+    pub medals: Vec<Vec<usize>>,
     /// The final standings (tower indexes, first first) once the cup is over.
     pub standings: Option<Vec<usize>>,
     counted: u64,
@@ -68,10 +71,14 @@ impl Cup {
             return false;
         };
         for (place, &tower) in order.iter().enumerate() {
+            let earned = rules.points.get(place).copied().unwrap_or(0);
             if self.points.len() <= tower {
                 self.points.resize(tower + 1, 0);
+                self.medals.resize(tower + 1, Vec::new());
             }
-            self.points[tower] += rules.points.get(place).copied().unwrap_or(0);
+            self.points[tower] += earned;
+            let medals = &mut self.medals[tower];
+            medals.resize(medals.len() + earned as usize, place);
         }
         self.played += 1;
         let best = self.points.iter().copied().max().unwrap_or(0);
@@ -193,6 +200,7 @@ mod tests {
         // 0 reaches 7, alone at the top.
         assert!(cup.add_match(&rules, &[0, 2, 1]));
         assert_eq!(cup.points, vec![7, 5, 6]);
+        assert_eq!(cup.medals[0], vec![0, 0, 0, 2, 0, 0, 0]);
         assert_eq!(cup.standings, Some(vec![0, 2, 1]));
         assert!(!cup.in_progress());
         // Starting again keeps the pick and clears the score.

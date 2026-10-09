@@ -13,7 +13,7 @@ One set of commands drives everything below. Each runs at the start of the next 
 - `GiveLight(tower: 0, spell: Ivy)`, `GiveDark(tower: 0, spells: [Large, Ice])`.
 - `Curse(spells: [Mystery])`: curse every tower at once, like a trial's enemy wizard.
 - `SetLives(tower: 0, lives: 1)`, `Win(tower: 0)`, `Lose(tower: 1)`.
-- `Tap(key: "Enter")`: tap a menu key (`Enter`, `Escape`, `Tab`, `Space`, `Up`, `Down`, `Left`, `Right`).
+- `Tap(key: "Enter")`: tap a menu key (`Enter`, `Escape`, `Tab`, `Space`, `Up`, `Down`, `Left`, `Right`, `C`).
 - `Picture(name: "after_curse")`: save `<name>.png` (offscreen runs only).
 - `Quit`.
 

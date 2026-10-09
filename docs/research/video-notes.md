@@ -78,9 +78,11 @@ in yellow-orange, the others in pink.
   one by one until 56 s; CONTINUE appears under the panel at 56 s; at 58 s the panel gives way
   to "TINY CUP WINNER!" (the cup is decided), otherwise the next match starts. Layout: the match
   scene dimmed behind, a white panel with a blue top bar, "TINY CUP" in the bar between two small
-  gold cups (not laurels). One row per player: a round wizard portrait, the name above it in small
-  grey text, then 6 medal slots (red 1st, purple 2nd, orange 3rd, blue 4th; empty slots show as
-  grey outlines). A gold trophy sits at the right of the winner's row once it reaches the target.
+  gold cups (not laurels). One row per player: a wizard portrait, the name above it in small grey
+  text, then one slot per point up to the target (6). A slot holds the medal of the place that earned
+  the point: gold, silver and bronze discs with ribbons for 1st to 3rd, a plain grey disc for 4th.
+  Empty slots are grey dots. In a two-player cup a win is 3 points and second place 2. A gold
+  trophy sits at the right of the winner's row once it reaches the target.
   A second seat with the same name is shown as "Name (1)".
 
 ## Dark cast, measured at 10 frames a second (2-player race)

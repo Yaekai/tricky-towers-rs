@@ -70,6 +70,8 @@ pub struct GameConfig {
     pub xp: XpRules,
     /// Local cups (guesses until read).
     pub cups: CupRules,
+    /// The standings panel between cup matches, measured from the Tiny Cup screen.
+    pub cup_panel: CupPanel,
     /// Per-mode skies and weather: Race Pro night, Puzzle sandstorm and eclipse,
     /// Survival curse-wave sky.
     pub weather: WeatherLook,
@@ -2126,6 +2128,149 @@ impl Default for CupRules {
     }
 }
 
+/// The standings panel between cup matches, in pixels of a 1920×1080 screen,
+/// measured from the original's Tiny Cup screen (docs/research/video-notes.md).
+/// Big and Super use the same layout; the values marked (?) are guesses.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct CupPanel {
+    /// The white panel: left and top edges, width, and height with two rows.
+    pub panel_left: f32,
+    pub panel_top: f32,
+    pub panel_width: f32,
+    pub panel_height: f32,
+    pub panel_colour: (u8, u8, u8),
+    /// How dark the match behind the panel gets (?).
+    pub dim: f32,
+    /// The blue bar across the top: its top edge (above the panel) and height.
+    pub bar_top: f32,
+    pub bar_height: f32,
+    pub bar_colour: (u8, u8, u8),
+    /// The small cup beside the title for each cup size, in cup order (?).
+    pub badges: Vec<String>,
+    /// Centres of the two small cups either side of the title, and their size (?).
+    pub badge_x: [f32; 2],
+    pub badge_size: f32,
+    /// The title's letter size in Vh (?).
+    pub title_size: f32,
+    /// Each player's row band: left edge, width, height, top of the first row, and the step to the next.
+    pub row_left: f32,
+    pub row_width: f32,
+    pub row_height: f32,
+    pub row_top: f32,
+    pub row_pitch: f32,
+    pub row_colour: (u8, u8, u8),
+    /// The name above a row: left edge, offset from the row's top, and letter size in Vh (?).
+    pub name_left: f32,
+    pub name_top: f32,
+    pub name_size: f32,
+    pub name_colour: (u8, u8, u8),
+    /// The wizard's portrait: left edge and size, centred in the row.
+    pub portrait_left: f32,
+    pub portrait_size: f32,
+    /// The medal slots: the first one's left edge, the step between slots, their size,
+    /// and the right edge they must fit before a bigger cup squeezes them (?).
+    pub slot_left: f32,
+    pub slot_pitch: f32,
+    pub slot_size: f32,
+    pub slot_right: f32,
+    /// The grey dot in an empty slot.
+    pub dot_size: f32,
+    pub dot_colour: (u8, u8, u8),
+    /// The winner's trophy on its row: centre x and size (?).
+    pub trophy_x: f32,
+    pub trophy_size: f32,
+    /// The medal pictures for 1st to 4th, and their colours when a picture is missing (?).
+    pub medals: Vec<String>,
+    pub medal_colours: Vec<(u8, u8, u8)>,
+    /// CONTINUE: its letter size in Vh, and the strip under the panel it sits in: its left
+    /// edge, width and bottom edge (?).
+    pub continue_size: f32,
+    pub tab_left: f32,
+    pub tab_width: f32,
+    pub tab_bottom: f32,
+    /// Seconds for the panel to slide up (?).
+    pub slide: f32,
+    /// Seconds from the panel coming up: when the first medal lands (?), the gap
+    /// between medals (?), and how long a decided cup's panel stays up (52 s to 58 s
+    /// on the video).
+    pub fill_start: f32,
+    pub fill_step: f32,
+    pub decided_hold: f32,
+}
+
+impl Default for CupPanel {
+    fn default() -> Self {
+        Self {
+            panel_left: 647.0,
+            panel_top: 281.0,
+            panel_width: 628.0,
+            panel_height: 301.0,
+            panel_colour: (220, 227, 253),
+            dim: 0.5,
+            bar_top: 254.0,
+            bar_height: 18.0,
+            bar_colour: (90, 113, 217),
+            badges: vec![
+                "menu_cup_tiny_small".into(),
+                "menu_cup_big_small".into(),
+                "menu_cup_super_small".into(),
+            ],
+            badge_x: [672.0, 1247.0],
+            badge_size: 48.0,
+            title_size: 1.6,
+            row_left: 758.0,
+            row_width: 405.0,
+            row_height: 66.0,
+            row_top: 350.0,
+            row_pitch: 100.0,
+            row_colour: (208, 215, 240),
+            name_left: 783.0,
+            name_top: -19.0,
+            name_size: 1.4,
+            name_colour: (134, 144, 200),
+            portrait_left: 778.0,
+            portrait_size: 48.0,
+            slot_left: 872.0,
+            slot_pitch: 47.0,
+            slot_size: 40.0,
+            slot_right: 1147.0,
+            dot_size: 14.0,
+            dot_colour: (150, 164, 209),
+            trophy_x: 1215.0,
+            trophy_size: 44.0,
+            medals: vec![
+                "menu_online_score_medal_gold".into(),
+                "menu_online_score_medal_silver".into(),
+                "menu_online_score_medal_bronze".into(),
+                "menu_online_score_medal_last".into(),
+            ],
+            medal_colours: vec![
+                (232, 186, 52),
+                (196, 202, 214),
+                (196, 128, 72),
+                (150, 150, 150),
+            ],
+            continue_size: 2.6,
+            tab_left: 768.0,
+            tab_width: 361.0,
+            tab_bottom: 617.0,
+            slide: 0.4,
+            fill_start: 0.5,
+            fill_step: 0.55,
+            decided_hold: 6.0,
+        }
+    }
+}
+
+impl CupPanel {
+    /// Seconds from the panel coming up until CONTINUE shows, once the medals of
+    /// a cup's target have filled.
+    pub fn continue_at(&self, target: u32) -> f32 {
+        self.fill_start + self.fill_step * target as f32
+    }
+}
+
 /// Experience, from the original (docs/research/match-moments.md). Only online
 /// matches and cups give any; a single local match gives none.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
@@ -2618,6 +2763,7 @@ impl Default for GameConfig {
             casts: CastLook::default(),
             xp: XpRules::default(),
             cups: CupRules::default(),
+            cup_panel: CupPanel::default(),
             weather: WeatherLook::default(),
             water: WaterRules::default(),
             bases: Bases::default(),
