@@ -288,7 +288,7 @@ pub(crate) fn spawn_controls_panel(
             t.spawn(crate::select::label_with(
                 46.0 / 10.8,
                 "Controls",
-                crate::letters::TextLook::TITLE,
+                crate::letters::TextLook::GOLD,
             ));
         });
         for (top, height, title, caps) in CONTROLS_SECTIONS {
@@ -336,7 +336,13 @@ pub(crate) fn spawn_controls_panel(
                     ..default()
                 })
                 .with_children(|l| {
-                    l.spawn(crate::select::label(26.0 / 10.8, title));
+                    // EnzoBlackWhite46, the magic rows EnzoBlackGold46 (ControlsExplanationContent).
+                    let look = if title.ends_with("Magic") {
+                        crate::letters::TextLook::GOLD
+                    } else {
+                        crate::letters::TextLook::WHITE
+                    };
+                    l.spawn(crate::select::label_with(26.0 / 10.8, title, look));
                 });
                 let half = (w - 2.0 * CONTROLS_INSET) / 2.0;
                 for &(action, (dx, dy), arrow) in caps {
@@ -434,7 +440,8 @@ fn spawn_pause_menu(
                 height: Val::Percent(100.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.016, 0.012, 0.035, 0.90)),
+            // The popup's 0.9 overlay; we blend in linear colour, so 0.96 looks the same.
+            BackgroundColor(Color::srgba(0.016, 0.012, 0.035, 0.96)),
             GlobalZIndex(12),
             Visibility::Hidden,
             PauseRoot,
@@ -458,7 +465,7 @@ fn spawn_pause_menu(
                 ..default()
             },))
                 .with_children(|t| {
-                    t.spawn(text(75.0, "Game Paused", crate::letters::TextLook::TITLE));
+                    t.spawn(text(75.0, "Game Paused", crate::letters::TextLook::DARK_TITLE));
                 });
             for (i, option) in PAUSE_OPTIONS.iter().enumerate() {
                 let y = PAUSE_ITEMS_Y - PAUSE_ROW.0 * i as f32;
@@ -1076,28 +1083,42 @@ fn spawn_main_menu(
                         ));
                     }
                     // Every tile's name, always shown as in the original: across the
-                    // top of big tiles, above small ones, in outlined capitals.
-                    t.spawn(Node {
-                        position_type: PositionType::Absolute,
-                        width: Val::Percent(100.0),
-                        top: Val::Percent(if small { -30.0 } else { -6.0 }),
-                        height: Val::Percent(if small { 30.0 } else { 22.0 }),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    })
-                    .with_children(|h| {
-                        h.spawn((
-                            Text::new(tile.label.to_uppercase()),
-                            TextFont {
-                                font_size: FontSize::Vh(if small { 3.0 } else { 4.0 }),
-                                ..default()
-                            },
-                            TextColor(Color::WHITE),
-                            TextLayout::justify(Justify::Center),
-                            crate::letters::TextLook::TITLE,
-                        ));
-                    });
+                    // top of big tiles, above small ones. Milky with a dark outline
+                    // (EnzoBlackMilkyWhiteOutline46), gold on the picked tile
+                    // (EnzoBlackGold46); 46 px on big tiles, 36 on small (MainMenu scene).
+                    for picked in [false, true] {
+                        let mut name = t.spawn(Node {
+                            position_type: PositionType::Absolute,
+                            width: Val::Percent(100.0),
+                            top: Val::Percent(if small { -30.0 } else { -6.0 }),
+                            height: Val::Percent(if small { 30.0 } else { 22.0 }),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        });
+                        // Letter text hides with its parent box, so the box carries the marker.
+                        if picked {
+                            name.insert((TileLabel, Visibility::Hidden));
+                        } else {
+                            name.insert(TileChosen { picked: false });
+                        }
+                        name.with_children(|h| {
+                            h.spawn((
+                                Text::new(tile.label.to_uppercase()),
+                                TextFont {
+                                    font_size: FontSize::Vh(if small { 36.0 } else { 46.0 } / 10.8),
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                                TextLayout::justify(Justify::Center),
+                                if picked {
+                                    crate::letters::TextLook::GOLD
+                                } else {
+                                    crate::letters::TextLook::TITLE
+                                },
+                            ));
+                        });
+                    }
                 });
         }
     });

@@ -37,6 +37,25 @@ impl TextLook {
         face: Some(Color::srgb(0.714, 0.773, 0.996)),
         outline: Some(Color::srgb(0.145, 0.051, 0.157)),
     };
+    /// Dark display letters with a milky outline (EnzoBlackBlueBlackOutline: GAME PAUSED).
+    pub const DARK_TITLE: Self = Self {
+        body: false,
+        face: Some(Color::srgb(0.145, 0.051, 0.157)),
+        outline: Some(Color::srgb(0.714, 0.773, 0.996)),
+    };
+    /// White display letters, dark outline (EnzoBlackWhite46: the controls' row names).
+    pub const WHITE: Self = Self {
+        body: false,
+        face: Some(Color::srgb(0.92, 0.93, 1.0)),
+        outline: Some(Color::srgb(0.17, 0.04, 0.14)),
+    };
+    /// Gold display letters, dark outline (EnzoBlackGold46: CONTROLS, the magic rows).
+    /// The original's gold is a yellow-to-orange gradient; this is its middle.
+    pub const GOLD: Self = Self {
+        body: false,
+        face: Some(Color::srgb(0.98, 0.63, 0.14)),
+        outline: Some(Color::srgb(0.17, 0.04, 0.14)),
+    };
     /// Display letters in their own colour with the dark outline (button hints, tiles).
     pub const OUTLINED: Self = Self {
         body: false,

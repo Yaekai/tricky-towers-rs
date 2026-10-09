@@ -208,3 +208,7 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
   rays with sfx_trophy, then the win music; the winner's wizard appears (static Select Players picture: the original
   lets the winner fly it; not done) with confetti and fireworks (simple shapes, ponytail note); at 12 s a 3 s fade
   and Select Mode, no Game Completed popup (`popup::cup_decided`). `Cup::places` keeps each match's place.
+- 2026-10-10 (PC, tt-next): text colours from the original's TMP materials (Max's menus clip): GAME PAUSED dark with a
+  milky outline (`TextLook::DARK_TITLE`, EnzoBlackBlueBlackOutline), CONTROLS and the magic rows gold (`GOLD`), the other
+  control rows white (`WHITE`), pause overlay 0.96 (linear blending); title tiles: milky names, gold on the picked
+  tile, 46/36 px (MainMenu scene).
