@@ -866,7 +866,8 @@ pub(crate) fn grow_ivy(
             Has<IvyPending>,
             Option<&ChildOf>,
         ),
-        Without<ActiveBrick>,
+        // The Puzzle floor is terrain: Ivy never grows over it.
+        (Without<ActiveBrick>, Without<crate::gameplay::FloorBlock>),
     >,
     clusters: Query<(&Children, &RigidBody), With<IvyCluster>>,
 ) {
