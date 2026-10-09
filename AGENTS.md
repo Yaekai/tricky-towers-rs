@@ -212,3 +212,6 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
   milky outline (`TextLook::DARK_TITLE`, EnzoBlackBlueBlackOutline), CONTROLS and the magic rows gold (`GOLD`), the other
   control rows white (`WHITE`), pause overlay 0.96 (linear blending); title tiles: milky names, gold on the picked
   tile, 46/36 px (MainMenu scene).
+- 2026-10-10 (PC, tt-next): Puzzle sky gradients (BackgroundGradients / BackgroundProGradients): tinted strips stretched
+  across the view (`background_puzzle_20..23`, `background_puzzle_pro_21..23`, manifest `opacity`). Laser heights
+  already match the original (random 5-7 + 0.2 on Easy, 3-7 + 0.2 on Normal/Special); the next card's tilt is in its art.

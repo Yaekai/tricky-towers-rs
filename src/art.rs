@@ -140,6 +140,9 @@ pub struct ArtEntry {
     /// Screen layers only: a tint (r, g, b) 0 to 255 (Survival's large clouds).
     #[serde(default)]
     pub tint: Option<(f32, f32, f32)>,
+    /// Screen layers only: opacity 0 to 1 (1 if left out), with or without a `tint`.
+    #[serde(default)]
+    pub opacity: Option<f32>,
     /// Screen layers only: stretched across the view's width (the reflected band).
     #[serde(default)]
     pub stretch: Option<bool>,

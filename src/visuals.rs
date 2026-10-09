@@ -1350,9 +1350,10 @@ fn spawn_backgrounds(
             continue;
         };
         let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
-        let tint = entry.tint.map_or(Color::WHITE, |(r, g, b)| {
-            Color::srgb(r / 255.0, g / 255.0, b / 255.0)
-        });
+        let tint = entry
+            .tint
+            .map_or(Color::WHITE, |(r, g, b)| Color::srgb(r / 255.0, g / 255.0, b / 255.0))
+            .with_alpha(entry.opacity.unwrap_or(1.0));
         let base = (
             Sprite {
                 image: art.images[name].clone(),
