@@ -580,13 +580,16 @@ pub(crate) fn dress_bricks(
             Has<Grassy>,
             Option<&Placed>,
         ),
-        Or<(
-            Changed<Brick>,
-            Added<Stone>,
-            Added<Vined>,
-            Added<Grassy>,
-            Added<Placed>,
-        )>,
+        (
+            Or<(
+                Changed<Brick>,
+                Added<Stone>,
+                Added<Vined>,
+                Added<Grassy>,
+                Added<Placed>,
+            )>,
+            Without<FloorBlock>,
+        ),
     >,
     skins: Query<&crate::gameplay::TowerSkin>,
 ) {
