@@ -1043,15 +1043,16 @@ fn puzzle_floors_follow_each_difficulty() {
         let mut roll = seed;
         config.puzzle.floor = PuzzleFloor::Easy;
         let easy = puzzle_floor(&config, &mut roll);
-        assert_eq!(easy.len(), 5);
-        assert!(easy.iter().all(|&(_, top, _)| (-2.0..=0.0).contains(&top)));
+        // Pieces are one or two cells wide and cover at most the floor's width.
+        assert!(easy.iter().map(|p| p.3).sum::<u32>() <= 5);
+        assert!(easy.iter().all(|&(_, top, _, _)| (-2.0..=0.0).contains(&top)));
         config.puzzle.floor = PuzzleFloor::Normal;
         let normal = puzzle_floor(&config, &mut roll);
-        assert!((2..=6).contains(&normal.len()));
+        assert!(normal.iter().map(|p| p.3).sum::<u32>() <= 6);
         assert!(
             normal
                 .iter()
-                .all(|&(_, top, _)| (-4.0..=0.0).contains(&top))
+                .all(|&(_, top, _, _)| (-4.0..=0.0).contains(&top))
         );
         config.puzzle.floor = PuzzleFloor::Pro;
         let pro = puzzle_floor(&config, &mut roll);
