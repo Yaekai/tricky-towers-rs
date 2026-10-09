@@ -3,6 +3,7 @@
 //! mode select screens (src/select.rs).
 
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 
 use crate::art::Art;
 use crate::config::GameConfig;
@@ -934,6 +935,16 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
     });
 }
 
+/// The title tile under a cursor at `cursor` (top-left origin, in a window `window` big).
+fn tile_at(cursor: Vec2, window: Vec2) -> Option<usize> {
+    let p = Vec2::new(cursor.x / window.x * 1920.0, cursor.y / window.y * 1080.0);
+    TILES.iter().position(|t| {
+        let centre = Vec2::new(960.0 + t.at.0, 540.0 - t.at.1);
+        let half = Vec2::new(t.size.0, t.size.1) * 0.5;
+        ((p - centre).abs().cmple(half)).all()
+    })
+}
+
 /// The tile from `from` in direction `dir`: the nearest one ahead, with
 /// sideways distance counting double. Tiles more sideways than ahead (twice
 /// over) don't count, so Up from Local Battle stays put.
@@ -963,18 +974,36 @@ fn tile_towards(from: usize, dir: Vec2) -> usize {
 #[allow(clippy::too_many_arguments)]
 fn main_menu_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     gamepads: Query<&Gamepad>,
     game: Res<Match>,
     mut screen: ResMut<MenuScreen>,
     mut menu: ResMut<MainMenu>,
     mut lobby: ResMut<Lobby>,
     mut exit: MessageWriter<AppExit>,
+    mut last_cursor: Local<Option<Vec2>>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Main {
         return;
     }
     let mut dir = Vec2::ZERO;
     let mut pick = false;
+    // The mouse: the tile under the cursor is highlighted when it moves, and a click picks it.
+    if let Ok(window) = windows.single() {
+        let cursor = window.cursor_position();
+        let over = cursor.and_then(|c| tile_at(c, window.size()));
+        if over.is_some() && cursor != *last_cursor {
+            menu.selected = over.unwrap_or(menu.selected);
+        }
+        *last_cursor = cursor;
+        if let Some(i) = over
+            && mouse.is_some_and(|m| m.just_pressed(MouseButton::Left))
+        {
+            menu.selected = i;
+            pick = true;
+        }
+    }
     if let Some(keys) = keys {
         let pressed = |list: [KeyCode; 3]| keys.any_just_pressed(list);
         // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
@@ -1102,5 +1131,25 @@ fn spin_tile_rays(
     let vh = out / SCREEN.1 * 100.0;
     for (corner, mut transform) in &mut corners {
         transform.translation = Val2::new(Val::Vh(corner.0.x * vh), Val::Vh(corner.0.y * vh));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_cursor_over_a_title_tile_picks_it() {
+        let window = Vec2::new(1920.0, 1080.0);
+        let centre = |i: usize| {
+            let t = &TILES[i];
+            Vec2::new(960.0 + t.at.0, 540.0 - t.at.1)
+        };
+        for i in 0..TILES.len() {
+            assert_eq!(tile_at(centre(i), window), Some(i), "tile {i}");
+        }
+        assert_eq!(tile_at(Vec2::new(5.0, 5.0), window), None);
+        // The same point in a half-size window is the same tile.
+        assert_eq!(tile_at(centre(0) * 0.5, window * 0.5), Some(0));
     }
 }
