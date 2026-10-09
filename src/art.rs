@@ -553,16 +553,17 @@ fn recolor_masks(
     }
 }
 
-/// The bricks' outline and crack colour: the dark the pattern textures fade to at
-/// their edges (?; the original's shader is a stub in the export).
-const BRICK_LINE: (f32, f32, f32) = (27.0 / 255.0, 22.0 / 255.0, 74.0 / 255.0);
+/// The bricks' outline and crack colour: the median of the darkest brick pixels in
+/// Max's close-up of a Race tower (clip_1,791,559,010,207; the original's shader is a
+/// stub in the export).
+const BRICK_LINE: (f32, f32, f32) = (13.0 / 255.0, 14.0 / 255.0, 35.0 / 255.0);
 
 /// Lights brick-pack bricks once their pattern and bevel map are loaded, as the
 /// original's World/Bricks/Default shader draws them: bevels sloping towards the light
 /// blend to the highlight colour, those sloping away to the shadow colour, by the
-/// slope and the colour's alpha; the bevel map's blue draws the outline and cracks;
-/// its alpha is the brick's shape. The blend itself is ours (?), matched by eye to
-/// the original's pack icon.
+/// slope and the colour's alpha; the bevel map's blue draws the outline and cracks,
+/// and the outline reaches past the brick's own alpha (the map's blue runs 2 px
+/// further out), as thick as in the close-up. The blend is ours (?), matched to it.
 fn light_bricks(
     mut art: ResMut<Art>,
     mut images: ResMut<Assets<Image>>,
@@ -580,12 +581,19 @@ fn light_bricks(
             images.get(&pattern)?;
             images.get(&bevel)?;
             let light = [Srgba::new(hr, hg, hb, ha), Srgba::new(sr, sg, sb, sa)];
-            Some((name.clone(), pattern, bevel, light, entry.light_angle.unwrap_or(280.0)))
+            Some((
+                name.clone(),
+                pattern,
+                bevel,
+                light,
+                entry.light_angle.unwrap_or(280.0),
+            ))
         })
         .collect();
     for (name, pattern, bevel, [high, shadow], angle) in ready {
         done.insert(name.clone());
-        let (Some(pattern), Some(mut out)) = (images.get(&pattern).cloned(), images.get(&bevel).cloned())
+        let (Some(pattern), Some(mut out)) =
+            (images.get(&pattern).cloned(), images.get(&bevel).cloned())
         else {
             continue;
         };
@@ -595,13 +603,19 @@ fn light_bricks(
         let (ly, lx) = angle.to_radians().sin_cos();
         for y in 0..size.y {
             for x in 0..size.x {
-                let (Ok(map), Ok(base)) = (out.get_color_at(x, y), pattern.get_color_at((x as f32 * scale.x) as u32, (y as f32 * scale.y) as u32))
-                else {
+                let (Ok(map), Ok(base)) = (
+                    out.get_color_at(x, y),
+                    pattern.get_color_at((x as f32 * scale.x) as u32, (y as f32 * scale.y) as u32),
+                ) else {
                     continue;
                 };
                 let (map, base) = (map.to_srgba(), base.to_srgba());
                 let slope = (map.red * 2.0 - 1.0) * lx - (map.green * 2.0 - 1.0) * ly;
-                let (to, by) = if slope > 0.0 { (high, slope) } else { (shadow, -slope) };
+                let (to, by) = if slope > 0.0 {
+                    (high, slope)
+                } else {
+                    (shadow, -slope)
+                };
                 let lit = |c: f32, t: f32, line: f32| {
                     let c = c + (t - c) * by.min(1.0) * to.alpha;
                     c + (line - c) * map.blue
@@ -610,7 +624,7 @@ fn light_bricks(
                     lit(base.red, to.red, BRICK_LINE.0).clamp(0.0, 1.0),
                     lit(base.green, to.green, BRICK_LINE.1).clamp(0.0, 1.0),
                     lit(base.blue, to.blue, BRICK_LINE.2).clamp(0.0, 1.0),
-                    map.alpha,
+                    map.alpha.max(map.blue),
                 );
                 let _ = out.set_color_at(x, y, color);
             }
@@ -747,7 +761,11 @@ fn play_music(
         if !ambience.iter().any(|(_, a)| a.0 == name)
             && let Some(handle) = art.sounds.get(name)
         {
-            commands.spawn((Ambience(name), AudioPlayer(handle.clone()), PlaybackSettings::LOOP));
+            commands.spawn((
+                Ambience(name),
+                AudioPlayer(handle.clone()),
+                PlaybackSettings::LOOP,
+            ));
         }
     }
     // A battle's music starts with play, after its intro's 3-2-1.
@@ -951,6 +969,13 @@ mod tests {
         assert_eq!(art.frame("wave", 0.7), Some(handle(1)));
         assert_eq!(art.frame("once", 5.0), Some(handle(3)));
         assert_eq!(art.image("wave"), Some(handle(1)));
+    }
+
+    #[test]
+    fn lit_brick_entry_reads() {
+        let e = read_entry(r#"(file: "bricks/T.png", bevel: "brick_T_bevel", light: ((0.7106, 0.9034, 0.9118, 0.903), (0.2279, 0.2974, 0.5, 0.903)), light_angle: 280.0)"#);
+        assert_eq!(e.bevel.as_deref(), Some("brick_T_bevel"));
+        assert!(e.light.unwrap().get().is_some());
     }
 
     fn read_entry(text: &str) -> ArtEntry {
