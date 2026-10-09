@@ -161,7 +161,7 @@ fn start_casts(
             if let Some((_, victim, victim_state)) = find(cast.target) {
                 let foot = brick_at(victim_state, victim);
                 spawn_victim_beams(&mut commands, &config, &art, foot, victim.origin_x);
-                spawn_curse_orb(&mut commands, &config, &art, from, foot);
+                spawn_curse_orb(&mut commands, &config, &art, foot);
             }
         } else if !lit.contains(&cast.caster) {
             lit.push(cast.caster);
@@ -384,15 +384,15 @@ fn run_beams(
     }
 }
 
-/// Dark cast's curse orb: the spiky blob with the curse icon, dropped onto the victim's brick.
+/// Dark cast's curse orb: the spiky blob with the curse icon. It comes down inside the
+/// victim's lane column from the top of the view onto the falling brick (the video).
 #[derive(Component)]
 struct CurseOrb {
-    from: Vec2,
     to: Vec2,
     time: f32,
 }
 
-fn spawn_curse_orb(commands: &mut Commands, config: &GameConfig, art: &Art, from: Vec2, to: Vec2) {
+fn spawn_curse_orb(commands: &mut Commands, config: &GameConfig, art: &Art, to: Vec2) {
     let size = config.cells(config.casts.dark_orb_size);
     let blob = match art.image("fx_cast_effect2_blob01") {
         Some(image) => Sprite {
@@ -404,13 +404,9 @@ fn spawn_curse_orb(commands: &mut Commands, config: &GameConfig, art: &Art, from
     };
     let orb = commands
         .spawn((
-            CurseOrb {
-                from,
-                to,
-                time: 0.0,
-            },
+            CurseOrb { to, time: 0.0 },
             blob,
-            Transform::from_translation(from.extend(17.0)),
+            Transform::from_translation(to.extend(17.0)),
             Visibility::Hidden,
         ))
         .id();
@@ -432,10 +428,20 @@ fn run_orbs(
     mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
+    view: Res<crate::visuals::ViewSize>,
+    camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<CurseOrb>)>,
     mut orbs: Query<(Entity, &mut CurseOrb, &mut Transform, &mut Visibility)>,
 ) {
     let look = &config.casts;
     let dt = time.delta_secs();
+    let size = config.cells(look.dark_orb_size);
+    let top = camera.single().map_or(0.0, |(eye, projection)| {
+        let scale = match projection {
+            Projection::Orthographic(ortho) => ortho.scale,
+            _ => 1.0,
+        };
+        eye.translation.y + view.0.y * 0.5 * scale + size * 0.5
+    });
     for (entity, mut orb, mut transform, mut visibility) in &mut orbs {
         orb.time += dt;
         if orb.time < look.dark_start {
@@ -447,7 +453,8 @@ fn run_orbs(
         }
         *visibility = Visibility::Inherited;
         let fall = (orb.time - look.dark_fall) / (look.dark_orb_land - look.dark_fall).max(0.01);
-        transform.translation = orb.from.lerp(orb.to, fall.clamp(0.0, 1.0)).extend(17.0);
+        let from = Vec2::new(orb.to.x, top.max(orb.to.y));
+        transform.translation = from.lerp(orb.to, fall.clamp(0.0, 1.0)).extend(17.0);
     }
 }
 
