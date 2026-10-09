@@ -2,7 +2,7 @@
 //! winner's spotlight, the veil over losing lanes and the trophy. Drawn with the
 //! original's letters and art when staged (see `docs/research/match-moments.md`).
 
-use bevy::platform::collections::HashSet;
+use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 use crate::art::Art;
@@ -19,6 +19,8 @@ impl Plugin for ResultsPlugin {
             (
                 start_moments,
                 show_hold_counts,
+                show_puzzle_scores,
+                place_puzzle_scores,
                 animate_banners,
                 animate_lights,
             )
@@ -498,6 +500,97 @@ fn animate_banners(
         let (from, over) = look.trophy_pop;
         let next = (cup.scale.x + (1.0 - from) * dt / over.max(0.01)).min(1.0);
         cup.scale = Vec2::splat(next);
+    }
+}
+
+/// A Puzzle battle's score over a lane, or the 3-2-1 over the lane that touched the laser.
+#[derive(Component)]
+struct PuzzleScore {
+    tower: Entity,
+}
+
+/// The Puzzle battle's count: the 3-2-1 over the lane that touched the laser, then each
+/// tower's brick count at the top of its lane (the winner's gold, the others pink).
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn show_puzzle_scores(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    art: Res<Art>,
+    images: Res<Assets<Image>>,
+    towers: Query<(Entity, &Tower, &TowerState)>,
+    mut labels: Local<HashMap<Entity, (String, Entity)>>,
+) {
+    let battle = game.mode.rules() == ModeKind::Puzzle
+        && config.trial.is_none()
+        && game.phase != Phase::Menu;
+    if !battle {
+        for (_, (_, label)) in labels.drain() {
+            if let Ok(mut label) = commands.get_entity(label) {
+                label.despawn();
+            }
+        }
+        return;
+    }
+    let count = config.puzzle.count_seconds;
+    let over = game.phase == Phase::Over;
+    let gold = tone_color(&art, &images, Tone::Gold);
+    let pink = Color::srgb(1.0, 0.45, 0.7);
+    for (entity, tower, state) in &towers {
+        let shown = if over {
+            let winner = game.winner == Some(tower.index);
+            Some((state.bricks_placed.to_string(), if winner { gold } else { pink }))
+        } else {
+            state
+                .laser_count
+                .filter(|t| *t < count)
+                .map(|t| ((count - t).ceil().max(1.0).to_string(), gold))
+        };
+        let Some((words, colour)) = shown else {
+            if let Some((_, label)) = labels.remove(&entity) {
+                if let Ok(mut label) = commands.get_entity(label) {
+                label.despawn();
+            }
+            }
+            continue;
+        };
+        if labels.get(&entity).is_some_and(|(w, _)| *w == words) {
+            continue;
+        }
+        if let Some((_, old)) = labels.remove(&entity) {
+            if let Ok(mut old) = commands.get_entity(old) {
+                old.despawn();
+            }
+        }
+        let label = spawn_match_text(&mut commands, &config, &words, config.moments.banner_size, colour);
+        commands
+            .entity(label)
+            .insert((PuzzleScore { tower: entity }, Visibility::Hidden));
+        labels.insert(entity, (words, label));
+    }
+}
+
+/// Puts each Puzzle score over its own lane, near the top of the view.
+fn place_puzzle_scores(
+    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    view: Res<ViewSize>,
+    towers: Query<&Tower>,
+    mut scores: Query<(&PuzzleScore, &mut Node, &ComputedNode, &mut Visibility)>,
+) {
+    let Ok((camera, eye)) = camera.single() else {
+        return;
+    };
+    for (score, mut node, computed, mut visibility) in &mut scores {
+        let Ok(tower) = towers.get(score.tower) else {
+            continue;
+        };
+        let Ok(at) = camera.world_to_viewport(eye, Vec3::new(tower.origin_x, 0.0, 0.0)) else {
+            continue;
+        };
+        centre_on(&mut node, computed, Vec2::new(at.x, view.0.y * 0.2), view.0, 1.0);
+        if computed.size().x > 0.0 {
+            visibility.set_if_neq(Visibility::Inherited);
+        }
     }
 }
 
