@@ -550,6 +550,30 @@ fn ivy_vines_the_brick_to_what_it_lands_on() {
 }
 
 #[test]
+fn ivy_never_grabs_a_puzzle_floor_block() {
+    // Max: vines must not change the terrain. Floor blocks are bricks in the
+    // ECS, so Ivy must skip them when it looks for what to join.
+    let mut config = magic_config(SpellKind::Ivy, &[]);
+    config.mode = ModeKind::Puzzle;
+    config.puzzle.floor = tricky_towers::config::PuzzleFloor::Easy;
+    let mut app = headless_app(config);
+    assert!(
+        count::<With<tricky_towers::gameplay::FloorBlock>>(&mut app) > 0,
+        "the Puzzle floor has no blocks to test against"
+    );
+    wait_for_light(&mut app, SpellKind::Ivy);
+    human_input(&mut app).cast_light_pressed = true;
+    run_seconds(&mut app, 2.0, |_| {});
+    let world = app.world_mut();
+    let joined_floor = world
+        .query::<(&ChildOf, &tricky_towers::gameplay::FloorBlock)>()
+        .iter(world)
+        .filter(|(child, _)| world.get::<IvyCluster>(child.parent()).is_some())
+        .count();
+    assert_eq!(joined_floor, 0, "Ivy grabbed a floor block");
+}
+
+#[test]
 fn ivy_onto_stone_makes_the_cluster_static() {
     // Regression: joining a stone (static) brick panicked inside avian
     // ("Neither body ... is in an island").
