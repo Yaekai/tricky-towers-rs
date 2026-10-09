@@ -215,3 +215,6 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-10 (PC, tt-next): Puzzle sky gradients (BackgroundGradients / BackgroundProGradients): tinted strips stretched
   across the view (`background_puzzle_20..23`, `background_puzzle_pro_21..23`, manifest `opacity`). Laser heights
   already match the original (random 5-7 + 0.2 on Easy, 3-7 + 0.2 on Normal/Special); the next card's tilt is in its art.
+- 2026-10-10 (PC, tt-next): petrified bricks as PetrifyBrickModifier/IceBrickModifier: the Puzzle desert (worldId 2) uses
+  `desert_stone_<shape>`, petrified and iced uses `brick_<shape>_stone_ice` (gph_brick?_petrified_Ice). Plain ice on
+  normal bricks is a shader keyword (ICE_ON) in the original; ours keeps the `_ice` sprites.

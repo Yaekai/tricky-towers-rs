@@ -538,6 +538,7 @@ Add-Sprite 'grass_overlay' 'gph_grassLarge_var01' 'fx\grass.png'      'Grass tuf
 foreach ($b in 'I','O','T','S','Z','J','L') {
   Add-Sprite "brick_$($b)_stone" "gph_brick$($b)_petrified01" "bricks\stone_$b.png" "Petrified brick $b"
   Add-Sprite "brick_$($b)_ice"   "gph_brick$($b)_ice"         "bricks\ice_$b.png"   "Ice brick $b"
+  Add-Sprite "brick_$($b)_stone_ice" "gph_brick$($b)_petrified_Ice" "bricks\stone_ice_$b.png" "Petrified and iced brick $b (_PETRIFIED_ICE_PACK)"
 }
 foreach ($m in @(@('block','01'), @('blob','02'), @('table','03'))) {
   Add-Sprite "mystery_$($m[0])_stone" "gph_brickMystery$($m[1])_petrified" "bricks\mystery_$($m[0])_stone.png" "Petrified Mystery $($m[0])"
