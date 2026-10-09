@@ -880,10 +880,15 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
                             ..default()
                         })
                         .with_children(|q| {
+                            // The original's "?" is dark with a white outline.
                             q.spawn(crate::select::label_with(
-                                7.0,
+                                10.0,
                                 "?",
-                                crate::letters::TextLook::TITLE,
+                                crate::letters::TextLook {
+                                    body: false,
+                                    face: Some(Color::srgb(0.07, 0.055, 0.12)),
+                                    outline: Some(Color::WHITE),
+                                },
                             ));
                         });
                     }

@@ -334,7 +334,8 @@ pub const PAGES: [[Row; 6]; 2] = [
 const ROW: (f32, f32) = (800.0, 78.0);
 const ROW_STEP: f32 = 100.0;
 /// The rows' area runs from 220 px below the top to the bottom; its centre.
-const AREA_CENTRE: f32 = SCREEN.1 / 2.0 - 220.0 - (SCREEN.1 - 220.0) / 2.0;
+/// The original centres the rows on the screen (its pages sit around y 290 to 790 at 1080).
+const AREA_CENTRE: f32 = 0.0;
 const ICON: ((f32, f32), f32, f32) = ((100.0, 100.0), 79.0, 11.0);
 const TITLE_X: f32 = 150.0;
 const TITLE_SIZE: f32 = 36.0;
@@ -918,9 +919,9 @@ mod tests {
 
     #[test]
     fn rows_sit_100_px_apart_around_the_area_centre() {
-        // 6 rows centred in the area from 220 px below the top to the bottom.
-        assert_eq!(row_y(0), -110.0 + 250.0);
-        assert_eq!(row_y(5), -110.0 - 250.0);
+        // 6 rows centred on the screen: the original's rows run from 290 to 790 px down.
+        assert_eq!(row_y(0), 250.0);
+        assert_eq!(row_y(5), -250.0);
     }
 
     #[test]
