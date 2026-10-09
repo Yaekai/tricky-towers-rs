@@ -2730,11 +2730,17 @@ pub struct HologramLook {
     /// Alpha over seconds since the brick landed, from the 2-player Survival clip
     /// (docs/research/video-notes.md). Past the last point the glitch look takes over.
     pub touch_alpha: Vec<(f32, f32)>,
+    /// Alpha of a Hologram brick at rest (guess until a clip is read).
+    pub rest_alpha: f32,
+    /// Alpha during a glitch. The base texture showed through too much at 0.55 (guess).
+    pub glitch_alpha: f32,
 }
 
 impl Default for HologramLook {
     fn default() -> Self {
         Self {
+            rest_alpha: 0.95,
+            glitch_alpha: 0.8,
             touch_alpha: vec![
                 (0.0, 0.85),
                 (0.05, 0.45),
