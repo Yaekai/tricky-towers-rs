@@ -221,14 +221,16 @@ fn decorate_bricks(
                 let line = c * GALAXY_LINE_WIDTH;
                 for &cell in cells {
                     let at = cell * c;
+                    // Each cell overlaps its neighbours by a sliver, so no sub-pixel seam
+                    // shows the dark background between two cells.
                     let inner = match &background {
                         Some(image) => Sprite {
                             image: image.clone(),
-                            custom_size: Some(Vec2::splat(c)),
+                            custom_size: Some(Vec2::splat(c * 1.02)),
                             rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
                             ..default()
                         },
-                        None => Sprite::from_color(Color::srgb(0.05, 0.02, 0.12), Vec2::splat(c)),
+                        None => Sprite::from_color(Color::srgb(0.05, 0.02, 0.12), Vec2::splat(c * 1.02)),
                     };
                     brick_entity.with_child((
                         GalaxyCell,
