@@ -494,10 +494,13 @@ fn spawn_pause_menu(
 fn pause_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     gamepads: Query<&Gamepad>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     mut game: ResMut<Match>,
     mut screen: ResMut<MenuScreen>,
     mut pause: ResMut<PauseMenu>,
     mut request: ResMut<MatchRequest>,
+    mut last_cursor: Local<Option<Vec2>>,
 ) {
     // Start on any pad pauses, as Esc does.
     if matches!(game.phase, Phase::Playing | Phase::Intro)
@@ -520,6 +523,23 @@ fn pause_input(
         up |= keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW, KeyCode::Numpad8]);
         down |= keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS, KeyCode::Numpad2]);
         pick |= keys.any_just_pressed([KeyCode::Enter, KeyCode::Space, KeyCode::NumpadEnter]);
+    }
+    // The mouse: an option under the cursor is selected as it moves, and a click picks it.
+    if let Ok(window) = windows.single() {
+        let cursor = window.cursor_position();
+        let over = cursor.and_then(|c| pause_row_at(c, window.size()));
+        if let Some(i) = over
+            && cursor != *last_cursor
+        {
+            pause.selected = i;
+        }
+        *last_cursor = cursor;
+        if let Some(i) = over
+            && mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left))
+        {
+            pause.selected = i;
+            pick = true;
+        }
     }
     for pad in &gamepads {
         up |= pad.just_pressed(GamepadButton::DPadUp);
@@ -942,6 +962,20 @@ fn tile_at(cursor: Vec2, window: Vec2) -> Option<usize> {
         let centre = Vec2::new(960.0 + t.at.0, 540.0 - t.at.1);
         let half = Vec2::new(t.size.0, t.size.1) * 0.5;
         ((p - centre).abs().cmple(half)).all()
+    })
+}
+
+/// The pause option under a cursor (top-left origin) in a window `window` big.
+fn pause_row_at(cursor: Vec2, window: Vec2) -> Option<usize> {
+    let p = Vec2::new(
+        cursor.x / window.x * 1920.0 - 960.0,
+        540.0 - cursor.y / window.y * 1080.0,
+    );
+    if (p.x - 480.0).abs() > 120.0 {
+        return None;
+    }
+    (0..PAUSE_OPTIONS.len()).find(|&i| {
+        (p.y - (PAUSE_ITEMS_Y - PAUSE_ROW.0 * i as f32)).abs() <= PAUSE_BAR / 2.0
     })
 }
 
