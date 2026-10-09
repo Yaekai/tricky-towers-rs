@@ -2211,7 +2211,10 @@ fn update_lines(
                 .map_or(config.endless.intro_from, |s| s.pacer),
             _ => game.finish_height,
         };
-        transform.translation.y = config.cells(height) + c * 0.5;
+        // The line is a child of its platform, which rises with Puzzle drops: take that rise
+        // back out so the line stays where the shared laser is.
+        let rise = towers.get(line.tower).map_or(0.0, |s| s.base_rise(&config)) * c;
+        transform.translation.y = config.cells(height) + c * 0.5 - rise;
     }
     for (line, children, mut transform, mut visibility) in &mut lines {
         let state = towers.get(line.tower).ok();
