@@ -41,7 +41,13 @@ ours and need checking against the original (see docs/research/*.md and the vide
 4. "Solo puzzle feel" in local two-player play: Max says it's not the original's multiplayer
    look. Compare a two-player round frame by frame with his videos (lane split, camera
    framing, laser width, where the bricks come from, what the HUD shows).
-5. Puzzle difficulties (Easy, Normal, Pro floors) against the videos: floor heights, ledges.
+5. Puzzle Easy and Special checked against Max's start clips (clip_1,791,559,747,862 and
+   _757,778): sandstorm as low bands, desert sun, eclipse corona, floating rocks (ruin heads),
+   Special pillar 1 wide with ledges both sides, next-brick card art, warm guide (done).
+   Still different: Easy sky lacks the original's 4 soft gradient overlays (BackgroundGradients
+   prefab: Gradient01-04, tints in the prefab); the Special laser sits lower in the original
+   (about 0.6 of the view down vs ours 0.5); the next card hangs slightly tilted in the original.
+   Max says Puzzle has no Normal in the menu he recorded (Easy and Special): check Select Mode.
 6. Laser drop rule: Max confirmed the base rises instead of the line lowering; confirm the
    half-cell amount in the game (puzzle.drop_penalty, 0.5, guess).
 7. Laser zap flash (bright laser flashes when bricks above it are zapped) and the zapped
@@ -60,6 +66,10 @@ ours and need checking against the original (see docs/research/*.md and the vide
 7. Mouse: check the pause and popup hit positions in the game (estimated from the layout code).
 8. Done: slider clicks set the nearest tenth, arrows step (SettingsSliderItem; no drag in the
    original).
+
+9. Max's idle clip of the menus (clip_1,791,559,916,214): start screen, Select Players (join,
+   wizard and pack pick), the title tiles, explanation popup, pause with the CONTROLS panel.
+   Not compared yet.
 
 ## Open: cups
 1. Overtime: seen in Max's clip_1,791,548,470,628.mp4 (a Puzzle Tiny Cup). The ribbon shows

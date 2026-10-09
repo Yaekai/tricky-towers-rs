@@ -168,3 +168,11 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
   earlier matches' medals show at once and only the latest match's fill in (`Cup::before`,
   `Cup::fresh`, CONTINUE after them), medals past the target show as "+N" (`Part::Extra`), cleared
   when the trophy comes. The "+N" size and place are by eye.
+- 2026-10-09 (PC, tt-next): Puzzle look from Max's Easy/Special start clips and the prefabs: the sandstorm is
+  five low bands (`WeatherLook::sandstorm_bands`, SandStormBack/Front quads) not full-screen fog; the
+  Easy/Normal sun (`puzzle_sun`, DesertSun) and the eclipse at 9 units up, 408 px (was 0.3/0.22); the
+  corona is the prefab's 10 tinted bars turning and pulsing (`WeatherLook::corona`); the floating rocks
+  are the ruins' Head sprites (`background_<look>_7..12`); the Special floor is a 1-wide pillar with
+  ledges on both sides (ProRandomPuzzleFloor); next-brick card art and icon placement from
+  NextBrickView; Puzzle guide colour. The other thread's old stage.ps1 runs wiped staged entries twice;
+  merge main before staging.
