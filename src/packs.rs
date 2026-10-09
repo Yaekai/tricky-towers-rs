@@ -95,6 +95,11 @@ struct Star {
 /// grey isn't read yet).
 pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
 
+/// The thin dark purple line: (59, 22, 85) from Max's frame. Its
+/// width, a twentieth of a cell, is a guess until the frame's scale is measured.
+const GALAXY_LINE: Color = Color::srgb(0.231, 0.086, 0.333);
+const GALAXY_LINE_WIDTH: f32 = 0.05;
+
 /// A small repeatable random number in 0..1.
 fn roll(seed: &mut u32) -> f32 {
     *seed ^= *seed << 13;
@@ -210,8 +215,10 @@ fn decorate_bricks(
             }
             BrickPack::Galaxy => {
                 // No texture: each cell is a window onto one shared starfield, edge to edge
-                // (no border), so neighbouring cells read as one sky, with a few stars on top.
+                // (the original has no border). A thin dark purple line runs along each
+                // cell's edges, so the lines show between cells (Max's frame).
                 let background = art.image("brick_galaxy_background");
+                let line = c * GALAXY_LINE_WIDTH;
                 for &cell in cells {
                     let at = cell * c;
                     let inner = match &background {
@@ -228,6 +235,22 @@ fn decorate_bricks(
                         inner,
                         Transform::from_translation(at.extend(0.02)),
                     ));
+                    // Only the piece's outside edge gets the line: a side with a neighbour
+                    // cell in the same piece stays clear.
+                    for (dir, size) in [
+                        (Vec2::Y, Vec2::new(c, line)),
+                        (Vec2::NEG_Y, Vec2::new(c, line)),
+                        (Vec2::X, Vec2::new(line, c)),
+                        (Vec2::NEG_X, Vec2::new(line, c)),
+                    ] {
+                        if cells.contains(&(cell + dir)) {
+                            continue;
+                        }
+                        brick_entity.with_child((
+                            Sprite::from_color(GALAXY_LINE, size),
+                            Transform::from_translation((at + dir * c * 0.5).extend(0.025)),
+                        ));
+                    }
                 }
                 if let Some(star) = art.image("brick_galaxy_star") {
                     for _ in 0..cells.len().div_ceil(2) {
