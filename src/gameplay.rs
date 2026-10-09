@@ -8,6 +8,7 @@
 
 use avian2d::dynamics::solver::islands::WakeBody;
 use avian2d::prelude::*;
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::config::{Curse, GameConfig, ModeKind, PieceDef, PuzzleFloor, SpellKind};
@@ -769,24 +770,24 @@ pub struct Raised {
 fn raise_bases(
     time: Res<Time>,
     config: Res<GameConfig>,
-    mut towers: Query<&mut TowerState>,
-    mut bases: Query<(&Raised, &mut Transform)>,
+    mut towers: Query<(Entity, &mut TowerState)>,
+    mut bases: Query<(&Raised, &mut LinearVelocity)>,
 ) {
-    let step = config.puzzle.base_rise_speed * time.delta_secs();
-    for mut state in &mut towers {
-        let target = state.base_rise(&config);
-        let gap = target - state.base_shown;
-        if gap.abs() > 0.0 {
-            state.base_shown += gap.clamp(-step, step);
-        }
+    let dt = time.delta_secs().max(f32::EPSILON);
+    let step = config.puzzle.base_rise_speed * dt;
+    let mut speeds: HashMap<Entity, f32> = HashMap::new();
+    for (entity, mut state) in &mut towers {
+        let gap = state.base_rise(&config) - state.base_shown;
+        let moved = gap.clamp(-step, step);
+        state.base_shown += moved;
+        speeds.insert(entity, moved / dt * config.cell_size);
     }
-    for (raised, mut transform) in &mut bases {
-        let Ok(state) = towers.get(raised.tower) else {
-            continue;
-        };
-        let y = raised.rest + state.base_shown * config.cell_size;
-        if transform.translation.y != y {
-            transform.translation.y = y;
+    // The bases are kinematic: moving them at a speed lifts the bricks on them, so
+    // nothing passes through the ground.
+    for (raised, mut velocity) in &mut bases {
+        let wanted = Vec2::new(0.0, speeds.get(&raised.tower).copied().unwrap_or(0.0));
+        if velocity.0 != wanted {
+            velocity.0 = wanted;
         }
     }
 }
@@ -1050,8 +1051,14 @@ fn start_match(
                     )
                 })
                 .collect();
+            // Puzzle's bases rise under the bricks, so they move kinematically there.
+            let body = if config.mode == ModeKind::Puzzle {
+                RigidBody::Kinematic
+            } else {
+                RigidBody::Static
+            };
             platform.insert((
-                RigidBody::Static,
+                body,
                 Collider::compound(parts),
                 Friction::new(config.brick_friction),
             ));
@@ -1103,7 +1110,7 @@ fn start_match(
                     tower,
                     rest: centre.y,
                 },
-                RigidBody::Static,
+                RigidBody::Kinematic,
                 collider,
                 Friction::new(config.brick_friction),
                 Transform::from_translation(centre.extend(0.0)),
@@ -1148,7 +1155,9 @@ fn spawn_next_brick(
         }
         // The Endless modes have no brick limit.
         let limit = match game.mode {
-            ModeKind::Puzzle => Some(config.puzzle.bricks),
+            // A Puzzle battle has no brick limit: a round ends with the laser.
+            ModeKind::Puzzle if config.trial.is_some() => Some(config.puzzle.bricks),
+            ModeKind::Puzzle => None,
             ModeKind::Survival => Some(config.survival.bricks_to_place),
             // Endless Puzzle stops at the end of each level until the level-up.
             ModeKind::EndlessPuzzle => Some(state.level_end),
@@ -1950,7 +1959,8 @@ fn judge_match(
                 }
                 if trial_drop || state.laser_count.is_some() {
                     state.status = TowerStatus::Out;
-                } else if state.bricks_used() >= rules.bricks
+                } else if config.trial.is_some()
+                    && state.bricks_used() >= rules.bricks
                     && state.active.is_none()
                     && state.all_settled
                 {

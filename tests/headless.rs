@@ -225,7 +225,7 @@ fn collapsing_tower_does_not_cascade() {
 }
 
 #[test]
-fn puzzle_is_won_by_staying_under_the_line() {
+fn puzzle_battle_has_no_brick_limit() {
     let mut config = fast_config();
     config.mode = ModeKind::Puzzle;
     config.puzzle = PuzzleRules {
@@ -251,11 +251,10 @@ fn puzzle_is_won_by_staying_under_the_line() {
         }
     });
 
+    // A battle has no brick count: bricks keep coming until one touches the laser.
     let state = tower(&mut app, 0);
-    assert_eq!(state.bricks_placed, 2, "{state:?}");
-    assert_eq!(state.status, TowerStatus::Won, "{state:?}");
-    let game = app.world().resource::<Match>();
-    assert_eq!((game.phase, game.winner), (Phase::Over, Some(0)));
+    assert!(state.bricks_placed > 2, "{state:?}");
+    assert!(state.laser_count.is_some(), "{state:?}");
 }
 
 #[test]

@@ -147,3 +147,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-09 (PC): title rays stay inside the picked tile: the ray squares are cut to 75% of the tile's shorter side (RAY_FRACTION, a guess); rotated rays weren't clipped to their tile.
 - 2026-10-09 (PC): settings row words are heavy and near-black (body letters with a dark outline, settings.rs ROW_TEXT), matching the original's reference.
 - 2026-10-09 (PC): Puzzle battles: no WIZARD OUT! banner, no bricks-to-come column (trial only), the base rise eases over time (TowerState::base_shown, PuzzleRules::base_rise_speed) and the laser is one full-width line in a battle (visuals.rs).
+- 2026-10-09 (PC): Puzzle battles have no brick limit (only trials do), the win by bricks is trial-only, and a battle's bases are kinematic and carried up by velocity while they rise (no clipping).
