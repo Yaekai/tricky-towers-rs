@@ -225,6 +225,9 @@ const PICK_LINE: (f32, f32) = (367.0, 44.0);
 const PICK_STEP: f32 = 52.0;
 /// A brick pack card before its seat confirms it (guess).
 const PACK_DIM: Color = Color::srgb(0.55, 0.55, 0.62);
+/// The picker line the seat's arrows act on is gold; the other line stays dark (guess).
+const PICK_IDLE: Color = Color::srgba(0.1, 0.08, 0.2, 0.7);
+const PICK_ACTIVE: Color = Color::srgba(1.0, 0.8, 0.3, 0.9);
 /// 9-slice borders of the seat panels and outline, and of the name plate.
 pub(crate) const PANEL_SLICE: f32 = 60.0;
 pub(crate) const PLATE_SLICE: f32 = 13.0;
@@ -666,7 +669,7 @@ pub(crate) fn spawn_select_screens(
                         PICK_LINE,
                         (x, NAME_PLATE.1 - PICK_STEP * (row as f32 + 1.0)),
                     ),
-                    BackgroundColor(Color::srgba(0.1, 0.08, 0.2, 0.7)),
+                    BackgroundColor(PICK_IDLE),
                     Visibility::Hidden,
                     Part::SeatPickLine(seat, row),
                 ))
@@ -1319,7 +1322,16 @@ pub(crate) fn show_select_screens(
                 Some(seat) == first_empty || (no_pads && lobby.seats[seat] == Seat::Empty)
             }
             Part::SeatFocus(seat) => lobby.seats[seat].human(),
-            Part::SeatPickLine(seat, _) => lobby.seats[seat].human(),
+            Part::SeatPickLine(seat, row) => {
+                // Left and Right act on the active line, so it lights up.
+                let want = if lobby.skin_row[seat] == row { PICK_ACTIVE } else { PICK_IDLE };
+                if let Some(mut c) = colour
+                    && c.0 != want
+                {
+                    c.0 = want;
+                }
+                lobby.seats[seat].human()
+            }
             Part::SeatPick(seat, row) => {
                 let (wizard, pack) = lobby.skins[seat];
                 let name = if row == 0 {
