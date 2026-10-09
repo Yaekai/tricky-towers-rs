@@ -169,7 +169,7 @@ fn survival_ends_after_the_last_brick_and_a_countdown() {
 }
 
 #[test]
-fn a_dropped_puzzle_brick_lowers_the_laser() {
+fn a_dropped_puzzle_brick_raises_the_base_not_the_laser() {
     let mut config = fast_config();
     config.mode = ModeKind::Puzzle;
     config.puzzle.line_height = 20.0;
@@ -184,7 +184,9 @@ fn a_dropped_puzzle_brick_lowers_the_laser() {
         TowerStatus::Building,
         "a drop ended the puzzle"
     );
-    assert!(state.laser(app.world().resource::<GameConfig>()) < 20.0);
+    let config = app.world().resource::<GameConfig>();
+    assert!(state.base_rise(config) > 0.0);
+    assert_eq!(state.laser(config), 20.0);
 }
 
 #[test]

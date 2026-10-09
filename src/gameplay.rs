@@ -49,6 +49,7 @@ impl Plugin for GameplayPlugin {
                     )
                         .chain(),
                     judge_match,
+                    raise_bases,
                     zap_over_laser,
                     place_obstacles,
                     drain_water,
@@ -587,7 +588,16 @@ impl TowerState {
             });
             return self.laser_base + rules.laser_rise * rising;
         }
-        self.laser_base - config.puzzle.drop_penalty * self.bricks_dropped as f32
+        self.laser_base
+    }
+
+    /// Puzzle: how far the base has risen, in cells, for the bricks that fell off.
+    pub fn base_rise(&self, config: &GameConfig) -> f32 {
+        if config.mode == ModeKind::Puzzle {
+            config.puzzle.drop_penalty * self.bricks_dropped as f32
+        } else {
+            0.0
+        }
     }
 
     /// Endless Survival and Endless Puzzle score: the bricks in the tower.
@@ -737,6 +747,32 @@ impl ActiveBrick {
 #[derive(Component, Debug)]
 pub struct Platform {
     pub tower: Entity,
+}
+
+/// A piece of a tower's base that rises with its drops: where it stands with no
+/// bricks lost.
+#[derive(Component, Debug)]
+pub struct Raised {
+    pub tower: Entity,
+    pub rest: f32,
+}
+
+/// Puzzle: the tower's base (and its floor blocks) rise as bricks fall off it, while
+/// the laser stays one line for everyone.
+fn raise_bases(
+    config: Res<GameConfig>,
+    towers: Query<&TowerState>,
+    mut bases: Query<(&Raised, &mut Transform)>,
+) {
+    for (raised, mut transform) in &mut bases {
+        let Ok(state) = towers.get(raised.tower) else {
+            continue;
+        };
+        let y = raised.rest + state.base_rise(&config) * config.cell_size;
+        if transform.translation.y != y {
+            transform.translation.y = y;
+        }
+    }
 }
 
 /// Builds a brick collider from its cells. `fill` is the fraction of each cell covered.
@@ -971,6 +1007,10 @@ fn start_match(
         // takes its place.
         let mut platform = commands.spawn((
             Platform { tower },
+            Raised {
+                tower,
+                rest: -c * 0.5,
+            },
             Transform::from_xyz(origin_x, -c * 0.5, 0.0),
         ));
         if floor.is_empty() {
@@ -1043,6 +1083,10 @@ fn start_match(
             commands.spawn((
                 block,
                 FloorBlock { part },
+                Raised {
+                    tower,
+                    rest: centre.y,
+                },
                 RigidBody::Static,
                 collider,
                 Friction::new(config.brick_friction),
@@ -1963,9 +2007,8 @@ fn place_obstacles(
         }
         // Every spot is drawn at the first block, so none repeats.
         let laser = state.laser_base + rules.laser_rise;
-        let offset = config.puzzle.drop_penalty * state.bricks_dropped as f32;
         let height = state.height;
-        let spots = rules.obstacle_spots(height, laser - offset, || {
+        let spots = rules.obstacle_spots(height, laser, || {
             (state.random() % 10_000) as f32 / 10_000.0
         });
         for spot in spots

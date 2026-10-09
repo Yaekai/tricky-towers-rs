@@ -616,7 +616,8 @@ pub struct PuzzleRules {
     pub drop_speed: f32,
     /// The light spell every player starts with; there are no spell lines.
     pub start_spell: Option<SpellKind>,
-    /// A dropped brick costs no life; the laser comes this much lower instead.
+    /// A dropped brick costs no life; the tower's base rises this much instead, so
+    /// the shared laser is that much lower against the stack.
     pub drop_penalty: f32,
     /// The floor each round is built on, in place of a flat base.
     pub floor: PuzzleFloor,
