@@ -2396,6 +2396,9 @@ pub struct CastLook {
     /// the beams reach (?).
     pub beam_width: f32,
     pub beam_reach: f32,
+    /// The glow disc at a beam's foot, per wizard (each wizard has its own beam,
+    /// Beam01-04; skin wizards use wizard 1's until theirs are read).
+    pub beam_glow: Vec<(f32, f32, f32, f32)>,
     /// Light cast: the lightning from the wizard to the brick lasts this long, and
     /// its wobble peaks at this many cells (a sixth of the way in; clip `Lightning`).
     pub lightning: f32,
@@ -2433,6 +2436,12 @@ impl Default for CastLook {
             beam_squeeze: 0.03,
             beam_width: 1.76,
             beam_reach: 30.0,
+            beam_glow: vec![
+                (0.780, 1.0, 0.980, 0.153),
+                (0.780, 1.0, 0.980, 0.153),
+                (0.780, 1.0, 0.980, 0.153),
+                (1.0, 0.780, 0.839, 0.498),
+            ],
             lightning: 0.4,
             lightning_wobble: 2.0,
             cloud_show: 0.83,

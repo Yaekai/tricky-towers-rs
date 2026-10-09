@@ -111,6 +111,12 @@
         beam_squeeze: 0.03,
         beam_width: 1.76,
         beam_reach: 30.0,
+        beam_glow: [
+            (0.78, 1.0, 0.98, 0.153),
+            (0.78, 1.0, 0.98, 0.153),
+            (0.78, 1.0, 0.98, 0.153),
+            (1.0, 0.78, 0.839, 0.498),
+        ],
         lightning: 0.4,
         lightning_wobble: 2.0,
         cloud_show: 0.83,

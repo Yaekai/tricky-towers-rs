@@ -31,8 +31,16 @@ The button hint under each cloud sits at (∓1.1, -1.25) from the cloud.
 ## Dark cast beams (`casts.beam_width`, `beam_reach`)
 `cast_beam` (87×14 px at 26 px/unit) is drawn 1× wide and 60× tall: 3.35 units wide,
 32.3 units tall, centred on the beam's origin. The two white edge strokes are 0.1 wide and
-20× the white pixel tall, at ±0.88 from the centre. Beam02/03 (bigger curses) use their own
-backgrounds (`fx_cast_effect02_background` 48 px wide, so 1.85 units).
+20× the white pixel tall, at ±0.88 from the centre.
+The beam is picked by the caster's wizard, not by the curse: wizard N casts Beam0N / BeamDown0N
+(wizards 1-4), the skin wizards their own Animal / Indie beams (stars and shapes, not read yet).
+Each has its own column picture (`cast_beam`, `cast_beam_2..4`) and colours:
+- Wizard 1: white edge strokes, foot rays and rings pale cyan (0.78, 1, 0.98), glow at 0.153.
+- Wizard 2: black edge strokes, magenta rays (0.914, 0, 0.431), glow pale cyan at 0.153. This is
+  the dark magenta column in the video.
+- Wizard 3: white strokes at 0.516, white rays, glow pale cyan at 0.153.
+- Wizard 4: white strokes, pink rays, rings and glow (1, 0.78, 0.84) at 0.498.
+The strokes, rays, rings and blobs aren't drawn yet; the column and the foot glow are.
 
 ## Light cast lightning (`casts.lightning`, `lightning_wobble`)
 - Lasts 0.4 s (clip `Lightning`, its end event closes it).

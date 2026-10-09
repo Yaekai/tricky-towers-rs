@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use crate::art::Art;
 use crate::config::{GameConfig, ModeKind, SpellKind};
 use crate::effects::CameraShake;
-use crate::gameplay::{ActiveBrick, Brick, Match, Phase, Tower, TowerState};
+use crate::gameplay::{ActiveBrick, Brick, Match, Phase, Tower, TowerSkin, TowerState};
 use crate::spells::SpellLog;
 use crate::wizards::Wizard;
 
@@ -106,6 +106,7 @@ fn start_casts(
     game: Res<Match>,
     log: Res<SpellLog>,
     towers: Query<(Entity, &Tower, &TowerState)>,
+    skins: Query<&TowerSkin>,
     wizards: Query<(&Wizard, &GlobalTransform)>,
     bricks: Query<&GlobalTransform, With<ActiveBrick>>,
     mut seen: Local<u64>,
@@ -138,10 +139,12 @@ fn start_casts(
                 && let Some((_, victim, victim_state)) = find(cast.target)
             {
                 let foot = brick_at(victim_state, victim);
-                spawn_victim_beams(&mut commands, &config, &art, foot, victim.origin_x);
+                spawn_victim_beams(&mut commands, &config, &art, foot, victim.origin_x, 0);
             }
             continue;
         };
+        // Each wizard has its own beam (the original's BEAM_<wizard>).
+        let wizard = skins.get(caster_entity).map_or(caster.index, |s| s.wizard);
         let (from, _) = wizard_spot(&config, caster_entity, caster, caster_state, solo, &wizards);
         if cast.spell.is_dark() {
             if !beamed_up.contains(&cast.caster) {
@@ -153,6 +156,7 @@ fn start_casts(
                     BeamKind::Up,
                     from,
                     caster.origin_x,
+                    wizard,
                 );
                 commands
                     .entity(beam)
@@ -160,7 +164,7 @@ fn start_casts(
             }
             if let Some((_, victim, victim_state)) = find(cast.target) {
                 let foot = brick_at(victim_state, victim);
-                spawn_victim_beams(&mut commands, &config, &art, foot, victim.origin_x);
+                spawn_victim_beams(&mut commands, &config, &art, foot, victim.origin_x, wizard);
                 spawn_curse_orb(&mut commands, &config, &art, foot);
             }
         } else if !lit.contains(&cast.caster) {
@@ -191,13 +195,15 @@ const LANE_Z: f32 = -3.0;
 #[derive(Component)]
 struct DelayedBy(f32);
 
-fn beam_image(art: &Art, kind: BeamKind, mode: ModeKind) -> Option<Handle<Image>> {
+fn beam_image(art: &Art, kind: BeamKind, mode: ModeKind, wizard: usize) -> Option<Handle<Image>> {
     match kind {
         BeamKind::Lane if mode.look() == ModeKind::Survival => art
             .image("cast_lane_beam_survival")
             .or_else(|| art.image("cast_lane_beam")),
         BeamKind::Lane => art.image("cast_lane_beam"),
-        _ => art.image("cast_beam"),
+        _ => art
+            .image(&format!("cast_beam_{}", wizard + 1))
+            .or_else(|| art.image("cast_beam")),
     }
 }
 
@@ -208,8 +214,9 @@ fn spawn_beam(
     kind: BeamKind,
     foot: Vec2,
     lane_x: f32,
+    wizard: usize,
 ) -> Entity {
-    let image = beam_image(art, kind, config.mode);
+    let image = beam_image(art, kind, config.mode, wizard);
     let sprite = match image {
         Some(image) => Sprite {
             image,
@@ -230,11 +237,17 @@ fn spawn_beam(
     ));
     if art.image("cast_circle_gradient").is_some() && kind != BeamKind::Lane {
         let glow = art.image("cast_circle_gradient").unwrap();
+        let glows = &config.casts.beam_glow;
+        let tint = glows
+            .get(wizard)
+            .or(glows.first())
+            .map_or(Color::WHITE, |&(r, g, b, a)| Color::srgba(r, g, b, a));
         beam.with_children(|parent| {
             parent.spawn((
                 BeamFoot,
                 Sprite {
                     image: glow,
+                    color: tint,
                     custom_size: Some(Vec2::splat(config.cells(config.casts.beam_width * 2.0))),
                     ..default()
                 },
@@ -252,12 +265,13 @@ fn spawn_victim_beams(
     art: &Art,
     foot: Vec2,
     lane_x: f32,
+    wizard: usize,
 ) {
-    let beam = spawn_beam(commands, config, art, BeamKind::Down, foot, lane_x);
+    let beam = spawn_beam(commands, config, art, BeamKind::Down, foot, lane_x, wizard);
     commands
         .entity(beam)
         .insert((Visibility::Hidden, DelayedBy(config.casts.dark_fall)));
-    let lane = spawn_beam(commands, config, art, BeamKind::Lane, foot, lane_x);
+    let lane = spawn_beam(commands, config, art, BeamKind::Lane, foot, lane_x, wizard);
     commands
         .entity(lane)
         .insert((Visibility::Hidden, DelayedBy(config.casts.dark_start)));

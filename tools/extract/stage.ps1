@@ -373,6 +373,9 @@ $notes.Add('- Game Completed popup (WinGamePopup): not centred. It sits in the b
 
 # --- Cast beams, lightning and the spell cloud (game/beam, game/lightning, wizard prefabs) ---
 Add-Sprite 'cast_beam'            'gph_castEffectBackground'          'fx\cast_beam.png'            'Dark cast beam column: stretched x60 tall going up from the wizard, x300 going down onto the victim'
+Add-Sprite 'cast_beam_2'          'gph_castEffect02Background'        'fx\cast_beam_2.png'          'Wizard 2''s beam column (Beam02 / BeamDown02); the beam is picked by the caster''s wizard'
+Add-Sprite 'cast_beam_3'          'gph_castEffect03Background'        'fx\cast_beam_3.png'          'Wizard 3''s beam column (Beam03 / BeamDown03)'
+Add-Sprite 'cast_beam_4'          'gph_castEffect04Background'        'fx\cast_beam_4.png'          'Wizard 4''s beam column (Beam04 / BeamDown04)'
 Add-Sprite 'cast_beam_blob'       'gph_castEffectBlob'                'fx\cast_beam_blob.png'       'Blob riding the beam (2 of them, sorting 11)'
 Add-Sprite 'cast_beam_blob_small' 'gph_castEffectBlobSmall'           'fx\cast_beam_blob_small.png' 'Small blob riding the beam (x1.2, sorting 12)'
 Add-Sprite 'cast_sunrays'         'gph_castEffectSunrays'             'fx\cast_sunrays.png'         'Rays at the beam foot (3 layers, one at x0.8), and at both ends of a lightning'
