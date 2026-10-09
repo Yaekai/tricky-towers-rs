@@ -228,6 +228,9 @@ const PACK_DIM: Color = Color::srgb(0.55, 0.55, 0.62);
 /// The picker line the seat's arrows act on is gold; the other line stays dark (guess).
 const PICK_IDLE: Color = Color::srgba(0.1, 0.08, 0.2, 0.7);
 const PICK_ACTIVE: Color = Color::srgba(1.0, 0.8, 0.3, 0.9);
+/// The orange behind a confirmed brick pack, which replaces its light panel. Sampled
+/// by eye from the reference frame so far (guess).
+const PACK_SUNBURST: Color = Color::srgb(0.95, 0.5, 0.12);
 /// 9-slice borders of the seat panels and outline, and of the name plate.
 pub(crate) const PANEL_SLICE: f32 = 60.0;
 pub(crate) const PLATE_SLICE: f32 = 13.0;
@@ -386,6 +389,10 @@ pub enum Part {
     SeatWizard(usize),
     /// A seat's brick pack card.
     SeatPack(usize),
+    /// A confirmed brick pack's orange sunburst panel, shown behind the card.
+    PackRays(usize),
+    /// One layer of that sunburst, by layer.
+    PackRay(usize, usize),
     /// A seat's name plate text.
     SeatName(usize),
     /// A seated person's picker line: 0 the character, 1 the brick pack.
@@ -645,6 +652,39 @@ pub(crate) fn spawn_select_screens(
                     Part::SeatFocus(seat),
                 );
             }
+            // A confirmed pack's sunburst: an orange panel with the turning rays on it,
+            // drawn over the light panel and under the pack card.
+            page.spawn((
+                Node {
+                    overflow: Overflow::clip(),
+                    ..place(PACK_PANEL.0, (x, PACK_PANEL.1))
+                },
+                BackgroundColor(Color::NONE),
+                Part::PackRays(seat),
+            ))
+            .with_children(|clip| {
+                for layer in 0..5 {
+                    if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
+                        clip.spawn((
+                            ImageNode::new(rays),
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: Val::Percent(
+                                    (PACK_PANEL.0.0 - 556.0) / 2.0 / PACK_PANEL.0.0 * 100.0,
+                                ),
+                                top: Val::Percent(
+                                    (PACK_PANEL.0.1 - 556.0) / 2.0 / PACK_PANEL.0.1 * 100.0,
+                                ),
+                                width: Val::Percent(556.0 / PACK_PANEL.0.0 * 100.0),
+                                height: Val::Percent(556.0 / PACK_PANEL.0.1 * 100.0),
+                                ..default()
+                            },
+                            UiTransform::default(),
+                            Part::PackRay(seat, layer),
+                        ));
+                    }
+                }
+            });
             let mut plate = page.spawn((
                 Visibility::Hidden,
                 place(NAME_PLATE.0, (x, NAME_PLATE.1)),
@@ -1331,6 +1371,25 @@ pub(crate) fn show_select_screens(
                     c.0 = want;
                 }
                 lobby.seats[seat].human()
+            }
+            Part::PackRays(seat) => {
+                // Only a confirmed pack has its sunburst; it replaces the light panel.
+                let on = lobby.confirmed[seat][1];
+                if let Some(mut c) = colour {
+                    let want = if on { PACK_SUNBURST } else { Color::NONE };
+                    if c.0 != want {
+                        c.0 = want;
+                    }
+                }
+                on
+            }
+            Part::PackRay(seat, layer) => {
+                if let (Some(mut transform), Some(&(degrees, seconds))) =
+                    (transform, config.menu.ray_turns.get(layer))
+                {
+                    transform.rotation = Rot2::degrees(degrees * (t / seconds.max(0.01)).fract());
+                }
+                lobby.confirmed[seat][1]
             }
             Part::SeatPick(seat, row) => {
                 let (wizard, pack) = lobby.skins[seat];
