@@ -751,7 +751,9 @@ pub const TILES: [Tile; 7] = [
 const SCREEN: (f32, f32) = (1920.0, 1080.0);
 /// The rotating sun-ray layers behind a selected tile's art.
 const RAY_LAYERS: usize = 5;
-const RAY_SIZE: f32 = 556.0;
+/// The rays' square, as a share of the tile's shorter side (a guess until the original's
+/// rays are read against the tile).
+const RAY_FRACTION: f32 = 0.75;
 
 #[derive(Component)]
 struct MainMenuRoot;
@@ -923,6 +925,9 @@ fn spawn_main_menu(
                         Some(art) => on.insert(ImageNode::new(art)),
                         None => on.insert(BackgroundColor(Color::srgb(r, g, b))),
                     };
+                    // The rays turn inside the tile: a rotated picture isn't clipped to its
+                    // tile here, so the square is cut down to fit it.
+                    let ray = w.min(h) * RAY_FRACTION;
                     on.with_children(|on| {
                         for layer in 0..RAY_LAYERS {
                             let Some(art) = image(&format!("menu_sunrays_{}", layer + 1)) else {
@@ -930,7 +935,7 @@ fn spawn_main_menu(
                             };
                             on.spawn((
                                 ImageNode::new(art),
-                                inside((RAY_SIZE, RAY_SIZE), (0.0, 0.0)),
+                                inside((ray, ray), (0.0, 0.0)),
                                 UiTransform::default(),
                                 TileRays { layer },
                             ));

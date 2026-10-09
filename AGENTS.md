@@ -144,3 +144,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-09 (PC): mouse on the Game Completed popup: hovering an item selects it, a click picks it (popup.rs popup_row_at). Positions estimated from its layout; not checked in game.
 - 2026-10-09 (PC): title screen islands float: six island pictures staged separately (menu_island_*), the title backdrop without them (menu_background_bare), each island bobs (GameConfig::title_islands, TitleIsland, bob_title_islands). The bob amounts and periods are guesses until the original's motion is read.
 - 2026-10-09 (PC): title screen waves: the staged wave crests (bg_race_wave) tile along the top of the water and scroll (GameConfig::title_wave_speed, scroll_title_waves). Speed is a guess.
+- 2026-10-09 (PC): title rays stay inside the picked tile: the ray squares are cut to 75% of the tile's shorter side (RAY_FRACTION, a guess); rotated rays weren't clipped to their tile.
