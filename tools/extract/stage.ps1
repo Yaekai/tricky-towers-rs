@@ -82,7 +82,34 @@ function Add-Audio($key, $clip, $what) {
 }
 
 # --- Bricks (whole-brick textures, spawn orientation) ---
-foreach ($b in 'I','O','T','S','Z','J','L') { Add-Texture "brick_$b" "gph_brick$($b)_default_texture.png" "bricks\$b.png" "Brick $b, default pack" }
+# The original's default brick is lit from its normal map (the dark edges and cracks come from
+# it); the staged colour is baked with that light: a fixed direction from the upper left, and an ambient floor (guesses).
+function Bake-Lit($colour, $normal, $ambient = 0.62, $light = @(-0.35, 0.55, 0.75)) {
+  $c = [System.Drawing.Bitmap]::FromFile($colour)
+  $n = [System.Drawing.Bitmap]::FromFile($normal)
+  $len = [Math]::Sqrt($light[0]*$light[0] + $light[1]*$light[1] + $light[2]*$light[2])
+  $lx = $light[0]/$len; $ly = $light[1]/$len; $lz = $light[2]/$len
+  $out = New-Object System.Drawing.Bitmap $c.Width, $c.Height, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+  for ($y = 0; $y -lt $c.Height; $y++) {
+    for ($x = 0; $x -lt $c.Width; $x++) {
+      $px = $c.GetPixel($x, $y)
+      $nm = $n.GetPixel([Math]::Min($x, $n.Width-1), [Math]::Min($y, $n.Height-1))
+      $nx = $nm.R / 127.5 - 1.0; $ny = $nm.G / 127.5 - 1.0
+      $nz = [Math]::Sqrt([Math]::Max(0.0, 1.0 - $nx*$nx - $ny*$ny))
+      $diffuse = [Math]::Max(0.0, $nx*$lx + $ny*$ly + $nz*$lz)
+      $k = $ambient + (1.0 - $ambient) * $diffuse
+      $r = [int][Math]::Min(255, $px.R * $k); $g = [int][Math]::Min(255, $px.G * $k); $b2 = [int][Math]::Min(255, $px.B * $k)
+      $out.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($px.A, $r, $g, $b2))
+    }
+  }
+  $c.Dispose(); $n.Dispose()
+  $out.Save($colour, [System.Drawing.Imaging.ImageFormat]::Png); $out.Dispose()
+}
+foreach ($b in 'I','O','T','S','Z','J','L') {
+  Add-Texture "brick_$b" "gph_brick$($b)_default_texture.png" "bricks\$b.png" "Brick $b, default pack (lit from its normal map)"
+  $normal = Join-Path $A "Texture2D\gph_brick$($b)_default_normalMap.png"
+  if (Test-Path $normal) { Bake-Lit (Join-Path $X "bricks\$b.png") $normal }
+}
 Add-Sprite 'mystery_block' 'gph_brickMystery01' 'bricks\mystery_block.png' 'Mystery 1, 2x4 block'
 Add-Sprite 'mystery_blob'  'gph_brickMystery02' 'bricks\mystery_blob.png'  'Mystery 2, blob in a 3x4 box (cells: 2x3 at x -1.5..0.5 y -2..1, 1x3 at x 0.5..1.5 y -1..2, 1x1 at x -0.5..0.5 y 1..2; plus a decorative rotor, gph_brickMystery02Rotor, drawn on top)'
 Add-Sprite 'mystery_table' 'gph_brickMystery03' 'bricks\mystery_table.png' 'Mystery 3, table: 4x2 slab on two 1x1 feet'
