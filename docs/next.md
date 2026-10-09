@@ -47,7 +47,6 @@ ours and need checking against the original (see docs/research/*.md and the vide
    Still different: Easy sky lacks the original's 4 soft gradient overlays (BackgroundGradients
    prefab: Gradient01-04, tints in the prefab); the Special laser sits lower in the original
    (about 0.6 of the view down vs ours 0.5); the next card hangs slightly tilted in the original.
-   Max says Puzzle has no Normal in the menu he recorded (Easy and Special): check Select Mode.
 6. Laser drop rule: Max confirmed the base rises instead of the line lowering; confirm the
    half-cell amount in the game (puzzle.drop_penalty, 0.5, guess).
 7. Laser zap flash (bright laser flashes when bricks above it are zapped) and the zapped
