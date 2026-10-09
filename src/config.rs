@@ -76,6 +76,8 @@ pub struct GameConfig {
     pub intro: IntroRules,
     /// The islands that float on the title screen, back to front.
     pub title_islands: Vec<TitleIsland>,
+    /// How fast the wave crests run along the title screen's water, in pixels a second.
+    pub title_wave_speed: f32,
     /// Per-mode skies and weather: Race Pro night, Puzzle sandstorm and eclipse,
     /// Survival curse-wave sky.
     pub weather: WeatherLook,
@@ -3007,6 +3009,7 @@ impl Default for GameConfig {
             cup_panel: CupPanel::default(),
             intro: IntroRules::default(),
             title_islands: default_title_islands(),
+            title_wave_speed: 30.0,
             weather: WeatherLook::default(),
             water: WaterRules::default(),
             bases: Bases::default(),

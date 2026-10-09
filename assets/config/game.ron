@@ -371,6 +371,7 @@
             phase: 5.0,
         ),
     ],
+    title_wave_speed: 30.0,
     weather: (
         race_pro_sky: [
             (49, 21, 138),

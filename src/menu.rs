@@ -21,7 +21,7 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, bob_title_islands);
+        app.add_systems(Update, (bob_title_islands, scroll_title_waves));
         app.add_plugins((
             crate::popup::PopupPlugin,
             crate::cups_menu::CupsMenuPlugin,
@@ -632,6 +632,24 @@ fn show_pause_menu(
 /// Pixels per unit of the title backdrop's layout.
 const TITLE_PIXELS: f32 = 26.0;
 
+/// The wave crests' width in pixels, the distance they tile over.
+const TITLE_WAVE_TILE: f32 = 64.0;
+
+/// The wave crests along the title water; they scroll left.
+#[derive(Component)]
+struct TitleWaves;
+
+fn scroll_title_waves(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut waves: Query<&mut Node, With<TitleWaves>>,
+) {
+    let shift = (time.elapsed_secs() * config.title_wave_speed) % TITLE_WAVE_TILE;
+    for mut node in &mut waves {
+        node.left = px(-TITLE_WAVE_TILE - shift);
+    }
+}
+
 /// A floating title island: its resting top (pixels from the top) and how it bobs.
 #[derive(Component)]
 struct TitleIsland {
@@ -840,6 +858,25 @@ fn spawn_main_menu(
             ));
         }
     });
+    // The wave crests run along the top of the water band, tiled and scrolling.
+    if let Some(wave) = image("bg_race_wave") {
+        root.with_child((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(-TITLE_WAVE_TILE),
+                top: px(1080.0 - 6.0 * TITLE_PIXELS - 21.0),
+                width: px(1920.0 + 2.0 * TITLE_WAVE_TILE),
+                height: px(21.0),
+                ..default()
+            },
+            ImageNode::new(wave).with_mode(NodeImageMode::Tiled {
+                tile_x: true,
+                tile_y: false,
+                stretch_value: 1.0,
+            }),
+            TitleWaves,
+        ));
+    }
     root.with_children(|parent| {
         for (i, tile) in TILES.iter().enumerate() {
             let (r, g, b) = tile.color;
