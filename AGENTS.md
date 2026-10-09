@@ -157,3 +157,7 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
   matched to the pack icon. Also: Survival intro card flips, Settings slider clicks (no drag in
   the original), title islands bob as BobbingIsland. Re-run stage.ps1 (then wizards.ps1 etc.)
   on a fresh PC to get the bevel entries.
+- 2026-10-09 (PC, tt-next): cup standings from TournamentResultsItem and Max's Puzzle Tiny Cup clip:
+  earlier matches' medals show at once and only the latest match's fill in (`Cup::before`,
+  `Cup::fresh`, CONTINUE after them), medals past the target show as "+N" (`Part::Extra`), cleared
+  when the trophy comes. The "+N" size and place are by eye.

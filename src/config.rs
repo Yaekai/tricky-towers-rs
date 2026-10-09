@@ -2277,10 +2277,10 @@ impl Default for CupPanel {
 }
 
 impl CupPanel {
-    /// Seconds from the panel coming up until CONTINUE shows, once the medals of
-    /// a cup's target have filled.
-    pub fn continue_at(&self, target: u32) -> f32 {
-        self.fill_start + self.fill_step * target as f32
+    /// Seconds from the panel coming up until CONTINUE shows, once `fresh` new
+    /// medals have filled.
+    pub fn continue_at(&self, fresh: usize) -> f32 {
+        self.fill_start + self.fill_step * fresh as f32
     }
 }
 /// A battle's opening, from the original's intro and countdown (docs/research/
