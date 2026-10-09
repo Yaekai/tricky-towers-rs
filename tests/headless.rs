@@ -314,6 +314,64 @@ fn puzzle_round_stops_the_tower_then_ends_after_the_count() {
 }
 
 #[test]
+fn a_base_rise_that_lifts_a_brick_onto_the_line_ends_the_round() {
+    // The base rises with each brick that fell off, and the bricks on it are carried
+    // up. A rise that lifts the highest brick onto the laser must stop the tower, zap
+    // that brick and end the round, as a brick placed onto the line does.
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.puzzle = PuzzleRules {
+        bricks: 50,
+        line_height: 6.0,
+        ..config.puzzle.clone()
+    };
+    let rules = config.puzzle.clone();
+    let mut app = headless_app(config);
+    let (mut frame, mut presses) = (0, 0);
+    run_until(&mut app, 20.0, |app| {
+        frame += 1;
+        let mut input = human_input(app);
+        if frame % 4 == 0 && presses < 3 {
+            presses += 1;
+            input.left_pressed = true;
+        }
+        tower(app, 0).bricks_placed >= 3 && app.world().resource::<Match>().phase == Phase::Playing
+    });
+    let config = app.world().resource::<GameConfig>().clone();
+    let state = tower(&mut app, 0);
+    assert!(state.laser_count.is_none(), "the line should not be touched yet");
+    // Raise the base by enough cells to lift the top of the tower past the line.
+    let needed = (state.laser(&config) + 0.5) - state.height;
+    let falls = (needed / rules.drop_penalty).ceil().max(1.0) as u32;
+    {
+        let world = app.world_mut();
+        let mut query = world.query::<&mut TowerState>();
+        for mut state in query.iter_mut(world) {
+            state.bricks_dropped += falls;
+        }
+    }
+    let touched = run_until(&mut app, 8.0, |app| tower(app, 0).laser_count.is_some());
+    assert!(touched, "the rising base did not lift a brick onto the line");
+    let owner = {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &Tower)>()
+            .iter(world)
+            .find(|(_, t)| t.index == 0)
+            .map(|(e, _)| e)
+            .expect("tower exists")
+    };
+    let zapped = run_until(&mut app, 3.0, |app| {
+        let world = app.world_mut();
+        world
+            .query::<(&Brick, &tricky_towers::spells::Zapped)>()
+            .iter(world)
+            .any(|(brick, _)| brick.tower == owner)
+    });
+    assert!(zapped, "the brick the rising base put on the line was not zapped");
+}
+
+#[test]
 fn puzzle_fails_when_crossing_the_line() {
     let mut config = fast_config();
     config.mode = ModeKind::Puzzle;
