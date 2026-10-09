@@ -25,7 +25,7 @@ impl Plugin for VisualsPlugin {
             .init_resource::<ViewSize>()
             .init_resource::<MenuLook>()
             .add_systems(Startup, setup_scene)
-            .add_systems(Update, wobble_bubbles)
+            .add_systems(Update, (wobble_bubbles, show_edge_delays))
             .add_systems(Update, twinkle_stars.before(fit_backgrounds))
             .add_systems(Update, fade_eclipse)
             .add_systems(Update, sweep_lasers)
@@ -570,10 +570,26 @@ fn dress_floor(
 /// stone or ice version when the brick is petrified or iced), else coloured cells.
 /// Runs again when a brick changes, turns to stone, or gets vines or grass.
 #[allow(clippy::type_complexity)]
+/// An edge decoration that shows once its time comes.
+#[derive(Component)]
+struct EdgeDelay {
+    show_at: f32,
+}
+
+fn show_edge_delays(time: Res<Time>, mut delays: Query<(&EdgeDelay, &mut Visibility)>) {
+    let now = time.elapsed_secs();
+    for (delay, mut visibility) in &mut delays {
+        if now >= delay.show_at {
+            visibility.set_if_neq(Visibility::Inherited);
+        }
+    }
+}
+
 pub(crate) fn dress_bricks(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
+    time: Res<Time>,
     bricks: Query<
         (
             Entity,
@@ -724,8 +740,9 @@ pub(crate) fn dress_bricks(
                 // Christmas puts snow on a brick's top edge, Easter grass and sometimes a
                 // flower (the original's EdgeDecoration chances: 25% and 40%). Picked per
                 // brick by a hash of its id, so it's the same each time it's drawn.
+                let brick_bits = entity.id().to_bits();
                 let roll = |salt: u64| {
-                    let h = (entity.id().to_bits() ^ salt).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    let h = (brick_bits ^ salt).wrapping_mul(0x9E37_79B9_7F4A_7C15);
                     (h >> 40) as f32 / (1u64 << 24) as f32
                 };
                 let top = center + Vec2::Y * size.y * 0.5;
@@ -745,10 +762,18 @@ pub(crate) fn dress_bricks(
                         let n = 1 + (roll(6) * 8.0) as usize;
                         (format!("brick_easter_decorations_flower0{}", n.min(8)), 0.0, 0.3)
                     });
-                for (name, _, z) in decoration.into_iter().chain(flower) {
+                for (name, delay, z) in decoration.into_iter().chain(flower) {
                     if let Some((sprite, anchor, mut transform)) = art_sprite(&art, &name, cell) {
                         transform.translation = (top + Vec2::Y * cell * 0.1).extend(z);
-                        entity.with_child((sprite, anchor, transform));
+                        // The original's decorations start after a short random delay.
+                        let show_at = time.elapsed_secs() + delay + roll(7) * 0.3;
+                        entity.with_child((
+                            sprite,
+                            anchor,
+                            transform,
+                            Visibility::Hidden,
+                            EdgeDelay { show_at },
+                        ));
                     }
                 }
             }
