@@ -176,3 +176,7 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
   ledges on both sides (ProRandomPuzzleFloor); next-brick card art and icon placement from
   NextBrickView; Puzzle guide colour. The other thread's old stage.ps1 runs wiped staged entries twice;
   merge main before staging.
+- 2026-10-09 (PC, tt-next): cup standings from TournamentResults* and Max's Big/Super Cup clips: the panel is the
+  9-sliced gph_popupBackgroundPanel (`menu_leaderboard_panel`) sized (target-1)*47+420 by rows*98+180, slots stay
+  47 px apart (no squeeze), CUP_DECO cups and laurels on the bar ends (`CupPanel::decos`), orange title over the
+  bar, overlay (8,5,24) at 0.96 (Bevy blends in linear colour). Debug `Start(.., cup: Some(n))` begins a cup.
