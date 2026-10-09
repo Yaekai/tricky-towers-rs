@@ -432,6 +432,16 @@ $menuBg = Join-Path $X 'menu\menu_background.png'
 New-Item -ItemType Directory -Force (Split-Path $menuBg) | Out-Null
 & (Join-Path $PSScriptRoot 'compose_menu.ps1') -Assets $A -Out $menuBg -GuidIndex (Join-Path $Repo 'research\guid_index.tsv')
 $manifest.Add('    "menu_background": (file: "menu/menu_background.png"),')
+$bareBg = Join-Path $X 'menu\menu_background_bare.png'
+& (Join-Path $PSScriptRoot 'compose_menu.ps1') -Assets $A -Out $bareBg -GuidIndex (Join-Path $Repo 'research\guid_index.tsv') -NoIslands
+$manifest.Add('    "menu_background_bare": (file: "menu/menu_background_bare.png"),')
+$notes.Add('- menu_background_bare : the same backdrop without the islands (the title screen draws them, floating).')
+Add-Sprite 'menu_island_back01' 'gph_backgroundBack01' 'menu\island_back01.png' 'Title island, back (floats on the title screen)'
+Add-Sprite 'menu_island_middle01' 'gph_backgroundMiddle01' 'menu\island_middle01.png' 'Title island, middle left'
+Add-Sprite 'menu_island_middle02' 'gph_backgroundMiddle02' 'menu\island_middle02.png' 'Title island, middle right'
+Add-Sprite 'menu_island_front01' 'gph_backgroundFront01' 'menu\island_front01.png' 'Title island, front left'
+Add-Sprite 'menu_island_front02' 'gph_backgroundFront02' 'menu\island_front02.png' 'Title island, front centre-left'
+Add-Sprite 'menu_island_front03' 'gph_backgroundFront03' 'menu\island_front03.png' 'Title island, front right'
 $notes.Add('- menu_background : 1920x1080 composite of the original title backdrop (it reuses the Race scene: sky, water band, islands, clouds at their measured screen positions, 26 px per unit).')
 
 # --- Player panel portraits ---

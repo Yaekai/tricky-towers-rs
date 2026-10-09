@@ -1,4 +1,4 @@
-param([string]$Assets, [string]$Out, [string]$GuidIndex)
+param([string]$Assets, [string]$Out, [string]$GuidIndex, [switch]$NoIslands)
 # Composes the original title backdrop (the Race background scene) into one 1920x1080 PNG.
 # Screen units: 26 px each, origin bottom-left, y up. Positions measured from the original prefabs.
 Add-Type -AssemblyName System.Drawing
@@ -44,13 +44,15 @@ Draw 'gph_cloudLarge_var01_0' ($SW * 0.3) 0
 Draw 'gph_cloudLarge_var02'   ($SW * 0.8) 0
 # Water band: bottom 6 units.
 Grad @(61,82,201) @(137,146,217) ($H - [int](6 * $U)) $H
-# Islands, back to front.
+# Islands, back to front (the title screen draws them itself, so they can float).
+if (-not $NoIslands) {
 Draw 'gph_backgroundBack01'   ($SW / 2) 6.0
 Draw 'gph_backgroundMiddle01' 0 5.35
 Draw 'gph_backgroundMiddle02' ($SW - 9.5) 5.1
 Draw 'gph_backgroundFront01'  0 3.5
 Draw 'gph_backgroundFront02'  10 4.8
 Draw 'gph_backgroundFront03'  $SW 3.6
+}
 # Small clouds in the sky.
 Draw 'gph_cloud_var01_0' ($SW * 0.15) (41.54 * 0.6)
 Draw 'gph_cloud_var04_0' ($SW * 0.6)  (41.54 * 0.85)

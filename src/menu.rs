@@ -21,6 +21,7 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Update, bob_title_islands);
         app.add_plugins((
             crate::popup::PopupPlugin,
             crate::cups_menu::CupsMenuPlugin,
@@ -628,6 +629,26 @@ fn show_pause_menu(
     }
 }
 
+/// Pixels per unit of the title backdrop's layout.
+const TITLE_PIXELS: f32 = 26.0;
+
+/// A floating title island: its resting top (pixels from the top) and how it bobs.
+#[derive(Component)]
+struct TitleIsland {
+    top: f32,
+    bob: f32,
+    period: f32,
+    phase: f32,
+}
+
+fn bob_title_islands(time: Res<Time>, mut islands: Query<(&TitleIsland, &mut Node)>) {
+    let t = time.elapsed_secs();
+    for (island, mut node) in &mut islands {
+        let offset = island.bob * (std::f32::consts::TAU * t / island.period + island.phase).sin();
+        node.top = px(island.top - offset);
+    }
+}
+
 /// The highlighted title tile.
 #[derive(Resource, Default)]
 pub struct MainMenu {
@@ -763,7 +784,11 @@ fn fill() -> Node {
 /// `menu_tile_<key>_overlay` frame, the `menu_tile_header` bar with the label
 /// and `menu_corner_large|small` pulsing in its corners. Missing art falls back
 /// to plain colours.
-fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
+fn spawn_main_menu(
+    mut commands: Commands,
+    art: Option<Res<Art>>,
+    config: Res<GameConfig>,
+) {
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
     let mut root = commands.spawn((
         Node {
@@ -776,9 +801,45 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
         Visibility::Hidden,
         MainMenuRoot,
     ));
-    if let Some(background) = image("menu_background") {
+    if let Some(background) = image("menu_background_bare") {
         root.with_child(crate::select::backdrop(background));
     }
+    // The islands float over the sky, each pivot where the original's backdrop puts it.
+    root.with_children(|parent| {
+        for island in &config.title_islands {
+            let Some(handle) = image(&island.art) else {
+                continue;
+            };
+            let pivot = art
+                .as_ref()
+                .and_then(|a| a.entries.get(&island.art))
+                .and_then(|e| e.pivot)
+                .unwrap_or((0.5, 0.5));
+            let (x, y) = (island.at.0 * TITLE_PIXELS, island.at.1 * TITLE_PIXELS);
+            parent.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(x),
+                    top: px(1080.0 - y),
+                    ..default()
+                },
+                UiTransform {
+                    translation: Val2::new(
+                        Val::Percent(-pivot.0 * 100.0),
+                        Val::Percent(-(1.0 - pivot.1) * 100.0),
+                    ),
+                    ..default()
+                },
+                ImageNode::new(handle),
+                TitleIsland {
+                    top: 1080.0 - y,
+                    bob: island.bob,
+                    period: island.period.max(0.1),
+                    phase: island.phase,
+                },
+            ));
+        }
+    });
     root.with_children(|parent| {
         for (i, tile) in TILES.iter().enumerate() {
             let (r, g, b) = tile.color;

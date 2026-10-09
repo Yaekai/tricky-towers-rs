@@ -74,6 +74,8 @@ pub struct GameConfig {
     pub cup_panel: CupPanel,
     /// A battle's opening: mode title, the mode's intro, the 3-2-1.
     pub intro: IntroRules,
+    /// The islands that float on the title screen, back to front.
+    pub title_islands: Vec<TitleIsland>,
     /// Per-mode skies and weather: Race Pro night, Puzzle sandstorm and eclipse,
     /// Survival curse-wave sky.
     pub weather: WeatherLook,
@@ -3004,6 +3006,7 @@ impl Default for GameConfig {
             cups: CupRules::default(),
             cup_panel: CupPanel::default(),
             intro: IntroRules::default(),
+            title_islands: default_title_islands(),
             weather: WeatherLook::default(),
             water: WaterRules::default(),
             bases: Bases::default(),
@@ -3181,6 +3184,51 @@ impl GameConfig {
     pub fn cells(&self, n: f32) -> f32 {
         n * self.cell_size
     }
+}
+
+/// A title-screen island: its staged picture, the point of the screen its pivot sits
+/// at (in units of 26 px from the bottom left of the 1920×1080 screen, as the original's
+/// backdrop), and how it bobs: pixels up and down, its period in seconds and its phase.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct TitleIsland {
+    pub art: String,
+    pub at: (f32, f32),
+    pub bob: f32,
+    pub period: f32,
+    pub phase: f32,
+}
+
+impl Default for TitleIsland {
+    fn default() -> Self {
+        Self {
+            art: String::new(),
+            at: (0.0, 0.0),
+            bob: 0.0,
+            period: 6.0,
+            phase: 0.0,
+        }
+    }
+}
+
+/// The original's six islands (the title backdrop's positions, measured from its prefabs).
+/// The bob amounts are guesses until the original's motion is read.
+fn default_title_islands() -> Vec<TitleIsland> {
+    let island = |art: &str, at: (f32, f32), phase: f32| TitleIsland {
+        art: art.into(),
+        at,
+        bob: 3.0,
+        period: 6.0,
+        phase,
+    };
+    vec![
+        island("menu_island_back01", (36.9, 6.0), 0.0),
+        island("menu_island_middle01", (0.0, 5.35), 1.0),
+        island("menu_island_middle02", (64.35, 5.1), 2.0),
+        island("menu_island_front01", (0.0, 3.5), 3.0),
+        island("menu_island_front02", (10.0, 4.8), 4.0),
+        island("menu_island_front03", (73.85, 3.6), 5.0),
+    ]
 }
 
 #[cfg(test)]
