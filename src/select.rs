@@ -813,6 +813,8 @@ pub(crate) fn read_taps(
 pub(crate) fn players_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     game: Res<Match>,
     mut screen: ResMut<MenuScreen>,
     mut lobby: ResMut<Lobby>,
@@ -823,6 +825,41 @@ pub(crate) fn players_input(
         return;
     }
     let taps = read_taps(keys.as_deref(), &pads);
+    // A click on an empty seat seats the keyboard there; on the keyboard's seat it
+    // steps Down (confirm), and on its side arrows Left or Right.
+    let mut clicked: Option<(usize, f32)> = None;
+    let mut mouse_move = (0, 0);
+    if let Ok(window) = windows.single()
+        && mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left))
+        && let Some(c) = window.cursor_position()
+    {
+        let p = Vec2::new(
+            c.x / window.size().x * SCREEN.0 - SCREEN.0 / 2.0,
+            SCREEN.1 / 2.0 - c.y / window.size().y * SCREEN.1,
+        );
+        for seat in 0..MAX_TOWERS {
+            let x = seat_x(seat);
+            if (p.x - x).abs() <= SEAT_PANEL.0 / 2.0 && (p.y - SEAT_Y).abs() <= SEAT_PANEL.1 / 2.0 {
+                let arrow = if (p.x - (x - SEAT_ARROW_X)).abs() <= SEAT_ARROW.0 / 2.0 {
+                    -1.0
+                } else if (p.x - (x + SEAT_ARROW_X)).abs() <= SEAT_ARROW.0 / 2.0 {
+                    1.0
+                } else {
+                    0.0
+                };
+                clicked = Some((seat, arrow));
+            }
+        }
+    }
+    if let Some((seat, arrow)) = clicked {
+        if lobby.seats[seat] == Seat::Empty {
+            if !lobby.seats.contains(&Seat::Keyboard) {
+                lobby.seat(Seat::Keyboard);
+            }
+        } else if lobby.seats[seat] == Seat::Keyboard {
+            mouse_move = (arrow as i32, if arrow == 0.0 { 1 } else { 0 });
+        }
+    }
     let mut go = false;
     if taps.key_pick {
         if lobby.seats.contains(&Seat::Keyboard) {
@@ -857,6 +894,7 @@ pub(crate) fn players_input(
     let wizards = available_wizards(art.as_deref());
     let packs = available_packs(art.as_deref());
     let mut moves: Vec<(Seat, i32, i32)> = Vec::new();
+    moves.push((Seat::Keyboard, mouse_move.0, mouse_move.1));
     if let Some(keys) = keys.as_deref() {
         let dx = keys.just_pressed(KeyCode::ArrowRight) as i32
             - keys.just_pressed(KeyCode::ArrowLeft) as i32;
