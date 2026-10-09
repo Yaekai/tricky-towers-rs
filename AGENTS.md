@@ -183,3 +183,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
   9-sliced gph_popupBackgroundPanel (`menu_leaderboard_panel`) sized (target-1)*47+420 by rows*98+180, slots stay
   47 px apart (no squeeze), CUP_DECO cups and laurels on the bar ends (`CupPanel::decos`), orange title over the
   bar, overlay (8,5,24) at 0.96 (Bevy blends in linear colour). Debug `Start(.., cup: Some(n))` begins a cup.
+- 2026-10-09 (cloud, select-skin-cursor): Select Players picker lines were never shown (their boxes stayed Hidden, so the Character and Brick pack lines and the cursor were invisible); the boxes are now `Part::SeatPickLine` and show while a human sits there. A confirmed brick pack card shines (`PACK_DIM` before, white after; a guess until the original's pack shine is read). Test: tests/menu.rs select_players_shows_the_picker_lines_and_the_pack_shines_once_confirmed. `Part` is public for tests.

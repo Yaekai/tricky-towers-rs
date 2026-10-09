@@ -5,8 +5,8 @@
 //! Layout from docs/research/menus.md, in pixels of a 1920×1080 screen.
 
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 use bevy::ui::widget::NodeImageMode;
+use bevy::window::PrimaryWindow;
 
 use crate::art::Art;
 use crate::config::{BrickPack, Difficulty, GameConfig, ModeKind, WIZARD_COUNT};
@@ -223,6 +223,8 @@ pub(crate) const NAME_PLATE: ((f32, f32), f32) = ((367.0, 78.0), -230.0);
 /// (guessed until the original's Select Players pickers are read, ?).
 const PICK_LINE: (f32, f32) = (367.0, 44.0);
 const PICK_STEP: f32 = 52.0;
+/// A brick pack card before its seat confirms it (guess).
+const PACK_DIM: Color = Color::srgb(0.55, 0.55, 0.62);
 /// 9-slice borders of the seat panels and outline, and of the name plate.
 pub(crate) const PANEL_SLICE: f32 = 60.0;
 pub(crate) const PLATE_SLICE: f32 = 13.0;
@@ -370,7 +372,7 @@ pub(crate) fn corners(
 
 /// What a select-screen node is, so one system can show and update it.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub(crate) enum Part {
+pub enum Part {
     /// A seat's grey panel, shown while nobody sits there.
     SeatIdle(usize),
     /// A taken seat's coloured panel, rays, outline, arrows and corners.
@@ -385,6 +387,9 @@ pub(crate) enum Part {
     SeatName(usize),
     /// A seated person's picker line: 0 the character, 1 the brick pack.
     SeatPick(usize, usize),
+    /// The box behind a picker line; shown while someone sits in the seat. Its text
+    /// hides with it, so without this box the lines never showed.
+    SeatPickLine(usize, usize),
     /// "To join" over an empty seat's panel.
     SeatJoin(usize),
     /// The box holding the join text; the letter copy hides with its parent.
@@ -663,6 +668,7 @@ pub(crate) fn spawn_select_screens(
                     ),
                     BackgroundColor(Color::srgba(0.1, 0.08, 0.2, 0.7)),
                     Visibility::Hidden,
+                    Part::SeatPickLine(seat, row),
                 ))
                 .with_children(|p| {
                     p.spawn((label(2.0, ""), Part::SeatPick(seat, row)));
@@ -818,11 +824,6 @@ pub(crate) fn read_taps(
     taps
 }
 
-/// "Select Players": Enter seats the keyboard player and A seats a pad; once
-/// someone is seated, the same press goes on to the modes. Tab or X adds an
-/// AI wizard to the next empty seat, Backspace or Y takes the last one away,
-/// and B gets a pad up from its seat.
-#[allow(clippy::too_many_arguments)]
 /// Down on a seat's row confirms it (it shines); the wizard row also moves the
 /// cursor to the brick pack row.
 fn confirm_row(lobby: &mut Lobby, seat: usize) {
@@ -843,6 +844,11 @@ fn everyone_confirmed(lobby: &Lobby) -> bool {
             .all(|(seat, _)| lobby.confirmed[seat] == [true, true])
 }
 
+/// "Select Players": Enter seats the keyboard player and A seats a pad; once
+/// someone is seated, the same press goes on to the modes. Tab or X adds an
+/// AI wizard to the next empty seat, Backspace or Y takes the last one away,
+/// and B gets a pad up from its seat.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn players_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
@@ -863,7 +869,9 @@ pub(crate) fn players_input(
     let mut clicked: Option<(usize, f32)> = None;
     let mut mouse_move = (0, 0);
     if let Ok(window) = windows.single()
-        && mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left))
+        && mouse
+            .as_deref()
+            .is_some_and(|m| m.just_pressed(MouseButton::Left))
         && let Some(c) = window.cursor_position()
     {
         let p = Vec2::new(
@@ -1033,7 +1041,10 @@ pub(crate) fn modes_input(
             {
                 lobby.column = col;
             }
-            if mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left)) {
+            if mouse
+                .as_deref()
+                .is_some_and(|m| m.just_pressed(MouseButton::Left))
+            {
                 if let Some(col) = column {
                     lobby.column = col;
                     let arrow = COLUMN_PANEL_HEIGHT / 2.0 - ARROW_INSET;
@@ -1207,7 +1218,7 @@ pub(crate) fn show_select_screens(
     let mode = modes[lobby.mode.min(modes.len() - 1)];
     let difficulty = DifficultyPick::ALL[lobby.difficulty.min(DifficultyPick::ALL.len() - 1)];
     let t = time.elapsed_secs();
-    for (part, mut v, mut node, image_node, colour, transform, text) in &mut parts {
+    for (part, mut v, mut node, mut image_node, colour, transform, text) in &mut parts {
         let want = match *part {
             Part::SeatIdle(seat) => lobby.seats[seat] == Seat::Empty,
             Part::SeatTaken(seat) => lobby.seats[seat] != Seat::Empty,
@@ -1250,6 +1261,18 @@ pub(crate) fn show_select_screens(
                     BrickPack::Spring => "easter",
                     pack => pack.key(),
                 };
+                // A confirmed pack shines. The original's shine isn't read yet, so a
+                // brighter card stands in for it (guess).
+                let shine = if lobby.confirmed[seat][1] {
+                    Color::WHITE
+                } else {
+                    PACK_DIM
+                };
+                if let Some(img) = image_node.as_mut()
+                    && img.color != shine
+                {
+                    img.color = shine;
+                }
                 match (
                     image(&format!("brick_pack_{key}"))
                         .filter(|_| lobby.seats[seat] != Seat::Empty),
@@ -1296,6 +1319,7 @@ pub(crate) fn show_select_screens(
                 Some(seat) == first_empty || (no_pads && lobby.seats[seat] == Seat::Empty)
             }
             Part::SeatFocus(seat) => lobby.seats[seat].human(),
+            Part::SeatPickLine(seat, _) => lobby.seats[seat].human(),
             Part::SeatPick(seat, row) => {
                 let (wizard, pack) = lobby.skins[seat];
                 let name = if row == 0 {
@@ -1380,7 +1404,9 @@ pub(crate) fn show_select_screens(
                 _ => false,
             },
             Part::CupName | Part::CupTarget => {
-                let size = cup_item.checked_sub(1).and_then(|i| config.cups.sizes.get(i));
+                let size = cup_item
+                    .checked_sub(1)
+                    .and_then(|i| config.cups.sizes.get(i));
                 let words = match (*part, size) {
                     (Part::CupName, Some(size)) => size.name.to_uppercase(),
                     (Part::CupName, None) => "SINGLE MATCH".to_string(),
