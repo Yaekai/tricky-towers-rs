@@ -282,6 +282,24 @@ fn puzzle_round_stops_the_tower_then_ends_after_the_count() {
         tower(app, 0).laser_count.is_some()
     });
     assert!(touched, "no brick reached the laser");
+    // The brick that touched the line is zapped away with the bricks above it.
+    let owner = {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &Tower)>()
+            .iter(world)
+            .find(|(_, t)| t.index == 0)
+            .map(|(e, _)| e)
+            .expect("tower exists")
+    };
+    let zapped = run_until(&mut app, 3.0, |app| {
+        let world = app.world_mut();
+        world
+            .query::<(&Brick, &tricky_towers::spells::Zapped)>()
+            .iter(world)
+            .any(|(brick, _)| brick.tower == owner)
+    });
+    assert!(zapped, "the brick touching the line was not zapped");
     let placed = tower(&mut app, 0).bricks_placed;
     run_seconds(&mut app, 1.0, |_| {});
     assert_eq!(

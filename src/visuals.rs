@@ -708,6 +708,15 @@ pub(crate) fn dress_bricks(
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
         let pack = skins.get(brick.tower).map(|s| s.pack).unwrap_or_default();
+        // Galaxy bricks are drawn by packs.rs (a starfield in a border), not by a texture.
+        if pack == crate::config::BrickPack::Galaxy
+            && brick.piece < config.pieces.len()
+            && !stone
+            && !brick.ice
+        {
+            commands.entity(entity).insert(Visibility::default()).despawn_children();
+            continue;
+        }
         // A normal brick takes its tower's brick pack art (default when not staged);
         // stone and ice keep their own looks.
         let key = if brick.piece < config.pieces.len() {
@@ -735,6 +744,15 @@ pub(crate) fn dress_bricks(
             },
             (true, false, false) => (art.image(&key), Color::WHITE),
         };
+        // A Halloween brick goes greyish once placed.
+        if pack == crate::config::BrickPack::Halloween
+            && placed.is_some()
+            && image.is_some()
+            && !stone
+            && !brick.ice
+        {
+            color = crate::packs::HALLOWEEN_PLACED;
+        }
         if image.is_none() {
             color = if stone {
                 brick.color.mix(&STONE, 0.75)
@@ -837,7 +855,16 @@ pub(crate) fn dress_bricks(
                     let h = (brick_bits ^ salt).wrapping_mul(0x9E37_79B9_7F4A_7C15);
                     (h >> 40) as f32 / (1u64 << 24) as f32
                 };
-                let top = center + Vec2::Y * size.y * 0.5;
+                // The decorations sit on one of the brick's top cells (not its box top,
+                // which put flowers over empty air on uneven bricks).
+                let tops = top_cells(&brick.cells);
+                let top = match tops.len() {
+                    0 => center + Vec2::Y * size.y * 0.5,
+                    n => {
+                        let pick = tops[(roll(12) * n as f32) as usize % n];
+                        (pick + Vec2::Y * 0.5) * cell
+                    }
+                };
                 let decoration = match pack {
                     crate::config::BrickPack::Spring if roll(3) < 0.25 => {
                         let n = 1 + (roll(4) * 3.0) as usize;
@@ -889,6 +916,15 @@ pub(crate) fn dress_bricks(
             }
         }
     }
+}
+
+/// The cells with nothing above them in the same brick: where edge decorations sit.
+fn top_cells(cells: &[Vec2]) -> Vec<Vec2> {
+    cells
+        .iter()
+        .copied()
+        .filter(|&c| !cells.iter().any(|&o| (o - c - Vec2::Y).length() < 0.1))
+        .collect()
 }
 
 /// The bubble drawn around a brick lifted by the Bubble spell.
@@ -2432,5 +2468,25 @@ fn update_mist(
         ));
         let fade = (state.mist_timer / 1.5).min(1.0);
         sprite.color = sprite.color.with_alpha(fade * 0.92);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::top_cells;
+    use bevy::prelude::Vec2;
+
+    #[test]
+    fn top_cells_are_the_ones_with_nothing_above() {
+        // An L: a column of three with a foot to the right at the bottom.
+        let l = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(0.0, 2.0),
+            Vec2::new(1.0, 0.0),
+        ];
+        let mut tops = top_cells(&l);
+        tops.sort_by(|a, b| (a.x, a.y).partial_cmp(&(b.x, b.y)).unwrap());
+        assert_eq!(tops, vec![Vec2::new(0.0, 2.0), Vec2::new(1.0, 0.0)]);
     }
 }

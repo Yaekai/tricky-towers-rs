@@ -1,5 +1,5 @@
 //! What each brick pack adds on top of its textures (docs/research/skins.md):
-//! Christmas lights that blink and snow caps on top edges, Halloween decorations
+//! Christmas snow caps on top edges, Halloween decorations
 //! that pulse, the Hologram glitch and see-through touch, the Diamond gloss and the
 //! Galaxy starfield.
 //! The bricks themselves are drawn by `visuals::dress_bricks`; this runs right after
@@ -24,7 +24,6 @@ impl Plugin for PacksPlugin {
             Update,
             (
                 decorate_bricks.after(dress_bricks),
-                blink_lights,
                 grow_snow,
                 pulse_decorations,
                 land_holograms.before(glitch_holograms),
@@ -35,12 +34,6 @@ impl Plugin for PacksPlugin {
             ),
         );
     }
-}
-
-/// A Christmas lights layer: on and off, offset per brick.
-#[derive(Component)]
-struct Blink {
-    offset: f32,
 }
 
 /// A snow cap appearing within 0.3 s.
@@ -97,6 +90,10 @@ struct Star {
     spin: f32,
 }
 
+/// A Halloween brick once placed: the base texture goes greyish (guess; the original's
+/// grey isn't read yet).
+pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
+
 /// The Galaxy border colour (docs/research/skins.md).
 const GALAXY_BORDER: Color = Color::srgb(0.12, 0.03, 0.24);
 
@@ -119,7 +116,13 @@ fn decorate_bricks(
     art: Res<Art>,
     bricks: Query<
         (Entity, &Brick, Has<Stone>),
-        Or<(Changed<Brick>, Added<Stone>, Added<Vined>, Added<Grassy>)>,
+        Or<(
+            Changed<Brick>,
+            Added<Stone>,
+            Added<Vined>,
+            Added<Grassy>,
+            Added<Placed>,
+        )>,
     >,
     skins: Query<&TowerSkin>,
 ) {
@@ -131,31 +134,14 @@ fn decorate_bricks(
         if brick.piece >= config.pieces.len() || stone || brick.ice {
             continue;
         }
-        let shape = &config.pieces[brick.piece].name;
         let c = config.cell_size * brick.scale;
         let cells = &brick.cells;
-        let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
-        let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
-        let size = (max - min + Vec2::ONE) * c;
-        let center = (min + max) * 0.5 * c;
         let mut seed = (entity.to_bits() as u32).wrapping_mul(2_654_435_761) | 1;
         let mut brick_entity = commands.entity(entity);
         match skin.pack {
             BrickPack::Christmas => {
-                if let Some(lights) = art.image(&format!("brick_christmas_lights_{shape}")) {
-                    brick_entity.with_child((
-                        Blink {
-                            offset: roll(&mut seed) * 2.0,
-                        },
-                        Sprite {
-                            image: lights,
-                            custom_size: Some(size),
-                            ..default()
-                        },
-                        Transform::from_translation(center.extend(0.05)),
-                    ));
-                }
-                // Snow on top edges: 25% each.
+                // Snow on top edges: 25% each. (No lights layer: it blinked over empty air,
+                // since it covered the brick's whole box.)
                 let snows: Vec<Handle<Image>> = (1..=3)
                     .filter_map(|i| art.image(&format!("brick_christmas_snow_{i}")))
                     .collect();
@@ -276,19 +262,6 @@ fn decorate_bricks(
             }
             _ => {}
         }
-    }
-}
-
-fn blink_lights(time: Res<Time>, mut lights: Query<(&Blink, &mut Visibility)>) {
-    let t = time.elapsed_secs();
-    for (blink, mut visibility) in &mut lights {
-        // On and off each half second (?), offset per brick.
-        let on = ((t + blink.offset) % 1.0) < 0.5;
-        visibility.set_if_neq(if on {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        });
     }
 }
 

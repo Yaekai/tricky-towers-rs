@@ -21,6 +21,20 @@ pub(crate) struct StartRoot;
 #[derive(Component)]
 pub(crate) struct StartPrompt;
 
+/// The prompt's words, so they can change with the pad.
+#[derive(Component)]
+pub(crate) struct StartPromptWords;
+
+/// The prompt's words: the key it takes, or the pad's button once a pad is plugged in
+/// (the original shows the key or button picture; words stand in until checked).
+pub(crate) fn prompt_words(pad: bool, playstation: bool) -> &'static str {
+    match (pad, playstation) {
+        (false, _) => "Press Space to start",
+        (true, false) => "Press A to start",
+        (true, true) => "Press Cross to start",
+    }
+}
+
 /// What a logo piece is, for how it moves.
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum PieceKind {
@@ -132,7 +146,8 @@ pub(crate) fn spawn_start_screen(
             bar.insert(ImageNode::new(back));
         }
         bar.with_child((
-            Text::new("Press Enter to start"),
+            Text::new(prompt_words(false, false)),
+            StartPromptWords,
             TextFont {
                 font_size: FontSize::Vh(4.5),
                 ..default()
@@ -223,6 +238,9 @@ pub(crate) fn show_start_screen(
     art: Option<Res<Art>>,
     images: Option<Res<Assets<Image>>>,
     mut clock: ResMut<StartClock>,
+    settings: Option<Res<crate::settings::Settings>>,
+    pads: Query<&Gamepad>,
+    mut prompt_text: Query<&mut Text, With<StartPromptWords>>,
     mut heard: Local<[bool; 3]>,
     mut root: Query<&mut Visibility, With<StartRoot>>,
     mut prompt: Query<&mut Visibility, (With<StartPrompt>, Without<StartRoot>)>,
@@ -232,6 +250,13 @@ pub(crate) fn show_start_screen(
     >,
 ) {
     let on = game.phase == Phase::Menu && *screen == MenuScreen::Start;
+    let playstation = pads.iter().next().is_some_and(crate::input::is_playstation);
+    let words = prompt_words(!pads.is_empty(), playstation);
+    for mut text in &mut prompt_text {
+        if text.0 != words {
+            text.0 = words.to_string();
+        }
+    }
     for mut v in &mut root {
         v.set_if_neq(shown(on));
     }
@@ -254,7 +279,12 @@ pub(crate) fn show_start_screen(
         if !heard[slot] && t >= at {
             heard[slot] = true;
             if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
-                commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
+                // The sound-effects volume from Settings, as every effect plays at.
+                let volume = settings.as_deref().map_or(1.0, |s| s.volume);
+                commands.spawn((
+                    AudioPlayer(handle.clone()),
+                    PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+                ));
             }
         }
     }
@@ -303,7 +333,14 @@ pub(crate) fn show_start_screen(
 
 #[cfg(test)]
 mod tests {
-    use super::keyed;
+    use super::{keyed, prompt_words};
+
+    #[test]
+    fn the_prompt_names_the_key_or_the_plugged_pad_button() {
+        assert_eq!(prompt_words(false, false), "Press Space to start");
+        assert_eq!(prompt_words(true, false), "Press A to start");
+        assert_eq!(prompt_words(true, true), "Press Cross to start");
+    }
 
     #[test]
     fn keys_blend_straight_and_hold_at_the_ends() {

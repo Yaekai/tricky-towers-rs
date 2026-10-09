@@ -511,7 +511,8 @@ struct PuzzleScore {
 }
 
 /// The Puzzle battle's count: the 3-2-1 over the lane that touched the laser, then each
-/// tower's brick count at the top of its lane (the winner's gold, the others pink).
+/// tower's brick count at the top of its lane, counting up in gold. A tie for the most
+/// bricks says DRAW.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn show_puzzle_scores(
     mut commands: Commands,
@@ -560,20 +561,24 @@ fn show_puzzle_scores(
         *counted = None;
     }
     let gold = tone_color(&art, &images, Tone::Gold);
-    let pink = Color::srgb(1.0, 0.45, 0.7);
     let counted_so_far = counted.map_or(0.0, |(_, t)| t);
-    let most = standing.values().copied().max().unwrap_or(0);
-    let draw = over && game.winner.is_none();
-    for (entity, tower, state) in &towers {
+    let counts: Vec<u32> = towers
+        .iter()
+        .map(|(entity, _, _)| standing.get(&entity).copied().unwrap_or(0))
+        .collect();
+    let most = counts.iter().copied().max().unwrap_or(0);
+    // DRAW only when two or more towers share the most bricks.
+    let draw = over && puzzle_tie(&counts);
+    for (entity, _tower, state) in &towers {
         let total = standing.get(&entity).copied().unwrap_or(0);
         let shown = if over {
-            let winner = game.winner == Some(tower.index);
             let step = config.puzzle.count_step.max(0.01);
             let so_far = ((counted_so_far / step).floor() as u32).min(total);
+            // The count is gold for every tower, going up; only a tied tower says DRAW.
             if draw && total == most {
-                Some((format!("{so_far} DRAW"), pink))
+                Some((format!("{so_far} DRAW"), gold))
             } else {
-                Some((so_far.to_string(), if winner { gold } else { pink }))
+                Some((so_far.to_string(), gold))
             }
         } else {
             state
@@ -723,5 +728,26 @@ fn show_hold_counts(
         if computed.size().x > 0.0 {
             visibility.set_if_neq(Visibility::Inherited);
         }
+    }
+}
+
+/// Whether a Puzzle round is a draw: the most bricks are shared by two or more towers
+/// (a round with no bricks at all is not).
+pub fn puzzle_tie(counts: &[u32]) -> bool {
+    let most = counts.iter().copied().max().unwrap_or(0);
+    most > 0 && counts.iter().filter(|&&n| n == most).count() > 1
+}
+
+#[cfg(test)]
+mod tests {
+    use super::puzzle_tie;
+
+    #[test]
+    fn only_a_shared_most_is_a_draw() {
+        assert!(puzzle_tie(&[4, 4]));
+        assert!(puzzle_tie(&[2, 5, 5]));
+        assert!(!puzzle_tie(&[4, 3]), "one tower has the most");
+        assert!(!puzzle_tie(&[0, 0]), "no bricks is not a draw");
+        assert!(!puzzle_tie(&[]));
     }
 }
