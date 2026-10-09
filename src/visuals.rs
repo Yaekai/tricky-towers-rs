@@ -1856,6 +1856,7 @@ fn update_drop_guide(
     }
     let color = match game.mode.look() {
         ModeKind::Survival => config.hud.guide_survival,
+        ModeKind::Puzzle => config.hud.guide_puzzle,
         _ => config.hud.guide_race,
     };
     let color = Color::srgba(color[0], color[1], color[2], color[3]);

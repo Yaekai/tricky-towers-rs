@@ -352,8 +352,9 @@ fn build(
         Shows::Card(piece, pack) => {
             let card_h = look.card_height * height;
             let card_w = card_h * look.card_aspect;
-            let bar = card_h * look.card_bar;
-            match art.image("next_card") {
+            let card_art = art.image("next_card");
+            let bar = if card_art.is_some() { 0.0 } else { card_h * look.card_bar };
+            match card_art.clone() {
                 Some(image) => {
                     node.insert(ImageNode::new(image));
                 }
@@ -379,13 +380,30 @@ fn build(
             let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
             let span = max - min + Vec2::ONE;
             let room = Vec2::new(card_w, card_h - bar) * 0.75;
-            let unit = (room.x / span.x).min(room.y / span.y);
+            let [cell, icon_x, icon_y] = look.card_icon;
+            let unit = if card_art.is_some() {
+                card_h * cell
+            } else {
+                (room.x / span.x).min(room.y / span.y)
+            };
+            let size = span * unit;
             node.with_children(|card| {
-                let mut holder = card.spawn(Node {
-                    width: Val::Px(span.x * unit),
-                    height: Val::Px(span.y * unit),
-                    margin: UiRect::top(Val::Px(bar)),
-                    ..default()
+                let mut holder = card.spawn(match card_art {
+                    // Placed as on the original's card.
+                    Some(_) => Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(card_w * (0.5 + icon_x) - size.x / 2.0),
+                        top: Val::Px(card_h * icon_y - size.y / 2.0),
+                        width: Val::Px(size.x),
+                        height: Val::Px(size.y),
+                        ..default()
+                    },
+                    None => Node {
+                        width: Val::Px(size.x),
+                        height: Val::Px(size.y),
+                        margin: UiRect::top(Val::Px(bar)),
+                        ..default()
+                    },
                 });
                 // The pack's own card icon, else its brick art, else the default.
                 let picture = art

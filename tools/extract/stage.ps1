@@ -224,6 +224,31 @@ ModeScreenBg 'endless_puzzle' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   
 ModeScreenBg 'endless_puzzle' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.3 'Endless Puzzle ruins middle right' ', mask: ((102, 21, 29), (75, 15, 25))'
 ModeScreenBg 'endless_puzzle' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.3 'Endless Puzzle ruins front left' ', mask: ((44, 6, 9), (44, 6, 9))'
 ModeScreenBg 'endless_puzzle' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.3 'Endless Puzzle ruins front right' ', mask: ((44, 6, 9), (44, 6, 9))'
+# The floating rocks: the ruins prefabs' Head children (IslandBackLeft, IslandMiddleLeft/Center/Right),
+# static, recoloured with their ruin layer's mask (RuinsLayer), at the prefab's anchor and parallax,
+# drawn just in front of their layer. Index, layer, sprite, anchor x, offset x, offset y.
+$heads = @(
+  @(7, 0, 'gph_backgroundBackLeftHead', 0.0, 15.7, 15.2),
+  @(8, 2, 'gph_backgroundMiddleLeftHead', 0.0, 5.49, 22.82),
+  @(9, 3, 'gph_backgroundMiddleCenterHead', 0.5, -1.34, 14.78),
+  @(10, 4, 'gph_backgroundMiddleRightHead01', 1.0, -5.27, 24.31),
+  @(11, 4, 'gph_backgroundMiddleRightHead02', 1.0, -18.75, 13.97),
+  @(12, 4, 'gph_backgroundMiddleRightHead03', 1.0, -14.4, 16.9))
+# Per mode: back layer mask and parallax, middle layer mask and parallax.
+$headLooks = @{
+  'puzzle' = @(', mask: ((244, 217, 176), (247, 224, 190))', 0.3, ', mask: ((224, 172, 146), (214, 152, 131))', 0.5)
+  'puzzle_pro' = @(', mask: ((200, 36, 70), (215, 44, 83))', 0.3, ', mask: ((126, 22, 60), (103, 14, 43))', 0.5)
+  'endless_puzzle' = @(', mask: ((155, 29, 51), (174, 31, 61))', 0.1, ', mask: ((102, 21, 29), (75, 15, 25))', 0.3)
+}
+foreach ($look in $headLooks.Keys) {
+  $l = $headLooks[$look]
+  foreach ($h in $heads) {
+    $back = $h[1] -eq 0
+    $mask = if ($back) { $l[0] } else { $l[2] }
+    $par = if ($back) { $l[1] } else { $l[3] }
+    ModeScreenBg $look $h[0] $h[2] $h[3] 0.0 $h[4] $h[5] ($h[1] + 0.5) $par "Floating rock over the $look ruins ($($h[2]))" $mask
+  }
+}
 $manifest.Add('    "sky_endless_puzzle": (colors: [(139, 23, 56), (159, 38, 49), (255, 105, 39)]),')
 # Race Pro: the stormy clouds drift (screen units a second); the race islands are drawn from their
 # night textures (Resources\game\background\race\islands\Island*Dark.png, plain textures, not
@@ -515,6 +540,7 @@ $notes.Add('- credits_content : the Credits roll, JSON groups of titles and name
 
 # --- Gap scan 2026-10-05: Puzzle Pro sky, sandstorm, brick particles, in-match messages ---
 Add-Sprite 'puzzle_pro_sun' 'gph_eclipsedSun' 'background\puzzle_pro_sun.png' 'Puzzle Pro: eclipsed sun, 9 units above the screen centre'
+Add-Sprite 'puzzle_sun' 'gph_sun' 'background\puzzle_sun.png' 'Puzzle Easy/Normal: the sun (DesertSun), 9 units above the screen centre'
 Add-Sprite 'puzzle_pro_corona' 'gph_corona' 'background\puzzle_pro_corona.png' 'Puzzle Pro: corona ray around the eclipsed sun (several copies, stretched)'
 Add-Texture 'puzzle_sand' 'gph_pinkSand.png' 'background\puzzle_sand.png' 'Puzzle: sand strip along the bottom of the background'
 Add-Texture 'puzzle_sand_front' 'gph_foregroundSand.png' 'background\puzzle_sand_front.png' 'Puzzle: front sand strip, in front of the front ruins'
@@ -565,6 +591,9 @@ foreach ($pk in @(@('candy','candy'), @('diamond','diamond'), @('spring','easter
 }
 foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_christmas_lights_$s" "gph_brick$($s)_christmas_lightsTexture03.png" "bricks\christmas\lights_$s.png" "Christmas pack: blinking lights layer for brick $s" }
 foreach ($pk in 'default','candy','christmas','diamond','easter','galaxy','halloween','hologram') { Add-Texture "brick_pack_icon_$pk" "icn_brickPack_$pk.png" "bricks\icons\pack_$pk.png" "Select Players: brick pack icon ($pk)" }
+# The next-brick card (NextBrickView: 126x101 Background) and the default pack's card icons.
+Add-Sprite 'next_card' 'gph_nextBrickBackground' 'hud\next_card.png' 'Next-brick card (NextBrickView background, 126x101 px)'
+foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "next_brick_default_$s" "icn_nextBrick_$s.png" "bricks\icons\next_default_$s.png" 'Next brick card icon, default pack' }
 foreach ($pk in @(@('candy','Candy'), @('christmas','Christmas'), @('diamond','Diamond'), @('spring','Easter'), @('galaxy','Galaxy'), @('halloween','Halloween'), @('hologram','Hologram'))) { foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "next_brick_$($pk[0])_$s" "icn_nextBrick$($pk[1])_$s.png" "bricks\icons\next_$($pk[0])_$s.png" "Next brick card icon, $($pk[0]) pack" } }
 Add-Texture 'brick_galaxy_background' 'gph_galaxy_background.png' 'bricks\galaxy\background.png' 'Galaxy pack: scrolling starfield drawn inside every brick'
 Add-Texture 'brick_galaxy_star' 'gph_star.png' 'bricks\galaxy\star.png' 'Galaxy pack: twinkling star (one twirls every 2..6 s)'

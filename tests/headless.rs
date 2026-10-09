@@ -997,8 +997,11 @@ fn puzzle_floors_follow_each_difficulty() {
         );
         config.puzzle.floor = PuzzleFloor::Pro;
         let pro = puzzle_floor(&config, &mut roll);
-        assert_eq!(pro.iter().filter(|c| c.1 == 0.0).count(), 3);
-        assert!(pro.iter().all(|c| c.0.abs() <= 2.0));
+        // ProRandomPuzzleFloor: one full pillar at x 0, ledges 1 cell beside it (its
+        // neighbour columns start below our shallower floor's bottom).
+        assert_eq!(pro.iter().filter(|c| c.0 == 0.0).count(), 1);
+        assert!(pro.iter().all(|c| c.0.abs() <= 1.0));
+        assert!(pro.iter().filter(|c| c.0 != 0.0).all(|c| c.1 - c.2 <= 1.0));
     }
 }
 

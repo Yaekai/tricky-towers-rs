@@ -269,18 +269,26 @@ pub fn puzzle_floor(config: &GameConfig, roll: &mut u64) -> Vec<(f32, f32, f32)>
                 columns.push((x, -drop, -depth));
             }
         }
+        // ProRandomPuzzleFloor: a 1-wide pillar; beside it a column on each side from 4
+        // cells above the original's floor bottom; then on each side, from the top row
+        // down through all but the last 3 rows, a 1-cell ledge on `ledges`% of rows.
+        // Only what reaches above our (shallower) floor's bottom is kept.
         PuzzleFloor::Pro => {
-            let (width, ledges) = config.puzzle.pro_floor;
-            let width = width.max(1);
-            for i in 0..width {
-                columns.push((i as f32 - (width - 1) as f32 * 0.5, 0.0, -depth));
+            let (height, ledges) = config.puzzle.pro_floor;
+            let height = height.max(4) as f32;
+            columns.push((0.0, 0.0, -depth));
+            for side in [1.0, -1.0] {
+                let top = -(height - 4.0);
+                if top > -depth {
+                    columns.push((side, top, -depth));
+                }
             }
-            let edge = (width + 1) as f32 * 0.5;
-            for row in 1..depth as i32 {
-                if chance(roll, ledges) {
-                    let side = if chance(roll, 50) { -edge } else { edge };
+            for side in [1.0, -1.0] {
+                for row in 0..(height as i32 - 3) {
                     let top = -(row as f32);
-                    columns.push((side, top, top - 1.0));
+                    if chance(roll, ledges) && top > -depth {
+                        columns.push((side, top, top - 1.0));
+                    }
                 }
             }
         }
@@ -1067,7 +1075,7 @@ fn start_match(
         let top_ledge = |side: f32| {
             floor
                 .iter()
-                .filter(|&&(x, top, _)| top < 0.0 && x.signum() == side)
+                .filter(|&&(x, top, bottom)| x != 0.0 && top - bottom <= 1.0 && x.signum() == side)
                 .map(|&(_, top, _)| top)
                 .fold(f32::MIN, f32::max)
         };
@@ -1076,7 +1084,7 @@ fn start_match(
         for (n, &(x, top, bottom)) in floor.iter().enumerate() {
             let part = if !pro {
                 FloorPart::Column((n as u64 ^ round) as u32 % 2)
-            } else if top >= 0.0 {
+            } else if x == 0.0 || top - bottom > 1.0 {
                 FloorPart::Pillar
             } else if top == if x < 0.0 { left_top } else { right_top } {
                 FloorPart::TopLedge

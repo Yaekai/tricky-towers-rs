@@ -70,12 +70,14 @@ struct Strike {
     alpha: f32,
 }
 
-/// A scrolling sandstorm copy: front or back layer, layer number, and which of the two
+/// A scrolling sandstorm copy: its band (`WeatherLook::sandstorm_bands`), the band's
+/// place among its prefab's bands and how many there are, and which of the two
 /// side-by-side copies.
 #[derive(Component)]
 struct SandLayer {
-    front: bool,
-    layer: u32,
+    band: usize,
+    index: u32,
+    count: u32,
     copy: u32,
 }
 
@@ -108,12 +110,13 @@ const MIST_EDGE: f32 = 4.0;
 #[derive(Component)]
 struct EclipseSun;
 
-/// One corona ray around the eclipsed sun: its angle and stretch.
+/// Puzzle Easy and Normal's plain sun (DesertBackgroundSun's SunLayer).
 #[derive(Component)]
-struct CoronaRay {
-    angle: f32,
-    stretch: Vec2,
-}
+struct DesertSun;
+
+/// One corona bar of the eclipsed sun: its place in `WeatherLook::corona`.
+#[derive(Component)]
+struct CoronaRay(usize);
 
 #[derive(Resource, Default)]
 struct WeatherState {
@@ -228,42 +231,50 @@ fn set_up_weather(
                 ));
             }
         }
-        for (front, names, (tint, alpha), z) in [
-            (
-                false,
-                ["sandstorm_back_1", "sandstorm_back_2"],
-                weather.sandstorm_back,
-                -600.0,
-            ),
-            (
-                true,
-                ["sandstorm_front_1", "sandstorm_front_2"],
-                weather.sandstorm_front,
-                400.0,
-            ),
-        ] {
-            for (layer, name) in names.iter().enumerate() {
-                let Some(image) = art.image(name) else {
-                    continue;
-                };
-                for copy in 0..2 {
-                    commands.entity(camera).with_child((
-                        Weather,
-                        SandLayer {
-                            front,
-                            layer: layer as u32,
-                            copy,
-                        },
-                        Sprite {
-                            image: image.clone(),
-                            color: rgba(tint, alpha),
-                            ..default()
-                        },
-                        Transform::from_xyz(0.0, 0.0, z + layer as f32),
-                    ));
-                }
+        for (band, &(front, picture, ..)) in weather.sandstorm_bands.iter().enumerate() {
+            let name = format!("sandstorm_{}_{picture}", if front { "front" } else { "back" });
+            let Some(image) = art.image(&name) else {
+                continue;
+            };
+            let (tint, alpha) = if front {
+                weather.sandstorm_front
+            } else {
+                weather.sandstorm_back
+            };
+            let mine = |b: &&(bool, u32, f32, f32)| b.0 == front;
+            let index = weather.sandstorm_bands[..band].iter().filter(mine).count() as u32;
+            let count = weather.sandstorm_bands.iter().filter(mine).count() as u32;
+            let z = if front { 400.0 } else { -600.0 } + index as f32;
+            for copy in 0..2 {
+                commands.entity(camera).with_child((
+                    Weather,
+                    SandLayer {
+                        band,
+                        index,
+                        count,
+                        copy,
+                    },
+                    Sprite {
+                        image: image.clone(),
+                        color: rgba(tint, alpha),
+                        ..default()
+                    },
+                    Transform::from_xyz(0.0, 0.0, z),
+                ));
             }
         }
+    }
+    if look.0 == ModeKind::Puzzle
+        && look.1.is_none()
+        && let Some(sun) = art.image("puzzle_sun")
+    {
+        commands.spawn((
+            Weather,
+            DesertSun,
+            Sprite::from_image(sun),
+            Transform::from_xyz(0.0, 0.0, -930.0),
+            ChildOf(camera),
+        ));
     }
     if matches!(look.1, Some("puzzle_pro" | "endless_puzzle")) {
         if let Some(sun) = art.image("puzzle_pro_sun") {
@@ -280,28 +291,15 @@ fn set_up_weather(
             }
         }
         if let Some(ray) = art.image("puzzle_pro_corona") {
-            let mut seed = state.seed;
-            for i in 0..weather.corona_rays {
-                let (w, h) = (weather.corona_width, weather.corona_height);
-                let stretch = Vec2::new(
-                    w.0 + (w.1 - w.0) * roll(&mut seed),
-                    h.0 + (h.1 - h.0) * roll(&mut seed),
-                );
-                let mut corona = commands.spawn((
+            for i in 0..weather.corona.len() {
+                commands.spawn((
                     Weather,
-                    CoronaRay {
-                        angle: i as f32 / weather.corona_rays.max(1) as f32 * std::f32::consts::TAU,
-                        stretch,
-                    },
+                    CoronaRay(i),
                     Sprite::from_image(ray.clone()),
-                    Transform::from_xyz(0.0, 0.0, -935.0),
+                    Transform::from_xyz(0.0, 0.0, -935.0 + i as f32 * 0.01),
                     ChildOf(camera),
                 ));
-                if look.1 == Some("endless_puzzle") {
-                    corona.insert(crate::visuals::EclipseFade(Color::WHITE));
-                }
             }
-            state.seed = seed;
         }
     }
 }
@@ -524,7 +522,10 @@ fn fit_weather(
     mut parts: ParamSet<(
         Query<(&SandStrip, &mut Sprite, &mut Transform), Without<Camera2d>>,
         Query<(&SandLayer, &mut Sprite, &mut Transform), Without<Camera2d>>,
-        Query<(&mut Sprite, &mut Transform), (With<EclipseSun>, Without<Camera2d>)>,
+        Query<
+            (&mut Sprite, &mut Transform, Has<DesertSun>),
+            (Or<(With<EclipseSun>, With<DesertSun>)>, Without<Camera2d>),
+        >,
         Query<(&CoronaRay, &mut Sprite, &mut Transform), Without<Camera2d>>,
         Query<(&SurvivalMist, &mut Sprite, &mut Transform), Without<Camera2d>>,
     )>,
@@ -542,14 +543,20 @@ fn fit_weather(
         sprite.custom_size = Some(Vec2::new(size.x, h));
         transform.translation.y = -size.y * (0.5 - lift) + h * 0.5;
     }
+    let unit = size.y / 41.54;
     for (layer, mut sprite, mut transform) in &mut parts.p1() {
-        sprite.custom_size = Some(size);
-        // Two copies side by side slide across and wrap.
-        let speed = weather.sandstorm_speed * if layer.front { 1.0 } else { 0.7 };
-        let shift = (t * speed + layer.layer as f32 * weather.sandstorm_offset).fract();
+        let Some(&(_, _, centre, height)) = weather.sandstorm_bands.get(layer.band) else {
+            continue;
+        };
+        // A band across the view near its bottom; two copies side by side slide
+        // across and wrap, each band starting a share further on and running faster.
+        sprite.custom_size = Some(Vec2::new(size.x, height * unit));
+        transform.translation.y = -size.y * 0.5 + centre * unit;
+        let i = layer.index as f32;
+        let speed = weather.sandstorm_speed + i * weather.sandstorm_offset;
+        let shift = (t * speed + i / layer.count.max(1) as f32).fract();
         transform.translation.x = (layer.copy as f32 - shift) * size.x;
     }
-    let unit = size.y / 41.54;
     for (mist, mut sprite, mut transform) in &mut parts.p4() {
         let top = -size.y * 0.5 + size.y * mist.top;
         if mist.edge {
@@ -564,17 +571,31 @@ fn fit_weather(
     }
     let sun_size = size.y * weather.eclipse_size;
     let sun_y = size.y * weather.eclipse_height;
-    for (mut sprite, mut transform) in &mut parts.p2() {
-        sprite.custom_size = Some(Vec2::splat(sun_size));
+    // The corona fades in with the sun (Endless Puzzle's intro).
+    let mut sun_alpha = 1.0;
+    for (mut sprite, mut transform, plain) in &mut parts.p2() {
         transform.translation.y = sun_y;
+        if plain {
+            // gph_sun, 746x413 px at 26 px a unit, 0.1 units right of centre.
+            sprite.custom_size = Some(Vec2::new(746.0, 413.0) / 26.0 * unit);
+            transform.translation.x = 0.1 * unit;
+            continue;
+        }
+        sprite.custom_size = Some(Vec2::splat(sun_size));
+        sun_alpha = sprite.color.alpha();
     }
     for (ray, mut sprite, mut transform) in &mut parts.p3() {
-        let len = sun_size * 0.5 * ray.stretch.y;
-        sprite.custom_size = Some(Vec2::new(sun_size * 0.25 * ray.stretch.x, len));
-        let out = Vec2::from_angle(ray.angle + t * 0.05);
-        transform.translation.x = out.x * (sun_size * 0.5 + len * 0.5);
-        transform.translation.y = sun_y + out.y * (sun_size * 0.5 + len * 0.5);
-        transform.rotation = Quat::from_rotation_z(out.to_angle() - std::f32::consts::FRAC_PI_2);
+        let Some(part) = weather.corona.get(ray.0) else {
+            continue;
+        };
+        sprite.custom_size = Some(Vec2::new(683.0, 97.0) / 26.0 * unit * Vec2::from(part.scale));
+        transform.translation.x = 0.0;
+        transform.translation.y = sun_y;
+        transform.rotation = Quat::from_rotation_z((part.angle + part.spin * t).to_radians());
+        let (low, high, rate) = part.fade;
+        let swing = ((t * rate * std::f32::consts::TAU).sin() + 1.0) / 2.0;
+        let [r, g, b] = part.tint;
+        sprite.color = Color::srgba_u8(r, g, b, 255).with_alpha((low + swing * (high - low)) * sun_alpha);
     }
 }
 
