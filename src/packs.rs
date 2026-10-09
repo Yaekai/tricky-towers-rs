@@ -95,9 +95,6 @@ struct Star {
 /// grey isn't read yet).
 pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
 
-/// The Galaxy border colour (docs/research/skins.md).
-const GALAXY_BORDER: Color = Color::srgb(0.12, 0.03, 0.24);
-
 /// A small repeatable random number in 0..1.
 fn roll(seed: &mut u32) -> f32 {
     *seed ^= *seed << 13;
@@ -212,25 +209,19 @@ fn decorate_bricks(
                 });
             }
             BrickPack::Galaxy => {
-                // No texture: each cell is a window onto one shared starfield inside
-                // a dark purple border, with a few stars on top.
+                // No texture: each cell is a window onto one shared starfield, edge to edge
+                // (no border), so neighbouring cells read as one sky, with a few stars on top.
                 let background = art.image("brick_galaxy_background");
                 for &cell in cells {
                     let at = cell * c;
-                    brick_entity.with_child((
-                        Sprite::from_color(GALAXY_BORDER, Vec2::splat(c)),
-                        Transform::from_translation(at.extend(0.01)),
-                    ));
                     let inner = match &background {
                         Some(image) => Sprite {
                             image: image.clone(),
-                            custom_size: Some(Vec2::splat(c * 0.84)),
+                            custom_size: Some(Vec2::splat(c)),
                             rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
                             ..default()
                         },
-                        None => {
-                            Sprite::from_color(Color::srgb(0.05, 0.02, 0.12), Vec2::splat(c * 0.84))
-                        }
+                        None => Sprite::from_color(Color::srgb(0.05, 0.02, 0.12), Vec2::splat(c)),
                     };
                     brick_entity.with_child((
                         GalaxyCell,
@@ -398,9 +389,9 @@ fn glitch_holograms(
             if let Ok((mut sprite, mut transform)) = sprites.get_mut(child) {
                 // Hologram bricks are see-through and cyan-tinted, more so in a glitch.
                 let (red, green, blue, alpha) = if on {
-                    (0.5, 1.0, 1.0, 0.55)
+                    (0.5, 1.0, 1.0, config.hologram.glitch_alpha)
                 } else {
-                    (0.8, 1.0, 1.0, 0.85)
+                    (0.8, 1.0, 1.0, config.hologram.rest_alpha)
                 };
                 sprite.color = Color::srgba(red, green, blue, touch.unwrap_or(alpha));
                 transform.translation.x = glitch_slice(width, roll(&mut seed));
@@ -503,7 +494,7 @@ fn scroll_galaxy(
 /// wrapped, so neighbouring cells always line up.
 pub(crate) fn galaxy_window(world: Vec2, cell: f32, texture: Vec2, t: f32) -> Rect {
     let scale = 64.0 / cell;
-    let side = 64.0 * 0.84;
+    let side = 64.0;
     let p = Vec2::new(world.x * scale, -world.y * scale) + texture * Vec2::new(0.05, -0.07) * t;
     Rect::new(p.x, p.y, p.x + side, p.y + side)
 }
@@ -597,10 +588,22 @@ mod tests {
     fn the_gloss_band_sweeps_from_one_end_of_the_brick_to_the_other() {
         // Brick diagonals from 0 to 4 cells, band 1 cell wide.
         let (lo, hi, band) = (0.0, 4.0, 1.0);
-        assert!(gloss_glow(0.0, lo, hi, 0.0, band) < 0.01, "not yet at the start");
-        assert!((gloss_glow(2.0, lo, hi, 0.5, band) - 0.7).abs() < 1e-5, "centre at mid sweep");
-        assert!(gloss_glow(4.0, lo, hi, 0.0, band) < 0.01, "the far end is still ahead");
-        assert!(gloss_glow(0.0, lo, hi, 1.0, band) < 0.01, "the sweep has passed the near end");
+        assert!(
+            gloss_glow(0.0, lo, hi, 0.0, band) < 0.01,
+            "not yet at the start"
+        );
+        assert!(
+            (gloss_glow(2.0, lo, hi, 0.5, band) - 0.7).abs() < 1e-5,
+            "centre at mid sweep"
+        );
+        assert!(
+            gloss_glow(4.0, lo, hi, 0.0, band) < 0.01,
+            "the far end is still ahead"
+        );
+        assert!(
+            gloss_glow(0.0, lo, hi, 1.0, band) < 0.01,
+            "the sweep has passed the near end"
+        );
     }
 
     #[test]
@@ -608,14 +611,21 @@ mod tests {
         // One cell to the right is 64 texels further along, wherever it is, even past
         // the texture's edge (the field repeats). The drift is the same for both.
         let texture = Vec2::new(1024.0, 512.0);
-        for world in [Vec2::new(-3.0, 1.0), Vec2::new(40.0, -9.5), Vec2::new(900.0, 0.0)] {
+        for world in [
+            Vec2::new(-3.0, 1.0),
+            Vec2::new(40.0, -9.5),
+            Vec2::new(900.0, 0.0),
+        ] {
             for t in [0.0, 3.7, 120.0] {
                 let a = galaxy_window(world, 2.0, texture, t);
                 let b = galaxy_window(world + Vec2::new(2.0, 0.0), 2.0, texture, t);
                 assert!((b.min.x - a.min.x - 64.0).abs() < 1e-3);
                 assert!((b.min.y - a.min.y).abs() < 1e-3);
                 let c = galaxy_window(world + Vec2::new(0.0, 2.0), 2.0, texture, t);
-                assert!((c.min.y - a.min.y + 64.0).abs() < 1e-3, "one cell up is 64 texels up");
+                assert!(
+                    (c.min.y - a.min.y + 64.0).abs() < 1e-3,
+                    "one cell up is 64 texels up"
+                );
             }
         }
     }

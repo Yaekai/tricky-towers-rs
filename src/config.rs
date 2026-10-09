@@ -2730,11 +2730,18 @@ pub struct HologramLook {
     /// Alpha over seconds since the brick landed, from the 2-player Survival clip
     /// (docs/research/video-notes.md). Past the last point the glitch look takes over.
     pub touch_alpha: Vec<(f32, f32)>,
+    /// Alpha of a Hologram brick at rest. Higher than the first version, so the base
+    /// texture shows through less (Max's PC check; a guess until a clip is read).
+    pub rest_alpha: f32,
+    /// Alpha during a glitch. The base texture showed through too much at 0.55 (guess).
+    pub glitch_alpha: f32,
 }
 
 impl Default for HologramLook {
     fn default() -> Self {
         Self {
+            rest_alpha: 0.95,
+            glitch_alpha: 0.8,
             touch_alpha: vec![
                 (0.0, 0.85),
                 (0.05, 0.45),
@@ -3243,7 +3250,14 @@ fn default_cup_decos() -> Vec<CupDeco> {
         leaves_at,
     };
     vec![
-        deco("menu_cup_tiny_medium", (45.0, 53.0), (-40.0, 8.0), "", (0.0, 0.0), (0.0, 0.0)),
+        deco(
+            "menu_cup_tiny_medium",
+            (45.0, 53.0),
+            (-40.0, 8.0),
+            "",
+            (0.0, 0.0),
+            (0.0, 0.0),
+        ),
         deco(
             "menu_cup_big_medium",
             (64.0, 82.0),
@@ -3279,9 +3293,20 @@ pub struct CoronaPart {
 
 fn default_corona() -> Vec<CoronaPart> {
     let part = |angle: f32, scale: (f32, f32), tint: [u8; 3], spin: f32, fade: (f32, f32, f32)| {
-        CoronaPart { angle, scale, tint, spin, fade }
+        CoronaPart {
+            angle,
+            scale,
+            tint,
+            spin,
+            fade,
+        }
     };
-    let (pink, rose, orange, red) = ([255, 188, 205], [255, 143, 209], [255, 144, 84], [255, 12, 109]);
+    let (pink, rose, orange, red) = (
+        [255, 188, 205],
+        [255, 143, 209],
+        [255, 144, 84],
+        [255, 12, 109],
+    );
     vec![
         part(-349.4, (0.8, 1.97), pink, 1.0, (0.5, 1.0, 0.3)),
         part(-147.4, (0.58, 0.45), rose, 8.0, (0.5, 1.0, 0.3)),
@@ -3317,7 +3342,11 @@ fn default_title_islands() -> Vec<TitleIsland> {
     let island = |art: &str, at: (f32, f32), bobs: bool| TitleIsland {
         art: art.into(),
         at,
-        bob: if bobs { (0.2 * 26.0, 0.4 * 26.0) } else { (0.0, 0.0) },
+        bob: if bobs {
+            (0.2 * 26.0, 0.4 * 26.0)
+        } else {
+            (0.0, 0.0)
+        },
         leg: (2.5, 4.0),
     };
     vec![
@@ -3341,7 +3370,10 @@ mod tests {
         for pack in [BrickPack::Hologram, BrickPack::Galaxy, BrickPack::Halloween] {
             assert_eq!(pack.brick_art("square"), "brick_square", "{pack:?}");
         }
-        assert_eq!(BrickPack::Christmas.brick_art("square"), "brick_christmas_square");
+        assert_eq!(
+            BrickPack::Christmas.brick_art("square"),
+            "brick_christmas_square"
+        );
     }
 
     #[test]
@@ -3353,9 +3385,15 @@ mod tests {
         assert!((race.countdown_at - 4.267).abs() < 1e-3);
         // Rematch keeps the title but skips the sweep; a later cup match skips the title.
         assert!((intro.plan(ModeKind::Race, true, true, 0).countdown_at - 2.267).abs() < 1e-3);
-        assert_eq!(intro.plan(ModeKind::Puzzle, false, true, 0).countdown_at, 0.0);
+        assert_eq!(
+            intro.plan(ModeKind::Puzzle, false, true, 0).countdown_at,
+            0.0
+        );
         let survival = intro.plan(ModeKind::Survival, false, false, 33);
-        assert_eq!((survival.count_up, survival.countdown_at), (Some((0.0, 1.0)), 1.3));
+        assert_eq!(
+            (survival.count_up, survival.countdown_at),
+            (Some((0.0, 1.0)), 1.3)
+        );
         assert_eq!(keyed(&intro.count_scale, 0.0625), (1.15 + 1.035) / 2.0);
     }
 
