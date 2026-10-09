@@ -17,8 +17,8 @@ Differences in our build (src/gameplay.rs `steer_roofs`, `RoofStage`):
 - We steer a roof only for the winner of a Race or Survival match. The original also uses
   the roof for Puzzle (`ROOF_02`), so Puzzle's end should get one too (check on the PC).
 - We have no drum roll and no rumble while the roof comes down.
-- We rest for `roofs.rest_seconds` after landing before the match moves on; the original waits
-  0.7 s after the roof lands (set `roofs.rest_seconds` to 0.7 once checked on the PC).
+- We rest for `roofs.rest_seconds` (0.7 s, the same as the original) after landing before the
+  match moves on.
 - The roof's collision, the "roof placed" sound and its art are not checked against the
   original's roof (ROOF_02 art size and where it lands are still to read from the install).
 
