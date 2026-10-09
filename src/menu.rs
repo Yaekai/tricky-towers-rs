@@ -636,6 +636,23 @@ fn show_pause_menu(
 /// too, over the bare backdrop.
 pub(crate) fn spawn_water_scene_into(parent: &mut ChildSpawnerCommands, art: Option<&Art>, config: &GameConfig) {
     let image = |name: &str| art.and_then(|a| a.image(name));
+    // The water's surface line sits on the water edge. Positions are guesses from the
+    // title reference, in the same 1920x1080 pixels as the islands.
+    for (name, left, top, width, height) in TITLE_BACK_LAYERS {
+        if let Some(handle) = image(name) {
+            parent.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(left),
+                    top: px(top),
+                    width: px(width),
+                    height: px(height),
+                    ..default()
+                },
+                ImageNode::new(handle),
+            ));
+        }
+    }
     // The islands float over the sky, each pivot where the original's backdrop puts it.
     {
         let parent = &mut *parent;
@@ -696,6 +713,18 @@ pub(crate) fn spawn_water_scene_into(parent: &mut ChildSpawnerCommands, art: Opt
         }
     }
 }
+
+/// The title's back layers: (art, left, top, width, height) in pixels from the top-left of
+/// the 1920x1080 backdrop: the water surface line tiled along the water's top edge. The
+/// cloud banks are not placed yet (the endless clouds are sunset-tinted, so wrong here).
+const TITLE_BACK_LAYERS: [(&str, f32, f32, f32, f32); 6] = [
+    ("bg_race_waterline01", 0.0, 918.0, 318.0, 24.0),
+    ("bg_race_waterline03", 320.0, 918.0, 318.0, 24.0),
+    ("bg_race_waterline01", 640.0, 918.0, 318.0, 24.0),
+    ("bg_race_waterline03", 960.0, 918.0, 318.0, 24.0),
+    ("bg_race_waterline01", 1280.0, 918.0, 318.0, 24.0),
+    ("bg_race_waterline03", 1600.0, 918.0, 318.0, 24.0),
+];
 
 /// Pixels per unit of the title backdrop's layout.
 const TITLE_PIXELS: f32 = 26.0;
