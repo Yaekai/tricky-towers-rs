@@ -361,6 +361,17 @@ fn row_y(index: usize) -> f32 {
     AREA_CENTRE + ROW_STEP / 2.0 * (PAGES[0].len() as f32 - 1.0) - ROW_STEP * index as f32
 }
 
+/// The settings row under a cursor (top-left origin) in a window `window` big.
+fn row_at(cursor: Vec2, window: Vec2, rows: usize) -> Option<usize> {
+    let p = Vec2::new(
+        cursor.x / window.x * SCREEN.0 - SCREEN.0 / 2.0,
+        SCREEN.1 / 2.0 - cursor.y / window.y * SCREEN.1,
+    );
+    (0..rows).find(|&i| {
+        (p.x.abs() <= ROW.0 / 2.0) && ((p.y - row_y(i)).abs() <= ROW.1 / 2.0)
+    })
+}
+
 /// x of a point `inset` px into the value area from its left end.
 fn value_x(inset: f32) -> f32 {
     ROW.0 / 2.0 - VALUE_WIDTH + inset
@@ -624,6 +635,8 @@ fn spawn_row(
 pub(crate) fn settings_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     game: Res<Match>,
     mut screen: ResMut<MenuScreen>,
     mut menu: ResMut<SettingsMenu>,
@@ -632,6 +645,7 @@ pub(crate) fn settings_input(
     mut bindings: ResMut<crate::keybinding::KeyBindings>,
     mut stats: ResMut<crate::stats::StatsMenu>,
     mut credits: ResMut<crate::credits::CreditsMenu>,
+    mut last_cursor: Local<Option<Vec2>>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Settings {
         stats.open = false;
@@ -647,7 +661,20 @@ pub(crate) fn settings_input(
     if credits.open {
         return;
     }
-    let taps = read_taps(keys.as_deref(), &pads);
+    let mut taps = read_taps(keys.as_deref(), &pads);
+    // The mouse: a row under the cursor is selected as it moves, and a click acts on it.
+    if let Ok(window) = windows.single() {
+        let cursor = window.cursor_position();
+        let over = cursor.and_then(|c| row_at(c, window.size(), PAGES[menu.page].len()));
+        if over.is_some() && cursor != *last_cursor {
+            menu.selected = over.unwrap_or(menu.selected);
+        }
+        *last_cursor = cursor;
+        if over.is_some() && mouse.is_some_and(|m| m.just_pressed(MouseButton::Left)) {
+            menu.selected = over.unwrap_or(menu.selected);
+            taps.key_pick = true;
+        }
+    }
     // The Stats popup only closes: Enter, B or Esc (in the menu's Esc handling).
     if stats.open {
         if taps.key_pick || !taps.pad_pick.is_empty() || !taps.pad_back.is_empty() {
@@ -915,6 +942,16 @@ mod tests {
         assert_eq!(s.quality, Quality::High);
         s.step(Row::Quality, -1);
         assert_eq!(s.quality, Quality::Medium);
+    }
+
+    #[test]
+    fn a_cursor_over_a_settings_row_picks_it() {
+        let window = Vec2::new(1920.0, 1080.0);
+        for i in 0..6 {
+            let at = Vec2::new(960.0, SCREEN.1 / 2.0 - row_y(i));
+            assert_eq!(row_at(at, window, 6), Some(i), "row {i}");
+        }
+        assert_eq!(row_at(Vec2::new(10.0, 10.0), window, 6), None);
     }
 
     #[test]
