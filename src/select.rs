@@ -228,9 +228,9 @@ const PACK_DIM: Color = Color::srgb(0.55, 0.55, 0.62);
 /// The picker line the seat's arrows act on is gold; the other line stays dark (guess).
 const PICK_IDLE: Color = Color::srgba(0.1, 0.08, 0.2, 0.7);
 const PICK_ACTIVE: Color = Color::srgba(1.0, 0.8, 0.3, 0.9);
-/// The orange behind a confirmed brick pack, which replaces its light panel. Sampled
-/// by eye from the reference frame so far (guess).
-const PACK_SUNBURST: Color = Color::srgb(0.95, 0.5, 0.12);
+/// The orange behind a confirmed brick pack, which replaces its light panel: the median
+/// of the reference frames' orange pixels on a confirmed card (255, 176, 89).
+const PACK_SUNBURST: Color = Color::srgb(1.0, 0.69, 0.35);
 /// 9-slice borders of the seat panels and outline, and of the name plate.
 pub(crate) const PANEL_SLICE: f32 = 60.0;
 pub(crate) const PLATE_SLICE: f32 = 13.0;
