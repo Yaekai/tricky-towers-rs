@@ -721,6 +721,36 @@ pub(crate) fn dress_bricks(
                         entity.add_child(id);
                     }
                 }
+                // Christmas puts snow on a brick's top edge, Easter grass and sometimes a
+                // flower (the original's EdgeDecoration chances: 25% and 40%). Picked per
+                // brick by a hash of its id, so it's the same each time it's drawn.
+                let roll = |salt: u64| {
+                    let h = (entity.id().to_bits() ^ salt).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    (h >> 40) as f32 / (1u64 << 24) as f32
+                };
+                let top = center + Vec2::Y * size.y * 0.5;
+                let decoration = match pack {
+                    crate::config::BrickPack::Christmas if roll(1) < 0.25 => {
+                        let n = 1 + (roll(2) * 3.0) as usize;
+                        Some((format!("brick_christmas_snow_{}", n.min(3)), 0.0, 0.2))
+                    }
+                    crate::config::BrickPack::Spring if roll(3) < 0.25 => {
+                        let n = 1 + (roll(4) * 3.0) as usize;
+                        Some((format!("fx_grass_easter_var0{}", n.min(3)), 0.0, 0.2))
+                    }
+                    _ => None,
+                };
+                let flower = (pack == crate::config::BrickPack::Spring && roll(5) < 0.4)
+                    .then(|| {
+                        let n = 1 + (roll(6) * 8.0) as usize;
+                        (format!("brick_easter_decorations_flower0{}", n.min(8)), 0.0, 0.3)
+                    });
+                for (name, _, z) in decoration.into_iter().chain(flower) {
+                    if let Some((sprite, anchor, mut transform)) = art_sprite(&art, &name, cell) {
+                        transform.translation = (top + Vec2::Y * cell * 0.1).extend(z);
+                        entity.with_child((sprite, anchor, transform));
+                    }
+                }
             }
             None => {
                 entity.with_children(|parent| cell_sprites(parent, &brick.cells, cell, color));
