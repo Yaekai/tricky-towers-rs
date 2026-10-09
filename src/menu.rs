@@ -880,11 +880,15 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
                             ..default()
                         })
                         .with_children(|q| {
-                            q.spawn(crate::select::label(7.0, "?"));
+                            q.spawn(crate::select::label_with(
+                                7.0,
+                                "?",
+                                crate::letters::TextLook::TITLE,
+                            ));
                         });
                     }
-                    // The header bar on the picked big tile.
-                    if !small && let Some(art) = image("menu_tile_header") {
+                    // The header bar on the picked tile, big or small.
+                    if let Some(art) = image("menu_tile_header") {
                         t.spawn((
                             Node {
                                 position_type: PositionType::Absolute,
@@ -912,7 +916,7 @@ fn spawn_main_menu(mut commands: Commands, art: Option<Res<Art>>) {
                         h.spawn((
                             Text::new(tile.label.to_uppercase()),
                             TextFont {
-                                font_size: FontSize::Vh(if small { 2.4 } else { 3.2 }),
+                                font_size: FontSize::Vh(if small { 3.0 } else { 4.0 }),
                                 ..default()
                             },
                             TextColor(Color::WHITE),

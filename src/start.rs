@@ -134,6 +134,7 @@ pub(crate) fn spawn_start_screen(mut commands: Commands, art: Option<Res<Art>>) 
             },
             TextColor(Color::WHITE),
             TextLayout::justify(Justify::Center),
+            crate::letters::TextLook::OUTLINED,
         ));
     });
 }
@@ -209,12 +210,15 @@ pub(crate) fn start_input(
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(crate) fn show_start_screen(
+    mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
     game: Res<Match>,
     screen: Res<MenuScreen>,
+    art: Option<Res<Art>>,
     images: Option<Res<Assets<Image>>>,
     mut clock: ResMut<StartClock>,
+    mut heard: Local<[bool; 3]>,
     mut root: Query<&mut Visibility, With<StartRoot>>,
     mut prompt: Query<&mut Visibility, (With<StartPrompt>, Without<StartRoot>)>,
     mut pieces: Query<
@@ -228,11 +232,27 @@ pub(crate) fn show_start_screen(
     }
     if !on {
         clock.0 = 0.0;
+        *heard = [false; 3];
         return;
     }
     clock.0 += time.delta_secs();
     let t = clock.0;
     let look: &StartLook = &config.start;
+    // The original's sounds: the brick starts to fall, then lands with a nudge and a crumble.
+    let (_, fall, land) = look.brick_fall;
+    let cues = [
+        (fall, "sfx_brick_fall_1", 0),
+        (land, "sfx_brick_nudge", 1),
+        (land, "sfx_menu_crumble", 2),
+    ];
+    for (at, name, slot) in cues {
+        if !heard[slot] && t >= at {
+            heard[slot] = true;
+            if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
+                commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
+            }
+        }
+    }
     let drop = keyed(&look.drop, t) + keyed(&look.dip, t);
     let centre = Vec2::new(0.0, look.logo_y + drop * UNIT);
     for (piece, mut node, mut transform, mut visibility) in &mut pieces {

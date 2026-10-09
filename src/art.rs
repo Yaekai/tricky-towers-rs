@@ -319,6 +319,7 @@ impl Plugin for ArtPlugin {
                     apply_font,
                     play_music,
                     play_sounds,
+                    menu_cursor_sound,
                 ),
             );
     }
@@ -709,6 +710,29 @@ struct Heard {
     casts: u64,
     countdown: u32,
     phase: Option<Phase>,
+}
+
+/// The menus' cursor noise: one of the original's four select sounds, at random,
+/// each time the cursor is pushed.
+fn menu_cursor_sound(
+    mut commands: Commands,
+    art: Res<Art>,
+    game: Res<Match>,
+    keys: Option<Res<ButtonInput<KeyCode>>>,
+    pads: Query<(Entity, &Gamepad)>,
+    mut roll: Local<usize>,
+) {
+    if game.phase != Phase::Menu {
+        return;
+    }
+    let taps = crate::select::read_taps(keys.as_deref(), &pads);
+    if !(taps.up || taps.down || taps.left || taps.right) {
+        return;
+    }
+    *roll = (*roll * 7 + 3) % 4;
+    if let Some(handle) = art.sounds.get(&format!("sfx_menu_select_0{}", *roll + 1)) {
+        commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

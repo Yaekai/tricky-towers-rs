@@ -136,6 +136,9 @@ pub struct Lobby {
     /// pickers (0 character, 1 brick pack) its player is on.
     pub skins: [(usize, BrickPack); MAX_TOWERS],
     pub skin_row: [usize; MAX_TOWERS],
+    /// Down confirms a seat's wizard (row 0) and then its brick pack (row 1); a
+    /// confirmed wizard shines.
+    pub confirmed: [[bool; 2]; MAX_TOWERS],
 }
 
 impl Default for Lobby {
@@ -148,6 +151,7 @@ impl Default for Lobby {
             column: 0,
             skins: std::array::from_fn(|seat| (seat, BrickPack::Default)),
             skin_row: [0; MAX_TOWERS],
+            confirmed: [[false; 2]; MAX_TOWERS],
         }
     }
 }
@@ -870,8 +874,13 @@ pub(crate) fn players_input(
         let Some(seat) = lobby.seats.iter().position(|s| *s == who) else {
             continue;
         };
-        if dy != 0 {
-            lobby.skin_row[seat] = (lobby.skin_row[seat] as i32 + dy).clamp(0, 1) as usize;
+        // Down on a row confirms it, and on the wizard row also moves to the packs.
+        if dy > 0 {
+            let row = lobby.skin_row[seat];
+            lobby.confirmed[seat][row] = true;
+            lobby.skin_row[seat] = (row + 1).min(1);
+        } else if dy < 0 {
+            lobby.skin_row[seat] = lobby.skin_row[seat].saturating_sub(1);
         }
         if dx != 0 {
             let (wizard, pack) = lobby.skins[seat];
@@ -1083,7 +1092,7 @@ pub(crate) fn show_select_screens(
             }
             Part::SeatWizard(seat) if no_pads && lobby.seats[seat] == Seat::Empty => false,
             Part::SeatWizard(seat) => {
-                let awake = lobby.seats[seat] != Seat::Empty;
+                let awake = lobby.confirmed[seat][0];
                 let pose = if awake { "ready" } else { "sleeping" };
                 let picked = lobby.skins[seat].0.min(WIZARD_COUNT - 1);
                 let (offset, size) = WIZARDS[picked][awake as usize];
