@@ -3194,46 +3194,35 @@ impl GameConfig {
 
 /// A title-screen island: its staged picture, the point of the screen its pivot sits
 /// at (in units of 26 px from the bottom left of the 1920×1080 screen, as the original's
-/// backdrop), and how it bobs: pixels up and down, its period in seconds and its phase.
-#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+/// backdrop), and how it bobs: each leg goes a random distance above or below its
+/// rest (`bob`, pixels, min to max) over a random time (`leg`, seconds), in-out quad,
+/// then turns back (BobbingIsland). `bob` (0, 0) stays still.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct TitleIsland {
     pub art: String,
     pub at: (f32, f32),
-    pub bob: f32,
-    pub period: f32,
-    pub phase: f32,
-}
-
-impl Default for TitleIsland {
-    fn default() -> Self {
-        Self {
-            art: String::new(),
-            at: (0.0, 0.0),
-            bob: 0.0,
-            period: 6.0,
-            phase: 0.0,
-        }
-    }
+    pub bob: (f32, f32),
+    pub leg: (f32, f32),
 }
 
 /// The original's six islands (the title backdrop's positions, measured from its prefabs).
-/// The bob amounts are guesses until the original's motion is read.
+/// The back one doesn't bob; the others go 0.2-0.4 units (26 px each) over 2.5-4 s
+/// (IslandsLayer, BobbingIsland).
 fn default_title_islands() -> Vec<TitleIsland> {
-    let island = |art: &str, at: (f32, f32), phase: f32| TitleIsland {
+    let island = |art: &str, at: (f32, f32), bobs: bool| TitleIsland {
         art: art.into(),
         at,
-        bob: 3.0,
-        period: 6.0,
-        phase,
+        bob: if bobs { (0.2 * 26.0, 0.4 * 26.0) } else { (0.0, 0.0) },
+        leg: (2.5, 4.0),
     };
     vec![
-        island("menu_island_back01", (36.9, 6.0), 0.0),
-        island("menu_island_middle01", (0.0, 5.35), 1.0),
-        island("menu_island_middle02", (64.35, 5.1), 2.0),
-        island("menu_island_front01", (0.0, 3.5), 3.0),
-        island("menu_island_front02", (10.0, 4.8), 4.0),
-        island("menu_island_front03", (73.85, 3.6), 5.0),
+        island("menu_island_back01", (36.9, 6.0), false),
+        island("menu_island_middle01", (0.0, 5.35), true),
+        island("menu_island_middle02", (64.35, 5.1), true),
+        island("menu_island_front01", (0.0, 3.5), true),
+        island("menu_island_front02", (10.0, 4.8), true),
+        island("menu_island_front03", (73.85, 3.6), true),
     ]
 }
 

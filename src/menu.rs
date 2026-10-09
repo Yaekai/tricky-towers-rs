@@ -650,19 +650,45 @@ fn scroll_title_waves(
     }
 }
 
-/// A floating title island: its resting top (pixels from the top) and how it bobs.
+/// A floating title island: its resting top (pixels from the top), how it bobs, and
+/// the leg it's on: from and to (pixels above rest), its length and time so far.
 #[derive(Component)]
 struct TitleIsland {
     top: f32,
-    bob: f32,
-    period: f32,
-    phase: f32,
+    bob: (f32, f32),
+    leg: (f32, f32),
+    from: f32,
+    to: f32,
+    length: f32,
+    time: f32,
+    seed: u64,
 }
 
-fn bob_title_islands(time: Res<Time>, mut islands: Query<(&TitleIsland, &mut Node)>) {
-    let t = time.elapsed_secs();
-    for (island, mut node) in &mut islands {
-        let offset = island.bob * (std::f32::consts::TAU * t / island.period + island.phase).sin();
+impl TitleIsland {
+    /// Starts the next leg to the other side of the rest (the first goes either way).
+    fn next_leg(&mut self) {
+        let mut roll = || (crate::gameplay::xorshift(&mut self.seed) % 10_000) as f32 / 10_000.0;
+        let up = if self.to == 0.0 { roll() < 0.5 } else { self.to < 0.0 };
+        let distance = self.bob.0 + (self.bob.1 - self.bob.0) * roll();
+        self.length = (self.leg.0 + (self.leg.1 - self.leg.0) * roll()).max(0.1);
+        self.from = self.to;
+        self.to = if up { distance } else { -distance };
+        self.time = 0.0;
+    }
+}
+
+fn bob_title_islands(time: Res<Time>, mut islands: Query<(&mut TitleIsland, &mut Node)>) {
+    for (mut island, mut node) in &mut islands {
+        if island.bob.1 <= 0.0 {
+            continue;
+        }
+        island.time += time.delta_secs();
+        if island.time >= island.length {
+            island.next_leg();
+        }
+        let x = (island.time / island.length).clamp(0.0, 1.0);
+        let eased = if x < 0.5 { 2.0 * x * x } else { 1.0 - (-2.0 * x + 2.0).powi(2) / 2.0 };
+        let offset = island.from + (island.to - island.from) * eased;
         node.top = px(island.top - offset);
     }
 }
@@ -826,7 +852,7 @@ fn spawn_main_menu(
     }
     // The islands float over the sky, each pivot where the original's backdrop puts it.
     root.with_children(|parent| {
-        for island in &config.title_islands {
+        for (k, island) in config.title_islands.iter().enumerate() {
             let Some(handle) = image(&island.art) else {
                 continue;
             };
@@ -854,8 +880,12 @@ fn spawn_main_menu(
                 TitleIsland {
                     top: 1080.0 - y,
                     bob: island.bob,
-                    period: island.period.max(0.1),
-                    phase: island.phase,
+                    leg: island.leg,
+                    from: 0.0,
+                    to: 0.0,
+                    length: 0.0,
+                    time: 0.0,
+                    seed: 0x9E37_79B9 + k as u64 * 7919,
                 },
             ));
         }

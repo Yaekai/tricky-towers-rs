@@ -370,13 +370,39 @@ fn row_y(index: usize) -> f32 {
 
 /// The settings row under a cursor (top-left origin) in a window `window` big.
 fn row_at(cursor: Vec2, window: Vec2, rows: usize) -> Option<usize> {
-    let p = Vec2::new(
-        cursor.x / window.x * SCREEN.0 - SCREEN.0 / 2.0,
-        SCREEN.1 / 2.0 - cursor.y / window.y * SCREEN.1,
-    );
+    let p = screen_point(cursor, window);
     (0..rows).find(|&i| {
         (p.x.abs() <= ROW.0 / 2.0) && ((p.y - row_y(i)).abs() <= ROW.1 / 2.0)
     })
+}
+
+/// A cursor (top-left origin) in a window `window` big, on the 1920x1080 screen
+/// with its centre at 0 and y up.
+fn screen_point(cursor: Vec2, window: Vec2) -> Vec2 {
+    Vec2::new(
+        cursor.x / window.x * SCREEN.0 - SCREEN.0 / 2.0,
+        SCREEN.1 / 2.0 - cursor.y / window.y * SCREEN.1,
+    )
+}
+
+/// Steps a click at screen x `x` makes on a value row whose slider stands at
+/// `now` (0-1): the arrows step once (ButtonPrevious/ButtonNext), a click on a
+/// slider's bar sets the nearest tenth (SettingsSliderItem._HandleValueClicked).
+/// `None` when the click isn't on a value control.
+fn click_steps(row: Row, x: f32, now: f32) -> Option<i32> {
+    let near = |at: f32| (x - value_x(at)).abs() <= VALUE_ARROW.0;
+    if !matches!(row.kind(), Kind::Slider | Kind::Choice) {
+        return None;
+    }
+    if near(VALUE_ARROW_INSET) {
+        return Some(-1);
+    }
+    if near(VALUE_WIDTH - VALUE_ARROW_INSET) {
+        return Some(1);
+    }
+    let along = x - value_x(BAR_INSET);
+    (row.kind() == Kind::Slider && (0.0..=BAR.0).contains(&along))
+        .then(|| (along / BAR.0 * 10.0).round() as i32 - (now * 10.0).round() as i32)
 }
 
 /// x of a point `inset` px into the value area from its left end.
@@ -669,6 +695,7 @@ pub(crate) fn settings_input(
         return;
     }
     let mut taps = read_taps(keys.as_deref(), &pads);
+    let mut clicked = 0;
     // The mouse: a row under the cursor is selected as it moves, and a click acts on it.
     if let Ok(window) = windows.single() {
         let cursor = window.cursor_position();
@@ -677,9 +704,20 @@ pub(crate) fn settings_input(
             menu.selected = over.unwrap_or(menu.selected);
         }
         *last_cursor = cursor;
-        if over.is_some() && mouse.is_some_and(|m| m.just_pressed(MouseButton::Left)) {
-            menu.selected = over.unwrap_or(menu.selected);
-            taps.key_pick = true;
+        if let Some(i) = over
+            && mouse.is_some_and(|m| m.just_pressed(MouseButton::Left))
+        {
+            menu.selected = i;
+            let row = menu.row();
+            let now = match row {
+                Row::Music => settings.music,
+                _ => settings.volume,
+            };
+            let x = cursor.map_or(0.0, |c| screen_point(c, window.size()).x);
+            match click_steps(row, x, now) {
+                Some(steps) => clicked = steps,
+                None => taps.key_pick = true,
+            }
         }
     }
     // The Stats popup only closes: Enter, B or Esc (in the menu's Esc handling).
@@ -738,6 +776,11 @@ pub(crate) fn settings_input(
         Kind::Popup => turn += dir,
         Kind::Toggle if pick || dir != 0 => changed = step(&mut menu, &mut settings, row, 1),
         _ if dir != 0 => changed = step(&mut menu, &mut settings, row, dir),
+        _ if clicked != 0 => {
+            for _ in 0..clicked.abs() {
+                changed |= step(&mut menu, &mut settings, row, clicked.signum());
+            }
+        }
         _ => {}
     }
     if turn != 0 {
@@ -949,6 +992,17 @@ mod tests {
         assert_eq!(s.quality, Quality::High);
         s.step(Row::Quality, -1);
         assert_eq!(s.quality, Quality::Medium);
+    }
+
+    #[test]
+    fn clicks_on_a_slider_step_or_set_the_nearest_tenth() {
+        let left = value_x(BAR_INSET);
+        assert_eq!(click_steps(Row::Effects, value_x(VALUE_ARROW_INSET), 0.5), Some(-1));
+        assert_eq!(click_steps(Row::Music, value_x(VALUE_WIDTH - VALUE_ARROW_INSET), 0.5), Some(1));
+        assert_eq!(click_steps(Row::Effects, left + BAR.0 * 0.3, 1.0), Some(-7));
+        assert_eq!(click_steps(Row::Effects, left + BAR.0, 0.2), Some(8));
+        assert_eq!(click_steps(Row::Resolution, left + BAR.0 * 0.5, 0.0), None);
+        assert_eq!(click_steps(Row::Fullscreen, value_x(VALUE_ARROW_INSET), 0.0), None);
     }
 
     #[test]

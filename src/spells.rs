@@ -13,7 +13,7 @@ use crate::config::{
     AwardRule, Curse, Difficulty, GameConfig, MagicRules, ModeKind, SpellKind, WaveRules,
 };
 use crate::gameplay::{
-    ActiveBrick, Brick, BrickMod, Match, Phase, Placed, PlayerInput, Tower, TowerState,
+    ActiveBrick, Brick, BrickMod, FloorBlock, Match, Phase, Placed, PlayerInput, Tower, TowerState,
     TowerStatus, brick_body, brick_collider, piece_def,
 };
 
@@ -866,8 +866,7 @@ pub(crate) fn grow_ivy(
             Has<IvyPending>,
             Option<&ChildOf>,
         ),
-        // The Puzzle floor is terrain: Ivy never grows over it.
-        (Without<ActiveBrick>, Without<crate::gameplay::FloorBlock>),
+        (Without<ActiveBrick>, Without<FloorBlock>),
     >,
     clusters: Query<(&Children, &RigidBody), With<IvyCluster>>,
 ) {
