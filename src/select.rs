@@ -5,6 +5,7 @@
 //! Layout from docs/research/menus.md, in pixels of a 1920×1080 screen.
 
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy::ui::widget::NodeImageMode;
 
 use crate::art::Art;
@@ -909,6 +910,8 @@ pub(crate) fn players_input(
 pub(crate) fn modes_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     time: Res<Time>,
     game: Res<Match>,
     mut screen: ResMut<MenuScreen>,
@@ -916,11 +919,46 @@ pub(crate) fn modes_input(
     mut config: ResMut<GameConfig>,
     mut request: ResMut<MatchRequest>,
     mut cup: ResMut<crate::cups::Cup>,
+    mut last_cursor: Local<Option<Vec2>>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Modes {
         return;
     }
-    let taps = read_taps(keys.as_deref(), &pads);
+    let mut taps = read_taps(keys.as_deref(), &pads);
+    // The mouse: a column under the cursor is selected as it moves; a click on its
+    // arrows steps it, and a click on its tile is Enter.
+    if let Ok(window) = windows.single() {
+        let cursor = window.cursor_position();
+        if let Some(c) = cursor {
+            let p = Vec2::new(
+                c.x / window.size().x * SCREEN.0 - SCREEN.0 / 2.0,
+                SCREEN.1 / 2.0 - c.y / window.size().y * SCREEN.1,
+            );
+            let column = COLUMN_X
+                .iter()
+                .position(|&x| (p.x - x).abs() <= 240.0 && p.y.abs() <= 400.0);
+            if let Some(col) = column
+                && cursor != *last_cursor
+            {
+                lobby.column = col;
+            }
+            if mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left)) {
+                if let Some(col) = column {
+                    lobby.column = col;
+                    let arrow = COLUMN_PANEL_HEIGHT / 2.0 - ARROW_INSET;
+                    let x = COLUMN_X[col];
+                    if (p.x - x).abs() <= 80.0 && (p.y - arrow).abs() <= 40.0 {
+                        taps.up = true;
+                    } else if (p.x - x).abs() <= 80.0 && (p.y + arrow).abs() <= 40.0 {
+                        taps.down = true;
+                    } else {
+                        taps.key_pick = true;
+                    }
+                }
+            }
+        }
+        *last_cursor = cursor;
+    }
     if !taps.pad_back.is_empty() {
         step_back(&mut lobby, &mut screen);
         return;
