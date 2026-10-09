@@ -141,8 +141,11 @@ fn wanted(
         Kind::Card => {
             let finished_puzzle =
                 game.mode == ModeKind::Puzzle && state.bricks_used() + 1 >= config.puzzle.bricks;
+            // Survival's intro shows the card as its count counts up (the original
+            // flips through random bricks there first, ?).
+            let intro = game.phase == Phase::Intro && game.mode == ModeKind::Survival;
             match bag {
-                Some(bag) if playing && !finished_puzzle => Shows::Card(bag.peek(), pack),
+                Some(bag) if (playing || intro) && !finished_puzzle => Shows::Card(bag.peek(), pack),
                 _ => Shows::Nothing,
             }
         }
