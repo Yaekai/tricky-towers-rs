@@ -1,12 +1,7 @@
-//! DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
-//! Local cups aren't in the original (cups are an online feature there, per the fan wiki
-//! and press kit; docs/research/wiki-notes.md). Kept for now as a test tool.
-//!
-//! What the player sees of cups: the cup picker on Select Mode (C or the pad's
-//! Select button cycles single match → each cup → single match), the standings
-//! panel between cup matches (laid out from the original's Tiny Cup screen,
-//! `GameConfig::cup_panel`), and the cup winner's trophy popping in at the end.
-//! The picker's layout and wording are placeholders until the original's are read (?).
+//! What the player sees of local cups (picked in Select Mode's third column,
+//! src/select.rs): the standings panel between cup matches (laid out from the
+//! original's Tiny Cup screen, `GameConfig::cup_panel`) and the cup winner's trophy
+//! popping in at the end.
 
 use bevy::prelude::*;
 
@@ -15,45 +10,24 @@ use crate::config::GameConfig;
 use crate::cups::Cup;
 use crate::gameplay::{MAX_TOWERS, Match, Phase, Tower, TowerSkin};
 use crate::letters::TextLook;
-use crate::menu::MenuScreen;
 use crate::popup::{Popup, px};
-use crate::select::{SCREEN, label, label_with, place, shown};
+use crate::select::{SCREEN, label, label_with, shown};
 
 pub struct CupsMenuPlugin;
 
 impl Plugin for CupsMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (spawn_cup_ui, spawn_cup_panel))
-            .add_systems(Update, (pick_cup, show_cup_ui, show_cup_panel).chain());
+            .add_systems(Update, (show_cup_ui, show_cup_panel).chain());
     }
 }
 
-#[derive(Component)]
-struct CupPickLabel;
 #[derive(Component)]
 struct CupTrophy;
 #[derive(Component)]
 struct CupTrophyText;
 
 fn spawn_cup_ui(mut commands: Commands, art: Option<Res<Art>>) {
-    // The picker line, under the Select Mode header.
-    commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..default()
-            },
-            GlobalZIndex(12),
-            Visibility::Hidden,
-            CupPickLabel,
-        ))
-        .with_children(|root| {
-            root.spawn(place((900.0, 50.0), (0.0, 400.0)))
-                .with_children(|line| {
-                    line.spawn(label(2.8, ""));
-                });
-        });
     // The trophy for the cup winner, centred under WINNER!.
     let trophy_image = art.as_ref().and_then(|a| a.image("trophy"));
     let mut trophy = commands.spawn((
@@ -90,31 +64,6 @@ fn spawn_cup_ui(mut commands: Commands, art: Option<Res<Art>>) {
     });
 }
 
-/// C or the pad's Select button on Select Mode cycles the cup.
-fn pick_cup(
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    pads: Query<&Gamepad>,
-    game: Res<Match>,
-    screen: Res<MenuScreen>,
-    config: Res<GameConfig>,
-    mut cup: ResMut<Cup>,
-) {
-    if game.phase != Phase::Menu || *screen != MenuScreen::Modes {
-        return;
-    }
-    let pressed = keys.is_some_and(|k| k.just_pressed(KeyCode::KeyC))
-        || pads.iter().any(|p| p.just_pressed(GamepadButton::Select));
-    if !pressed {
-        return;
-    }
-    let count = config.cups.sizes.len();
-    cup.pick = match cup.pick {
-        None if count > 0 => Some(0),
-        Some(i) if i + 1 < count => Some(i + 1),
-        _ => None,
-    };
-}
-
 fn player_name(towers: &Query<&Tower>, index: usize) -> String {
     match towers
         .iter()
@@ -130,16 +79,11 @@ fn player_name(towers: &Query<&Tower>, index: usize) -> String {
 fn show_cup_ui(
     time: Res<Time>,
     game: Res<Match>,
-    screen: Res<MenuScreen>,
     config: Res<GameConfig>,
     cup: Res<Cup>,
     popup: Res<Popup>,
     towers: Query<&Tower>,
-    mut roots: ParamSet<(
-        Query<(&mut Visibility, &Children), With<CupPickLabel>>,
-        Query<(&mut Visibility, &mut UiTransform, Option<&mut ImageNode>), With<CupTrophy>>,
-    )>,
-    lines: Query<&Children>,
+    mut trophies: Query<(&mut Visibility, &mut UiTransform, Option<&mut ImageNode>), With<CupTrophy>>,
     mut texts: Query<&mut Text>,
     trophy_text: Query<Entity, With<CupTrophyText>>,
     art: Option<Res<Art>>,
@@ -151,23 +95,6 @@ fn show_cup_ui(
             text.0 = words;
         }
     };
-    // The picker.
-    let picking = game.phase == Phase::Menu && *screen == MenuScreen::Modes;
-    let pick_words = match cup.pick.and_then(|i| config.cups.sizes.get(i)) {
-        Some(size) => format!(
-            "{}: first to {}  (C / Select to change)",
-            size.name, size.target
-        ),
-        None => "Single match  (C / Select for a cup)".to_string(),
-    };
-    for (mut visibility, children) in &mut roots.p0() {
-        visibility.set_if_neq(shown(picking));
-        for line in children.iter() {
-            for text in lines.get(line).into_iter().flat_map(|c| c.iter()) {
-                set(&mut texts, text, pick_words.clone());
-            }
-        }
-    }
     let cup_rules = cup.rules(&config.cups);
     // The trophy once the cup is over.
     let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
@@ -177,7 +104,7 @@ fn show_cup_ui(
         && !popup.panel_up(&cup, &config.cup_panel);
     // Each cup size has its own trophy picture.
     let picture = cup_rules.and_then(|size| art.as_ref().and_then(|a| a.image(&size.trophy)));
-    for (mut visibility, mut transform, image) in &mut roots.p1() {
+    for (mut visibility, mut transform, image) in &mut trophies {
         if let (Some(mut node), Some(picture)) = (image, picture.clone())
             && node.image != picture
         {

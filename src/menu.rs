@@ -22,7 +22,6 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             crate::popup::PopupPlugin,
-            // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
             crate::cups_menu::CupsMenuPlugin,
             crate::settings::SettingsPlugin,
             crate::navbar::NavBarPlugin,

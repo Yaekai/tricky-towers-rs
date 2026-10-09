@@ -270,7 +270,19 @@ pub(crate) fn seat_picture(wizard: usize, pose: &str) -> String {
 
 /// Select Mode's columns: centre x of each, the picked tile's frame, the
 /// arrows and where the difficulty tile's background sits.
-const COLUMN_X: [f32; 2] = [-270.0, 270.0];
+/// The original lays its panels 540 px apart around the centre; a local battle has
+/// three: the mode, the difficulty, and single match or a cup (GameModeSelectStateController).
+const COLUMN_X: [f32; 3] = [-540.0, 0.0, 540.0];
+/// The cup column's items: Single Match, then each cup, as (picture, offset, size)
+/// (CupItem01-04), and their name and "First to N points" centres below the tile.
+const CUP_PICTURES: [(&str, (f32, f32), (f32, f32)); 4] = [
+    ("menu_quick_match", (0.0, 21.0), (139.0, 167.0)),
+    ("trophy", (0.0, 24.0), (111.0, 132.0)),
+    ("trophy_big", (-2.0, 13.2), (203.0, 203.0)),
+    ("trophy_super", (0.0, 15.3), (307.0, 247.0)),
+];
+const CUP_NAME_Y: f32 = -95.0;
+const CUP_TARGET_Y: f32 = -143.9;
 const FRAME: (f32, f32) = (513.0, 445.0);
 const FRAME_X: f32 = -5.5;
 const COLUMN_ARROW: (f32, f32) = (94.0, 55.0);
@@ -377,6 +389,10 @@ pub(crate) enum Part {
     /// A column's tile picture (mode or difficulty), and the difficulty background.
     ColumnPicture(usize),
     DifficultyBack,
+    /// The cup column's background, its name ("Tiny Cup") and target ("First to 6 points").
+    CupBack,
+    CupName,
+    CupTarget,
     /// A column's name under its tile, shown when its picture isn't staged.
     ColumnName(usize),
     /// The frame and corners on the active column.
@@ -646,6 +662,17 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
             place(back_size, (COLUMN_X[1] + back_offset.0, back_offset.1)),
             Part::DifficultyBack,
         ));
+        page.spawn((
+            ImageNode::default(),
+            place(back_size, (COLUMN_X[2] + back_offset.0, back_offset.1)),
+            Part::CupBack,
+        ));
+        for (part, size, y) in [(Part::CupName, 60.0, CUP_NAME_Y), (Part::CupTarget, 28.0, CUP_TARGET_Y)] {
+            page.spawn(place((400.0, 100.0), (COLUMN_X[2], y)))
+                .with_children(|n| {
+                    n.spawn((label_with(size / 10.8, "", crate::letters::TextLook::OUTLINED), part));
+                });
+        }
         for (column, &x) in COLUMN_X.iter().enumerate() {
             page.spawn((
                 ImageNode::default(),
@@ -690,11 +717,16 @@ pub(crate) fn spawn_select_screens(mut commands: Commands, art: Option<Res<Art>>
                     height: Val::Percent(CORNER_LARGE.1 / FRAME.1 * 100.0),
                     ..default()
                 };
+                // Pinned to their own edges: the frame centres its children.
                 if flip_x {
                     node.right = Val::Px(0.0);
+                } else {
+                    node.left = Val::Px(0.0);
                 }
                 if flip_y {
                     node.bottom = Val::Px(0.0);
+                } else {
+                    node.top = Val::Px(0.0);
                 }
                 frame.spawn((
                     ImageNode {
@@ -885,20 +917,21 @@ pub(crate) fn modes_input(
         return;
     }
     if taps.left {
-        lobby.column = 0;
+        lobby.column = lobby.column.saturating_sub(1);
     }
     if taps.right {
-        lobby.column = 1;
+        lobby.column = (lobby.column + 1).min(COLUMN_X.len() - 1);
     }
-    let count = if lobby.column == 0 {
-        lobby.modes().len()
-    } else {
-        DifficultyPick::ALL.len()
+    let count = match lobby.column {
+        0 => lobby.modes().len(),
+        1 => DifficultyPick::ALL.len(),
+        _ => config.cups.sizes.len() + 1,
     };
-    let at = if lobby.column == 0 {
-        &mut lobby.mode
-    } else {
-        &mut lobby.difficulty
+    let mut item = cup.pick.map_or(0, |i| i + 1);
+    let at = match lobby.column {
+        0 => &mut lobby.mode,
+        1 => &mut lobby.difficulty,
+        _ => &mut item,
     };
     if taps.up {
         *at = (*at + count - 1) % count;
@@ -906,11 +939,12 @@ pub(crate) fn modes_input(
     if taps.down {
         *at = (*at + 1) % count;
     }
+    cup.pick = item.checked_sub(1);
     if !(taps.key_pick || !taps.pad_pick.is_empty()) {
         return;
     }
-    if lobby.column == 0 {
-        lobby.column = 1;
+    if lobby.column < COLUMN_X.len() - 1 {
+        lobby.column += 1;
         return;
     }
     // A roll from the clock is plenty for picking a mode.
@@ -937,8 +971,8 @@ pub(crate) fn modes_input(
 /// Esc or B on Select Mode: from the difficulty back to the mode, then back a
 /// screen (player select, or the title for Single Player).
 pub(crate) fn step_back(lobby: &mut Lobby, screen: &mut MenuScreen) {
-    if lobby.column == 1 {
-        lobby.column = 0;
+    if lobby.column > 0 {
+        lobby.column -= 1;
     } else {
         *screen = if lobby.single {
             MenuScreen::Main
@@ -976,6 +1010,7 @@ pub(crate) fn show_select_screens(
     game: Res<Match>,
     screen: Res<MenuScreen>,
     lobby: Res<Lobby>,
+    cup: Res<crate::cups::Cup>,
     art: Option<Res<Art>>,
     gamepads: Query<(), With<Gamepad>>,
     mut roots: ParamSet<(
@@ -1008,6 +1043,8 @@ pub(crate) fn show_select_screens(
         return;
     }
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
+    // The cup column: 0 is a single match, then each cup.
+    let cup_item = cup.pick.map_or(0, |i| i + 1);
     let first_empty = lobby.seats.iter().position(|s| *s == Seat::Empty);
     // With no pad connected the original's empty seats just ask for a controller,
     // with no wizard on them.
@@ -1129,6 +1166,9 @@ pub(crate) fn show_select_screens(
                 let (name, offset, size, fallback) = if column == 0 {
                     let (n, o, s) = mode.picture();
                     (n, o, s, mode.color())
+                } else if column == 2 {
+                    let (n, o, s) = CUP_PICTURES[cup_item.min(CUP_PICTURES.len() - 1)];
+                    (n, o, s, Color::srgb(0.3, 0.35, 0.5))
                 } else {
                     let (n, o, s) = difficulty.picture();
                     (n, o, s, Color::srgb(0.3, 0.35, 0.5))
@@ -1177,6 +1217,31 @@ pub(crate) fn show_select_screens(
                     _ => false,
                 }
             }
+            Part::CupBack => match (image("menu_difficulty_background"), image_node) {
+                (Some(handle), Some(mut img)) => {
+                    if img.image != handle {
+                        img.image = handle;
+                    }
+                    true
+                }
+                _ => false,
+            },
+            Part::CupName | Part::CupTarget => {
+                let size = cup_item.checked_sub(1).and_then(|i| config.cups.sizes.get(i));
+                let words = match (*part, size) {
+                    (Part::CupName, Some(size)) => size.name.to_uppercase(),
+                    (Part::CupName, None) => "SINGLE MATCH".to_string(),
+                    (_, Some(size)) => format!("First to {} points", size.target),
+                    (_, None) => String::new(),
+                };
+                if let Some(mut text) = text
+                    && text.0 != words
+                {
+                    text.0 = words;
+                }
+                true
+            }
+            Part::ColumnName(2) => false,
             Part::ColumnName(column) => {
                 let (name, staged) = if column == 0 {
                     (mode.name(), image(mode.picture().0).is_some())

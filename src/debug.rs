@@ -111,7 +111,7 @@ pub enum DebugCommand {
         tower: usize,
     },
     /// Tap a keyboard key for the menus and popups: `Enter`, `Escape`,
-    /// `Tab`, `Space`, `Up`, `Down`, `Left`, `Right` or `C` (the cup picker).
+    /// `Tab`, `Space`, `Up`, `Down`, `Left` or `Right`.
     Tap {
         key: String,
     },
@@ -302,7 +302,6 @@ fn apply_debug_commands(
                     "Down" => KeyCode::ArrowDown,
                     "Left" => KeyCode::ArrowLeft,
                     "Right" => KeyCode::ArrowRight,
-                    "C" => KeyCode::KeyC,
                     _ => {
                         warn!("debug: unknown key {key}");
                         continue;

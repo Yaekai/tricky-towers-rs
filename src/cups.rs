@@ -1,8 +1,4 @@
-//! DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
-//! Local cups aren't in the original (cups are an online feature there, per the fan wiki
-//! and press kit; docs/research/wiki-notes.md). Kept for now as a test tool.
-//!
-//! Local cups, from the PC readout (docs/research/match-moments.md): matches
+//! Local cups (Max's vanilla recording plays a local Tiny Cup), from the PC readout (docs/research/match-moments.md): matches
 //! picked on Select Mode, each giving points by place ([`CupRules::points`]),
 //! until one player alone has the most points at or above the cup's target
 //! (ties go to overtime). The winner gets the cup's trophy. Local cups give no XP.

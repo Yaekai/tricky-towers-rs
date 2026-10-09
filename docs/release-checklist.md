@@ -9,7 +9,6 @@ the code with a `DEBUG-TOOL` comment, so `grep -rn DEBUG-TOOL src` finds them al
 | R restarts a match | `src/input.rs` (`RESTART`) | Quick retries while testing. The original restarts through Pause → Retry or the popup's Rematch. |
 | Pad Start restarts a finished match | `src/input.rs` (`read_gamepads`) | Same, for gamepads. The original's popup handles this. |
 | F3 debug text | `src/visuals.rs` (`update_hud`) | A text readout of height, spells and results for development. |
-| Local cups | `src/cups.rs`, `src/cups_menu.rs`, the C / Select picker on Select Mode, "Next match" in `src/popup.rs` | Cups are an online feature in the original (docs/research/wiki-notes.md). Kept to test cup rules, the trophy and XP before online play exists. |
 | WASD and numpad arrows in menus | `src/menu.rs`, `src/select.rs`, `src/popup.rs` | Numpad arrows are how scripted key presses arrive on Windows; WASD is a habit. Pending the PC check of the original's menu keys. |
 | Debug commands and `--script` files | `src/debug.rs`, `--script` in `src/main.rs`, picture hook in `src/offscreen.rs`; docs/debug-tools.md | Set up rare moments exactly in tests and offscreen pictures. |
 | F1 debug panel | `src/debug_panel.rs`, the `debug-panel` feature and `bevy_egui` in `Cargo.toml` | Try things by hand while playing. Build with `--no-default-features` to leave it out. |

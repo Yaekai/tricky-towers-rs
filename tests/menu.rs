@@ -52,10 +52,10 @@ fn tap(app: &mut App, key: KeyCode) {
     }
 }
 
-/// Local Battle, join with the keyboard, on to the modes, take the first mode
-/// and difficulty, play.
+/// Local Battle, join with the keyboard, on to the modes, take the first mode,
+/// difficulty and single match, play.
 fn start(app: &mut App) {
-    for _ in 0..5 {
+    for _ in 0..6 {
         tap(app, KeyCode::Enter);
     }
 }
@@ -92,6 +92,9 @@ fn local_battle_seats_players_then_starts_the_picked_mode() {
     assert_eq!(screen(&app), MenuScreen::Modes);
     assert_eq!(app.world().resource::<Lobby>().column, 0);
     tap(&mut app, KeyCode::ArrowRight);
+    tap(&mut app, KeyCode::Enter);
+    // On to the third column (single match or a cup), and play.
+    assert_eq!(app.world().resource::<Lobby>().column, 2);
     tap(&mut app, KeyCode::Enter);
     let game = app.world().resource::<Match>();
     assert_eq!((game.phase, game.mode), (Phase::Playing, ModeKind::Puzzle));
@@ -257,7 +260,7 @@ fn game_completed_popup_rematches_selects_a_mode_or_goes_to_the_title() {
         MenuScreen::Modes,
         "Select Mode"
     );
-    for _ in 0..2 {
+    for _ in 0..3 {
         tap(&mut app, KeyCode::Enter);
     }
     end(&mut app);
@@ -299,7 +302,7 @@ fn trials_list_plays_the_picked_trial() {
 }
 
 #[test]
-fn c_picks_a_cup_on_select_mode_and_starting_begins_it() {
+fn the_cup_column_picks_a_cup_and_starting_begins_it() {
     use tricky_towers::cups::Cup;
     let mut app = app();
     tap(&mut app, KeyCode::Enter);
@@ -307,13 +310,14 @@ fn c_picks_a_cup_on_select_mode_and_starting_begins_it() {
     tap(&mut app, KeyCode::Tab);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
-    // Single match → Tiny → Big → Super → single match → Tiny.
+    // The third column: single match → Tiny → Big → Super → single match → Tiny.
+    tap(&mut app, KeyCode::ArrowRight);
+    tap(&mut app, KeyCode::ArrowRight);
     let count = app.world().resource::<GameConfig>().cups.sizes.len();
     for _ in 0..count + 2 {
-        tap(&mut app, KeyCode::KeyC);
+        tap(&mut app, KeyCode::ArrowDown);
     }
     assert_eq!(app.world().resource::<Cup>().pick, Some(0));
-    tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
     let cup = app.world().resource::<Cup>();
@@ -379,6 +383,7 @@ fn each_seat_picks_its_wizard_and_brick_pack() {
     assert_eq!(lobby.skins[0], (2, BrickPack::Christmas));
     tap(&mut app, KeyCode::Tab); // an AI wizard keeps its seat's default
     tap(&mut app, KeyCode::Enter); // on to Select Mode
+    tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Enter); // play
     assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);

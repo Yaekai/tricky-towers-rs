@@ -210,3 +210,13 @@ everything sits straight on it. All text is white, all caps (TMP uppercase style
 - Scroll: the whole content moves up by (list height + 1080) in 60 s, linear, after 0.5 s;
   then the popup closes itself. Holding Down speeds it to 10×, holding Up runs it backwards
   at 10×; any button or a click closes it. Lines only show while on screen.
+
+## Select Mode's third column: single match or a cup
+Read from the install (GameModeSelectStateController, CupItem01-04). A local battle's Select Mode
+has three panels 540 px apart around the centre (mode, difficulty, cup); without the cup column
+there would be two, ±270. The cup column's items: Single Match (`gph_quickMatch`), Tiny Cup
+(`gph_cupTinyLarge`), Big Cup, Super Cup, each on the difficulty items' background, the picture
+a little above centre (+21 / +24 / +13.2 / +15.3 px), the name 95 px below the centre in white
+outlined display letters (60 px), and "First to {N} points" 144 px below (28 px; none for Single
+Match). Targets 6, 12, 18. The last pick is remembered. In a cup with Random mode the original
+picks a new mode for each match and shows the mode title again (not done yet).
