@@ -7,6 +7,7 @@
 //! Spring's grass and flowers are in visuals.rs (dress_bricks); its eggs aren't staged yet.
 //! Looks only: nothing here touches gameplay.
 
+use bevy::image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
 use bevy::prelude::*;
 
 use crate::art::Art;
@@ -446,26 +447,51 @@ fn gloss_diamonds(
 }
 
 /// Every Galaxy cell shows the part of one big scrolling starfield behind it, so all
-/// bricks share the same sky.
+/// bricks share the same sky. The field repeats, so a window may run past the picture's
+/// edge without a seam.
 fn scroll_galaxy(
     time: Res<Time>,
     config: Res<GameConfig>,
-    images: Res<Assets<Image>>,
+    mut images: ResMut<Assets<Image>>,
     mut cells: Query<(&mut Sprite, &GlobalTransform), With<GalaxyCell>>,
 ) {
     let t = time.elapsed_secs();
     for (mut sprite, at) in &mut cells {
+        repeat_starfield(&mut images, &sprite.image);
         let Some(size) = images.get(&sprite.image).map(|i| i.size_f32()) else {
             continue;
         };
-        // One field cell maps to 64 texture pixels (?); the field drifts (0.05, -0.07) of
-        // the texture a second, as in the original.
-        let scale = 64.0 / config.cell_size;
-        let p = at.translation().truncate() * scale + size * Vec2::new(0.05, 0.07) * t;
-        let side = 64.0 * 0.84;
-        let x = p.x.rem_euclid((size.x - side).max(1.0));
-        let y = (-p.y).rem_euclid((size.y - side).max(1.0));
-        sprite.rect = Some(Rect::new(x, y, x + side, y + side));
+        sprite.rect = Some(galaxy_window(
+            at.translation().truncate(),
+            config.cell_size,
+            size,
+            t,
+        ));
+    }
+}
+
+/// The texels of the shared starfield one cell shows. A cell is 64 texels of the field
+/// wide and the field drifts (0.05, -0.07) of the texture a second. Positions are not
+/// wrapped, so neighbouring cells always line up.
+pub(crate) fn galaxy_window(world: Vec2, cell: f32, texture: Vec2, t: f32) -> Rect {
+    let scale = 64.0 / cell;
+    let side = 64.0 * 0.84;
+    let p = Vec2::new(world.x * scale, -world.y * scale) + texture * Vec2::new(0.05, -0.07) * t;
+    Rect::new(p.x, p.y, p.x + side, p.y + side)
+}
+
+/// Makes the starfield repeat at its edges (once; the sampler is left set after that).
+fn repeat_starfield(images: &mut Assets<Image>, handle: &Handle<Image>) {
+    let repeats = images.get(handle).is_some_and(|i| {
+        matches!(&i.sampler, ImageSampler::Descriptor(d)
+            if d.address_mode_u == ImageAddressMode::Repeat && d.address_mode_v == ImageAddressMode::Repeat)
+    });
+    if !repeats && let Some(mut image) = images.get_mut(handle) {
+        image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+            address_mode_u: ImageAddressMode::Repeat,
+            address_mode_v: ImageAddressMode::Repeat,
+            ..ImageSamplerDescriptor::linear()
+        });
     }
 }
 
@@ -529,6 +555,23 @@ fn twirl_stars(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn neighbouring_cells_line_up_across_the_whole_field() {
+        // One cell to the right is 64 texels further along, wherever it is, even past
+        // the texture's edge (the field repeats). The drift is the same for both.
+        let texture = Vec2::new(1024.0, 512.0);
+        for world in [Vec2::new(-3.0, 1.0), Vec2::new(40.0, -9.5), Vec2::new(900.0, 0.0)] {
+            for t in [0.0, 3.7, 120.0] {
+                let a = galaxy_window(world, 2.0, texture, t);
+                let b = galaxy_window(world + Vec2::new(2.0, 0.0), 2.0, texture, t);
+                assert!((b.min.x - a.min.x - 64.0).abs() < 1e-3);
+                assert!((b.min.y - a.min.y).abs() < 1e-3);
+                let c = galaxy_window(world + Vec2::new(0.0, 2.0), 2.0, texture, t);
+                assert!((c.min.y - a.min.y + 64.0).abs() < 1e-3, "one cell up is 64 texels up");
+            }
+        }
+    }
 
     #[test]
     fn pack_eases_start_and_end_where_the_original_does() {
