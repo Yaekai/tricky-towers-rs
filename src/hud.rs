@@ -134,6 +134,7 @@ fn wanted(
     bag: Option<&mut BrickBag>,
     pack: crate::config::BrickPack,
     count_up: Option<u32>,
+    tower: usize,
 ) -> Shows {
     let look = &config.hud;
     let playing = game.phase == Phase::Playing && state.status == TowerStatus::Building;
@@ -141,11 +142,18 @@ fn wanted(
         Kind::Card => {
             let finished_puzzle =
                 game.mode == ModeKind::Puzzle && state.bricks_used() + 1 >= config.puzzle.bricks;
-            // Survival's intro shows the card as its count counts up (the original
-            // flips through random bricks there first, ?).
             let intro = game.phase == Phase::Intro && game.mode == ModeKind::Survival;
+            // While Survival's count counts up the card flips through random bricks
+            // from its own bag, once per two counted (AnimateBrickCountEffect), then
+            // lands on the real next brick.
+            let flip = count_up.filter(|_| intro).map(|counted| {
+                let mut flips = BrickBag::new(config.seed ^ (tower as u64 + 1) * 0x9E37, config.pieces.len());
+                (0..=counted / 2).map(|_| flips.draw()).last().unwrap_or(0)
+            });
             match bag {
-                Some(bag) if (playing || intro) && !finished_puzzle => Shows::Card(bag.peek(), pack),
+                Some(bag) if (playing || intro) && !finished_puzzle => {
+                    Shows::Card(flip.unwrap_or_else(|| bag.peek()), pack)
+                }
                 _ => Shows::Nothing,
             }
         }
@@ -232,6 +240,7 @@ fn fill_items(
             bag.map(|b| b.into_inner()),
             skin.map(|s| s.pack).unwrap_or_default(),
             count_up.as_ref().and_then(|c| c.0),
+            tower.index,
         );
         if item.shows.as_ref() == Some(&shows) && item.built_at == height && !art.is_changed() {
             continue;
