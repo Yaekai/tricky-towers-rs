@@ -239,7 +239,8 @@ fn set_up_weather(
                 true,
                 ["sandstorm_front_1", "sandstorm_front_2"],
                 weather.sandstorm_front,
-                400.0,
+                // Over the scenery, behind the towers and bricks (the fog hid them at 400).
+                -300.0,
             ),
         ] {
             for (layer, name) in names.iter().enumerate() {
