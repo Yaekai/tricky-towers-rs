@@ -25,7 +25,16 @@ impl Plugin for VisualsPlugin {
             .init_resource::<ViewSize>()
             .init_resource::<MenuLook>()
             .add_systems(Startup, setup_scene)
-            .add_systems(Update, (wobble_bubbles, show_edge_delays, turn_flowers))
+            .add_systems(
+                Update,
+                (
+                    wobble_bubbles,
+                    show_edge_delays,
+                    turn_flowers,
+                    grow_edges,
+                    pulse_eggs,
+                ),
+            )
             .add_systems(Update, twinkle_stars.before(fit_backgrounds))
             .add_systems(Update, fade_eclipse)
             .add_systems(Update, sweep_lasers)
@@ -570,6 +579,61 @@ fn dress_floor(
 /// stone or ice version when the brick is petrified or iced), else coloured cells.
 /// Runs again when a brick changes, turns to stone, or gets vines or grass.
 #[allow(clippy::type_complexity)]
+/// A decoration that grows in from nothing when it shows (back ease, 0.4 s).
+#[derive(Component)]
+struct EdgeGrow {
+    start: f32,
+}
+
+/// An Easter egg that pulses after its delay: one axis squeezes to 80% in 0.1 s, then springs
+/// back (elastic, 1 s), the other axis after it or before it, as the original's egg tween.
+#[derive(Component)]
+struct EggPulse {
+    start: f32,
+    x_first: bool,
+}
+
+fn grow_edges(time: Res<Time>, mut grows: Query<(&EdgeGrow, &mut Transform)>) {
+    let now = time.elapsed_secs();
+    let back = |x: f32| {
+        let c = 1.70158;
+        let x = x - 1.0;
+        1.0 + x * x * ((c + 1.0) * x + c)
+    };
+    for (grow, mut transform) in &mut grows {
+        let t = ((now - grow.start) / 0.4).clamp(0.0, 1.0);
+        let k = back(t).max(0.0);
+        transform.scale = Vec3::new(k, k, 1.0);
+    }
+}
+
+fn pulse_eggs(time: Res<Time>, mut eggs: Query<(&EggPulse, &mut Transform)>) {
+    let now = time.elapsed_secs();
+    let elastic = |x: f32| {
+        if x >= 1.0 {
+            1.0
+        } else {
+            2f32.powf(-10.0 * x) * ((x - 0.075) * std::f32::consts::TAU / 0.3).sin() + 1.0
+        }
+    };
+    for (egg, mut transform) in &mut eggs {
+        let t = now - egg.start;
+        // Before its time the egg is left to its growth in; then one axis squeezes first.
+        if t < 0.0 {
+            continue;
+        }
+        let squeeze = (t / 0.1).min(1.0);
+        let spring = ((t - 0.1) / 1.0).clamp(0.0, 1.0);
+        let k = if t < 0.1 { 1.0 - 0.2 * squeeze } else { 0.8 + 0.2 * elastic(spring) };
+        let (x, y) = if egg.x_first {
+            (k, if t < 0.1 { 1.0 } else { k })
+        } else {
+            (if t < 0.1 { 1.0 } else { k }, k)
+        };
+        transform.scale = Vec3::new(x, y, 1.0);
+    }
+}
+
 /// An Easter flower that turns after its delay: a quarter turn (back ease, 0.5 s), then a
 /// fast spin back (expo, 1.5 s), ending where it started, as the original's rotation tween.
 #[derive(Component)]
@@ -781,10 +845,12 @@ pub(crate) fn dress_bricks(
                     }
                     _ => None,
                 };
+                // Half the Easter decorations are flowers (turn), half eggs (pulse).
                 let flower = (pack == crate::config::BrickPack::Spring && roll(5) < 0.4)
                     .then(|| {
                         let n = 1 + (roll(6) * 8.0) as usize;
-                        (format!("brick_easter_decorations_flower0{}", n.min(8)), 0.0, 0.3)
+                        let kind = if roll(10) < 0.5 { "flower" } else { "egg" };
+                        (format!("brick_easter_decorations_{kind}0{}", n.min(8)), 0.0, 0.3)
                     });
                 for (name, delay, z) in decoration.into_iter().chain(flower) {
                     if let Some((sprite, anchor, mut transform)) = art_sprite(&art, &name, cell) {
@@ -800,10 +866,19 @@ pub(crate) fn dress_bricks(
                             EdgeDelay { show_at },
                         ));
                         // Flowers turn after a random 5 to 15 s (the original's tween delay).
+                        // Each decoration grows in as it shows (back ease, 0.4 s).
+                        piece.insert(EdgeGrow {
+                            start: time.elapsed_secs() + roll(7) * 0.3,
+                        });
                         if name.contains("flower") {
                             piece.insert(FlowerTurn {
                                 start: time.elapsed_secs() + 5.0 + roll(8) * 10.0,
                                 turn,
+                            });
+                        } else if name.contains("egg") {
+                            piece.insert(EggPulse {
+                                start: time.elapsed_secs() + 5.0 + roll(8) * 10.0,
+                                x_first: roll(11) < 0.5,
                             });
                         }
                     }
