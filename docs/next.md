@@ -51,13 +51,15 @@ ours and need checking against the original (see docs/research/*.md and the vide
 1. Title water and waves: the water band is still a flat gradient in the composed backdrop
    (compose_menu.ps1). Max says "the water visuals in the menu isn't done": check the other
    menus (select, start, pause) for the same water and waves as the title screen.
-2. Island bob amounts and periods (GameConfig::title_islands, guesses: 3 px, 6 s).
+2. Done: islands bob like the original's BobbingIsland (back one still, others 0.2-0.4 units
+   over 2.5-4 s a leg, in-out quad).
 3. Wave crest scroll speed (GameConfig::title_wave_speed, 30 px/s, guess).
 4. Ray fit (RAY_FRACTION 0.75, guess): compare the ray size and brightness to the original.
 5. Title tile label sizes (4.0 and 3.0 Vh, guesses) and the "?" size (10 Vh, guess).
 6. Settings value words (1920 X 1080, Magical, the flags) weight, like the row words.
 7. Mouse: check the pause and popup hit positions in the game (estimated from the layout code).
-8. Settings slider rows: a click only steps right; add left and drag if needed.
+8. Done: slider clicks set the nearest tenth, arrows step (SettingsSliderItem; no drag in the
+   original).
 
 ## Open: cups
 1. Overtime: no clip with an overtime has been analysed. Ask Max for one (a tie at the target).
@@ -68,8 +70,8 @@ ours and need checking against the original (see docs/research/*.md and the vide
 5. Trophy and badges: sizes and places are guesses (cup_panel in game.ron).
 
 ## Open: intro and modes
-1. Survival intro: the next-brick card should flip through random bricks during the count (not
-   done; the original does it).
+1. Done: Survival intro card flips through random bricks during the count (one per two
+   counted, AnimateBrickCountEffect).
 2. Puzzle intro: check the laser sweep and the count against the video (1:06 and the first
    match of the recording).
 3. Music start after the 3-2-1 in a real run.

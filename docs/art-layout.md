@@ -77,6 +77,12 @@ islands on the water band), by adding `screen`:
   shades in between blend, and the mask's brightness and alpha are kept. Blue areas are the
   outline: `outline: [(r, g, b, a), (r, g, b, a)]` gives its colour at the top and the bottom
   (0 to 255, alpha included); without it the outline is transparent.
+- `bevel: "<entry>"` with `light: ((r, g, b, a), (r, g, b, a))` and optional `light_angle`
+  (degrees, 280 if left out) on a brick: the image is the brick's colour pattern and the
+  named entry its bevel map (the brick prefab's sprite: red/green the bevel slope, blue the
+  outline and cracks, alpha the shape). The game lights the pattern with the highlight and
+  shadow colours (0 to 1) as the original's World/Bricks/Default shader. stage.ps1's
+  `Add-LitBrick` reads all of it from the pack's prefab and material (default, Christmas).
 - `font_main`: a .ttf or .otf used for all text.
 - Animations are entries with no file: `"wizard_1": (frames: [(0.0, "wizard_1_idle_0"),
   (0.2, "wizard_1_idle_1")], length: 0.6, looping: true)`. Each frame names a staged image and

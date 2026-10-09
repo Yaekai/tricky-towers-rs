@@ -149,3 +149,10 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-09 (PC): Puzzle battles: no WIZARD OUT! banner, no bricks-to-come column (trial only), the base rise eases over time (TowerState::base_shown, PuzzleRules::base_rise_speed) and the laser is one full-width line in a battle (visuals.rs).
 - 2026-10-09 (PC): Puzzle battles have no brick limit (only trials do), the win by bricks is trial-only, and a battle's bases are kinematic and carried up by velocity while they rise (no clipping).
 - 2026-10-09 (PC): Ivy never joins the Puzzle floor (spells.rs grow_ivy excludes FloorBlock); floor blocks are Brick entities, so the join was merging them into clusters.
+- 2026-10-09 (PC, tt-next worktree): bricks lit like the original (art.rs light_bricks): the brick
+  prefab's sprite is a bevel map (red/green slope, blue outline and cracks) lighting the colour
+  pattern with the material's highlight/shadow colours; stage.ps1 Add-LitBrick stages default and
+  Christmas (other packs use other shaders, still flat). The blend and the line colour are ours,
+  matched to the pack icon. Also: Survival intro card flips, Settings slider clicks (no drag in
+  the original), title islands bob as BobbingIsland. Re-run stage.ps1 (then wizards.ps1 etc.)
+  on a fresh PC to get the bevel entries.

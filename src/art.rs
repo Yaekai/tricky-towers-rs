@@ -110,6 +110,17 @@ pub struct ArtEntry {
     /// `(r, g, b, a)` 0 to 255. Transparent if left out, like the original's ruins.
     #[serde(default)]
     pub outline: Option<Pair<(f32, f32, f32, f32)>>,
+    /// Brick-pack bricks: the entry of the bevel map this colour pattern is lit by
+    /// (World/Bricks/Default: red/green the bevel's slope, blue the outline and cracks).
+    #[serde(default)]
+    pub bevel: Option<String>,
+    /// With `bevel`: the highlight and shadow colours `(r, g, b, a)`, 0 to 1, and the
+    /// light's angle in degrees (the brick material's `_HighlightColor`, `_ShadowColor`
+    /// and `_Angle`).
+    #[serde(default)]
+    pub light: Option<Pair<(f32, f32, f32, f32)>>,
+    #[serde(default)]
+    pub light_angle: Option<f32>,
     /// Screen layers only: slides sideways at a speed picked from this range, in
     /// screen units a second, wrapping round the view (Race Pro's clouds: 0.15-0.25).
     #[serde(default)]
@@ -315,6 +326,7 @@ impl Plugin for ArtPlugin {
                 (
                     drop_failed_art,
                     recolor_masks,
+                    light_bricks,
                     play_animations,
                     apply_font,
                     play_music,
@@ -538,6 +550,73 @@ fn recolor_masks(
         }
         let recolored = images.add(image);
         art.images.insert(name, recolored);
+    }
+}
+
+/// The bricks' outline and crack colour: the dark the pattern textures fade to at
+/// their edges (?; the original's shader is a stub in the export).
+const BRICK_LINE: (f32, f32, f32) = (27.0 / 255.0, 22.0 / 255.0, 74.0 / 255.0);
+
+/// Lights brick-pack bricks once their pattern and bevel map are loaded, as the
+/// original's World/Bricks/Default shader draws them: bevels sloping towards the light
+/// blend to the highlight colour, those sloping away to the shadow colour, by the
+/// slope and the colour's alpha; the bevel map's blue draws the outline and cracks;
+/// its alpha is the brick's shape. The blend itself is ours (?), matched by eye to
+/// the original's pack icon.
+fn light_bricks(
+    mut art: ResMut<Art>,
+    mut images: ResMut<Assets<Image>>,
+    mut done: Local<std::collections::HashSet<String>>,
+) {
+    type Ready = (String, Handle<Image>, Handle<Image>, [Srgba; 2], f32);
+    let ready: Vec<Ready> = art
+        .entries
+        .iter()
+        .filter(|(name, _)| !done.contains(*name))
+        .filter_map(|(name, entry)| {
+            let ((hr, hg, hb, ha), (sr, sg, sb, sa)) = entry.light.as_ref()?.get()?;
+            let pattern = art.images.get(name)?.clone();
+            let bevel = art.images.get(entry.bevel.as_ref()?)?.clone();
+            images.get(&pattern)?;
+            images.get(&bevel)?;
+            let light = [Srgba::new(hr, hg, hb, ha), Srgba::new(sr, sg, sb, sa)];
+            Some((name.clone(), pattern, bevel, light, entry.light_angle.unwrap_or(280.0)))
+        })
+        .collect();
+    for (name, pattern, bevel, [high, shadow], angle) in ready {
+        done.insert(name.clone());
+        let (Some(pattern), Some(mut out)) = (images.get(&pattern).cloned(), images.get(&bevel).cloned())
+        else {
+            continue;
+        };
+        let size = out.size();
+        // The pattern is stretched over the brick like the original's UVs.
+        let scale = pattern.size().as_vec2() / size.as_vec2();
+        let (ly, lx) = angle.to_radians().sin_cos();
+        for y in 0..size.y {
+            for x in 0..size.x {
+                let (Ok(map), Ok(base)) = (out.get_color_at(x, y), pattern.get_color_at((x as f32 * scale.x) as u32, (y as f32 * scale.y) as u32))
+                else {
+                    continue;
+                };
+                let (map, base) = (map.to_srgba(), base.to_srgba());
+                let slope = (map.red * 2.0 - 1.0) * lx - (map.green * 2.0 - 1.0) * ly;
+                let (to, by) = if slope > 0.0 { (high, slope) } else { (shadow, -slope) };
+                let lit = |c: f32, t: f32, line: f32| {
+                    let c = c + (t - c) * by.min(1.0) * to.alpha;
+                    c + (line - c) * map.blue
+                };
+                let color = Color::srgba(
+                    lit(base.red, to.red, BRICK_LINE.0).clamp(0.0, 1.0),
+                    lit(base.green, to.green, BRICK_LINE.1).clamp(0.0, 1.0),
+                    lit(base.blue, to.blue, BRICK_LINE.2).clamp(0.0, 1.0),
+                    map.alpha,
+                );
+                let _ = out.set_color_at(x, y, color);
+            }
+        }
+        let lit = images.add(out);
+        art.images.insert(name, lit);
     }
 }
 
