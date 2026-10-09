@@ -18,10 +18,11 @@ use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
 use serde::{Deserialize, Serialize};
 
 use crate::art::Music;
+use crate::letters::TextLook;
 use crate::gameplay::{Match, Phase};
 use crate::menu::MenuScreen;
 use crate::select::{
-    CORNER_SMALL, SCREEN, corners, label, place, read_taps, shown, sliced, spawn_page,
+    CORNER_SMALL, SCREEN, corners, label, label_with, place, read_taps, shown, sliced, spawn_page,
 };
 
 pub struct SettingsPlugin;
@@ -339,6 +340,12 @@ const AREA_CENTRE: f32 = 0.0;
 const ICON: ((f32, f32), f32, f32) = ((100.0, 100.0), 79.0, 11.0);
 const TITLE_X: f32 = 150.0;
 const TITLE_SIZE: f32 = 36.0;
+/// The original's row words are heavy and near-black: the body letters with a dark outline.
+const ROW_TEXT: TextLook = TextLook {
+    body: true,
+    face: Some(Color::srgb(0.07, 0.055, 0.12)),
+    outline: Some(Color::srgb(0.07, 0.055, 0.12)),
+};
 /// The value area at the row's right end, its arrows and the slider bar.
 const VALUE_WIDTH: f32 = 360.0;
 const VALUE_ARROW: (f32, f32) = (25.0, 31.0);
@@ -479,7 +486,7 @@ fn spawn_row(
             back.insert((sliced(art, BUTTON_SLICE), BackgroundColor(Color::NONE)));
         }
         back.with_children(|b| {
-            b.spawn(label(TITLE_SIZE * 0.8 / SCREEN.1 * 100.0, row.title()));
+            b.spawn(label_with(TITLE_SIZE * 0.8 / SCREEN.1 * 100.0, row.title(), ROW_TEXT));
         });
         return;
     }
@@ -509,7 +516,7 @@ fn spawn_row(
         ..place(title_box, (left + TITLE_X + title_box.0 / 2.0, y))
     })
     .with_children(|t| {
-        t.spawn(label(TITLE_SIZE / SCREEN.1 * 100.0, row.title()));
+        t.spawn(label_with(TITLE_SIZE / SCREEN.1 * 100.0, row.title(), ROW_TEXT));
     });
     let arrows = |page: &mut ChildSpawnerCommands| {
         for right in [false, true] {
