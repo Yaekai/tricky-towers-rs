@@ -55,7 +55,11 @@ fn tap(app: &mut App, key: KeyCode) {
 /// Local Battle, join with the keyboard, on to the modes, take the first mode,
 /// difficulty and single match, play.
 fn start(app: &mut App) {
-    for _ in 0..6 {
+    tap(app, KeyCode::Enter); // title → Select Players
+    tap(app, KeyCode::Enter); // seat the keyboard player
+    tap(app, KeyCode::ArrowDown); // confirm the wizard
+    tap(app, KeyCode::ArrowDown); // confirm the brick pack
+    for _ in 0..5 {
         tap(app, KeyCode::Enter);
     }
 }
@@ -78,6 +82,9 @@ fn local_battle_seats_players_then_starts_the_picked_mode() {
         [Seat::Keyboard, Seat::Ai]
     );
     assert_eq!(screen(&app), MenuScreen::Players);
+    // Down confirms the wizard, Down the brick pack; only then does Enter go on.
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(screen(&app), MenuScreen::Modes);
     // Race, Survival, Puzzle down the mode column; Enter moves to the
@@ -308,6 +315,8 @@ fn the_cup_column_picks_a_cup_and_starting_begins_it() {
     tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Tab);
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
     // The third column: single match → Tiny → Big → Super → single match → Tiny.
@@ -381,6 +390,7 @@ fn each_seat_picks_its_wizard_and_brick_pack() {
     tap(&mut app, KeyCode::ArrowRight);
     let lobby = app.world().resource::<Lobby>();
     assert_eq!(lobby.skins[0], (2, BrickPack::Christmas));
+    tap(&mut app, KeyCode::ArrowDown); // confirm the brick pack
     tap(&mut app, KeyCode::Tab); // an AI wizard keeps its seat's default
     tap(&mut app, KeyCode::Enter); // on to Select Mode
     tap(&mut app, KeyCode::Enter);
@@ -408,6 +418,28 @@ fn each_seat_picks_its_wizard_and_brick_pack() {
             pack: BrickPack::Default
         }
     );
+}
+
+#[test]
+fn select_players_confirms_wizard_then_pack_before_the_mode_choice() {
+    // As the original: Down confirms the wizard (it shines) and moves the cursor to the
+    // brick pack; a second Down confirms the pack. Enter goes on only once everyone is
+    // confirmed, so an early Enter just confirms the current line.
+    let mut app = app();
+    tap(&mut app, KeyCode::Enter); // title → Select Players
+    tap(&mut app, KeyCode::Enter); // seat the keyboard player
+    let screen = |app: &App| *app.world().resource::<MenuScreen>();
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Players, "Enter went on too early");
+    assert_eq!(app.world().resource::<Lobby>().confirmed[0], [true, false]);
+    assert_eq!(app.world().resource::<Lobby>().skin_row[0], 1);
+    tap(&mut app, KeyCode::ArrowUp);
+    assert_eq!(app.world().resource::<Lobby>().skin_row[0], 0, "Up returns to the wizard");
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowDown);
+    assert_eq!(app.world().resource::<Lobby>().confirmed[0], [true, true]);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Modes);
 }
 
 #[test]
