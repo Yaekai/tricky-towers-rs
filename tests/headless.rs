@@ -284,7 +284,11 @@ fn puzzle_round_stops_the_tower_then_ends_after_the_count() {
     assert!(touched, "no brick reached the laser");
     let placed = tower(&mut app, 0).bricks_placed;
     run_seconds(&mut app, 1.0, |_| {});
-    assert_eq!(tower(&mut app, 0).bricks_placed, placed, "a stopped tower took a brick");
+    assert_eq!(
+        tower(&mut app, 0).bricks_placed,
+        placed,
+        "a stopped tower took a brick"
+    );
     let ended = run_until(&mut app, count_seconds + 5.0, |app| {
         app.world().resource::<Match>().phase == Phase::Over
     });
@@ -434,6 +438,23 @@ fn wait_for_next_brick(app: &mut App) {
         app.update();
     }
     panic!("no new brick: {:?}", tower(app, 0));
+}
+
+/// Like `wait_for_next_brick`, but gives up when the tower goes out; returns
+/// whether a new brick arrived.
+fn wait_for_brick_or_out(app: &mut App) -> bool {
+    let first = tower(app, 0).active;
+    for _ in 0..(10.0 / STEP) as usize {
+        let state = tower(app, 0);
+        if state.status == TowerStatus::Out {
+            return false;
+        }
+        if state.active.is_some_and(|a| Some(a) != first) {
+            return true;
+        }
+        app.update();
+    }
+    false
 }
 
 fn count<F: bevy::ecs::query::QueryFilter>(app: &mut App) -> usize {
@@ -587,7 +608,10 @@ fn ivy_clusters_loosened_by_bubbles_and_ghosts_do_not_panic() {
             if tower(&mut app, 0).status == TowerStatus::Out {
                 break;
             }
-            wait_for_next_brick(&mut app);
+            // The tower may go out while we wait (a loosened cluster can cost a life).
+            if !wait_for_brick_or_out(&mut app) {
+                break;
+            }
             let loosener = if round % 2 == 0 {
                 SpellKind::Bubble
             } else {
