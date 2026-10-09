@@ -195,3 +195,10 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
   pack; Continue on a fully confirmed seat goes to Select Mode; Up/Back undoes pack, wizard, then the seat. Left/Right
   turn only the panel being chosen; corners and arrows sit on that panel; a confirmed panel turns orange with rays.
   Kept over cloud select-skin-cursor's version (its Character/Brick pack text lines aren't in the original).
+- 2026-10-10 (PC, tt-next): every brick pack lit from its own material (stage.ps1 Add-LitBrick): Candy and Spring
+  through the Default shader, Diamond with its _BorderColor outline and no light, Halloween fades 1 s after it
+  appears (in-out quad over 1 s, HalloweenBrickModifier) from the default brick to its lilac black-and-white
+  pattern (`packs::HalloweenAge`, overlay), Galaxy draws a see-through light/outline picture over the starfield
+  (manifest `see_through`, `line`). brick_art no longer maps Halloween to the default (a cloud change had).
+  Debug `Start(.., skin: Some((wizard, Pack)))` sets every tower's skin. The guid index misses
+  gph_brickZ_diamond_normalMap, so stage.ps1 leaves Diamond Z unlit until the index is rebuilt.

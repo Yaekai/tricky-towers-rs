@@ -31,6 +31,8 @@ impl Plugin for PacksPlugin {
                 gloss_diamonds,
                 scroll_galaxy,
                 twirl_stars,
+                // After the bricks are (re)dressed, so a fresh overlay never shows clear.
+                fade_halloween.after(dress_bricks),
             ),
         );
     }
@@ -90,9 +92,34 @@ struct Star {
     spin: f32,
 }
 
-/// A Halloween brick once placed: the base texture goes greyish (guess; the original's
-/// grey isn't read yet).
-pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
+/// A Halloween brick's age: its black-and-white look fades in over 1 s after 1 s, in-out
+/// quad (HalloweenBrickModifier's _BlackWhiteEffect tween).
+#[derive(Component)]
+pub(crate) struct HalloweenAge(pub(crate) f32);
+
+/// The black-and-white picture over a Halloween brick.
+#[derive(Component)]
+pub(crate) struct HalloweenFade;
+
+fn fade_halloween(
+    time: Res<Time>,
+    mut bricks: Query<(&mut HalloweenAge, &Children)>,
+    mut overlays: Query<&mut Sprite, With<HalloweenFade>>,
+) {
+    for (mut age, children) in &mut bricks {
+        age.0 += time.delta_secs();
+        let x = (age.0 - 1.0).clamp(0.0, 1.0);
+        let eased = if x < 0.5 { 2.0 * x * x } else { 1.0 - (-2.0 * x + 2.0).powi(2) / 2.0 };
+        for child in children.iter() {
+            if let Ok(mut sprite) = overlays.get_mut(child) {
+                let want = Color::WHITE.with_alpha(eased);
+                if sprite.color != want {
+                    sprite.color = want;
+                }
+            }
+        }
+    }
+}
 
 /// The Galaxy border colour (docs/research/skins.md).
 const GALAXY_BORDER: Color = Color::srgb(0.12, 0.03, 0.24);
@@ -214,27 +241,48 @@ fn decorate_bricks(
                 // No texture: each cell is a window onto one shared starfield inside
                 // a dark purple border, with a few stars on top.
                 let background = art.image("brick_galaxy_background");
+                // The light, shade and dark purple outline over the starfield
+                // (World/Bricks/Galaxy), as one picture over the whole brick.
+                let def = crate::gameplay::piece_def(&config, brick.piece);
+                let outline = art
+                    .image(&format!("brick_galaxy_{}", def.name))
+                    .filter(|_| cells.len() == def.cells.len());
+                let fill = if outline.is_some() { 1.0 } else { 0.84 };
                 for &cell in cells {
                     let at = cell * c;
-                    brick_entity.with_child((
-                        Sprite::from_color(GALAXY_BORDER, Vec2::splat(c)),
-                        Transform::from_translation(at.extend(0.01)),
-                    ));
+                    if outline.is_none() {
+                        brick_entity.with_child((
+                            Sprite::from_color(GALAXY_BORDER, Vec2::splat(c)),
+                            Transform::from_translation(at.extend(0.01)),
+                        ));
+                    }
                     let inner = match &background {
                         Some(image) => Sprite {
                             image: image.clone(),
-                            custom_size: Some(Vec2::splat(c * 0.84)),
+                            custom_size: Some(Vec2::splat(c * fill)),
                             rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
                             ..default()
                         },
                         None => {
-                            Sprite::from_color(Color::srgb(0.05, 0.02, 0.12), Vec2::splat(c * 0.84))
+                            Sprite::from_color(Color::srgb(0.05, 0.02, 0.12), Vec2::splat(c * fill))
                         }
                     };
                     brick_entity.with_child((
                         GalaxyCell,
                         inner,
                         Transform::from_translation(at.extend(0.02)),
+                    ));
+                }
+                if let Some(outline) = outline {
+                    let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
+                    let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
+                    brick_entity.with_child((
+                        Sprite {
+                            image: outline,
+                            custom_size: Some((max - min + Vec2::ONE) * c),
+                            ..default()
+                        },
+                        Transform::from_translation(((min + max) * 0.5 * c).extend(0.025)),
                     ));
                 }
                 if let Some(star) = art.image("brick_galaxy_star") {

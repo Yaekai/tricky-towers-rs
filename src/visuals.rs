@@ -719,8 +719,15 @@ pub(crate) fn dress_bricks(
         }
         // A normal brick takes its tower's brick pack art (default when not staged);
         // stone and ice keep their own looks.
+        // Halloween starts as the default brick and fades to its black-and-white
+        // look over it (HalloweenBrickModifier), drawn as an overlay below.
+        let halloween = pack == crate::config::BrickPack::Halloween && !stone && !brick.ice;
         let key = if brick.piece < config.pieces.len() {
-            let packed = pack.brick_art(&def.name);
+            let packed = if halloween {
+                format!("brick_{}", def.name)
+            } else {
+                pack.brick_art(&def.name)
+            };
             if stone || brick.ice || art.image(&packed).is_none() {
                 format!("brick_{}", def.name)
             } else {
@@ -744,15 +751,6 @@ pub(crate) fn dress_bricks(
             },
             (true, false, false) => (art.image(&key), Color::WHITE),
         };
-        // A Halloween brick goes greyish once placed.
-        if pack == crate::config::BrickPack::Halloween
-            && placed.is_some()
-            && image.is_some()
-            && !stone
-            && !brick.ice
-        {
-            color = crate::packs::HALLOWEEN_PLACED;
-        }
         if image.is_none() {
             color = if stone {
                 brick.color.mix(&STONE, 0.75)
@@ -800,6 +798,25 @@ pub(crate) fn dress_bricks(
                         center.extend(placed.map_or(0.0, |p| p.0 as f32 * 5.0e-5)),
                     ),
                 ));
+                if halloween
+                    && whole
+                    && let Some(black_white) = art.image(&pack.brick_art(&def.name))
+                {
+                    entity.insert_if_new(crate::packs::HalloweenAge(0.0));
+                    entity.with_child((
+                        crate::packs::HalloweenFade,
+                        Sprite {
+                            image: black_white,
+                            color: Color::NONE,
+                            custom_size: Some(size),
+                            ..default()
+                        },
+                        Transform::from_translation(
+                            // Half way to the next brick's depth.
+                            center.extend(placed.map_or(0.0, |p| p.0 as f32 * 5.0e-5) + 2.5e-5),
+                        ),
+                    ));
+                }
                 // Mystery 2 carries its rotor on top, over a dark shadow (MysteryBrick02 prefab).
                 if key == "mystery_blob" && whole {
                     let rotor = match (stone, brick.ice) {

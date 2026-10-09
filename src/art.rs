@@ -121,6 +121,14 @@ pub struct ArtEntry {
     pub light: Option<Pair<(f32, f32, f32, f32)>>,
     #[serde(default)]
     pub light_angle: Option<f32>,
+    /// With `bevel`: the outline and crack colour (r, g, b) 0 to 1, from the material's
+    /// `_BorderColor` where the brick's shader has one (Diamond, Galaxy).
+    #[serde(default)]
+    pub line: Option<(f32, f32, f32)>,
+    /// With `bevel`: only the light, shade and outline, see-through elsewhere, for a
+    /// pattern drawn under it (Galaxy's starfield, a render texture in the original).
+    #[serde(default)]
+    pub see_through: bool,
     /// Screen layers only: slides sideways at a speed picked from this range, in
     /// screen units a second, wrapping round the view (Race Pro's clouds: 0.15-0.25).
     #[serde(default)]
@@ -569,7 +577,15 @@ fn light_bricks(
     mut images: ResMut<Assets<Image>>,
     mut done: Local<std::collections::HashSet<String>>,
 ) {
-    type Ready = (String, Handle<Image>, Handle<Image>, [Srgba; 2], f32);
+    type Ready = (
+        String,
+        Handle<Image>,
+        Handle<Image>,
+        [Srgba; 2],
+        f32,
+        (f32, f32, f32),
+        bool,
+    );
     let ready: Vec<Ready> = art
         .entries
         .iter()
@@ -587,10 +603,12 @@ fn light_bricks(
                 bevel,
                 light,
                 entry.light_angle.unwrap_or(280.0),
+                entry.line.unwrap_or(BRICK_LINE),
+                entry.see_through,
             ))
         })
         .collect();
-    for (name, pattern, bevel, [high, shadow], angle) in ready {
+    for (name, pattern, bevel, [high, shadow], angle, line, see_through) in ready {
         done.insert(name.clone());
         let (Some(pattern), Some(mut out)) =
             (images.get(&pattern).cloned(), images.get(&bevel).cloned())
@@ -620,12 +638,28 @@ fn light_bricks(
                     let c = c + (t - c) * by.min(1.0) * to.alpha;
                     c + (line - c) * map.blue
                 };
-                let color = Color::srgba(
-                    lit(base.red, to.red, BRICK_LINE.0).clamp(0.0, 1.0),
-                    lit(base.green, to.green, BRICK_LINE.1).clamp(0.0, 1.0),
-                    lit(base.blue, to.blue, BRICK_LINE.2).clamp(0.0, 1.0),
-                    map.alpha.max(map.blue),
-                );
+                let color = if see_through {
+                    // Light or shade by the slope, the outline over it, nothing else.
+                    let shade = by.min(1.0) * to.alpha * map.alpha;
+                    let alpha = map.blue + (1.0 - map.blue) * shade;
+                    let mix = |t: f32, l: f32| {
+                        ((t * shade * (1.0 - map.blue) + l * map.blue) / alpha.max(1.0e-3))
+                            .clamp(0.0, 1.0)
+                    };
+                    Color::srgba(
+                        mix(to.red, line.0),
+                        mix(to.green, line.1),
+                        mix(to.blue, line.2),
+                        alpha,
+                    )
+                } else {
+                    Color::srgba(
+                        lit(base.red, to.red, line.0).clamp(0.0, 1.0),
+                        lit(base.green, to.green, line.1).clamp(0.0, 1.0),
+                        lit(base.blue, to.blue, line.2).clamp(0.0, 1.0),
+                        map.alpha.max(map.blue),
+                    )
+                };
                 let _ = out.set_color_at(x, y, color);
             }
         }

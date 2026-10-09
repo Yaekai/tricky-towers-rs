@@ -889,12 +889,12 @@ impl BrickPack {
     }
 
     /// The art a normal brick of `shape` uses with this pack. Hologram draws the
-    /// default textures (through its glitch effect); Galaxy has no texture of its own
-    /// and is drawn as a starfield, and Halloween looks like the base skin (greyish once
-    /// placed), so they all start from the default.
+    /// default textures (through its glitch effect) and Galaxy has no texture of its own
+    /// (a starfield under `brick_galaxy_<shape>`'s light and outline), so they start from
+    /// the default. Halloween's is its black-and-white look, faded in over the default.
     pub fn brick_art(self, shape: &str) -> String {
         match self {
-            BrickPack::Default | BrickPack::Hologram | BrickPack::Galaxy | BrickPack::Halloween => {
+            BrickPack::Default | BrickPack::Hologram | BrickPack::Galaxy => {
                 format!("brick_{shape}")
             }
             pack => format!("brick_{}_{shape}", pack.key()),

@@ -111,6 +111,7 @@ fn draw_panel(
                         opponents: Some(state.opponents),
                         trial: None,
                         cup: None,
+                        skin: None,
                     });
                 }
             }

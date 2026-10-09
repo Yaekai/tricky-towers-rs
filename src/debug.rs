@@ -76,6 +76,9 @@ pub enum DebugCommand {
         /// Start this cup (0 Tiny, 1 Big, 2 Super) with the match's mode and difficulty.
         #[serde(default)]
         cup: Option<usize>,
+        /// Every tower's wizard and brick pack.
+        #[serde(default)]
+        skin: Option<(usize, crate::config::BrickPack)>,
     },
     /// Press a button once for tower `tower` (0 is player 1).
     Press {
@@ -215,7 +218,11 @@ fn apply_debug_commands(
                 opponents,
                 trial,
                 cup,
+                skin,
             } => {
+                if let Some(skin) = skin {
+                    config.skins = vec![skin; 4];
+                }
                 config.mode = mode;
                 config.trial = trial;
                 if difficulty.is_some() {
