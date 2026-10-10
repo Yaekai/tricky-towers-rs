@@ -35,8 +35,7 @@ impl Default for GalaxyDebug {
 impl Plugin for PacksPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GalaxyDebug>()
-            .init_resource::<GalaxySky>()
-            .add_systems(Startup, make_holo_ramp);
+            .init_resource::<GalaxySky>();
         app.add_systems(
             Update,
             (
@@ -46,7 +45,6 @@ impl Plugin for PacksPlugin {
                 fade_halloween,
                 pulse_decorations,
                 glitch_holograms,
-                scan_holograms,
                 gloss_diamonds,
                 turn_galaxy_bricks,
             ),
@@ -94,24 +92,6 @@ struct Glitch {
     span: f32,
     seed: u32,
 }
-
-/// One cell's scan lines on a Hologram brick: the original's shader blends the base colour
-/// towards (0.8, 1, 1) by k x frac(3 y + t), k = 0.2 + 0.025 (sin 50 t + 1), with y the world
-/// height in cells. A ramp picture tiled up the cell stands in for frac().
-#[derive(Component)]
-struct HoloScan;
-
-/// The scan-line ramp: alpha from 0 to 1 up one period, repeating.
-#[derive(Resource)]
-struct HoloRamp(Handle<Image>);
-
-/// Texels in one scan-line period of `HoloRamp`.
-const HOLO_RAMP: u32 = 32;
-
-/// The original blends in gamma space and we blend in linear light, which makes the same
-/// alpha read stronger here. This scales the scan lines' alpha down to match Max's Hologram
-/// frame (a measured stand-in for the blending difference, not part of the shader).
-const HOLO_SCAN_LINEAR: f32 = 0.35;
 
 /// A Diamond brick's sweep (DiamondBrickModifier): every 6 to 15 s, the first right away, its
 /// strength goes to 0.7 over 0.15 s (OutQuad), holds, and falls back over the last 0.15 s of
@@ -298,7 +278,7 @@ fn decorate_bricks(
     skins: Query<&TowerSkin>,
     since: Query<&HalloweenSince>,
     time: Res<Time>,
-    ramp: Option<Res<HoloRamp>>,
+    mut holo_bricks: Option<ResMut<Assets<crate::brick_material::HologramBrick>>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut galaxy_bricks: Option<ResMut<Assets<GalaxyBrick>>>,
     mut diamond_bricks: Option<ResMut<Assets<DiamondBrick>>>,
@@ -471,30 +451,35 @@ fn decorate_bricks(
                 }
             }
             BrickPack::Hologram => {
-                // The glitch starts once the brick is placed (HologramBrickModifier is applied
-                // then); the scan lines are the pack's shader, there from the start.
-                if placed {
-                    brick_entity.insert(Glitch {
-                        wait: 0.0,
+                // One quad over the piece's box drawn by the Hologram material: the base skin
+                // with the pack's scan lines and glitch (docs/research/hologram.md). The glitch
+                // starts once the brick is placed (HologramBrickModifier is applied then).
+                let key = format!("brick_{}", config.pieces[brick.piece].name);
+                let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
+                let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
+                let size = (max - min + Vec2::ONE) * c;
+                let center = (min + max) * 0.5 * c;
+                if let Some((mesh, material)) = meshes.as_mut().zip(holo_bricks.as_mut()).and_then(
+                    |(meshes, holo_bricks)| {
+                        crate::brick_material::hologram_brick(&art, &key, size, c, meshes, holo_bricks)
+                    },
+                ) {
+                    // An unplaced brick's glitch never comes.
+                    let glitch = Glitch {
+                        wait: if placed { 0.0 } else { f32::INFINITY },
                         left: 0.0,
                         span: 0.0,
                         seed,
-                    });
-                }
-                if let Some(ramp) = ramp.as_ref() {
-                    for &cell in cells {
-                        brick_entity.with_child((
-                            HoloScan,
-                            Sprite {
-                                image: ramp.0.clone(),
-                                color: Color::srgba(0.8, 1.0, 1.0, 0.0),
-                                custom_size: Some(Vec2::splat(c)),
-                                rect: Some(Rect::new(0.0, 0.0, 1.0, HOLO_RAMP as f32)),
-                                ..default()
-                            },
-                            Transform::from_translation((cell * c).extend(0.03)),
-                        ));
-                    }
+                    };
+                    crate::brick_material::spawn_quad(
+                        &mut brick_entity,
+                        Transform::from_translation(center.extend(0.0)),
+                        Color::WHITE,
+                        CellSprite,
+                        glitch,
+                        mesh,
+                        material,
+                    );
                 }
             }
             BrickPack::Diamond => {
@@ -547,8 +532,10 @@ fn decorate_bricks(
                         Transform::from_translation(center.extend(0.02)),
                         Color::WHITE,
                         CellSprite,
+                        // The sweep starts once the brick is placed (DiamondBrickModifier
+                        // is applied then); the bands are the pack's shader, there from spawn.
                         Gloss {
-                            wait: 0.0,
+                            wait: if placed { 0.0 } else { f32::INFINITY },
                             time: -1.0,
                             seed,
                             turn: 1.0,
@@ -764,19 +751,18 @@ fn pulse_decorations(time: Res<Time>, mut items: Query<(&mut Pulse, &mut Transfo
     }
 }
 
-/// The glitch, as the original's shader does it: while the distortion D is up, the brick
-/// flickers see-through, alpha 1 - D x h with h a fresh random every tenth of a second, and its
-/// rows tear sideways (each cell takes its own share here). At rest it's the base skin, solid.
+/// Runs each placed Hologram brick's glitch and hands its distortion to the material, which
+/// draws the flicker, the torn rows, the bright bands and the outline from it.
 fn glitch_holograms(
     time: Res<Time>,
-    mut bricks: Query<(&mut Glitch, &Children)>,
-    mut sprites: Query<(&mut Sprite, &mut Transform), With<CellSprite>>,
+    mut quads: Query<(&mut Glitch, &MeshMaterial2d<crate::brick_material::HologramBrick>)>,
+    mut materials: Option<ResMut<Assets<crate::brick_material::HologramBrick>>>,
 ) {
+    let Some(materials) = materials.as_mut() else {
+        return;
+    };
     let dt = time.delta_secs();
-    // The shader's hash: frac(sin(100 n) x 18336.82) for n = floor(10 t).
-    let step = (time.elapsed_secs() * 10.0).floor();
-    let flicker = ((step * 100.0).sin() * 18_336.822).rem_euclid(1.0);
-    for (mut glitch, children) in &mut bricks {
+    for (mut glitch, material) in &mut quads {
         let mut seed = glitch.seed;
         if glitch.left > 0.0 {
             glitch.left -= dt;
@@ -788,20 +774,17 @@ fn glitch_holograms(
                 glitch.wait = between(&mut seed, 6.0, 15.0);
             }
         }
-        let on = glitch.left > 0.0;
-        let amount = if on {
+        glitch.seed = seed;
+        let amount = if glitch.left > 0.0 {
             glitch_amount(1.0 - glitch.left / glitch.span)
         } else {
             0.0
         };
-        let width = amount * 6.0;
-        for child in children.iter() {
-            if let Ok((mut sprite, mut transform)) = sprites.get_mut(child) {
-                sprite.color = Color::srgba(1.0, 1.0, 1.0, 1.0 - amount * flicker);
-                transform.translation.x = glitch_slice(width, roll(&mut seed));
-            }
+        if materials.get(&material.0).is_some_and(|m| m.look.params.y != amount)
+            && let Some(mut brick) = materials.get_mut(&material.0)
+        {
+            brick.look.params.y = amount;
         }
-        glitch.seed = seed;
     }
 }
 
@@ -815,59 +798,6 @@ pub(crate) fn glitch_amount(progress: f32) -> f32 {
     } else {
         1.0 - out_quad(p * 2.0 - 1.0)
     }
-}
-
-/// Moves each Hologram cell's scan lines with its world height and time, and pulses them.
-fn scan_holograms(
-    time: Res<Time>,
-    mut scans: Query<(&mut Sprite, &GlobalTransform), With<HoloScan>>,
-    config: Res<GameConfig>,
-) {
-    let t = time.elapsed_secs();
-    let k = 0.2 + 0.025 * ((50.0 * t).sin() + 1.0);
-    let period = HOLO_RAMP as f32;
-    for (mut sprite, at) in &mut scans {
-        // frac(3 y + t) up the cell: three periods a cell, the picture's rows run down.
-        let y = at.translation().y / config.cell_size;
-        let top = -(3.0 * (y + 0.5) + t) * period;
-        sprite.rect = Some(Rect::new(0.0, top, 1.0, top + 3.0 * period));
-        sprite.color = Color::srgba(0.8, 1.0, 1.0, k * HOLO_SCAN_LINEAR);
-    }
-}
-
-/// Makes the scan-line ramp once: a 1 x 32 picture, white, alpha rising up it, repeating.
-fn make_holo_ramp(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    use bevy::asset::RenderAssetUsages;
-    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-    let mut data = Vec::with_capacity(HOLO_RAMP as usize * 4);
-    for row in 0..HOLO_RAMP {
-        // Row 0 is the top: alpha 1 there, falling to 0 at the bottom (rising upwards).
-        let a = 1.0 - (row as f32 + 0.5) / HOLO_RAMP as f32;
-        data.extend_from_slice(&[255, 255, 255, (a * 255.0).round() as u8]);
-    }
-    let mut image = Image::new(
-        Extent3d {
-            width: 1,
-            height: HOLO_RAMP,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
-    );
-    image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-        address_mode_u: ImageAddressMode::Repeat,
-        address_mode_v: ImageAddressMode::Repeat,
-        ..ImageSamplerDescriptor::nearest()
-    });
-    commands.insert_resource(HoloRamp(images.add(image)));
-}
-
-/// One cell's sideways tear during a glitch: `roll` (0 to 1) picks how far, within
-/// `width` either way.
-pub(crate) fn glitch_slice(width: f32, roll: f32) -> f32 {
-    (roll - 0.5) * 2.0 * width
 }
 
 /// Runs each Diamond brick's sweep and keeps its light fixed in the world (the material turns
@@ -1026,15 +956,6 @@ fn repeat_starfield(images: &mut Assets<Image>, handle: &Handle<Image>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_glitch_tears_each_cell_within_its_width() {
-        assert_eq!(glitch_slice(0.0, 0.9), 0.0, "no glitch, no tear");
-        for r in [0.0, 0.25, 0.5, 0.75, 1.0] {
-            assert!(glitch_slice(3.0, r).abs() <= 3.0 + 1e-6);
-        }
-        assert!(glitch_slice(3.0, 0.0) < 0.0 && glitch_slice(3.0, 1.0) > 0.0);
-    }
 
     #[test]
     fn the_diamond_sweep_rises_holds_and_turns_a_full_circle() {

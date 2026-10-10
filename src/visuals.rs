@@ -720,8 +720,13 @@ pub(crate) fn dress_bricks(
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
         let pack = skins.get(brick.tower).map(|s| s.pack).unwrap_or_default();
-        // Galaxy and Diamond bricks are drawn by their own materials in packs.rs.
-        if matches!(pack, crate::config::BrickPack::Galaxy | crate::config::BrickPack::Diamond)
+        // Galaxy, Diamond and Hologram bricks are drawn by their own materials in packs.rs.
+        if matches!(
+            pack,
+            crate::config::BrickPack::Galaxy
+                | crate::config::BrickPack::Diamond
+                | crate::config::BrickPack::Hologram
+        )
             && brick.piece < config.pieces.len()
             && !stone
             && !brick.ice

@@ -343,6 +343,139 @@ impl Material2d for LitBrick {
     }
 }
 
+const HOLO_SHADER: Handle<Shader> = uuid_handle!("e5b27d90-3a4c-4f1e-9d86-1c7a5f0b3e28");
+
+const HOLO_WGSL: &str = r#"// A Hologram brick, the way the original's World/Bricks/Hologram shader draws it
+// (docs/research/hologram.md), written from those notes, on stored (sRGB) values.
+#import bevy_sprite::{
+    mesh2d_vertex_output::VertexOutput,
+    mesh2d_view_bindings::globals,
+}
+#import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
+
+struct HologramBrick {
+    highlight: vec4<f32>,
+    shadow: vec4<f32>,
+    // x: the brick's rotation, y: the glitch's distortion, z: pixels per cell, w: flash.
+    params: vec4<f32>,
+    tint: vec4<f32>,
+};
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: HologramBrick;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var bevel: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var bevel_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var pattern: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(4) var pattern_sampler: sampler;
+
+// The shader's hash.
+fn hash(n: f32) -> f32 {
+    return fract(sin(n) * 18336.822);
+}
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let t = globals.time;
+    let d = material.params.y;
+    // Unity's up-is-positive UVs.
+    let uv = vec2(mesh.uv.x, 1.0 - mesh.uv.y);
+    let world_y = mesh.world_position.y / material.params.z;
+
+    // Scan lines: towards (0.8, 1, 1) by a flickering share of frac(3 y + t).
+    let k = (sin(50.0 * t) + 1.0) * 0.025 + 0.2;
+    let pat = linear_to_srgb(textureSample(pattern, pattern_sampler, mesh.uv).rgb);
+    var colour = mix(pat, vec3(0.8, 1.0, 1.0), k * fract(3.0 * world_y + t));
+
+    // The glitch: a flicker ten times a second, rows torn sideways, some bands brighter.
+    let step = floor(10.0 * t) * 100.0;
+    let flicker = 1.0 - d * hash(step);
+    let r10 = floor(10.0 * uv.y) + step;
+    let r30 = floor(30.0 * uv.y) + step;
+    let n10 = mix(hash(r10), hash(r10 + 1.0), fract(10.0 * uv.y));
+    let n30 = mix(hash(r30), hash(r30 + 1.0), fract(30.0 * uv.y));
+    let tear = floor((2.0 * n10 - 1.0) * d + 0.5) * 0.1;
+    colour = colour + vec3(floor(1.5 * n30 + 0.5) / 6.0 * d);
+    let at = vec2(uv.x + tear, uv.y);
+    let map_linear = textureSample(bevel, bevel_sampler, vec2(at.x, 1.0 - at.y));
+    let map = vec4(linear_to_srgb(map_linear.rgb), map_linear.a);
+
+    // The bevel's slope, turned with the brick into the world, lit from up and to the left.
+    let n = map.rg * 2.0 - 1.0;
+    let r = material.params.x;
+    let world_n = vec2(cos(r) * n.x - sin(r) * n.y, sin(r) * n.x + cos(r) * n.y);
+    let l = dot(world_n, vec2(-0.44721359, 0.89442718));
+    colour = mix(colour, material.highlight.rgb, clamp(l, 0.0, 1.0) * material.highlight.a);
+    colour = mix(colour, material.shadow.rgb, clamp(-l, 0.0, 1.0) * material.shadow.a);
+
+    // The outline, black at rest, (0.8, 1, 1) through a glitch.
+    let outline = 1.0 - (1.0 - map.b) * map.a;
+    colour = mix(colour, d * vec3(0.8, 1.0, 1.0), outline);
+    colour = colour + material.params.w * (1.0 - colour);
+    let alpha = max(flicker * map.a, map.b);
+    let out = srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0)));
+    return vec4(out * material.tint.rgb, alpha * material.tint.a);
+}
+"#;
+
+/// A Hologram brick's look: its bevel map, the base skin's unlit pattern and its light colours.
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct HologramBrick {
+    #[uniform(0)]
+    pub look: HoloLook,
+    #[texture(1)]
+    #[sampler(2)]
+    pub bevel: Handle<Image>,
+    #[texture(3)]
+    #[sampler(4)]
+    pub pattern: Handle<Image>,
+}
+
+/// The light colours (stored sRGB), x the brick's rotation, y the glitch's distortion, z pixels
+/// per cell, w flash; and the effects' tint.
+#[derive(ShaderType, Clone, Copy, Debug)]
+pub struct HoloLook {
+    pub highlight: Vec4,
+    pub shadow: Vec4,
+    pub params: Vec4,
+    pub tint: Vec4,
+}
+
+impl Material2d for HologramBrick {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(HOLO_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
+/// The mesh and material of a Hologram brick quad of `size` over manifest entry `key` (the
+/// base skin's brick), when it has light colours, a bevel map and its unlit pattern.
+pub fn hologram_brick(
+    art: &crate::art::Art,
+    key: &str,
+    size: Vec2,
+    cell: f32,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<HologramBrick>,
+) -> Option<(Handle<Mesh>, Handle<HologramBrick>)> {
+    let entry = art.entries.get(key)?;
+    let ((hr, hg, hb, ha), (sr, sg, sb, sa)) = entry.light.as_ref()?.get()?;
+    let bevel = art.images.get(entry.bevel.as_ref()?)?.clone();
+    let pattern = art.images.get(&format!("{key}_raw"))?.clone();
+    let material = materials.add(HologramBrick {
+        look: HoloLook {
+            highlight: Vec4::new(hr, hg, hb, ha),
+            shadow: Vec4::new(sr, sg, sb, sa),
+            params: Vec4::new(0.0, 0.0, cell, 0.0),
+            tint: Vec4::ONE,
+        },
+        bevel,
+        pattern,
+    });
+    Some((meshes.add(Rectangle::new(size.x, size.y)), material))
+}
+
 /// A quad drawn by one of the brick materials; its parent's `Sprite` carries the effects' tint.
 #[derive(Component)]
 pub struct BrickQuad;
@@ -410,6 +543,8 @@ fn follow_bricks(
     lit: Query<(&MeshMaterial2d<LitBrick>, &GlobalTransform, &ChildOf), With<BrickQuad>>,
     galaxy: Query<(&MeshMaterial2d<GalaxyBrick>, &ChildOf), With<BrickQuad>>,
     diamond: Query<(&MeshMaterial2d<DiamondBrick>, &ChildOf), With<BrickQuad>>,
+    holo: Query<(&MeshMaterial2d<HologramBrick>, &GlobalTransform, &ChildOf), With<BrickQuad>>,
+    mut holo_materials: Option<ResMut<Assets<HologramBrick>>>,
     mut lit_materials: Option<ResMut<Assets<LitBrick>>>,
     mut galaxy_materials: Option<ResMut<Assets<GalaxyBrick>>>,
     mut diamond_materials: Option<ResMut<Assets<DiamondBrick>>>,
@@ -421,6 +556,19 @@ fn follow_bricks(
     };
     if let Some(materials) = lit_materials.as_mut() {
         for (material, at, of) in &lit {
+            let angle = at.rotation().to_euler(EulerRot::XYZ).2;
+            let tint = tint(of);
+            let same = materials
+                .get(&material.0)
+                .is_none_or(|m| (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint);
+            if !same && let Some(mut brick) = materials.get_mut(&material.0) {
+                brick.look.params.x = angle;
+                brick.look.tint = tint;
+            }
+        }
+    }
+    if let Some(materials) = holo_materials.as_mut() {
+        for (material, at, of) in &holo {
             let angle = at.rotation().to_euler(EulerRot::XYZ).2;
             let tint = tint(of);
             let same = materials
@@ -470,10 +618,15 @@ impl Plugin for BrickMaterialPlugin {
             .world_mut()
             .resource_mut::<Assets<Shader>>()
             .insert(LIT_SHADER.id(), Shader::from_wgsl(LIT_WGSL, "lit_brick.wgsl"));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(HOLO_SHADER.id(), Shader::from_wgsl(HOLO_WGSL, "hologram_brick.wgsl"));
         app.add_plugins((
             Material2dPlugin::<GalaxyBrick>::default(),
             Material2dPlugin::<DiamondBrick>::default(),
             Material2dPlugin::<LitBrick>::default(),
+            Material2dPlugin::<HologramBrick>::default(),
         ))
         .add_systems(Update, follow_bricks);
     }
