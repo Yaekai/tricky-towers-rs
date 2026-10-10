@@ -281,6 +281,12 @@ pub struct Letters {
     pub outline: Option<String>,
     #[serde(default)]
     pub outline_pad: f32,
+    /// The original's distance field for the same rectangles (in the alpha), so the letters can
+    /// be drawn sharp at any size; the face's edge sits at 0.5 of it, the outline's at 0.325.
+    #[serde(default)]
+    pub sdf: Option<String>,
+    #[serde(skip)]
+    pub sdf_handle: Option<Handle<Image>>,
     /// The loaded picture.
     #[serde(skip)]
     pub handle: Handle<Image>,
@@ -384,6 +390,11 @@ fn load_entries(
                     letters.handle = assets.load(format!("{prefix}{}", letters.image));
                     letters.outline_handle = letters
                         .outline
+                        .as_ref()
+                        .filter(|file| dir.join(file).is_file())
+                        .map(|file| assets.load(format!("{prefix}{file}")));
+                    letters.sdf_handle = letters
+                        .sdf
                         .as_ref()
                         .filter(|file| dir.join(file).is_file())
                         .map(|file| assets.load(format!("{prefix}{file}")));

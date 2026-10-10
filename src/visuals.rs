@@ -721,20 +721,16 @@ pub(crate) fn dress_bricks(
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
         let pack = skins.get(brick.tower).map(|s| s.pack).unwrap_or_default();
-        // Galaxy, Diamond and Hologram bricks are drawn by their own materials in packs.rs.
-        if matches!(
+        // Galaxy, Diamond and Hologram bricks are drawn by their own materials in packs.rs;
+        // their Ivy and grass still go on here.
+        let own_material = matches!(
             pack,
             crate::config::BrickPack::Galaxy
                 | crate::config::BrickPack::Diamond
                 | crate::config::BrickPack::Hologram
-        )
-            && brick.piece < config.pieces.len()
+        ) && brick.piece < config.pieces.len()
             && !stone
-            && !brick.ice
-        {
-            commands.entity(entity).insert(Visibility::default()).despawn_children();
-            continue;
-        }
+            && !brick.ice;
         // A normal brick takes its tower's brick pack art (default when not staged);
         // stone and ice keep their own looks.
         let key = if brick.piece < config.pieces.len() {
@@ -801,13 +797,14 @@ pub(crate) fn dress_bricks(
                     center.extend(placed.map_or(0.0, |p| p.0 as f32 * 5.0e-5)),
                 );
                 // A plain brick with light colours is lit in the world by its material.
-                let lit = (whole && !stone && !brick.ice)
+                let lit = (whole && !stone && !brick.ice && !own_material)
                     .then_some(())
                     .and(meshes.as_mut().zip(lit_bricks.as_mut()))
                     .and_then(|(meshes, lit_bricks)| {
                         crate::brick_material::lit_brick(&art, &key, size, color, meshes, lit_bricks)
                     });
                 match lit {
+                    _ if own_material => {}
                     Some((mesh, material)) => {
                         crate::brick_material::spawn_quad(&mut entity, at, color, CellSprite, (), mesh, material);
                     }
@@ -906,21 +903,20 @@ pub(crate) fn dress_bricks(
                 }
                 for (i, (name, at, z)) in picks.into_iter().enumerate() {
                     let salt = 500 + i as u64 * 11;
-                    if let Some((sprite, anchor, mut transform)) = art_sprite(&art, &name, cell) {
-                        transform.translation = at.extend(z);
+                    if let Some((sprite, anchor, transform)) = art_sprite(&art, &name, cell) {
                         let show_at = time.elapsed_secs() + roll(salt) * 0.3;
                         let turn = if roll(salt + 1) < 0.5 { -1.0 } else { 1.0 };
-                        // The animations go on the decoration, never on the brick (they set
-                        // its Transform, which would shrink and spin the brick's body).
+                        // The animations go on a holder for the decoration, never on the brick
+                        // (they set its Transform, which would shrink and spin the brick's
+                        // body); the picture keeps its own scale under the holder.
                         entity.with_children(|parent| {
                             let mut piece = parent.spawn((
-                                sprite,
-                                anchor,
-                                transform,
+                                Transform::from_translation(at.extend(z)),
                                 Visibility::Hidden,
                                 EdgeDelay { show_at },
                                 EdgeGrow { start: show_at },
                             ));
+                            piece.with_child((sprite, anchor, transform));
                             // Flowers turn and eggs pulse after a random 5 to 15 s.
                             if name.contains("flower") {
                                 piece.insert(FlowerTurn {
@@ -1033,8 +1029,9 @@ fn dissolve_zapped(
         return;
     };
     for (entity, brick, zap, children) in &started {
+        // The brick or its pieces may go in the same frame (redrawn, or the zap ends).
         for &child in children.into_iter().flatten() {
-            commands.entity(child).insert(Visibility::Hidden);
+            commands.entity(child).try_insert(Visibility::Hidden);
         }
         let def = piece_def(&config, brick.piece);
         let key = if brick.piece < config.pieces.len() {
@@ -1063,12 +1060,17 @@ fn dissolve_zapped(
                 mask,
                 noise,
             });
-            commands.entity(entity).with_child((
+            let quad = (
                 ZapQuad,
                 Mesh2d(meshes.add(Rectangle::new(size.x, size.y))),
                 MeshMaterial2d(material),
                 Transform::from_translation(((min + max) * 0.5 * cell).extend(0.05)),
-            ));
+            );
+            commands
+                .entity(entity)
+                .queue_silenced(move |mut brick: EntityWorldMut| {
+                    brick.with_child(quad);
+                });
         }
         let pick = (entity.to_bits() % 2) as usize;
         let name = ["sfx_cast_light", "sfx_cast_lightning_level_02"][pick];

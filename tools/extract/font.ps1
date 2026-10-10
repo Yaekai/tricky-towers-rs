@@ -27,6 +27,25 @@ public static class Sdf {
     src.UnlockBits(s); dst.UnlockBits(d);
     return dst;
   }
+  // The distance field itself, in the alpha of white pixels (alpha stays linear when loaded),
+  // for drawing the letters sharp at any size as TextMeshPro does.
+  public static Bitmap ToField(Bitmap src) {
+    int w = src.Width, h = src.Height;
+    var dst = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+    var r = new Rectangle(0, 0, w, h);
+    var s = src.LockBits(r, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+    var d = dst.LockBits(r, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+    var sb = new byte[s.Stride * h]; Marshal.Copy(s.Scan0, sb, 0, sb.Length);
+    var db = new byte[d.Stride * h];
+    for (int i = 0; i < w * h; i++) {
+      int o = i * 4;
+      int raw = sb[o + 3] == 255 ? sb[o + 2] : sb[o + 3];
+      db[o] = 255; db[o + 1] = 255; db[o + 2] = 255; db[o + 3] = (byte)raw;
+    }
+    Marshal.Copy(db, 0, d.Scan0, db.Length);
+    src.UnlockBits(s); dst.UnlockBits(d);
+    return dst;
+  }
 }
 "@
 $inv = [Globalization.CultureInfo]::InvariantCulture
@@ -46,6 +65,9 @@ $letters.Save((Join-Path $X "fonts\$OutName.png"), [System.Drawing.Imaging.Image
 $outline = [Sdf]::ToAlpha($src, 0.25, 0.4)
 $outline.Save((Join-Path $X "fonts\${OutName}_outline.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $outline.Dispose()
+$field = [Sdf]::ToField($src)
+$field.Save((Join-Path $X "fonts\${OutName}_sdf.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$field.Dispose()
 $aw = $src.Width; $ah = $src.Height
 $src.Dispose(); $letters.Dispose()
 
@@ -68,6 +90,7 @@ foreach ($m in [regex]::Matches($block, $rx)) {
 $out = @("// The original's letters ($FontName), from your own install. Do not commit.", '(',
   "    image: `"fonts/$OutName.png`",",
   "    outline: Some(`"fonts/${OutName}_outline.png`"),",
+  "    sdf: Some(`"fonts/${OutName}_sdf.png`"),",
   '    outline_pad: 5,',
   [string]::Format($inv, '    size: {0:0.###},', $size),
   [string]::Format($inv, '    line_height: {0:0.###},', $line),
