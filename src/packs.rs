@@ -599,13 +599,14 @@ fn scroll_galaxy(
     }
 }
 
-/// The texels of the shared starfield one cell shows. A cell is 64 texels of the field
-/// wide and the field drifts (0.05, -0.07) of the texture a second. Positions are not
-/// wrapped, so neighbouring cells always line up.
+/// The texels of the shared starfield one cell shows. A cell is 51.2 texels of the field
+/// wide. The original moves its texture offset by (0.05, -0.07) a second in Unity's UVs, whose
+/// v runs up, so the sky slides left and up; our texel rows run down, so the row offset is
+/// +0.07. Positions are not wrapped, so neighbouring cells always line up.
 pub(crate) fn galaxy_window(world: Vec2, cell: f32, texture: Vec2, t: f32) -> Rect {
     let scale = GALAXY_TEXELS / (GALAXY_FIELD_CELLS * cell);
     let side = GALAXY_TEXELS / GALAXY_FIELD_CELLS;
-    let p = Vec2::new(world.x * scale, -world.y * scale) + texture * Vec2::new(0.05, -0.07) * t;
+    let p = Vec2::new(world.x * scale, -world.y * scale) + texture * Vec2::new(0.05, 0.07) * t;
     Rect::new(p.x, p.y, p.x + side, p.y + side)
 }
 
@@ -635,7 +636,8 @@ fn place_galaxy_stars(
 ) {
     let t = if galaxy.scroll { time.elapsed_secs() } else { 0.0 };
     let half = GALAXY_FIELD_CELLS * 0.5;
-    // The field's offset in cells: the sky moves (-0.05, +0.07) of the texture a second.
+    // The field's offset in cells: the sky slides left and up, 0.05 and 0.07 of the field a
+    // second (Max's Race trial clip shows the stars drifting up).
     let drift = Vec2::new(-0.05, 0.07) * GALAXY_FIELD_CELLS * t;
     let wrap = |v: Vec2| (v + Vec2::splat(half)).rem_euclid(Vec2::splat(GALAXY_FIELD_CELLS)) - Vec2::splat(half);
     for (star, parent, mut transform, mut visibility) in &mut stars {
@@ -646,7 +648,7 @@ fn place_galaxy_stars(
         let centre = brick.translation().truncate() + (rotation * (star.at * star.px).extend(0.0)).truncate();
         // Where this star is in the field, in cells: the half-cell is the window's centre.
         let (x, y) = GALAXY_STARS[star.index];
-        let field = Vec2::new(x + half - 0.5, y - half + 0.5) + Vec2::new(drift.x, -drift.y);
+        let field = Vec2::new(x + half - 0.5, y - half + 0.5) + drift;
         let offset = wrap(field - centre / star.px);
         // Back into the brick's own cell frame, in cells.
         let local = rotation.inverse() * (offset * star.px).extend(0.0);

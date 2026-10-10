@@ -62,3 +62,7 @@ export's prefabs and materials (the Galaxy brick pack prefabs and the BrickGalax
 
 ## Body colour matched to the clip (2026-10-10)
 - With the sky gain `GALAXY_BODY` (linear (1.38, 1.29, 4.25), from the clip's body (147, 31, 185) against the picture's (127, 27, 95)), our spread over the same tower is R 57 / 131 / 201, G 20 / 35 / 97, B 77 / 146 / 254 (10th / median / 90th), against the clip's R 59 / 121 / 175, G 20 / 36 / 99, B 84 / 142 / 210. The medians match; our brightest parts run a little hot.
+
+## Drift direction (2026-10-10)
+- The original moves the sky's texture offset by (0.05, -0.07) a second in Unity's UVs, where v runs up: the sky slides left and up. Max's Race trial clip agrees (inside a settled brick, the sky moves left and a little up between frames half a second apart; the match is rough because the bevel doesn't move).
+- Ours slid left and down: our texel rows run down, so the -0.07 had the wrong sign. Fixed in `galaxy_window` and `place_galaxy_stars`. Checked by reasoning and against the clip; an offscreen comparison of two pictures wasn't usable (bricks were placed between them).
