@@ -133,6 +133,8 @@ const GALAXY_LINE_WIDTH: f32 = 0.05;
 /// this many cells (the scene's 9.2 units; the stars' positions below are in those units).
 const GALAXY_TEXELS: f32 = 512.0;
 const GALAXY_FIELD_CELLS: f32 = 9.2;
+/// A star's picture is 18 px at 26 px to the unit in the original's scene: 0.69 units.
+const GALAXY_STAR_SIZE: f32 = 18.0 / 26.0;
 
 /// The 49 star positions of the original's Galaxy scene (Galaxy.prefab, the Stars parent),
 /// in the scene's units from its centre.
@@ -338,7 +340,7 @@ fn decorate_bricks(
                                 },
                                 Sprite {
                                     image: star.clone(),
-                                    custom_size: Some(Vec2::splat(c * 0.35)),
+                                    custom_size: Some(Vec2::splat(c * GALAXY_STAR_SIZE)),
                                     ..default()
                                 },
                                 Transform::default(),
