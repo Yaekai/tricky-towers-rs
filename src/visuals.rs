@@ -901,26 +901,30 @@ pub(crate) fn dress_bricks(
                         transform.translation = at.extend(z);
                         let show_at = time.elapsed_secs() + roll(salt) * 0.3;
                         let turn = if roll(salt + 1) < 0.5 { -1.0 } else { 1.0 };
-                        let piece = entity.with_child((
-                            sprite,
-                            anchor,
-                            transform,
-                            Visibility::Hidden,
-                            EdgeDelay { show_at },
-                        ));
-                        piece.insert(EdgeGrow { start: show_at });
-                        // Flowers turn and eggs pulse after a random 5 to 15 s.
-                        if name.contains("flower") {
-                            piece.insert(FlowerTurn {
-                                start: show_at + 5.0 + roll(salt + 2) * 10.0,
-                                turn,
-                            });
-                        } else if name.contains("egg") {
-                            piece.insert(EggPulse {
-                                start: show_at + 5.0 + roll(salt + 2) * 10.0,
-                                x_first: roll(salt + 3) < 0.5,
-                            });
-                        }
+                        // The animations go on the decoration, never on the brick (they set
+                        // its Transform, which would shrink and spin the brick's body).
+                        entity.with_children(|parent| {
+                            let mut piece = parent.spawn((
+                                sprite,
+                                anchor,
+                                transform,
+                                Visibility::Hidden,
+                                EdgeDelay { show_at },
+                                EdgeGrow { start: show_at },
+                            ));
+                            // Flowers turn and eggs pulse after a random 5 to 15 s.
+                            if name.contains("flower") {
+                                piece.insert(FlowerTurn {
+                                    start: show_at + 5.0 + roll(salt + 2) * 10.0,
+                                    turn,
+                                });
+                            } else if name.contains("egg") {
+                                piece.insert(EggPulse {
+                                    start: show_at + 5.0 + roll(salt + 2) * 10.0,
+                                    x_first: roll(salt + 3) < 0.5,
+                                });
+                            }
+                        });
                     }
                 }
             }
