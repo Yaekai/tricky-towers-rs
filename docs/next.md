@@ -121,3 +121,7 @@ ours and need checking against the original (see docs/research/*.md and the vide
 - The staged manifest has, per Galaxy shape, `bevel`, `light` (highlight and shadow), `light_angle` 280, `see_through` and `line` (the outline colour). `ArtEntry` doesn't read `line` or `see_through` yet.
 - Plan: a `light_galaxy` system beside `light_bricks` (art.rs) that builds one overlay image per shape from its bevel map (the same slope maths, with the per-shape outline colour from the blue channel), and a child sprite per placed Galaxy piece (packs.rs) sized to the piece's box. The starfield stays underneath, seen through the shape.
 - Done (offscreen check, not on the PC): `light_galaxy` (art.rs) builds `brick_galaxy_<shape>_overlay` from each shape's bevel map, and packs.rs draws it over each Galaxy piece's box. Max to check the bevel and the outline on the PC.
+
+## Title tiles: wizard over the frame, earth size (blocked, PC staging)
+- The Local and Online tile art (menu_tile_<key>_front, staged from the install) is one picture: the frame, the wizard and the earth are already composed, in the frame's order. So the wizard can't sit above the border, and the earth overflows the box, from the staged picture itself (menu.rs `Tile::front`, the tile's offset and size only move it).
+- Fix needs the install: stage the wizard and the earth as their own layers above the frame (stage.ps1), then draw them over the frame in menu.rs. PC-only; parked until staging is possible.
