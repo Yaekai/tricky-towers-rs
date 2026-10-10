@@ -116,3 +116,8 @@ ours and need checking against the original (see docs/research/*.md and the vide
 - Select Players: the gold active line and the orange pack sunburst (from `TrickyTowers_a45e6a4.exe` on), with the arrow keys.
 - Title: the pale blue back cloud banks (not placed yet), the Online box and earth size, the wizard over the Local Battle border, the blue bars on the menu cards.
 - Puzzle: the bottom sand (bg_puzzle_sand_storm, foreground sand; not wired yet).
+
+## Next (no PC needed): Galaxy bevel and gloss
+- The staged manifest has, per Galaxy shape, `bevel`, `light` (highlight and shadow), `light_angle` 280, `see_through` and `line` (the outline colour). `ArtEntry` doesn't read `line` or `see_through` yet.
+- Plan: a `light_galaxy` system beside `light_bricks` (art.rs) that builds one overlay image per shape from its bevel map (the same slope maths, with the per-shape outline colour from the blue channel), and a child sprite per placed Galaxy piece (packs.rs) sized to the piece's box. The starfield stays underneath, seen through the shape.
+- Not done yet; the cloud thread's branches (galaxy-holo-rebased, galaxy-line) don't include it.
