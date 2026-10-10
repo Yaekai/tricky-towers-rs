@@ -351,7 +351,10 @@ fn decorate_bricks(
                             custom_size: Some(Vec2::splat(c * 0.8)),
                             ..default()
                         },
-                        Transform::from_translation((cell * c).extend(0.07)),
+                        // Turned up to 15 degrees either way (the original's angle variation).
+                        Transform::from_translation((cell * c).extend(0.07)).with_rotation(
+                            Quat::from_rotation_z((between(&mut seed, -15.0, 15.0)).to_radians()),
+                        ),
                     ));
                 }
             }
