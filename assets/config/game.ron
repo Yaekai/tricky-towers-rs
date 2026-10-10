@@ -99,6 +99,8 @@
             (0.45, 1.0),
             (0.5, 0.85),
         ],
+        rest_alpha: 0.95,
+        glitch_alpha: 0.8,
     ),
     casts: (
         dark_start: 0.8,
@@ -402,7 +404,7 @@
         sand_strip: 0.085,
         sand_lift: 0.027,
         sand_alpha: 0.803,
-        sand_front: 0.089,
+        sand_front: 0.2,
         puzzle_pro_sky: [
             (171, 5, 76),
             (184, 68, 66),

@@ -115,7 +115,7 @@ ours and need checking against the original (see docs/research/*.md and the vide
 - PackLine run in a Race match (the spawn spot and spacing).
 - Select Players: the gold active line and the orange pack sunburst (from `TrickyTowers_a45e6a4.exe` on), with the arrow keys.
 - Title: the pale blue back cloud banks (six Race clouds, menu.rs TITLE_BACK_LAYERS, checked offscreen only: they read as clouds but not yet as the reference's continuous banks), the Online box and earth size, the wizard over the Local Battle border, the blue bars on the menu cards.
-- Puzzle: the bottom sand (bg_puzzle_sand_storm, foreground sand; not wired yet).
+- Puzzle: the bottom sand. Raised the front sand band from 8.9% to 20% of the view height (config sand_front, a guess by eye against the desert reference, checked offscreen only). Max to check the haze on the PC.
 
 ## Next (no PC needed): Galaxy bevel and gloss
 - The staged manifest has, per Galaxy shape, `bevel`, `light` (highlight and shadow), `light_angle` 280, `see_through` and `line` (the outline colour). `ArtEntry` doesn't read `line` or `see_through` yet.

@@ -2099,7 +2099,7 @@ impl Default for WeatherLook {
             sand_strip: 0.085,
             sand_lift: 0.027,
             sand_alpha: 0.803,
-            sand_front: 0.089,
+            sand_front: 0.2,
             puzzle_pro_sky: vec![[0xAB, 0x05, 0x4C], [0xB8, 0x44, 0x42]],
             // DesertProSun sits 9 units above the view centre; gph_eclipsedSun is
             // 408 px at 26 px a unit; the view is 41.54 units tall.
