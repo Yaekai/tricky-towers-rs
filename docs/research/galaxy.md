@@ -31,3 +31,7 @@ export's prefabs and materials (the Galaxy brick pack prefabs and the BrickGalax
   is in the export as a stub, so the seams can't be read from the install. The bars stayed with
   our lines off on the PC, so they are probably seams in our build, not the original's lines.
 - How many stars show at once in the original's frame (the 49 are all in the scene).
+
+## Stars: size and glow (read from the prefab)
+- Each star's sprite is 18 px at 26 px to the unit: 0.69 units, at scale 1 in the scene. Our star size is now 0.69 cells (`GALAXY_STAR_SIZE`).
+- The star renderers use the default sprite material, white, no tint, sorting order 1. The prefab has no separate glow layer or bloom, so any glow in the frames comes from the star art itself. Our star art is the same sprite.
