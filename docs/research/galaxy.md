@@ -40,3 +40,6 @@ export's prefabs and materials (the Galaxy brick pack prefabs and the BrickGalax
 - Median brick colour on the same crop: the original about (131, 35, 146), ours about (120, 32, 98) with the bevel. We are too red and not blue enough.
 - A tint on the starfield made ours darker, not bluer, so it was reverted. The gap is probably in the field's own colours or the bevel's highlight (the highlight colour is pinkish). Not fixed.
 - The field: the Background sprite is gph_galaxy_background, the same picture we stage. Its median colour is (127, 27, 95), so the raw field is already our colour; the missing blue comes from the shading on top. The original's shadow colour is violet (0.77, 0.53, 0.99 at 0.62), and that's where the extra blue would come from. So the next check is the bevel's light direction and how much of each brick is in shadow, not the field.
+
+## Shading strength test (not kept)
+- Doubling the bevel's shading strength moved every channel: the median went to about (138, 33, 112) against the clip's (121, 36, 142), so red overshot and blue barely moved. Reverted; the blue gap isn't a shading-strength problem.
