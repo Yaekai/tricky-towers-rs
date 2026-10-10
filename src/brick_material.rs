@@ -27,6 +27,9 @@ struct GalaxyBrick {
     border: vec4<f32>,
     // x: hue turn (radians), y: the brick's rotation (radians), z: pixels per cell, w: flash.
     params: vec4<f32>,
+    // The 49 stars of the original's Galaxy scene: x, y in scene units from its centre,
+    // z scale, w turn (radians).
+    stars: array<vec4<f32>, 49>,
 };
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: GalaxyBrick;
@@ -34,6 +37,8 @@ struct GalaxyBrick {
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var bevel_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var sky: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var sky_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(5) var star: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(6) var star_sampler: sampler;
 
 // The original's hue turn, a YIQ-style rotation.
 fn hue(c: vec3<f32>, angle: f32) -> vec3<f32> {
@@ -58,7 +63,26 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let u = world.x * 0.1 + 0.05 * t + 0.1 * cos(0.3 * t);
     let v = world.y * 0.1 - 0.07 * t + 0.2 * sin(0.1 * t);
     let sky_linear = textureSample(sky, sky_sampler, vec2(u, -v)).rgb;
-    var colour = clamp(hue(linear_to_srgb(sky_linear), material.params.x), vec3(0.0), vec3(1.0));
+    var sky_colour = linear_to_srgb(sky_linear);
+
+    // The stars are in the sky picture the original renders (one 10-unit scene), so they go in
+    // before the hue turn and the light. Each star picture is 18 px at 26 to the unit.
+    let field = fract(vec2(u, v)) * 10.0 - 5.0;
+    for (var i = 0u; i < 49u; i = i + 1u) {
+        let s = material.stars[i];
+        var q = field - s.xy;
+        q = q - 10.0 * round(q / 10.0);
+        let k = cos(-s.w);
+        let sn = sin(-s.w);
+        let r = vec2(k * q.x - sn * q.y, sn * q.x + k * q.y);
+        let half = 0.5 * (18.0 / 26.0) * s.z;
+        if (abs(r.x) < half && abs(r.y) < half) {
+            let st = r / (2.0 * half) + 0.5;
+            let tex = textureSampleLevel(star, star_sampler, vec2(st.x, 1.0 - st.y), 0.0);
+            sky_colour = mix(sky_colour, linear_to_srgb(tex.rgb), tex.a);
+        }
+    }
+    var colour = clamp(hue(sky_colour, material.params.x), vec3(0.0), vec3(1.0));
 
     // The bevel's slope, turned with the brick into the world, lit from up and to the left.
     let n = map.rg * 2.0 - 1.0;
@@ -89,16 +113,21 @@ pub struct GalaxyBrick {
     #[texture(3)]
     #[sampler(4)]
     pub sky: Handle<Image>,
+    #[texture(5)]
+    #[sampler(6)]
+    pub star: Handle<Image>,
 }
 
-/// The shape's colours (stored sRGB values, as the original's material has them) and the
-/// changing values: x hue turn (radians), y the brick's rotation, z pixels per cell, w flash.
+/// The shape's colours (stored sRGB values, as the original's material has them), the
+/// changing values (x hue turn in radians, y the brick's rotation, z pixels per cell, w flash),
+/// and the shared sky's 49 stars (x, y position, z scale, w turn).
 #[derive(ShaderType, Clone, Copy, Debug)]
 pub struct GalaxyLook {
     pub highlight: Vec4,
     pub shadow: Vec4,
     pub border: Vec4,
     pub params: Vec4,
+    pub stars: [Vec4; 49],
 }
 
 impl Material2d for GalaxyBrick {
