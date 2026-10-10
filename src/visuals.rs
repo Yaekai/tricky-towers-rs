@@ -24,7 +24,19 @@ impl Plugin for VisualsPlugin {
             .init_resource::<Art>()
             .init_resource::<ViewSize>()
             .init_resource::<MenuLook>()
+            .init_resource::<MenuScene>()
+            .init_resource::<SceneState>()
             .add_systems(Startup, setup_scene)
+            .add_systems(
+                Update,
+                (
+                    track_menu_scene.before(spawn_backgrounds),
+                    show_scene_in_menus.after(spawn_backgrounds),
+                    bob_islands.before(fit_backgrounds),
+                    pulse_band,
+                    run_waves.after(fit_backgrounds),
+                ),
+            )
             .add_systems(
                 Update,
                 (
@@ -1138,6 +1150,236 @@ struct ScreenLayer {
     stretch: bool,
     /// The drift before a curse wave sped it up.
     base_drift: Option<f32>,
+    /// A cloud's width in units: it wraps from just past the right edge to just before the
+    /// left (CloudBehaviour). 0 wraps round half a view either side.
+    wrap: f32,
+    /// How far it is lifted, in units (a bobbing island and its waterline).
+    lift: f32,
+    /// Its own stretch across and up, over `scale` (a waterline).
+    squash: Vec2,
+}
+
+/// Whether the menus show the original's live scene behind them: every menu screen except the
+/// pause menu and the explanation popup, which sit over a match (BackgroundController). While
+/// it shows, the camera draws only the scene's layers, so a match left behind stays hidden.
+#[derive(Resource, Default, PartialEq)]
+pub(crate) struct MenuScene(pub bool);
+
+/// Whether the live Race scene is up (its waves run), and how far the camera has climbed.
+#[derive(Resource, Default)]
+struct SceneState {
+    race: bool,
+    climb: f32,
+    wave_clock: f32,
+    seed: u32,
+}
+
+/// The render layer only the scene's layers are on, shown alone while the menus are up.
+const SCENE_LAYER: usize = 1;
+
+fn track_menu_scene(
+    mut commands: Commands,
+    game: Res<Match>,
+    screen: Option<Res<crate::menu::MenuScreen>>,
+    mut scene: ResMut<MenuScene>,
+    camera: Query<Entity, With<Camera2d>>,
+) {
+    use crate::menu::MenuScreen;
+    let on = game.phase == Phase::Menu
+        && !screen.is_some_and(|s| matches!(*s, MenuScreen::Pause | MenuScreen::Explain));
+    if scene.0 == on && !camera.is_empty() {
+        scene.set_if_neq(MenuScene(on));
+    }
+    if scene.0 != on || scene.is_added() {
+        scene.0 = on;
+        for camera in &camera {
+            let layer = if on { SCENE_LAYER } else { 0 };
+            commands
+                .entity(camera)
+                .insert(bevy::camera::visibility::RenderLayers::layer(layer));
+        }
+    }
+}
+
+/// Puts every scene layer on both render layers, so it shows in matches and behind the menus.
+#[allow(clippy::type_complexity)]
+fn show_scene_in_menus(
+    mut commands: Commands,
+    layers: Query<
+        Entity,
+        (
+            Or<(
+                Added<ScreenLayer>,
+                Added<Sky>,
+                Added<WaterBand>,
+                Added<Background>,
+                Added<LitLayer>,
+                Added<SceneWave>,
+            )>,
+            Without<bevy::camera::visibility::RenderLayers>,
+        ),
+    >,
+) {
+    for entity in &layers {
+        commands
+            .entity(entity)
+            .insert(bevy::camera::visibility::RenderLayers::from_layers(&[0, SCENE_LAYER]));
+    }
+}
+
+/// A bobbing island (BobbingIsland): it moves to a random 0.2 to 0.4 units above or below
+/// where it sits over 2.5 to 4 s, in-out quad, then the other way, starting either way.
+#[derive(Component)]
+struct IslandBob {
+    from: f32,
+    to: f32,
+    length: f32,
+    time: f32,
+    seed: u32,
+}
+
+/// A waterline that moves with its island.
+#[derive(Component)]
+struct BobWith(Entity);
+
+fn bob_islands(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut islands: Query<(Entity, &mut IslandBob, &mut ScreenLayer), Without<BobWith>>,
+    mut lines: Query<(&BobWith, &mut ScreenLayer), Without<IslandBob>>,
+    mut lifts: Local<Vec<(Entity, f32)>>,
+) {
+    let scene = &config.race_scene;
+    lifts.clear();
+    for (entity, mut bob, mut layer) in &mut islands {
+        bob.time += time.delta_secs();
+        if bob.time >= bob.length {
+            let mut seed = bob.seed;
+            let mut roll = || {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                (seed % 10_000) as f32 / 10_000.0
+            };
+            let up = if bob.length == 0.0 { roll() < 0.5 } else { bob.to < 0.0 };
+            let distance = scene.bob.0 + (scene.bob.1 - scene.bob.0) * roll();
+            let length = scene.bob_time.0 + (scene.bob_time.1 - scene.bob_time.0) * roll();
+            bob.seed = seed;
+            bob.from = if bob.length == 0.0 { 0.0 } else { bob.to };
+            bob.to = if up { distance } else { -distance };
+            bob.length = length.max(0.1);
+            bob.time = 0.0;
+        }
+        let x = (bob.time / bob.length).clamp(0.0, 1.0);
+        let eased = if x < 0.5 { 2.0 * x * x } else { 1.0 - (-2.0 * x + 2.0).powi(2) / 2.0 };
+        layer.lift = bob.from + (bob.to - bob.from) * eased;
+        lifts.push((entity, layer.lift));
+    }
+    for (with, mut layer) in &mut lines {
+        if let Some((_, lift)) = lifts.iter().find(|(e, _)| *e == with.0) {
+            layer.lift = *lift;
+        }
+    }
+}
+
+/// The reflected band over the water: its alpha swings round its own (IslandsLayer.Update).
+#[derive(Component)]
+struct BandPulse;
+
+fn pulse_band(time: Res<Time>, config: Res<GameConfig>, mut bands: Query<&mut Sprite, With<BandPulse>>) {
+    let scene = &config.race_scene;
+    let alpha = scene.band_alpha
+        + scene.band_swing * (time.elapsed_secs() * std::f32::consts::TAU / scene.band_period.max(0.01)).sin();
+    for mut sprite in &mut bands {
+        sprite.color.set_alpha(alpha);
+    }
+}
+
+/// A wave crest (WavesLayer): where it was born (units from the view's bottom left), its
+/// scale, its row's parallax and its age.
+#[derive(Component)]
+struct SceneWave {
+    at: Vec2,
+    scale: f32,
+    parallax: f32,
+    age: f32,
+}
+
+/// Spawns a crest in each row every `wave_every` seconds while the Race scene is up and moves
+/// them: alpha up over half its life and down again, its height from `wave_squash.0` to `.1`
+/// and back, drifting right by `wave_drift` times its scale (DOTween's default out-quad).
+#[allow(clippy::too_many_arguments)]
+fn run_waves(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    view_size: Res<ViewSize>,
+    mut state: ResMut<SceneState>,
+    camera: Query<(Entity, &Projection), With<Camera2d>>,
+    mut waves: Query<(Entity, &mut SceneWave, &mut Transform, &mut Sprite)>,
+) {
+    let scene = &config.race_scene;
+    let Ok((camera, Projection::Orthographic(ortho))) = camera.single() else {
+        return;
+    };
+    let view = view_size.0 * ortho.scale;
+    let unit = view.y / config.hud.camera_height.max(0.01);
+    let across = view.x / unit.max(0.0001);
+    let ppu = art.entries.get(&scene.wave).and_then(|e| e.pixels_per_unit).unwrap_or(26.0);
+    if state.race && let Some(image) = art.image(&scene.wave) {
+        state.wave_clock += time.delta_secs();
+        if state.wave_clock > scene.wave_every {
+            state.wave_clock = 0.0;
+            let mut seed = state.seed | 1;
+            let mut roll = || {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                (seed % 10_000) as f32 / 10_000.0
+            };
+            for row in &scene.waves {
+                let n = roll();
+                let scale = row.scale.1 - n * (row.scale.1 - row.scale.0);
+                let at = Vec2::new(roll() * across, row.y + n * row.height);
+                let (r, g, b) = scene.wave_tint;
+                let z = if row.front { row.z } else { -900.0 + row.z };
+                commands.spawn((
+                    SceneWave { at, scale, parallax: row.parallax, age: 0.0 },
+                    Sprite { image: image.clone(), color: Color::srgba(r, g, b, 0.0), ..default() },
+                    Anchor::BOTTOM_CENTER,
+                    Transform::from_xyz(0.0, 0.0, z).with_scale(Vec3::ZERO),
+                    ChildOf(camera),
+                ));
+            }
+            state.seed = seed;
+        }
+    }
+    let out_quad = |x: f32| {
+        let x = x.clamp(0.0, 1.0);
+        1.0 - (1.0 - x) * (1.0 - x)
+    };
+    let half = scene.wave_time * 0.5;
+    for (entity, mut wave, mut transform, mut sprite) in &mut waves {
+        wave.age += time.delta_secs();
+        let t = wave.age;
+        if t >= scene.wave_time {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let (rise, fall) = (out_quad(t / half), out_quad((t - half) / half));
+        let (alpha, squash) = if t < half {
+            (rise, scene.wave_squash.0 + (scene.wave_squash.1 - scene.wave_squash.0) * rise)
+        } else {
+            (1.0 - fall, scene.wave_squash.1 - (scene.wave_squash.1 - scene.wave_squash.0) * fall)
+        };
+        sprite.color.set_alpha(alpha);
+        let x = wave.at.x + scene.wave_drift * wave.scale * out_quad(t / scene.wave_time);
+        transform.translation.x = (x - across * 0.5) * unit;
+        transform.translation.y = -view.y * 0.5 + wave.at.y * unit - state.climb * wave.parallax * unit;
+        let size = unit / ppu * wave.scale;
+        transform.scale = Vec3::new(size, size * squash, 1.0);
+    }
 }
 
 /// The brighter copy of a layer, shown as the lightning flashes.
@@ -1189,6 +1431,8 @@ fn spawn_backgrounds(
     art: Res<Art>,
     game: Res<Match>,
     menu_look: Res<MenuLook>,
+    menu_scene: Res<MenuScene>,
+    mut scene_state: ResMut<SceneState>,
     config: Res<GameConfig>,
     mut images: ResMut<Assets<Image>>,
     camera: Query<Entity, With<Camera2d>>,
@@ -1199,6 +1443,7 @@ fn spawn_backgrounds(
             With<ScreenLayer>,
             With<Sky>,
             With<WaterBand>,
+            With<SceneWave>,
         )>,
     >,
     mut water: Query<&mut Visibility, With<WaterStrip>>,
@@ -1207,12 +1452,15 @@ fn spawn_backgrounds(
     let Ok(camera) = camera.single() else {
         return;
     };
-    let mode = match menu_look.0 {
-        Some(mode) if game.phase == Phase::Menu => mode,
+    // Behind the menus the original shows the Race scene (BackgroundController), or the
+    // picked Endless mode's on the Endless screen.
+    let mode = match (menu_look.0, menu_scene.0) {
+        (Some(mode), true) => mode,
+        (None, true) => ModeKind::Race,
         _ => game.mode,
     };
-    let pro = pro_look(mode, config.difficulty);
-    let in_match = game.phase != Phase::Menu;
+    let pro = pro_look(mode, config.difficulty).filter(|_| !menu_scene.0);
+    let in_match = !menu_scene.0;
     if *shown == Some((mode, pro, in_match)) && !art.is_changed() {
         return;
     }
@@ -1221,6 +1469,12 @@ fn spawn_backgrounds(
         commands.entity(entity).despawn();
     }
     let mode_name = mode_key(mode);
+    let race_scene = mode == ModeKind::Race && pro.is_none();
+    scene_state.race = race_scene || matches!(mode, ModeKind::Endless) || pro == Some("race_pro");
+    let scene = &config.race_scene;
+    if race_scene {
+        spawn_race_clouds(&mut commands, &art, &images, scene, camera);
+    }
     // A Pro or Endless look's sky and water band win over the mode's, which win over the shared.
     // Endless Race has its own sunset sky.
     let endless = (mode == ModeKind::Endless).then_some("endless");
@@ -1316,6 +1570,64 @@ fn spawn_backgrounds(
     // In a match Endless Puzzle starts as plain Puzzle and its eclipse fades in over
     // the plain layers during the intro (`fade_eclipse`).
     let eclipse = mode == ModeKind::EndlessPuzzle && game.phase != Phase::Menu;
+    // Behind the menus the foreground water runs along the view's bottom (RaceForeground's
+    // WaterLayer); in a match the water strip under the lanes is it.
+    if race_scene
+        && menu_scene.0
+        && let (Some(image), Some(entry)) = (art.image("water"), art.entries.get("water"))
+    {
+        let ppu = entry.pixels_per_unit.unwrap_or(26.0).max(1.0);
+        let height = images.get(&image).map_or(53.0, |i| i.size_f32().y) / ppu;
+        commands.spawn((
+            ScreenLayer {
+                anchor: Vec2::new(0.5, 0.0),
+                position: Vec2::new(0.0, height * (1.0 - entry.pivot.map_or(0.0, |p| 1.0 - p.1))),
+                view_height: config.hud.camera_height,
+                pixels_per_unit: ppu,
+                scale: 1.0,
+                parallax: 1.0,
+                drift: 0.0,
+                drifted: 0.0,
+                base_drift: None,
+                stretch: true,
+                wrap: 0.0,
+                lift: 0.0,
+                squash: Vec2::ONE,
+            },
+            WaveLook::Keep,
+            Sprite::from_image(image),
+            Anchor(Vec2::new(0.0, entry.pivot.map_or(0.0, |p| p.1 - 0.5))),
+            Transform::from_xyz(0.0, 0.0, 30.0),
+            bevy::camera::visibility::RenderLayers::layer(SCENE_LAYER),
+            ChildOf(camera),
+        ));
+    }
+    if race_scene && let Some(image) = art.image(&scene.band) {
+        let ppu = art.entries.get(&scene.band).and_then(|e| e.pixels_per_unit).unwrap_or(26.0);
+        let (r, g, b) = scene.band_tint;
+        commands.spawn((
+            ScreenLayer {
+                anchor: Vec2::new(0.5, 0.0),
+                position: Vec2::new(0.0, scene.island_root),
+                view_height: config.hud.camera_height,
+                pixels_per_unit: ppu,
+                scale: scene.band_scale,
+                parallax: 0.3,
+                drift: 0.0,
+                drifted: 0.0,
+                base_drift: None,
+                stretch: true,
+                wrap: 0.0,
+                lift: 0.0,
+                squash: Vec2::ONE,
+            },
+            BandPulse,
+            WaveLook::Keep,
+            Sprite { image, color: Color::srgba(r, g, b, scene.band_alpha), ..default() },
+            Transform::from_xyz(0.0, 0.0, -900.0 + scene.band_z),
+            ChildOf(camera),
+        ));
+    }
     let mut names: Vec<(String, bool)> = background_names_for(&art, mode, pro)
         .into_iter()
         .map(|n| (n, eclipse))
@@ -1333,6 +1645,10 @@ fn spawn_backgrounds(
         let Some(entry) = art.entries.get(name) else {
             continue;
         };
+        if race_scene && scene.replaces.iter().any(|r| r == name) {
+            continue;
+        }
+        let island = scene.islands.iter().find(|i| i.art == name).filter(|_| race_scene);
         let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
         let tint = entry.tint.map_or(Color::WHITE, |(r, g, b)| {
             Color::srgb(r / 255.0, g / 255.0, b / 255.0)
@@ -1369,22 +1685,68 @@ fn spawn_backgrounds(
                     });
                 let anchor = base.1;
                 let star = entry.star == Some(true);
-                let mut layer = commands.spawn((
-                    ScreenLayer {
-                        anchor: Vec2::new(ax, ay),
-                        position: Vec2::new(x, y),
-                        view_height: entry.view_height.unwrap_or(10.0).max(0.01),
-                        pixels_per_unit: entry.pixels_per_unit.unwrap_or(100.0).max(1.0),
-                        scale: entry.scale.unwrap_or(1.0),
-                        parallax: entry.parallax.unwrap_or(0.0),
-                        drift,
-                        drifted: 0.0,
-                        base_drift: None,
-                        stretch: entry.stretch == Some(true),
-                    },
-                    base,
-                    ChildOf(camera),
-                ));
+                let screen_layer = ScreenLayer {
+                    anchor: Vec2::new(ax, ay),
+                    position: Vec2::new(x, y),
+                    view_height: entry.view_height.unwrap_or(10.0).max(0.01),
+                    pixels_per_unit: entry.pixels_per_unit.unwrap_or(100.0).max(1.0),
+                    scale: entry.scale.unwrap_or(1.0),
+                    parallax: entry.parallax.unwrap_or(0.0),
+                    drift,
+                    drifted: 0.0,
+                    base_drift: None,
+                    stretch: entry.stretch == Some(true),
+                    wrap: 0.0,
+                    lift: 0.0,
+                    squash: Vec2::ONE,
+                };
+                // The Race scene's islands are drawn at its island scale round their roots,
+                // with their waterlines, and most of them bob.
+                let screen_layer = match island {
+                    Some(_) => {
+                        let k = scene.island_scale;
+                        ScreenLayer {
+                            position: Vec2::new(x * k, scene.island_root + (y - scene.island_root) * k),
+                            scale: screen_layer.scale * k,
+                            ..screen_layer
+                        }
+                    }
+                    None => screen_layer,
+                };
+                let line = island.and_then(|i| {
+                    let image = art.image(&scene.waterline)?;
+                    let ppu = art.entries.get(&scene.waterline)?.pixels_per_unit.unwrap_or(26.0);
+                    let k = scene.island_scale;
+                    let (r, g, b) = i.line_tint;
+                    Some((
+                        ScreenLayer {
+                            position: screen_layer.position + Vec2::new(i.line_at.0, i.line_at.1) * k,
+                            pixels_per_unit: ppu,
+                            squash: Vec2::new(i.line_size.0, i.line_size.1),
+                            ..screen_layer.clone()
+                        },
+                        Sprite { image, color: Color::srgb(r, g, b), ..default() },
+                        Transform::from_xyz(0.0, 0.0, -900.0 + i.line_z),
+                    ))
+                });
+                let mut layer = commands.spawn((screen_layer, base, ChildOf(camera)));
+                if let Some(island) = island.filter(|i| i.bobs) {
+                    layer.insert(IslandBob {
+                        from: 0.0,
+                        to: 0.0,
+                        length: 0.0,
+                        time: 0.0,
+                        seed: 0x9E37_79B9 ^ (order as u32 + 1).wrapping_mul(2_654_435_761) ^ island.art.len() as u32,
+                    });
+                }
+                let island_entity = layer.id();
+                if let Some(line) = line {
+                    let mut line_entity = commands.spawn((line, ChildOf(camera)));
+                    if island.is_some_and(|i| i.bobs) {
+                        line_entity.insert(BobWith(island_entity));
+                    }
+                }
+                let mut layer = commands.entity(island_entity);
                 if star {
                     layer.insert(Star::default());
                 }
@@ -1418,6 +1780,66 @@ fn spawn_backgrounds(
                 if *fades {
                     layer.insert(EclipseFade(tint));
                 }
+            }
+        }
+    }
+}
+
+/// The Race scene's cloud layers (CloudLayer): each round spreads every picture once across
+/// the view, each in its own slice of the width, at a random height in its row's range (the
+/// cloud's bottom there, as CloudBehaviour lifts it by half its height) and speed.
+fn spawn_race_clouds(
+    commands: &mut Commands,
+    art: &Art,
+    images: &Assets<Image>,
+    scene: &crate::config::RaceScene,
+    camera: Entity,
+) {
+    let mut seed = 0x2545_F491u32 ^ (scene.clouds.len() as u32);
+    let mut roll = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 17;
+        seed ^= seed << 5;
+        (seed % 100_000) as f32 / 100_000.0
+    };
+    let view_height = 41.538_46;
+    for row in &scene.clouds {
+        let slice = 1.0 / row.art.len().max(1) as f32;
+        for _ in 0..row.rounds {
+            let mut left: Vec<&String> = row.art.iter().collect();
+            let mut at = 0.0;
+            while !left.is_empty() {
+                let name = left.remove((roll() * left.len() as f32) as usize % left.len());
+                let x = at + roll() * slice;
+                at += slice;
+                let y = row.y.0 + roll() * (row.y.1 - row.y.0);
+                let speed = row.speed.0 + roll() * (row.speed.1 - row.speed.0);
+                let (Some(image), Some(entry)) = (art.image(name), art.entries.get(name)) else {
+                    continue;
+                };
+                let ppu = entry.pixels_per_unit.unwrap_or(26.0).max(1.0);
+                let size = images.get(&image).map_or(Vec2::splat(260.0), |i| i.size_f32()) / ppu;
+                commands.spawn((
+                    ScreenLayer {
+                        anchor: Vec2::new(x, y),
+                        position: Vec2::new(0.0, size.y * 0.5),
+                        view_height,
+                        pixels_per_unit: ppu,
+                        scale: 1.0,
+                        parallax: row.parallax,
+                        drift: speed,
+                        drifted: 0.0,
+                        base_drift: None,
+                        stretch: false,
+                        wrap: size.x,
+                        lift: 0.0,
+                        squash: Vec2::ONE,
+                    },
+                    WaveLook::Grey,
+                    Sprite::from_image(image),
+                    Transform::from_xyz(0.0, 0.0, -900.0 + row.z),
+                    ChildOf(camera),
+                ));
             }
         }
     }
@@ -1459,6 +1881,9 @@ fn fit_backgrounds(
         ),
     >,
     mut lowest: Local<Option<f32>>,
+    menu_scene: Res<MenuScene>,
+    mut scene_state: ResMut<SceneState>,
+    config: Res<GameConfig>,
 ) {
     let Ok((Projection::Orthographic(ortho), camera)) = camera.single() else {
         return;
@@ -1479,22 +1904,39 @@ fn fit_backgrounds(
     // How far the camera has climbed above the lowest it has been.
     let low = lowest.get_or_insert(camera.translation.y);
     *low = low.min(camera.translation.y);
-    let climb = camera.translation.y - *low;
+    // Behind the menus the scene sits as at a match's start.
+    let climb = if menu_scene.0 {
+        0.0
+    } else {
+        camera.translation.y - *low
+    };
+    scene_state.climb = climb / (view.y / config.hud.camera_height.max(0.01)).max(0.0001);
     for (mut layer, mut transform, mut star, sprite, falling) in &mut screen {
         let unit = view.y / layer.view_height;
-        // A drifting layer wraps round the view with half a view to spare each side.
-        let span = view.x / unit * 2.0;
-        layer.drifted =
-            (layer.drifted + layer.drift * time.delta_secs()).rem_euclid(span.max(0.01));
-        // A drifting layer starts where it was placed and wraps half a span either side.
-        let slide = Vec2::X
-            * if layer.drift != 0.0 {
+        let across = view.x / unit;
+        let slide = if layer.wrap > 0.0 {
+            // A cloud leaves past the right edge and comes back from just before the left.
+            layer.drifted += layer.drift * time.delta_secs();
+            let start = layer.anchor.x * across + layer.position.x;
+            let x = (start + layer.drifted + layer.wrap * 0.5).rem_euclid(across + layer.wrap)
+                - layer.wrap * 0.5;
+            x - start
+        } else {
+            // A drifting layer wraps round the view with half a view to spare each side.
+            let span = across * 2.0;
+            layer.drifted =
+                (layer.drifted + layer.drift * time.delta_secs()).rem_euclid(span.max(0.01));
+            // A drifting layer starts where it was placed and wraps half a span either side.
+            if layer.drift != 0.0 {
                 (layer.drifted + span * 0.5).rem_euclid(span.max(0.01)) - span * 0.5
             } else {
                 0.0
             }
-            * unit;
-        let at = (layer.anchor - Vec2::splat(0.5)) * view + layer.position * unit + slide
+        };
+        let slide = Vec2::X * slide * unit;
+        let at = (layer.anchor - Vec2::splat(0.5)) * view
+            + (layer.position + Vec2::Y * layer.lift) * unit
+            + slide
             - Vec2::Y * climb * layer.parallax;
         transform.translation.x = at.x;
         transform.translation.y = at.y;
@@ -1520,7 +1962,7 @@ fn fit_backgrounds(
                 .map_or(1.0, |i| i.size_f32().x.max(1.0));
             Vec3::new(view.x / width, height, 1.0)
         } else {
-            Vec3::splat(height)
+            Vec3::new(height * layer.squash.x, height * layer.squash.y, height)
         };
     }
     for (band, mut sprite, mut transform) in &mut bands {

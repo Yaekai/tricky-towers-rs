@@ -429,89 +429,18 @@ pub(crate) struct PlayersRoot;
 #[derive(Component)]
 pub(crate) struct ModesRoot;
 
-/// The menus' 16:9 backdrop picture, covering the screen at any shape: it keeps
-/// its proportions and is cut at the top and bottom on wider screens (21:9) or at
-/// the sides on narrower ones, as the original's camera-drawn menus fill the screen.
-#[derive(Component)]
-pub(crate) struct Backdrop;
-
-pub(crate) fn backdrop(image: Handle<Image>) -> impl Bundle {
-    (
-        ImageNode::new(image),
-        Node {
-            position_type: PositionType::Absolute,
-            ..default()
-        },
-        Backdrop,
-    )
-}
-
-/// Sizes every backdrop to cover the view.
-pub(crate) fn fit_backdrops(
-    view: Option<Res<crate::visuals::ViewSize>>,
-    mut backdrops: Query<&mut Node, With<Backdrop>>,
-) {
-    let Some(view) = view else { return };
-    let (w, h) = (view.0.x.max(1.0), view.0.y.max(1.0));
-    let scale = (w / SCREEN.0).max(h / SCREEN.1);
-    let (bw, bh) = (SCREEN.0 * scale / w * 100.0, SCREEN.1 * scale / h * 100.0);
-    let (left, top) = (
-        Val::Percent((100.0 - bw) / 2.0),
-        Val::Percent((100.0 - bh) / 2.0),
-    );
-    for mut node in &mut backdrops {
-        if node.width != Val::Percent(bw) || node.left != left || node.top != top {
-            node.width = Val::Percent(bw);
-            node.height = Val::Percent(bh);
-            node.left = left;
-            node.top = top;
-        }
-    }
-}
-
-/// A full-screen page with the title backdrop and the header bar.
-pub(crate) fn spawn_page(
-    commands: &mut Commands,
-    art: Option<&Art>,
-    config: &GameConfig,
-    title: &str,
-) -> Entity {
-    spawn_page_over(commands, art, config, title, false)
-}
-
-/// A page, see-through over the world's background when `over_world` and the
-/// art is staged (the Endless screen shows the picked mode's background).
-pub(crate) fn spawn_page_over(
-    commands: &mut Commands,
-    art: Option<&Art>,
-    config: &GameConfig,
-    title: &str,
-    over_world: bool,
-) -> Entity {
-    let clear = over_world && art.is_some();
+/// A full-screen page with the header bar, over the live scene (visuals::MenuScene).
+pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str) -> Entity {
     let mut page = commands.spawn((
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             ..default()
         },
-        BackgroundColor(if clear {
-            Color::NONE
-        } else {
-            Color::srgb(0.05, 0.06, 0.12)
-        }),
+        // The live scene shows through (visuals::MenuScene).
         GlobalZIndex(11),
         Visibility::Hidden,
     ));
-    if let Some(background) = art
-        .filter(|_| !clear)
-        .and_then(|a| a.image("menu_background_bare"))
-    {
-        page.with_child(backdrop(background));
-    }
-    if !clear {
-        page.with_children(|p| crate::menu::spawn_water_scene_into(p, art, config));
-    }
     page.with_children(|page| {
         let mut header = page.spawn((
             place(HEADER, (0.0, (SCREEN.1 - HEADER.1) / 2.0)),
@@ -530,12 +459,11 @@ pub(crate) fn spawn_page_over(
 pub(crate) fn spawn_select_screens(
     mut commands: Commands,
     art: Option<Res<Art>>,
-    config: Res<GameConfig>,
 ) {
     let art = art.as_deref();
     let image = |name: &str| art.and_then(|a| a.image(name));
 
-    let players = spawn_page(&mut commands, art, &config, "Select Players");
+    let players = spawn_page(&mut commands, art, "Select Players");
     commands.entity(players).insert(PlayersRoot);
     commands.entity(players).with_children(|page| {
         for (seat, wizard) in WIZARDS.iter().take(MAX_TOWERS).enumerate() {
@@ -720,7 +648,7 @@ pub(crate) fn spawn_select_screens(
         }
     });
 
-    let modes = spawn_page(&mut commands, art, &config, "Select Mode");
+    let modes = spawn_page(&mut commands, art, "Select Mode");
     commands.entity(modes).insert(ModesRoot);
     commands.entity(modes).with_children(|page| {
         let (back_offset, back_size) = DIFFICULTY_BACK;

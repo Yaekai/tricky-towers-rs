@@ -307,12 +307,11 @@ pub(crate) enum Item {
 pub(crate) fn spawn_single_screens(
     mut commands: Commands,
     art: Option<Res<Art>>,
-    config: Res<GameConfig>,
 ) {
     let art = art.as_deref();
     let image = |name: &str| art.and_then(|a| a.image(name));
 
-    let single = spawn_page(&mut commands, art, &config, "Single Player");
+    let single = spawn_page(&mut commands, art, "Single Player");
     commands.entity(single).insert(SingleRoot);
     commands.entity(single).with_children(|page| {
         // Player 1's seat, awake.
@@ -456,7 +455,7 @@ pub(crate) fn spawn_single_screens(
         }
     });
 
-    let endless = crate::select::spawn_page_over(&mut commands, art, &config, "Endless", true);
+    let endless = crate::select::spawn_page(&mut commands, art, "Endless");
     commands.entity(endless).insert(EndlessRoot);
     commands.entity(endless).with_children(|page| {
         let corner = image("menu_corner_small");

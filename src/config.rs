@@ -72,10 +72,8 @@ pub struct GameConfig {
     pub cup_panel: CupPanel,
     /// A battle's opening: mode title, the mode's intro, the 3-2-1.
     pub intro: IntroRules,
-    /// The islands that float on the title screen, back to front.
-    pub title_islands: Vec<TitleIsland>,
-    /// How fast the wave crests run along the title screen's water, in pixels a second.
-    pub title_wave_speed: f32,
+    /// The original's live Race scene, in Race matches and behind the menus.
+    pub race_scene: RaceScene,
     /// Per-mode skies and weather: Race Pro night, Puzzle sandstorm and eclipse,
     /// Survival curse-wave sky.
     pub weather: WeatherLook,
@@ -3009,8 +3007,7 @@ impl Default for GameConfig {
             cups: CupRules::default(),
             cup_panel: CupPanel::default(),
             intro: IntroRules::default(),
-            title_islands: default_title_islands(),
-            title_wave_speed: 30.0,
+            race_scene: RaceScene::default(),
             weather: WeatherLook::default(),
             water: WaterRules::default(),
             bases: Bases::default(),
@@ -3269,38 +3266,151 @@ fn default_corona() -> Vec<CoronaPart> {
     ]
 }
 
-/// A title-screen island: its staged picture, the point of the screen its pivot sits
-/// at (in units of 26 px from the bottom left of the 1920×1080 screen, as the original's
-/// backdrop), and how it bobs: each leg goes a random distance above or below its
-/// rest (`bob`, pixels, min to max) over a random time (`leg`, seconds), in-out quad,
-/// then turns back (BobbingIsland). `bob` (0, 0) stays still.
-#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+/// The original's live Race scene (RaceBackground and RaceForeground with their IslandsLayer,
+/// CloudLayer and WavesLayer, BobbingIsland), drawn in Race matches and, as the original's
+/// BackgroundController does, behind every menu screen. Lengths are the original's screen
+/// units (a view is 41.54 of them tall), counted from the view's bottom edge.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
-pub struct TitleIsland {
-    pub art: String,
-    pub at: (f32, f32),
+pub struct RaceScene {
+    /// Staged screen layers this scene draws itself (the fixed clouds staged before).
+    pub replaces: Vec<String>,
+    pub clouds: Vec<CloudRow>,
+    /// The islands' picture scale: IslandsLayer draws them at 1 - 1/10 (at the camera's own zoom).
+    pub island_scale: f32,
+    /// Where the islands' roots sit, above the view's bottom (the water's height).
+    pub island_root: f32,
+    pub islands: Vec<SceneIsland>,
+    /// How far each bob goes (min, max) and how long it takes (min, max), in-out quad.
     pub bob: (f32, f32),
-    pub leg: (f32, f32),
+    pub bob_time: (f32, f32),
+    pub waterline: String,
+    /// The reflected band over the water (ISLAND_GRADIENT): its picture, height scale, tint
+    /// and how it sits among the layers; its alpha swings `alpha` +/- `swing` every `period`.
+    pub band: String,
+    pub band_scale: f32,
+    pub band_tint: (f32, f32, f32),
+    pub band_alpha: f32,
+    pub band_swing: f32,
+    pub band_period: f32,
+    pub band_z: f32,
+    /// Wave crests (WAVE): one per row every `wave_every` seconds, each living `wave_time`.
+    pub wave: String,
+    pub wave_tint: (f32, f32, f32),
+    pub wave_every: f32,
+    pub wave_time: f32,
+    /// How far a crest drifts right over its life, times its scale.
+    pub wave_drift: f32,
+    /// Its height, as a share of its width scale, at birth and at the middle of its life.
+    pub wave_squash: (f32, f32),
+    pub waves: Vec<WaveRow>,
 }
 
-/// The original's six islands (the title backdrop's positions, measured from its prefabs).
-/// The back one doesn't bob; the others go 0.2-0.4 units (26 px each) over 2.5-4 s
-/// (IslandsLayer, BobbingIsland).
-fn default_title_islands() -> Vec<TitleIsland> {
-    let island = |art: &str, at: (f32, f32), bobs: bool| TitleIsland {
-        art: art.into(),
-        at,
-        bob: if bobs { (0.2 * 26.0, 0.4 * 26.0) } else { (0.0, 0.0) },
-        leg: (2.5, 4.0),
-    };
-    vec![
-        island("menu_island_back01", (36.9, 6.0), false),
-        island("menu_island_middle01", (0.0, 5.35), true),
-        island("menu_island_middle02", (64.35, 5.1), true),
-        island("menu_island_front01", (0.0, 3.5), true),
-        island("menu_island_front02", (10.0, 4.8), true),
-        island("menu_island_front03", (73.85, 3.6), true),
-    ]
+/// One cloud layer (CloudLayer): `rounds` passes each spreading every picture once across the
+/// view's width, at a random height between `y` (shares of the view's height) and a random
+/// rightward speed in `speed` (units a second); each wraps round as it leaves the view.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct CloudRow {
+    pub art: Vec<String>,
+    pub speed: (f32, f32),
+    pub y: (f32, f32),
+    pub rounds: u32,
+    pub parallax: f32,
+    pub z: f32,
+}
+
+/// An island of the scene: its staged screen layer, whether it bobs, and its waterline
+/// (offset from the island's pivot and size, in units before `island_scale`, tint, depth).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct SceneIsland {
+    pub art: String,
+    pub bobs: bool,
+    pub line_at: (f32, f32),
+    pub line_size: (f32, f32),
+    pub line_tint: (f32, f32, f32),
+    pub line_z: f32,
+}
+
+/// A row of wave crests (WavesLayer): born at `y` plus up to `height` above the view's bottom,
+/// the higher the smaller (scale from `scale.1` down to `scale.0`), moving with the camera by
+/// `parallax`; `front` ones are drawn over the towers (RaceForeground).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct WaveRow {
+    pub y: f32,
+    pub height: f32,
+    pub scale: (f32, f32),
+    pub parallax: f32,
+    pub front: bool,
+    pub z: f32,
+}
+
+impl Default for RaceScene {
+    fn default() -> Self {
+        let names = |range: std::ops::RangeInclusive<u32>| range.map(|n| format!("race_cloud_{n}")).collect();
+        let line = (0.827_451, 0.835_294_1, 1.0);
+        let island = |art: &str, bobs, line_at, line_size, line_z| SceneIsland {
+            art: art.into(),
+            bobs,
+            line_at,
+            line_size,
+            line_tint: line,
+            line_z,
+        };
+        Self {
+            replaces: ["background_race_0", "background_race_1", "background_race_8", "background_race_9", "background_race_10"]
+                .map(String::from)
+                .to_vec(),
+            clouds: vec![
+                CloudRow {
+                    art: vec!["race_cloud_large_1".into(), "race_cloud_large_2".into()],
+                    speed: (0.15, 0.25),
+                    y: (0.0, 0.0),
+                    rounds: 3,
+                    parallax: 0.2,
+                    z: 0.5,
+                },
+                CloudRow { art: names(1..=6), speed: (0.4, 0.5), y: (0.5, 2.0), rounds: 3, parallax: 0.6, z: 8.0 },
+                CloudRow { art: names(7..=10), speed: (0.4, 0.5), y: (0.5, 2.0), rounds: 3, parallax: 0.8, z: 9.0 },
+            ],
+            island_scale: 0.9,
+            island_root: 6.0,
+            // The prefabs' waterlines, from each island's pivot (Graphic) to its Waterline.
+            islands: vec![
+                SceneIsland {
+                    line_tint: (0.860_294_1, 0.866_644_4, 1.0),
+                    ..island("background_race_2", false, (0.0, 0.01), (20.0, 0.6), 2.1)
+                },
+                island("background_race_3", true, (7.69, 0.62), (4.183_838, 0.8), 4.1),
+                island("background_race_4", true, (-8.86, 0.93), (4.954_848, 0.8), 4.1),
+                island("background_race_5", true, (4.79, 1.45), (2.594_628, 0.8), 4.6),
+                island("background_race_6", true, (8.01, 0.59), (4.187_103, 0.8), 4.6),
+                island("background_race_7", true, (-6.94, 1.45), (4.183_838, 0.8), 2.5),
+            ],
+            bob: (0.2, 0.4),
+            bob_time: (2.5, 4.0),
+            waterline: "race_waterline".into(),
+            band: "race_island_gradient".into(),
+            band_scale: 0.22,
+            band_tint: (0.862_745_1, 0.917_647_06, 1.0),
+            band_alpha: 0.5,
+            band_swing: 0.2,
+            band_period: 5.0,
+            band_z: 4.5,
+            wave: "race_wave".into(),
+            wave_tint: (0.721_568_64, 0.772_549_03, 0.949_019_6),
+            wave_every: 1.4,
+            wave_time: 6.0,
+            wave_drift: 4.0,
+            wave_squash: (0.2, 0.7),
+            waves: vec![
+                WaveRow { y: 3.0, height: 2.0, scale: (0.2, 0.5), parallax: 0.3, front: false, z: 2.05 },
+                WaveRow { y: 2.5, height: 0.5, scale: (0.5, 0.7), parallax: 1.0, front: true, z: 0.0 },
+            ],
+        }
+    }
 }
 
 #[cfg(test)]

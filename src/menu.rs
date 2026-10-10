@@ -22,7 +22,6 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (bob_title_islands, scroll_title_waves));
         app.add_plugins((
             crate::popup::PopupPlugin,
             crate::cups_menu::CupsMenuPlugin,
@@ -80,7 +79,7 @@ impl Plugin for MenuPlugin {
         )
         .add_systems(
             Update,
-            (record_endless_scores, crate::select::fit_backdrops),
+            record_endless_scores,
         );
     }
 }
@@ -632,176 +631,6 @@ fn show_pause_menu(
     }
 }
 
-/// The title screen's water: the floating islands and the wave crests. Other screens use it
-/// too, over the bare backdrop.
-pub(crate) fn spawn_water_scene_into(parent: &mut ChildSpawnerCommands, art: Option<&Art>, config: &GameConfig) {
-    let image = |name: &str| art.and_then(|a| a.image(name));
-    // The water's surface line sits on the water edge. Positions are guesses from the
-    // title reference, in the same 1920x1080 pixels as the islands.
-    for (name, left, top, width, height) in TITLE_BACK_LAYERS {
-        if let Some(handle) = image(name) {
-            parent.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(left),
-                    top: px(top),
-                    width: px(width),
-                    height: px(height),
-                    ..default()
-                },
-                ImageNode::new(handle),
-            ));
-        }
-    }
-    // The islands float over the sky, each pivot where the original's backdrop puts it.
-    {
-        let parent = &mut *parent;
-        for (k, island) in config.title_islands.iter().enumerate() {
-            let Some(handle) = image(&island.art) else {
-                continue;
-            };
-            let pivot = art
-                .as_ref()
-                .and_then(|a| a.entries.get(&island.art))
-                .and_then(|e| e.pivot)
-                .unwrap_or((0.5, 0.5));
-            let (x, y) = (island.at.0 * TITLE_PIXELS, island.at.1 * TITLE_PIXELS);
-            parent.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(x),
-                    top: px(1080.0 - y),
-                    ..default()
-                },
-                UiTransform {
-                    translation: Val2::new(
-                        Val::Percent(-pivot.0 * 100.0),
-                        Val::Percent(-(1.0 - pivot.1) * 100.0),
-                    ),
-                    ..default()
-                },
-                ImageNode::new(handle),
-                TitleIsland {
-                    top: 1080.0 - y,
-                    bob: island.bob,
-                    leg: island.leg,
-                    from: 0.0,
-                    to: 0.0,
-                    length: 0.0,
-                    time: 0.0,
-                    seed: 0x9E37_79B9 + k as u64 * 7919,
-                },
-            ));
-        }
-    }
-    // The original's wave crests are small chevrons spaced apart on the water, drifting
-    // along it (checked against the title clip): spaced crests that scroll and wrap.
-    if let Some(wave) = image("bg_race_wave") {
-        for i in 0..TITLE_WAVE_COUNT {
-            parent.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(0.0),
-                    top: px(1080.0 - 6.0 * TITLE_PIXELS - 21.0),
-                    width: px(TITLE_WAVE_TILE),
-                    height: px(21.0),
-                    ..default()
-                },
-                ImageNode::new(wave.clone()),
-                TitleWaves(i),
-            ));
-        }
-    }
-}
-
-/// The title's back layers: (art, left, top, width, height) in pixels from the top-left of
-/// the 1920x1080 backdrop: the water surface line tiled along the water's top edge. The
-/// cloud banks are not placed yet (the endless clouds are sunset-tinted, so wrong here).
-const TITLE_BACK_LAYERS: [(&str, f32, f32, f32, f32); 12] = [
-    // Race clouds, scaled up at their own proportions, as the back banks behind the islands.
-    ("bg_race_cloud_var01", 0.0, 360.0, 900.0, 380.0),
-    ("bg_race_cloud_var08", 1000.0, 330.0, 920.0, 253.0),
-    ("bg_race_cloud_var04", 1300.0, 520.0, 620.0, 124.0),
-    ("bg_race_cloud_var02", 500.0, 520.0, 800.0, 192.0),
-    ("bg_race_cloud_var09", 1550.0, 300.0, 370.0, 162.0),
-    ("bg_race_cloud_var07", -80.0, 560.0, 480.0, 182.0),
-    ("bg_race_waterline01", 0.0, 918.0, 318.0, 24.0),
-    ("bg_race_waterline03", 320.0, 918.0, 318.0, 24.0),
-    ("bg_race_waterline01", 640.0, 918.0, 318.0, 24.0),
-    ("bg_race_waterline03", 960.0, 918.0, 318.0, 24.0),
-    ("bg_race_waterline01", 1280.0, 918.0, 318.0, 24.0),
-    ("bg_race_waterline03", 1600.0, 918.0, 318.0, 24.0),
-];
-
-/// Pixels per unit of the title backdrop's layout.
-const TITLE_PIXELS: f32 = 26.0;
-
-/// A wave crest's width in pixels, how far apart the crests sit, and how many there are
-/// (enough to cover the screen as they wrap).
-const TITLE_WAVE_TILE: f32 = 64.0;
-const TITLE_WAVE_SPACING: f32 = 360.0;
-const TITLE_WAVE_COUNT: usize = 7;
-
-/// One wave crest along the title water, by its place in the row.
-#[derive(Component)]
-struct TitleWaves(usize);
-
-fn scroll_title_waves(
-    time: Res<Time>,
-    config: Res<GameConfig>,
-    mut waves: Query<(&TitleWaves, &mut Node)>,
-) {
-    let row = TITLE_WAVE_SPACING * TITLE_WAVE_COUNT as f32;
-    let shift = time.elapsed_secs() * config.title_wave_speed;
-    for (wave, mut node) in &mut waves {
-        let x = (wave.0 as f32 * TITLE_WAVE_SPACING - shift).rem_euclid(row) - TITLE_WAVE_TILE;
-        node.left = px(x);
-    }
-}
-
-/// A floating title island: its resting top (pixels from the top), how it bobs, and
-/// the leg it's on: from and to (pixels above rest), its length and time so far.
-#[derive(Component)]
-struct TitleIsland {
-    top: f32,
-    bob: (f32, f32),
-    leg: (f32, f32),
-    from: f32,
-    to: f32,
-    length: f32,
-    time: f32,
-    seed: u64,
-}
-
-impl TitleIsland {
-    /// Starts the next leg to the other side of the rest (the first goes either way).
-    fn next_leg(&mut self) {
-        let mut roll = || (crate::gameplay::xorshift(&mut self.seed) % 10_000) as f32 / 10_000.0;
-        let up = if self.to == 0.0 { roll() < 0.5 } else { self.to < 0.0 };
-        let distance = self.bob.0 + (self.bob.1 - self.bob.0) * roll();
-        self.length = (self.leg.0 + (self.leg.1 - self.leg.0) * roll()).max(0.1);
-        self.from = self.to;
-        self.to = if up { distance } else { -distance };
-        self.time = 0.0;
-    }
-}
-
-fn bob_title_islands(time: Res<Time>, mut islands: Query<(&mut TitleIsland, &mut Node)>) {
-    for (mut island, mut node) in &mut islands {
-        if island.bob.1 <= 0.0 {
-            continue;
-        }
-        island.time += time.delta_secs();
-        if island.time >= island.length {
-            island.next_leg();
-        }
-        let x = (island.time / island.length).clamp(0.0, 1.0);
-        let eased = if x < 0.5 { 2.0 * x * x } else { 1.0 - (-2.0 * x + 2.0).powi(2) / 2.0 };
-        let offset = island.from + (island.to - island.from) * eased;
-        node.top = px(island.top - offset);
-    }
-}
-
 /// The highlighted title tile.
 #[derive(Resource, Default)]
 pub struct MainMenu {
@@ -942,7 +771,6 @@ fn fill() -> Node {
 fn spawn_main_menu(
     mut commands: Commands,
     art: Option<Res<Art>>,
-    config: Res<GameConfig>,
 ) {
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
     let mut root = commands.spawn((
@@ -951,15 +779,11 @@ fn spawn_main_menu(
             height: Val::Percent(100.0),
             ..default()
         },
-        BackgroundColor(Color::srgb(0.05, 0.06, 0.12)),
+        // The live Race scene shows through (visuals::MenuScene).
         GlobalZIndex(11),
         Visibility::Hidden,
         MainMenuRoot,
     ));
-    if let Some(background) = image("menu_background_bare") {
-        root.with_child(crate::select::backdrop(background));
-    }
-    root.with_children(|parent| spawn_water_scene_into(parent, art.as_deref(), &config));
     root.with_children(|parent| {
         for (i, tile) in TILES.iter().enumerate() {
             let (r, g, b) = tile.color;

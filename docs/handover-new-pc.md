@@ -27,7 +27,7 @@ back to where the old one stopped. Read AGENTS.md and docs/pc-tasks.md too.
    - Export the install with AssetRipper ("Export Unity project") into `research\ripped`.
    - `powershell -File tools\extract\guid_index.ps1 -Assets research\ripped\ExportedProject\Assets -Out research\guid_index.tsv`
    - Then, in order: `stage.ps1`, `wizards.ps1`, `inventory.ps1`, `effects.ps1`,
-     `rival_towers.ps1` (all `powershell -File tools\extract\<name> -Repo .`). The old PC staged
+     `rival_towers.ps1`, `race_scene.ps1` (all `powershell -File tools\extract\<name> -Repo .`). The old PC staged
      519 entries with 1 missing (`page_dot_on`, a known sprite-name mismatch) and 2,198 manifest
      entries in all.
    - The old PC's `research\notes.md` and `research\spec_*.md` (raw readout notes) don't come
