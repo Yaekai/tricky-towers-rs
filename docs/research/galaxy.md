@@ -53,3 +53,9 @@ export's prefabs and materials (the Galaxy brick pack prefabs and the BrickGalax
 - Outline: about 2.5 px dark, (46, 31, 87) at its darkest: 0.09 of a cell. Ours is now 0.09 (`GALAXY_LINE_WIDTH`).
 - Top bevel: a light band about 4 px, (201, 115, 223). Bottom bevel: a softer band, about (145, 78, 214).
 - Body: flat violet, about (147, 31, 185). That blue is above anything in the background picture (its bluest is 141), so the original's shader brightens the sky's blue; how is not readable (the shader is compiled, and AssetRipper's free edition can't decompile it). A RenderDoc capture of the original would show it.
+
+## Why the Galaxy shader can't be read from the install (2026-10-10)
+- The game is Unity 5.5.1 and ships its shaders for Direct3D 9 only. Started with `-force-d3d11`, the player logs that Direct3D 11 "was not built from editor, shaders will not be available" and quits.
+- AssetRipper Premium's shader decompiler gave empty program bodies for all 58 shaders (only properties, blend modes and variant names), and RenderDoc can't capture Direct3D 9.
+- What the export does give: the Galaxy brick shader draws in the Transparent queue with normal alpha blending (SrcAlpha, OneMinusSrcAlpha), no depth writes, no culling, with ICE and WATER variants. Ours draws the same way.
+- So the Galaxy colour stays matched to Max's clip by measurement (see above), not read from the shader.
