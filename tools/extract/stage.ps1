@@ -273,11 +273,11 @@ foreach ($n in $darkIslands.Keys) {
 }
 
 # --- Race water band (original BackgroundWater: bottom 6 screen units) ---
-$manifest.Add('    "water_band": (colors: [(61, 82, 201), (137, 146, 217)], position: (0.0, 6.0), view_height: 41.54, z: 1, parallax: 0.3),')
-$manifest.Add('    "water_band_race": (colors: [(61, 82, 201), (137, 146, 217)], position: (0.0, 6.0), view_height: 41.54, z: 1, parallax: 0.3),')
+$manifest.Add('    "water_band": (colors: [(137, 146, 217), (61, 82, 201)], position: (0.0, 6.0), view_height: 41.54, z: 1, parallax: 0.3),')
+$manifest.Add('    "water_band_race": (colors: [(137, 146, 217), (61, 82, 201)], position: (0.0, 6.0), view_height: 41.54, z: 1, parallax: 0.3),')
 $manifest.Add('    "water_band_survival": (colors: []),')
 $manifest.Add('    "water_band_puzzle": (colors: []),')
-$notes.Add('- water_band : Race background water, bottom 6 screen units, top (61,82,201) to bottom (137,146,217); islands bob on it.')
+$notes.Add('- water_band : Race background water, bottom 6 screen units, light (137,146,217) at its top to (61,82,201) at the bottom, as the original draws it (its BackgroundWater passes them the other way round, and its mesh is turned); islands bob on it.')
 
 # --- Puzzle floor pieces (proposed names; the game draws plain cells until it uses them) ---
 Add-Sprite 'puzzle_piece_1' 'gph_house01_world03' 'floors\puzzle_piece_1.png' 'Puzzle floor piece 1: column 1 wide, 13 tall; pivot = top-left, drawn 0.03 left and up of the column corner' @(0.0, 1.0)

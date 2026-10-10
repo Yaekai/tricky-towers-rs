@@ -793,6 +793,7 @@ pub(crate) fn show_single_screens(
     game: Res<Match>,
     screen: Res<MenuScreen>,
     menu: Res<SingleMenu>,
+    lobby: Res<crate::select::Lobby>,
     board: Res<Leaderboard>,
     mut menu_look: ResMut<crate::visuals::MenuLook>,
     mut roots: ParamSet<(
@@ -820,10 +821,23 @@ pub(crate) fn show_single_screens(
     for mut v in &mut roots.p1() {
         v.set_if_neq(shown(endless_on));
     }
-    // The original draws the picked Endless mode's own background behind the screen.
-    menu_look.set_if_neq(crate::visuals::MenuLook(
-        endless_on.then(|| ENDLESS[menu.endless].mode),
-    ));
+    // The original draws the picked Endless mode's own background behind the screen, and on
+    // Select Mode the picked mode's in the picked difficulty's look (Special has its own).
+    let modes_on = menu_up && *screen == MenuScreen::Modes;
+    let look = if endless_on {
+        Some((ENDLESS[menu.endless].mode, false))
+    } else if modes_on {
+        let mode = match lobby.modes()[lobby.mode % lobby.modes().len()] {
+            crate::select::ModePick::Mode(mode) => mode,
+            crate::select::ModePick::Random => ModeKind::Race,
+        };
+        let special = crate::select::DifficultyPick::ALL[lobby.difficulty % crate::select::DifficultyPick::ALL.len()]
+            == crate::select::DifficultyPick::Set(Difficulty::Pro);
+        Some((mode, special))
+    } else {
+        None
+    };
+    menu_look.set_if_neq(crate::visuals::MenuLook(look));
     if !single_on && !endless_on {
         return;
     }

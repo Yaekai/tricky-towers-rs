@@ -33,6 +33,8 @@ impl Plugin for VisualsPlugin {
                     track_menu_scene.before(spawn_backgrounds),
                     show_scene_in_menus.after(spawn_backgrounds),
                     bob_islands.before(fit_backgrounds),
+                    wave_islands.after(bob_islands),
+                    ripple_water.after(fit_strips),
                     pulse_band,
                     run_waves.after(fit_backgrounds),
                 ),
@@ -299,9 +301,10 @@ fn twinkle_stars(
     }
 }
 
-/// The mode whose background shows behind a menu (the Endless screen), if any.
+/// The mode whose background shows behind a menu, if any, and whether in its Special look:
+/// the picked Endless mode on the Endless screen, the picked mode and difficulty on Select Mode.
 #[derive(Resource, Default, PartialEq)]
-pub struct MenuLook(pub Option<ModeKind>);
+pub struct MenuLook(pub Option<(ModeKind, bool)>);
 
 /// The water strip at the depth where dropped bricks are lost. Modes whose water band
 /// is turned off (Survival, Puzzle) have no water at all.
@@ -379,7 +382,7 @@ fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
     let depth = Vec3::new(0.0, -config.cells(config.kill_depth), -800.0);
     let width = config.cells(config.lanes.screen_width * 3.0);
     if let Some(water) = art_strip(&art, "water", config.cell_size, width, depth) {
-        commands.spawn((WaterStrip, water));
+        commands.spawn((WaterStrip, RippleWater, water));
     }
     commands.spawn((
         Hud,
@@ -1219,6 +1222,7 @@ fn show_scene_in_menus(
                 Added<Background>,
                 Added<LitLayer>,
                 Added<SceneWave>,
+                Added<IslandQuad>,
             )>,
             Without<bevy::camera::visibility::RenderLayers>,
         ),
@@ -1245,6 +1249,110 @@ struct IslandBob {
 /// A waterline that moves with its island.
 #[derive(Component)]
 struct BobWith(Entity);
+
+/// Water whose picture is to be drawn with the rippling top (Custom/FlagWave) once it has
+/// loaded: the strip under the lanes, and the menus' foreground water.
+#[derive(Component)]
+struct RippleWater;
+
+/// Replaces each rippling water's picture with a quad of the same size drawn by the water
+/// material; the sprite stays, empty, to keep its place and tint.
+#[allow(clippy::type_complexity)]
+fn ripple_water(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    view_size: Res<ViewSize>,
+    images: Res<Assets<Image>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut waters: Option<ResMut<Assets<crate::scene_material::FlagWave>>>,
+    mut pending: Query<
+        (
+            Entity,
+            &mut Sprite,
+            &Transform,
+            Option<&Anchor>,
+            Option<&Strip>,
+            Option<&bevy::camera::visibility::RenderLayers>,
+        ),
+        With<RippleWater>,
+    >,
+) {
+    let (Some(meshes), Some(waters)) = (meshes.as_mut(), waters.as_mut()) else {
+        return;
+    };
+    let scene = &config.race_scene;
+    for (entity, mut sprite, transform, anchor, strip, layers) in &mut pending {
+        let Some(size) = images.get(&sprite.image).map(|i| i.size_f32()) else {
+            continue;
+        };
+        // A strip is as wide as it reaches; a screen layer is stretched to the view.
+        let (width, units) = match strip {
+            Some(strip) => {
+                let scale = transform.scale.x.max(f32::EPSILON);
+                (strip.width / scale, strip.width / config.cell_size.max(0.01))
+            }
+            None => (
+                size.x,
+                view_size.0.x / view_size.0.y.max(1.0) * config.hud.camera_height,
+            ),
+        };
+        let (amplitude, speed, up) = scene.water_ripple;
+        let material = waters.add(crate::scene_material::FlagWave {
+            look: crate::scene_material::WaterLook {
+                params: Vec4::new(amplitude, speed, up, units / scene.water_span.max(0.01)),
+                tint: Vec4::from_array(sprite.color.to_linear().to_f32_array()),
+            },
+            picture: sprite.image.clone(),
+        });
+        let quad = Vec2::new(width, size.y);
+        let offset = -anchor.map_or(Vec2::ZERO, |a| a.0) * quad;
+        let mut child = commands.spawn((
+            Mesh2d(meshes.add(Rectangle::new(quad.x, quad.y))),
+            MeshMaterial2d(material),
+            Transform::from_translation(offset.extend(0.0)),
+            ChildOf(entity),
+        ));
+        if let Some(layers) = layers {
+            child.insert(layers.clone());
+        }
+        sprite.custom_size = Some(Vec2::ZERO);
+        commands.entity(entity).remove::<RippleWater>();
+    }
+}
+
+/// An island's picture drawn with its rippling waterline, under its screen layer: its
+/// height in units (to turn the bob into a share of the picture).
+#[derive(Component)]
+struct IslandQuad {
+    height: f32,
+}
+
+/// Hands each island its bob (so the waterline stays put while the island moves, as
+/// BobbingIsland's _BobAmount does) and its layer's tint.
+fn wave_islands(
+    layers: Query<(&ScreenLayer, &Sprite)>,
+    quads: Query<(&MeshMaterial2d<crate::scene_material::IslandWave>, &IslandQuad, &ChildOf)>,
+    mut materials: Option<ResMut<Assets<crate::scene_material::IslandWave>>>,
+) {
+    let Some(materials) = materials.as_mut() else {
+        return;
+    };
+    for (material, quad, of) in &quads {
+        let Ok((layer, sprite)) = layers.get(of.parent()) else {
+            continue;
+        };
+        let bob = -layer.lift / quad.height.max(0.01);
+        let tint = Vec4::from_array(sprite.color.to_linear().to_f32_array());
+        if materials
+            .get(&material.0)
+            .is_some_and(|m| (m.look.params.z - bob).abs() > 1e-5 || m.look.tint != tint)
+            && let Some(mut island) = materials.get_mut(&material.0)
+        {
+            island.look.params.z = bob;
+            island.look.tint = tint;
+        }
+    }
+}
 
 fn bob_islands(
     time: Res<Time>,
@@ -1439,6 +1547,8 @@ fn spawn_backgrounds(
     mut scene_state: ResMut<SceneState>,
     config: Res<GameConfig>,
     mut images: ResMut<Assets<Image>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut islands: Option<ResMut<Assets<crate::scene_material::IslandWave>>>,
     camera: Query<Entity, With<Camera2d>>,
     existing: Query<
         Entity,
@@ -1458,12 +1568,14 @@ fn spawn_backgrounds(
     };
     // Behind the menus the original shows the Race scene (BackgroundController), or the
     // picked Endless mode's on the Endless screen.
-    let mode = match (menu_look.0, menu_scene.0) {
-        (Some(mode), true) => mode,
-        (None, true) => ModeKind::Race,
-        _ => game.mode,
+    let (mode, pro) = match (menu_look.0, menu_scene.0) {
+        (Some((mode, special)), true) => (
+            mode,
+            pro_look(mode, special.then_some(crate::config::Difficulty::Pro)),
+        ),
+        (None, true) => (ModeKind::Race, None),
+        _ => (game.mode, pro_look(game.mode, config.difficulty)),
     };
-    let pro = pro_look(mode, config.difficulty).filter(|_| !menu_scene.0);
     let in_match = !menu_scene.0;
     if *shown == Some((mode, pro, in_match)) && !art.is_changed() {
         return;
@@ -1599,6 +1711,7 @@ fn spawn_backgrounds(
                 squash: Vec2::ONE,
             },
             WaveLook::Keep,
+            RippleWater,
             Sprite::from_image(image),
             Anchor(Vec2::new(0.0, entry.pivot.map_or(0.0, |p| p.1 - 0.5))),
             Transform::from_xyz(0.0, 0.0, 30.0),
@@ -1742,6 +1855,33 @@ fn spawn_backgrounds(
                         time: 0.0,
                         seed: 0x9E37_79B9 ^ (order as u32 + 1).wrapping_mul(2_654_435_761) ^ island.art.len() as u32,
                     });
+                }
+                // Its picture is drawn by the island material under the (empty) sprite, which
+                // keeps the layer's place, tint and bob.
+                if let (Some(island), Some(meshes), Some(islands)) =
+                    (island, meshes.as_mut(), islands.as_mut())
+                    && let Some(size) = images.get(&art.images[name]).map(|i| i.size_f32())
+                {
+                    let height = size.y / entry.pixels_per_unit.unwrap_or(26.0).max(1.0) * scene.island_scale;
+                    let tint = Vec4::from_array(tint.to_linear().to_f32_array());
+                    let material = islands.add(crate::scene_material::IslandWave {
+                        look: crate::scene_material::IslandLook {
+                            params: Vec4::new(island.wave.0, island.wave.1, 0.0, 0.0),
+                            tint,
+                        },
+                        picture: art.images[name].clone(),
+                    });
+                    layer.insert(Sprite {
+                        image: art.images[name].clone(),
+                        custom_size: Some(Vec2::ZERO),
+                        ..default()
+                    });
+                    layer.with_child((
+                        IslandQuad { height },
+                        Mesh2d(meshes.add(Rectangle::new(size.x, size.y))),
+                        MeshMaterial2d(material),
+                        Transform::from_translation((-anchor.0 * size).extend(0.0)),
+                    ));
                 }
                 let island_entity = layer.id();
                 if let Some(line) = line {

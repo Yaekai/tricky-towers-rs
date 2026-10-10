@@ -334,12 +334,12 @@
         island_scale: 0.9,
         island_root: 6.0,
         islands: [
-            (art: "background_race_2", bobs: false, line_at: (0.0, 0.01), line_size: (20.0, 0.6), line_tint: (0.8602941, 0.8666444, 1.0), line_z: 2.1),
-            (art: "background_race_3", bobs: true, line_at: (7.69, 0.62), line_size: (4.183838, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 4.1),
-            (art: "background_race_4", bobs: true, line_at: (-8.86, 0.93), line_size: (4.954848, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 4.1),
-            (art: "background_race_5", bobs: true, line_at: (4.79, 1.45), line_size: (2.594628, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 4.6),
-            (art: "background_race_6", bobs: true, line_at: (8.01, 0.59), line_size: (4.187103, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 4.6),
-            (art: "background_race_7", bobs: true, line_at: (-6.94, 1.45), line_size: (4.183838, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 2.5),
+            (art: "background_race_2", bobs: false, wave: (0.0, 0.0), line_at: (0.0, 0.01), line_size: (20.0, 0.6), line_tint: (0.8602941, 0.8666444, 1.0), line_z: 2.1),
+            (art: "background_race_3", bobs: true, wave: (0.03, 0.05), line_at: (7.69, 0.62), line_size: (4.183838, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 4.1),
+            (art: "background_race_4", bobs: true, wave: (0.03, 0.05), line_at: (-8.86, 0.93), line_size: (4.954848, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 4.1),
+            (art: "background_race_5", bobs: true, wave: (0.03, 0.05), line_at: (4.79, 1.45), line_size: (2.594628, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 4.6),
+            (art: "background_race_6", bobs: true, wave: (0.03, 0.05), line_at: (8.01, 0.59), line_size: (4.187103, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 4.6),
+            (art: "background_race_7", bobs: true, wave: (0.03, 0.05), line_at: (-6.94, 1.45), line_size: (4.183838, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 2.5),
         ],
         bob: (0.2, 0.4),
         bob_time: (2.5, 4.0),
@@ -361,6 +361,8 @@
             (y: 3.0, height: 2.0, scale: (0.2, 0.5), parallax: 0.3, front: false, z: 2.05),
             (y: 2.5, height: 0.5, scale: (0.5, 0.7), parallax: 1.0, front: true, z: 0.0),
         ],
+        water_ripple: (0.07, 1.0, 0.07),
+        water_span: 80.0,
     ),
     weather: (
         race_pro_sky: [

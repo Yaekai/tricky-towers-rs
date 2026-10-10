@@ -3304,6 +3304,10 @@ pub struct RaceScene {
     /// Its height, as a share of its width scale, at birth and at the middle of its life.
     pub wave_squash: (f32, f32),
     pub waves: Vec<WaveRow>,
+    /// The foreground water's ripple (WaterWave.mat on Custom/FlagWave): amplitude, speed and
+    /// offset up (shares of the picture), over a span this wide (the WATER prefab's 80 units).
+    pub water_ripple: (f32, f32, f32),
+    pub water_span: f32,
 }
 
 /// One cloud layer (CloudLayer): `rounds` passes each spreading every picture once across the
@@ -3327,6 +3331,8 @@ pub struct CloudRow {
 pub struct SceneIsland {
     pub art: String,
     pub bobs: bool,
+    /// Its waterline (Custom/WaterIslands): ripple amplitude and height, shares of the picture.
+    pub wave: (f32, f32),
     pub line_at: (f32, f32),
     pub line_size: (f32, f32),
     pub line_tint: (f32, f32, f32),
@@ -3354,6 +3360,7 @@ impl Default for RaceScene {
         let island = |art: &str, bobs, line_at, line_size, line_z| SceneIsland {
             art: art.into(),
             bobs,
+            wave: (0.03, 0.05),
             line_at,
             line_size,
             line_tint: line,
@@ -3381,6 +3388,7 @@ impl Default for RaceScene {
             islands: vec![
                 SceneIsland {
                     line_tint: (0.860_294_1, 0.866_644_4, 1.0),
+                    wave: (0.0, 0.0),
                     ..island("background_race_2", false, (0.0, 0.01), (20.0, 0.6), 2.1)
                 },
                 island("background_race_3", true, (7.69, 0.62), (4.183_838, 0.8), 4.1),
@@ -3405,6 +3413,8 @@ impl Default for RaceScene {
             wave_time: 6.0,
             wave_drift: 4.0,
             wave_squash: (0.2, 0.7),
+            water_ripple: (0.07, 1.0, 0.07),
+            water_span: 80.0,
             waves: vec![
                 WaveRow { y: 3.0, height: 2.0, scale: (0.2, 0.5), parallax: 0.3, front: false, z: 2.05 },
                 WaveRow { y: 2.5, height: 0.5, scale: (0.5, 0.7), parallax: 1.0, front: true, z: 0.0 },
