@@ -1,6 +1,13 @@
-//! The brick packs' own looks as a 2D material, written from our notes on the original's
-//! brick shaders (docs/research/galaxy.md, diamond.md). Galaxy and Diamond so far; the WGSL is ours, kept here as a
-//! string so it ships inside the game.
+//! The bricks' looks as 2D materials, written from our notes on the original's brick shaders
+//! (docs/research/brick-lighting.md, galaxy.md, diamond.md): the shared lit brick (default,
+//! Christmas, Halloween, Candy, Spring and Hologram's base), Galaxy and Diamond. The WGSL is
+//! ours, kept here as strings so it ships inside the game.
+//!
+//! Each brick quad hangs under an empty `Sprite` (no size, so it draws nothing; a sprite and a
+//! mesh on one entity hide other things): the brick effects tint and move it like any brick
+//! sprite (losers turning pale, Undo's zap, Bubble, the Hologram glitch, the Halloween fade,
+//! Large) and `follow_bricks` hands that colour to the material along with the brick's turn,
+//! which keeps the light fixed in the world.
 
 use bevy::asset::uuid_handle;
 use bevy::prelude::*;
@@ -30,6 +37,8 @@ struct GalaxyBrick {
     // The 49 stars of the original's Galaxy scene: x, y in scene units from its centre,
     // z scale, w turn (radians).
     stars: array<vec4<f32>, 49>,
+    // The effects' tint, multiplied in like a sprite's colour.
+    tint: vec4<f32>,
 };
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: GalaxyBrick;
@@ -98,7 +107,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     colour = colour + material.params.w * (1.0 - colour);
 
     let alpha = max(map.a, map.b);
-    return vec4(srgb_to_linear(colour), alpha);
+    return vec4(srgb_to_linear(colour) * material.tint.rgb, alpha * material.tint.a);
 }
 "#;
 
@@ -128,6 +137,7 @@ pub struct GalaxyLook {
     pub border: Vec4,
     pub params: Vec4,
     pub stars: [Vec4; 49],
+    pub tint: Vec4,
 }
 
 impl Material2d for GalaxyBrick {
@@ -159,6 +169,8 @@ struct DiamondBrick {
     params: vec4<f32>,
     // x, y: the bevel map's size in units (pixels / 65).
     size: vec4<f32>,
+    // The effects' tint, multiplied in like a sprite's colour.
+    tint: vec4<f32>,
 };
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: DiamondBrick;
@@ -207,7 +219,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     colour = mix(colour, material.border.rgb, outline);
     colour = colour + material.params.w * (1.0 - colour);
     let alpha = max(pat_linear.a, map.b);
-    return vec4(srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0))), alpha);
+    return vec4(srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0))) * material.tint.rgb, alpha * material.tint.a);
 }
 "#;
 
@@ -234,6 +246,7 @@ pub struct DiamondLook {
     pub border: Vec4,
     pub params: Vec4,
     pub size: Vec4,
+    pub tint: Vec4,
 }
 
 impl Material2d for DiamondBrick {
@@ -243,6 +256,201 @@ impl Material2d for DiamondBrick {
 
     fn alpha_mode(&self) -> AlphaMode2d {
         AlphaMode2d::Blend
+    }
+}
+
+const LIT_SHADER: Handle<Shader> = uuid_handle!("2e7c9b14-6d3a-4f8e-a5c1-9b0d4e7f2a63");
+
+const LIT_WGSL: &str = r#"// A lit brick, the way the original's World/Bricks shaders light it (docs/research/
+// brick-lighting.md), written from those notes, on stored (sRGB) values like the original.
+#import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
+
+struct LitBrick {
+    // rgb: colour, a: strength.
+    highlight: vec4<f32>,
+    shadow: vec4<f32>,
+    // rgb: the outline colour.
+    border: vec4<f32>,
+    // x: the brick's rotation (radians).
+    params: vec4<f32>,
+    // The effects' tint, multiplied in like a sprite's colour.
+    tint: vec4<f32>,
+};
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: LitBrick;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var bevel: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var bevel_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var pattern: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(4) var pattern_sampler: sampler;
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let map_linear = textureSample(bevel, bevel_sampler, mesh.uv);
+    let map = vec4(linear_to_srgb(map_linear.rgb), map_linear.a);
+    let pat_linear = textureSample(pattern, pattern_sampler, mesh.uv);
+    var colour = linear_to_srgb(pat_linear.rgb);
+
+    // The bevel's slope, turned with the brick into the world, lit from up and to the left.
+    let n = map.rg * 2.0 - 1.0;
+    let r = material.params.x;
+    let world_n = vec2(cos(r) * n.x - sin(r) * n.y, sin(r) * n.x + cos(r) * n.y);
+    let d = dot(world_n, vec2(-0.44721359, 0.89442718));
+    colour = mix(colour, material.highlight.rgb, clamp(d, 0.0, 1.0) * material.highlight.a);
+    colour = mix(colour, material.shadow.rgb, clamp(-d, 0.0, 1.0) * material.shadow.a);
+
+    // The outline and cracks (the map's blue, and its outside) in the line colour.
+    let outline = 1.0 - (1.0 - map.b) * map.a;
+    colour = mix(colour, material.border.rgb, outline);
+
+    let alpha = max(pat_linear.a, map.b);
+    let out = srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0)));
+    return vec4(out * material.tint.rgb, alpha * material.tint.a);
+}
+"#;
+
+/// A lit brick's look: its bevel map, its unlit pattern, and its light colours.
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct LitBrick {
+    #[uniform(0)]
+    pub look: LitLook,
+    #[texture(1)]
+    #[sampler(2)]
+    pub bevel: Handle<Image>,
+    #[texture(3)]
+    #[sampler(4)]
+    pub pattern: Handle<Image>,
+}
+
+/// The light colours and outline (stored sRGB, as the original's material has them), x the
+/// brick's rotation, and the effects' tint (linear, like a sprite's colour).
+#[derive(ShaderType, Clone, Copy, Debug)]
+pub struct LitLook {
+    pub highlight: Vec4,
+    pub shadow: Vec4,
+    pub border: Vec4,
+    pub params: Vec4,
+    pub tint: Vec4,
+}
+
+impl Material2d for LitBrick {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(LIT_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
+/// A quad drawn by one of the brick materials; its parent's `Sprite` carries the effects' tint.
+#[derive(Component)]
+pub struct BrickQuad;
+
+/// Spawns under `brick` an empty sprite at `at` carrying `color` and `on_sprite`, with the quad
+/// of `size` drawn by `material` (and carrying `on_quad`) under it.
+pub fn spawn_quad<M: Material2d>(
+    brick: &mut EntityCommands,
+    at: Transform,
+    color: Color,
+    on_sprite: impl Bundle,
+    on_quad: impl Bundle,
+    mesh: Handle<Mesh>,
+    material: Handle<M>,
+) {
+    brick.with_children(|parent| {
+        parent
+            .spawn((
+                on_sprite,
+                Sprite {
+                    color,
+                    custom_size: Some(Vec2::ZERO),
+                    ..default()
+                },
+                at,
+            ))
+            .with_child((on_quad, BrickQuad, Mesh2d(mesh), MeshMaterial2d(material)));
+    });
+}
+
+/// The mesh and material of a lit brick quad of `size` for manifest entry `key`, when it has
+/// light colours, a bevel map and its unlit pattern (`<key>_raw`, kept by `art::light_bricks`).
+pub fn lit_brick(
+    art: &crate::art::Art,
+    key: &str,
+    size: Vec2,
+    color: Color,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<LitBrick>,
+) -> Option<(Handle<Mesh>, Handle<LitBrick>)> {
+    let entry = art.entries.get(key)?;
+    let ((hr, hg, hb, ha), (sr, sg, sb, sa)) = entry.light.as_ref()?.get()?;
+    let (lr, lg, lb) = entry.line.unwrap_or(crate::art::BRICK_LINE);
+    let bevel = art.images.get(entry.bevel.as_ref()?)?.clone();
+    let pattern = art.images.get(&format!("{key}_raw"))?.clone();
+    let material = materials.add(LitBrick {
+        look: LitLook {
+            highlight: Vec4::new(hr, hg, hb, ha),
+            shadow: Vec4::new(sr, sg, sb, sa),
+            border: Vec4::new(lr, lg, lb, 1.0),
+            params: Vec4::ZERO,
+            tint: Vec4::from_array(color.to_linear().to_f32_array()),
+        },
+        bevel,
+        pattern,
+    });
+    Some((meshes.add(Rectangle::new(size.x, size.y)), material))
+}
+
+/// Hands each brick quad its turn in the world (so the light stays up and to the left) and the
+/// tint the effects gave its sprite.
+#[allow(clippy::type_complexity)]
+fn follow_bricks(
+    sprites: Query<&Sprite>,
+    lit: Query<(&MeshMaterial2d<LitBrick>, &GlobalTransform, &ChildOf), With<BrickQuad>>,
+    galaxy: Query<(&MeshMaterial2d<GalaxyBrick>, &ChildOf), With<BrickQuad>>,
+    diamond: Query<(&MeshMaterial2d<DiamondBrick>, &ChildOf), With<BrickQuad>>,
+    mut lit_materials: Option<ResMut<Assets<LitBrick>>>,
+    mut galaxy_materials: Option<ResMut<Assets<GalaxyBrick>>>,
+    mut diamond_materials: Option<ResMut<Assets<DiamondBrick>>>,
+) {
+    let tint = |of: &ChildOf| {
+        sprites
+            .get(of.parent())
+            .map_or(Vec4::ONE, |s| Vec4::from_array(s.color.to_linear().to_f32_array()))
+    };
+    if let Some(materials) = lit_materials.as_mut() {
+        for (material, at, of) in &lit {
+            let angle = at.rotation().to_euler(EulerRot::XYZ).2;
+            let tint = tint(of);
+            let same = materials
+                .get(&material.0)
+                .is_none_or(|m| (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint);
+            if !same && let Some(mut brick) = materials.get_mut(&material.0) {
+                brick.look.params.x = angle;
+                brick.look.tint = tint;
+            }
+        }
+    }
+    if let Some(materials) = galaxy_materials.as_mut() {
+        for (material, of) in &galaxy {
+            let tint = tint(of);
+            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint)
+                && let Some(mut brick) = materials.get_mut(&material.0)
+            {
+                brick.look.tint = tint;
+            }
+        }
+    }
+    if let Some(materials) = diamond_materials.as_mut() {
+        for (material, of) in &diamond {
+            let tint = tint(of);
+            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint)
+                && let Some(mut brick) = materials.get_mut(&material.0)
+            {
+                brick.look.tint = tint;
+            }
+        }
     }
 }
 
@@ -258,9 +466,15 @@ impl Plugin for BrickMaterialPlugin {
             .world_mut()
             .resource_mut::<Assets<Shader>>()
             .insert(DIAMOND_SHADER.id(), Shader::from_wgsl(DIAMOND_WGSL, "diamond_brick.wgsl"));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(LIT_SHADER.id(), Shader::from_wgsl(LIT_WGSL, "lit_brick.wgsl"));
         app.add_plugins((
             Material2dPlugin::<GalaxyBrick>::default(),
             Material2dPlugin::<DiamondBrick>::default(),
-        ));
+            Material2dPlugin::<LitBrick>::default(),
+        ))
+        .add_systems(Update, follow_bricks);
     }
 }

@@ -302,6 +302,7 @@ fn decorate_bricks(
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut galaxy_bricks: Option<ResMut<Assets<GalaxyBrick>>>,
     mut diamond_bricks: Option<ResMut<Assets<DiamondBrick>>>,
+    mut lit_bricks: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
     mut images: Option<ResMut<Assets<Image>>>,
 ) {
     for (entity, brick, stone) in &bricks {
@@ -374,21 +375,46 @@ fn decorate_bricks(
                 let shape = &config.pieces[brick.piece].name;
                 let from = since.get(entity).map_or(time.elapsed_secs(), |s| s.0);
                 brick_entity.insert(HalloweenSince(from));
-                if let Some(look) = art.image(&format!("brick_halloween_{shape}")) {
+                let key = format!("brick_halloween_{shape}");
+                if let Some(look) = art.image(&key) {
                     let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
                     let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
                     let size = (max - min + Vec2::ONE) * c;
                     let center = (min + max) * 0.5 * c;
-                    brick_entity.with_child((
-                        HalloweenFade(from),
-                        Sprite {
-                            image: look,
-                            color: Color::srgba(1.0, 1.0, 1.0, 0.0),
-                            custom_size: Some(size),
-                            ..default()
+                    let clear = Color::srgba(1.0, 1.0, 1.0, 0.0);
+                    let at = Transform::from_translation(center.extend(0.015));
+                    let lit = meshes.as_mut().zip(lit_bricks.as_mut()).and_then(
+                        |(meshes, lit_bricks)| {
+                            crate::brick_material::lit_brick(
+                                &art, &key, size, clear, meshes, lit_bricks,
+                            )
                         },
-                        Transform::from_translation(center.extend(0.015)),
-                    ));
+                    );
+                    match lit {
+                        Some((mesh, material)) => {
+                            crate::brick_material::spawn_quad(
+                                &mut brick_entity,
+                                at,
+                                clear,
+                                HalloweenFade(from),
+                                (),
+                                mesh,
+                                material,
+                            );
+                        }
+                        None => {
+                            brick_entity.with_child((
+                                HalloweenFade(from),
+                                Sprite {
+                                    image: look,
+                                    color: clear,
+                                    custom_size: Some(size),
+                                    ..default()
+                                },
+                                at,
+                            ));
+                        }
+                    }
                 }
                 // Up to 2 front decorations, 40% chance each.
                 let kinds = ["bat", "spider", "pumpkin", "spiderweb"];
@@ -485,21 +511,25 @@ fn decorate_bricks(
                             border: Vec4::new(lr, lg, lb, 1.0),
                             params: Vec4::ZERO,
                             size: (px / 65.0).extend(0.0).extend(0.0),
+                            tint: Vec4::ONE,
                         },
                         bevel,
                         pattern,
                     });
-                    brick_entity.with_child((
+                    crate::brick_material::spawn_quad(
+                        &mut brick_entity,
+                        Transform::from_translation(center.extend(0.02)),
+                        Color::WHITE,
+                        CellSprite,
                         Gloss {
                             wait: 0.0,
                             time: -1.0,
                             seed,
                             turn: 1.0,
                         },
-                        Mesh2d(meshes.add(Rectangle::new(size.x, size.y))),
-                        MeshMaterial2d(material),
-                        Transform::from_translation(center.extend(0.02)),
-                    ));
+                        meshes.add(Rectangle::new(size.x, size.y)),
+                        material,
+                    );
                 }
             }
             BrickPack::Galaxy => {
@@ -550,17 +580,21 @@ fn decorate_bricks(
                             border: Vec4::new(lr, lg, lb, 1.0),
                             params: Vec4::new(hue, 0.0, config.cell_size, 0.0),
                             stars: [Vec4::ZERO; 49],
+                            tint: Vec4::ONE,
                         },
                         bevel,
                         sky,
                         star,
                     });
-                    brick_entity.with_child((
-                        GalaxyQuad,
-                        Mesh2d(meshes.add(Rectangle::new(size.x, size.y))),
-                        MeshMaterial2d(material),
+                    crate::brick_material::spawn_quad(
+                        &mut brick_entity,
                         Transform::from_translation(center.extend(0.02)),
-                    ));
+                        Color::WHITE,
+                        CellSprite,
+                        GalaxyQuad,
+                        meshes.add(Rectangle::new(size.x, size.y)),
+                        material,
+                    );
                 }
             }
             _ => {}

@@ -698,6 +698,8 @@ pub(crate) fn dress_bricks(
         ),
     >,
     skins: Query<&crate::gameplay::TowerSkin>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut lit_bricks: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
 ) {
     for (entity, brick, stone, vined, grassy, placed) in &bricks {
         let cell = config.cell_size * brick.scale;
@@ -772,20 +774,35 @@ pub(crate) fn dress_bricks(
                 let max = brick.cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
                 let size = (max - min + Vec2::ONE) * cell;
                 let center = (min + max) * 0.5 * cell;
-                entity.with_child((
-                    CellSprite,
-                    Sprite {
-                        image,
-                        color,
-                        custom_size: Some(size),
-                        ..default()
-                    },
-                    // Later bricks sit in front of earlier ones: equal depths draw in
-                    // no fixed order, which looked like bricks on different layers.
-                    Transform::from_translation(
-                        center.extend(placed.map_or(0.0, |p| p.0 as f32 * 5.0e-5)),
-                    ),
-                ));
+                // Later bricks sit in front of earlier ones: equal depths draw in
+                // no fixed order, which looked like bricks on different layers.
+                let at = Transform::from_translation(
+                    center.extend(placed.map_or(0.0, |p| p.0 as f32 * 5.0e-5)),
+                );
+                // A plain brick with light colours is lit in the world by its material.
+                let lit = (whole && !stone && !brick.ice)
+                    .then_some(())
+                    .and(meshes.as_mut().zip(lit_bricks.as_mut()))
+                    .and_then(|(meshes, lit_bricks)| {
+                        crate::brick_material::lit_brick(&art, &key, size, color, meshes, lit_bricks)
+                    });
+                match lit {
+                    Some((mesh, material)) => {
+                        crate::brick_material::spawn_quad(&mut entity, at, color, CellSprite, (), mesh, material);
+                    }
+                    None => {
+                        entity.with_child((
+                            CellSprite,
+                            Sprite {
+                                image,
+                                color,
+                                custom_size: Some(size),
+                                ..default()
+                            },
+                            at,
+                        ));
+                    }
+                }
                 // Mystery 2 carries its rotor on top, over a dark shadow (MysteryBrick02 prefab).
                 if key == "mystery_blob" && whole {
                     let rotor = match (stone, brick.ice) {

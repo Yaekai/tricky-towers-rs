@@ -558,7 +558,7 @@ fn recolor_masks(
 
 /// The bricks' outline and crack colour, fixed in the original's lit brick shaders (default,
 /// Christmas, Halloween): (19, 13, 40).
-const BRICK_LINE: (f32, f32, f32) = (0.074_509_81, 0.050_980_39, 0.156_862_75);
+pub(crate) const BRICK_LINE: (f32, f32, f32) = (0.074_509_81, 0.050_980_39, 0.156_862_75);
 
 /// The light's direction in the original's lit brick shaders, up and to the left. The
 /// material's `_Angle` isn't used by them.
@@ -569,8 +569,9 @@ const BRICK_LIGHT: (f32, f32) = (-0.447_213_6, 0.894_427_2);
 /// and green are the slope, lit from up and to the left; the colour takes the highlight by the
 /// slope towards the light times its alpha, the shadow likewise away from it, then the outline
 /// colour by 1 - (1 - blue) x alpha of the map. Alpha is the larger of the pattern's alpha and
-/// the map's blue. The light is baked per shape here, so it turns with the brick, where the
-/// original's stays fixed in the world.
+/// the map's blue. The baked picture is for what never turns (menus, the next-brick card); bricks
+/// in play are drawn by `brick_material::LitBrick` from the unlit pattern, kept as `<name>_raw`,
+/// so their light stays fixed in the world like the original's.
 fn light_bricks(
     mut art: ResMut<Art>,
     mut images: ResMut<Assets<Image>>,
@@ -631,7 +632,9 @@ fn light_bricks(
             }
         }
         let lit = images.add(out);
-        art.images.insert(name, lit);
+        if let Some(raw) = art.images.insert(name.clone(), lit) {
+            art.images.insert(format!("{name}_raw"), raw);
+        }
     }
 }
 
