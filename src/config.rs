@@ -3323,6 +3323,13 @@ pub struct RaceScene {
     /// offset up (shares of the picture), over a span this wide (the WATER prefab's 80 units).
     pub water_ripple: (f32, f32, f32),
     pub water_span: f32,
+    /// Endless Race's checkpoint flags at both ends of a spell line
+    /// (SpellContainerLineCheckpointFlag): the flag's place from the pole's, the right flag's
+    /// across (it is the left one turned round), and its wave (CheckpointFlag.mat: amplitude,
+    /// frequency, speed).
+    pub flag_at: (f32, f32),
+    pub flag_right_x: f32,
+    pub flag_wave: (f32, f32, f32),
 }
 
 /// One cloud layer (CloudLayer): `rounds` passes each spreading every picture once across the
@@ -3430,6 +3437,9 @@ impl Default for RaceScene {
             wave_squash: (0.2, 0.7),
             water_ripple: (0.07, 1.0, 0.07),
             water_span: 80.0,
+            flag_at: (-0.937, 1.586),
+            flag_right_x: -1.12,
+            flag_wave: (0.1, 2.0, 1.0),
             waves: vec![
                 WaveRow { y: 3.0, height: 2.0, scale: (0.2, 0.5), parallax: 0.3, front: false, z: 2.05 },
                 WaveRow { y: 2.5, height: 0.5, scale: (0.5, 0.7), parallax: 1.0, front: true, z: 0.0 },

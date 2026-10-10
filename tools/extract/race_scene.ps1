@@ -48,6 +48,9 @@ Add-Piece 'race_cloud_large_2' 'gph_cloudLarge_var02'
 Add-Piece 'race_waterline' 'gph_waterline04'
 Add-Piece 'race_island_gradient' 'gph_gradientRefelcted'
 Add-Piece 'race_wave' 'gph_wave'
+# Endless Race's checkpoint flag and its pole (SpellContainerLineCheckpointFlag).
+Add-Piece 'checkpoint_flag' 'gph_checkpointFlag'
+Add-Piece 'checkpoint_flag_pole' 'gph_checkpointFlagPole'
 
 # Whole textures.
 $noise = Join-Path $A 'Texture2D\gph_noise.png'

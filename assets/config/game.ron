@@ -363,6 +363,9 @@
         ],
         water_ripple: (0.07, 1.0, 0.07),
         water_span: 80.0,
+        flag_at: (-0.937, 1.586),
+        flag_right_x: -1.12,
+        flag_wave: (0.1, 2.0, 1.0),
     ),
     weather: (
         race_pro_sky: [

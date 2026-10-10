@@ -144,6 +144,53 @@ impl Material2d for FlagWave {
     }
 }
 
+const FLAG_SHADER: Handle<Shader> = uuid_handle!("2b8f61d4-7e09-4c3a-95b2-d04e6a1c8f37");
+
+const FLAG_WGSL: &str = r#"// An Endless Race checkpoint flag (docs/research/race-scene.md): read from higher or lower
+// by a sine along it, more towards its free end (the original's Custom/CheckpointFlag).
+#import bevy_sprite::{
+    mesh2d_vertex_output::VertexOutput,
+    mesh2d_view_bindings::globals,
+}
+
+struct CheckpointFlag {
+    // x: amplitude, y: frequency, z: speed.
+    params: vec4<f32>,
+};
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: CheckpointFlag;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var picture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var picture_sampler: sampler;
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let x = mesh.uv.x;
+    let wave = sin((2.0 * globals.time * material.params.z + x) * material.params.y);
+    let y = (1.0 - mesh.uv.y) + wave * material.params.x * x;
+    return textureSample(picture, picture_sampler, vec2(x, 1.0 - y));
+}
+"#;
+
+/// A checkpoint flag's look: its picture and its wave.
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct CheckpointFlag {
+    #[uniform(0)]
+    pub params: Vec4,
+    #[texture(1)]
+    #[sampler(2)]
+    pub picture: Handle<Image>,
+}
+
+impl Material2d for CheckpointFlag {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(FLAG_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
 pub struct SceneMaterialPlugin;
 
 impl Plugin for SceneMaterialPlugin {
@@ -156,9 +203,14 @@ impl Plugin for SceneMaterialPlugin {
             .world_mut()
             .resource_mut::<Assets<Shader>>()
             .insert(WATER_SHADER.id(), Shader::from_wgsl(WATER_WGSL, "flag_wave.wgsl"));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(FLAG_SHADER.id(), Shader::from_wgsl(FLAG_WGSL, "checkpoint_flag.wgsl"));
         app.add_plugins((
             Material2dPlugin::<IslandWave>::default(),
             Material2dPlugin::<FlagWave>::default(),
+            Material2dPlugin::<CheckpointFlag>::default(),
         ));
     }
 }

@@ -2383,6 +2383,9 @@ fn dress_platforms(
     config: Res<GameConfig>,
     game: Res<Match>,
     art: Res<Art>,
+    images: Res<Assets<Image>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut flags: Option<ResMut<Assets<crate::scene_material::CheckpointFlag>>>,
     platforms: Query<(Entity, &Platform), Added<Platform>>,
 ) {
     let c = config.cell_size;
@@ -2643,6 +2646,66 @@ fn dress_platforms(
                     Transform::from_xyz(0.0, 0.0, -1.5),
                     Visibility::Hidden,
                 ));
+                // Endless Race's lines are checkpoints with a flag at each end
+                // (EndlessRaceLineSpellContainer): the right one is the left turned round, its
+                // flag turned over and set 1.12 out.
+                let scene = &config.race_scene;
+                let piece = |name: &str| {
+                    let image = art.image(name)?;
+                    let entry = art.entries.get(name)?;
+                    let size = images.get(&image)?.size_f32();
+                    let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
+                    Some((image, size, Vec2::new(px - 0.5, py - 0.5), c / entry.pixels_per_unit.unwrap_or(26.0)))
+                };
+                if game.mode == ModeKind::Endless
+                    && let (Some(pole), Some(flag), Some(meshes), Some(flags)) = (
+                        piece("checkpoint_flag_pole"),
+                        piece("checkpoint_flag"),
+                        meshes.as_mut(),
+                        flags.as_mut(),
+                    )
+                {
+                    let (aw, fq, sp) = scene.flag_wave;
+                    for side in [-1.0f32, 1.0] {
+                        let (pole_image, _, pole_anchor, pole_scale) = pole.clone();
+                        let (flag_image, flag_size, flag_anchor, flag_scale) = flag.clone();
+                        let material = flags.add(crate::scene_material::CheckpointFlag {
+                            params: Vec4::new(aw, fq, sp, 0.0),
+                            picture: flag_image,
+                        });
+                        let mesh = meshes.add(Rectangle::new(flag_size.x, flag_size.y));
+                        let (at, turn) = if side < 0.0 {
+                            (Vec2::new(scene.flag_at.0, scene.flag_at.1), 0.0)
+                        } else {
+                            (Vec2::new(scene.flag_right_x, scene.flag_at.1), std::f32::consts::PI)
+                        };
+                        line.with_children(|line| {
+                            line.spawn((
+                                Transform::from_xyz(side * width * 0.5, 0.0, 0.2)
+                                    .with_scale(Vec3::new(-side, 1.0, 1.0)),
+                                Visibility::Inherited,
+                            ))
+                            .with_children(|root| {
+                                root.spawn((
+                                    Sprite::from_image(pole_image),
+                                    Anchor(pole_anchor),
+                                    Transform::from_scale(Vec3::splat(pole_scale)),
+                                ));
+                                root.spawn((
+                                    Transform::from_translation((at * c).extend(0.01))
+                                        .with_rotation(Quat::from_rotation_z(turn))
+                                        .with_scale(Vec3::splat(flag_scale)),
+                                    Visibility::Inherited,
+                                ))
+                                .with_child((
+                                    Mesh2d(mesh),
+                                    MeshMaterial2d(material),
+                                    Transform::from_translation((-flag_anchor * flag_size).extend(0.0)),
+                                ));
+                            });
+                        });
+                    }
+                }
                 line.with_children(|line| {
                     for i in 0..count {
                         let x = width * ((i as f32 + 0.5) / count as f32 - 0.5);
