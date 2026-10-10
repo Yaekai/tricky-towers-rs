@@ -286,7 +286,7 @@ fn decorate_bricks(
     config: Res<GameConfig>,
     art: Res<Art>,
     bricks: Query<
-        (Entity, &Brick, Has<Stone>),
+        (Entity, &Brick, Has<Stone>, Has<Placed>),
         Or<(
             Changed<Brick>,
             Added<Stone>,
@@ -305,7 +305,7 @@ fn decorate_bricks(
     mut lit_bricks: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
     mut images: Option<ResMut<Assets<Image>>>,
 ) {
-    for (entity, brick, stone) in &bricks {
+    for (entity, brick, stone, placed) in &bricks {
         let Ok(skin) = skins.get(brick.tower) else {
             continue;
         };
@@ -342,9 +342,11 @@ fn decorate_bricks(
                         Visibility::Hidden,
                     ));
                 }
-                // Snow on top edges: 25% each.
+                // Snow on top edges: 25% each, once the brick is placed (the original applies
+                // ChristmasBrickModifier then).
                 let snows: Vec<Handle<Image>> = (1..=3)
                     .filter_map(|i| art.image(&format!("brick_christmas_snow_{i}")))
+                    .filter(|_| placed)
                     .collect();
                 for &cell in cells {
                     let covered = cells.iter().any(|&o| (o - cell - Vec2::Y).length() < 0.1);
@@ -416,16 +418,31 @@ fn decorate_bricks(
                         }
                     }
                 }
-                // Up to 2 front decorations, 40% chance each.
-                let kinds = ["bat", "spider", "pumpkin", "spiderweb"];
+                // Up to 2 front decorations, 40% chance each, added once the brick is placed
+                // (HalloweenBrickModifier's placed handler), each after its own 0 to 0.3 s and
+                // grown in like the other edge decorations.
+                let kinds = ["bat01", "spider01", "pumpkin01", "spiderweb"];
                 for _ in 0..2 {
-                    if roll(&mut seed) >= 0.4 {
+                    if !placed || roll(&mut seed) >= 0.4 {
                         continue;
                     }
                     let kind = kinds[(roll(&mut seed) * 4.0) as usize % 4];
-                    let Some(image) = art.image(&format!("brick_halloween_{kind}")) else {
+                    let name = format!("brick_halloween_{kind}");
+                    let Some(image) = art.image(&name) else {
                         continue;
                     };
+                    // The picture's own size, at its pixels per unit (a cell is one unit).
+                    let ppu = art
+                        .entries
+                        .get(&name)
+                        .and_then(|e| e.pixels_per_unit)
+                        .unwrap_or(65.0);
+                    let size = images
+                        .as_ref()
+                        .and_then(|images| images.get(&image))
+                        .map_or(Vec2::splat(c * 0.8), |i| i.size_f32() / ppu * c);
+                    let flip = if roll(&mut seed) < 0.5 { 1.0 } else { -1.0 };
+                    let delay = roll(&mut seed) * 0.3;
                     let cell = cells[(roll(&mut seed) * cells.len() as f32) as usize % cells.len()];
                     let tilt = between(&mut seed, -15.0, 15.0);
                     brick_entity.with_child((
@@ -437,24 +454,33 @@ fn decorate_bricks(
                             side: 1.0,
                             tilt,
                         },
+                        Snow {
+                            time: -delay,
+                            full: Vec3::new(flip, 1.0, 1.0),
+                        },
                         Sprite {
                             image,
-                            custom_size: Some(Vec2::splat(c * 0.8)),
+                            custom_size: Some(size),
                             ..default()
                         },
                         // Turned up to 15 degrees either way (the original's angle variation).
                         Transform::from_translation((cell * c).extend(0.07))
-                            .with_rotation(Quat::from_rotation_z(tilt.to_radians())),
+                            .with_rotation(Quat::from_rotation_z(tilt.to_radians()))
+                            .with_scale(Vec3::ZERO),
                     ));
                 }
             }
             BrickPack::Hologram => {
-                brick_entity.insert(Glitch {
-                    wait: 0.0,
-                    left: 0.0,
-                    span: 0.0,
-                    seed,
-                });
+                // The glitch starts once the brick is placed (HologramBrickModifier is applied
+                // then); the scan lines are the pack's shader, there from the start.
+                if placed {
+                    brick_entity.insert(Glitch {
+                        wait: 0.0,
+                        left: 0.0,
+                        span: 0.0,
+                        seed,
+                    });
+                }
                 if let Some(ramp) = ramp.as_ref() {
                     for &cell in cells {
                         brick_entity.with_child((

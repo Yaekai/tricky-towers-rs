@@ -865,7 +865,8 @@ pub(crate) fn dress_bricks(
                 // is kept), one of 8 eggs and 8 flowers. Each shows after its own 0 to 0.3 s and
                 // grows in (`packs::edge_growth`).
                 let mut picks: Vec<(String, Vec2, f32)> = Vec::new();
-                if pack == crate::config::BrickPack::Spring {
+                // EasterBrickModifier is applied when the brick is placed, not before.
+                if pack == crate::config::BrickPack::Spring && placed.is_some() {
                     for (i, top) in top_cells(&brick.cells).into_iter().enumerate() {
                         let salt = 100 + i as u64 * 7;
                         if roll(salt) < 0.25 {
