@@ -1663,7 +1663,17 @@ fn spawn_backgrounds(
     }
     let mode_name = mode_key(mode);
     let race_scene = mode == ModeKind::Race && pro.is_none();
-    scene_state.race = race_scene || matches!(mode, ModeKind::Endless) || pro == Some("race_pro");
+    // The looks that share the Race scene's islands, band and waves.
+    let island_look = if race_scene {
+        Some("race")
+    } else if pro == Some("race_pro") {
+        Some("race_pro")
+    } else if mode == ModeKind::Endless {
+        Some("endless")
+    } else {
+        None
+    };
+    scene_state.race = island_look.is_some();
     let scene = &config.race_scene;
     if race_scene {
         spawn_race_clouds(&mut commands, &art, &images, scene, camera);
@@ -1796,9 +1806,13 @@ fn spawn_backgrounds(
             ChildOf(camera),
         ));
     }
-    if race_scene && let Some(image) = art.image(&scene.band) {
+    if let (Some(look), Some(image)) = (island_look, art.image(&scene.band)) {
         let ppu = art.entries.get(&scene.band).and_then(|e| e.pixels_per_unit).unwrap_or(26.0);
-        let (r, g, b) = scene.band_tint;
+        let (r, g, b) = match look {
+            "race_pro" => scene.band_tint_pro,
+            "endless" => scene.band_tint_endless,
+            _ => scene.band_tint,
+        };
         commands.spawn((
             ScreenLayer {
                 anchor: Vec2::new(0.5, 0.0),
@@ -1842,7 +1856,14 @@ fn spawn_backgrounds(
         if race_scene && scene.replaces.iter().any(|r| r == name) {
             continue;
         }
-        let island = scene.islands.iter().find(|i| i.art == name).filter(|_| race_scene);
+        let island = island_look.and_then(|look| {
+            scene.islands.iter().find(|i| match look {
+                "race_pro" => i.pro == name,
+                "endless" => i.endless == name,
+                _ => i.art == name,
+            })
+        });
+        let endless_look = island_look == Some("endless");
         let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
         let tint = entry.tint.map_or(Color::WHITE, |(r, g, b)| {
             Color::srgb(r / 255.0, g / 255.0, b / 255.0)
@@ -1911,12 +1932,16 @@ fn spawn_backgrounds(
                     let image = art.image(&scene.waterline)?;
                     let ppu = art.entries.get(&scene.waterline)?.pixels_per_unit.unwrap_or(26.0);
                     let k = scene.island_scale;
-                    let (r, g, b) = i.line_tint;
+                    let (line_at, line_size) = i
+                        .endless_line
+                        .filter(|_| endless_look)
+                        .unwrap_or((i.line_at, i.line_size));
+                    let (r, g, b) = if endless_look { scene.endless_line_tint } else { i.line_tint };
                     Some((
                         ScreenLayer {
-                            position: screen_layer.position + Vec2::new(i.line_at.0, i.line_at.1) * k,
+                            position: screen_layer.position + Vec2::new(line_at.0, line_at.1) * k,
                             pixels_per_unit: ppu,
-                            squash: Vec2::new(i.line_size.0, i.line_size.1),
+                            squash: Vec2::new(line_size.0, line_size.1),
                             ..screen_layer.clone()
                         },
                         Sprite { image, color: Color::srgb(r, g, b), ..default() },

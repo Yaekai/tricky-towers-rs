@@ -275,6 +275,8 @@ foreach ($n in $darkIslands.Keys) {
 # --- Race water band (original BackgroundWater: bottom 6 screen units) ---
 $manifest.Add('    "water_band": (colors: [(137, 146, 217), (61, 82, 201)], position: (0.0, 6.0), view_height: 41.54, z: 1, parallax: 0.3),')
 $manifest.Add('    "water_band_race": (colors: [(137, 146, 217), (61, 82, 201)], position: (0.0, 6.0), view_height: 41.54, z: 1, parallax: 0.3),')
+# Endless Race's water (IslandsEndlessLayer), light-on-top like the Race water.
+$manifest.Add('    "water_band_endless": (colors: [(246, 48, 132), (255, 170, 124)], position: (0.0, 6.0), view_height: 41.54, z: 1, parallax: 0.3),')
 $manifest.Add('    "water_band_survival": (colors: []),')
 $manifest.Add('    "water_band_puzzle": (colors: []),')
 $notes.Add('- water_band : Race background water, bottom 6 screen units, light (137,146,217) at its top to (61,82,201) at the bottom, as the original draws it (its BackgroundWater passes them the other way round, and its mesh is turned); islands bob on it.')
@@ -457,7 +459,7 @@ function EndlessBg($n, $sprite, $sx, $sy, $px, $py, $bz, $par, $what) {
   $extra = [string]::Format($f, ', screen: ({0:0.0##}, {1:0.0##}), position: ({2:0.0##}, {3:0.0##}), view_height: 41.54, z: {4}, parallax: {5:0.0#}', $sx, $sy, $px, $py, $bz, $par)
   Add-Sprite "background_endless_$n" $sprite "backgrounds\endless_$n.png" $what $null $extra
 }
-EndlessBg 0 'gph_backgroundBack01_endless'   0.5 0.0 0.0 6.0 2 0.3 'Endless back island (same place as Race)'
+EndlessBg 0 'gph_backgroundBack01_endless'   0.5 0.0 0.0 5.87 2 0.3 'Endless back island (same place as Race)'
 EndlessBg 1 'gph_backgroundMiddle01_endless' 0.0 0.0 0.0 5.35 3 0.3 'Endless middle island left'
 EndlessBg 2 'gph_backgroundMiddle02_endless' 1.0 0.0 -9.5 5.1 4 0.3 'Endless middle island right'
 EndlessBg 3 'gph_backgroundFront01_endless'  0.0 0.0 0.0 3.5 5 0.3 'Endless front island left'

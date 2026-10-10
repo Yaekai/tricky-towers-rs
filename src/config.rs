@@ -3305,6 +3305,10 @@ pub struct RaceScene {
     pub band: String,
     pub band_scale: f32,
     pub band_tint: (f32, f32, f32),
+    /// The band's tint in Race Special and Endless Race, and Endless Race's waterline tint.
+    pub band_tint_pro: (f32, f32, f32),
+    pub band_tint_endless: (f32, f32, f32),
+    pub endless_line_tint: (f32, f32, f32),
     pub band_alpha: f32,
     pub band_swing: f32,
     pub band_period: f32,
@@ -3351,7 +3355,13 @@ pub struct CloudRow {
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct SceneIsland {
+    /// Its staged screen layer in Race, Race Special (IslandsProLayer) and Endless Race
+    /// (IslandsEndlessLayer, its own _ENDLESS prefabs).
     pub art: String,
+    pub pro: String,
+    pub endless: String,
+    /// The Endless prefab's waterline where it differs (offset and size).
+    pub endless_line: Option<((f32, f32), (f32, f32))>,
     pub bobs: bool,
     /// Its waterline (Custom/WaterIslands): ripple amplitude and height, shares of the picture.
     pub wave: (f32, f32),
@@ -3381,6 +3391,12 @@ impl Default for RaceScene {
         let line = (0.827_451, 0.835_294_1, 1.0);
         let island = |art: &str, bobs, line_at, line_size, line_z| SceneIsland {
             art: art.into(),
+            pro: art.replace("background_race_", "background_race_pro_"),
+            endless: format!(
+                "background_endless_{}",
+                art.trim_start_matches("background_race_").parse::<u32>().unwrap_or(2) - 2
+            ),
+            endless_line: None,
             bobs,
             wave: (0.03, 0.05),
             line_at,
@@ -3411,6 +3427,7 @@ impl Default for RaceScene {
                 SceneIsland {
                     line_tint: (0.860_294_1, 0.866_644_4, 1.0),
                     wave: (0.0, 0.0),
+                    endless_line: Some(((0.0, 0.14), (20.0, 1.0))),
                     ..island("background_race_2", false, (0.0, 0.01), (20.0, 0.6), 2.1)
                 },
                 island("background_race_3", true, (7.69, 0.62), (4.183_838, 0.8), 4.1),
@@ -3425,6 +3442,9 @@ impl Default for RaceScene {
             band: "race_island_gradient".into(),
             band_scale: 0.22,
             band_tint: (0.862_745_1, 0.917_647_06, 1.0),
+            band_tint_pro: (17.0 / 256.0, 143.0 / 256.0, 217.0 / 256.0),
+            band_tint_endless: (1.0, 234.0 / 256.0, 195.0 / 256.0),
+            endless_line_tint: (1.0, 0.921_568_6, 0.827_451),
             band_alpha: 0.5,
             band_swing: 0.2,
             band_period: 5.0,
