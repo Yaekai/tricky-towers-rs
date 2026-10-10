@@ -49,6 +49,7 @@ impl Plugin for PacksPlugin {
                 glitch_holograms,
                 gloss_diamonds,
                 scroll_galaxy,
+                place_galaxy_stars,
                 twirl_stars,
             ),
         );
@@ -109,6 +110,16 @@ struct Star {
     spin: f32,
 }
 
+/// One of the original's 49 stars, drawn in one cell of a Galaxy brick. It sits where the
+/// shared field puts it inside that cell (`place_galaxy_stars`).
+#[derive(Component)]
+struct GalaxyStar {
+    index: usize,
+    /// The cell's position in its brick, in cells, and the cell's size in pixels.
+    at: Vec2,
+    px: f32,
+}
+
 /// A Halloween brick once placed: the base texture goes greyish (guess; the original's
 /// grey isn't read yet).
 pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
@@ -117,6 +128,25 @@ pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
 /// width, a twentieth of a cell, is a guess until the frame's scale is measured.
 const GALAXY_LINE: Color = Color::srgb(0.231, 0.086, 0.333);
 const GALAXY_LINE_WIDTH: f32 = 0.05;
+
+/// The original's starfield scene: its render texture is 512 texels across and covers
+/// this many cells (the scene's 9.2 units; the stars' positions below are in those units).
+const GALAXY_TEXELS: f32 = 512.0;
+const GALAXY_FIELD_CELLS: f32 = 9.2;
+
+/// The 49 star positions of the original's Galaxy scene (Galaxy.prefab, the Stars parent),
+/// in the scene's units from its centre.
+const GALAXY_STARS: [(f32, f32); 49] = [
+    (-1.12, -1.19), (-1.6, 2.78), (-3.89, -0.14), (0.42, 1.98), (2.6, -2.46), (2.93, -0.3),
+    (-1.19, -3.28), (3.77, 2.1), (2.24, 3.39), (4.03, 3.6), (-2.18, 0.26), (0.05, 0.18),
+    (0.72, -2.52), (1.19, -0.6), (1.86, -4.28), (-1.24, -4.2), (-2.62, -3.29), (-0.46, -2.03),
+    (2.24, -1.56), (3.69, -1.32), (0.08, 3.47), (-1.57, 4.53), (-4.08, 2.26), (-3.26, 3.36),
+    (1.25, 4.1), (3.25, 4.34), (1.68, 2.18), (-0.6, 2.55), (-0.74, -0.09), (2.06, -3.46),
+    (2.94, 0.74), (4.45, 1.39), (4.46, 2.59), (-0.07, 4.63), (-2.61, 4.52), (-4.48, 4.54),
+    (-4.25, 3.41), (-4.22, 1.06), (-2.86, -0.56), (-4.18, -1.3), (-3.57, -4.4), (-0.01, -4.35),
+    (-4.26, -2.82), (1.33, -1.57), (0.75, -4.6), (3.19, -4.32), (3.14, -3.37), (4.58, -0.53),
+    (4.42, -4.44),
+];
 
 /// A small repeatable random number in 0..1.
 fn roll(seed: &mut u32) -> f32 {
@@ -277,25 +307,27 @@ fn decorate_bricks(
                     }
                 }
                 if let Some(star) = art.image("brick_galaxy_star") {
-                    for _ in 0..cells.len().div_ceil(2) {
-                        let cell =
-                            cells[(roll(&mut seed) * cells.len() as f32) as usize % cells.len()];
-                        let jitter = Vec2::new(roll(&mut seed) - 0.5, roll(&mut seed) - 0.5) * 0.6;
-                        brick_entity.with_child((
-                            Star {
-                                twirl: None,
-                                spin: 0.0,
-                            },
-                            Sprite {
-                                image: star.clone(),
-                                custom_size: Some(Vec2::splat(c * 0.35)),
-                                ..default()
-                            },
-                            Transform::from_translation(((cell + jitter) * c).extend(0.03))
-                                .with_rotation(Quat::from_rotation_z(
-                                    roll(&mut seed) * std::f32::consts::TAU,
-                                )),
-                        ));
+                    for &cell in cells {
+                        for index in 0..GALAXY_STARS.len() {
+                            brick_entity.with_child((
+                                GalaxyStar {
+                                    index,
+                                    at: cell,
+                                    px: c,
+                                },
+                                Star {
+                                    twirl: None,
+                                    spin: 0.0,
+                                },
+                                Sprite {
+                                    image: star.clone(),
+                                    custom_size: Some(Vec2::splat(c * 0.35)),
+                                    ..default()
+                                },
+                                Transform::default(),
+                                Visibility::Hidden,
+                            ));
+                        }
                     }
                 }
             }
@@ -544,8 +576,8 @@ fn scroll_galaxy(
 /// wide and the field drifts (0.05, -0.07) of the texture a second. Positions are not
 /// wrapped, so neighbouring cells always line up.
 pub(crate) fn galaxy_window(world: Vec2, cell: f32, texture: Vec2, t: f32) -> Rect {
-    let scale = 64.0 / cell;
-    let side = 64.0;
+    let scale = GALAXY_TEXELS / (GALAXY_FIELD_CELLS * cell);
+    let side = GALAXY_TEXELS / GALAXY_FIELD_CELLS;
     let p = Vec2::new(world.x * scale, -world.y * scale) + texture * Vec2::new(0.05, -0.07) * t;
     Rect::new(p.x, p.y, p.x + side, p.y + side)
 }
@@ -562,6 +594,39 @@ fn repeat_starfield(images: &mut Assets<Image>, handle: &Handle<Image>) {
             address_mode_v: ImageAddressMode::Repeat,
             ..ImageSamplerDescriptor::linear()
         });
+    }
+}
+
+/// Puts each of the original's stars where the shared field has it inside its cell. The
+/// field drifts with the sky (the scene's offset), wraps every 9.2 cells, and a star shows
+/// only inside its own cell.
+fn place_galaxy_stars(
+    time: Res<Time>,
+    galaxy: Res<GalaxyDebug>,
+    mut stars: Query<(&GalaxyStar, &ChildOf, &mut Transform, &mut Visibility)>,
+    bricks: Query<&GlobalTransform>,
+) {
+    let t = if galaxy.scroll { time.elapsed_secs() } else { 0.0 };
+    let half = GALAXY_FIELD_CELLS * 0.5;
+    // The field's offset in cells: the sky moves (-0.05, +0.07) of the texture a second.
+    let drift = Vec2::new(-0.05, 0.07) * GALAXY_FIELD_CELLS * t;
+    let wrap = |v: Vec2| (v + Vec2::splat(half)).rem_euclid(Vec2::splat(GALAXY_FIELD_CELLS)) - Vec2::splat(half);
+    for (star, parent, mut transform, mut visibility) in &mut stars {
+        let Ok(brick) = bricks.get(parent.parent()) else {
+            continue;
+        };
+        let rotation = brick.rotation();
+        let centre = brick.translation().truncate() + (rotation * (star.at * star.px).extend(0.0)).truncate();
+        // Where this star is in the field, in cells: the half-cell is the window's centre.
+        let (x, y) = GALAXY_STARS[star.index];
+        let field = Vec2::new(x + half - 0.5, y - half + 0.5) + Vec2::new(drift.x, -drift.y);
+        let offset = wrap(field - centre / star.px);
+        // Back into the brick's own cell frame, in cells.
+        let local = rotation.inverse() * (offset * star.px).extend(0.0);
+        let cell = local.truncate() / star.px;
+        let inside = cell.x.abs() <= 0.5 && cell.y.abs() <= 0.5;
+        *visibility = if inside { Visibility::Inherited } else { Visibility::Hidden };
+        transform.translation = ((star.at + cell) * star.px).extend(0.03);
     }
 }
 
@@ -654,10 +719,11 @@ mod tests {
             for t in [0.0, 3.7, 120.0] {
                 let a = galaxy_window(world, 2.0, texture, t);
                 let b = galaxy_window(world + Vec2::new(2.0, 0.0), 2.0, texture, t);
-                assert!((b.min.x - a.min.x - 64.0).abs() < 1e-3);
+                let side = GALAXY_TEXELS / GALAXY_FIELD_CELLS;
+                assert!((b.min.x - a.min.x - side).abs() < 1e-3);
                 assert!((b.min.y - a.min.y).abs() < 1e-3);
                 let c = galaxy_window(world + Vec2::new(0.0, 2.0), 2.0, texture, t);
-                assert!((c.min.y - a.min.y + 64.0).abs() < 1e-3, "one cell up is 64 texels up");
+                assert!((c.min.y - a.min.y + side).abs() < 1e-3, "one cell up is one cell of texels up");
             }
         }
     }
