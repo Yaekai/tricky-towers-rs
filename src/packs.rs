@@ -136,6 +136,11 @@ const GALAXY_TEXELS: f32 = 512.0;
 const GALAXY_FIELD_CELLS: f32 = 10.0;
 /// A star's picture is 18 px at 26 px to the unit in the original's scene: 0.69 units.
 const GALAXY_STAR_SIZE: f32 = 18.0 / 26.0;
+/// The sky as the original's bricks show it is brighter and bluer than the background picture:
+/// its flat body reads about (147, 31, 185) in Max's Race trial clip, the picture about
+/// (127, 27, 95). The original's shader can't be read (Direct3D 9 only), so this linear-light
+/// gain matches the clip's body colour instead (a measured stand-in, not the shader's maths).
+const GALAXY_BODY: LinearRgba = LinearRgba::new(1.38, 1.29, 4.25, 1.0);
 
 /// The 49 star positions of the original's Galaxy scene (Galaxy.prefab, the Stars parent),
 /// in the scene's units from its centre.
@@ -285,6 +290,8 @@ fn decorate_bricks(
                         },
                         None => Sprite::from_color(Color::srgb(0.05, 0.02, 0.12), Vec2::splat(c * 1.02)),
                     };
+                    let mut inner = inner;
+                    inner.color = GALAXY_BODY.into();
                     brick_entity.with_child((
                         GalaxyCell,
                         inner,

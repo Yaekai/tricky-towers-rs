@@ -59,3 +59,6 @@ export's prefabs and materials (the Galaxy brick pack prefabs and the BrickGalax
 - AssetRipper Premium's shader decompiler gave empty program bodies for all 58 shaders (only properties, blend modes and variant names), and RenderDoc can't capture Direct3D 9.
 - What the export does give: the Galaxy brick shader draws in the Transparent queue with normal alpha blending (SrcAlpha, OneMinusSrcAlpha), no depth writes, no culling, with ICE and WATER variants. Ours draws the same way.
 - So the Galaxy colour stays matched to Max's clip by measurement (see above), not read from the shader.
+
+## Body colour matched to the clip (2026-10-10)
+- With the sky gain `GALAXY_BODY` (linear (1.38, 1.29, 4.25), from the clip's body (147, 31, 185) against the picture's (127, 27, 95)), our spread over the same tower is R 57 / 131 / 201, G 20 / 35 / 97, B 77 / 146 / 254 (10th / median / 90th), against the clip's R 59 / 121 / 175, G 20 / 36 / 99, B 84 / 142 / 210. The medians match; our brightest parts run a little hot.
