@@ -127,7 +127,8 @@ pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
 /// The thin dark purple line: (59, 22, 85) from Max's frame. Its
 /// width, a twentieth of a cell, is a guess until the frame's scale is measured.
 const GALAXY_LINE: Color = Color::srgb(0.231, 0.086, 0.333);
-const GALAXY_LINE_WIDTH: f32 = 0.05;
+/// The outline is about 2.5 px of a 28 px cell in Max's Race trial clip (1080p): 0.09 of a cell.
+const GALAXY_LINE_WIDTH: f32 = 0.09;
 
 /// The original's starfield scene: its camera (orthographic size 5) renders 10 units into a
 /// 512-texel render texture, and the background sprite is 512 px at 51.2 px to the unit, so it

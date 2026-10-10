@@ -48,3 +48,8 @@ export's prefabs and materials (the Galaxy brick pack prefabs and the BrickGalax
 - The camera's orthographic size is 5, so the sky is 10 units across, and the Background sprite is 512 px at 51.2 px to the unit, exactly 10 units. The field is 10 units, not 9.2 (the stars' spread). A brick cell is one unit (the brick sprites are 65 px to the unit: the T is 201x136 px). Our field is now 10 cells.
 - The clip (Race trial, Galaxy tower) shows the stars staying put while a brick falls through them, so the bricks are windows onto a world-space sky. Ours already works that way.
 - The colour spread didn't change with the field size (blue median still about 107 against the clip's 142): the blue gap is elsewhere.
+
+## Measured in Max's Race trial clip (1080p, a falling L piece, one cell = 28 px)
+- Outline: about 2.5 px dark, (46, 31, 87) at its darkest: 0.09 of a cell. Ours is now 0.09 (`GALAXY_LINE_WIDTH`).
+- Top bevel: a light band about 4 px, (201, 115, 223). Bottom bevel: a softer band, about (145, 78, 214).
+- Body: flat violet, about (147, 31, 185). That blue is above anything in the background picture (its bluest is 141), so the original's shader brightens the sky's blue; how is not readable (the shader is compiled, and AssetRipper's free edition can't decompile it). A RenderDoc capture of the original would show it.
