@@ -493,11 +493,13 @@ fn glitch_holograms(
         let width = if on { amount * 6.0 } else { 0.0 };
         for child in children.iter() {
             if let Ok((mut sprite, mut transform)) = sprites.get_mut(child) {
-                // Hologram bricks are see-through and cyan-tinted, more so in a glitch.
+                // At rest a Hologram brick is the base skin, a little see-through (Max: "base skin
+                // with a holo effect on top"; his frame's bricks are as bright and as saturated as
+                // the base pack's). The cyan tint shows only in a glitch.
                 let (red, green, blue, alpha) = if on {
                     (0.5, 1.0, 1.0, config.hologram.glitch_alpha)
                 } else {
-                    (0.8, 1.0, 1.0, config.hologram.rest_alpha)
+                    (1.0, 1.0, 1.0, config.hologram.rest_alpha)
                 };
                 sprite.color = Color::srgba(red, green, blue, touch.unwrap_or(alpha));
                 transform.translation.x = glitch_slice(width, roll(&mut seed));
