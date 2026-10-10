@@ -83,6 +83,8 @@ struct Pulse {
     /// 0: wobble (±1 picks the side in `side`), 1: squash x first, 2: squash y first.
     kind: u8,
     side: f32,
+    /// Its resting turn, in degrees (up to 15 either way).
+    tilt: f32,
 }
 
 /// A Hologram brick: glitches every 6 to 15 s, the first right away (when it spawns). A
@@ -338,6 +340,7 @@ fn decorate_bricks(
                         continue;
                     };
                     let cell = cells[(roll(&mut seed) * cells.len() as f32) as usize % cells.len()];
+                    let tilt = between(&mut seed, -15.0, 15.0);
                     brick_entity.with_child((
                         Pulse {
                             wait: between(&mut seed, 5.0, 15.0),
@@ -345,6 +348,7 @@ fn decorate_bricks(
                             seed,
                             kind: 0,
                             side: 1.0,
+                            tilt,
                         },
                         Sprite {
                             image,
@@ -352,9 +356,8 @@ fn decorate_bricks(
                             ..default()
                         },
                         // Turned up to 15 degrees either way (the original's angle variation).
-                        Transform::from_translation((cell * c).extend(0.07)).with_rotation(
-                            Quat::from_rotation_z((between(&mut seed, -15.0, 15.0)).to_radians()),
-                        ),
+                        Transform::from_translation((cell * c).extend(0.07))
+                            .with_rotation(Quat::from_rotation_z(tilt.to_radians())),
                     ));
                 }
             }
@@ -606,7 +609,7 @@ fn pulse_decorations(time: Res<Time>, mut items: Query<(&mut Pulse, &mut Transfo
                 } else {
                     25.0 * (1.0 - out_elastic((t - 0.926) / 0.45))
                 };
-                transform.rotation = Quat::from_rotation_z((angle * pulse.side).to_radians());
+                transform.rotation = Quat::from_rotation_z((pulse.tilt + angle * pulse.side).to_radians());
                 t >= 0.926 + 0.45
             }
             kind => {
@@ -620,7 +623,7 @@ fn pulse_decorations(time: Res<Time>, mut items: Query<(&mut Pulse, &mut Transfo
             }
         };
         if done {
-            transform.rotation = Quat::IDENTITY;
+            transform.rotation = Quat::from_rotation_z(pulse.tilt.to_radians());
             transform.scale = Vec3::ONE;
             pulse.time = -1.0;
         }
