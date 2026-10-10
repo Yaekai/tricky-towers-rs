@@ -35,3 +35,7 @@ export's prefabs and materials (the Galaxy brick pack prefabs and the BrickGalax
 ## Stars: size and glow (read from the prefab)
 - Each star's sprite is 18 px at 26 px to the unit: 0.69 units, at scale 1 in the scene. Our star size is now 0.69 cells (`GALAXY_STAR_SIZE`).
 - The star renderers use the default sprite material, white, no tint, sorting order 1. The prefab has no separate glow layer or bloom, so any glow in the frames comes from the star art itself. Our star art is the same sprite.
+
+## Colour (checked against Max's frames, not yet matched)
+- Median brick colour on the same crop: the original about (131, 35, 146), ours about (120, 32, 98) with the bevel. We are too red and not blue enough.
+- A tint on the starfield made ours darker, not bluer, so it was reverted. The gap is probably in the field's own colours or the bevel's highlight (the highlight colour is pinkish). Not fixed.
