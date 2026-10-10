@@ -673,27 +673,41 @@ fn light_galaxy(
             continue;
         };
         let size = out.size();
-        let (ly, lx) = angle.to_radians().sin_cos();
+        let _ = angle; // The Galaxy shader doesn't use the material's angle (see below).
         for y in 0..size.y {
             for x in 0..size.x {
                 let Ok(map) = out.get_color_at(x, y) else {
                     continue;
                 };
                 let map = map.to_srgba();
-                let slope = (map.red * 2.0 - 1.0) * lx - (map.green * 2.0 - 1.0) * ly;
-                let (to, by) = if slope > 0.0 {
-                    (high, slope)
+                // The original's Galaxy shader: the bevel's red and green are the slope, lit
+                // from a fixed direction up and to the left, (-0.447, 0.894); the highlight
+                // takes over by the slope towards it times its alpha, the shadow likewise away
+                // from it, then the border colour by 1 - (1 - blue) * alpha (the outline and
+                // the bevel map's outside). One layer over the sky gives the same result as the
+                // shader's two blends: alpha 1 - (1 - a) (1 - o).
+                let d = (map.red * 2.0 - 1.0) * -0.447_213_6 + (map.green * 2.0 - 1.0) * 0.894_427_2;
+                let (to, a) = if d > 0.0 {
+                    (high, d.min(1.0) * high.alpha)
                 } else {
-                    (shadow, -slope)
+                    (shadow, (-d).min(1.0) * shadow.alpha)
                 };
-                // Lit parts take the highlight or shadow colour; the bevel's blue is the outline.
-                let fill = to.alpha * by.min(1.0) * map.alpha;
-                let (r, g, b) = (to.red, to.green, to.blue);
+                let o = 1.0 - (1.0 - map.blue) * map.alpha;
+                let alpha = 1.0 - (1.0 - a) * (1.0 - o);
+                let mix = |c: f32, l: f32| {
+                    if alpha > 0.0 {
+                        (c * a * (1.0 - o) + l * o) / alpha
+                    } else {
+                        c
+                    }
+                };
+                // Outside the brick (no alpha, no outline) nothing is drawn.
+                let shown = map.alpha.max(map.blue);
                 let color = Color::srgba(
-                    r + (lr - r) * map.blue,
-                    g + (lg - g) * map.blue,
-                    b + (lb - b) * map.blue,
-                    fill.max(map.blue * map.alpha),
+                    mix(to.red, lr),
+                    mix(to.green, lg),
+                    mix(to.blue, lb),
+                    if shown > 0.0 { alpha } else { 0.0 },
                 );
                 let _ = out.set_color_at(x, y, color);
             }

@@ -86,9 +86,8 @@ pub enum DebugCommand {
     PackLine {
         pack: crate::config::BrickPack,
     },
-    /// DEBUG-TOOL: switch the Galaxy cell lines and the starfield's scroll on or off.
+    /// DEBUG-TOOL: switch the Galaxy starfield's scroll on or off.
     GalaxyFrame {
-        lines: bool,
         scroll: bool,
     },
     /// Press a button once for tower `tower` (0 is player 1).
@@ -292,9 +291,8 @@ fn apply_debug_commands(
                     ));
                 }
             }
-            DebugCommand::GalaxyFrame { lines, scroll } => {
+            DebugCommand::GalaxyFrame { scroll } => {
                 if let Some(galaxy) = galaxy.as_mut() {
-                    galaxy.lines = lines;
                     galaxy.scroll = scroll;
                 }
             }

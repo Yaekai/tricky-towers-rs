@@ -19,18 +19,16 @@ use crate::visuals::{CellSprite, dress_bricks};
 
 pub struct PacksPlugin;
 
-/// DEBUG-TOOL: whether the Galaxy cell lines are drawn and the starfield scrolls. Both on
-/// in the game; the debug command `GalaxyFrame` switches them for a picture of one piece.
+/// DEBUG-TOOL: whether the Galaxy starfield scrolls. On in the game; the debug command
+/// `GalaxyFrame` switches it for a still picture of one piece.
 #[derive(Resource)]
 pub struct GalaxyDebug {
-    pub lines: bool,
     pub scroll: bool,
 }
 
 impl Default for GalaxyDebug {
     fn default() -> Self {
         Self {
-            lines: true,
             scroll: true,
         }
     }
@@ -38,10 +36,12 @@ impl Default for GalaxyDebug {
 
 impl Plugin for PacksPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GalaxyDebug>();
+        app.init_resource::<GalaxyDebug>()
+            .init_resource::<GalaxySkies>();
         app.add_systems(
             Update,
             (
+                bake_galaxy_skies.before(decorate_bricks),
                 decorate_bricks.after(dress_bricks),
                 grow_snow,
                 pulse_decorations,
@@ -124,10 +124,6 @@ struct GalaxyStar {
 /// grey isn't read yet).
 pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
 
-/// The thin dark purple line: (59, 22, 85) from Max's frame.
-const GALAXY_LINE: Color = Color::srgb(0.231, 0.086, 0.333);
-/// The outline is about 2.5 px of a 28 px cell in Max's Race trial clip (1080p): 0.09 of a cell.
-const GALAXY_LINE_WIDTH: f32 = 0.09;
 
 /// The original's starfield scene: its camera (orthographic size 5) renders 10 units into a
 /// 512-texel render texture, and the background sprite is 512 px at 51.2 px to the unit, so it
@@ -136,11 +132,22 @@ const GALAXY_TEXELS: f32 = 512.0;
 const GALAXY_FIELD_CELLS: f32 = 10.0;
 /// A star's picture is 18 px at 26 px to the unit in the original's scene: 0.69 units.
 const GALAXY_STAR_SIZE: f32 = 18.0 / 26.0;
-/// The sky as the original's bricks show it is brighter and bluer than the background picture:
-/// its flat body reads about (147, 31, 185) in Max's Race trial clip, the picture about
-/// (127, 27, 95). The original's shader can't be read (Direct3D 9 only), so this linear-light
-/// gain matches the clip's body colour instead (a measured stand-in, not the shader's maths).
-const GALAXY_BODY: LinearRgba = LinearRgba::new(1.38, 1.29, 4.25, 1.0);
+/// Each Galaxy shape turns the sky's hue by its own amount: the original's shader rotates the
+/// sky colour by 2pi x (the brick sprite's red + 0.5) - pi, and the prefabs' sprite reds are
+/// these (Resources/game/bricks/brickpack/galaxy/Brick<shape>.prefab).
+const GALAXY_HUES: [(&str, f32); 7] = [
+    ("I", 0.102_941_16),
+    ("J", 0.125),
+    ("L", 0.058_823_53),
+    ("O", 0.029_411_79),
+    ("S", 0.0),
+    ("T", 0.051_470_58),
+    ("Z", 0.147_058_84),
+];
+
+/// The sky for each Galaxy shape, the background turned by that shape's hue (made once).
+#[derive(Resource, Default)]
+struct GalaxySkies(std::collections::HashMap<String, Handle<Image>>);
 
 /// The 49 star positions of the original's Galaxy scene (Galaxy.prefab, the Stars parent),
 /// in the scene's units from its centre.
@@ -184,9 +191,8 @@ fn decorate_bricks(
         )>,
     >,
     skins: Query<&TowerSkin>,
-    galaxy: Option<Res<GalaxyDebug>>,
+    skies: Option<Res<GalaxySkies>>,
 ) {
-    let lines = galaxy.as_ref().is_none_or(|g| g.lines);
     for (entity, brick, stone) in &bricks {
         let Ok(skin) = skins.get(brick.tower) else {
             continue;
@@ -275,8 +281,11 @@ fn decorate_bricks(
                 // No texture: each cell is a window onto one shared starfield, edge to edge
                 // (the original has no border). A thin dark purple line runs along each
                 // cell's edges, so the lines show between cells (Max's frame).
-                let background = art.image("brick_galaxy_background");
-                let line = c * GALAXY_LINE_WIDTH;
+                let shape = &config.pieces[brick.piece].name;
+                let background = skies
+                    .as_ref()
+                    .and_then(|skies| skies.0.get(shape).cloned())
+                    .or_else(|| art.image("brick_galaxy_background"));
                 for &cell in cells {
                     let at = cell * c;
                     // Each cell overlaps its neighbours by a sliver, so no sub-pixel seam
@@ -290,35 +299,15 @@ fn decorate_bricks(
                         },
                         None => Sprite::from_color(Color::srgb(0.05, 0.02, 0.12), Vec2::splat(c * 1.02)),
                     };
-                    let mut inner = inner;
-                    inner.color = GALAXY_BODY.into();
                     brick_entity.with_child((
                         GalaxyCell,
                         inner,
                         Transform::from_translation(at.extend(0.02)),
                     ));
-                    // Only the piece's outside edge gets the line: a side with a neighbour
-                    // cell in the same piece stays clear.
-                    for (dir, size) in [
-                        (Vec2::Y, Vec2::new(c, line)),
-                        (Vec2::NEG_Y, Vec2::new(c, line)),
-                        (Vec2::X, Vec2::new(line, c)),
-                        (Vec2::NEG_X, Vec2::new(line, c)),
-                    ] {
-                        // Rotated pieces leave float error in their offsets, so a neighbour
-                        // counts as touching within a tenth of a cell.
-                        if !lines || cells.iter().any(|&o| (o - cell - dir).length() < 0.1) {
-                            continue;
-                        }
-                        brick_entity.with_child((
-                            Sprite::from_color(GALAXY_LINE, size),
-                            Transform::from_translation((at + dir * c * 0.5).extend(0.025)),
-                        ));
-                    }
                 }
-                // The shape's bevel light and outline, over the starfield and the stars,
-                // sized to the piece's box.
-                let shape = &config.pieces[brick.piece].name;
+                // The shape's bevel light and outline (the original draws its outline from the
+                // bevel map in the border colour), over the starfield and the stars, sized to
+                // the piece's box.
                 let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
                 let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
                 let size = (max - min + Vec2::ONE) * c;
@@ -608,8 +597,15 @@ fn scroll_galaxy(
 pub(crate) fn galaxy_window(world: Vec2, cell: f32, texture: Vec2, t: f32) -> Rect {
     let scale = GALAXY_TEXELS / (GALAXY_FIELD_CELLS * cell);
     let side = GALAXY_TEXELS / GALAXY_FIELD_CELLS;
-    let p = Vec2::new(world.x * scale, -world.y * scale) + texture * Vec2::new(0.05, 0.07) * t;
+    let p = Vec2::new(world.x * scale, -world.y * scale) + texture * galaxy_offset(t);
     Rect::new(p.x, p.y, p.x + side, p.y + side)
+}
+
+/// How far the original's sky has moved at time `t`, in texture widths, x right and y down: the
+/// scene's scroll (0.05, -0.07 a second in Unity's up-is-positive UVs) plus the brick shader's
+/// sway, 0.1 cos(0.3 t) across and 0.2 sin(0.1 t) up and down (periods about 21 s and 63 s).
+pub(crate) fn galaxy_offset(t: f32) -> Vec2 {
+    Vec2::new(0.05 * t + 0.1 * (0.3 * t).cos(), 0.07 * t - 0.2 * (0.1 * t).sin())
 }
 
 /// Makes the starfield repeat at its edges (once; the sampler is left set after that).
@@ -627,6 +623,45 @@ fn repeat_starfield(images: &mut Assets<Image>, handle: &Handle<Image>) {
     }
 }
 
+/// Makes each shape's sky once the background picture is in: the original's hue rotation (its
+/// YIQ-style matrix) by that shape's angle, on the picture's stored colours.
+fn bake_galaxy_skies(
+    art: Res<Art>,
+    mut images: ResMut<Assets<Image>>,
+    mut skies: ResMut<GalaxySkies>,
+) {
+    if !skies.0.is_empty() {
+        return;
+    }
+    let Some(base) = art.image("brick_galaxy_background").and_then(|h| images.get(&h).cloned()) else {
+        return;
+    };
+    for (shape, red) in GALAXY_HUES {
+        let angle = std::f32::consts::TAU * (red + 0.5).fract() - std::f32::consts::PI;
+        let mut sky = base.clone();
+        let size = sky.size();
+        for y in 0..size.y {
+            for x in 0..size.x {
+                if let Ok(c) = base.get_color_at(x, y) {
+                    let c = c.to_srgba();
+                    let [r, g, b] = galaxy_hue([c.red, c.green, c.blue], angle);
+                    let _ = sky.set_color_at(x, y, Color::srgba(r, g, b, c.alpha));
+                }
+            }
+        }
+        skies.0.insert(shape.to_string(), images.add(sky));
+    }
+}
+
+/// The original Galaxy shader's hue rotation of a colour by `angle` radians.
+pub(crate) fn galaxy_hue([r, g, b]: [f32; 3], angle: f32) -> [f32; 3] {
+    let (s, c) = angle.sin_cos();
+    let red = (0.299 + 0.701 * c + 0.168 * s) * r + (0.587 - 0.587 * c + 0.330 * s) * g + (0.114 - 0.114 * c - 0.497 * s) * b;
+    let green = (0.299 - 0.299 * c - 0.328 * s) * r + (0.587 + 0.413 * c + 0.035 * s) * g + (0.114 - 0.114 * c + 0.292 * s) * b;
+    let blue = (0.299 - 0.300 * c + 1.25 * s) * r + (0.587 - 0.588 * c - 1.05 * s) * g + (0.114 + 0.886 * c - 0.203 * s) * b;
+    [red.clamp(0.0, 1.0), green.clamp(0.0, 1.0), blue.clamp(0.0, 1.0)]
+}
+
 /// Puts each of the original's stars where the shared field has it inside its cell. The
 /// field drifts with the sky (the scene's offset), wraps every 10 cells, and a star shows
 /// only inside its own cell.
@@ -638,9 +673,10 @@ fn place_galaxy_stars(
 ) {
     let t = if galaxy.scroll { time.elapsed_secs() } else { 0.0 };
     let half = GALAXY_FIELD_CELLS * 0.5;
-    // The field's offset in cells: the sky slides left and up, 0.05 and 0.07 of the field a
-    // second (Max's Race trial clip shows the stars drifting up).
-    let drift = Vec2::new(-0.05, 0.07) * GALAXY_FIELD_CELLS * t;
+    // The stars are in the sky, so they move with it: the offset turned into cells, the
+    // picture going left as the offset grows and up as its row offset grows.
+    let offset = galaxy_offset(t);
+    let drift = Vec2::new(-offset.x, offset.y) * GALAXY_FIELD_CELLS;
     let wrap = |v: Vec2| (v + Vec2::splat(half)).rem_euclid(Vec2::splat(GALAXY_FIELD_CELLS)) - Vec2::splat(half);
     for (star, parent, mut transform, mut visibility) in &mut stars {
         let Ok(brick) = bricks.get(parent.parent()) else {
@@ -739,6 +775,15 @@ mod tests {
         assert!((gloss_glow(2.0, lo, hi, 0.5, band) - 0.7).abs() < 1e-5, "centre at mid sweep");
         assert!(gloss_glow(4.0, lo, hi, 0.0, band) < 0.01, "the far end is still ahead");
         assert!(gloss_glow(0.0, lo, hi, 1.0, band) < 0.01, "the sweep has passed the near end");
+    }
+
+    #[test]
+    fn galaxy_hue_keeps_a_colour_at_no_turn_and_greys_stay_grey() {
+        let c = [0.5, 0.1, 0.37];
+        let same = galaxy_hue(c, 0.0);
+        assert!(same.iter().zip(c).all(|(a, b)| (a - b).abs() < 1e-3), "{same:?}");
+        let grey = galaxy_hue([0.4, 0.4, 0.4], 1.0);
+        assert!(grey.iter().all(|v| (v - 0.4).abs() < 2e-3), "{grey:?}");
     }
 
     #[test]

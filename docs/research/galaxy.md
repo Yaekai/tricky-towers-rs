@@ -66,3 +66,29 @@ export's prefabs and materials (the Galaxy brick pack prefabs and the BrickGalax
 ## Drift direction (2026-10-10)
 - The original moves the sky's texture offset by (0.05, -0.07) a second in Unity's UVs, where v runs up: the sky slides left and up. Max's Race trial clip agrees (inside a settled brick, the sky moves left and a little up between frames half a second apart; the match is rough because the bevel doesn't move).
 - Ours slid left and down: our texel rows run down, so the -0.07 had the wrong sign. Fixed in `galaxy_window` and `place_galaxy_stars`. Checked by reasoning and against the clip; an offscreen comparison of two pictures wasn't usable (bricks were placed between them).
+
+## The real shader, disassembled (2026-10-10)
+Read from the original's Direct3D 9 programs (exported as Yaml, unpacked and disassembled
+locally with Windows' d3dcompiler_47; nothing of it is in the repo). The normal variant
+(no ice, no water):
+- Sky: sampled in world space at 0.1 (one repeat every 10 cells), plus a sway: 0.1 cos(0.3 t)
+  across and 0.2 sin(0.1 t) up and down, in texture widths (t in seconds). On top of the
+  scene's own scroll.
+- Hue: the sky colour is turned by 2pi x frac(vertex red + 0.5) - pi with a YIQ-style matrix
+  (the usual 0.299 / 0.587 / 0.114 constants). The vertex red is each prefab's sprite colour:
+  I 0.103, J 0.125, L 0.059, O 0.029, S 0, T 0.051, Z 0.147, so each shape has its own tint.
+- Light: the bevel map's red and green are the slope, turned into world space, lit from a fixed
+  direction (-0.447, 0.894). Highlight by the slope towards it times the highlight's alpha,
+  shadow likewise away from it, then the border colour by 1 - (1 - blue) x alpha. Alpha is the
+  larger of the map's alpha and blue. A flash value lifts the colour towards white.
+- The ice variant uses fixed bluish colours (0.47, 0.43, 0.75) and (0.33, 0.34, 0.75) for the
+  shadow and outline and adds faint diagonal stripes in screen space; the water variant adds
+  the water colour and line under the water's cutoff.
+- In our build now: per-shape hue skies (`GALAXY_HUES`, baked once), the sway in
+  `galaxy_offset`, the fixed light in art.rs `light_galaxy`, and the outline from the bevel
+  map (our own thin line is gone). The light is baked per shape, so it turns with a rotated
+  brick, where the original's stays fixed (to do).
+- Measured over the same tower: R 45 / 100 / 192, G 7 / 30 / 124, B 58 / 114 / 202, against the
+  clip's R 59 / 121 / 175, G 20 / 36 / 99, B 84 / 142 / 210. The shapes in the two towers
+  differ, so the spreads aren't like for like; ours reads a little darker. Not chased further
+  until a like-for-like frame (same shapes) is compared.
