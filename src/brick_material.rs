@@ -39,6 +39,12 @@ struct GalaxyBrick {
     stars: array<vec4<f32>, 49>,
     // The effects' tint, multiplied in like a sprite's colour.
     tint: vec4<f32>,
+    // The water: x its height (world pixels), y 1 when on, z pixels per cell; its line's and
+    // its own colour.
+    water: vec4<f32>,
+    water_line: vec4<f32>,
+    water_colour: vec4<f32>,
+
 };
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: GalaxyBrick;
@@ -58,6 +64,23 @@ fn hue(c: vec3<f32>, angle: f32) -> vec3<f32> {
         (0.299 - 0.299 * k - 0.328 * s) * c.r + (0.587 + 0.413 * k + 0.035 * s) * c.g + (0.114 - 0.114 * k + 0.292 * s) * c.b,
         (0.299 - 0.300 * k + 1.25 * s) * c.r + (0.587 - 0.588 * k - 1.05 * s) * c.g + (0.114 + 0.886 * k - 0.203 * s) * c.b,
     );
+}
+
+// Under the water in Race (the original's WATER_ON): the water line's colour for the first
+// 0.12 of a cell, then the water's, fading out over 2 cells (stored sRGB colours).
+fn under_water(world_y: f32, colour: ptr<function, vec3<f32>>) -> f32 {
+    if (material.water.y < 0.5) {
+        return 1.0;
+    }
+    let depth = (material.water.x - world_y) / material.water.z;
+    let w = clamp(1.0 - 0.5 * depth, 0.0, 1.0);
+    if (w < 1.0) {
+        *colour = material.water_line.rgb;
+    }
+    if (w < 0.94) {
+        *colour = material.water_colour.rgb;
+    }
+    return w;
 }
 
 @fragment
@@ -105,8 +128,9 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let outline = 1.0 - (1.0 - map.b) * map.a;
     colour = mix(colour, material.border.rgb, outline);
     colour = colour + material.params.w * (1.0 - colour);
+    let wet = under_water(mesh.world_position.y, &colour);
 
-    let alpha = max(map.a, map.b);
+    let alpha = max(map.a, map.b) * wet;
     return vec4(srgb_to_linear(colour) * material.tint.rgb, alpha * material.tint.a);
 }
 "#;
@@ -138,6 +162,9 @@ pub struct GalaxyLook {
     pub params: Vec4,
     pub stars: [Vec4; 49],
     pub tint: Vec4,
+    pub water: Vec4,
+    pub water_line: Vec4,
+    pub water_colour: Vec4,
 }
 
 impl Material2d for GalaxyBrick {
@@ -171,6 +198,12 @@ struct DiamondBrick {
     size: vec4<f32>,
     // The effects' tint, multiplied in like a sprite's colour.
     tint: vec4<f32>,
+    // The water: x its height (world pixels), y 1 when on, z pixels per cell; its line's and
+    // its own colour.
+    water: vec4<f32>,
+    water_line: vec4<f32>,
+    water_colour: vec4<f32>,
+
 };
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: DiamondBrick;
@@ -189,6 +222,23 @@ fn overlay(a: vec3<f32>, b: vec3<f32>) -> vec3<f32> {
 // 1 where the band is lit: frac(x) at or under `lit`.
 fn band(x: f32, lit: f32) -> f32 {
     return select(0.0, 1.0, fract(x) <= lit);
+}
+
+// Under the water in Race (the original's WATER_ON): the water line's colour for the first
+// 0.12 of a cell, then the water's, fading out over 2 cells (stored sRGB colours).
+fn under_water(world_y: f32, colour: ptr<function, vec3<f32>>) -> f32 {
+    if (material.water.y < 0.5) {
+        return 1.0;
+    }
+    let depth = (material.water.x - world_y) / material.water.z;
+    let w = clamp(1.0 - 0.5 * depth, 0.0, 1.0);
+    if (w < 1.0) {
+        *colour = material.water_line.rgb;
+    }
+    if (w < 0.94) {
+        *colour = material.water_colour.rgb;
+    }
+    return w;
 }
 
 @fragment
@@ -218,7 +268,8 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let outline = 1.0 - (1.0 - map.b) * map.a;
     colour = mix(colour, material.border.rgb, outline);
     colour = colour + material.params.w * (1.0 - colour);
-    let alpha = max(pat_linear.a, map.b);
+    let wet = under_water(mesh.world_position.y, &colour);
+    let alpha = max(pat_linear.a, map.b) * wet;
     return vec4(srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0))) * material.tint.rgb, alpha * material.tint.a);
 }
 "#;
@@ -247,6 +298,9 @@ pub struct DiamondLook {
     pub params: Vec4,
     pub size: Vec4,
     pub tint: Vec4,
+    pub water: Vec4,
+    pub water_line: Vec4,
+    pub water_colour: Vec4,
 }
 
 impl Material2d for DiamondBrick {
@@ -276,6 +330,12 @@ struct LitBrick {
     params: vec4<f32>,
     // The effects' tint, multiplied in like a sprite's colour.
     tint: vec4<f32>,
+    // The water: x its height (world pixels), y 1 when on, z pixels per cell; its line's and
+    // its own colour.
+    water: vec4<f32>,
+    water_line: vec4<f32>,
+    water_colour: vec4<f32>,
+
 };
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: LitBrick;
@@ -283,6 +343,23 @@ struct LitBrick {
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var bevel_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var pattern: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var pattern_sampler: sampler;
+
+// Under the water in Race (the original's WATER_ON): the water line's colour for the first
+// 0.12 of a cell, then the water's, fading out over 2 cells (stored sRGB colours).
+fn under_water(world_y: f32, colour: ptr<function, vec3<f32>>) -> f32 {
+    if (material.water.y < 0.5) {
+        return 1.0;
+    }
+    let depth = (material.water.x - world_y) / material.water.z;
+    let w = clamp(1.0 - 0.5 * depth, 0.0, 1.0);
+    if (w < 1.0) {
+        *colour = material.water_line.rgb;
+    }
+    if (w < 0.94) {
+        *colour = material.water_colour.rgb;
+    }
+    return w;
+}
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
@@ -302,8 +379,9 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // The outline and cracks (the map's blue, and its outside) in the line colour.
     let outline = 1.0 - (1.0 - map.b) * map.a;
     colour = mix(colour, material.border.rgb, outline);
+    let wet = under_water(mesh.world_position.y, &colour);
 
-    let alpha = max(pat_linear.a, map.b);
+    let alpha = max(pat_linear.a, map.b) * wet;
     let out = srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0)));
     return vec4(out * material.tint.rgb, alpha * material.tint.a);
 }
@@ -331,6 +409,9 @@ pub struct LitLook {
     pub border: Vec4,
     pub params: Vec4,
     pub tint: Vec4,
+    pub water: Vec4,
+    pub water_line: Vec4,
+    pub water_colour: Vec4,
 }
 
 impl Material2d for LitBrick {
@@ -359,6 +440,12 @@ struct HologramBrick {
     // x: the brick's rotation, y: the glitch's distortion, z: pixels per cell, w: flash.
     params: vec4<f32>,
     tint: vec4<f32>,
+    // The water: x its height (world pixels), y 1 when on, z pixels per cell; its line's and
+    // its own colour.
+    water: vec4<f32>,
+    water_line: vec4<f32>,
+    water_colour: vec4<f32>,
+
 };
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: HologramBrick;
@@ -370,6 +457,23 @@ struct HologramBrick {
 // The shader's hash.
 fn hash(n: f32) -> f32 {
     return fract(sin(n) * 18336.822);
+}
+
+// Under the water in Race (the original's WATER_ON): the water line's colour for the first
+// 0.12 of a cell, then the water's, fading out over 2 cells (stored sRGB colours).
+fn under_water(world_y: f32, colour: ptr<function, vec3<f32>>) -> f32 {
+    if (material.water.y < 0.5) {
+        return 1.0;
+    }
+    let depth = (material.water.x - world_y) / material.water.z;
+    let w = clamp(1.0 - 0.5 * depth, 0.0, 1.0);
+    if (w < 1.0) {
+        *colour = material.water_line.rgb;
+    }
+    if (w < 0.94) {
+        *colour = material.water_colour.rgb;
+    }
+    return w;
 }
 
 @fragment
@@ -410,7 +514,8 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let outline = 1.0 - (1.0 - map.b) * map.a;
     colour = mix(colour, d * vec3(0.8, 1.0, 1.0), outline);
     colour = colour + material.params.w * (1.0 - colour);
-    let alpha = max(flicker * map.a, map.b);
+    let wet = under_water(mesh.world_position.y, &colour);
+    let alpha = max(flicker * map.a, map.b) * wet;
     let out = srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0)));
     return vec4(out * material.tint.rgb, alpha * material.tint.a);
 }
@@ -437,6 +542,9 @@ pub struct HoloLook {
     pub shadow: Vec4,
     pub params: Vec4,
     pub tint: Vec4,
+    pub water: Vec4,
+    pub water_line: Vec4,
+    pub water_colour: Vec4,
 }
 
 impl Material2d for HologramBrick {
@@ -469,6 +577,9 @@ pub fn hologram_brick(
             shadow: Vec4::new(sr, sg, sb, sa),
             params: Vec4::new(0.0, 0.0, cell, 0.0),
             tint: Vec4::ONE,
+            water: Vec4::ZERO,
+            water_line: Vec4::ZERO,
+            water_colour: Vec4::ZERO,
         },
         bevel,
         pattern,
@@ -528,6 +639,9 @@ pub fn lit_brick(
             border: Vec4::new(lr, lg, lb, 1.0),
             params: Vec4::ZERO,
             tint: Vec4::from_array(color.to_linear().to_f32_array()),
+            water: Vec4::ZERO,
+            water_line: Vec4::ZERO,
+            water_colour: Vec4::ZERO,
         },
         bevel,
         pattern,
@@ -539,6 +653,8 @@ pub fn lit_brick(
 /// tint the effects gave its sprite.
 #[allow(clippy::type_complexity)]
 fn follow_bricks(
+    config: Res<crate::config::GameConfig>,
+    game: Option<Res<crate::gameplay::Match>>,
     sprites: Query<&Sprite>,
     lit: Query<(&MeshMaterial2d<LitBrick>, &GlobalTransform, &ChildOf), With<BrickQuad>>,
     galaxy: Query<(&MeshMaterial2d<GalaxyBrick>, &ChildOf), With<BrickQuad>>,
@@ -549,6 +665,15 @@ fn follow_bricks(
     mut galaxy_materials: Option<ResMut<Assets<GalaxyBrick>>>,
     mut diamond_materials: Option<ResMut<Assets<DiamondBrick>>>,
 ) {
+    // The original turns the bricks' water on in Race (and the single-player race modes).
+    let look = &config.water;
+    let on = game.is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Race);
+    let rgb = |[r, g, b]: [u8; 3]| Vec4::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0);
+    let water = (
+        Vec4::new(-config.cells(config.kill_depth), if on { 1.0 } else { 0.0 }, config.cell_size, 0.0),
+        rgb(look.brick_line),
+        rgb(look.brick_colour),
+    );
     let tint = |of: &ChildOf| {
         sprites
             .get(of.parent())
@@ -560,10 +685,13 @@ fn follow_bricks(
             let tint = tint(of);
             let same = materials
                 .get(&material.0)
-                .is_none_or(|m| (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint);
+                .is_none_or(|m| {
+                    (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint && m.look.water == water.0
+                });
             if !same && let Some(mut brick) = materials.get_mut(&material.0) {
                 brick.look.params.x = angle;
                 brick.look.tint = tint;
+                (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
         }
     }
@@ -573,30 +701,35 @@ fn follow_bricks(
             let tint = tint(of);
             let same = materials
                 .get(&material.0)
-                .is_none_or(|m| (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint);
+                .is_none_or(|m| {
+                    (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint && m.look.water == water.0
+                });
             if !same && let Some(mut brick) = materials.get_mut(&material.0) {
                 brick.look.params.x = angle;
                 brick.look.tint = tint;
+                (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
         }
     }
     if let Some(materials) = galaxy_materials.as_mut() {
         for (material, of) in &galaxy {
             let tint = tint(of);
-            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint)
+            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.water != water.0)
                 && let Some(mut brick) = materials.get_mut(&material.0)
             {
                 brick.look.tint = tint;
+                (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
         }
     }
     if let Some(materials) = diamond_materials.as_mut() {
         for (material, of) in &diamond {
             let tint = tint(of);
-            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint)
+            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.water != water.0)
                 && let Some(mut brick) = materials.get_mut(&material.0)
             {
                 brick.look.tint = tint;
+                (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
         }
     }

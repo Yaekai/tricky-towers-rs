@@ -1985,6 +1985,10 @@ pub struct WaterRules {
     pub spin_damp: f32,
     pub lift: f32,
     pub float_seconds: f32,
+    /// How a brick under the water looks in Race (RaceGameMode's _WaterLineColor and
+    /// _WaterColor): the water line's colour for the first 0.12 cell, then the water's.
+    pub brick_line: [u8; 3],
+    pub brick_colour: [u8; 3],
 }
 
 impl Default for WaterRules {
@@ -1994,6 +1998,8 @@ impl Default for WaterRules {
             spin_damp: 0.25,
             lift: 17.0,
             float_seconds: 6.0,
+            brick_line: [0xB8, 0xBA, 0xE9],
+            brick_colour: [0x2A, 0x3E, 0xA9],
         }
     }
 }

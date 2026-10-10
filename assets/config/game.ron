@@ -435,6 +435,8 @@
         spin_damp: 0.25,
         lift: 17.0,
         float_seconds: 6.0,
+        brick_line: (184, 186, 233),
+        brick_colour: (42, 62, 169),
     ),
     bases: (
         race: [
