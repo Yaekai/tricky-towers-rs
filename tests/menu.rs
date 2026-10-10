@@ -457,69 +457,20 @@ fn visibility_of(app: &mut App, part: Part) -> Visibility {
         .expect("the select node exists")
 }
 
-/// The text of the select-screen label tagged `part`.
-fn text_of(app: &mut App, part: Part) -> String {
-    let world = app.world_mut();
-    world
-        .query::<(&Part, &Text)>()
-        .iter(world)
-        .find(|(p, _)| **p == part)
-        .map(|(_, t)| t.0.clone())
-        .expect("the select label exists")
-}
-
-/// The colour a select-screen image node is drawn with.
-fn tint_of(app: &mut App, part: Part) -> Color {
-    let world = app.world_mut();
-    world
-        .query::<(&Part, &ImageNode)>()
-        .iter(world)
-        .find(|(p, _)| **p == part)
-        .map(|(_, n)| n.color)
-        .expect("the select image exists")
-}
-
 #[test]
-fn select_players_shows_the_picker_lines_and_the_pack_shines_once_confirmed() {
-    // The cursor is on screen, moves from the character line to the brick pack line
-    // with Down, and a confirmed pack starts to shine (as the wizard does).
+fn select_players_seats_wait_until_their_wizard_is_confirmed() {
+    // As the original's player slots: a joined seat waits (grey panel, asleep) until Down
+    // confirms its wizard (orange, awake).
     let mut app = app();
     tap(&mut app, KeyCode::Enter); // title → Select Players
     tap(&mut app, KeyCode::Enter); // seat the keyboard player
-    assert_eq!(
-        visibility_of(&mut app, Part::SeatPickLine(0, 0)),
-        Visibility::Inherited
-    );
-    assert_eq!(
-        visibility_of(&mut app, Part::SeatPickLine(0, 1)),
-        Visibility::Inherited
-    );
-    assert_eq!(
-        visibility_of(&mut app, Part::SeatPickLine(1, 0)),
-        Visibility::Hidden
-    );
-    assert!(
-        text_of(&mut app, Part::SeatPick(0, 0)).starts_with("< "),
-        "cursor on the character"
-    );
-    assert_ne!(
-        tint_of(&mut app, Part::SeatPack(0)),
-        Color::WHITE,
-        "the pack is not confirmed yet"
-    );
-    tap(&mut app, KeyCode::ArrowDown); // confirm the wizard, cursor to the pack
-    assert!(
-        text_of(&mut app, Part::SeatPick(0, 1)).starts_with("< "),
-        "cursor on the pack"
-    );
-    assert!(!text_of(&mut app, Part::SeatPick(0, 0)).starts_with("< "));
-    assert_ne!(tint_of(&mut app, Part::SeatPack(0)), Color::WHITE);
-    tap(&mut app, KeyCode::ArrowDown); // confirm the pack
-    assert_eq!(
-        tint_of(&mut app, Part::SeatPack(0)),
-        Color::WHITE,
-        "the confirmed pack shines"
-    );
+    let shown = |app: &mut App, part| visibility_of(app, part) == Visibility::Inherited;
+    assert!(shown(&mut app, Part::SeatIdle(0)), "waiting: the grey panel");
+    assert!(!shown(&mut app, Part::SeatTaken(0)));
+    tap(&mut app, KeyCode::ArrowDown); // confirm the wizard
+    assert!(shown(&mut app, Part::SeatTaken(0)), "ready: the orange panel");
+    assert!(!shown(&mut app, Part::SeatIdle(0)));
+    assert!(shown(&mut app, Part::SeatPackPanel(0)), "the pack panel stays");
 }
 
 #[test]

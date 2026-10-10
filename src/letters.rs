@@ -60,10 +60,12 @@ impl bevy::ui_render::prelude::UiMaterial for SdfLetter {
     }
 }
 
-/// The field's edge for the letters' face and for their outline (TextMeshPro's outline width
-/// 0.35 moves the edge from 0.5 to about 0.325).
+/// The field's edge for the letters' face and for their outline, from the outlined Enzo
+/// materials (EnzoBlackMilkyWhiteOutline26: face dilate 0.35, outline width 0.35, scale ratio
+/// 0.833): TextMeshPro grows the letters by dilate x ratio / 2 and centres the outline on that
+/// edge, so the face ends at 0.5 and the outline at 0.5 - 2 x 0.146 = 0.208.
 const FACE_EDGE: f32 = 0.5;
-const OUTLINE_EDGE: f32 = 0.325;
+const OUTLINE_EDGE: f32 = 0.208;
 
 /// Which staged letter sheet draws the text: the original's display letters (Enzo,
 /// titles, buttons, hints) and its body letters (Hans Sans Bold, list rows).

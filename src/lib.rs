@@ -11,6 +11,7 @@ pub mod ai;
 pub mod art;
 pub mod brick_material;
 pub mod scene_material;
+pub mod ui_material;
 pub mod casts;
 pub mod collapse;
 pub mod config;
