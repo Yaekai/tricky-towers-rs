@@ -114,7 +114,7 @@ ours and need checking against the original (see docs/research/*.md and the vide
 - Galaxy: the stars and the black bars on `TrickyTowers_161bc60.exe` (stars now one shared 9.2-cell field, from the original's 49 positions).
 - PackLine run in a Race match (the spawn spot and spacing).
 - Select Players: the gold active line and the orange pack sunburst (from `TrickyTowers_a45e6a4.exe` on), with the arrow keys.
-- Title: the pale blue back cloud banks (not placed yet), the Online box and earth size, the wizard over the Local Battle border, the blue bars on the menu cards.
+- Title: the pale blue back cloud banks (six Race clouds, menu.rs TITLE_BACK_LAYERS, checked offscreen only: they read as clouds but not yet as the reference's continuous banks), the Online box and earth size, the wizard over the Local Battle border, the blue bars on the menu cards.
 - Puzzle: the bottom sand (bg_puzzle_sand_storm, foreground sand; not wired yet).
 
 ## Next (no PC needed): Galaxy bevel and gloss

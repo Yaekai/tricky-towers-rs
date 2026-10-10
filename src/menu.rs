@@ -717,7 +717,14 @@ pub(crate) fn spawn_water_scene_into(parent: &mut ChildSpawnerCommands, art: Opt
 /// The title's back layers: (art, left, top, width, height) in pixels from the top-left of
 /// the 1920x1080 backdrop: the water surface line tiled along the water's top edge. The
 /// cloud banks are not placed yet (the endless clouds are sunset-tinted, so wrong here).
-const TITLE_BACK_LAYERS: [(&str, f32, f32, f32, f32); 6] = [
+const TITLE_BACK_LAYERS: [(&str, f32, f32, f32, f32); 12] = [
+    // Race clouds, scaled up at their own proportions, as the back banks behind the islands.
+    ("bg_race_cloud_var01", 0.0, 360.0, 900.0, 380.0),
+    ("bg_race_cloud_var08", 1000.0, 330.0, 920.0, 253.0),
+    ("bg_race_cloud_var04", 1300.0, 520.0, 620.0, 124.0),
+    ("bg_race_cloud_var02", 500.0, 520.0, 800.0, 192.0),
+    ("bg_race_cloud_var09", 1550.0, 300.0, 370.0, 162.0),
+    ("bg_race_cloud_var07", -80.0, 560.0, 480.0, 182.0),
     ("bg_race_waterline01", 0.0, 918.0, 318.0, 24.0),
     ("bg_race_waterline03", 320.0, 918.0, 318.0, 24.0),
     ("bg_race_waterline01", 640.0, 918.0, 318.0, 24.0),
