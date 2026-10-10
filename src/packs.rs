@@ -11,7 +11,7 @@ use bevy::image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::brick_material::{GalaxyBrick, GalaxyLook};
+use crate::brick_material::{DiamondBrick, DiamondLook, GalaxyBrick, GalaxyLook};
 use crate::config::{BrickPack, GameConfig};
 use crate::gameplay::{Brick, Placed, TowerSkin};
 use crate::spells::{Grassy, Stone, Vined};
@@ -103,13 +103,29 @@ const HOLO_RAMP: u32 = 32;
 /// frame (a measured stand-in for the blending difference, not part of the shader).
 const HOLO_SCAN_LINEAR: f32 = 0.35;
 
-/// A Diamond brick: a 0.6 s gloss every 6 to 15 s, the first right away.
+/// A Diamond brick's sweep (DiamondBrickModifier): every 6 to 15 s, the first right away, its
+/// strength goes to 0.7 over 0.15 s (OutQuad), holds, and falls back over the last 0.15 s of
+/// 0.6 s, while its angle turns a full circle, either way (InOutQuad over the 0.6 s). On the
+/// brick's material quad.
 #[derive(Component)]
 struct Gloss {
     wait: f32,
     time: f32,
     seed: u32,
+    turn: f32,
 }
+
+/// Each Diamond shape's two gloss colours (rgb, strength), from its material
+/// (Material/BrickDiamond<shape>.mat).
+const DIAMOND_GLOSS: [(&str, [f32; 4], [f32; 4]); 7] = [
+    ("I", [1.0, 1.0, 1.0, 0.516], [0.985, 0.710, 0.773, 0.384]),
+    ("J", [0.419, 0.857, 0.919, 0.522], [0.502, 0.690, 0.949, 0.522]),
+    ("L", [0.882, 0.365, 0.200, 0.616], [1.0, 0.923, 0.375, 0.428]),
+    ("O", [0.878, 0.663, 1.0, 0.741], [0.792, 0.318, 0.867, 0.522]),
+    ("S", [0.431, 0.925, 0.655, 0.465], [0.806, 0.971, 0.881, 0.716]),
+    ("T", [0.956, 0.893, 0.759, 0.766], [0.585, 1.0, 0.522, 0.603]),
+    ("Z", [1.0, 0.294, 0.294, 0.341], [1.0, 1.0, 1.0, 0.559]),
+];
 
 /// A Galaxy brick's look, drawn by its own material (`brick_material::GalaxyBrick`).
 #[derive(Component)]
@@ -204,6 +220,7 @@ fn decorate_bricks(
     ramp: Option<Res<HoloRamp>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut galaxy_bricks: Option<ResMut<Assets<GalaxyBrick>>>,
+    mut diamond_bricks: Option<ResMut<Assets<DiamondBrick>>>,
     mut images: Option<ResMut<Assets<Image>>>,
 ) {
     for (entity, brick, stone) in &bricks {
@@ -298,11 +315,49 @@ fn decorate_bricks(
                 }
             }
             BrickPack::Diamond => {
-                brick_entity.insert(Gloss {
-                    wait: 0.0,
-                    time: -1.0,
-                    seed,
-                });
+                // One quad over the piece's box, drawn by the Diamond material: the pattern with
+                // its moving gloss bands, the sweep and the border (docs/research/diamond.md).
+                let shape = &config.pieces[brick.piece].name;
+                let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
+                let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
+                let size = (max - min + Vec2::ONE) * c;
+                let center = (min + max) * 0.5 * c;
+                let key = format!("brick_diamond_{shape}");
+                let line = art.entries.get(&key).and_then(|e| e.line);
+                let bevel = art.image(&format!("{key}_bevel"));
+                let pattern = art.image(&key);
+                let gloss = DIAMOND_GLOSS.iter().find(|(s, ..)| s == shape);
+                if let (Some(meshes), Some(diamond_bricks), Some((lr, lg, lb)), Some(bevel), Some(pattern), Some((_, g1, g2))) =
+                    (meshes.as_mut(), diamond_bricks.as_mut(), line, bevel, pattern, gloss)
+                {
+                    // The stripes run in units of the bevel map's pixels at 65 to the unit.
+                    let px = images
+                        .as_ref()
+                        .and_then(|images| images.get(&bevel))
+                        .map_or(size / c * 65.0, |image| image.size_f32());
+                    let material = diamond_bricks.add(DiamondBrick {
+                        look: DiamondLook {
+                            gloss1: Vec4::from_array(*g1),
+                            gloss2: Vec4::from_array(*g2),
+                            border: Vec4::new(lr, lg, lb, 1.0),
+                            params: Vec4::ZERO,
+                            size: (px / 65.0).extend(0.0).extend(0.0),
+                        },
+                        bevel,
+                        pattern,
+                    });
+                    brick_entity.with_child((
+                        Gloss {
+                            wait: 0.0,
+                            time: -1.0,
+                            seed,
+                            turn: 1.0,
+                        },
+                        Mesh2d(meshes.add(Rectangle::new(size.x, size.y))),
+                        MeshMaterial2d(material),
+                        Transform::from_translation(center.extend(0.02)),
+                    ));
+                }
             }
             BrickPack::Galaxy => {
                 // One quad over the piece's box, drawn by the Galaxy material: the sky turned by
@@ -553,62 +608,63 @@ pub(crate) fn glitch_slice(width: f32, roll: f32) -> f32 {
     (roll - 0.5) * 2.0 * width
 }
 
-/// The gloss: a diagonal band of light sweeps across the brick's cells in 0.6 s, each
-/// cell brightening as the band passes it (the original turns the gloss at a random
-/// angle; the diagonal is a guess until a clip shows it).
+/// Runs each Diamond brick's sweep and keeps its light fixed in the world (the material turns
+/// the bevel's slope by the brick's rotation, as the original's object-to-world matrix does).
 fn gloss_diamonds(
     time: Res<Time>,
-    config: Res<GameConfig>,
-    mut bricks: Query<(&mut Gloss, &Children)>,
-    mut sprites: Query<(&mut Sprite, &Transform), With<CellSprite>>,
+    mut quads: Query<(&mut Gloss, &MeshMaterial2d<DiamondBrick>, &GlobalTransform)>,
+    mut materials: Option<ResMut<Assets<DiamondBrick>>>,
 ) {
+    let Some(materials) = materials.as_mut() else {
+        return;
+    };
     let dt = time.delta_secs();
-    let band = config.cell_size * 0.8;
-    for (mut gloss, children) in &mut bricks {
+    for (mut gloss, material, at) in &mut quads {
         let mut seed = gloss.seed;
-        let sweep = if gloss.time >= 0.0 {
+        if gloss.time >= 0.0 {
             gloss.time += dt;
-            let t = gloss.time;
-            if t >= 0.6 {
+            if gloss.time >= 0.6 {
                 gloss.time = -1.0;
                 gloss.wait = between(&mut seed, 6.0, 15.0);
-                None
-            } else {
-                Some(t / 0.6)
             }
         } else {
             gloss.wait -= dt;
             if gloss.wait <= 0.0 {
                 gloss.time = 0.0;
-            }
-            None
-        };
-        gloss.seed = seed;
-        let (mut lo, mut hi) = (f32::MAX, f32::MIN);
-        for child in children.iter() {
-            if let Ok((_, transform)) = sprites.get(child) {
-                let at = transform.translation.x + transform.translation.y;
-                lo = lo.min(at);
-                hi = hi.max(at);
+                gloss.turn = if roll(&mut seed) > 0.5 { -1.0 } else { 1.0 };
             }
         }
-        for child in children.iter() {
-            if let Ok((mut sprite, transform)) = sprites.get_mut(child) {
-                let glow = sweep.map_or(0.0, |progress| {
-                    let at = transform.translation.x + transform.translation.y;
-                    gloss_glow(at, lo, hi, progress, band)
-                });
-                sprite.color = Color::WHITE.mix(&Color::srgb(1.3, 1.3, 1.3), glow);
-            }
+        gloss.seed = seed;
+        let (angle, strength) = if gloss.time >= 0.0 {
+            diamond_sweep(gloss.time, gloss.turn)
+        } else {
+            (0.0, 0.0)
+        };
+        let rotation = at.rotation().to_euler(EulerRot::XYZ).2;
+        if let Some(mut brick) = materials.get_mut(&material.0) {
+            brick.look.params = Vec4::new(angle, strength, rotation, 0.0);
         }
     }
 }
 
-/// How bright a cell at diagonal `at` is while the gloss sweep is `progress` (0 to 1)
-/// through a brick spanning `lo` to `hi`: up to 0.7 at the front, fading over `band`.
-pub(crate) fn gloss_glow(at: f32, lo: f32, hi: f32, progress: f32, band: f32) -> f32 {
-    let front = (lo - band) + ((hi - lo) + 2.0 * band) * progress.clamp(0.0, 1.0);
-    0.7 * (1.0 - ((at - front).abs() / band).min(1.0))
+/// The sweep's angle and strength `t` seconds into it, turning one way (`turn` is 1 or -1).
+pub(crate) fn diamond_sweep(t: f32, turn: f32) -> (f32, f32) {
+    let out_quad = |x: f32| {
+        let x = x.clamp(0.0, 1.0);
+        1.0 - (1.0 - x) * (1.0 - x)
+    };
+    let in_out_quad = |x: f32| {
+        let x = x.clamp(0.0, 1.0);
+        if x < 0.5 { 2.0 * x * x } else { 1.0 - (-2.0 * x + 2.0).powi(2) / 2.0 }
+    };
+    let strength = if t < 0.15 {
+        0.7 * out_quad(t / 0.15)
+    } else if t < 0.45 {
+        0.7
+    } else {
+        0.7 * (1.0 - out_quad((t - 0.45) / 0.15))
+    };
+    (turn * std::f32::consts::TAU * in_out_quad(t / 0.6), strength)
 }
 
 /// Keeps each Galaxy brick's light fixed in the world: the material turns the bevel's slope by
@@ -758,13 +814,12 @@ mod tests {
     }
 
     #[test]
-    fn the_gloss_band_sweeps_from_one_end_of_the_brick_to_the_other() {
-        // Brick diagonals from 0 to 4 cells, band 1 cell wide.
-        let (lo, hi, band) = (0.0, 4.0, 1.0);
-        assert!(gloss_glow(0.0, lo, hi, 0.0, band) < 0.01, "not yet at the start");
-        assert!((gloss_glow(2.0, lo, hi, 0.5, band) - 0.7).abs() < 1e-5, "centre at mid sweep");
-        assert!(gloss_glow(4.0, lo, hi, 0.0, band) < 0.01, "the far end is still ahead");
-        assert!(gloss_glow(0.0, lo, hi, 1.0, band) < 0.01, "the sweep has passed the near end");
+    fn the_diamond_sweep_rises_holds_and_turns_a_full_circle() {
+        assert_eq!(diamond_sweep(0.0, 1.0), (0.0, 0.0));
+        assert!((diamond_sweep(0.3, 1.0).1 - 0.7).abs() < 1e-5, "held at 0.7 in the middle");
+        let (angle, strength) = diamond_sweep(0.6, -1.0);
+        assert!((angle + std::f32::consts::TAU).abs() < 1e-4, "a full turn the other way");
+        assert!(strength.abs() < 1e-5, "faded out at the end");
     }
 
     #[test]

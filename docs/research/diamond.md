@@ -5,14 +5,15 @@ is in the repo), the normal variant (no ice, no water). Material values from Bri
 (the other shapes have their own materials).
 
 - Colour: the brick's own pattern texture.
-- First gloss, always on: the pattern is overlay-blended (the Photoshop "overlay" mode: darks
-  multiplied by twice the colour, lights screened) with GlossColor1, then mixed in by its alpha.
-  T: GlossColor1 (0.956, 0.893, 0.759) at 0.766.
-- Moving stripes: two sets of diagonal bands in the brick's own texture space (along x + y, in
-  units of the brick sprite's 65 pixels): one with a 1.5-unit period, a twelfth of it lit,
-  moving at 0.3 units a second; the other with a 2.4-unit period, an eighth lit, moving at 0.4.
-  Where a band is lit, the colour is overlay-blended with GlossColor2 and mixed in by its alpha.
-  T: GlossColor2 (0.585, 1, 0.522) at 0.603.
+- Bands, all diagonal in the brick's own texture space (along x + y, in units of the bevel map's
+  pixels at 65 to the unit), all moving:
+  - wide bands of the first gloss: a 1.5-unit period, 40% of it lit, moving 0.2 units a second;
+  - two sets of thin bands of the second gloss, both with a 2.4-unit period: a twelfth lit,
+    moving 0.3 a second, and an eighth lit, moving 0.4 a second.
+  Where lit, the colour is overlay-blended (the Photoshop "overlay" mode: darks multiplied by
+  twice the colour, lights screened) with that gloss colour, then mixed in by its alpha.
+  T: GlossColor1 (0.956, 0.893, 0.759) at 0.766, GlossColor2 (0.585, 1, 0.522) at 0.603. All
+  seven shapes' colours are in `DIAMOND_GLOSS` (src/packs.rs).
 - Gloss sweep: white, on the bevel faces that face the direction `_Angle`, by the slope times
   `_Gloss`. The modifier animates `_Gloss` (0 to 0.7 and back) and turns `_Angle` a full circle
   over 0.6 s (docs/research/values-read.md).
@@ -20,6 +21,7 @@ is in the repo), the normal variant (no ice, no water). Material values from Bri
   T: (0.003, 0.103, 0.078).
 - A flash value lifts the colour towards white.
 
-What this means for our build: the overlay blend and the moving stripes work per pixel, which
-sprite layers can't reproduce exactly. A brick material with its own shader (one per pack, from
-these notes) is the faithful way; see docs/next.md.
+In our build (2026-10-10): Diamond bricks are one quad per piece drawn by our own material
+(src/brick_material.rs) from these notes, with the sweep timing from DiamondBrickModifier
+(`diamond_sweep`). Checked offscreen: the diagonal gloss bands show across each brick as in
+Max's frame.
