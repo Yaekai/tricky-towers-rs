@@ -14,7 +14,6 @@ use crate::art::Art;
 use crate::config::{BrickPack, GameConfig};
 use crate::gameplay::{Brick, Placed, TowerSkin};
 use crate::spells::{Grassy, Stone, Vined};
-use crate::start::keyed;
 use crate::visuals::{CellSprite, dress_bricks};
 
 pub struct PacksPlugin;
@@ -37,7 +36,8 @@ impl Default for GalaxyDebug {
 impl Plugin for PacksPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GalaxyDebug>()
-            .init_resource::<GalaxySkies>();
+            .init_resource::<GalaxySkies>()
+            .add_systems(Startup, make_holo_ramp);
         app.add_systems(
             Update,
             (
@@ -45,8 +45,8 @@ impl Plugin for PacksPlugin {
                 decorate_bricks.after(dress_bricks),
                 grow_snow,
                 pulse_decorations,
-                land_holograms.before(glitch_holograms),
                 glitch_holograms,
+                scan_holograms,
                 gloss_diamonds,
                 scroll_galaxy,
                 place_galaxy_stars,
@@ -75,18 +75,34 @@ struct Pulse {
     side: f32,
 }
 
-/// A Hologram brick: glitches every 6 to 15 s, the first right away. A glitch takes
-/// 0.1 to 0.5 s to come in and as long to go out (HologramBrickModifier), its
-/// distortion rising and falling over that time. A landed brick also goes see-through
-/// for a moment (`HologramLook`): `touch` counts seconds since it landed.
+/// A Hologram brick: glitches every 6 to 15 s, the first right away (when it spawns). A
+/// glitch takes 0.1 to 0.5 s to come in and as long to go out (HologramBrickModifier, DOTween's
+/// default OutQuad both ways), its distortion rising to 1 and falling back.
 #[derive(Component)]
 struct Glitch {
     wait: f32,
     left: f32,
     span: f32,
     seed: u32,
-    touch: f32,
 }
+
+/// One cell's scan lines on a Hologram brick: the original's shader blends the base colour
+/// towards (0.8, 1, 1) by k x frac(3 y + t), k = 0.2 + 0.025 (sin 50 t + 1), with y the world
+/// height in cells. A ramp picture tiled up the cell stands in for frac().
+#[derive(Component)]
+struct HoloScan;
+
+/// The scan-line ramp: alpha from 0 to 1 up one period, repeating.
+#[derive(Resource)]
+struct HoloRamp(Handle<Image>);
+
+/// Texels in one scan-line period of `HoloRamp`.
+const HOLO_RAMP: u32 = 32;
+
+/// The original blends in gamma space and we blend in linear light, which makes the same
+/// alpha read stronger here. This scales the scan lines' alpha down to match Max's Hologram
+/// frame (a measured stand-in for the blending difference, not part of the shader).
+const HOLO_SCAN_LINEAR: f32 = 0.35;
 
 /// A Diamond brick: a 0.6 s gloss every 6 to 15 s, the first right away.
 #[derive(Component)]
@@ -192,6 +208,7 @@ fn decorate_bricks(
     >,
     skins: Query<&TowerSkin>,
     skies: Option<Res<GalaxySkies>>,
+    ramp: Option<Res<HoloRamp>>,
 ) {
     for (entity, brick, stone) in &bricks {
         let Ok(skin) = skins.get(brick.tower) else {
@@ -267,8 +284,22 @@ fn decorate_bricks(
                     left: 0.0,
                     span: 0.0,
                     seed,
-                    touch: f32::INFINITY,
                 });
+                if let Some(ramp) = ramp.as_ref() {
+                    for &cell in cells {
+                        brick_entity.with_child((
+                            HoloScan,
+                            Sprite {
+                                image: ramp.0.clone(),
+                                color: Color::srgba(0.8, 1.0, 1.0, 0.0),
+                                custom_size: Some(Vec2::splat(c)),
+                                rect: Some(Rect::new(0.0, 0.0, 1.0, HOLO_RAMP as f32)),
+                                ..default()
+                            },
+                            Transform::from_translation((cell * c).extend(0.03)),
+                        ));
+                    }
+                }
             }
             BrickPack::Diamond => {
                 brick_entity.insert(Gloss {
@@ -437,27 +468,19 @@ fn pulse_decorations(time: Res<Time>, mut items: Query<(&mut Pulse, &mut Transfo
     }
 }
 
-fn land_holograms(mut bricks: Query<&mut Glitch, Added<Placed>>) {
-    for mut glitch in &mut bricks {
-        glitch.touch = 0.0;
-    }
-}
-
-/// The glitch shakes and tints the brick's sprite while it lasts (the original's
-/// shader distortion, approximated, ?). A landed brick's see-through overrides only
-/// the alpha, and only until the touch curve ends; collisions never change.
+/// The glitch, as the original's shader does it: while the distortion D is up, the brick
+/// flickers see-through, alpha 1 - D x h with h a fresh random every tenth of a second, and its
+/// rows tear sideways (each cell takes its own share here). At rest it's the base skin, solid.
 fn glitch_holograms(
     time: Res<Time>,
-    config: Res<GameConfig>,
     mut bricks: Query<(&mut Glitch, &Children)>,
     mut sprites: Query<(&mut Sprite, &mut Transform), With<CellSprite>>,
 ) {
     let dt = time.delta_secs();
-    let touch_curve = &config.hologram.touch_alpha;
-    let touch_end = touch_curve.last().map_or(0.0, |key| key.0);
+    // The shader's hash: frac(sin(100 n) x 18336.82) for n = floor(10 t).
+    let step = (time.elapsed_secs() * 10.0).floor();
+    let flicker = ((step * 100.0).sin() * 18_336.822).rem_euclid(1.0);
     for (mut glitch, children) in &mut bricks {
-        glitch.touch += dt;
-        let touch = (glitch.touch < touch_end).then(|| keyed(touch_curve, glitch.touch));
         let mut seed = glitch.seed;
         if glitch.left > 0.0 {
             glitch.left -= dt;
@@ -470,32 +493,67 @@ fn glitch_holograms(
             }
         }
         let on = glitch.left > 0.0;
-        // Rises to full distortion halfway through, then falls back.
-        let progress = if glitch.span > 0.0 {
-            (1.0 - glitch.left / glitch.span).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-        let amount = 1.0 - (2.0 * progress - 1.0).abs();
-        // The glitch's width this frame; each cell takes its own share of it, so the
-        // brick tears into slices rather than sliding whole.
-        let width = if on { amount * 6.0 } else { 0.0 };
+        let amount = if on { glitch_amount(1.0 - glitch.left / glitch.span) } else { 0.0 };
+        let width = amount * 6.0;
         for child in children.iter() {
             if let Ok((mut sprite, mut transform)) = sprites.get_mut(child) {
-                // At rest a Hologram brick is the base skin, a little see-through (Max: "base skin
-                // with a holo effect on top"; his frame's bricks are as bright and as saturated as
-                // the base pack's). The cyan tint shows only in a glitch.
-                let (red, green, blue, alpha) = if on {
-                    (0.5, 1.0, 1.0, config.hologram.glitch_alpha)
-                } else {
-                    (1.0, 1.0, 1.0, config.hologram.rest_alpha)
-                };
-                sprite.color = Color::srgba(red, green, blue, touch.unwrap_or(alpha));
+                sprite.color = Color::srgba(1.0, 1.0, 1.0, 1.0 - amount * flicker);
                 transform.translation.x = glitch_slice(width, roll(&mut seed));
             }
         }
         glitch.seed = seed;
     }
+}
+
+/// The distortion `progress` (0 to 1) through a glitch: up to 1 in the first half and back
+/// down in the second, both OutQuad (DOTween's default ease).
+pub(crate) fn glitch_amount(progress: f32) -> f32 {
+    let out_quad = |x: f32| 1.0 - (1.0 - x) * (1.0 - x);
+    let p = progress.clamp(0.0, 1.0);
+    if p < 0.5 {
+        out_quad(p * 2.0)
+    } else {
+        1.0 - out_quad(p * 2.0 - 1.0)
+    }
+}
+
+/// Moves each Hologram cell's scan lines with its world height and time, and pulses them.
+fn scan_holograms(time: Res<Time>, mut scans: Query<(&mut Sprite, &GlobalTransform), With<HoloScan>>, config: Res<GameConfig>) {
+    let t = time.elapsed_secs();
+    let k = 0.2 + 0.025 * ((50.0 * t).sin() + 1.0);
+    let period = HOLO_RAMP as f32;
+    for (mut sprite, at) in &mut scans {
+        // frac(3 y + t) up the cell: three periods a cell, the picture's rows run down.
+        let y = at.translation().y / config.cell_size;
+        let top = -(3.0 * (y + 0.5) + t) * period;
+        sprite.rect = Some(Rect::new(0.0, top, 1.0, top + 3.0 * period));
+        sprite.color = Color::srgba(0.8, 1.0, 1.0, k * HOLO_SCAN_LINEAR);
+    }
+}
+
+/// Makes the scan-line ramp once: a 1 x 32 picture, white, alpha rising up it, repeating.
+fn make_holo_ramp(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    use bevy::asset::RenderAssetUsages;
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    let mut data = Vec::with_capacity(HOLO_RAMP as usize * 4);
+    for row in 0..HOLO_RAMP {
+        // Row 0 is the top: alpha 1 there, falling to 0 at the bottom (rising upwards).
+        let a = 1.0 - (row as f32 + 0.5) / HOLO_RAMP as f32;
+        data.extend_from_slice(&[255, 255, 255, (a * 255.0).round() as u8]);
+    }
+    let mut image = Image::new(
+        Extent3d { width: 1, height: HOLO_RAMP, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+        address_mode_u: ImageAddressMode::Repeat,
+        address_mode_v: ImageAddressMode::Repeat,
+        ..ImageSamplerDescriptor::nearest()
+    });
+    commands.insert_resource(HoloRamp(images.add(image)));
 }
 
 /// One cell's sideways tear during a glitch: `roll` (0 to 1) picks how far, within
@@ -816,17 +874,10 @@ mod tests {
     }
 
     #[test]
-    fn hologram_touch_dips_then_ends_at_rest_alpha() {
-        let curve = crate::config::HologramLook::default().touch_alpha;
-        assert_eq!(
-            curve.last().unwrap().1,
-            0.85,
-            "touch hands back to the resting alpha"
-        );
-        assert!(keyed(&curve, 0.2) < 0.6, "see-through while touching");
-        assert!(
-            keyed(&curve, 0.4) > 0.9,
-            "flashes brighter before going solid"
-        );
+    fn hologram_glitch_rises_to_one_and_falls_back() {
+        assert_eq!(glitch_amount(0.0), 0.0);
+        assert!((glitch_amount(0.5) - 1.0).abs() < 1e-5, "full at the halfway point");
+        assert!(glitch_amount(1.0).abs() < 1e-5, "back to rest at the end");
+        assert!(glitch_amount(0.25) > 0.5, "OutQuad: past half-way at a quarter");
     }
 }
