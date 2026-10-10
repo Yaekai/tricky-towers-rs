@@ -125,3 +125,12 @@ ours and need checking against the original (see docs/research/*.md and the vide
 ## Title tiles: wizard over the frame, earth size (blocked, PC staging)
 - The Local and Online tile art (menu_tile_<key>_front, staged from the install) is one picture: the frame, the wizard and the earth are already composed, in the frame's order. So the wizard can't sit above the border, and the earth overflows the box, from the staged picture itself (menu.rs `Tile::front`, the tile's offset and size only move it).
 - Fix needs the install: stage the wizard and the earth as their own layers above the frame (stage.ps1), then draw them over the frame in menu.rs. PC-only; parked until staging is possible.
+
+## Next: a brick material with its own shader (2026-10-10)
+The original's brick looks are per-pixel shader maths (docs/research/galaxy.md, hologram.md,
+diamond.md): overlay blending, hue rotation, world-space light from a normal map, moving
+stripes, scan lines. Sprite layers only approximate them (blending in linear light, light that
+turns with the brick, no overlay mode). Plan: one Bevy 2D material (WGSL written by us from the
+notes) with a mode per pack, drawing each brick from its pattern and bevel map, so every pack
+matches the original exactly, including rotated bricks. Replaces the baked overlays and the
+per-cell layers once it's in.
