@@ -129,10 +129,11 @@ pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
 const GALAXY_LINE: Color = Color::srgb(0.231, 0.086, 0.333);
 const GALAXY_LINE_WIDTH: f32 = 0.05;
 
-/// The original's starfield scene: its render texture is 512 texels across and covers
-/// this many cells (the scene's 9.2 units; the stars' positions below are in those units).
+/// The original's starfield scene: its camera (orthographic size 5) renders 10 units into a
+/// 512-texel render texture, and the background sprite is 512 px at 51.2 px to the unit, so it
+/// fills that view exactly. A brick cell is one unit (the brick sprites are 65 px to the unit).
 const GALAXY_TEXELS: f32 = 512.0;
-const GALAXY_FIELD_CELLS: f32 = 9.2;
+const GALAXY_FIELD_CELLS: f32 = 10.0;
 /// A star's picture is 18 px at 26 px to the unit in the original's scene: 0.69 units.
 const GALAXY_STAR_SIZE: f32 = 18.0 / 26.0;
 
@@ -617,7 +618,7 @@ fn repeat_starfield(images: &mut Assets<Image>, handle: &Handle<Image>) {
 }
 
 /// Puts each of the original's stars where the shared field has it inside its cell. The
-/// field drifts with the sky (the scene's offset), wraps every 9.2 cells, and a star shows
+/// field drifts with the sky (the scene's offset), wraps every 10 cells, and a star shows
 /// only inside its own cell.
 fn place_galaxy_stars(
     time: Res<Time>,
@@ -731,7 +732,7 @@ mod tests {
 
     #[test]
     fn neighbouring_cells_line_up_across_the_whole_field() {
-        // One cell to the right is 64 texels further along, wherever it is, even past
+        // One cell to the right is one cell of texels further along, wherever it is, even past
         // the texture's edge (the field repeats). The drift is the same for both.
         let texture = Vec2::new(1024.0, 512.0);
         for world in [Vec2::new(-3.0, 1.0), Vec2::new(40.0, -9.5), Vec2::new(900.0, 0.0)] {
@@ -739,10 +740,11 @@ mod tests {
                 let a = galaxy_window(world, 2.0, texture, t);
                 let b = galaxy_window(world + Vec2::new(2.0, 0.0), 2.0, texture, t);
                 let side = GALAXY_TEXELS / GALAXY_FIELD_CELLS;
-                assert!((b.min.x - a.min.x - side).abs() < 1e-3);
-                assert!((b.min.y - a.min.y).abs() < 1e-3);
+                // A hundredth of a texel: at x 900 the window sits ~23,000 texels out, past f32's 1e-3.
+                assert!((b.min.x - a.min.x - side).abs() < 1e-2);
+                assert!((b.min.y - a.min.y).abs() < 1e-2);
                 let c = galaxy_window(world + Vec2::new(0.0, 2.0), 2.0, texture, t);
-                assert!((c.min.y - a.min.y + side).abs() < 1e-3, "one cell up is one cell of texels up");
+                assert!((c.min.y - a.min.y + side).abs() < 1e-2, "one cell up is one cell of texels up");
             }
         }
     }

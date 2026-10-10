@@ -5,7 +5,7 @@ export's prefabs and materials (the Galaxy brick pack prefabs and the BrickGalax
 
 ## The scene
 - The pack's scene (prefab BRICK_PACK_GALAXY) is created once, at world x -1000, out of view. It
-  has a Background sprite, a Camera that draws the scene into GalaxyRenderTexture (512x512),
+  has a Background sprite, a Camera (orthographic size 5, so 10 units across) that draws the scene into GalaxyRenderTexture (512x512),
   and a Stars parent with 49 star sprites at fixed positions.
 - Every Galaxy brick's colour pattern is that render texture (the material's pattern slot). The
   bricks show it through their shape, so every brick is a window onto the same sky.
@@ -43,3 +43,8 @@ export's prefabs and materials (the Galaxy brick pack prefabs and the BrickGalax
 
 ## Shading strength test (not kept)
 - Doubling the bevel's shading strength moved every channel: the median went to about (138, 33, 112) against the clip's (121, 36, 142), so red overshot and blue barely moved. Reverted; the blue gap isn't a shading-strength problem.
+
+## Field size and window (read from the prefab and the clip)
+- The camera's orthographic size is 5, so the sky is 10 units across, and the Background sprite is 512 px at 51.2 px to the unit, exactly 10 units. The field is 10 units, not 9.2 (the stars' spread). A brick cell is one unit (the brick sprites are 65 px to the unit: the T is 201x136 px). Our field is now 10 cells.
+- The clip (Race trial, Galaxy tower) shows the stars staying put while a brick falls through them, so the bricks are windows onto a world-space sky. Ours already works that way.
+- The colour spread didn't change with the field size (blue median still about 107 against the clip's 142): the blue gap is elsewhere.
