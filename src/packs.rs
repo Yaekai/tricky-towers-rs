@@ -124,8 +124,7 @@ struct GalaxyStar {
 /// grey isn't read yet).
 pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
 
-/// The thin dark purple line: (59, 22, 85) from Max's frame. Its
-/// width, a twentieth of a cell, is a guess until the frame's scale is measured.
+/// The thin dark purple line: (59, 22, 85) from Max's frame.
 const GALAXY_LINE: Color = Color::srgb(0.231, 0.086, 0.333);
 /// The outline is about 2.5 px of a 28 px cell in Max's Race trial clip (1080p): 0.09 of a cell.
 const GALAXY_LINE_WIDTH: f32 = 0.09;
