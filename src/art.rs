@@ -556,17 +556,21 @@ fn recolor_masks(
     }
 }
 
-/// The bricks' outline and crack colour: the median of the darkest brick pixels in
-/// Max's close-up of a Race tower (clip_1,791,559,010,207; the original's shader is a
-/// stub in the export).
-const BRICK_LINE: (f32, f32, f32) = (13.0 / 255.0, 14.0 / 255.0, 35.0 / 255.0);
+/// The bricks' outline and crack colour, fixed in the original's lit brick shaders (default,
+/// Christmas, Halloween): (19, 13, 40).
+const BRICK_LINE: (f32, f32, f32) = (0.074_509_81, 0.050_980_39, 0.156_862_75);
 
-/// Lights brick-pack bricks once their pattern and bevel map are loaded, as the
-/// original's World/Bricks/Default shader draws them: bevels sloping towards the light
-/// blend to the highlight colour, those sloping away to the shadow colour, by the
-/// slope and the colour's alpha; the bevel map's blue draws the outline and cracks,
-/// and the outline reaches past the brick's own alpha (the map's blue runs 2 px
-/// further out), as thick as in the close-up. The blend is ours (?), matched to it.
+/// The light's direction in the original's lit brick shaders, up and to the left. The
+/// material's `_Angle` isn't used by them.
+const BRICK_LIGHT: (f32, f32) = (-0.447_213_6, 0.894_427_2);
+
+/// Lights brick-pack bricks once their pattern and bevel map are loaded, as the original's
+/// lit brick shader does (World/Bricks/Default, read from its disassembly): the bevel map's red
+/// and green are the slope, lit from up and to the left; the colour takes the highlight by the
+/// slope towards the light times its alpha, the shadow likewise away from it, then the outline
+/// colour by 1 - (1 - blue) x alpha of the map. Alpha is the larger of the pattern's alpha and
+/// the map's blue. The light is baked per shape here, so it turns with the brick, where the
+/// original's stays fixed in the world.
 fn light_bricks(
     mut art: ResMut<Art>,
     mut images: ResMut<Assets<Image>>,
@@ -584,16 +588,10 @@ fn light_bricks(
             images.get(&pattern)?;
             images.get(&bevel)?;
             let light = [Srgba::new(hr, hg, hb, ha), Srgba::new(sr, sg, sb, sa)];
-            Some((
-                name.clone(),
-                pattern,
-                bevel,
-                light,
-                entry.light_angle.unwrap_or(280.0),
-            ))
+            Some((name.clone(), pattern, bevel, light, 0.0))
         })
         .collect();
-    for (name, pattern, bevel, [high, shadow], angle) in ready {
+    for (name, pattern, bevel, [high, shadow], _) in ready {
         done.insert(name.clone());
         let (Some(pattern), Some(mut out)) =
             (images.get(&pattern).cloned(), images.get(&bevel).cloned())
@@ -603,7 +601,6 @@ fn light_bricks(
         let size = out.size();
         // The pattern is stretched over the brick like the original's UVs.
         let scale = pattern.size().as_vec2() / size.as_vec2();
-        let (ly, lx) = angle.to_radians().sin_cos();
         for y in 0..size.y {
             for x in 0..size.x {
                 let (Ok(map), Ok(base)) = (
@@ -613,21 +610,22 @@ fn light_bricks(
                     continue;
                 };
                 let (map, base) = (map.to_srgba(), base.to_srgba());
-                let slope = (map.red * 2.0 - 1.0) * lx - (map.green * 2.0 - 1.0) * ly;
+                let slope = (map.red * 2.0 - 1.0) * BRICK_LIGHT.0 + (map.green * 2.0 - 1.0) * BRICK_LIGHT.1;
                 let (to, by) = if slope > 0.0 {
                     (high, slope)
                 } else {
                     (shadow, -slope)
                 };
+                let outline = 1.0 - (1.0 - map.blue) * map.alpha;
                 let lit = |c: f32, t: f32, line: f32| {
                     let c = c + (t - c) * by.min(1.0) * to.alpha;
-                    c + (line - c) * map.blue
+                    c + (line - c) * outline
                 };
                 let color = Color::srgba(
                     lit(base.red, to.red, BRICK_LINE.0).clamp(0.0, 1.0),
                     lit(base.green, to.green, BRICK_LINE.1).clamp(0.0, 1.0),
                     lit(base.blue, to.blue, BRICK_LINE.2).clamp(0.0, 1.0),
-                    map.alpha.max(map.blue),
+                    base.alpha.max(map.blue),
                 );
                 let _ = out.set_color_at(x, y, color);
             }
