@@ -306,6 +306,23 @@ fn decorate_bricks(
                         ));
                     }
                 }
+                // The shape's bevel light and outline, over the starfield and the stars,
+                // sized to the piece's box.
+                let shape = &config.pieces[brick.piece].name;
+                let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
+                let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
+                let size = (max - min + Vec2::ONE) * c;
+                let center = (min + max) * 0.5 * c;
+                if let Some(overlay) = art.image(&format!("brick_galaxy_{shape}_overlay")) {
+                    brick_entity.with_child((
+                        Sprite {
+                            image: overlay,
+                            custom_size: Some(size),
+                            ..default()
+                        },
+                        Transform::from_translation(center.extend(0.035)),
+                    ));
+                }
                 if let Some(star) = art.image("brick_galaxy_star") {
                     for &cell in cells {
                         for index in 0..GALAXY_STARS.len() {

@@ -120,4 +120,4 @@ ours and need checking against the original (see docs/research/*.md and the vide
 ## Next (no PC needed): Galaxy bevel and gloss
 - The staged manifest has, per Galaxy shape, `bevel`, `light` (highlight and shadow), `light_angle` 280, `see_through` and `line` (the outline colour). `ArtEntry` doesn't read `line` or `see_through` yet.
 - Plan: a `light_galaxy` system beside `light_bricks` (art.rs) that builds one overlay image per shape from its bevel map (the same slope maths, with the per-shape outline colour from the blue channel), and a child sprite per placed Galaxy piece (packs.rs) sized to the piece's box. The starfield stays underneath, seen through the shape.
-- Not done yet; the cloud thread's branches (galaxy-holo-rebased, galaxy-line) don't include it.
+- Done (offscreen check, not on the PC): `light_galaxy` (art.rs) builds `brick_galaxy_<shape>_overlay` from each shape's bevel map, and packs.rs draws it over each Galaxy piece's box. Max to check the bevel and the outline on the PC.

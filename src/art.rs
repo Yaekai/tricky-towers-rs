@@ -121,6 +121,9 @@ pub struct ArtEntry {
     pub light: Option<Pair<(f32, f32, f32, f32)>>,
     #[serde(default)]
     pub light_angle: Option<f32>,
+    /// Galaxy bricks: the outline colour (the brick material's `_BorderColor`), 0 to 1.
+    #[serde(default)]
+    pub line: Option<(f32, f32, f32)>,
     /// Screen layers only: slides sideways at a speed picked from this range, in
     /// screen units a second, wrapping round the view (Race Pro's clouds: 0.15-0.25).
     #[serde(default)]
@@ -327,6 +330,7 @@ impl Plugin for ArtPlugin {
                     drop_failed_art,
                     recolor_masks,
                     light_bricks,
+                    light_galaxy,
                     play_animations,
                     apply_font,
                     play_music,
@@ -631,6 +635,71 @@ fn light_bricks(
         }
         let lit = images.add(out);
         art.images.insert(name, lit);
+    }
+}
+
+/// Makes each Galaxy shape's light overlay from its bevel map: the same slope and highlight
+/// maths as `light_bricks`, but as a see-through layer drawn over the starfield, with the
+/// bevel's blue drawn in the shape's outline colour. Stored as `<name>_overlay`.
+fn light_galaxy(
+    mut art: ResMut<Art>,
+    mut images: ResMut<Assets<Image>>,
+    mut done: Local<std::collections::HashSet<String>>,
+) {
+    type Ready = (String, Handle<Image>, [Srgba; 2], f32, (f32, f32, f32));
+    let ready: Vec<Ready> = art
+        .entries
+        .iter()
+        .filter(|(name, _)| name.starts_with("brick_galaxy_") && !name.ends_with("_bevel"))
+        .filter(|(name, _)| !done.contains(*name))
+        .filter_map(|(name, entry)| {
+            let ((hr, hg, hb, ha), (sr, sg, sb, sa)) = entry.light.as_ref()?.get()?;
+            let bevel = art.images.get(entry.bevel.as_ref()?)?.clone();
+            let line = entry.line?;
+            images.get(&bevel)?;
+            let light = [Srgba::new(hr, hg, hb, ha), Srgba::new(sr, sg, sb, sa)];
+            Some((
+                name.clone(),
+                bevel,
+                light,
+                entry.light_angle.unwrap_or(280.0),
+                line,
+            ))
+        })
+        .collect();
+    for (name, bevel, [high, shadow], angle, (lr, lg, lb)) in ready {
+        done.insert(name.clone());
+        let Some(mut out) = images.get(&bevel).cloned() else {
+            continue;
+        };
+        let size = out.size();
+        let (ly, lx) = angle.to_radians().sin_cos();
+        for y in 0..size.y {
+            for x in 0..size.x {
+                let Ok(map) = out.get_color_at(x, y) else {
+                    continue;
+                };
+                let map = map.to_srgba();
+                let slope = (map.red * 2.0 - 1.0) * lx - (map.green * 2.0 - 1.0) * ly;
+                let (to, by) = if slope > 0.0 {
+                    (high, slope)
+                } else {
+                    (shadow, -slope)
+                };
+                // Lit parts take the highlight or shadow colour; the bevel's blue is the outline.
+                let fill = to.alpha * by.min(1.0) * map.alpha;
+                let (r, g, b) = (to.red, to.green, to.blue);
+                let color = Color::srgba(
+                    r + (lr - r) * map.blue,
+                    g + (lg - g) * map.blue,
+                    b + (lb - b) * map.blue,
+                    fill.max(map.blue * map.alpha),
+                );
+                let _ = out.set_color_at(x, y, color);
+            }
+        }
+        let overlay = images.add(out);
+        art.images.insert(format!("{name}_overlay"), overlay);
     }
 }
 
