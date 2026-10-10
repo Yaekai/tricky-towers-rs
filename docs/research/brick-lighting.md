@@ -18,8 +18,17 @@ Pack extras, from the same reading:
 - Halloween: in hand it's the default pattern with the default colours; placed, `_BlackWhiteEffect`
   fades it to the Halloween texture with its own highlight and shadow colours (the staged
   `brick_halloween_<shape>` entries carry them).
-- Christmas: its shader has a lights texture and a time offset, so the blinking lights are part
-  of the brick, drawn only on it (not yet read in detail).
+- Christmas: its shader draws the lights from a two-frame picture (one frame above the other),
+  one frame at a time over the brick, mixed in by the lights' alpha before the light. The frame
+  is floor((offset + t) / 2) mod 2, so it switches every 2 s; each brick's offset is a random
+  0 to 3 s (ChristmasBrickModifier). Frame 0 is the lower half in Unity's UVs. Our lights layer
+  covered the box with the whole picture (both frames squashed), which put lights over thin
+  air; it now shows one half at a time (`switch_lights`).
+- Snow and Easter's grass and flowers (EdgeDecorationModifier): each brick prefab has anchor
+  points along its edges; when the brick spawns, only anchors facing up (within 45 degrees,
+  in the world) are kept, each gets a decoration by chance (snow 25%), with a random flip; it
+  grows to 0.7 over 0.1 s (linear) after a 0 to 0.3 s delay, then to full size over 0.4 s
+  (OutElastic), and turns with the brick after that.
 
 In our build: art.rs `light_bricks` now lights from the shader's direction with its outline
 colour and alpha (it used the material's 280 degrees and a colour measured from a clip). The

@@ -43,6 +43,7 @@ impl Plugin for PacksPlugin {
             (
                 decorate_bricks.after(dress_bricks),
                 grow_snow,
+                switch_lights,
                 pulse_decorations,
                 glitch_holograms,
                 scan_holograms,
@@ -53,6 +54,13 @@ impl Plugin for PacksPlugin {
             ),
         );
     }
+}
+
+/// A Christmas brick's lights: which frame of the two-frame picture shows, from the time and
+/// the brick's own offset.
+#[derive(Component)]
+struct Lights {
+    offset: f32,
 }
 
 /// A snow cap appearing within 0.3 s.
@@ -237,8 +245,30 @@ fn decorate_bricks(
         let mut brick_entity = commands.entity(entity);
         match skin.pack {
             BrickPack::Christmas => {
-                // Snow on top edges: 25% each. (No lights layer: it blinked over empty air,
-                // since it covered the brick's whole box.)
+                // The lights: the original's shader draws them from a two-frame picture (one
+                // frame above the other), showing one frame at a time over the brick's box,
+                // switching every 2 s from a random 0 to 3 s offset (ChristmasBrickModifier).
+                let shape = &config.pieces[brick.piece].name;
+                if let Some(lights) = art.image(&format!("brick_christmas_lights_{shape}")) {
+                    let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
+                    let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
+                    let size = (max - min + Vec2::ONE) * c;
+                    let center = (min + max) * 0.5 * c;
+                    brick_entity.with_child((
+                        Lights {
+                            offset: roll(&mut seed) * 3.0,
+                        },
+                        Sprite {
+                            image: lights,
+                            custom_size: Some(size),
+                            ..default()
+                        },
+                        Transform::from_translation(center.extend(0.05)),
+                        // Hidden until `switch_lights` picks a frame.
+                        Visibility::Hidden,
+                    ));
+                }
+                // Snow on top edges: 25% each.
                 let snows: Vec<Handle<Image>> = (1..=3)
                     .filter_map(|i| art.image(&format!("brick_christmas_snow_{i}")))
                     .collect();
@@ -425,6 +455,30 @@ fn decorate_bricks(
                 }
             }
             _ => {}
+        }
+    }
+}
+
+/// Shows one frame of each Christmas brick's lights: the bottom half of the picture, then the
+/// top half, two seconds each (the shader's frame is floor((offset + t) / 2) mod 2, in Unity's
+/// up-is-positive UVs, where frame 0 is the lower half).
+fn switch_lights(
+    time: Res<Time>,
+    images: Res<Assets<Image>>,
+    mut lights: Query<(&Lights, &mut Sprite, &mut Visibility)>,
+) {
+    let t = time.elapsed_secs();
+    for (light, mut sprite, mut visibility) in &mut lights {
+        let Some(size) = images.get(&sprite.image).map(|i| i.size_f32()) else {
+            continue;
+        };
+        let frame = ((light.offset + t) * 0.5).floor().rem_euclid(2.0);
+        let half = size.y * 0.5;
+        // Frame 0 is the picture's lower half (rows from `half` down), frame 1 the upper.
+        let top = if frame < 1.0 { half } else { 0.0 };
+        sprite.rect = Some(Rect::new(0.0, top, size.x, top + half));
+        if *visibility == Visibility::Hidden {
+            *visibility = Visibility::Inherited;
         }
     }
 }
