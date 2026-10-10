@@ -330,7 +330,6 @@ impl Plugin for ArtPlugin {
                     drop_failed_art,
                     recolor_masks,
                     light_bricks,
-                    light_galaxy,
                     play_animations,
                     apply_font,
                     play_music,
@@ -635,85 +634,6 @@ fn light_bricks(
         }
         let lit = images.add(out);
         art.images.insert(name, lit);
-    }
-}
-
-/// Makes each Galaxy shape's light overlay from its bevel map: the same slope and highlight
-/// maths as `light_bricks`, but as a see-through layer drawn over the starfield, with the
-/// bevel's blue drawn in the shape's outline colour. Stored as `<name>_overlay`.
-fn light_galaxy(
-    mut art: ResMut<Art>,
-    mut images: ResMut<Assets<Image>>,
-    mut done: Local<std::collections::HashSet<String>>,
-) {
-    type Ready = (String, Handle<Image>, [Srgba; 2], f32, (f32, f32, f32));
-    let ready: Vec<Ready> = art
-        .entries
-        .iter()
-        .filter(|(name, _)| name.starts_with("brick_galaxy_") && !name.ends_with("_bevel"))
-        .filter(|(name, _)| !done.contains(*name))
-        .filter_map(|(name, entry)| {
-            let ((hr, hg, hb, ha), (sr, sg, sb, sa)) = entry.light.as_ref()?.get()?;
-            let bevel = art.images.get(entry.bevel.as_ref()?)?.clone();
-            let line = entry.line?;
-            images.get(&bevel)?;
-            let light = [Srgba::new(hr, hg, hb, ha), Srgba::new(sr, sg, sb, sa)];
-            Some((
-                name.clone(),
-                bevel,
-                light,
-                entry.light_angle.unwrap_or(280.0),
-                line,
-            ))
-        })
-        .collect();
-    for (name, bevel, [high, shadow], angle, (lr, lg, lb)) in ready {
-        done.insert(name.clone());
-        let Some(mut out) = images.get(&bevel).cloned() else {
-            continue;
-        };
-        let size = out.size();
-        let _ = angle; // The Galaxy shader doesn't use the material's angle (see below).
-        for y in 0..size.y {
-            for x in 0..size.x {
-                let Ok(map) = out.get_color_at(x, y) else {
-                    continue;
-                };
-                let map = map.to_srgba();
-                // The original's Galaxy shader: the bevel's red and green are the slope, lit
-                // from a fixed direction up and to the left, (-0.447, 0.894); the highlight
-                // takes over by the slope towards it times its alpha, the shadow likewise away
-                // from it, then the border colour by 1 - (1 - blue) * alpha (the outline and
-                // the bevel map's outside). One layer over the sky gives the same result as the
-                // shader's two blends: alpha 1 - (1 - a) (1 - o).
-                let d = (map.red * 2.0 - 1.0) * -0.447_213_6 + (map.green * 2.0 - 1.0) * 0.894_427_2;
-                let (to, a) = if d > 0.0 {
-                    (high, d.min(1.0) * high.alpha)
-                } else {
-                    (shadow, (-d).min(1.0) * shadow.alpha)
-                };
-                let o = 1.0 - (1.0 - map.blue) * map.alpha;
-                let alpha = 1.0 - (1.0 - a) * (1.0 - o);
-                let mix = |c: f32, l: f32| {
-                    if alpha > 0.0 {
-                        (c * a * (1.0 - o) + l * o) / alpha
-                    } else {
-                        c
-                    }
-                };
-                // Outside the brick (no alpha, no outline) nothing is drawn.
-                let shown = map.alpha.max(map.blue);
-                let color = Color::srgba(
-                    mix(to.red, lr),
-                    mix(to.green, lg),
-                    mix(to.blue, lb),
-                    if shown > 0.0 { alpha } else { 0.0 },
-                );
-                let _ = out.set_color_at(x, y, color);
-            }
-        }
-        let overlay = images.add(out);
-        art.images.insert(format!("{name}_overlay"), overlay);
     }
 }
 

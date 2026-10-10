@@ -92,3 +92,14 @@ locally with Windows' d3dcompiler_47; nothing of it is in the repo). The normal 
   clip's R 59 / 121 / 175, G 20 / 36 / 99, B 84 / 142 / 210. The shapes in the two towers
   differ, so the spreads aren't like for like; ours reads a little darker. Not chased further
   until a like-for-like frame (same shapes) is compared.
+
+## Drawn by its own material (2026-10-10)
+- Galaxy bricks are now one quad per piece with our own shader (src/brick_material.rs), written
+  from the notes above: the sky in world space with the scroll and sway, the shape's hue turn,
+  the bevel light in world space (it stays put when the brick turns), the border colour from the
+  bevel map, and the maths on stored sRGB values like the original's gamma-space blending.
+- One quad per piece means no seams between cells (the black bars are gone). The old per-cell
+  sky sprites, the baked hue skies and the baked light overlay are removed.
+- Measured over the same tower: R 49 / 108 / 179, G 12 / 31 / 92, B 62 / 126 / 193, against the
+  clip's R 59 / 121 / 175, G 20 / 36 / 99, B 84 / 142 / 210 (different shapes in each tower).
+- The stars are still sprites on top; in the original they are inside the sky, under the light.

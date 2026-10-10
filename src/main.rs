@@ -149,6 +149,7 @@ fn main() {
     app.add_plugins((
         tricky_towers::game_info::GameInfoPlugin,
         tricky_towers::intro::IntroPlugin,
+        tricky_towers::brick_material::BrickMaterialPlugin,
     ));
     // Endless scores are kept between runs, except in offscreen picture runs.
     if offscreen.is_none() {
