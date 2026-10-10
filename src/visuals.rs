@@ -1949,13 +1949,13 @@ fn spawn_backgrounds(
                     ))
                 });
                 let mut layer = commands.spawn((screen_layer, base, ChildOf(camera)));
-                if let Some(island) = island.filter(|i| i.bobs) {
+                if island.is_some_and(|i| i.bobs) || scene.bob_also.iter().any(|b| b == name) {
                     layer.insert(IslandBob {
                         from: 0.0,
                         to: 0.0,
                         length: 0.0,
                         time: 0.0,
-                        seed: 0x9E37_79B9 ^ (order as u32 + 1).wrapping_mul(2_654_435_761) ^ island.art.len() as u32,
+                        seed: 0x9E37_79B9 ^ (order as u32 + 1).wrapping_mul(2_654_435_761) ^ name.len() as u32,
                     });
                 }
                 // Its picture is drawn by the island material under the (empty) sprite, which

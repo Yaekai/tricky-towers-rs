@@ -3296,6 +3296,9 @@ pub struct RaceScene {
     /// Where the islands' roots sit, above the view's bottom (the water's height).
     pub island_root: f32,
     pub islands: Vec<SceneIsland>,
+    /// Other islands that bob the same way: Survival's four (its background and foreground
+    /// island layers).
+    pub bob_also: Vec<String>,
     /// How far each bob goes (min, max) and how long it takes (min, max), in-out quad.
     pub bob: (f32, f32),
     pub bob_time: (f32, f32),
@@ -3436,6 +3439,7 @@ impl Default for RaceScene {
                 island("background_race_6", true, (8.01, 0.59), (4.187_103, 0.8), 4.6),
                 island("background_race_7", true, (-6.94, 1.45), (4.183_838, 0.8), 2.5),
             ],
+            bob_also: (1..=4).map(|n| format!("background_survival_{n}")).collect(),
             bob: (0.2, 0.4),
             bob_time: (2.5, 4.0),
             waterline: "race_waterline".into(),

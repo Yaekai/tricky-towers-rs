@@ -341,6 +341,12 @@
             (art: "background_race_6", pro: "background_race_pro_6", endless: "background_endless_4", endless_line: None, bobs: true, wave: (0.03, 0.05), line_at: (8.01, 0.59), line_size: (4.187103, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 4.6),
             (art: "background_race_7", pro: "background_race_pro_7", endless: "background_endless_5", endless_line: None, bobs: true, wave: (0.03, 0.05), line_at: (-6.94, 1.45), line_size: (4.183838, 0.8), line_tint: (0.827451, 0.8352941, 1.0), line_z: 2.5),
         ],
+        bob_also: [
+            "background_survival_1",
+            "background_survival_2",
+            "background_survival_3",
+            "background_survival_4",
+        ],
         bob: (0.2, 0.4),
         bob_time: (2.5, 4.0),
         waterline: "race_waterline",
