@@ -841,36 +841,36 @@ pub(crate) fn dress_bricks(
                     let h = (brick_bits ^ salt).wrapping_mul(0x9E37_79B9_7F4A_7C15);
                     (h >> 40) as f32 / (1u64 << 24) as f32
                 };
-                // The decorations sit on one of the brick's top cells (not its box top,
-                // which put flowers over empty air on uneven bricks).
-                let tops = top_cells(&brick.cells);
-                let top = match tops.len() {
-                    0 => center + Vec2::Y * size.y * 0.5,
-                    n => {
-                        let pick = tops[(roll(12) * n as f32) as usize % n];
-                        (pick + Vec2::Y * 0.5) * cell
+                // Easter's decorations, as the original's EasterBrickModifier places them on the
+                // brick prefab's anchors: grass on the top edges (25% each anchor; the edge
+                // anchors facing up are the cells' tops), and an egg or a flower on the face of
+                // each cell (40% each; of the four front anchors per cell only the upright one
+                // is kept), one of 8 eggs and 8 flowers. Each shows after its own 0 to 0.3 s and
+                // grows in (`packs::edge_growth`).
+                let mut picks: Vec<(String, Vec2, f32)> = Vec::new();
+                if pack == crate::config::BrickPack::Spring {
+                    for (i, top) in top_cells(&brick.cells).into_iter().enumerate() {
+                        let salt = 100 + i as u64 * 7;
+                        if roll(salt) < 0.25 {
+                            let n = 1 + (roll(salt + 1) * 3.0) as usize;
+                            picks.push((format!("fx_grass_easter_var0{}", n.min(3)), (top + Vec2::Y * 0.5) * cell, 0.2));
+                        }
                     }
-                };
-                let decoration = match pack {
-                    crate::config::BrickPack::Spring if roll(3) < 0.25 => {
-                        let n = 1 + (roll(4) * 3.0) as usize;
-                        Some((format!("fx_grass_easter_var0{}", n.min(3)), 0.0, 0.2))
+                    for (i, &at) in brick.cells.iter().enumerate() {
+                        let salt = 300 + i as u64 * 7;
+                        if roll(salt) < 0.4 {
+                            let n = 1 + (roll(salt + 1) * 8.0) as usize;
+                            let kind = if roll(salt + 2) < 0.5 { "flower" } else { "egg" };
+                            picks.push((format!("brick_easter_decorations_{kind}0{}", n.min(8)), at * cell, 0.3));
+                        }
                     }
-                    _ => None,
-                };
-                // Half the Easter decorations are flowers (turn), half eggs (pulse).
-                let flower = (pack == crate::config::BrickPack::Spring && roll(5) < 0.4)
-                    .then(|| {
-                        let n = 1 + (roll(6) * 8.0) as usize;
-                        let kind = if roll(10) < 0.5 { "flower" } else { "egg" };
-                        (format!("brick_easter_decorations_{kind}0{}", n.min(8)), 0.0, 0.3)
-                    });
-                for (name, delay, z) in decoration.into_iter().chain(flower) {
+                }
+                for (i, (name, at, z)) in picks.into_iter().enumerate() {
+                    let salt = 500 + i as u64 * 11;
                     if let Some((sprite, anchor, mut transform)) = art_sprite(&art, &name, cell) {
-                        transform.translation = (top + Vec2::Y * cell * 0.1).extend(z);
-                        // The original's decorations start after a short random delay.
-                        let show_at = time.elapsed_secs() + delay + roll(7) * 0.3;
-                        let turn = if roll(9) < 0.5 { -1.0 } else { 1.0 };
+                        transform.translation = at.extend(z);
+                        let show_at = time.elapsed_secs() + roll(salt) * 0.3;
+                        let turn = if roll(salt + 1) < 0.5 { -1.0 } else { 1.0 };
                         let piece = entity.with_child((
                             sprite,
                             anchor,
@@ -878,20 +878,17 @@ pub(crate) fn dress_bricks(
                             Visibility::Hidden,
                             EdgeDelay { show_at },
                         ));
-                        // Flowers turn after a random 5 to 15 s (the original's tween delay).
-                        // Each decoration grows in as it shows (back ease, 0.4 s).
-                        piece.insert(EdgeGrow {
-                            start: time.elapsed_secs() + roll(7) * 0.3,
-                        });
+                        piece.insert(EdgeGrow { start: show_at });
+                        // Flowers turn and eggs pulse after a random 5 to 15 s.
                         if name.contains("flower") {
                             piece.insert(FlowerTurn {
-                                start: time.elapsed_secs() + 5.0 + roll(8) * 10.0,
+                                start: show_at + 5.0 + roll(salt + 2) * 10.0,
                                 turn,
                             });
                         } else if name.contains("egg") {
                             piece.insert(EggPulse {
-                                start: time.elapsed_secs() + 5.0 + roll(8) * 10.0,
-                                x_first: roll(11) < 0.5,
+                                start: show_at + 5.0 + roll(salt + 2) * 10.0,
+                                x_first: roll(salt + 3) < 0.5,
                             });
                         }
                     }

@@ -36,3 +36,16 @@ In our build: art.rs `light_bricks` now lights from the shader's direction with 
 colour and alpha (it used the material's 280 degrees and a colour measured from a clip). The
 light is still baked per shape, so it turns with the brick; the Galaxy and Diamond materials
 already keep it fixed in the world.
+
+## Decoration anchors (read from the brick prefabs' decoration containers, 2026-10-10)
+- Edge anchors sit on every outside edge of the shape, turned to face out (0 for a top edge, 90
+  and -90 for the sides, 180 for a bottom edge). Only the ones facing up within 45 degrees are
+  kept, which for a brick as it spawns are the cells' top edges.
+- Front anchors sit at every cell's centre, four of them turned 0, 90, -90 and 180; only the
+  upright one survives the same 45-degree rule, so it's one anchor per cell.
+- Easter: grass on edge anchors (25% each, 3 kinds), an egg or flower on front anchors (40%
+  each, 8 eggs and 8 flowers). Halloween: front anchors, 40% each, at most 2, turned up to 15
+  degrees either way. Christmas: snow on edge anchors, 25% each.
+- In our build: Easter now decorates every cell's face (40%) and every top edge (25%), as above
+  (visuals.rs); before, a brick had at most one flower or egg.
+
