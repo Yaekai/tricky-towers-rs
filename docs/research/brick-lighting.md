@@ -15,9 +15,11 @@ the same lighting:
 - A flash value lifts the colour towards white.
 
 Pack extras, from the same reading:
-- Halloween: in hand it's the default pattern with the default colours; placed, `_BlackWhiteEffect`
-  fades it to the Halloween texture with its own highlight and shadow colours (the staged
-  `brick_halloween_<shape>` entries carry them).
+- Halloween: it starts as the default pattern with the default colours; `_BlackWhiteEffect`
+  then fades it to the Halloween texture with its own highlight and shadow colours (the staged
+  `brick_halloween_<shape>` entries carry them). The fade starts 1 s after the brick spawns and
+  takes 1 s (InOutQuad, HalloweenBrickModifier), so it usually happens while the brick falls,
+  not on landing. Ours now does the same (`fade_halloween`); the grey tint on landing is gone.
 - Christmas: its shader draws the lights from a two-frame picture (one frame above the other),
   one frame at a time over the brick, mixed in by the lights' alpha before the light. The frame
   is floor((offset + t) / 2) mod 2, so it switches every 2 s; each brick's offset is a random

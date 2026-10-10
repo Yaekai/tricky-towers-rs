@@ -44,6 +44,7 @@ impl Plugin for PacksPlugin {
                 decorate_bricks.after(dress_bricks),
                 grow_snow,
                 switch_lights,
+                fade_halloween,
                 pulse_decorations,
                 glitch_holograms,
                 scan_holograms,
@@ -159,9 +160,14 @@ struct GalaxyStar {
     px: f32,
 }
 
-/// A Halloween brick once placed: the base texture goes greyish (guess; the original's
-/// grey isn't read yet).
-pub(crate) const HALLOWEEN_PLACED: Color = Color::srgb(0.62, 0.62, 0.66);
+/// When a Halloween brick came: its look fades from the base skin to the Halloween one from
+/// then (HalloweenBrickModifier: 1 s after it spawns, over 1 s, InOutQuad).
+#[derive(Component)]
+struct HalloweenSince(f32);
+
+/// The Halloween look over a brick's base skin, fading in (`fade_halloween`).
+#[derive(Component)]
+struct HalloweenFade(f32);
 
 
 /// The original's starfield scene: its camera (orthographic size 5) renders 10 units into a
@@ -225,6 +231,8 @@ fn decorate_bricks(
         )>,
     >,
     skins: Query<&TowerSkin>,
+    since: Query<&HalloweenSince>,
+    time: Res<Time>,
     ramp: Option<Res<HoloRamp>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut galaxy_bricks: Option<ResMut<Assets<GalaxyBrick>>>,
@@ -293,6 +301,28 @@ fn decorate_bricks(
                 }
             }
             BrickPack::Halloween => {
+                // The original's shader fades the pattern and its light colours to the Halloween
+                // ones as `_BlackWhiteEffect` goes 0 to 1; the staged Halloween bricks carry
+                // those colours, so their lit picture fades in over the base one.
+                let shape = &config.pieces[brick.piece].name;
+                let from = since.get(entity).map_or(time.elapsed_secs(), |s| s.0);
+                brick_entity.insert(HalloweenSince(from));
+                if let Some(look) = art.image(&format!("brick_halloween_{shape}")) {
+                    let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
+                    let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
+                    let size = (max - min + Vec2::ONE) * c;
+                    let center = (min + max) * 0.5 * c;
+                    brick_entity.with_child((
+                        HalloweenFade(from),
+                        Sprite {
+                            image: look,
+                            color: Color::srgba(1.0, 1.0, 1.0, 0.0),
+                            custom_size: Some(size),
+                            ..default()
+                        },
+                        Transform::from_translation(center.extend(0.015)),
+                    ));
+                }
                 // Up to 2 front decorations, 40% chance each.
                 let kinds = ["bat", "spider", "pumpkin", "spiderweb"];
                 for _ in 0..2 {
@@ -480,6 +510,16 @@ fn switch_lights(
         if *visibility == Visibility::Hidden {
             *visibility = Visibility::Inherited;
         }
+    }
+}
+
+/// Fades each Halloween brick's own look in, 1 s after it came, over 1 s (InOutQuad).
+fn fade_halloween(time: Res<Time>, mut fades: Query<(&HalloweenFade, &mut Sprite)>) {
+    let now = time.elapsed_secs();
+    for (fade, mut sprite) in &mut fades {
+        let x = (now - fade.0 - 1.0).clamp(0.0, 1.0);
+        let eased = if x < 0.5 { 2.0 * x * x } else { 1.0 - (-2.0 * x + 2.0).powi(2) / 2.0 };
+        sprite.color = Color::srgba(1.0, 1.0, 1.0, eased);
     }
 }
 

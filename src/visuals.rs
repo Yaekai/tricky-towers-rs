@@ -744,15 +744,6 @@ pub(crate) fn dress_bricks(
             },
             (true, false, false) => (art.image(&key), Color::WHITE),
         };
-        // A Halloween brick goes greyish once placed.
-        if pack == crate::config::BrickPack::Halloween
-            && placed.is_some()
-            && image.is_some()
-            && !stone
-            && !brick.ice
-        {
-            color = crate::packs::HALLOWEEN_PLACED;
-        }
         if image.is_none() {
             color = if stone {
                 brick.color.mix(&STONE, 0.75)
