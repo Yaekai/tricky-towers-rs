@@ -1849,7 +1849,9 @@ fn zap_over_laser(
             && aabb.max.y / config.cell_size > state.laser(&config) + 0.05
         {
             commands.entity(entity).insert(crate::spells::Zapped {
-                timer: config.magic.undo_seconds,
+                timer: config.puzzle.zap_seconds,
+                length: config.puzzle.zap_seconds,
+                edge: config.puzzle.zap_edge,
             });
         }
     }

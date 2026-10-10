@@ -3,7 +3,8 @@ param([string]$Repo)
 # stage.ps1): the ten small and two large clouds of its cloud layers (RACE_CLOUD1..10,
 # RACE_LARGE_CLOUD1..2), the islands' waterline, the reflected band over the water
 # (ISLAND_GRADIENT) and the wave crest (WAVE). The game places and moves them
-# (GameConfig::race_scene). Local only: extracted\ is gitignored.
+# (GameConfig::race_scene). Also the noise a zapped brick dissolves by (BrickLaser's
+# _NoiseTex). Local only: extracted\ is gitignored.
 Add-Type -AssemblyName System.Drawing
 $ErrorActionPreference = 'Stop'
 $A = Join-Path $Repo 'research\ripped\ExportedProject\Assets'
@@ -47,6 +48,13 @@ Add-Piece 'race_cloud_large_2' 'gph_cloudLarge_var02'
 Add-Piece 'race_waterline' 'gph_waterline04'
 Add-Piece 'race_island_gradient' 'gph_gradientRefelcted'
 Add-Piece 'race_wave' 'gph_wave'
+
+# Whole textures.
+$noise = Join-Path $A 'Texture2D\gph_noise.png'
+if (Test-Path $noise) {
+  Copy-Item $noise (Join-Path $X 'backgrounds\scene_brick_zap_noise.png') -Force
+  $add.Add('    "brick_zap_noise": (file: "backgrounds/scene_brick_zap_noise.png"),')
+} else { "missing: brick_zap_noise (gph_noise)" }
 
 $path = Join-Path $X 'manifest.ron'
 $keys = @{}; foreach ($l in $add) { if ($l -match '^\s*"([^"]+)"') { $keys[$Matches[1]] = 1 } }

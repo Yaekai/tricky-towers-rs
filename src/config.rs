@@ -606,6 +606,10 @@ impl Default for SurvivalRules {
 pub struct PuzzleRules {
     /// Bricks to place.
     pub bricks: u32,
+    /// How long the laser takes to zap a brick above it, and the dissolving edge's colour
+    /// (MaximumHeightGamePlayRule).
+    pub zap_seconds: f32,
+    pub zap_edge: [u8; 3],
     /// Lowest laser height, in cells. Any settled brick above it ends your round.
     pub line_height: f32,
     /// Each round the laser is up to this much higher, at random (the same for everyone).
@@ -660,6 +664,8 @@ impl Default for PuzzleRules {
     fn default() -> Self {
         Self {
             bricks: 10,
+            zap_seconds: 1.0,
+            zap_edge: [255, 246, 176],
             line_height: 3.2,
             line_random: 4.0,
             settle_seconds: 2.0,
@@ -1155,8 +1161,10 @@ pub struct MagicRules {
 
     /// Ivy joins bricks closer than this, in cells.
     pub ivy_reach: f32,
-    /// Seconds Undo's zap lasts before the brick is gone.
+    /// Seconds Undo's zap lasts before the brick is gone, and its dissolving edge's colour
+    /// (UndoLastPlacedBrickEffect).
     pub undo_seconds: f32,
+    pub undo_edge: [u8; 3],
     /// Minibase ledge: distance from the tower centre, in cells, min and max.
     pub minibase_offset: (f32, f32),
     /// Minibase ledge height above the tower (or `minibase_floor`, if higher).
@@ -1371,6 +1379,7 @@ impl Default for MagicRules {
             ],
             ivy_reach: 0.2,
             undo_seconds: 0.75,
+            undo_edge: [171, 250, 255],
             minibase_offset: (3.0, 5.0),
             minibase_lift: 3.0,
             minibase_floor: 2.0,

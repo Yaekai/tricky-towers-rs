@@ -34,6 +34,7 @@ impl Plugin for VisualsPlugin {
                     show_scene_in_menus.after(spawn_backgrounds),
                     bob_islands.before(fit_backgrounds),
                     wave_islands.after(bob_islands),
+                    dissolve_zapped,
                     ripple_water.after(fit_strips),
                     pulse_band,
                     run_waves.after(fit_backgrounds),
@@ -1010,21 +1011,92 @@ fn wobble_bubbles(time: Res<Time>, mut bubbles: Query<&mut Transform, With<Bubbl
     }
 }
 
-/// Undo's zap flickers the brick; a bubbled brick is drawn pale.
-fn flicker_effects(
-    time: Res<Time>,
-    zapped: Query<&Children, With<Zapped>>,
-    bubbled: Query<&Children, With<Bubbled>>,
-    mut sprites: Query<&mut Sprite, With<CellSprite>>,
+/// The quad a zapped brick is drawn with while it dissolves.
+#[derive(Component)]
+struct ZapQuad;
+
+/// A zapped brick (Undo, or the Puzzle laser) is drawn white in its outline and eaten away
+/// with a coloured edge as its zap runs (TowerPartLaserEffect); its own look is hidden, and
+/// one of the two zap sounds plays at 0.95 to 1.05 pitch.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn dissolve_zapped(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    started: Query<(Entity, &Brick, &Zapped, Option<&Children>), Added<Zapped>>,
+    running: Query<(&Zapped, &Children)>,
+    quads: Query<&MeshMaterial2d<crate::brick_material::ZapBrick>, With<ZapQuad>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut zaps: Option<ResMut<Assets<crate::brick_material::ZapBrick>>>,
 ) {
-    let on = (time.elapsed_secs() * 20.0).sin() > 0.0;
-    for children in &zapped {
+    let (Some(meshes), Some(zaps)) = (meshes.as_mut(), zaps.as_mut()) else {
+        return;
+    };
+    for (entity, brick, zap, children) in &started {
+        for &child in children.into_iter().flatten() {
+            commands.entity(child).insert(Visibility::Hidden);
+        }
+        let def = piece_def(&config, brick.piece);
+        let key = if brick.piece < config.pieces.len() {
+            format!("brick_{}", def.name)
+        } else {
+            format!("mystery_{}", def.name.to_lowercase())
+        };
+        let mask = art
+            .entries
+            .get(&key)
+            .and_then(|e| e.bevel.as_ref())
+            .and_then(|b| art.image(b))
+            .or_else(|| art.image(&key));
+        if let (Some(mask), Some(noise)) = (mask, art.image("brick_zap_noise")) {
+            let cell = config.cell_size * brick.scale;
+            let min = brick.cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
+            let max = brick.cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
+            let size = (max - min + Vec2::ONE) * cell;
+            let [r, g, b] = zap.edge;
+            let material = zaps.add(crate::brick_material::ZapBrick {
+                look: crate::brick_material::ZapLook {
+                    edge: Vec4::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0),
+                    params: Vec4::ZERO,
+                    tint: Vec4::ONE,
+                },
+                mask,
+                noise,
+            });
+            commands.entity(entity).with_child((
+                ZapQuad,
+                Mesh2d(meshes.add(Rectangle::new(size.x, size.y))),
+                MeshMaterial2d(material),
+                Transform::from_translation(((min + max) * 0.5 * cell).extend(0.05)),
+            ));
+        }
+        let pick = (entity.to_bits() % 2) as usize;
+        let name = ["sfx_cast_light", "sfx_cast_lightning_level_02"][pick];
+        if let Some(sound) = art.sounds.get(name) {
+            let pitch = 0.95 + 0.1 * ((entity.to_bits() / 2 % 100) as f32 / 100.0);
+            commands.spawn((
+                AudioPlayer(sound.clone()),
+                PlaybackSettings::DESPAWN.with_speed(pitch),
+            ));
+        }
+    }
+    for (zap, children) in &running {
+        let cutoff = (1.0 - zap.timer / zap.length.max(0.01)).clamp(0.0, 1.0);
         for &child in children {
-            if let Ok(mut sprite) = sprites.get_mut(child) {
-                sprite.color = sprite.color.with_alpha(if on { 1.0 } else { 0.2 });
+            if let Ok(material) = quads.get(child)
+                && let Some(mut look) = zaps.get_mut(&material.0)
+            {
+                look.look.params.x = cutoff;
             }
         }
     }
+}
+
+/// A bubbled brick is drawn pale.
+fn flicker_effects(
+    bubbled: Query<&Children, With<Bubbled>>,
+    mut sprites: Query<&mut Sprite, With<CellSprite>>,
+) {
     for children in &bubbled {
         for &child in children {
             if let Ok(mut sprite) = sprites.get_mut(child) {

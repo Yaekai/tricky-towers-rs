@@ -735,6 +735,75 @@ fn follow_bricks(
     }
 }
 
+const ZAP_SHADER: Handle<Shader> = uuid_handle!("9f6c3b12-48e7-4d05-b1a3-5e2d8c7f0a96");
+
+const ZAP_WGSL: &str = r#"// A brick being zapped (docs/research/hologram.md's sibling notes in race-scene.md): white
+// in its own outline, eaten away where the noise is under the cutoff, with a coloured edge
+// 0.1 of the noise wide (the original's Custom/BrickLaser).
+#import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#import bevy_render::color_operations::srgb_to_linear
+
+struct ZapBrick {
+    // rgb: the edge's colour (stored sRGB).
+    edge: vec4<f32>,
+    // x: the cutoff, 0 to 1 over the zap.
+    params: vec4<f32>,
+    tint: vec4<f32>,
+};
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: ZapBrick;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var mask: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var mask_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var noise: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(4) var noise_sampler: sampler;
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let n = textureSample(noise, noise_sampler, mesh.uv).r;
+    let a = textureSample(mask, mask_sampler, mesh.uv).a;
+    let cutoff = material.params.x;
+    if (n <= cutoff) {
+        return vec4(0.0);
+    }
+    var colour = vec3(1.0);
+    if (n <= cutoff + 0.1) {
+        colour = srgb_to_linear(material.edge.rgb);
+    }
+    return vec4(colour * material.tint.rgb, a * material.tint.a);
+}
+"#;
+
+/// A zapped brick's look: its outline (any of its pictures' alpha), the noise and the edge.
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct ZapBrick {
+    #[uniform(0)]
+    pub look: ZapLook,
+    #[texture(1)]
+    #[sampler(2)]
+    pub mask: Handle<Image>,
+    #[texture(3)]
+    #[sampler(4)]
+    pub noise: Handle<Image>,
+}
+
+/// The edge colour (stored sRGB), x the cutoff, and the tint.
+#[derive(ShaderType, Clone, Copy, Debug)]
+pub struct ZapLook {
+    pub edge: Vec4,
+    pub params: Vec4,
+    pub tint: Vec4,
+}
+
+impl Material2d for ZapBrick {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(ZAP_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
 pub struct BrickMaterialPlugin;
 
 impl Plugin for BrickMaterialPlugin {
@@ -755,11 +824,16 @@ impl Plugin for BrickMaterialPlugin {
             .world_mut()
             .resource_mut::<Assets<Shader>>()
             .insert(HOLO_SHADER.id(), Shader::from_wgsl(HOLO_WGSL, "hologram_brick.wgsl"));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(ZAP_SHADER.id(), Shader::from_wgsl(ZAP_WGSL, "zap_brick.wgsl"));
         app.add_plugins((
             Material2dPlugin::<GalaxyBrick>::default(),
             Material2dPlugin::<DiamondBrick>::default(),
             Material2dPlugin::<LitBrick>::default(),
             Material2dPlugin::<HologramBrick>::default(),
+            Material2dPlugin::<ZapBrick>::default(),
         ))
         .add_systems(Update, follow_bricks);
     }

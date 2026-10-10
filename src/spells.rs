@@ -33,10 +33,13 @@ pub struct Vined;
 #[derive(Component, Debug)]
 pub struct IvyPending;
 
-/// A brick being zapped away by Undo.
+/// A brick being zapped away (Undo, or the Puzzle laser): the time left, how long the whole
+/// zap takes and its dissolving edge's colour.
 #[derive(Component, Debug)]
 pub struct Zapped {
     pub timer: f32,
+    pub length: f32,
+    pub edge: [u8; 3],
 }
 
 /// A brick lifted by Bubble. It doesn't count toward the tower's height.
@@ -702,6 +705,8 @@ fn cast_on_tower(
             if let Some((entity, ..)) = last {
                 commands.entity(entity).insert(Zapped {
                     timer: magic.undo_seconds,
+                    length: magic.undo_seconds,
+                    edge: magic.undo_edge,
                 });
                 state.last_placed = None;
                 state.bricks_placed = state.bricks_placed.saturating_sub(1);

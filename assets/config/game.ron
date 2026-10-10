@@ -576,6 +576,8 @@
     ),
     puzzle: (
         bricks: 10,
+        zap_seconds: 1.0,
+        zap_edge: (255, 246, 176),
         line_height: 3.2,
         line_random: 4.0,
         settle_seconds: 2.0,
@@ -1632,6 +1634,7 @@
         ],
         ivy_reach: 0.2,
         undo_seconds: 0.75,
+        undo_edge: (171, 250, 255),
         minibase_offset: (3.0, 5.0),
         minibase_lift: 3.0,
         minibase_floor: 2.0,
