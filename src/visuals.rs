@@ -579,7 +579,8 @@ fn dress_floor(
 /// stone or ice version when the brick is petrified or iced), else coloured cells.
 /// Runs again when a brick changes, turns to stone, or gets vines or grass.
 #[allow(clippy::type_complexity)]
-/// A decoration that grows in from nothing when it shows (back ease, 0.4 s).
+/// A decoration that grows in from nothing when it shows, as the original's edge decorations do
+/// (`packs::edge_growth`).
 #[derive(Component)]
 struct EdgeGrow {
     start: f32,
@@ -595,14 +596,8 @@ struct EggPulse {
 
 fn grow_edges(time: Res<Time>, mut grows: Query<(&EdgeGrow, &mut Transform)>) {
     let now = time.elapsed_secs();
-    let back = |x: f32| {
-        let c = 1.70158;
-        let x = x - 1.0;
-        1.0 + x * x * ((c + 1.0) * x + c)
-    };
     for (grow, mut transform) in &mut grows {
-        let t = ((now - grow.start) / 0.4).clamp(0.0, 1.0);
-        let k = back(t).max(0.0);
+        let k = crate::packs::edge_growth(now - grow.start);
         transform.scale = Vec3::new(k, k, 1.0);
     }
 }

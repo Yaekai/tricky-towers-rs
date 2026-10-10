@@ -64,7 +64,9 @@ struct Lights {
     offset: f32,
 }
 
-/// A snow cap appearing within 0.3 s.
+/// A snow cap growing in (`edge_growth`) after its own 0 to 0.3 s delay: `time` starts at
+/// minus the delay. `full` is its finished scale, flipped sideways or not at random, as the
+/// original's EdgeDecorationModifier does.
 #[derive(Component)]
 struct Snow {
     time: f32,
@@ -287,9 +289,11 @@ fn decorate_bricks(
                     }
                     let pick = snows[(roll(&mut seed) * snows.len() as f32) as usize % snows.len()]
                         .clone();
-                    let full = Vec3::ONE;
+                    let flip = if roll(&mut seed) < 0.5 { 1.0 } else { -1.0 };
+                    let full = Vec3::new(flip, 1.0, 1.0);
+                    let delay = roll(&mut seed) * 0.3;
                     brick_entity.with_child((
-                        Snow { time: 0.0, full },
+                        Snow { time: -delay, full },
                         Sprite {
                             image: pick,
                             custom_size: Some(Vec2::new(c, c * 0.45)),
@@ -525,11 +529,23 @@ fn fade_halloween(time: Res<Time>, mut fades: Query<(&HalloweenFade, &mut Sprite
 
 fn grow_snow(time: Res<Time>, mut snow: Query<(&mut Snow, &mut Transform)>) {
     for (mut cap, mut transform) in &mut snow {
-        if cap.time >= 0.3 {
+        if cap.time >= 0.5 {
             continue;
         }
         cap.time += time.delta_secs();
-        transform.scale = cap.full * (cap.time / 0.3).min(1.0);
+        transform.scale = cap.full * edge_growth(cap.time);
+    }
+}
+
+/// How big an edge decoration is `t` seconds after its delay (EdgeDecorationModifier): to 0.7
+/// over 0.1 s (linear), then to full size over 0.4 s (OutElastic). Nothing before.
+pub(crate) fn edge_growth(t: f32) -> f32 {
+    if t <= 0.0 {
+        0.0
+    } else if t < 0.1 {
+        0.7 * t / 0.1
+    } else {
+        0.7 + 0.3 * out_elastic(((t - 0.1) / 0.4).min(1.0))
     }
 }
 
@@ -914,6 +930,14 @@ mod tests {
         let (angle, strength) = diamond_sweep(0.6, -1.0);
         assert!((angle + std::f32::consts::TAU).abs() < 1e-4, "a full turn the other way");
         assert!(strength.abs() < 1e-5, "faded out at the end");
+    }
+
+    #[test]
+    fn edge_decorations_grow_to_0_7_then_spring_to_full_size() {
+        assert_eq!(edge_growth(-0.1), 0.0);
+        assert!((edge_growth(0.1) - 0.7).abs() < 1e-5);
+        assert!((edge_growth(0.5) - 1.0).abs() < 1e-5);
+        assert!(edge_growth(0.2) > 0.7, "the elastic overshoots on the way");
     }
 
     #[test]
