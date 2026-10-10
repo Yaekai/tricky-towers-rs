@@ -109,3 +109,10 @@ ours and need checking against the original (see docs/research/*.md and the vide
 - Keep DEBUG-TOOL tags on non-original code and docs/release-checklist.md current.
 - Max prefers 1:1 with the original without asking; ask him only for things the install and
   videos can't answer.
+
+## Parked for Max's PC check (2026-10-10)
+- Galaxy: the stars and the black bars on `TrickyTowers_161bc60.exe` (stars now one shared 9.2-cell field, from the original's 49 positions).
+- PackLine run in a Race match (the spawn spot and spacing).
+- Select Players: the gold active line and the orange pack sunburst (from `TrickyTowers_a45e6a4.exe` on), with the arrow keys.
+- Title: the pale blue back cloud banks (not placed yet), the Online box and earth size, the wizard over the Local Battle border, the blue bars on the menu cards.
+- Puzzle: the bottom sand (bg_puzzle_sand_storm, foreground sand; not wired yet).
