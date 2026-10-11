@@ -292,6 +292,23 @@ impl Row {
         }
     }
 
+    /// Its icon's size in the row's 100 px box (the <name>Icon prefabs).
+    fn icon_size(self) -> (f32, f32) {
+        match self {
+            Row::Effects => (99.0, 76.0),
+            Row::Music => (80.0, 74.0),
+            Row::Explanations => (43.0, 73.0),
+            Row::Stats => (107.0, 77.0),
+            Row::Credits => (63.0, 71.0),
+            Row::Keybinding => (103.0, 72.0),
+            Row::Fullscreen => (94.0, 73.0),
+            Row::Quality => (71.0, 70.0),
+            Row::Vsync => (70.0, 74.0),
+            Row::Language => (97.0, 81.0),
+            _ => (100.0, 100.0),
+        }
+    }
+
     /// The staged icon, `settings_icon_<key>` (Apply has none, ?).
     fn icon(self) -> Option<&'static str> {
         Some(match self {
@@ -340,11 +357,11 @@ const AREA_CENTRE: f32 = 0.0;
 const ICON: ((f32, f32), f32, f32) = ((100.0, 100.0), 79.0, 11.0);
 const TITLE_X: f32 = 150.0;
 const TITLE_SIZE: f32 = 36.0;
-/// The original's row words are heavy and near-black: the body letters with a dark outline.
+/// The row words: EnzoBlack, the display letters in black with no outline.
 const ROW_TEXT: TextLook = TextLook {
-    body: true,
-    face: Some(Color::srgb(0.07, 0.055, 0.12)),
-    outline: Some(Color::srgb(0.07, 0.055, 0.12)),
+    body: false,
+    face: Some(Color::BLACK),
+    outline: None,
     low: None,
 };
 /// The value area at the row's right end, its arrows and the slider bar.
@@ -528,17 +545,8 @@ fn spawn_row(
         back.insert((sliced(art, BUTTON_SLICE), BackgroundColor(Color::NONE)));
     }
     if let Some(icon) = row.icon().and_then(image) {
-        // The icons are 43-107 px wide; keep their shape inside the 100 px box (?).
-        page.spawn(place(ICON.0, (left + ICON.1, y + ICON.2)))
-            .with_children(|b| {
-                b.spawn((
-                    ImageNode::new(icon),
-                    Node {
-                        height: Val::Percent(100.0),
-                        ..default()
-                    },
-                ));
-            });
+        // Each icon at its own prefab's size, centred in the 100 px box.
+        page.spawn((ImageNode::new(icon), place(row.icon_size(), (left + ICON.1, y + ICON.2))));
     }
     let title_box = (ROW.0 - TITLE_X, ROW.1);
     page.spawn(Node {
