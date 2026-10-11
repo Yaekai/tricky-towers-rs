@@ -251,7 +251,7 @@ fn drop_stars(
 fn twinkle_stars(
     time: Res<Time>,
     mut next: Local<(f32, u32)>,
-    mut stars: Query<(&mut Star, &mut Transform, &GlobalTransform), Without<Camera2d>>,
+    mut stars: Query<(&mut Star, &mut Transform, &GlobalTransform), Without<crate::visuals::MainCamera>>,
 ) {
     let dt = time.delta_secs();
     let count = stars.iter().count() as u32;
@@ -338,10 +338,10 @@ fn track_view_size(windows: Query<&Window>, mut view: ResMut<ViewSize>) {
 #[derive(Component)]
 struct Hud;
 
-/// A tower's drop guide: a pale column from the top of the screen down to where
-/// its falling brick will land.
+/// A tower's drop guide: a column the falling brick's width from the top of the view
+/// down to the bottom of the view or its lowest point (BrickGuide).
 #[derive(Component)]
-struct DropGuide {
+pub(crate) struct DropGuide {
     tower: Entity,
 }
 
@@ -377,8 +377,17 @@ struct MistCloud {
 #[derive(Component)]
 pub(crate) struct CellSprite;
 
+/// The camera the game is seen through (the screen grab for the drop guide is another).
+#[derive(Component)]
+pub struct MainCamera;
+
 fn setup_scene(mut commands: Commands, config: Res<GameConfig>, art: Res<Art>) {
-    commands.spawn((Camera2d, Transform::from_xyz(0.0, config.cells(6.0), 0.0)));
+    commands.spawn((
+        Camera2d,
+        MainCamera,
+        IsDefaultUiCamera,
+        Transform::from_xyz(0.0, config.cells(6.0), 0.0),
+    ));
     // Water under every lane, its top at the depth where dropped bricks are lost.
     let depth = Vec3::new(0.0, -config.cells(config.kill_depth), -800.0);
     let width = config.cells(config.lanes.screen_width * 3.0);
@@ -1268,7 +1277,7 @@ fn track_menu_scene(
     game: Res<Match>,
     screen: Option<Res<crate::menu::MenuScreen>>,
     mut scene: ResMut<MenuScene>,
-    camera: Query<Entity, With<Camera2d>>,
+    camera: Query<Entity, With<crate::visuals::MainCamera>>,
 ) {
     use crate::menu::MenuScreen;
     let on = game.phase == Phase::Menu
@@ -1507,7 +1516,7 @@ fn run_waves(
     art: Res<Art>,
     view_size: Res<ViewSize>,
     mut state: ResMut<SceneState>,
-    camera: Query<(Entity, &Projection), With<Camera2d>>,
+    camera: Query<(Entity, &Projection), With<crate::visuals::MainCamera>>,
     mut waves: Query<(Entity, &mut SceneWave, &mut Transform, &mut Sprite)>,
 ) {
     let scene = &config.race_scene;
@@ -1628,7 +1637,7 @@ fn spawn_backgrounds(
     mut images: ResMut<Assets<Image>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut islands: Option<ResMut<Assets<crate::scene_material::IslandWave>>>,
-    camera: Query<Entity, With<Camera2d>>,
+    camera: Query<Entity, With<crate::visuals::MainCamera>>,
     existing: Query<
         Entity,
         Or<(
@@ -2098,15 +2107,15 @@ fn fit_backgrounds(
     time: Res<Time>,
     view_size: Res<ViewSize>,
     images: Res<Assets<Image>>,
-    camera: Query<(&Projection, &Transform), (With<Camera2d>, Without<Background>)>,
-    mut layers: Query<(&Sprite, &mut Transform), (With<Background>, Without<Camera2d>)>,
+    camera: Query<(&Projection, &Transform), (With<crate::visuals::MainCamera>, Without<Background>)>,
+    mut layers: Query<(&Sprite, &mut Transform), (With<Background>, Without<crate::visuals::MainCamera>)>,
     mut sky: Query<
         &mut Sprite,
         (
             With<Sky>,
             Without<Background>,
             Without<ScreenLayer>,
-            Without<Camera2d>,
+            Without<crate::visuals::MainCamera>,
         ),
     >,
     mut screen: Query<
@@ -2117,13 +2126,13 @@ fn fit_backgrounds(
             &Sprite,
             Option<&mut Falling>,
         ),
-        (Without<Background>, Without<Camera2d>, Without<Sky>),
+        (Without<Background>, Without<crate::visuals::MainCamera>, Without<Sky>),
     >,
     mut bands: Query<
         (&WaterBand, &mut Sprite, &mut Transform),
         (
             Without<Background>,
-            Without<Camera2d>,
+            Without<crate::visuals::MainCamera>,
             Without<Sky>,
             Without<ScreenLayer>,
         ),
@@ -2326,7 +2335,7 @@ pub(crate) fn spawn_lane_layers(
 
 /// Moves lane layers with less than full parallax towards the camera.
 fn scroll_lane_layers(
-    camera: Query<&Transform, (With<Camera2d>, Without<LaneLayer>)>,
+    camera: Query<&Transform, (With<crate::visuals::MainCamera>, Without<LaneLayer>)>,
     platforms: Query<&GlobalTransform, With<Platform>>,
     mut layers: Query<(&LaneLayer, &ChildOf, &mut Transform)>,
 ) {
@@ -2784,24 +2793,27 @@ fn dress_platforms(
     }
 }
 
-/// A pale column the width of each falling brick, from the top of the screen down
-/// to where the brick will land (light cyan in Race, lilac in Survival).
+/// A column the width of each falling brick, from the top of the view down to its bottom
+/// or the guide's lowest point (BrickGuide), behind the bricks. With the guide material it
+/// is laid over the background in an overlay blend; otherwise it is a plain tinted sprite.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn update_drop_guide(
     mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
-    art: Res<Art>,
     view: Res<ViewSize>,
-    camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<DropGuide>)>,
+    grab: Option<Res<crate::post::GrabTarget>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut materials: Option<ResMut<Assets<crate::post::GuideOverlay>>>,
+    camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<DropGuide>)>,
     towers: Query<(Entity, &TowerState), With<Tower>>,
     bricks: Query<(&ActiveBrick, &ColliderAabb)>,
     mut guides: Query<(
         Entity,
         &DropGuide,
         &mut Transform,
-        &mut Sprite,
         &mut Visibility,
+        Option<&MeshMaterial2d<crate::post::GuideOverlay>>,
     )>,
 ) {
     for (entity, guide, ..) in &guides {
@@ -2809,28 +2821,39 @@ fn update_drop_guide(
             commands.entity(entity).despawn();
         }
     }
-    let color = match game.mode.look() {
-        ModeKind::Survival => config.hud.guide_survival,
-        ModeKind::Puzzle => config.hud.guide_puzzle,
-        _ => config.hud.guide_race,
+    let look = &config.hud;
+    let (mut tint, below) = match game.mode {
+        ModeKind::Endless => (look.guide_endless, look.guide_below_race),
+        mode => match mode.look() {
+            ModeKind::Survival => (look.guide_survival, look.guide_below_survival),
+            ModeKind::Puzzle => (look.guide_puzzle, config.camera_floor()),
+            _ => (look.guide_race, look.guide_below_race),
+        },
     };
-    let color = Color::srgba(color[0], color[1], color[2], color[3]);
+    if game.mode.rules() == ModeKind::Puzzle && config.trial.is_some() {
+        tint[3] = look.guide_trial_alpha;
+    }
+    let tint = Vec4::from_array(tint);
     for (tower, _) in &towers {
-        if !guides.iter().any(|(_, g, ..)| g.tower == tower) {
-            let sprite = match art.image("drop_guide") {
-                Some(image) => Sprite {
-                    image,
-                    color,
-                    ..default()
-                },
-                None => Sprite::from_color(color, Vec2::ONE),
-            };
-            commands.spawn((
-                DropGuide { tower },
-                sprite,
-                Transform::from_xyz(0.0, 0.0, -2.0),
-                Visibility::Hidden,
-            ));
+        if guides.iter().any(|(_, g, ..)| g.tower == tower) {
+            continue;
+        }
+        let place = (DropGuide { tower }, Transform::from_xyz(0.0, 0.0, -2.0), Visibility::Hidden);
+        match (meshes.as_mut(), materials.as_mut(), grab.as_ref()) {
+            (Some(meshes), Some(materials), Some(grab)) => {
+                commands.spawn((
+                    place,
+                    Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
+                    MeshMaterial2d(materials.add(crate::post::GuideOverlay {
+                        tint,
+                        grab: grab.0.clone(),
+                    })),
+                ));
+            }
+            _ => {
+                let colour = Color::srgba(tint.x, tint.y, tint.z, tint.w * 0.4);
+                commands.spawn((place, Sprite::from_color(colour, Vec2::ONE)));
+            }
         }
     }
     let Ok((eye, projection)) = camera.single() else {
@@ -2840,28 +2863,30 @@ fn update_drop_guide(
         Projection::Orthographic(ortho) => ortho.scale,
         _ => 1.0,
     };
-    let screen_top = eye.translation.y + view.0.y * 0.5 * scale;
-    for (_, guide, mut transform, mut sprite, mut visibility) in &mut guides {
+    let half = view.0.y * 0.5 * scale;
+    let top = eye.translation.y + half;
+    let bottom = (eye.translation.y - half).max(-config.cells(below));
+    for (_, guide, mut transform, mut visibility, material) in &mut guides {
         let active = towers
             .get(guide.tower)
             .ok()
             .filter(|_| game.phase == Phase::Playing)
             .and_then(|(_, state)| state.active)
             .and_then(|entity| bricks.get(entity).ok());
-        let Some((active, aabb)) = active else {
+        let Some((_, aabb)) = active else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
-        let Some(distance) = active.drop_distance else {
-            visibility.set_if_neq(Visibility::Hidden);
-            continue;
-        };
+        if let (Some(material), Some(materials)) = (material, materials.as_mut())
+            && materials.get(&material.0).is_some_and(|m| m.tint != tint)
+            && let Some(mut m) = materials.get_mut(&material.0)
+        {
+            m.tint = tint;
+        }
         let width = aabb.max.x - aabb.min.x;
-        let bottom = aabb.min.y - distance;
-        let top = screen_top.max(aabb.max.y);
         transform.translation =
             Vec3::new((aabb.min.x + aabb.max.x) * 0.5, (top + bottom) * 0.5, -2.0);
-        sprite.custom_size = Some(Vec2::new(width, (top - bottom).max(1.0)));
+        transform.scale = Vec3::new(width, (top - bottom).max(1.0), 1.0);
         visibility.set_if_neq(Visibility::Visible);
     }
 }
@@ -2875,7 +2900,7 @@ fn frame_towers(
     towers: Query<(&Tower, &TowerState)>,
     rival_lanes: Query<&crate::gameplay::RivalLane>,
     lift: Option<Res<crate::intro::CameraLift>>,
-    mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
+    mut camera: Query<(&mut Transform, &mut Projection), With<crate::visuals::MainCamera>>,
 ) {
     let lift = lift.map_or(0.0, |l| l.0);
     let Ok((mut transform, mut projection)) = camera.single_mut() else {

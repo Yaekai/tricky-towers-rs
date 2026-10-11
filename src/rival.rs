@@ -366,17 +366,17 @@ fn bob_column(
     config: Res<GameConfig>,
     view: Option<Res<crate::visuals::ViewSize>>,
     mut images: ResMut<Assets<Image>>,
-    camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<PuzzleColumn>)>,
+    camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<PuzzleColumn>)>,
     mut columns: Query<
         (&mut PuzzleColumn, &mut Transform),
-        (Without<ColumnBrick>, Without<ColumnBeam>, Without<Camera2d>),
+        (Without<ColumnBrick>, Without<ColumnBeam>, Without<crate::visuals::MainCamera>),
     >,
     mut bricks: Query<
         (&ColumnBrick, &mut Transform),
         (
             Without<PuzzleColumn>,
             Without<ColumnBeam>,
-            Without<Camera2d>,
+            Without<crate::visuals::MainCamera>,
         ),
     >,
     mut beams: Query<
@@ -384,7 +384,7 @@ fn bob_column(
         (
             Without<PuzzleColumn>,
             Without<ColumnBrick>,
-            Without<Camera2d>,
+            Without<crate::visuals::MainCamera>,
         ),
     >,
 ) {

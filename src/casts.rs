@@ -287,7 +287,7 @@ fn run_beams(
     time: Res<Time>,
     config: Res<GameConfig>,
     art: Res<Art>,
-    camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<Beam>)>,
+    camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<Beam>)>,
     mut beams: Query<(
         Entity,
         &mut Beam,
@@ -297,7 +297,7 @@ fn run_beams(
         Option<&mut DelayedBy>,
         Option<&Children>,
     )>,
-    mut feet: Query<&mut Transform, (With<BeamFoot>, Without<Beam>, Without<Camera2d>)>,
+    mut feet: Query<&mut Transform, (With<BeamFoot>, Without<Beam>, Without<crate::visuals::MainCamera>)>,
     mut images: Option<ResMut<Assets<Image>>>,
     mut glow: Local<Option<(Handle<Image>, Handle<Image>)>>,
 ) {
@@ -443,7 +443,7 @@ fn run_orbs(
     time: Res<Time>,
     config: Res<GameConfig>,
     view: Option<Res<crate::visuals::ViewSize>>,
-    camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<CurseOrb>)>,
+    camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<CurseOrb>)>,
     mut orbs: Query<(Entity, &mut CurseOrb, &mut Transform, &mut Visibility)>,
 ) {
     let look = &config.casts;

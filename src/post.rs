@@ -2,7 +2,12 @@
 //! standings popup puts behind itself (its background image uses a Black & White material on
 //! the screen, under the dark modal layer), and Endless Race's pacer, which turns the screen
 //! under its line grey and pink (Custom/EndlessRacePacer on the EndlessRacePaceLayer sprite,
-//! 75 units of screen hanging from the line). The WGSL is ours, kept here as a string.
+//! 75 units of screen hanging from the line). And the drop guide (Custom/BrickGuide), which
+//! grabs the screen after the background is drawn and lays its tint over it in an overlay
+//! blend: here a second camera draws the background layers into a picture the guide reads.
+//! Puzzle's heat haze (Custom/DesertDistortion, a post effect on the camera after the desert
+//! sun and background) reads the same picture through a full-screen quad behind the towers.
+//! The WGSL is ours, kept here as strings.
 
 use bevy::core_pipeline::Core2dSystems;
 use bevy::core_pipeline::fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin};
@@ -11,8 +16,9 @@ use bevy::ecs::schedule::ScheduleConfigs;
 use bevy::ecs::system::BoxedSystem;
 use bevy::prelude::*;
 use bevy::render::extract_component::ExtractComponent;
-use bevy::render::render_resource::ShaderType;
+use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
+use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin};
 
 const GREY_SHADER: Handle<Shader> =
     bevy::asset::uuid_handle!("b19f4d27-63ac-4e58-9d10-7a2c5e8f3b61");
@@ -44,6 +50,233 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     return vec4(srgb_to_linear(o), c.a);
 }
 "#;
+
+const GUIDE_SHADER: Handle<Shader> =
+    bevy::asset::uuid_handle!("5d0b8a93-2e71-4c6f-b8d4-91f3a6c27e05");
+
+const GUIDE_WGSL: &str = r#"// The drop guide: its tint laid over the background behind it in an overlay blend, then
+// mixed in by the tint's alpha (Blend SrcAlpha OneMinusSrcAlpha). On stored (sRGB) values.
+#import bevy_sprite::{
+    mesh2d_vertex_output::VertexOutput,
+    mesh2d_view_bindings::view,
+}
+#import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
+
+struct GuideOverlay {
+    // The tint as the original's 0-1 values, with its alpha.
+    tint: vec4<f32>,
+};
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: GuideOverlay;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var grab: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var grab_sampler: sampler;
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let uv = (mesh.position.xy - view.viewport.xy) / view.viewport.zw;
+    let b = linear_to_srgb(textureSample(grab, grab_sampler, uv).rgb);
+    let a = material.tint.rgb;
+    let low = 2.0 * a * b;
+    let high = vec3(1.0) - 2.0 * (vec3(1.0) - a) * (vec3(1.0) - b);
+    let o = select(high, low, b < vec3(0.5));
+    return vec4(srgb_to_linear(o), material.tint.a);
+}
+"#;
+
+const HAZE_SHADER: Handle<Shader> =
+    bevy::asset::uuid_handle!("e2a47c18-6b39-4d05-9f8e-3c1d7b2a5e94");
+
+const HAZE_WGSL: &str = r#"// The desert heat haze: the background read from a place moved by gradient noise over
+// the screen (50 x 30 cells, drifting by the time and twice it), more towards the top and
+// bottom edges and nothing across the middle.
+#import bevy_sprite::{
+    mesh2d_vertex_output::VertexOutput,
+    mesh2d_view_bindings::{view, globals},
+}
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var grab: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var grab_sampler: sampler;
+
+fn hash(p: vec2<f32>) -> vec2<f32> {
+    let q = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+    return fract(sin(q) * 43758.5469) * 2.0 - 1.0;
+}
+
+fn noise(p: vec2<f32>) -> f32 {
+    let i = floor(p);
+    let f = fract(p);
+    let u = f * f * (3.0 - 2.0 * f);
+    let a = dot(hash(i), f);
+    let b = dot(hash(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0));
+    let c = dot(hash(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0));
+    let d = dot(hash(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let uv = (mesh.position.xy - view.viewport.xy) / view.viewport.zw;
+    // The original's screen coordinates run up from the bottom.
+    let up = vec2(uv.x, 1.0 - uv.y);
+    let t = globals.time;
+    let n = noise(up * vec2(50.0, 30.0) + vec2(t, 2.0 * t));
+    let shift = n * abs(up.y - 0.5) * 0.00859375;
+    return textureSample(grab, grab_sampler, uv + vec2(shift, -shift));
+}
+"#;
+
+/// The heat haze's quad: the grabbed background, drawn moved.
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct HeatHaze {
+    #[texture(0)]
+    #[sampler(1)]
+    pub grab: Handle<Image>,
+}
+
+impl Material2d for HeatHaze {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(HAZE_SHADER)
+    }
+}
+
+/// The heat haze quad, a child of the main camera.
+#[derive(Component)]
+struct Haze;
+
+/// The depth the grab stops at: the background layers and the far sandstorm lie under it,
+/// the near sandstorm (-300), the guides and the towers over it.
+const GRAB_Z: f32 = -400.0;
+
+/// The drop guide's look: its tint (stored values, as the original's) over the grabbed
+/// background.
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct GuideOverlay {
+    #[uniform(0)]
+    pub tint: Vec4,
+    #[texture(1)]
+    #[sampler(2)]
+    pub grab: Handle<Image>,
+}
+
+impl Material2d for GuideOverlay {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(GUIDE_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
+/// The camera that draws the background layers (render layer 1) into `GrabTarget` for the
+/// drop guides; it only runs while a guide shows.
+#[derive(Component)]
+pub struct GrabCamera;
+
+/// The picture of the background behind the guides.
+#[derive(Resource)]
+pub struct GrabTarget(pub Handle<Image>);
+
+/// Keeps the grab camera on the main camera's view, at its size, and running only while a
+/// drop guide shows.
+#[allow(clippy::type_complexity)]
+fn follow_grab(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    target: Res<GrabTarget>,
+    game: Option<Res<crate::gameplay::Match>>,
+    menu: Option<Res<crate::visuals::MenuScene>>,
+    view: Res<crate::visuals::ViewSize>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut hazes: ResMut<Assets<HeatHaze>>,
+    mut overlays: ResMut<Assets<GuideOverlay>>,
+    main: Query<
+        (Entity, &Camera, &Projection, &Transform),
+        (With<crate::visuals::MainCamera>, Without<GrabCamera>, Without<Haze>),
+    >,
+    mut grab: Query<(&mut Camera, &mut Projection), With<GrabCamera>>,
+    mut haze: Query<(&mut Transform, &mut Visibility), With<Haze>>,
+    guides: Query<&ViewVisibility, With<crate::visuals::DropGuide>>,
+) {
+    let Ok((eye, camera, projection, at)) = main.single() else {
+        return;
+    };
+    // The desert's haze shows in every Puzzle match (its look), not behind the menus.
+    let hazy = game.is_some_and(|g| g.mode.look() == crate::config::ModeKind::Puzzle)
+        && !menu.is_some_and(|m| m.0);
+    let scale = match projection {
+        Projection::Orthographic(ortho) => ortho.scale,
+        _ => 1.0,
+    };
+    match haze.single_mut() {
+        Ok((mut transform, mut visibility)) => {
+            transform.translation.z = GRAB_Z - at.translation.z;
+            transform.scale = (view.0 * scale).extend(1.0);
+            visibility.set_if_neq(if hazy {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            });
+        }
+        Err(_) => {
+            commands.entity(eye).with_child((
+                Haze,
+                Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
+                MeshMaterial2d(hazes.add(HeatHaze {
+                    grab: target.0.clone(),
+                })),
+                Transform::from_xyz(0.0, 0.0, GRAB_Z),
+                Visibility::Hidden,
+            ));
+        }
+    }
+    let Ok((mut grab_camera, mut grab_projection)) = grab.single_mut() else {
+        commands.entity(eye).with_child((
+            Camera2d,
+            Camera {
+                order: -1,
+                is_active: false,
+                ..default()
+            },
+            bevy::camera::RenderTarget::Image(target.0.clone().into()),
+            bevy::camera::visibility::RenderLayers::layer(1),
+            Msaa::Off,
+            GrabCamera,
+        ));
+        return;
+    };
+    let on = hazy || guides.iter().any(|v| v.get());
+    if grab_camera.is_active != on {
+        grab_camera.is_active = on;
+    }
+    if !on {
+        return;
+    }
+    if let Some(size) = camera.physical_target_size()
+        && let Some(image) = images.get(&target.0)
+        && image.size() != size
+        && let Some(mut image) = images.get_mut(&target.0)
+    {
+        image.resize(bevy::render::render_resource::Extent3d {
+            width: size.x.max(1),
+            height: size.y.max(1),
+            depth_or_array_layers: 1,
+        });
+        // Their bind groups still hold the old picture until they change too.
+        for _ in hazes.iter_mut() {}
+        for _ in overlays.iter_mut() {}
+    }
+    if let (Projection::Orthographic(from), Projection::Orthographic(to)) =
+        (projection, &mut *grab_projection)
+    {
+        // It draws only what lies under GRAB_Z (the camera looks down -z).
+        let near = at.translation.z - GRAB_Z;
+        if to.scale != from.scale || to.area != from.area || to.near != near {
+            *to = from.clone();
+            to.near = near;
+        }
+    }
+}
 
 /// On the camera: how grey the world is drawn (x: 0 none, 1 fully), and the pacer's grey:
 /// y its line's place on the screen (0 top, 1 bottom), z its strength, `pacer` its tint.
@@ -146,7 +379,7 @@ fn follow_grey(
     mut commands: Commands,
     time: Res<Time>,
     target: Res<GreyTarget>,
-    mut cameras: Query<(Entity, Option<&mut GreyOut>), With<Camera2d>>,
+    mut cameras: Query<(Entity, Option<&mut GreyOut>), With<crate::visuals::MainCamera>>,
 ) {
     for (camera, grey) in &mut cameras {
         match grey {
@@ -171,12 +404,32 @@ impl Plugin for PostPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GreyTarget>()
             .add_systems(Update, (follow_grey, follow_pacer));
+        let Some(mut images) = app.world_mut().get_resource_mut::<Assets<Image>>() else {
+            return;
+        };
+        let grab = images.add(Image::new_target_texture(
+            1,
+            1,
+            bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+            None,
+        ));
+        app.insert_resource(GrabTarget(grab))
+            .add_systems(PostUpdate, follow_grab.before(bevy::camera::CameraUpdateSystems));
         if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
             let _ = shaders.insert(
                 GREY_SHADER.id(),
                 Shader::from_wgsl(GREY_WGSL, "grey_out.wgsl"),
             );
-            app.add_plugins(FullscreenMaterialPlugin::<GreyOut>::default());
+            let _ = shaders.insert(HAZE_SHADER.id(), Shader::from_wgsl(HAZE_WGSL, "heat_haze.wgsl"));
+            let _ = shaders.insert(
+                GUIDE_SHADER.id(),
+                Shader::from_wgsl(GUIDE_WGSL, "guide_overlay.wgsl"),
+            );
+            app.add_plugins((
+                FullscreenMaterialPlugin::<GreyOut>::default(),
+                Material2dPlugin::<GuideOverlay>::default(),
+                Material2dPlugin::<HeatHaze>::default(),
+            ));
         }
     }
 }

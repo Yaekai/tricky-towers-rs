@@ -232,7 +232,7 @@ fn gravel(
     config: Res<GameConfig>,
     art: Res<Art>,
     view_size: Res<ViewSize>,
-    camera: Query<(&Transform, &Projection), With<Camera2d>>,
+    camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
     placed: Query<&crate::gameplay::Brick, Added<Placed>>,
     stones: Query<(Entity, &Transform, &crate::gameplay::Brick), With<crate::spells::Stone>>,
 ) {
@@ -286,7 +286,7 @@ fn lost_bricks(
     art: Res<Art>,
     game: Res<Match>,
     view_size: Res<ViewSize>,
-    camera: Query<(&Transform, &Projection), With<Camera2d>>,
+    camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
     mut lost: MessageReader<BrickLost>,
 ) {
     let c = config.cell_size;

@@ -392,7 +392,7 @@ fn animate_lights(
     time: Res<Time>,
     config: Res<GameConfig>,
     view: Res<ViewSize>,
-    camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<Light>)>,
+    camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<Light>)>,
     towers: Query<&Tower>,
     mut lights: Query<(&mut Light, &Strip, &mut Sprite, &mut Transform)>,
 ) {
@@ -438,7 +438,7 @@ fn animate_banners(
     time: Res<Time>,
     config: Res<GameConfig>,
     view: Res<ViewSize>,
-    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
     towers: Query<&Tower>,
     mut banners: Query<(
         Entity,
@@ -612,7 +612,7 @@ fn show_puzzle_scores(
 
 /// Puts each Puzzle score over its own lane, near the top of the view.
 fn place_puzzle_scores(
-    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
     view: Res<ViewSize>,
     towers: Query<&Tower>,
     mut scores: Query<(&PuzzleScore, &mut Node, &ComputedNode, &mut Visibility)>,
@@ -643,7 +643,7 @@ fn show_hold_counts(
     game: Res<Match>,
     art: Res<Art>,
     images: Res<Assets<Image>>,
-    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
     towers: Query<(Entity, &Tower, &TowerState)>,
     mut counts: Query<(
         Entity,

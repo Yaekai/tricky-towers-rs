@@ -154,7 +154,7 @@ fn rgba(c: [u8; 3], a: f32) -> Color {
 }
 
 /// The camera's position and the size of what it sees, in world units.
-fn view(camera: &Query<(&Transform, &Projection), With<Camera2d>>, size: Vec2) -> (Vec2, Vec2) {
+fn view(camera: &Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>, size: Vec2) -> (Vec2, Vec2) {
     match camera.single() {
         Ok((transform, Projection::Orthographic(ortho))) => {
             (transform.translation.truncate(), size * ortho.scale)
@@ -172,7 +172,7 @@ fn set_up_weather(
     menu_look: Option<Res<crate::visuals::MenuLook>>,
     menu_scene: Option<Res<crate::visuals::MenuScene>>,
     mut state: ResMut<WeatherState>,
-    camera: Query<Entity, With<Camera2d>>,
+    camera: Query<Entity, With<crate::visuals::MainCamera>>,
     old: Query<Entity, With<Weather>>,
 ) {
     // Behind the menus the picked mode's weather shows with its background (Select Mode,
@@ -341,8 +341,8 @@ fn rain(
     game: Res<Match>,
     view_size: Res<ViewSize>,
     mut state: ResMut<WeatherState>,
-    camera: Query<(&Transform, &Projection), With<Camera2d>>,
-    mut drops: Query<(Entity, &mut RainDrop, &mut Transform), Without<Camera2d>>,
+    camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
+    mut drops: Query<(Entity, &mut RainDrop, &mut Transform), Without<crate::visuals::MainCamera>>,
 ) {
     let dt = time.delta_secs();
     for (entity, mut drop, mut transform) in &mut drops {
@@ -424,7 +424,7 @@ fn lightning(
     view_size: Res<ViewSize>,
     mut state: ResMut<WeatherState>,
     mut flash: ResMut<Flash>,
-    camera: Query<(Entity, &Transform, &Projection), With<Camera2d>>,
+    camera: Query<(Entity, &Transform, &Projection), With<crate::visuals::MainCamera>>,
     mut strikes: Query<(Entity, &mut Strike, &mut Sprite, Has<FlashStrike>)>,
 ) {
     let dt = time.delta_secs();
@@ -545,16 +545,16 @@ fn fit_weather(
     time: Res<Time>,
     config: Res<GameConfig>,
     view_size: Res<ViewSize>,
-    camera: Query<(&Transform, &Projection), With<Camera2d>>,
+    camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
     mut parts: ParamSet<(
-        Query<(&SandStrip, &mut Sprite, &mut Transform), Without<Camera2d>>,
-        Query<(&SandLayer, &mut Sprite, &mut Transform), Without<Camera2d>>,
+        Query<(&SandStrip, &mut Sprite, &mut Transform), Without<crate::visuals::MainCamera>>,
+        Query<(&SandLayer, &mut Sprite, &mut Transform), Without<crate::visuals::MainCamera>>,
         Query<
             (&mut Sprite, &mut Transform, Has<DesertSun>),
-            (Or<(With<EclipseSun>, With<DesertSun>)>, Without<Camera2d>),
+            (Or<(With<EclipseSun>, With<DesertSun>)>, Without<crate::visuals::MainCamera>),
         >,
-        Query<(&CoronaRay, &mut Sprite, &mut Transform), Without<Camera2d>>,
-        Query<(&SurvivalMist, &mut Sprite, &mut Transform), Without<Camera2d>>,
+        Query<(&CoronaRay, &mut Sprite, &mut Transform), Without<crate::visuals::MainCamera>>,
+        Query<(&SurvivalMist, &mut Sprite, &mut Transform), Without<crate::visuals::MainCamera>>,
     )>,
 ) {
     let weather = &config.weather;

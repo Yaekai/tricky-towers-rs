@@ -467,7 +467,7 @@ fn wizard_point(config: &GameConfig, solo: bool, tower: &Tower, state: &TowerSta
 fn place_items(
     config: Res<GameConfig>,
     view: Res<ViewSize>,
-    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
     towers: Query<(&Tower, &TowerState)>,
     wizards: Query<(&Wizard, &GlobalTransform)>,
     mut items: Query<(&HudItem, &mut Node, &ComputedNode)>,

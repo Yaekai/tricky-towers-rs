@@ -515,7 +515,7 @@ fn stop_rumble(mut commands: Commands, time: Res<Time>, mut rumbles: Query<(Enti
 }
 
 /// Takes last frame's shake off the camera before it is framed again.
-fn unshake_camera(shake: Res<CameraShake>, mut camera: Query<&mut Transform, With<Camera2d>>) {
+fn unshake_camera(shake: Res<CameraShake>, mut camera: Query<&mut Transform, With<crate::visuals::MainCamera>>) {
     if let Ok(mut transform) = camera.single_mut() {
         transform.translation -= shake.applied.extend(0.0);
     }
@@ -525,7 +525,7 @@ fn unshake_camera(shake: Res<CameraShake>, mut camera: Query<&mut Transform, Wit
 fn shake_camera(
     time: Res<Time>,
     mut shake: ResMut<CameraShake>,
-    mut camera: Query<&mut Transform, With<Camera2d>>,
+    mut camera: Query<&mut Transform, With<crate::visuals::MainCamera>>,
 ) {
     let dt = time.delta_secs();
     shake.kicks.retain_mut(|(_, left)| {

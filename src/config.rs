@@ -3659,12 +3659,18 @@ pub struct HudLook {
     /// cells from the wizard down to the row's centre (1.53 + 0.3).
     pub heart_size: f32,
     pub heart_below: f32,
-    /// The drop guide's colour in Race (and Puzzle, Endless) and in Survival (0-1, with alpha).
+    /// The drop guide's tint per mode (each game mode's _CreateBrickGuide, 0-1 with alpha),
+    /// laid over the background in an overlay blend (post::GuideOverlay); a Puzzle trial
+    /// draws it at `guide_trial_alpha` (SinglePlayerPuzzleGameMode).
     pub guide_race: [f32; 4],
     pub guide_survival: [f32; 4],
-    /// Puzzle's warm guide (PuzzleGameMode tints it (255, 235, 189) at 0.8 in a blend we
-    /// can't draw; this one is matched to Max's Easy and Special clips by eye).
     pub guide_puzzle: [f32; 4],
+    pub guide_endless: [f32; 4],
+    pub guide_trial_alpha: f32,
+    /// How far under the base the guide reaches at most, in cells (its minBottom: Race and
+    /// Endless Race 8.5, Survival 12.5; Puzzle down to its floor).
+    pub guide_below_race: f32,
+    pub guide_below_survival: f32,
     /// Spell line diamonds: size and gap in cells, and one colour per line in turn
     /// when the art gives none (0-255).
     pub diamond_size: f32,
@@ -3702,9 +3708,13 @@ impl Default for HudLook {
             place_other: [205, 190, 240],
             heart_size: 1.12 / 30.0,
             heart_below: 1.83,
-            guide_race: [0.65, 0.95, 1.0, 0.3],
-            guide_survival: [0.8, 0.7, 1.0, 0.3],
-            guide_puzzle: [1.0, 0.94, 0.78, 0.3],
+            guide_race: [133.0 / 255.0, 177.0 / 255.0, 1.0, 0.75],
+            guide_survival: [1.0, 13.0 / 15.0, 1.0, 0.5],
+            guide_puzzle: [1.0, 235.0 / 255.0, 189.0 / 255.0, 0.8],
+            guide_endless: [1.0, 249.0 / 255.0, 243.0 / 255.0, 0.5],
+            guide_trial_alpha: 0.7,
+            guide_below_race: 8.5,
+            guide_below_survival: 12.5,
             diamond_size: 0.45,
             diamond_step: 0.6,
             line_colors: vec![
