@@ -170,6 +170,11 @@ impl Lobby {
         self.seats.iter().filter(|s| s.human()).count() as u32
     }
 
+    /// A local battle needs two players at least (PlayerSelectComponent's canStartGame).
+    pub fn can_start(&self) -> bool {
+        self.seats.iter().filter(|s| **s != Seat::Empty).count() >= 2
+    }
+
     fn ais(&self) -> u32 {
         self.seats.iter().filter(|&&s| s == Seat::Ai).count() as u32
     }
@@ -204,7 +209,12 @@ pub(crate) const SCREEN: (f32, f32) = (1920.0, 1080.0);
 /// The header bar hanging from the top centre, and its 9-slice borders
 /// (left, right, top, bottom).
 const HEADER: (f32, f32) = (800.0, 90.0);
-const HEADER_SLICE: [f32; 4] = [84.0, 92.0, 75.0, 15.0];
+/// gph_menuHeaderBackground's 9-slice borders (left, right, top, bottom): Unity's
+/// (84, 75, 92, 15) are left, bottom, right, top.
+const HEADER_SLICE: [f32; 4] = [84.0, 92.0, 15.0, 75.0];
+/// The header's picture is 100 px taller than the header and reaches up off the screen
+/// (the scenes' Header/Background: stretched, 50 up, 100 taller).
+const HEADER_BACK_EXTRA: f32 = 100.0;
 /// Seats sit in 4 columns between 5% and 95% of the width.
 fn seat_x(seat: usize) -> f32 {
     (0.05 + 0.225 * (seat as f32 + 0.5)) * SCREEN.0 - SCREEN.0 / 2.0
@@ -218,6 +228,10 @@ const SEAT_ARROW_X: f32 = 165.0;
 pub(crate) const PACK_PANEL: ((f32, f32), f32) = ((332.0, 100.0), -110.0);
 /// The brick pack cards are about 252 x 100 px.
 const PACK_CARD: (f32, f32) = (252.0, 100.0);
+/// The card sits 6 px over the panel's middle (the pack item's Graphic).
+const PACK_CARD_UP: f32 = 6.0;
+/// A confirmed pack's orange and rays are cut to this (MenuSunraysMasked).
+const PACK_RAYS_CLIP: (f32, f32) = (327.0, 95.0);
 pub(crate) const NAME_PLATE: ((f32, f32), f32) = ((367.0, 78.0), -230.0);
 /// The Shop hint's row, like the hints on the right (400 x 50).
 const SHOP_HINT: (f32, f32) = (400.0, 50.0);
@@ -227,9 +241,6 @@ const FOCUS_OUT: f32 = 20.0;
 /// (measured on Max's Select Players clip).
 const JOIN_GLYPH: (f32, f32) = (60.0, 40.0);
 const JOIN_GLYPH_Y: f32 = 28.0;
-/// The orange behind a confirmed brick pack, which replaces its light panel: the median
-/// of the reference frames' orange pixels on a confirmed card (255, 176, 89).
-const PACK_SUNBURST: Color = Color::srgb(1.0, 0.69, 0.35);
 /// 9-slice borders of the seat panels and outline, and of the name plate.
 pub(crate) const PANEL_SLICE: f32 = 60.0;
 pub(crate) const PLATE_SLICE: f32 = 13.0;
@@ -400,6 +411,8 @@ pub enum Part {
     /// A seat's brick pack card, and the light panel behind it (while someone sits there).
     SeatPack(usize),
     SeatPackPanel(usize),
+    /// A confirmed pack's dark frame, over its orange.
+    PackFrame(usize),
     /// A confirmed brick pack's orange sunburst panel, shown behind the card.
     PackRays(usize),
     /// One layer of that sunburst, by layer.
@@ -460,14 +473,15 @@ pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str
         Visibility::Hidden,
     ));
     page.with_children(|page| {
-        let mut header = page.spawn((
-            place(HEADER, (0.0, (SCREEN.1 - HEADER.1) / 2.0)),
+        let back = (HEADER.0, HEADER.1 + HEADER_BACK_EXTRA);
+        let mut bar = page.spawn((
+            place(back, (0.0, (SCREEN.1 - HEADER.1 + HEADER_BACK_EXTRA) / 2.0)),
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.45)),
         ));
-        if let Some(bar) = art.and_then(|a| a.image("menu_header")) {
-            header.insert((sliced(bar, HEADER_SLICE), BackgroundColor(Color::NONE)));
+        if let Some(art) = art.and_then(|a| a.image("menu_header")) {
+            bar.insert((sliced(art, HEADER_SLICE), BackgroundColor(Color::NONE)));
         }
-        header.with_children(|h| {
+        page.spawn(place(HEADER, (0.0, (SCREEN.1 - HEADER.1) / 2.0))).with_children(|h| {
             // 60 px, as the scenes' header titles (ModeSelect, PlayerSelect).
             h.spawn(label_with(60.0 / 10.8, title, crate::letters::TextLook::TITLE));
         });
@@ -510,10 +524,7 @@ pub(crate) fn spawn_select_screens(
             row.spawn(label_with(
                 46.0 / SCREEN.1 * 100.0,
                 "SHOP",
-                crate::letters::TextLook {
-                    face: Some(Color::srgb(1.0, 0.84, 0.2)),
-                    ..crate::letters::TextLook::OUTLINED
-                },
+                crate::letters::TextLook::GOLD,
             ));
         });
         for (seat, wizard) in WIZARDS.iter().take(MAX_TOWERS).enumerate() {
@@ -564,6 +575,7 @@ pub(crate) fn spawn_select_screens(
             page.spawn((
                 ImageNode::default(),
                 place(wizard[0].1, at),
+                crate::ui_material::KeepShape,
                 Part::SeatWizard(seat),
             ));
             // "To join" fills the empty panel.
@@ -632,23 +644,45 @@ pub(crate) fn spawn_select_screens(
                     Part::SeatFocus(seat, 1),
                 );
             }
-            // A confirmed pack's sunburst: an orange panel with the turning rays on it,
-            // drawn over the light panel and under the pack card.
+            // A confirmed pack (the pack item's Selected): the seat's orange panel and the
+            // turning rays cut to 327 x 95, then the dark frame over them, under the card.
             page.spawn((
                 Node {
                     overflow: Overflow::clip(),
-                    ..place(PACK_PANEL.0, (x, PACK_PANEL.1))
+                    ..place(PACK_RAYS_CLIP, (x, PACK_PANEL.1))
                 },
                 BackgroundColor(Color::NONE),
                 Part::PackRays(seat),
             ))
             .with_children(|clip| {
+                if let Some(back) = image("menu_player_select_background_selected") {
+                    // The 332 x 283 seat panel, centred, so only its middle shows.
+                    let share = (SEAT_PANEL.0 / PACK_RAYS_CLIP.0, SEAT_PANEL.1 / PACK_RAYS_CLIP.1);
+                    clip.spawn((
+                        sliced(back, [PANEL_SLICE; 4]),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: Val::Percent((1.0 - share.0) * 50.0),
+                            top: Val::Percent((1.0 - share.1) * 50.0),
+                            width: Val::Percent(share.0 * 100.0),
+                            height: Val::Percent(share.1 * 100.0),
+                            ..default()
+                        },
+                    ));
+                }
                 for layer in 0..5 {
                     if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
-                        turning_rays(clip, &mut turning, rays, PACK_PANEL.0, Part::PackRay(seat, layer));
+                        turning_rays(clip, &mut turning, rays, PACK_RAYS_CLIP, Part::PackRay(seat, layer));
                     }
                 }
             });
+            if let Some(outline) = image("menu_player_select_outline") {
+                page.spawn((
+                    sliced(outline, [PANEL_SLICE; 4]),
+                    place(PACK_PANEL.0, (x, PACK_PANEL.1)),
+                    Part::PackFrame(seat),
+                ));
+            }
             let mut plate = page.spawn((
                 Visibility::Hidden,
                 place(NAME_PLATE.0, (x, NAME_PLATE.1)),
@@ -663,7 +697,7 @@ pub(crate) fn spawn_select_screens(
             // The picked brick pack's card in the pack panel, once someone sits here.
             page.spawn((
                 ImageNode::default(),
-                place(PACK_CARD, (x, PACK_PANEL.1)),
+                place(PACK_CARD, (x, PACK_PANEL.1 + PACK_CARD_UP)),
                 Part::SeatPack(seat),
             ));
         }
@@ -873,6 +907,28 @@ fn confirm_row(lobby: &mut Lobby, seat: usize) {
     lobby.skin_row[seat] = (row + 1).min(1);
 }
 
+/// Up or Back on a seat undoes its last step (PlayerSlotComponent): a confirmed pack goes
+/// back to choosing, then the wizard (it stops shining), then the seat is left. False when
+/// there was nothing to undo, so Back leaves the screen.
+pub(crate) fn step_back_seat(lobby: &mut Lobby, seat: usize) -> bool {
+    match lobby.confirmed[seat] {
+        [_, true] => {
+            lobby.confirmed[seat][1] = false;
+            lobby.skin_row[seat] = 1;
+        }
+        [true, false] => {
+            lobby.confirmed[seat][0] = false;
+            lobby.skin_row[seat] = 0;
+        }
+        _ if lobby.seats[seat] != Seat::Empty => {
+            lobby.seats[seat] = Seat::Empty;
+            lobby.skin_row[seat] = 0;
+        }
+        _ => return false,
+    }
+    true
+}
+
 /// Every seated human has confirmed both the wizard and the brick pack, so the next
 /// input goes on to the cup and mode choice.
 fn everyone_confirmed(lobby: &Lobby) -> bool {
@@ -946,7 +1002,7 @@ pub(crate) fn players_input(
     if taps.key_pick {
         if let Some(seat) = lobby.seats.iter().position(|s| *s == Seat::Keyboard) {
             if everyone_confirmed(&lobby) {
-                go = true;
+                go = lobby.can_start();
             } else {
                 confirm_row(&mut lobby, seat);
             }
@@ -957,7 +1013,7 @@ pub(crate) fn players_input(
     for pad in taps.pad_pick {
         if let Some(seat) = lobby.seats.iter().position(|s| *s == Seat::Pad(pad)) {
             if everyone_confirmed(&lobby) {
-                go = true;
+                go = lobby.can_start();
             } else {
                 confirm_row(&mut lobby, seat);
             }
@@ -966,8 +1022,8 @@ pub(crate) fn players_input(
         }
     }
     for pad in taps.pad_back {
-        if let Some(seat) = lobby.seats.iter_mut().find(|s| **s == Seat::Pad(pad)) {
-            *seat = Seat::Empty;
+        if let Some(seat) = lobby.seats.iter().position(|s| *s == Seat::Pad(pad)) {
+            step_back_seat(&mut lobby, seat);
         } else if !lobby.seats.iter().any(|s| s.human()) {
             *screen = MenuScreen::Main;
             return;
@@ -1007,7 +1063,11 @@ pub(crate) fn players_input(
         if dy > 0 {
             confirm_row(&mut lobby, seat);
         } else if dy < 0 {
-            lobby.skin_row[seat] = lobby.skin_row[seat].saturating_sub(1);
+            step_back_seat(&mut lobby, seat);
+        }
+        // Only the row being chosen turns (the other is confirmed or not reached yet).
+        if lobby.confirmed[seat][lobby.skin_row[seat]] {
+            continue;
         }
         if dx != 0 {
             let (wizard, pack) = lobby.skins[seat];
@@ -1207,6 +1267,7 @@ pub(crate) fn show_select_screens(
     mut turning: Option<ResMut<Assets<crate::ui_material::TurningPicture>>>,
     mut scroll: Local<[(usize, f32, f32); 3]>,
     mut was_modes: Local<bool>,
+    mut pops: Local<[Option<f32>; MAX_TOWERS]>,
     mut roots: ParamSet<(
         Query<&mut Visibility, With<PlayersRoot>>,
         Query<&mut Visibility, With<ModesRoot>>,
@@ -1217,7 +1278,6 @@ pub(crate) fn show_select_screens(
             &mut Visibility,
             &mut Node,
             Option<&mut ImageNode>,
-            Option<&mut BackgroundColor>,
             Option<&mut UiTransform>,
             Option<&mut Text>,
             Option<&MaterialNode<crate::ui_material::TurningPicture>>,
@@ -1312,7 +1372,12 @@ pub(crate) fn show_select_screens(
     // A name shows once its item is less than half an item from its place (its alpha is
     // 1 - 2 x the distance in the original).
     let named = |c: usize| slide[c].abs() < 0.5;
-    for (part, mut v, mut node, image_node, colour, transform, text, picture) in &mut parts {
+    // A pack card pops when confirmed: 1.1 wide back to 1 over 0.6 s, out-elastic
+    // (BrickPackScrollPanelItemRenderer.SetReady).
+    for seat in 0..MAX_TOWERS {
+        pops[seat] = lobby.confirmed[seat][1].then(|| pops[seat].map_or(0.0, |t| t + time.delta_secs()));
+    }
+    for (part, mut v, mut node, image_node, transform, text, picture) in &mut parts {
         let want = match *part {
             Part::SeatIdle(seat) => !ready(seat),
             Part::SeatTaken(seat) => ready(seat),
@@ -1365,6 +1430,13 @@ pub(crate) fn show_select_screens(
                     pack => pack.key(),
                 };
 
+                if let Some(mut t) = transform {
+                    let pop = pops[seat].map_or(0.0, |t| 1.0 - crate::packs::out_elastic((t / 0.6).min(1.0)));
+                    let want = Vec2::new(1.0 + 0.1 * pop, 1.0);
+                    if t.scale != want {
+                        t.scale = want;
+                    }
+                }
                 match (
                     image(&format!("brick_pack_{key}"))
                         .filter(|_| lobby.seats[seat] != Seat::Empty),
@@ -1407,17 +1479,7 @@ pub(crate) fn show_select_screens(
                 true
             }
             Part::SeatJoinBox(seat) => lobby.seats[seat] == Seat::Empty,
-            Part::PackRays(seat) => {
-                // Only a confirmed pack has its sunburst; it replaces the light panel.
-                let on = lobby.confirmed[seat][1];
-                if let Some(mut c) = colour {
-                    let want = if on { PACK_SUNBURST } else { Color::NONE };
-                    if c.0 != want {
-                        c.0 = want;
-                    }
-                }
-                on
-            }
+            Part::PackRays(seat) | Part::PackFrame(seat) => lobby.confirmed[seat][1],
             Part::PackRay(seat, layer) => {
                 turn_layer(layer, transform, picture);
                 lobby.confirmed[seat][1]

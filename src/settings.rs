@@ -345,6 +345,7 @@ const ROW_TEXT: TextLook = TextLook {
     body: true,
     face: Some(Color::srgb(0.07, 0.055, 0.12)),
     outline: Some(Color::srgb(0.07, 0.055, 0.12)),
+    low: None,
 };
 /// The value area at the row's right end, its arrows and the slider bar.
 const VALUE_WIDTH: f32 = 360.0;

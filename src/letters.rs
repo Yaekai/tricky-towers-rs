@@ -21,6 +21,9 @@ struct SdfLetter {
     rect: vec4<f32>,
     // x: where the edge sits in the field.
     edge: vec4<f32>,
+    // The face's colour at the letter's bottom when its alpha is above 0 (a TextMeshPro face
+    // texture running top to bottom); otherwise `color` all over.
+    low: vec4<f32>,
 };
 
 @group(1) @binding(0) var<uniform> material: SdfLetter;
@@ -33,7 +36,11 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let d = textureSample(field, field_sampler, uv).a;
     let w = max(fwidth(d) * 0.7, 0.002);
     let a = smoothstep(material.edge.x - w, material.edge.x + w, d);
-    return vec4(material.color.rgb, material.color.a * a);
+    var c = material.color;
+    if material.low.a > 0.0 {
+        c = mix(material.color, material.low, in.uv.y);
+    }
+    return vec4(c.rgb, c.a * a);
 }
 "#;
 
@@ -52,6 +59,7 @@ pub struct SdfLook {
     pub color: Vec4,
     pub rect: Vec4,
     pub edge: Vec4,
+    pub low: Vec4,
 }
 
 impl bevy::ui_render::prelude::UiMaterial for SdfLetter {
@@ -80,14 +88,32 @@ pub struct TextLook {
     pub body: bool,
     pub face: Option<Color>,
     pub outline: Option<Color>,
+    /// The face's colour at the bottom of each letter, for the materials whose face
+    /// texture is a top-to-bottom gradient (gph_gradientTextureFont/Font02).
+    pub low: Option<Color>,
 }
 
 impl TextLook {
+    /// EnzoBlackGold: its face texture runs from yellow at the top to orange at the bottom.
+    pub const GOLD: Self = Self {
+        body: false,
+        face: Some(Color::srgb(253.0 / 255.0, 1.0, 102.0 / 255.0)),
+        outline: Some(Color::srgb(0.169, 0.037, 0.138)),
+        low: Some(Color::srgb(1.0, 137.0 / 255.0, 22.0 / 255.0)),
+    };
+    /// EnzoBlackRed: red at the top to pink at the bottom (BACK).
+    pub const PINK: Self = Self {
+        body: false,
+        face: Some(Color::srgb(239.0 / 255.0, 43.0 / 255.0, 97.0 / 255.0)),
+        outline: Some(Color::srgb(0.145, 0.051, 0.157)),
+        low: Some(Color::srgb(1.0, 41.0 / 255.0, 182.0 / 255.0)),
+    };
     /// List rows and buttons: near-black body letters.
     pub const BODY: Self = Self {
         body: true,
         face: Some(Color::srgb(0.07, 0.055, 0.12)),
         outline: None,
+        low: None,
     };
     /// Screen titles: milky white display letters with a dark outline
     /// (the original's EnzoBlackMilkyWhiteOutline26). Its face (182, 197, 254) is lit by the
@@ -97,12 +123,14 @@ impl TextLook {
         body: false,
         face: Some(Color::srgb(0.816, 0.878, 0.992)),
         outline: Some(Color::srgb(0.145, 0.051, 0.157)),
+        low: None,
     };
     /// Display letters in their own colour with the dark outline (button hints, tiles).
     pub const OUTLINED: Self = Self {
         body: false,
         face: None,
         outline: Some(Color::srgb(0.145, 0.051, 0.157)),
+        low: None,
     };
 }
 
@@ -142,6 +170,7 @@ struct LetterText {
     centered: bool,
     body: bool,
     outline: Option<Color>,
+    low: Option<Color>,
 }
 
 fn letter_text(
@@ -165,6 +194,7 @@ fn letter_text(
         centered: layout.is_some_and(|l| l.justify == Justify::Center),
         body: look.body,
         outline: look.outline,
+        low: look.low,
     }
 }
 
@@ -396,12 +426,13 @@ fn spawn_line(
                     }
                     let has_field = field.is_some();
                     // A letter from the field: its rectangle as shares of the atlas.
-                    let mut from_field = |rect: (f32, f32, f32, f32), color: Color, edge: f32| {
+                    let mut from_field = |rect: (f32, f32, f32, f32), color: Color, edge: f32, low: Option<Color>| {
                         let ((handle, size), sdf) = field.as_mut()?;
                         let look = SdfLook {
                             color: Vec4::from_array(color.to_linear().to_f32_array()),
                             rect: Vec4::new(rect.0 / size.x, rect.1 / size.y, rect.2 / size.x, rect.3 / size.y),
                             edge: Vec4::new(edge, 0.0, 0.0, 0.0),
+                            low: low.map_or(Vec4::ZERO, |c| Vec4::from_array(c.to_linear().to_f32_array())),
                         };
                         Some(bevy::ui_render::prelude::MaterialNode(sdf.add(SdfLetter {
                             look,
@@ -420,7 +451,7 @@ fn spawn_line(
                                 height: len((h + 2.0 * p) * k),
                                 ..default()
                             };
-                        match from_field((x - p, y - p, w + 2.0 * p, h + 2.0 * p), color, OUTLINE_EDGE) {
+                        match from_field((x - p, y - p, w + 2.0 * p, h + 2.0 * p), color, OUTLINE_EDGE, None) {
                             Some(material) => {
                                 cell.spawn((material, place));
                             }
@@ -447,7 +478,7 @@ fn spawn_line(
                         height: len(h * k),
                         ..default()
                     };
-                    match from_field((x, y, w, h), text.color, FACE_EDGE) {
+                    match from_field((x, y, w, h), text.color, FACE_EDGE, text.low) {
                         Some(material) => {
                             cell.spawn((material, place));
                         }

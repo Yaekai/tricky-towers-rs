@@ -98,5 +98,30 @@ impl Plugin for MenuMaterialPlugin {
             );
             app.add_plugins(UiMaterialPlugin::<TurningPicture>::default());
         }
+        app.add_systems(PostUpdate, stretch_pictures.before(bevy::ui::UiSystems::Prepare));
+    }
+}
+
+/// A picture that keeps its own shape in its node (Images with preserveAspect, such as
+/// the skin wizards' Character09-14 on Select Players).
+#[derive(Component)]
+pub struct KeepShape;
+
+/// Unity's UI Images stretch their picture to their rectangle unless told to keep its
+/// shape, but Bevy's default (`Auto`) keeps the picture's shape inside a node of another
+/// shape: a 442 x 369 title tile picture sat 40 px narrow in its 437 x 335 tile. Every
+/// picture in a node of fixed width and height is stretched instead; content-sized nodes
+/// keep `Auto`, which sizes them from the picture.
+fn stretch_pictures(
+    mut pictures: Query<(&mut ImageNode, &Node), (Added<ImageNode>, Without<KeepShape>)>,
+) {
+    use bevy::ui::widget::NodeImageMode;
+    for (mut picture, node) in &mut pictures {
+        if matches!(picture.image_mode, NodeImageMode::Auto)
+            && node.width != Val::Auto
+            && node.height != Val::Auto
+        {
+            picture.image_mode = NodeImageMode::Stretch;
+        }
     }
 }

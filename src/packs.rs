@@ -682,7 +682,7 @@ pub(crate) fn edge_growth(t: f32) -> f32 {
 }
 
 /// DOTween's OutElastic.
-fn out_elastic(x: f32) -> f32 {
+pub(crate) fn out_elastic(x: f32) -> f32 {
     if x <= 0.0 || x >= 1.0 {
         return x.clamp(0.0, 1.0);
     }

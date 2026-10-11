@@ -70,6 +70,7 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
     let look = &config.intro;
     let image = |name: &str| art.as_deref().and_then(|a| a.image(name));
     let outlined = TextLook {
+    low: None,
         body: false,
         face: None,
         outline: TextLook::OUTLINED.outline,

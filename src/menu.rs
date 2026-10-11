@@ -113,6 +113,13 @@ fn menu_escape(
             }
         }
         // Leave a finished match, or step back a screen.
+        // Back on Select Players undoes the keyboard seat's last step first.
+        (Phase::Menu, MenuScreen::Players)
+            if lobby
+                .seats
+                .iter()
+                .position(|s| *s == crate::select::Seat::Keyboard)
+                .is_some_and(|seat| crate::select::step_back_seat(&mut lobby, seat)) => {}
         (Phase::Over, _) | (Phase::Menu, MenuScreen::Players) => {
             pause.resume_to = None;
             game.phase = Phase::Menu;
@@ -372,6 +379,7 @@ pub(crate) fn spawn_controls_panel(
                                 body: true,
                                 face: None,
                                 outline: None,
+                                low: None,
                             },
                         ));
                         if arrow != 0
@@ -649,6 +657,12 @@ pub struct Tile {
     /// Where the art over the tile sits: its centre's offset from the tile's
     /// centre and its size, when it isn't the tile's own size.
     pub front: Option<((f32, f32), (f32, f32))>,
+    /// The picked tile's header bar (TopBar): its left edge from the tile's, how far its
+    /// top stands over the tile's top, its width and height.
+    pub bar: (f32, f32, f32, f32),
+    /// The picked tile's corner frame (SelectedFrame): its centre's offset from the tile's
+    /// and its size; the corners sit in its corners.
+    pub frame: ((f32, f32), (f32, f32)),
 }
 
 /// The original's title tiles in its order, with its sizes, centres and front
@@ -661,6 +675,8 @@ pub const TILES: [Tile; 7] = [
         at: (-249.0, 225.5),
         color: (0.85, 0.35, 0.2),
         front: Some(((-5.0, -25.0), (538.0, 272.0))),
+        bar: (-12.5, 10.4, 456.0, 45.0),
+        frame: ((1.7, 4.0), (507.69, 395.68)),
     },
     Tile {
         key: "single",
@@ -669,6 +685,8 @@ pub const TILES: [Tile; 7] = [
         at: (-246.0, -155.5),
         color: (0.25, 0.6, 0.3),
         front: Some(((17.0, -42.0), (488.0, 235.0))),
+        bar: (-8.0, 15.3, 449.0, 45.0),
+        frame: ((1.0, 4.0), (502.0, 400.0)),
     },
     Tile {
         key: "online",
@@ -677,6 +695,8 @@ pub const TILES: [Tile; 7] = [
         at: (278.0, 232.5),
         color: (0.25, 0.45, 0.85),
         front: Some(((-21.0, -19.0), (467.0, 283.0))),
+        bar: (-8.0, 17.0, 455.0, 45.0),
+        frame: ((1.0, 5.0), (502.3, 400.92)),
     },
     Tile {
         key: "shop",
@@ -685,6 +705,8 @@ pub const TILES: [Tile; 7] = [
         at: (277.0, -62.5),
         color: (0.85, 0.65, 0.15),
         front: Some(((-20.0, -9.0), (483.0, 128.0))),
+        bar: (-8.0, 6.0, 464.0, 32.0),
+        frame: ((0.0, 1.8), (508.0, 209.7)),
     },
     Tile {
         key: "help",
@@ -693,6 +715,8 @@ pub const TILES: [Tile; 7] = [
         at: (146.0, -250.0),
         color: (0.55, 0.35, 0.75),
         front: None,
+        bar: (-10.0, 5.5, 210.0, 26.0),
+        frame: ((-0.5, 2.39), (254.92, 195.71)),
     },
     Tile {
         key: "settings",
@@ -701,6 +725,8 @@ pub const TILES: [Tile; 7] = [
         at: (396.0, -251.0),
         color: (0.4, 0.45, 0.5),
         front: Some(((0.0, 0.0), (181.0, 134.0))),
+        bar: (-10.0, 5.5, 210.0, 26.0),
+        frame: ((-1.6, 3.39), (258.6, 195.71)),
     },
     Tile {
         key: "quit",
@@ -709,6 +735,8 @@ pub const TILES: [Tile; 7] = [
         at: (0.0, -406.0),
         color: (0.7, 0.2, 0.25),
         front: None,
+        bar: (-10.0, 41.1, 456.0, 26.0),
+        frame: ((0.0, 5.0), (456.0, 78.0)),
     },
 ];
 
@@ -870,13 +898,15 @@ fn spawn_main_menu(
                         Some((offset, size)) => inside(size, offset),
                         None => fill(),
                     };
+                    // The picked tile's Foreground frame comes before its wizards, which
+                    // stand over it and past the tile's sides (MainMenu scene order).
+                    if let Some(art) = image(&format!("menu_tile_{key}_overlay")) {
+                        t.spawn((ImageNode::new(art), fill(), shown_when(true)));
+                    }
                     for (part, picked) in [("_front_deselected", false), ("_front", true)] {
                         if let Some(art) = image(&format!("menu_tile_{key}{part}")) {
                             t.spawn((ImageNode::new(art), front(), shown_when(picked)));
                         }
-                    }
-                    if let Some(art) = image(&format!("menu_tile_{key}_overlay")) {
-                        t.spawn((ImageNode::new(art), fill(), shown_when(true)));
                     }
                     let corner = if small {
                         "menu_corner_small"
@@ -885,15 +915,16 @@ fn spawn_main_menu(
                     };
                     if let Some(art) = image(corner) {
                         let (cw, ch) = if small { (38.0, 34.0) } else { (69.0, 68.0) };
-                        t.spawn((fill(), shown_when(true)))
+                        let (offset, size) = tile.frame;
+                        t.spawn((inside(size, offset), shown_when(true)))
                             .with_children(|corners| {
                                 for (flip_x, flip_y) in
                                     [(false, false), (true, false), (false, true), (true, true)]
                                 {
                                     let mut node = Node {
                                         position_type: PositionType::Absolute,
-                                        width: Val::Percent(cw / w * 100.0),
-                                        height: Val::Percent(ch / h * 100.0),
+                                        width: Val::Percent(cw / size.0 * 100.0),
+                                        height: Val::Percent(ch / size.1 * 100.0),
                                         ..default()
                                     };
                                     if flip_x {
@@ -936,17 +967,21 @@ fn spawn_main_menu(
                                     body: false,
                                     face: Some(Color::srgb(0.07, 0.055, 0.12)),
                                     outline: Some(Color::WHITE),
+                                    low: None,
                                 },
                             ));
                         });
                     }
                     // The header bar on the picked tile, big or small.
                     if let Some(art) = image("menu_tile_header") {
+                        let (left, up, bw, bh) = tile.bar;
                         t.spawn((
                             Node {
                                 position_type: PositionType::Absolute,
-                                width: Val::Percent(100.0),
-                                height: Val::Percent(22.0),
+                                left: Val::Percent(left / w * 100.0),
+                                top: Val::Percent(-up / h * 100.0),
+                                width: Val::Percent(bw / w * 100.0),
+                                height: Val::Percent(bh / h * 100.0),
                                 ..default()
                             },
                             ImageNode::new(art),
@@ -964,10 +999,7 @@ fn spawn_main_menu(
                     let px = if small && tile.key != "shop" { 36.0 } else { 46.0 };
                     for picked in [false, true] {
                         let look = if picked {
-                            crate::letters::TextLook {
-                                face: Some(Color::srgb(1.0, 0.84, 0.2)),
-                                ..crate::letters::TextLook::OUTLINED
-                            }
+                            crate::letters::TextLook::GOLD
                         } else {
                             crate::letters::TextLook::TITLE
                         };

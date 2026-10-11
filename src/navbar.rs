@@ -45,6 +45,15 @@ impl NavItem {
         }
     }
 
+    /// Drawn with the original's letters: CONTINUE in EnzoBlackGold, BACK in EnzoBlackRed,
+    /// both gradient faces.
+    fn look(self) -> crate::letters::TextLook {
+        match self {
+            NavItem::Continue => crate::letters::TextLook::GOLD,
+            NavItem::Back => crate::letters::TextLook::PINK,
+        }
+    }
+
     fn color(self) -> Color {
         match self {
             NavItem::Continue => CONTINUE_COLOR,
@@ -146,7 +155,7 @@ fn spawn_nav_bar(mut commands: Commands, art: Option<Res<Art>>) {
                     row.spawn((
                         Text::new(item.words()),
                         NavWords(item),
-                        crate::letters::TextLook::OUTLINED,
+                        item.look(),
                         TextFont {
                             font_size: FontSize::Vh(vh(TEXT_SIZE)),
                             ..default()
@@ -212,11 +221,15 @@ fn show_nav_bar(
     credits: Option<Res<crate::credits::CreditsMenu>>,
     lobby: Option<Res<crate::select::Lobby>>,
 ) {
-    let column = lobby.map_or(0, |l| l.column);
+    let column = lobby.as_ref().map_or(0, |l| l.column);
+    // Select Players offers CONTINUE only once two players have joined (canStartGame).
+    let few = *screen == MenuScreen::Players && !lobby.as_ref().is_some_and(|l| l.can_start());
     // The Stats popup has only its BACK; the credits roll has none.
     let list = if credits.is_some_and(|c| c.open) {
         &[]
     } else if stats.is_some_and(|s| s.open) {
+        &[NavItem::Back]
+    } else if few {
         &[NavItem::Back]
     } else {
         items(*screen)

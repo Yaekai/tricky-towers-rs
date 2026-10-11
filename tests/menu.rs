@@ -57,6 +57,7 @@ fn tap(app: &mut App, key: KeyCode) {
 fn start(app: &mut App) {
     tap(app, KeyCode::Enter); // title → Select Players
     tap(app, KeyCode::Enter); // seat the keyboard player
+    tap(app, KeyCode::Tab); // a local battle needs a second player
     tap(app, KeyCode::ArrowDown); // confirm the wizard
     tap(app, KeyCode::ArrowDown); // confirm the brick pack
     for _ in 0..5 {
@@ -246,8 +247,12 @@ fn game_completed_popup_rematches_selects_a_mode_or_goes_to_the_title() {
         {
             state.roof = tricky_towers::gameplay::RoofStage::Done;
         }
-        for _ in 0..12 {
+        // The losing tower falls apart first.
+        for _ in 0..2000 {
             app.update();
+            if app.world().resource::<Popup>().shown {
+                break;
+            }
         }
         assert!(app.world().resource::<Popup>().shown);
     };
@@ -443,7 +448,28 @@ fn select_players_confirms_wizard_then_pack_before_the_mode_choice() {
     tap(&mut app, KeyCode::ArrowDown);
     assert_eq!(app.world().resource::<Lobby>().confirmed[0], [true, true]);
     tap(&mut app, KeyCode::Enter);
+    assert_eq!(screen(&app), MenuScreen::Players, "one player can't start a local battle");
+    tap(&mut app, KeyCode::Tab);
+    tap(&mut app, KeyCode::Enter);
     assert_eq!(screen(&app), MenuScreen::Modes);
+    // Up undoes one step at a time: the pack, then the wizard, then the seat.
+    let mut app2 = app_at_players();
+    tap(&mut app2, KeyCode::ArrowDown);
+    tap(&mut app2, KeyCode::ArrowDown);
+    tap(&mut app2, KeyCode::ArrowUp);
+    assert_eq!(app2.world().resource::<Lobby>().confirmed[0], [true, false]);
+    tap(&mut app2, KeyCode::ArrowUp);
+    assert_eq!(app2.world().resource::<Lobby>().confirmed[0], [false, false]);
+    tap(&mut app2, KeyCode::ArrowUp);
+    assert_eq!(app2.world().resource::<Lobby>().seats[0], Seat::Empty);
+}
+
+/// Select Players with the keyboard player seated.
+fn app_at_players() -> App {
+    let mut app = app();
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
+    app
 }
 
 /// The visibility of the select-screen node tagged `part`.

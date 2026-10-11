@@ -241,6 +241,7 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                     body: false,
                     face: Some(rgb(p.name_colour)),
                     outline: None,
+                    low: None,
                 };
                 for i in 0..MAX_TOWERS {
                     panel
@@ -359,10 +360,7 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                 c.spawn(label_with(
                     p.continue_size,
                     "Continue",
-                    TextLook {
-                        face: Some(Color::srgb(1.0, 0.84, 0.2)),
-                        ..TextLook::OUTLINED
-                    },
+                    TextLook::GOLD,
                 ));
             });
         });
