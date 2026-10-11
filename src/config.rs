@@ -1811,9 +1811,10 @@ pub struct MatchMoments {
     /// WINNER! takes this long to move in.
     pub winner_in: f32,
     /// WIZARD OUT! (LoseMessage, Survival only): its letter size in cells (font 20 against
-    /// WINNER!'s 32.75), and its height in cells off `winner_above` over the tower as it
-    /// moves in (MoveInLose; shown from `out_show`), bobs (IdleLose, looping) and moves out
-    /// when the match ends (MoveOutLose; hidden after `out_hide`).
+    /// WINNER!'s 32.75, then 10% up to Max's Survival clip: 325 px wide), and its height in
+    /// cells off `winner_above` over the tower as it moves in (MoveInLose; shown from
+    /// `out_show`), bobs (IdleLose, looping) and moves out when the match ends (MoveOutLose;
+    /// hidden after `out_hide`).
     pub out_cells: f32,
     pub out_in: Vec<(f32, f32)>,
     pub out_idle: Vec<(f32, f32)>,
@@ -1879,7 +1880,7 @@ impl Default for MatchMoments {
             shadow_drop: 0.06,
             shadow_color: [227, 33, 61],
             winner_in: 2.6,
-            out_cells: 1.71,
+            out_cells: 1.88,
             out_in: vec![(0.0, 0.0), (1.0, 0.0), (1.4, -1.2036), (1.4833, -1.4055), (2.0, -1.39)],
             out_idle: vec![(0.0, -1.39), (1.0, -1.566), (2.0, -1.39)],
             out_leave: vec![(0.0, -1.39), (0.1167, -1.1898), (0.25, -1.3158), (0.6667, -1.9652), (1.0, -4.4696)],
