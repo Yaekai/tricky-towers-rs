@@ -121,17 +121,32 @@ fn single_player_opens_endless_and_plays_endless_race() {
     tap(&mut app, KeyCode::Escape);
     assert_eq!(screen(&app), MenuScreen::Main);
     tap(&mut app, KeyCode::Enter);
-    // Trials opens its list; Esc comes back.
+    // The wizard, then the pack, then the list (on Trials); Up undoes them one by one.
+    let step = |app: &App| app.world().resource::<tricky_towers::single::SingleMenu>().step;
+    tap(&mut app, KeyCode::ArrowDown);
+    tap(&mut app, KeyCode::ArrowDown);
+    assert_eq!(step(&app), 2);
     tap(&mut app, KeyCode::ArrowUp);
+    tap(&mut app, KeyCode::ArrowUp);
+    assert_eq!(step(&app), 0);
+    // Trials opens its list; Esc comes back, to the wizard again.
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(screen(&app), MenuScreen::Trials);
     tap(&mut app, KeyCode::Escape);
     assert_eq!(screen(&app), MenuScreen::Single);
+    assert_eq!(step(&app), 0);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(screen(&app), MenuScreen::Endless);
     tap(&mut app, KeyCode::Escape);
     assert_eq!(screen(&app), MenuScreen::Single);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Enter);
     let game = app.world().resource::<Match>();
@@ -145,9 +160,12 @@ fn endless_survival_and_puzzle_start_from_the_endless_screen() {
     // The original lists Race, Puzzle, Survival.
     for (downs, mode) in [(1, ModeKind::EndlessPuzzle), (2, ModeKind::EndlessSurvival)] {
         let mut app = app();
-        // Title → Single Player → Endless.
+        // Title → Single Player (wizard, pack, list) → Endless.
         tap(&mut app, KeyCode::ArrowDown);
         tap(&mut app, KeyCode::Enter);
+        tap(&mut app, KeyCode::Enter);
+        tap(&mut app, KeyCode::Enter);
+        tap(&mut app, KeyCode::ArrowDown);
         tap(&mut app, KeyCode::Enter);
         assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Endless);
         for _ in 0..downs {
@@ -290,10 +308,11 @@ fn game_completed_popup_rematches_selects_a_mode_or_goes_to_the_title() {
 fn trials_list_plays_the_picked_trial() {
     let mut app = app();
     let screen = |app: &App| *app.world().resource::<MenuScreen>();
-    // Title → Single Player → Trials (above Endless, where the cursor starts).
+    // Title → Single Player (wizard, pack) → Trials, where the list starts.
     tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
-    tap(&mut app, KeyCode::ArrowUp);
+    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(screen(&app), MenuScreen::Trials);
     // The second sample trial is Survival.
@@ -513,9 +532,9 @@ fn an_earned_tier_plays_its_unlock_once_then_opens() {
         app.world_mut().resource_mut::<TrialProgress>().done = names;
     }
     tap(&mut app, KeyCode::ArrowDown);
-    tap(&mut app, KeyCode::Enter);
-    tap(&mut app, KeyCode::ArrowUp);
-    tap(&mut app, KeyCode::Enter);
+    for _ in 0..4 {
+        tap(&mut app, KeyCode::Enter);
+    }
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Trials);
     let menu = app.world().resource::<TrialsMenu>();
     assert_eq!(menu.unlock.map(|(tier, _)| tier), Some(1));
@@ -530,9 +549,11 @@ fn an_earned_tier_plays_its_unlock_once_then_opens() {
     assert_eq!(app.world().resource::<TrialProgress>().tiers_shown, 2);
     tap(&mut app, KeyCode::ArrowDown);
     assert_eq!(app.world().resource::<TrialsMenu>().selected, 11);
-    // Back and in again: it doesn't play twice.
+    // Back and in again (wizard, pack, Trials): it doesn't play twice.
     tap(&mut app, KeyCode::Escape);
-    tap(&mut app, KeyCode::Enter);
+    for _ in 0..3 {
+        tap(&mut app, KeyCode::Enter);
+    }
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Trials);
     assert_eq!(app.world().resource::<TrialsMenu>().unlock, None);
 }

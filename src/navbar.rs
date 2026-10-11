@@ -106,8 +106,9 @@ struct NavWords(NavItem);
 
 /// What the go-on hint says on a screen, as the original words it: on Select Mode NEXT
 /// until the last column, then START GAME (Max's clips).
-fn continue_words(screen: MenuScreen, column: usize) -> &'static str {
+fn continue_words(screen: MenuScreen, column: usize, on_list: bool) -> &'static str {
     match screen {
+        MenuScreen::Single if on_list => "CONTINUE",
         MenuScreen::Settings | MenuScreen::Single => "SELECT",
         MenuScreen::Trials | MenuScreen::Endless => "START GAME",
         MenuScreen::Modes if column >= 2 => "START GAME",
@@ -220,8 +221,11 @@ fn show_nav_bar(
     stats: Option<Res<crate::stats::StatsMenu>>,
     credits: Option<Res<crate::credits::CreditsMenu>>,
     lobby: Option<Res<crate::select::Lobby>>,
+    single: Option<Res<crate::single::SingleMenu>>,
 ) {
     let column = lobby.as_ref().map_or(0, |l| l.column);
+    // Single Player says CONTINUE once a list button is picked, SELECT before.
+    let on_list = single.as_ref().is_some_and(|m| m.step >= 2);
     // Select Players offers CONTINUE only once two players have joined (canStartGame).
     let few = *screen == MenuScreen::Players && !lobby.as_ref().is_some_and(|l| l.can_start());
     // The Stats popup has only its BACK; the credits roll has none.
@@ -258,7 +262,7 @@ fn show_nav_bar(
     }
     for (item, mut text) in &mut words {
         let want = match item.0 {
-            NavItem::Continue => continue_words(*screen, column),
+            NavItem::Continue => continue_words(*screen, column, on_list),
             other => other.words(),
         };
         if text.0 != want {

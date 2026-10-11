@@ -128,7 +128,11 @@ const ENDLESS: [EndlessEntry; 3] = [
 /// Where the cursor is on the two screens.
 #[derive(Resource, Debug)]
 pub struct SingleMenu {
-    /// Index into the Trials/Endless list. Starts on Endless, the one that plays.
+    /// What the player is choosing (AbstractSingleCharacterSelectStateController): 0 the
+    /// wizard, 1 the brick pack, 2 the Trials/Endless list. Down or Enter goes on, Up or
+    /// Back goes back.
+    pub step: u8,
+    /// Index into the Trials/Endless list, once on it (Trials first).
     pub selected: usize,
     /// Index into Race, Survival, Puzzle.
     pub endless: usize,
@@ -242,11 +246,16 @@ const CAROUSEL_WIZARDS: usize = 14;
 const NEIGHBOUR_X: f32 = 405.0;
 /// The scroll panel draws its neighbours at full size (ScrollPanelComponent).
 const NEIGHBOUR_SCALE: f32 = 1.0;
+/// The choosing arrows either side of the seat and pack panels (the scene's ArrowPrevious
+/// and ArrowNext), and how far the choosing corners stand out (as on Select Players).
+const ROW_ARROW_X: f32 = 200.0;
+const FOCUS_OUT: f32 = 20.0;
 
 impl Default for SingleMenu {
     fn default() -> Self {
         Self {
-            selected: 1,
+            step: 0,
+            selected: 0,
             endless: 0,
             wizard: 0,
         }
@@ -331,6 +340,12 @@ pub(crate) struct EndlessRoot;
 /// A node the show system updates.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Item {
+    /// The wizard's orange panel, once it is chosen.
+    SeatReady,
+    /// The brick pack's orange panel and rays, once it is chosen.
+    PackReady,
+    /// The corners and arrows on the row being chosen: 0 the wizard, 1 the pack.
+    RowFocus(u8),
     ListButton(usize),
     ListText(usize),
     /// The four corners around a picked list button.
@@ -357,11 +372,16 @@ pub(crate) fn spawn_single_screens(
     let single = spawn_page(&mut commands, art, "Single Player");
     commands.entity(single).insert(SingleRoot);
     commands.entity(single).with_children(|page| {
-        // Player 1's seat, awake.
+        // Player 1's seat: grey while the wizard is being chosen, orange once it is.
         let at = (0.0, SEAT_Y);
+        let mut grey = page.spawn((place(SEAT_PANEL, at), BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3))));
+        if let Some(art) = image("menu_player_select_background_deselected") {
+            grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+        }
         let mut panel = page.spawn((
             place(SEAT_PANEL, at),
             BackgroundColor(Color::srgba(1.0, 0.8, 0.3, 0.35)),
+            Item::SeatReady,
         ));
         if let Some(colour) = image("menu_player_select_background_selected") {
             panel.insert((
@@ -413,9 +433,28 @@ pub(crate) fn spawn_single_screens(
                 place(small, (x + offset.0 * NEIGHBOUR_SCALE, SEAT_Y + offset.1)),
                 Carousel(side as i32),
             ));
-            // No arrows: the original shows them (ScrollPanelComponent) only while the
-            // wizard or pack is being chosen, and this screen is always on its list, with
-            // both chosen (AbstractSingleCharacterSelectStateController).
+        }
+        // The corners and arrows on the row being chosen (ScrollPanelComponent shows its
+        // arrows only while enabled), 200 px either side of the middle.
+        let out = |(w, h): (f32, f32)| (w + 2.0 * FOCUS_OUT, h + 2.0 * FOCUS_OUT);
+        for (row, size, y) in [(0u8, SEAT_PANEL, SEAT_Y), (1, PACK_PANEL.0, SEAT_Y - PACK_BELOW_SEAT)] {
+            if let Some(corner) = image("menu_corner_small") {
+                corners(page, &corner, out(size), (0.0, y), CORNER_SMALL, Item::RowFocus(row));
+            }
+            if let Some(arrow) = image("menu_arrow_small") {
+                for flip_x in [true, false] {
+                    let side = if flip_x { -1.0 } else { 1.0 };
+                    page.spawn((
+                        ImageNode {
+                            image: arrow.clone(),
+                            flip_x,
+                            ..default()
+                        },
+                        place(crate::select::SEAT_ARROW, (side * ROW_ARROW_X, y)),
+                        Item::RowFocus(row),
+                    ));
+                }
+            }
         }
         // The pack panel's neighbours (its own scroll panel), grey, with the packs
         // before and after the picked one.
@@ -445,12 +484,17 @@ pub(crate) fn spawn_single_screens(
         // panel and turning rays cut to 327 x 95, then the dark frame); no name plate.
         let pack_at = (0.0, SEAT_Y - PACK_BELOW_SEAT);
         let clip = (PACK_PANEL.0.0 - 5.0, PACK_PANEL.0.1 - 5.0);
+        let mut grey = page.spawn((place(PACK_PANEL.0, pack_at), BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3))));
+        if let Some(art) = image("menu_player_select_background_deselected") {
+            grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+        }
         page.spawn((
             Node {
                 overflow: Overflow::clip(),
                 ..place(clip, pack_at)
             },
             BackgroundColor(Color::srgba(1.0, 0.8, 0.3, 0.35)),
+            Item::PackReady,
         ))
         .with_children(|c| {
             if let Some(back) = image("menu_player_select_background_selected") {
@@ -805,26 +849,63 @@ pub(crate) fn single_input(
     mut screen: ResMut<MenuScreen>,
     mut menu: ResMut<SingleMenu>,
     mut config: ResMut<GameConfig>,
+    art: Option<Res<Art>>,
+    mut was_on: Local<bool>,
 ) {
-    if game.phase != Phase::Menu || *screen != MenuScreen::Single {
+    let on = game.phase == Phase::Menu && *screen == MenuScreen::Single;
+    // The screen opens on the wizard, with nothing chosen yet.
+    if on && !*was_on {
+        menu.step = 0;
+    }
+    *was_on = on;
+    if !on {
         return;
     }
     let taps = read_taps(keys.as_deref(), &pads);
     if !taps.pad_back.is_empty() {
-        *screen = MenuScreen::Main;
+        if !step_back(&mut menu) {
+            *screen = MenuScreen::Main;
+        }
         return;
     }
-    // Left/Right turn the carousel of wizards; the pick plays as tower 1.
+    // Left/Right turn the wizards' carousel, or the brick packs'; the pick plays as tower 1.
     if taps.left || taps.right {
-        let step = if taps.right { 1 } else { CAROUSEL_WIZARDS - 1 };
-        menu.wizard = (menu.wizard + step) % CAROUSEL_WIZARDS;
-        let pack = config.skins.first().map_or(Default::default(), |s| s.1);
-        config.skins = vec![(menu.wizard, pack)];
+        let (wizard, pack) = config.skins.first().copied().unwrap_or((menu.wizard, Default::default()));
+        match menu.step {
+            0 => {
+                let step = if taps.right { 1 } else { CAROUSEL_WIZARDS - 1 };
+                menu.wizard = (menu.wizard + step) % CAROUSEL_WIZARDS;
+                config.skins = vec![(menu.wizard, pack)];
+            }
+            1 => {
+                let packs = crate::select::available_packs(art.as_deref());
+                let count = packs.len().max(1);
+                let at = packs.iter().position(|p| *p == pack).unwrap_or(0);
+                let next = if taps.right { (at + 1) % count } else { (at + count - 1) % count };
+                if let Some(&pack) = packs.get(next) {
+                    config.skins = vec![(wizard, pack)];
+                    menu.set_changed();
+                }
+            }
+            _ => {}
+        }
     }
-    if taps.up || taps.down {
-        menu.selected = (menu.selected + 1) % LIST.len();
+    let pick = taps.key_pick || !taps.pad_pick.is_empty();
+    if taps.up {
+        step_back(&mut menu);
+        return;
     }
-    if taps.key_pick || !taps.pad_pick.is_empty() {
+    if menu.step < 2 {
+        if taps.down || pick {
+            menu.step += 1;
+            menu.selected = 0;
+        }
+        return;
+    }
+    if taps.down {
+        menu.selected = (menu.selected + 1).min(LIST.len() - 1);
+    }
+    if pick {
         match LIST[menu.selected].0 {
             "Endless" => {
                 menu.endless = 0;
@@ -833,6 +914,19 @@ pub(crate) fn single_input(
             _ => *screen = MenuScreen::Trials,
         }
     }
+}
+
+/// Up or Back on the Single Player screen: up the list, else un-choose the pack, else the
+/// wizard. False when there is nothing left to undo (Back then leaves the screen).
+pub(crate) fn step_back(menu: &mut SingleMenu) -> bool {
+    if menu.step == 2 && menu.selected > 0 {
+        menu.selected -= 1;
+    } else if menu.step > 0 {
+        menu.step -= 1;
+    } else {
+        return false;
+    }
+    true
 }
 
 /// Up/Down pick Race, Survival or Puzzle; Enter or A plays a built one alone;
@@ -949,7 +1043,19 @@ pub(crate) fn show_single_screens(
                 continue;
             }
             (Item::ListCorner(i), Some(mut v)) => {
-                v.set_if_neq(shown(menu.selected == i));
+                v.set_if_neq(shown(menu.step == 2 && menu.selected == i));
+                continue;
+            }
+            (Item::SeatReady, Some(mut v)) => {
+                v.set_if_neq(shown(menu.step >= 1));
+                continue;
+            }
+            (Item::PackReady, Some(mut v)) => {
+                v.set_if_neq(shown(menu.step >= 2));
+                continue;
+            }
+            (Item::RowFocus(row), Some(mut v)) => {
+                v.set_if_neq(shown(menu.step == row));
                 continue;
             }
             (Item::BoardRow(row), Some(mut v)) => {
@@ -991,7 +1097,7 @@ pub(crate) fn show_single_screens(
             Item::ListText(i) => {
                 let (name, built) = LIST[i];
                 if let Some(mut c) = text_colour {
-                    let want = if menu.selected == i {
+                    let want = if menu.step == 2 && menu.selected == i {
                         Color::srgb(1.0, 0.85, 0.3)
                     } else {
                         Color::WHITE

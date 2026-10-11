@@ -223,7 +223,7 @@ pub(crate) const SEAT_PANEL: (f32, f32) = (332.0, 283.0);
 const SEAT_Y: f32 = 115.0;
 /// The sun rays behind a ready wizard are cut to this size.
 pub(crate) const SEAT_RAYS_CLIP: (f32, f32) = (327.0, 267.0);
-const SEAT_ARROW: (f32, f32) = (38.0, 64.0);
+pub(crate) const SEAT_ARROW: (f32, f32) = (38.0, 64.0);
 const SEAT_ARROW_X: f32 = 165.0;
 pub(crate) const PACK_PANEL: ((f32, f32), f32) = ((332.0, 100.0), -110.0);
 /// The brick pack cards are about 252 x 100 px.

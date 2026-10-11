@@ -93,6 +93,7 @@ fn menu_escape(
     mut binds: ResMut<crate::keybinding::KeybindingMenu>,
     mut stats: ResMut<crate::stats::StatsMenu>,
     mut credits: ResMut<crate::credits::CreditsMenu>,
+    mut single: ResMut<SingleMenu>,
 ) {
     let Some(keys) = keys else { return };
     if !keys.just_pressed(KeyCode::Escape) {
@@ -126,7 +127,12 @@ fn menu_escape(
             *screen = MenuScreen::Main;
         }
         (Phase::Menu, MenuScreen::Modes) => step_back(&mut lobby, &mut screen),
-        (Phase::Menu, MenuScreen::Single) => *screen = MenuScreen::Main,
+        // Back on Single Player undoes the last choice first.
+        (Phase::Menu, MenuScreen::Single) => {
+            if !crate::single::step_back(&mut single) {
+                *screen = MenuScreen::Main;
+            }
+        }
         (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
         // The explanation popup waits for Continue.
