@@ -2237,7 +2237,8 @@ pub struct CupPanel {
     pub panel_colour: (u8, u8, u8),
     /// The overlay over the match behind the panel: colour and opacity (the popup's
     /// Modal layer (8, 5, 24) at 0.847, over its background that turns the world grey,
-    /// post::GreyOut).
+    /// post::GreyOut). Unity blends it in gamma and Bevy in linear light, so 0.95 here
+    /// looks like the original's 0.847, as the pause panel does.
     pub dim_colour: (u8, u8, u8),
     pub dim: f32,
     /// The blue bar across the top: its top edge (above the panel) and height.
@@ -2313,7 +2314,7 @@ impl Default for CupPanel {
             panel_height: 301.0,
             panel_colour: (220, 227, 253),
             dim_colour: (8, 5, 24),
-            dim: 0.847,
+            dim: 0.95,
             bar_top: 254.0,
             bar_height: 18.0,
             bar_colour: (90, 113, 217),

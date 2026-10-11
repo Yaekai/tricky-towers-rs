@@ -177,7 +177,7 @@
         panel_height: 301.0,
         panel_colour: (220, 227, 253),
         dim_colour: (8, 5, 24),
-        dim: 0.847,
+        dim: 0.95,
         bar_top: 254.0,
         bar_height: 18.0,
         bar_colour: (90, 113, 217),
