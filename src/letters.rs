@@ -90,10 +90,12 @@ impl TextLook {
         outline: None,
     };
     /// Screen titles: milky white display letters with a dark outline
-    /// (the original's EnzoBlackMilkyWhiteOutline26).
+    /// (the original's EnzoBlackMilkyWhiteOutline26). Its face (182, 197, 254) is lit by the
+    /// material's bevel (BEVEL_ON, diffuse 0.5): measured on Max's title clip it shows as
+    /// (208, 224, 253), which is what is drawn here.
     pub const TITLE: Self = Self {
         body: false,
-        face: Some(Color::srgb(0.714, 0.773, 0.996)),
+        face: Some(Color::srgb(0.816, 0.878, 0.992)),
         outline: Some(Color::srgb(0.145, 0.051, 0.157)),
     };
     /// Display letters in their own colour with the dark outline (button hints, tiles).

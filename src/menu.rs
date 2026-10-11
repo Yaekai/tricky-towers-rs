@@ -713,10 +713,13 @@ pub const TILES: [Tile; 7] = [
 ];
 
 const SCREEN: (f32, f32) = (1920.0, 1080.0);
+/// How far a tile's name sits over its top edge (Max's title clip).
+const LABEL_UP: f32 = 10.0;
 /// The rotating sun-ray layers behind a selected tile's art.
 const RAY_LAYERS: usize = 5;
-/// The rays' square, as a share of the tile's shorter side (a guess until the original's
-/// rays are read against the tile).
+/// The rays' square in the MainMenu scene, cut to its tile by a mask.
+const RAY_SIZE: f32 = 556.0;
+/// Without the turning material the rays are cut down to this share of the tile's shorter side.
 const RAY_FRACTION: f32 = 0.75;
 
 #[derive(Component)]
@@ -771,6 +774,7 @@ fn fill() -> Node {
 fn spawn_main_menu(
     mut commands: Commands,
     art: Option<Res<Art>>,
+    mut turning: Option<ResMut<Assets<crate::ui_material::TurningPicture>>>,
 ) {
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
     let mut root = commands.spawn((
@@ -830,20 +834,35 @@ fn spawn_main_menu(
                         Some(art) => on.insert(ImageNode::new(art)),
                         None => on.insert(BackgroundColor(Color::srgb(r, g, b))),
                     };
-                    // The rays turn inside the tile: a rotated picture isn't clipped to its
-                    // tile here, so the square is cut down to fit it.
-                    let ray = w.min(h) * RAY_FRACTION;
+                    // The rays (556 px squares) turn inside the tile, cut to it as the
+                    // original's mask does: the turning material when there is one, else a
+                    // square cut down to fit (a turned picture isn't clipped).
                     on.with_children(|on| {
                         for layer in 0..RAY_LAYERS {
                             let Some(art) = image(&format!("menu_sunrays_{}", layer + 1)) else {
                                 continue;
                             };
-                            on.spawn((
-                                ImageNode::new(art),
-                                inside((ray, ray), (0.0, 0.0)),
-                                UiTransform::default(),
-                                TileRays { layer },
-                            ));
+                            match turning.as_mut() {
+                                Some(turning) => {
+                                    let share = Vec2::new(RAY_SIZE / w, RAY_SIZE / h);
+                                    on.spawn((
+                                        MaterialNode(turning.add(
+                                            crate::ui_material::TurningPicture::new(art, share),
+                                        )),
+                                        fill(),
+                                        TileRays { layer },
+                                    ));
+                                }
+                                None => {
+                                    let ray = w.min(h) * RAY_FRACTION;
+                                    on.spawn((
+                                        ImageNode::new(art),
+                                        inside((ray, ray), (0.0, 0.0)),
+                                        UiTransform::default(),
+                                        TileRays { layer },
+                                    ));
+                                }
+                            }
                         }
                     });
                     // The art over the tile, grey or in colour, and the frame.
@@ -909,9 +928,9 @@ fn spawn_main_menu(
                             ..default()
                         })
                         .with_children(|q| {
-                            // The original's "?" is dark with a white outline.
+                            // The original's "?" is dark with a white outline, 130.5 px.
                             q.spawn(crate::select::label_with(
-                                10.0,
+                                130.5 / SCREEN.1 * 100.0,
                                 "?",
                                 crate::letters::TextLook {
                                     body: false,
@@ -935,29 +954,46 @@ fn spawn_main_menu(
                             Visibility::Hidden,
                         ));
                     }
-                    // Every tile's name, always shown as in the original: across the
-                    // top of big tiles, above small ones, in outlined capitals.
-                    t.spawn(Node {
-                        position_type: PositionType::Absolute,
-                        width: Val::Percent(100.0),
-                        top: Val::Percent(if small { -30.0 } else { -6.0 }),
-                        height: Val::Percent(if small { 30.0 } else { 22.0 }),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    })
-                    .with_children(|h| {
-                        h.spawn((
+                    // Every tile's name, always shown as in the original (MainMenu scene):
+                    // centred 10 px over the tile's top edge, in outlined capitals, 46 px
+                    // on the big tiles and the shop, 36 on the others.
+                    // The picked tile's name is gold (EnzoBlackGold46), the others milky white
+                    // (EnzoBlackMilkyWhiteOutline46); each sits in its own box, since letter
+                    // text hides with its parent.
+                    let label_box = 60.0;
+                    let px = if small && tile.key != "shop" { 36.0 } else { 46.0 };
+                    for picked in [false, true] {
+                        let look = if picked {
+                            crate::letters::TextLook {
+                                face: Some(Color::srgb(1.0, 0.84, 0.2)),
+                                ..crate::letters::TextLook::OUTLINED
+                            }
+                        } else {
+                            crate::letters::TextLook::TITLE
+                        };
+                        t.spawn((
+                            Node {
+                                position_type: PositionType::Absolute,
+                                width: Val::Percent(100.0),
+                                top: Val::Percent(-(LABEL_UP + label_box / 2.0) / h * 100.0),
+                                height: Val::Percent(label_box / h * 100.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            shown_when(picked),
+                        ))
+                        .with_child((
                             Text::new(tile.label.to_uppercase()),
                             TextFont {
-                                font_size: FontSize::Vh(if small { 3.0 } else { 4.0 }),
+                                font_size: FontSize::Vh(px / SCREEN.1 * 100.0),
                                 ..default()
                             },
                             TextColor(Color::WHITE),
                             TextLayout::justify(Justify::Center),
-                            crate::letters::TextLook::TITLE,
+                            look,
                         ));
-                    });
+                    }
                 });
         }
     });
@@ -1154,17 +1190,32 @@ fn show_main_menu(
 fn spin_tile_rays(
     time: Res<Time>,
     config: Res<GameConfig>,
-    mut rays: Query<(&TileRays, &mut UiTransform), Without<TileCorner>>,
+    mut rays: Query<
+        (
+            &TileRays,
+            Option<&mut UiTransform>,
+            Option<&MaterialNode<crate::ui_material::TurningPicture>>,
+        ),
+        Without<TileCorner>,
+    >,
     mut corners: Query<(&TileCorner, &mut UiTransform), Without<TileRays>>,
+    mut turning: Option<ResMut<Assets<crate::ui_material::TurningPicture>>>,
 ) {
     let t = time.elapsed_secs();
     let look = &config.menu;
-    for (rays, mut transform) in &mut rays {
+    for (rays, transform, picture) in &mut rays {
         let Some(&(degrees, seconds)) = look.ray_turns.get(rays.layer) else {
             continue;
         };
         let loop_at = (t / seconds.max(0.01)).fract();
-        transform.rotation = Rot2::degrees(degrees * loop_at);
+        let turn = Rot2::degrees(degrees * loop_at);
+        match (picture, turning.as_mut(), transform) {
+            (Some(picture), Some(turning), _) => {
+                crate::ui_material::set_turn(turning, &picture.0, turn.as_radians())
+            }
+            (_, _, Some(mut transform)) => transform.rotation = turn,
+            _ => {}
+        }
     }
     let (reach, seconds) = look.corner_pulse;
     // Out at the start of each loop, back at rest halfway, out again: linear.
