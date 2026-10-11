@@ -186,6 +186,13 @@ pub struct PauseMenu {
 /// The original's pause options, top to bottom.
 pub const PAUSE_OPTIONS: [&str; 3] = ["Resume", "Retry", "Quit"];
 
+/// The pause options shown: a cup match has no Retry (CupMatchFlowController's
+/// allowRetry), so Quit moves up into its place.
+pub fn pause_options(cup: Option<&crate::cups::Cup>) -> Vec<&'static str> {
+    let retry = !cup.is_some_and(|c| c.in_progress());
+    PAUSE_OPTIONS.into_iter().filter(|o| retry || *o != "Retry").collect()
+}
+
 #[derive(Component)]
 struct PauseRoot;
 
@@ -233,7 +240,8 @@ const CONTROLS_SECTIONS: [(f32, f32, &str, &[KeyCap]); 5] = {
         ),
         (260.0, 80.0, "Rotate Brick", &[(TurnRight, (0.0, 0.0), 0)]),
         (
-            425.0,
+            // Nudge's rect is placed by its middle (pivot 0.5), 425 under the top.
+            425.0 - 94.9 / 2.0,
             94.9,
             "Nudge Brick",
             &[
@@ -250,6 +258,17 @@ const CONTROLS_SECTIONS: [(f32, f32, &str, &[KeyCap]); 5] = {
         (704.0, 100.0, "Dark Magic", &[(DarkMagic, (0.0, -10.0), 0)]),
     ]
 };
+
+/// A key's name on its cap as the original writes it (Unity's KeyCode names).
+fn cap_name(name: &str) -> &str {
+    match name {
+        "Left" => "LeftArrow",
+        "Right" => "RightArrow",
+        "Up" => "UpArrow",
+        "Down" => "DownArrow",
+        name => name,
+    }
+}
 
 /// The keyboard controls panel centred at `centre` (px from the top-left), or at
 /// the pause screen's place.
@@ -276,14 +295,15 @@ pub(crate) fn spawn_controls_panel(
     ));
     if let Some(art) = image("menu_leaderboard_panel") {
         panel.insert((
-            crate::select::sliced(art, [0.0, 0.0, 51.0, 37.0]),
+            crate::select::sliced(art, [0.0, 0.0, 37.0, 51.0]),
             BackgroundColor(Color::NONE),
         ));
     }
     panel.with_children(|p| {
+        // The title's middle stands 7 px over the panel's top (its rect has no height).
         p.spawn(Node {
             position_type: PositionType::Absolute,
-            top: px(-7.0),
+            top: px(-7.0 - 30.0),
             width: Val::Percent(100.0),
             height: px(60.0),
             justify_content: JustifyContent::Center,
@@ -294,7 +314,7 @@ pub(crate) fn spawn_controls_panel(
             t.spawn(crate::select::label_with(
                 46.0 / 10.8,
                 "Controls",
-                crate::letters::TextLook::TITLE,
+                crate::letters::TextLook::GOLD,
             ));
         });
         for (top, height, title, caps) in CONTROLS_SECTIONS {
@@ -310,7 +330,10 @@ pub(crate) fn spawn_controls_panel(
                 BackgroundColor(Color::srgba(0.75, 0.78, 0.95, 0.9)),
             ));
             if let Some(art) = image("popup_text_background") {
-                section.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
+                section.insert((
+                    crate::select::sliced(art, [2.0, 1.0, 0.0, 0.0]),
+                    BackgroundColor(Color::NONE),
+                ));
             }
             section.with_children(|s| {
                 // The magic sections carry their spell slot behind the title.
@@ -325,50 +348,74 @@ pub(crate) fn spawn_controls_panel(
                         Node {
                             position_type: PositionType::Absolute,
                             left: px((w - 2.0 * CONTROLS_INSET) / 2.0 - 35.0),
-                            top: px(-35.0),
+                            top: px(-45.0),
                             width: px(70.0),
                             height: px(70.0),
                             ..default()
                         },
                     ));
                 }
+                let magic = title.ends_with("Magic");
+                let up = if magic { 14.0 } else { 10.0 };
                 s.spawn(Node {
                     position_type: PositionType::Absolute,
-                    top: px(-10.0),
+                    top: px(-up - 29.5),
                     width: Val::Percent(100.0),
-                    height: px(40.0),
+                    height: px(59.0),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
                 })
                 .with_children(|l| {
-                    l.spawn(crate::select::label(26.0 / 10.8, title));
+                    let look = if magic {
+                        crate::letters::TextLook::GOLD
+                    } else {
+                        crate::letters::TextLook {
+                            face: Some(Color::srgb(0.918, 0.933, 1.0)),
+                            ..crate::letters::TextLook::TITLE
+                        }
+                    };
+                    l.spawn(crate::select::label_with(26.0 / 10.8, title, look));
                 });
                 let half = (w - 2.0 * CONTROLS_INSET) / 2.0;
                 for &(action, (dx, dy), arrow) in caps {
-                    let name = crate::keybinding::key_name(keys.key(action));
-                    let mut cap = s.spawn((
-                        Node {
+                    let name = cap_name(crate::keybinding::key_name(keys.key(action)));
+                    s.spawn(Node {
+                        position_type: PositionType::Absolute,
+                        left: px(half + dx - 50.0),
+                        top: px(height / 2.0 - dy - 12.5),
+                        width: px(100.0),
+                        height: px(25.0),
+                        ..default()
+                    })
+                    .with_children(|g| {
+                        let mut back = g.spawn((
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: px(-10.0),
+                                top: px(-9.0),
+                                width: px(120.0),
+                                height: px(43.0),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgba(0.95, 0.95, 0.95, 0.9)),
+                        ));
+                        if let Some(art) = image("menu_kbkey_background") {
+                            back.insert((
+                                crate::select::sliced(art, [21.0, 21.0, 0.0, 0.0]),
+                                BackgroundColor(Color::NONE),
+                            ));
+                        }
+                        g.spawn(Node {
                             position_type: PositionType::Absolute,
-                            left: px(half + dx - 50.0),
-                            top: px(height / 2.0 - dy - 12.5 + 12.0),
-                            width: px(100.0),
-                            height: px(25.0),
+                            top: px(12.5 - 7.0 - 8.0),
+                            width: Val::Percent(100.0),
+                            height: px(16.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             ..default()
-                        },
-                        BackgroundColor(Color::srgba(0.95, 0.95, 0.95, 0.9)),
-                    ));
-                    if let Some(art) = image("menu_kbkey_background") {
-                        // The cap stretches around its key's name.
-                        cap.insert((
-                            crate::select::sliced(art, [6.0, 6.0, 6.0, 6.0]),
-                            BackgroundColor(Color::NONE),
-                        ));
-                    }
-                    cap.with_children(|c| {
-                        c.spawn((
+                        })
+                        .with_child((
                             Text::new(name),
                             TextFont {
                                 font_size: FontSize::Vh(16.0 / 10.8),
@@ -376,32 +423,37 @@ pub(crate) fn spawn_controls_panel(
                             },
                             TextColor(Color::srgb(0.42, 0.33, 0.55)),
                             crate::letters::TextLook {
-                                body: true,
+                                body: false,
                                 face: None,
                                 outline: None,
                                 low: None,
                             },
                         ));
-                        if arrow != 0
-                            && let Some(art) = image("menu_explanation_popup_label_arrow")
-                        {
-                            let (left, top, turn) = match arrow {
-                                -1 => (px(-16.0), px(1.5), 0.0),
-                                1 => (px(103.0), px(1.5), 180.0),
-                                _ => (px(37.0), px(25.0), -90.0),
-                            };
-                            c.spawn((
-                                ImageNode::new(art),
-                                UiTransform::from_rotation(Rot2::degrees(turn)),
-                                Node {
-                                    position_type: PositionType::Absolute,
-                                    left,
-                                    top,
-                                    width: px(13.0),
-                                    height: px(22.0),
-                                    ..default()
-                                },
-                            ));
+                        // Nudge has two arrows a side, the others one.
+                        let nudge = title == "Nudge Brick";
+                        let arrows: &[(f32, f32, f32)] = match (arrow, nudge) {
+                            (-1, false) => &[(-29.0, 1.5, 0.0)],
+                            (-1, true) => &[(-28.3, 1.5, 0.0), (-37.3, 1.5, 0.0)],
+                            (1, false) => &[(116.0, 1.5, 180.0)],
+                            (1, true) => &[(115.7, 1.5, 180.0), (124.7, 1.5, 180.0)],
+                            (2, _) => &[(32.5 + 4.5, 43.0 - 4.5, -90.0)],
+                            _ => &[],
+                        };
+                        if let Some(art) = image("menu_explanation_popup_label_arrow") {
+                            for &(left, top, turn) in arrows {
+                                g.spawn((
+                                    ImageNode::new(art.clone()),
+                                    UiTransform::from_rotation(Rot2::degrees(turn)),
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        left: px(left),
+                                        top: px(top),
+                                        width: px(13.0),
+                                        height: px(22.0),
+                                        ..default()
+                                    },
+                                ));
+                            }
                         }
                     });
                 }
@@ -441,7 +493,9 @@ fn spawn_pause_menu(
                 height: Val::Percent(100.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.016, 0.012, 0.035, 0.90)),
+            // PausePopup's Panel, (8, 5, 24) at 0.847 over the grey; Unity blends that in
+            // gamma, Bevy in linear light, where 0.95 gives about the same darkness.
+            BackgroundColor(Color::srgba(8.0 / 255.0, 5.0 / 255.0, 24.0 / 255.0, 0.95)),
             GlobalZIndex(12),
             Visibility::Hidden,
             PauseRoot,
@@ -465,7 +519,17 @@ fn spawn_pause_menu(
                 ..default()
             },))
                 .with_children(|t| {
-                    t.spawn(text(75.0, "Game Paused", crate::letters::TextLook::TITLE));
+                    // EnzoBlackBlueBlackOutline: a dark face with a pale blue outline.
+                    t.spawn(text(
+                        75.0,
+                        "Game Paused",
+                        crate::letters::TextLook {
+                            body: false,
+                            face: Some(Color::srgb(0.145, 0.051, 0.157)),
+                            outline: Some(Color::srgb(0.714, 0.773, 0.996)),
+                            low: None,
+                        },
+                    ));
                 });
             for (i, option) in PAUSE_OPTIONS.iter().enumerate() {
                 let y = PAUSE_ITEMS_Y - PAUSE_ROW.0 * i as f32;
@@ -509,6 +573,7 @@ fn pause_input(
     mut screen: ResMut<MenuScreen>,
     mut pause: ResMut<PauseMenu>,
     mut request: ResMut<MatchRequest>,
+    cup: Option<Res<crate::cups::Cup>>,
     mut last_cursor: Local<Option<Vec2>>,
 ) {
     // Start on any pad pauses, as Esc does.
@@ -526,7 +591,8 @@ fn pause_input(
     if game.phase != Phase::Menu || *screen != MenuScreen::Pause {
         return;
     }
-    let count = PAUSE_OPTIONS.len();
+    let options = pause_options(cup.as_deref());
+    let count = options.len();
     let (mut up, mut down, mut pick) = (false, false, false);
     if let Some(keys) = keys {
         // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
@@ -538,7 +604,9 @@ fn pause_input(
     // The mouse: an option under the cursor is selected as it moves, and a click picks it.
     if let Ok(window) = windows.single() {
         let cursor = window.cursor_position();
-        let over = cursor.and_then(|c| pause_row_at(c, window.size()));
+        let over = cursor
+            .and_then(|c| pause_row_at(c, window.size()))
+            .filter(|&i| i < count);
         if let Some(i) = over
             && cursor != *last_cursor
         {
@@ -571,7 +639,7 @@ fn pause_input(
     if !pick {
         return;
     }
-    match PAUSE_OPTIONS[pause.selected] {
+    match options[pause.selected.min(count - 1)] {
         "Resume" => {
             if let Some(phase) = pause.resume_to.take() {
                 game.phase = phase;
@@ -596,9 +664,52 @@ fn show_pause_menu(
     pause: Res<PauseMenu>,
     mut root: Query<&mut Visibility, With<PauseRoot>>,
     mut bars: Query<(&PauseBar, Option<&mut ImageNode>, &mut BackgroundColor)>,
-    mut words: Query<(&PauseWords, &mut TextColor)>,
+    mut words: Query<(
+        &PauseWords,
+        &mut TextColor,
+        &mut Text,
+        &mut crate::letters::TextLook,
+        &mut TextFont,
+        &mut UiTransform,
+    )>,
+    mut rows: Query<(&PauseBar, &mut Visibility), Without<PauseRoot>>,
+    cup: Option<Res<crate::cups::Cup>>,
+    grey: Option<ResMut<crate::post::GreyTarget>>,
+    mut was_shown: Local<bool>,
 ) {
-    for (item, mut color) in &mut words {
+    let options = pause_options(cup.as_deref());
+    for (bar, mut v) in &mut rows {
+        v.set_if_neq(if bar.0 < options.len() {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+    }
+    for (item, _, mut text, mut look, mut font, mut lift) in &mut words {
+        // PopupListItem: the picked option in EnzoBlackGold46 at 46 px on its bar, the
+        // others in EnzoBlackRed46 at 36 px, 4 px up.
+        let picked = item.0 == pause.selected;
+        let (want_look, size, up) = if picked {
+            (crate::letters::TextLook::GOLD, 46.0, 0.0)
+        } else {
+            (crate::letters::TextLook::PINK, 36.0, 4.0)
+        };
+        look.set_if_neq(want_look);
+        let want_size = FontSize::Vh(size / 10.8);
+        if font.font_size != want_size {
+            font.font_size = want_size;
+        }
+        let want_lift = Val2::new(Val::Px(0.0), Val::Vh(-up / 10.8));
+        if lift.translation != want_lift {
+            lift.translation = want_lift;
+        }
+        if let Some(want) = options.get(item.0).map(|o| o.to_uppercase())
+            && text.0 != want
+        {
+            text.0 = want;
+        }
+    }
+    for (item, mut color, ..) in &mut words {
         let want = if item.0 == pause.selected {
             PAUSE_PICKED
         } else {
@@ -609,6 +720,14 @@ fn show_pause_menu(
         }
     }
     let shown = game.phase == Phase::Menu && *screen == MenuScreen::Pause;
+    // Behind the pause the world turns grey (PausePopup's BlackWhite background); the cup
+    // standings set it too, so only a change of the pause writes it.
+    if let Some(mut grey) = grey
+        && shown != *was_shown
+    {
+        grey.0 = if shown { 1.0 } else { 0.0 };
+    }
+    *was_shown = shown;
     for mut v in &mut root {
         v.set_if_neq(if shown {
             Visibility::Inherited

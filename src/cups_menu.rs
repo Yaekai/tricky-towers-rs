@@ -411,16 +411,18 @@ fn show_cup_panel(
     )>,
     mut texts: Query<(&Part, &mut Text)>,
     grey: Option<ResMut<crate::post::GreyTarget>>,
+    mut was_up: Local<bool>,
 ) {
     let p = &config.cup_panel;
     let up = popup.panel_up(&cup, p);
     // Behind the standings the world turns grey (the popup's Black & White background).
-    if let Some(mut grey) = grey {
-        let want = if up { 1.0 } else { 0.0 };
-        if grey.0 != want {
-            grey.0 = want;
-        }
+    // Only a change writes it, so the pause can grey the world too.
+    if let Some(mut grey) = grey
+        && up != *was_up
+    {
+        grey.0 = if up { 1.0 } else { 0.0 };
     }
+    *was_up = up;
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
     let order: Vec<usize> = cup.standings.clone().unwrap_or_else(|| {
         let mut order: Vec<usize> = (0..cup.points.len()).collect();

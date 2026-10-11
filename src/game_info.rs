@@ -89,7 +89,7 @@ fn spawn_game_info(mut commands: Commands, art: Option<Res<Art>>) {
             // The Endless leaderboard's panel (gph_popupBackgroundPanel), 9-sliced.
             if let Some(back) = image("menu_leaderboard_panel") {
                 panel.insert((
-                    sliced(back, [40.0, 40.0, 51.0, 37.0]),
+                    sliced(back, [40.0, 40.0, 37.0, 51.0]),
                     BackgroundColor(Color::NONE),
                 ));
             }

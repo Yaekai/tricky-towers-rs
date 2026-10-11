@@ -41,7 +41,7 @@ const FACE_AT: (f32, f32) = (33.0, 6.0);
 /// the centre; its panel's 9-slice borders and its rows'.
 const BOARD: (f32, f32) = (800.0, 800.0);
 const BOARD_AT: (f32, f32) = (-400.0, -30.0);
-const BOARD_SLICE: [f32; 4] = [0.0, 0.0, 51.0, 37.0];
+const BOARD_SLICE: [f32; 4] = [0.0, 0.0, 37.0, 51.0];
 const ROW_SLICE: [f32; 4] = [6.0, 7.0, 0.0, 0.0];
 /// Rows down the leaderboard (LeaderboardEntry prefab, list 50 px in from each
 /// side and 70 below the top, one row every 50 px): size, the first row's top
