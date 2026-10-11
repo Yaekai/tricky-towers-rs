@@ -95,11 +95,14 @@ struct NavGlyph(NavItem);
 #[derive(Component)]
 struct NavWords(NavItem);
 
-/// What the go-on hint says on a screen, as the original words it.
-fn continue_words(screen: MenuScreen) -> &'static str {
+/// What the go-on hint says on a screen, as the original words it: on Select Mode NEXT
+/// until the last column, then START GAME (Max's clips).
+fn continue_words(screen: MenuScreen, column: usize) -> &'static str {
     match screen {
         MenuScreen::Settings | MenuScreen::Single => "SELECT",
         MenuScreen::Trials | MenuScreen::Endless => "START GAME",
+        MenuScreen::Modes if column >= 2 => "START GAME",
+        MenuScreen::Modes => "NEXT",
         _ => "CONTINUE",
     }
 }
@@ -207,7 +210,9 @@ fn show_nav_bar(
     art: Option<Res<Art>>,
     stats: Option<Res<crate::stats::StatsMenu>>,
     credits: Option<Res<crate::credits::CreditsMenu>>,
+    lobby: Option<Res<crate::select::Lobby>>,
 ) {
+    let column = lobby.map_or(0, |l| l.column);
     // The Stats popup has only its BACK; the credits roll has none.
     let list = if credits.is_some_and(|c| c.open) {
         &[]
@@ -240,7 +245,7 @@ fn show_nav_bar(
     }
     for (item, mut text) in &mut words {
         let want = match item.0 {
-            NavItem::Continue => continue_words(*screen),
+            NavItem::Continue => continue_words(*screen, column),
             other => other.words(),
         };
         if text.0 != want {

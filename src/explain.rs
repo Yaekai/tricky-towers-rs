@@ -338,7 +338,7 @@ fn content(config: &GameConfig, mode: ModeKind) -> Option<Content> {
 
 /// What a difficulty takes away, light slot then dark slot ("magic off" is
 /// `menu_unavailble`).
-fn slots(mode: ModeKind, difficulty: Difficulty) -> [Option<&'static str>; 2] {
+pub(crate) fn slots(mode: ModeKind, difficulty: Difficulty) -> [Option<&'static str>; 2] {
     let off = Some("menu_unavailble");
     match (mode, difficulty) {
         (ModeKind::Puzzle, Difficulty::Easy) => [Some("spell_icon_Undo"), off],

@@ -95,6 +95,17 @@ impl ModePick {
         }
     }
 
+    /// Its name's place across the tile and face colour (ModeItem01-04 and their
+    /// EnzoBlack<Mode> materials; Random is milky white).
+    fn label(self) -> (f32, Option<Color>) {
+        match self {
+            ModePick::Mode(ModeKind::Race) => (64.0, Some(Color::srgb(0.729, 0.784, 0.996))),
+            ModePick::Mode(ModeKind::Survival) => (-42.0, Some(Color::srgb(0.745, 0.616, 0.937))),
+            ModePick::Mode(ModeKind::Puzzle) => (67.0, Some(Color::srgb(0.969, 0.741, 0.384))),
+            _ => (-6.0, None),
+        }
+    }
+
     /// The tile's picture: name, centre offset from the tile centre and size.
     fn picture(self) -> (&'static str, (f32, f32), (f32, f32)) {
         match self {
@@ -294,6 +305,16 @@ const CUP_PICTURES: [(&str, (f32, f32), (f32, f32)); 4] = [
     ("trophy_super", (0.0, 15.3), (307.0, 247.0)),
 ];
 const CUP_NAME_Y: f32 = -95.0;
+/// The scroll lists' item pitch and the window they show through (ScrollPanelComponent puts
+/// items 430 px apart; on Max's Select Mode clip the window runs from 350 px over the middle to
+/// 290 px under it).
+const ITEM_PITCH: f32 = 430.0;
+const WINDOW: ((f32, f32), f32) = ((520.0, 640.0), 30.0);
+/// An item's card (the tile pictures are drawn on a 480 x 393 card).
+const ITEM_CARD: (f32, f32) = (480.0, 393.0);
+/// A mode's or difficulty's name on its tile (ModeItem/DifficultyItem: 280 px down from the
+/// item's top, which is 185 px over its middle).
+const TILE_NAME_Y: f32 = -95.0;
 const CUP_TARGET_Y: f32 = -143.9;
 const FRAME: (f32, f32) = (513.0, 445.0);
 const FRAME_X: f32 = -5.5;
@@ -412,8 +433,20 @@ pub enum Part {
     CupBack,
     CupName,
     CupTarget,
-    /// A column's name under its tile, shown when its picture isn't staged.
+    /// The difficulty's name on its tile.
     ColumnName(usize),
+    /// The difficulty tile's light and dark magic slots (0, 1), and what the difficulty takes
+    /// away drawn in them.
+    MagicSlot(usize),
+    MagicIcon(usize),
+    /// The window the active column's neighbouring items peek into.
+    ColumnWindow(usize),
+    /// The item before (-1, above) or after (1, below) the current one in a column: its
+    /// background card and its picture.
+    NeighbourBack(usize, i8),
+    NeighbourPicture(usize, i8),
+    /// A mode's name on its tile, by its place in the mode list (each has its own colour).
+    ModeName(usize),
     /// The frame and corners on the active column.
     Frame,
     /// A column's arrows, bright on the active column.
@@ -449,7 +482,8 @@ pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str
             header.insert((sliced(bar, HEADER_SLICE), BackgroundColor(Color::NONE)));
         }
         header.with_children(|h| {
-            h.spawn(label_with(4.5, title, crate::letters::TextLook::TITLE));
+            // 60 px, as the scenes' header titles (ModeSelect, PlayerSelect).
+            h.spawn(label_with(60.0 / 10.8, title, crate::letters::TextLook::TITLE));
         });
     });
     page.id()
@@ -666,20 +700,93 @@ pub(crate) fn spawn_select_screens(
         for (part, size, y) in [(Part::CupName, 60.0, CUP_NAME_Y), (Part::CupTarget, 28.0, CUP_TARGET_Y)] {
             page.spawn(place((400.0, 100.0), (COLUMN_X[2], y)))
                 .with_children(|n| {
-                    n.spawn((label_with(size / 10.8, "", crate::letters::TextLook::OUTLINED), part));
+                    // EnzoBlackMilkyWhiteOutline60 and EnzoBlackMilkyWhite26 (CupItem).
+                    n.spawn((label_with(size / 10.8, "", crate::letters::TextLook::TITLE), part));
                 });
         }
         for (column, &x) in COLUMN_X.iter().enumerate() {
+            let (window, wy) = WINDOW;
+            page.spawn((
+                Node {
+                    overflow: Overflow::clip(),
+                    ..place(window, (x, wy))
+                },
+                Part::ColumnWindow(column),
+            ))
+            .with_children(|w| {
+                for side in [-1i8, 1] {
+                    // In the window's own pixels, from its middle with y up.
+                    let at = (0.0, -(side as f32) * ITEM_PITCH - wy);
+                    let in_window = |size: (f32, f32), at: (f32, f32)| Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Percent((window.0 / 2.0 + at.0 - size.0 / 2.0) / window.0 * 100.0),
+                        top: Val::Percent((window.1 / 2.0 - at.1 - size.1 / 2.0) / window.1 * 100.0),
+                        width: Val::Percent(size.0 / window.0 * 100.0),
+                        height: Val::Percent(size.1 / window.1 * 100.0),
+                        ..default()
+                    };
+                    w.spawn((ImageNode::default(), in_window(ITEM_CARD, at), Part::NeighbourBack(column, side)));
+                    w.spawn((ImageNode::default(), in_window(ITEM_CARD, at), Part::NeighbourPicture(column, side)));
+                }
+            });
             page.spawn((
                 ImageNode::default(),
                 BackgroundColor(Color::NONE),
                 place((480.0, 393.0), (x, 0.0)),
                 Part::ColumnPicture(column),
             ));
-            page.spawn(place((480.0, 60.0), (x, -FRAME.1 / 2.0 - 40.0)))
-                .with_children(|n| {
-                    n.spawn((label(4.0, ""), Part::ColumnName(column)));
-                });
+            // The name on the tile, 95 px under its middle, 60 px (DifficultyItem: milky
+            // white with an outline).
+            if column == 1 {
+                // The magic slots (DifficultyItem: 56 px at 85 and 145 px right of the middle,
+                // 190 px down), with the explanation's icon in them.
+                for slot in 0..2 {
+                    page.spawn((
+                        ImageNode::default(),
+                        place((56.0, 56.0), (x + 85.0 + 60.0 * slot as f32, -190.0)),
+                        Part::MagicSlot(slot),
+                    ))
+                    .with_child((
+                        ImageNode::default(),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: Val::Percent(3.0 / 56.0 * 100.0),
+                            top: Val::Percent(3.0 / 56.0 * 100.0),
+                            width: Val::Percent(50.0 / 56.0 * 100.0),
+                            height: Val::Percent(50.0 / 56.0 * 100.0),
+                            ..default()
+                        },
+                        Part::MagicIcon(slot),
+                    ));
+                }
+                page.spawn(place((400.0, 100.0), (x, TILE_NAME_Y)))
+                    .with_children(|n| {
+                        n.spawn((
+                            label_with(60.0 / 10.8, "", crate::letters::TextLook::TITLE),
+                            Part::ColumnName(column),
+                        ));
+                    });
+            }
+            if column == 0 {
+                for (i, pick) in LOCAL_MODES.iter().chain(SINGLE_MODES.iter()).enumerate() {
+                    let (dx, face) = pick.label();
+                    let look = match face {
+                        Some(face) => crate::letters::TextLook {
+                            face: Some(face),
+                            ..crate::letters::TextLook::OUTLINED
+                        },
+                        None => crate::letters::TextLook::TITLE,
+                    };
+                    page.spawn((
+                        place((400.0, 100.0), (x + dx, TILE_NAME_Y)),
+                        Visibility::Hidden,
+                        Part::ModeName(i),
+                    ))
+                    .with_children(|n| {
+                        n.spawn(label_with(60.0 / 10.8, pick.name(), look));
+                    });
+                }
+            }
             for up in [true, false] {
                 let y = (COLUMN_PANEL_HEIGHT / 2.0 - ARROW_INSET) * if up { 1.0 } else { -1.0 };
                 page.spawn((
@@ -735,13 +842,6 @@ pub(crate) fn spawn_select_screens(
                 ));
             }
         });
-        page.spawn(place((SCREEN.0, 60.0), (0.0, -SCREEN.1 / 2.0 + 60.0)))
-            .with_children(|p| {
-                p.spawn(label(
-                    2.2,
-                    "Up/Down: change   Left/Right or Enter: next column   Enter or A: play   Esc or B: back",
-                ));
-            });
     });
 }
 
@@ -1405,19 +1505,85 @@ pub(crate) fn show_select_screens(
                 true
             }
             Part::ColumnName(2) => false,
-            Part::ColumnName(column) => {
-                let (name, staged) = if column == 0 {
-                    (mode.name(), image(mode.picture().0).is_some())
-                } else {
-                    (difficulty.name(), image(difficulty.picture().0).is_some())
-                };
+            Part::ColumnName(_) => {
+                let name = difficulty.name().to_uppercase();
                 if let Some(mut text) = text
                     && text.0 != name
                 {
-                    text.0 = name.into();
+                    text.0 = name;
                 }
-                !staged
+                true
             }
+            Part::MagicSlot(slot) | Part::MagicIcon(slot) => {
+                // Random shows no slots; Endless and Random modes read as Race.
+                let kind = match mode {
+                    ModePick::Mode(kind) => kind.rules(),
+                    ModePick::Random => ModeKind::Race,
+                };
+                let name = match (difficulty, *part) {
+                    (DifficultyPick::Random, _) => None,
+                    (_, Part::MagicSlot(_)) => Some(if slot == 0 { "spell_slot_light" } else { "spell_slot_dark" }),
+                    (DifficultyPick::Set(d), _) => crate::explain::slots(kind, d)[slot],
+                };
+                match (name.and_then(|n| image(n)), image_node) {
+                    (Some(handle), Some(mut img)) => {
+                        if img.image != handle {
+                            img.image = handle;
+                        }
+                        true
+                    }
+                    _ => false,
+                }
+            }
+            Part::ColumnWindow(column) => column == lobby.column,
+            Part::NeighbourBack(column, side) | Part::NeighbourPicture(column, side) => {
+                let count = match column {
+                    0 => modes.len(),
+                    1 => DifficultyPick::ALL.len(),
+                    _ => CUP_PICTURES.len().min(config.cups.sizes.len() + 1),
+                };
+                let at = match column {
+                    0 => lobby.mode,
+                    1 => lobby.difficulty,
+                    _ => cup_item,
+                };
+                let k = (at as i32 + side as i32).rem_euclid(count.max(1) as i32) as usize;
+                let back = matches!(*part, Part::NeighbourBack(..));
+                // The card: the difficulty background (Special's for Pro) behind the
+                // difficulty and cup pictures; mode pictures are whole cards.
+                let (name, offset, size) = match (column, back) {
+                    (0, true) => ("", (0.0, 0.0), ITEM_CARD),
+                    (0, false) => modes[k].picture(),
+                    (1, true) => (
+                        if DifficultyPick::ALL[k] == DifficultyPick::Set(Difficulty::Pro) {
+                            "menu_difficulty_background_special"
+                        } else {
+                            "menu_difficulty_background"
+                        },
+                        DIFFICULTY_BACK.0,
+                        DIFFICULTY_BACK.1,
+                    ),
+                    (1, false) => DifficultyPick::ALL[k].picture(),
+                    (_, true) => ("menu_difficulty_background", DIFFICULTY_BACK.0, DIFFICULTY_BACK.1),
+                    (_, false) => CUP_PICTURES[k],
+                };
+                let (window, wy) = WINDOW;
+                let at = (offset.0, offset.1 - side as f32 * ITEM_PITCH - wy);
+                node.left = Val::Percent((window.0 / 2.0 + at.0 - size.0 / 2.0) / window.0 * 100.0);
+                node.top = Val::Percent((window.1 / 2.0 - at.1 - size.1 / 2.0) / window.1 * 100.0);
+                node.width = Val::Percent(size.0 / window.0 * 100.0);
+                node.height = Val::Percent(size.1 / window.1 * 100.0);
+                match (image(name).or_else(|| (column == 1 && back).then(|| image("menu_difficulty_background")).flatten()), image_node) {
+                    (Some(handle), Some(mut img)) => {
+                        if img.image != handle {
+                            img.image = handle;
+                        }
+                        true
+                    }
+                    _ => false,
+                }
+            }
+            Part::ModeName(i) => LOCAL_MODES.iter().chain(SINGLE_MODES.iter()).nth(i) == Some(&mode),
             Part::Frame => {
                 // The frame slides to the active column.
                 move_node(&mut node, FRAME, (COLUMN_X[lobby.column] + FRAME_X, 0.0));

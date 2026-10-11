@@ -28,6 +28,7 @@ impl Plugin for WeatherPlugin {
                 Update,
                 (
                     set_up_weather,
+                    show_weather_in_menus,
                     rain,
                     lightning,
                     fit_weather,
@@ -35,6 +36,18 @@ impl Plugin for WeatherPlugin {
                 )
                     .chain(),
             );
+    }
+}
+
+/// Puts the weather on both render layers, so it shows behind the menus too.
+fn show_weather_in_menus(
+    mut commands: Commands,
+    added: Query<Entity, (Added<Weather>, Without<bevy::camera::visibility::RenderLayers>)>,
+) {
+    for entity in &added {
+        commands
+            .entity(entity)
+            .insert(bevy::camera::visibility::RenderLayers::from_layers(&[0, 1]));
     }
 }
 
@@ -156,16 +169,29 @@ fn set_up_weather(
     config: Res<GameConfig>,
     art: Res<Art>,
     game: Res<Match>,
+    menu_look: Option<Res<crate::visuals::MenuLook>>,
+    menu_scene: Option<Res<crate::visuals::MenuScene>>,
     mut state: ResMut<WeatherState>,
     camera: Query<Entity, With<Camera2d>>,
     old: Query<Entity, With<Weather>>,
 ) {
-    let in_match = game.phase != Phase::Menu;
-    let look = (
-        game.mode.rules(),
-        pro_look(game.mode, config.difficulty),
-        in_match,
-    );
+    // Behind the menus the picked mode's weather shows with its background (Select Mode,
+    // Endless); the plain Race scene has none. Over a match (and its pause) the match's.
+    let behind_menus = menu_scene.is_some_and(|s| s.0);
+    let picked = menu_look.and_then(|l| l.0).filter(|_| behind_menus);
+    let in_match = !behind_menus || picked.is_some();
+    let look = match picked {
+        Some((mode, special)) => (
+            mode.rules(),
+            pro_look(mode, special.then_some(crate::config::Difficulty::Pro)),
+            in_match,
+        ),
+        None => (
+            game.mode.rules(),
+            pro_look(game.mode, config.difficulty),
+            in_match,
+        ),
+    };
     if state.look == Some(look) && !art.is_changed() {
         return;
     }

@@ -116,7 +116,7 @@ impl Plugin for LettersPlugin {
         }
         app.add_systems(
             PostUpdate,
-            (mirror_texts, sync_mirrors, tidy_mirrors, follow_nodes, draw_letters)
+            (mirror_texts, sync_mirrors, tidy_mirrors, follow_nodes, redraw_when_fields_load, draw_letters)
                 .chain()
                 .before(bevy::ui::UiSystems::Prepare),
         );
@@ -282,6 +282,30 @@ fn follow_nodes(
 }
 
 /// Lays the letters out: one row per line, each letter cut from the sheet.
+/// Texts drawn before the distance fields had loaded used the plain letter pictures; once the
+/// fields are in, every text is drawn again from them.
+fn redraw_when_fields_load(
+    art: Res<Art>,
+    images: Option<Res<Assets<Image>>>,
+    mut texts: Query<&mut LetterText>,
+    mut done: Local<bool>,
+) {
+    if *done {
+        return;
+    }
+    let Some(images) = images else { return };
+    let mut fields = art.letters.values().filter_map(|l| l.sdf_handle.as_ref()).peekable();
+    if fields.peek().is_none() {
+        return;
+    }
+    if fields.all(|h| images.get(h).is_some()) {
+        *done = true;
+        for mut text in &mut texts {
+            text.set_changed();
+        }
+    }
+}
+
 fn draw_letters(
     mut commands: Commands,
     art: Res<Art>,
