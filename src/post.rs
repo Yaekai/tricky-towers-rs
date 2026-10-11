@@ -412,16 +412,17 @@ fn follow_pacer(
     game: Option<Res<crate::gameplay::Match>>,
     menu: Option<Res<crate::visuals::MenuScene>>,
     towers: Query<&crate::gameplay::TowerState>,
-    lines: Query<(&crate::visuals::FinishLine, &GlobalTransform, &InheritedVisibility)>,
+    lines: Query<(Entity, &crate::visuals::FinishLine, &GlobalTransform, &InheritedVisibility)>,
+    strips: Query<(&ChildOf, &bevy::camera::primitives::Aabb, &GlobalTransform), With<Sprite>>,
     mut cameras: Query<(&Camera, &GlobalTransform, &mut GreyOut)>,
     // Stopped or not, the grey when that last changed, and the time since.
     mut tween: Local<(bool, f32, f32)>,
 ) {
     let line = game
         .filter(|g| g.mode == crate::config::ModeKind::Endless && !menu.is_some_and(|m| m.0))
-        .and_then(|_| lines.iter().find(|(_, _, shown)| shown.get()));
+        .and_then(|_| lines.iter().find(|(_, _, _, shown)| shown.get()));
     let paused = line
-        .and_then(|(l, _, _)| towers.get(l.tower).ok())
+        .and_then(|(_, l, _, _)| towers.get(l.tower).ok())
         .is_some_and(|s| s.pacer_pause > 0.0);
     let (was, from, since) = &mut *tween;
     let now = pacer_effect(*was, *from, *since);
@@ -433,9 +434,21 @@ fn follow_pacer(
     let effect = pacer_effect(*was, *from, *since);
     for (camera, at, mut grey) in &mut cameras {
         let place = line
-            .and_then(|(_, line, _)| {
+            .and_then(|(entity, _, line, _)| {
                 let size = camera.logical_viewport_size()?;
-                let y = camera.world_to_viewport(at, line.translation()).ok()?.y;
+                // The original draws the line after its grab, so the grey starts under the
+                // line's picture, not at its middle.
+                let bottom = strips
+                    .iter()
+                    .filter(|(of, ..)| of.parent() == entity)
+                    .map(|(_, aabb, at)| {
+                        at.transform_point(Vec3::from(aabb.center - aabb.half_extents)).y
+                    })
+                    .fold(line.translation().y, f32::min);
+                let y = camera
+                    .world_to_viewport(at, line.translation().with_y(bottom))
+                    .ok()?
+                    .y;
                 Some(y / size.y)
             })
             .unwrap_or(2.0);
