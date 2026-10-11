@@ -125,6 +125,76 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
+const LANE_SHADER: Handle<Shader> =
+    bevy::asset::uuid_handle!("c83f1a26-7d49-4e5b-a0c2-5b9e14d7f638");
+
+const LANE_WGSL: &str = r#"// A dark cast's lane (Custom/BeamLaneShaderMultiply and Additive): the background behind
+// the lane, read sideways by a wobble of three sines up the screen, is multiplied by (or has
+// added) the lane picture times its tint, and mixed in by the picture's alpha times the
+// tint's. On stored (sRGB) values.
+#import bevy_sprite::{
+    mesh2d_vertex_output::VertexOutput,
+    mesh2d_view_bindings::{view, globals},
+}
+#import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
+
+struct BeamLane {
+    // The tint as the original's 0-1 values, with its alpha.
+    tint: vec4<f32>,
+    // x: 1 to add the light, 0 to multiply.
+    mode: vec4<f32>,
+};
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: BeamLane;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var picture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var picture_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var grab: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(4) var grab_sampler: sampler;
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let screen = (mesh.position.xy - view.viewport.xy) / view.viewport.zw;
+    // Unity's grab coordinates run up from the bottom; its _Time.z is twice the time.
+    let up = 1.0 - screen.y;
+    let p = up * vec3(6.238, 12.476, 18.714) + vec3(4.0 * globals.time);
+    let wobble = sin(p.x) * sin(p.y) * sin(p.z) * 0.03;
+    let back = linear_to_srgb(textureSample(grab, grab_sampler, vec2(screen.x + wobble, screen.y)).rgb);
+    let tex = textureSample(picture, picture_sampler, vec2(mesh.uv.x + wobble, mesh.uv.y));
+    let lane = linear_to_srgb(tex.rgb) * material.tint.rgb;
+    let o = select(lane * back, lane + back, material.mode.x > 0.5);
+    return vec4(srgb_to_linear(clamp(o, vec3(0.0), vec3(1.0))), tex.a * material.tint.a);
+}
+"#;
+
+/// A dark cast's lane over the grabbed background.
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct BeamLane {
+    #[uniform(0)]
+    pub tint: Vec4,
+    #[uniform(0)]
+    pub mode: Vec4,
+    #[texture(1)]
+    #[sampler(2)]
+    pub picture: Handle<Image>,
+    #[texture(3)]
+    #[sampler(4)]
+    pub grab: Handle<Image>,
+}
+
+impl Material2d for BeamLane {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(LANE_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
+/// Something drawn from the grabbed background: the grab camera runs while one shows.
+#[derive(Component)]
+pub struct NeedsGrab;
+
 /// The heat haze's quad: the grabbed background, drawn moved.
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 pub struct HeatHaze {
@@ -190,13 +260,14 @@ fn follow_grab(
     mut meshes: ResMut<Assets<Mesh>>,
     mut hazes: ResMut<Assets<HeatHaze>>,
     mut overlays: ResMut<Assets<GuideOverlay>>,
+    mut lanes: ResMut<Assets<BeamLane>>,
     main: Query<
         (Entity, &Camera, &Projection, &Transform),
         (With<crate::visuals::MainCamera>, Without<GrabCamera>, Without<Haze>),
     >,
     mut grab: Query<(&mut Camera, &mut Projection), With<GrabCamera>>,
     mut haze: Query<(&mut Transform, &mut Visibility), With<Haze>>,
-    guides: Query<&ViewVisibility, With<crate::visuals::DropGuide>>,
+    guides: Query<&ViewVisibility, Or<(With<crate::visuals::DropGuide>, With<NeedsGrab>)>>,
 ) {
     let Ok((eye, camera, projection, at)) = main.single() else {
         return;
@@ -265,6 +336,7 @@ fn follow_grab(
         // Their bind groups still hold the old picture until they change too.
         for _ in hazes.iter_mut() {}
         for _ in overlays.iter_mut() {}
+        for _ in lanes.iter_mut() {}
     }
     if let (Projection::Orthographic(from), Projection::Orthographic(to)) =
         (projection, &mut *grab_projection)
@@ -420,6 +492,7 @@ impl Plugin for PostPlugin {
                 GREY_SHADER.id(),
                 Shader::from_wgsl(GREY_WGSL, "grey_out.wgsl"),
             );
+            let _ = shaders.insert(LANE_SHADER.id(), Shader::from_wgsl(LANE_WGSL, "beam_lane.wgsl"));
             let _ = shaders.insert(HAZE_SHADER.id(), Shader::from_wgsl(HAZE_WGSL, "heat_haze.wgsl"));
             let _ = shaders.insert(
                 GUIDE_SHADER.id(),
@@ -429,6 +502,7 @@ impl Plugin for PostPlugin {
                 FullscreenMaterialPlugin::<GreyOut>::default(),
                 Material2dPlugin::<GuideOverlay>::default(),
                 Material2dPlugin::<HeatHaze>::default(),
+                Material2dPlugin::<BeamLane>::default(),
             ));
         }
     }

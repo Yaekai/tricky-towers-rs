@@ -281,6 +281,11 @@ fn spawn_victim_beams(
 #[derive(Component)]
 struct BeamFoot;
 
+/// A lane's quad drawn from the grabbed background (post::BeamLane), under its sprite,
+/// which then only keeps the size.
+#[derive(Component)]
+struct LaneQuad;
+
 #[allow(clippy::type_complexity)]
 fn run_beams(
     mut commands: Commands,
@@ -298,6 +303,13 @@ fn run_beams(
         Option<&Children>,
     )>,
     mut feet: Query<&mut Transform, (With<BeamFoot>, Without<Beam>, Without<crate::visuals::MainCamera>)>,
+    mut quads: Query<
+        &mut Transform,
+        (With<LaneQuad>, Without<BeamFoot>, Without<Beam>, Without<crate::visuals::MainCamera>),
+    >,
+    mut lane_looks: Option<ResMut<Assets<crate::post::BeamLane>>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    grab: Option<Res<crate::post::GrabTarget>>,
     mut images: Option<ResMut<Assets<Image>>>,
     mut glow: Local<Option<(Handle<Image>, Handle<Image>)>>,
 ) {
@@ -347,10 +359,50 @@ fn run_beams(
             };
             let lane = config.cells(config.lane_half_width * 2.0 + 2.0);
             sprite.custom_size = Some(Vec2::new(lane * open.clamp(0.0, 1.0), view_h));
-            // Survival's overlay is added light (BeamBackWorld2Mat, 39%), the others
-            // multiply the background (BeamBackWorld1Mat, 80%); sprites only blend,
-            // so the light one draws a whitened copy and the other a see-through tint.
+            transform.translation = Vec2::new(beam.lane_x, view_y).extend(LANE_Z);
+            // With the grab: Race's lane multiplies the background behind it by its
+            // picture (BeamBackWorld1Mat, 80%), Survival's adds light to it (BeamLane02,
+            // 39%), both read through the wobble.
             let survival = config.mode.look() == ModeKind::Survival;
+            let quad = children.and_then(|c| c.iter().find(|e| quads.contains(*e)));
+            match quad {
+                Some(quad) => {
+                    if let Ok(mut t) = quads.get_mut(quad) {
+                        t.scale = sprite.custom_size.unwrap_or(Vec2::ZERO).extend(1.0);
+                    }
+                    continue;
+                }
+                None => {
+                    if let (Some(looks), Some(meshes), Some(grab)) =
+                        (lane_looks.as_mut(), meshes.as_mut(), grab.as_ref())
+                    {
+                        let (tint, mode) = if survival {
+                            (Vec4::new(LANE_GLOW, LANE_GLOW, LANE_GLOW, 1.0), 1.0)
+                        } else {
+                            (Vec4::new(1.0, 1.0, 1.0, 0.8), 0.0)
+                        };
+                        let quad = commands
+                            .spawn((
+                                LaneQuad,
+                                crate::post::NeedsGrab,
+                                Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
+                                MeshMaterial2d(looks.add(crate::post::BeamLane {
+                                    tint,
+                                    mode: Vec4::new(mode, 0.0, 0.0, 0.0),
+                                    picture: sprite.image.clone(),
+                                    grab: grab.0.clone(),
+                                })),
+                                Transform::default(),
+                            ))
+                            .id();
+                        commands.entity(entity).add_child(quad);
+                        sprite.color = Color::NONE;
+                        continue;
+                    }
+                }
+            }
+            // Without the grab, sprites only blend: the light one draws a whitened copy and
+            // the other a see-through tint.
             let alpha = match (survival, art.image("cast_lane_beam").is_some()) {
                 (true, _) => 1.0,
                 (false, true) => LANE_TINT,
