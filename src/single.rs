@@ -242,7 +242,6 @@ const CAROUSEL_WIZARDS: usize = 14;
 const NEIGHBOUR_X: f32 = 405.0;
 /// The scroll panel draws its neighbours at full size (ScrollPanelComponent).
 const NEIGHBOUR_SCALE: f32 = 1.0;
-const CAROUSEL_ARROW_X: f32 = 205.0;
 
 impl Default for SingleMenu {
     fn default() -> Self {
@@ -414,13 +413,9 @@ pub(crate) fn spawn_single_screens(
                 place(small, (x + offset.0 * NEIGHBOUR_SCALE, SEAT_Y + offset.1)),
                 Carousel(side as i32),
             ));
-            if let Some(art) = image("menu_arrow") {
-                page.spawn((
-                    ImageNode::new(art),
-                    UiTransform::from_rotation(Rot2::degrees(90.0 * side)),
-                    place((40.0, 50.0), (CAROUSEL_ARROW_X * side, SEAT_Y)),
-                ));
-            }
+            // No arrows: the original shows them (ScrollPanelComponent) only while the
+            // wizard or pack is being chosen, and this screen is always on its list, with
+            // both chosen (AbstractSingleCharacterSelectStateController).
         }
         // The pack panel's neighbours (its own scroll panel), grey, with the packs
         // before and after the picked one.
