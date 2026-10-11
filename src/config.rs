@@ -2181,8 +2181,8 @@ pub struct CupPanel {
     pub panel_height: f32,
     pub panel_colour: (u8, u8, u8),
     /// The overlay over the match behind the panel: colour and opacity (the popup's
-    /// Modal layer (8, 5, 24) at 0.85 over a near-black 0.9 one). We blend in linear
-    /// colour, so 0.96 gives the clip's darkness.
+    /// Modal layer (8, 5, 24) at 0.847, over its background that turns the world grey,
+    /// post::GreyOut).
     pub dim_colour: (u8, u8, u8),
     pub dim: f32,
     /// The blue bar across the top: its top edge (above the panel) and height.
@@ -2258,7 +2258,7 @@ impl Default for CupPanel {
             panel_height: 301.0,
             panel_colour: (220, 227, 253),
             dim_colour: (8, 5, 24),
-            dim: 0.96,
+            dim: 0.847,
             bar_top: 254.0,
             bar_height: 18.0,
             bar_colour: (90, 113, 217),
@@ -2275,7 +2275,7 @@ impl Default for CupPanel {
             row_colour: (208, 215, 240),
             name_left: 783.0,
             name_top: -19.0,
-            name_size: 1.4,
+            name_size: 18.0 / 10.8,
             name_colour: (134, 144, 200),
             portrait_left: 778.0,
             portrait_size: 48.0,
@@ -2300,7 +2300,7 @@ impl Default for CupPanel {
                 (196, 128, 72),
                 (150, 150, 150),
             ],
-            continue_size: 2.6,
+            continue_size: 46.0 / 10.8,
             tab_left: 768.0,
             tab_width: 361.0,
             tab_bottom: 617.0,

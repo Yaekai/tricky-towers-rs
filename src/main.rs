@@ -152,6 +152,7 @@ fn main() {
         tricky_towers::brick_material::BrickMaterialPlugin,
         tricky_towers::scene_material::SceneMaterialPlugin,
         tricky_towers::ui_material::MenuMaterialPlugin,
+        tricky_towers::post::PostPlugin,
     ));
     // Endless scores are kept between runs, except in offscreen picture runs.
     if offscreen.is_none() {

@@ -236,8 +236,9 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                         Part::Title
                     )],
                 ));
+                // TournamentResultsItem's PlayerName: 18 px Enzo.
                 let name_look = TextLook {
-                    body: true,
+                    body: false,
                     face: Some(rgb(p.name_colour)),
                     outline: None,
                 };
@@ -318,24 +319,60 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                     root.spawn((at(0.0, 0.0, 0.0, 0.0), blank(), Part::Deco(right, leaves)));
                 }
             }
+            // CONTINUE on its picked-item bar, centred 35 px under the panel
+            // (TournamentResultsPopup's ConfirmButton: EnzoBlackGold46 on the 28 px high
+            // gph_menuItemSelectedBackground).
+            let bar = art.as_ref().and_then(|a| a.image("menu_item_selected"));
             root.spawn((
                 Node {
                     position_type: PositionType::Absolute,
                     left: Val::Percent(50.0),
-                    margin: UiRect::left(px(p.tab_left - SCREEN.0 / 2.0)),
-                    width: px(p.tab_width),
-                    height: px(p.tab_bottom - p.panel_top - p.panel_height),
-                    top: px(p.panel_top + p.panel_height),
+                    margin: UiRect::left(px(-CONTINUE_BOX.0 / 2.0)),
+                    width: px(CONTINUE_BOX.0),
+                    height: px(CONTINUE_BOX.1),
+                    top: px(p.tab_bottom + CONTINUE_BELOW - CONTINUE_BOX.1 / 2.0),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
                 },
                 Visibility::Hidden,
                 Part::Continue,
-                children![label_with(p.continue_size, "Continue", TextLook::OUTLINED)],
-            ));
+            ))
+            .with_children(|c| {
+                if let Some(bar) = bar {
+                    c.spawn((
+                        ImageNode::new(bar).with_mode(NodeImageMode::Sliced(TextureSlicer {
+                            border: BorderRect {
+                                min_inset: Vec2::new(16.0, 0.0),
+                                max_inset: Vec2::new(5.0, 0.0),
+                            },
+                            ..default()
+                        })),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: px(CONTINUE_BAR.0),
+                            height: px(CONTINUE_BAR.1),
+                            ..default()
+                        },
+                    ));
+                }
+                c.spawn(label_with(
+                    p.continue_size,
+                    "Continue",
+                    TextLook {
+                        face: Some(Color::srgb(1.0, 0.84, 0.2)),
+                        ..TextLook::OUTLINED
+                    },
+                ));
+            });
         });
 }
+
+/// The CONTINUE box, how far under the panel's picture (its tab included) its middle sits,
+/// and its bar.
+const CONTINUE_BOX: (f32, f32) = (400.0, 60.0);
+const CONTINUE_BELOW: f32 = 35.0;
+const CONTINUE_BAR: (f32, f32) = (280.0, 28.0);
 
 fn set_box(node: &mut Node, x: f32, y: f32, w: f32, h: f32) {
     let want = (px(x), px(y), px(w), px(h));
@@ -375,9 +412,17 @@ fn show_cup_panel(
         Option<&mut BackgroundColor>,
     )>,
     mut texts: Query<(&Part, &mut Text)>,
+    grey: Option<ResMut<crate::post::GreyTarget>>,
 ) {
     let p = &config.cup_panel;
     let up = popup.panel_up(&cup, p);
+    // Behind the standings the world turns grey (the popup's Black & White background).
+    if let Some(mut grey) = grey {
+        let want = if up { 1.0 } else { 0.0 };
+        if grey.0 != want {
+            grey.0 = want;
+        }
+    }
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
     let order: Vec<usize> = cup.standings.clone().unwrap_or_else(|| {
         let mut order: Vec<usize> = (0..cup.points.len()).collect();
@@ -554,7 +599,7 @@ fn show_cup_panel(
             }
             Part::Continue => {
                 visibility.set_if_neq(shown(popup.panel_continue(&cup, &config)));
-                let top = px(p.panel_top + p.panel_height + grow);
+                let top = px(p.tab_bottom + grow + CONTINUE_BELOW - CONTINUE_BOX.1 / 2.0);
                 if node.top != top {
                     node.top = top;
                 }
