@@ -79,7 +79,7 @@ impl Plugin for MenuPlugin {
         )
         .add_systems(
             Update,
-            record_endless_scores,
+            (record_endless_scores, crate::single::turn_single_rays),
         );
     }
 }

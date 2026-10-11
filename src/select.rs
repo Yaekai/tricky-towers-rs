@@ -1673,12 +1673,12 @@ pub fn wizard_name(wizard: usize) -> String {
 
 /// One turning sunray layer filling a panel of `size`, cut to it: drawn by the turning
 /// material when there is one, else a turned picture (which isn't cut).
-fn turning_rays(
+pub(crate) fn turning_rays(
     clip: &mut ChildSpawnerCommands,
     turning: &mut Option<ResMut<Assets<crate::ui_material::TurningPicture>>>,
     rays: Handle<Image>,
     size: (f32, f32),
-    part: Part,
+    part: impl Bundle,
 ) {
     // The ray pictures are 556 px square.
     let share = Vec2::new(556.0 / size.0, 556.0 / size.1);

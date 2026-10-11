@@ -145,7 +145,31 @@ pub(crate) struct Carousel(i32);
 #[derive(Component)]
 pub(crate) struct ListRibbon(usize);
 
-/// Shows the ribbon on the picked list button, with its words outlined white on it.
+/// The list buttons' words (SinglePlayerSelectButton and ...ButtonEndless): Trials in
+/// EnzoBlackWhite32, Endless in EnzoBlackGoldRedOutline26 (the gold face, a wine outline)
+/// on the cup band its button always carries; their sizes.
+const LIST_LOOKS: [(crate::letters::TextLook, f32); 2] = [
+    (
+        crate::letters::TextLook {
+            body: false,
+            face: Some(Color::srgb(0.918, 0.933, 1.0)),
+            outline: Some(Color::srgb(0.169, 0.035, 0.137)),
+            low: None,
+        },
+        32.0,
+    ),
+    (
+        crate::letters::TextLook {
+            outline: Some(Color::srgb(0.318, 0.043, 0.180)),
+            ..crate::letters::TextLook::GOLD
+        },
+        27.4,
+    ),
+];
+/// The list button whose prefab has the cup band (Endless).
+const BANDED: usize = 1;
+
+/// Each list button's words in its own look, and the cup band on Endless's.
 pub(crate) fn show_list_ribbon(
     menu: Res<SingleMenu>,
     mut ribbons: Query<(&ListRibbon, &mut Visibility)>,
@@ -155,26 +179,41 @@ pub(crate) fn show_list_ribbon(
         return;
     }
     for (ribbon, mut visibility) in &mut ribbons {
-        visibility.set_if_neq(shown(ribbon.0 == menu.selected));
+        visibility.set_if_neq(shown(ribbon.0 == BANDED));
     }
-    for (item, mut look, mut color) in &mut words {
-        if let Item::ListText(i) = *item {
-            let (want, face) = if i == menu.selected {
-                (crate::letters::TextLook::OUTLINED, Color::WHITE)
-            } else {
-                (crate::letters::TextLook::BODY, color.0)
-            };
-            look.set_if_neq(want);
-            if color.0 != face {
-                color.0 = face;
-            }
+    for (item, mut look, _) in &mut words {
+        if let Item::ListText(i) = *item
+            && let Some((want, _)) = LIST_LOOKS.get(i)
+        {
+            look.set_if_neq(*want);
+        }
+    }
+}
+
+/// A sun ray layer on the picked pack panel, turning like the other menus' rays.
+#[derive(Component)]
+pub(crate) struct SingleRay(usize);
+
+/// Turns the pack panel's rays (GameConfig::menu.ray_turns).
+pub(crate) fn turn_single_rays(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    rays: Query<(&SingleRay, &MaterialNode<crate::ui_material::TurningPicture>)>,
+    mut turning: Option<ResMut<Assets<crate::ui_material::TurningPicture>>>,
+) {
+    let Some(turning) = turning.as_mut() else { return };
+    let t = time.elapsed_secs();
+    for (ray, picture) in &rays {
+        if let Some(&(degrees, seconds)) = config.menu.ray_turns.get(ray.0) {
+            let turn = Rot2::degrees(degrees * (t / seconds.max(0.01)).fract());
+            crate::ui_material::set_turn(turning, &picture.0, turn.as_radians());
         }
     }
 }
 
 /// The brick pack card under the carousel.
 #[derive(Component)]
-pub(crate) struct PackCard;
+pub(crate) struct PackCard(i32);
 
 /// An Indie guest's game logo over its carousel panel (slot as in `Carousel`).
 #[derive(Component)]
@@ -198,7 +237,8 @@ const CAROUSEL_WIZARDS: usize = 14;
 /// The neighbours' panels and the arrows, from the screen centre (Max's
 /// screenshots of the original, ?).
 const NEIGHBOUR_X: f32 = 405.0;
-const NEIGHBOUR_SCALE: f32 = 0.85;
+/// The scroll panel draws its neighbours at full size (ScrollPanelComponent).
+const NEIGHBOUR_SCALE: f32 = 1.0;
 const CAROUSEL_ARROW_X: f32 = 205.0;
 
 impl Default for SingleMenu {
@@ -307,6 +347,7 @@ pub(crate) enum Item {
 pub(crate) fn spawn_single_screens(
     mut commands: Commands,
     art: Option<Res<Art>>,
+    mut turning: Option<ResMut<Assets<crate::ui_material::TurningPicture>>>,
 ) {
     let art = art.as_deref();
     let image = |name: &str| art.and_then(|a| a.image(name));
@@ -378,14 +419,63 @@ pub(crate) fn spawn_single_screens(
                 ));
             }
         }
-        // The brick pack panel under the seat; no name plate here.
-        let mut pack = page.spawn((
-            place(PACK_PANEL.0, (0.0, SEAT_Y - PACK_BELOW_SEAT)),
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
-        ));
-        if let Some(grey) = image("menu_player_select_background_deselected") {
-            pack.insert((sliced(grey, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+        // The pack panel's neighbours (its own scroll panel), grey, with the packs
+        // before and after the picked one.
+        for side in [-1i32, 1] {
+            let mut grey = page.spawn((
+                place(PACK_PANEL.0, (NEIGHBOUR_X * side as f32, SEAT_Y - PACK_BELOW_SEAT)),
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
+            ));
+            if let Some(art) = image("menu_player_select_background_deselected") {
+                grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+            }
+            grey.with_children(|p| {
+                p.spawn((
+                    ImageNode::default(),
+                    Node {
+                        width: Val::Percent(90.0),
+                        height: Val::Percent(80.0),
+                        margin: UiRect::AUTO,
+                        ..default()
+                    },
+                    PackCard(side),
+                    Visibility::Hidden,
+                ));
+            });
         }
+        // The brick pack panel under the seat, picked (its item's Selected: the orange
+        // panel and turning rays cut to 327 x 95, then the dark frame); no name plate.
+        let pack_at = (0.0, SEAT_Y - PACK_BELOW_SEAT);
+        let clip = (PACK_PANEL.0.0 - 5.0, PACK_PANEL.0.1 - 5.0);
+        page.spawn((
+            Node {
+                overflow: Overflow::clip(),
+                ..place(clip, pack_at)
+            },
+            BackgroundColor(Color::srgba(1.0, 0.8, 0.3, 0.35)),
+        ))
+        .with_children(|c| {
+            if let Some(back) = image("menu_player_select_background_selected") {
+                c.spawn((
+                    sliced(back, [PANEL_SLICE; 4]),
+                    Node {
+                        position_type: PositionType::Absolute,
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        ..default()
+                    },
+                ));
+            }
+            for layer in 0..5 {
+                if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
+                    crate::select::turning_rays(c, &mut turning, rays, clip, SingleRay(layer));
+                }
+            }
+        });
+        if let Some(outline) = image("menu_player_select_outline") {
+            page.spawn((sliced(outline, [PANEL_SLICE; 4]), place(PACK_PANEL.0, pack_at)));
+        }
+        let mut pack = page.spawn(place(PACK_PANEL.0, pack_at));
         // The picked brick pack's card on it, as on Select Players.
         pack.with_children(|p| {
             p.spawn((
@@ -396,7 +486,7 @@ pub(crate) fn spawn_single_screens(
                     margin: UiRect::AUTO,
                     ..default()
                 },
-                PackCard,
+                PackCard(0),
                 Visibility::Hidden,
             ));
         });
@@ -436,7 +526,8 @@ pub(crate) fn spawn_single_screens(
                 });
             }
             node.with_children(|b| {
-                b.spawn((label(3.2, name), Item::ListText(index)));
+                let size = LIST_LOOKS.get(index).map_or(32.0, |l| l.1);
+                b.spawn((label(size / 10.8, name), Item::ListText(index)));
             });
             if let Some(corner) = &corner {
                 let frame = (
@@ -977,7 +1068,7 @@ pub(crate) fn show_carousel(
         (&Carousel, &mut ImageNode, &mut Visibility),
         (Without<PackCard>, Without<CarouselLogo>),
     >,
-    mut cards: Query<(&mut ImageNode, &mut Visibility), (With<PackCard>, Without<Carousel>)>,
+    mut cards: Query<(&PackCard, &mut ImageNode, &mut Visibility), Without<Carousel>>,
     mut logos: Query<
         (&CarouselLogo, &mut ImageNode, &mut Visibility, &mut Node),
         (Without<PackCard>, Without<Carousel>),
@@ -986,15 +1077,19 @@ pub(crate) fn show_carousel(
     if !menu.is_changed() && !art.as_ref().is_some_and(|a| a.is_changed()) {
         return;
     }
-    // The Spring pack's card is the original's Easter one.
-    let key = match config.skins.first().map(|s| s.1).unwrap_or_default() {
-        crate::config::BrickPack::Spring => "easter",
-        pack => pack.key(),
-    };
-    let card = art
-        .as_ref()
-        .and_then(|a| a.image(&format!("brick_pack_{key}")));
-    for (mut node, mut visibility) in &mut cards {
+    let packs = crate::select::available_packs(art.as_deref());
+    let picked = config.skins.first().map(|s| s.1).unwrap_or_default();
+    let at = packs.iter().position(|p| *p == picked).unwrap_or(0) as i32;
+    for (slot, mut node, mut visibility) in &mut cards {
+        let pack = packs[(at + slot.0).rem_euclid(packs.len().max(1) as i32) as usize];
+        // The Spring pack's card is the original's Easter one.
+        let key = match pack {
+            crate::config::BrickPack::Spring => "easter",
+            pack => pack.key(),
+        };
+        let card = art
+            .as_ref()
+            .and_then(|a| a.image(&format!("brick_pack_{key}")));
         match &card {
             Some(image) => {
                 node.image = image.clone();
