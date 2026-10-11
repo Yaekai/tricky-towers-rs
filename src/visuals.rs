@@ -363,8 +363,8 @@ struct TrialClock(f32);
 
 /// The race finish line or puzzle laser over a tower; both can come down.
 #[derive(Component)]
-struct FinishLine {
-    tower: Entity,
+pub(crate) struct FinishLine {
+    pub(crate) tower: Entity,
 }
 
 /// Fog over a tower hit by Mist.
