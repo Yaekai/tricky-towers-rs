@@ -176,8 +176,15 @@ fn start_moments(
     images: Res<Assets<Image>>,
     towers: Query<(Entity, &Tower, &TowerState)>,
     moments: Query<Entity, With<Moment>>,
+    camera: Query<&Projection, With<crate::visuals::MainCamera>>,
     mut seen: Local<(u64, HashSet<(Entity, bool)>)>,
 ) {
+    // World text: a cell's size on the screen now.
+    let cell_px = config.cell_size
+        / match camera.single() {
+            Ok(Projection::Orthographic(o)) => o.scale.max(0.001),
+            _ => 1.0,
+        };
     if game.phase == Phase::Menu || seen.0 != game.round {
         for entity in &moments {
             commands.entity(entity).despawn();
@@ -206,9 +213,9 @@ fn start_moments(
     } else {
         (
             "WINNER!",
-            look.banner_size,
+            look.banner_cells * cell_px,
             "WIZARD OUT!",
-            look.banner_size * 0.75,
+            look.banner_cells * cell_px * 0.75,
         )
     };
     // The winner's roof goes on before WINNER!, the spotlight and the veils.
@@ -236,8 +243,8 @@ fn start_moments(
                         Node {
                             grid_row: GridPlacement::start(1),
                             grid_column: GridPlacement::start(1),
-                            width: Val::Px(look.banner_size * 4.0),
-                            height: Val::Px(look.banner_size * 4.0),
+                            width: Val::Px(win_size * 4.0),
+                            height: Val::Px(win_size * 4.0),
                             ..default()
                         },
                         UiTransform::default(),
@@ -438,8 +445,9 @@ fn animate_banners(
     time: Res<Time>,
     config: Res<GameConfig>,
     view: Res<ViewSize>,
-    camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
-    towers: Query<&Tower>,
+    game: Res<Match>,
+    camera: Query<(&Camera, &GlobalTransform, &Projection), With<crate::visuals::MainCamera>>,
+    towers: Query<(&Tower, &TowerState)>,
     mut banners: Query<(
         Entity,
         &mut Banner,
@@ -451,26 +459,34 @@ fn animate_banners(
     mut rays: Query<&mut UiTransform, (With<Sunrays>, Without<Banner>, Without<Trophy>)>,
     mut cups: Query<&mut UiTransform, (With<Trophy>, Without<Banner>, Without<Sunrays>)>,
 ) {
-    let Ok((camera, eye)) = camera.single() else {
+    let Ok((camera, eye, projection)) = camera.single() else {
         return;
     };
     let look = &config.moments;
+    let half_view = view.0.y * 0.5
+        * match projection {
+            Projection::Orthographic(o) => o.scale,
+            _ => 1.0,
+        };
+    let view_top = eye.translation().y + half_view;
     let dt = time.delta_secs();
     for (entity, mut banner, mut node, computed, mut transform, mut visibility) in &mut banners {
         banner.time += dt;
-        let Ok(tower) = towers.get(banner.tower) else {
+        let Ok((tower, state)) = towers.get(banner.tower) else {
             continue;
         };
-        let Ok(at) = camera.world_to_viewport(eye, Vec3::new(tower.origin_x, 0.0, 0.0)) else {
+        // WINNER! stands 10 cells over its tower's top, or in Puzzle 11 under the view's
+        // top; WIZARD OUT! drops in to the middle of the upper screen.
+        let world_y = if game.mode.rules() == ModeKind::Puzzle {
+            view_top - config.cells(look.winner_below_top)
+        } else {
+            config.cells(state.height.max(0.0) + look.winner_above)
+        };
+        let Ok(at) = camera.world_to_viewport(eye, Vec3::new(tower.origin_x, world_y, 0.0)) else {
             continue;
         };
-        centre_on(
-            &mut node,
-            computed,
-            Vec2::new(at.x, view.0.y * 0.35),
-            view.0,
-            1.4,
-        );
+        let y = if banner.out { view.0.y * 0.35 } else { at.y };
+        centre_on(&mut node, computed, Vec2::new(at.x, y), view.0, 1.4);
         // Shown once laid out, so it never flashes in the wrong place.
         if computed.size().x > 0.0 {
             visibility.set_if_neq(Visibility::Inherited);
@@ -525,7 +541,13 @@ fn show_puzzle_scores(
     time: Res<Time>,
     mut counted: Local<Option<(u64, f32)>>,
     mut labels: Local<HashMap<Entity, (String, Entity)>>,
+    camera: Query<&Projection, With<crate::visuals::MainCamera>>,
 ) {
+    let cell_px = config.cell_size
+        / match camera.single() {
+            Ok(Projection::Orthographic(o)) => o.scale.max(0.001),
+            _ => 1.0,
+        };
     let battle = game.mode.rules() == ModeKind::Puzzle
         && config.trial.is_none()
         && game.phase != Phase::Menu;
@@ -602,7 +624,7 @@ fn show_puzzle_scores(
                 old.despawn();
             }
         }
-        let label = spawn_match_text(&mut commands, &config, &words, config.moments.banner_size, colour);
+        let label = spawn_match_text(&mut commands, &config, &words, config.moments.score_cells * cell_px, colour);
         commands
             .entity(label)
             .insert((PuzzleScore { tower: entity }, Visibility::Hidden));
@@ -627,7 +649,9 @@ fn place_puzzle_scores(
         let Ok(at) = camera.world_to_viewport(eye, Vec3::new(tower.origin_x, 0.0, 0.0)) else {
             continue;
         };
-        centre_on(&mut node, computed, Vec2::new(at.x, view.0.y * 0.2), view.0, 1.0);
+        // The final count's middle, 0.156 of the view down (Max's Puzzle cup clip; the
+        // original's count rides up with the bricks it counts, which isn't done here).
+        centre_on(&mut node, computed, Vec2::new(at.x, view.0.y * 0.156), view.0, 1.0);
         if computed.size().x > 0.0 {
             visibility.set_if_neq(Visibility::Inherited);
         }

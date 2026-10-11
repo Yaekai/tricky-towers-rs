@@ -1762,6 +1762,17 @@ impl Default for WaveRules {
 pub struct MatchMoments {
     /// Size of banner text (WINNER!, WIZARD OUT!) and of the countdown, in pixels.
     pub banner_size: f32,
+    /// The original's WinMessage is world text, so it is sized in cells and grows and
+    /// shrinks with the camera: WINNER!'s letter size and Puzzle's score digits (both
+    /// measured on Max's Puzzle cup clip, 1080 high over 40 cells: WINNER! 331 px wide,
+    /// a digit 82 px tall).
+    pub banner_cells: f32,
+    pub score_cells: f32,
+    /// Where WINNER! stands: this many cells over its tower's top (and 2 lower on a roofed
+    /// tower that didn't win; AbstractGameBaskController), or in Puzzle this many under
+    /// the view's top (PuzzleGameBaskController).
+    pub winner_above: f32,
+    pub winner_below_top: f32,
     pub countdown_size: f32,
     /// Shadow under match text, as a share of the text size, and its colour (0-255).
     pub shadow_drop: f32,
@@ -1818,6 +1829,10 @@ impl Default for MatchMoments {
     fn default() -> Self {
         Self {
             banner_size: 96.0,
+            banner_cells: 2.8,
+            score_cells: 4.2,
+            winner_above: 10.0,
+            winner_below_top: 11.0,
             countdown_size: 72.0,
             shadow_drop: 0.06,
             shadow_color: [227, 33, 61],
