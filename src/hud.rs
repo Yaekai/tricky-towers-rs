@@ -21,6 +21,7 @@ pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Startup, spawn_scores).add_systems(Update, show_scores);
         app.add_systems(
             Update,
             (
@@ -596,6 +597,164 @@ fn fade_losers(
                 sprite.color = sprite.color.mix(&pale, look.loser_mix).with_alpha(alpha);
                 commands.entity(entity).insert(Faded);
             }
+        }
+    }
+}
+/// A piece of the Endless score panels (RaceLeaderboardHUD, EndlessPuzzleHUD): the score
+/// on the left of the next-brick card (BricksViewLeaderboardBackground/Foreground) and the
+/// personal best in the top-right corner (HighscoreView).
+#[derive(Component, Clone, Copy, PartialEq)]
+enum ScorePart {
+    Root,
+    Score,
+    Best,
+}
+
+/// A box on the 1920 x 1080 screen from its top-left corner: `centred` boxes keep their
+/// place from the screen's middle, the others from its right edge.
+fn hud_box(x: f32, y: f32, w: f32, h: f32, centred: bool) -> Node {
+    let k = |v: f32| Val::Vh(v / 10.8);
+    let mut node = Node {
+        position_type: PositionType::Absolute,
+        top: k(y),
+        width: k(w),
+        height: k(h),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        ..default()
+    };
+    if centred {
+        node.left = Val::Percent(50.0);
+        node.margin = UiRect::left(k(x - 960.0));
+    } else {
+        node.right = k(1920.0 - x - w);
+    }
+    node
+}
+
+fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
+    use crate::letters::TextLook;
+    use crate::select::label_with;
+    let back = art.as_ref().and_then(|a| a.image("menu_info_background"));
+    // gph_menuInfoBackground's 9-slice: left 9, right 5, bottom 14.
+    let panel = |image: &Handle<Image>| crate::popup::sliced(image.clone(), [9.0, 5.0, 0.0, 14.0]);
+    // The labels' words end at their box's right edge.
+    let to_right = |node: Node| Node {
+        justify_content: JustifyContent::FlexEnd,
+        ..node
+    };
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            },
+            GlobalZIndex(5),
+            Visibility::Hidden,
+            ScorePart::Root,
+        ))
+        .with_children(|root| {
+            if let Some(back) = &back {
+                // 492 x 188, its top-right corner 71 px left of the middle and 119.5 px
+                // over the screen's top.
+                root.spawn((
+                    hud_box(960.0 - 71.045 - 492.0, -119.5, 492.0, 188.0, true),
+                    panel(back),
+                ));
+                // 327 x 191, 125 px past the right edge and 122 px over the top.
+                root.spawn((
+                    hud_box(1920.0 + 125.0 - 327.44, -122.0, 327.44, 191.3, false),
+                    panel(back),
+                ));
+            }
+            // SCORE: (EnzoBlackMilkyWhiteOutline46 at 64) ends 342 px left of the middle.
+            root.spawn(to_right(hud_box(960.0 - 342.0 - 268.4, 0.3, 268.4, 80.0, true)))
+                .with_children(|b| {
+                    b.spawn(label_with(64.0 / 10.8, "SCORE:", TextLook::TITLE));
+                });
+            // The score (EnzoBlackGold75) centred 253.5 px left of the middle.
+            root.spawn(hud_box(
+                960.0 - 253.5 - 100.0,
+                45.4 - 50.0,
+                200.0,
+                100.0,
+                true,
+            ))
+            .with_children(|b| {
+                b.spawn((
+                    label_with(75.0 / 10.8, "0", TextLook::GOLD),
+                    ScorePart::Score,
+                ));
+            });
+            // PERSONAL BEST: (26) ends 32 px from the right edge; the best (EnzoBlackGold60)
+            // centred 91 px from it.
+            root.spawn(to_right(hud_box(1920.0 - 32.0 - 268.3, -5.0, 268.3, 50.0, false)))
+                .with_children(|b| {
+                    b.spawn(label_with(26.0 / 10.8, "PERSONAL BEST:", TextLook::TITLE));
+                });
+            root.spawn(hud_box(
+                1920.0 - 91.0 - 100.0,
+                64.5 - 50.0,
+                200.0,
+                100.0,
+                false,
+            ))
+            .with_children(|b| {
+                b.spawn((
+                    label_with(60.0 / 10.8, "0", TextLook::GOLD),
+                    ScorePart::Best,
+                ));
+            });
+        });
+}
+
+/// Shows the Endless score panels while an Endless run plays: the score (Endless Race's
+/// height score, the bricks in the tower otherwise) and the best of it and the mode's
+/// leaderboard (HighscoreView).
+fn show_scores(
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    board: Option<Res<crate::single::Leaderboard>>,
+    towers: Query<(&Tower, &TowerState)>,
+    mut parts: Query<(&ScorePart, &mut Visibility)>,
+    mut texts: Query<(&ScorePart, &mut Text)>,
+) {
+    let index = game.mode.endless_index();
+    let on = index.is_some() && game.phase != Phase::Menu;
+    for (part, mut visibility) in &mut parts {
+        if *part == ScorePart::Root {
+            visibility.set_if_neq(if on {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            });
+        }
+    }
+    let Some(index) = index.filter(|_| on) else {
+        return;
+    };
+    let score = towers
+        .iter()
+        .find(|(t, _)| t.human)
+        .map_or(0, |(_, state)| match game.mode {
+            ModeKind::Endless => config.endless.score(state.best_height),
+            _ => state.endless_score(),
+        });
+    let best = board
+        .as_ref()
+        .and_then(|b| b.scores[index].first().copied())
+        .unwrap_or(0)
+        .max(score);
+    for (part, mut text) in &mut texts {
+        let words = match part {
+            ScorePart::Score => score.to_string(),
+            ScorePart::Best => best.to_string(),
+            ScorePart::Root => continue,
+        };
+        if text.0 != words {
+            text.0 = words;
         }
     }
 }
