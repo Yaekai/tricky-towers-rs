@@ -1805,8 +1805,16 @@ pub struct MatchMoments {
     pub shadow_color: [u8; 3],
     /// WINNER! takes this long to move in.
     pub winner_in: f32,
-    /// WIZARD OUT! moves in, stays, then moves out, in seconds.
-    pub out_times: (f32, f32, f32),
+    /// WIZARD OUT! (LoseMessage, Survival only): its letter size in cells (font 20 against
+    /// WINNER!'s 32.75), and its height in cells off `winner_above` over the tower as it
+    /// moves in (MoveInLose; shown from `out_show`), bobs (IdleLose, looping) and moves out
+    /// when the match ends (MoveOutLose; hidden after `out_hide`).
+    pub out_cells: f32,
+    pub out_in: Vec<(f32, f32)>,
+    pub out_idle: Vec<(f32, f32)>,
+    pub out_leave: Vec<(f32, f32)>,
+    pub out_show: f32,
+    pub out_hide: f32,
     /// The winner's beam: seconds before it fades in, the fade, its width in cells, and
     /// its opacity in Race, Survival and Puzzle.
     pub spotlight_delay: f32,
@@ -1864,7 +1872,12 @@ impl Default for MatchMoments {
             shadow_drop: 0.06,
             shadow_color: [227, 33, 61],
             winner_in: 2.6,
-            out_times: (2.0, 2.0, 1.0),
+            out_cells: 1.71,
+            out_in: vec![(0.0, 0.0), (1.0, 0.0), (1.4, -1.2036), (1.4833, -1.4055), (2.0, -1.39)],
+            out_idle: vec![(0.0, -1.39), (1.0, -1.566), (2.0, -1.39)],
+            out_leave: vec![(0.0, -1.39), (0.1167, -1.1898), (0.25, -1.3158), (0.6667, -1.9652), (1.0, -4.4696)],
+            out_show: 1.16,
+            out_hide: 0.75,
             spotlight_delay: 0.5,
             spotlight_fade: 1.0,
             spotlight_width: 1.5,

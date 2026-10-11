@@ -7,7 +7,7 @@ use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::brick_material::BrickFlash;
-use crate::config::{GameConfig, ModeKind};
+use crate::config::{keyed, GameConfig, ModeKind};
 use crate::gameplay::{Brick, Match, Phase, Placed, Tower, TowerState, TowerStatus};
 use crate::spells::Zapped;
 use crate::visuals::{FramedCamera, ViewSize};
@@ -82,6 +82,8 @@ struct Banner {
     tower: Entity,
     out: bool,
     time: f32,
+    /// WIZARD OUT!: seconds since it began to move out, once the match is over.
+    leave: Option<f32>,
 }
 
 /// The countdown over a tower holding past the race finish.
@@ -217,7 +219,7 @@ fn start_moments(
             "WINNER!",
             look.banner_cells * cell_px,
             "WIZARD OUT!",
-            look.banner_cells * cell_px * 0.75,
+            look.out_cells * cell_px,
         )
     };
     // The winner's roof goes on before WINNER!, the spotlight and the veils.
@@ -236,6 +238,7 @@ fn start_moments(
                 tower: entity,
                 out: false,
                 time: 0.0,
+                leave: None,
             });
             if let Some(image) = art.image("winner_sunrays") {
                 let rays = commands
@@ -271,9 +274,9 @@ fn start_moments(
                 Color::WHITE,
             );
         }
-        // Puzzle has no WIZARD OUT!: a stopped tower just stops (its bricks are counted).
+        // Only Survival says WIZARD OUT! (its finish message); trials say FAILED.
         if state.status == TowerStatus::Out
-            && game.mode.rules() != ModeKind::Puzzle
+            && (config.trial.is_some() || game.mode.rules() == ModeKind::Survival)
             && seen.1.insert((entity, false))
         {
             let color = tone_color(&art, &images, Tone::Red);
@@ -282,6 +285,7 @@ fn start_moments(
                 tower: entity,
                 out: true,
                 time: 0.0,
+                leave: None,
             });
         }
     }
@@ -436,10 +440,6 @@ fn ease_out_elastic(x: f32) -> f32 {
     2f32.powf(-10.0 * x) * ((10.0 * x - 0.75) * std::f32::consts::TAU / 3.0).sin() + 1.0
 }
 
-fn ease_out(x: f32) -> f32 {
-    1.0 - (1.0 - x.clamp(0.0, 1.0)).powi(3)
-}
-
 /// Moves the banners in, keeps them over their lane, and moves WIZARD OUT! away again.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn animate_banners(
@@ -479,34 +479,46 @@ fn animate_banners(
             continue;
         };
         // WINNER! stands 10 cells over its tower's top, or in Puzzle 11 under the view's
-        // top; WIZARD OUT! drops in to the middle of the upper screen.
+        // top; WIZARD OUT! too, moved by its clips (GameFinishController).
+        let t = banner.time;
+        if banner.out && game.phase == Phase::Over && banner.leave.is_none() {
+            banner.leave = Some(0.0);
+        }
+        if let Some(leave) = banner.leave.as_mut() {
+            *leave += dt;
+        }
+        let drop = match (banner.out, banner.leave) {
+            (false, _) => 0.0,
+            (true, Some(leave)) => keyed(&look.out_leave, leave),
+            (true, None) => {
+                let moved_in = look.out_in.last().map_or(0.0, |k| k.0);
+                let idle = look.out_idle.last().map_or(1.0, |k| k.0).max(0.01);
+                if t < moved_in {
+                    keyed(&look.out_in, t)
+                } else {
+                    keyed(&look.out_idle, (t - moved_in) % idle)
+                }
+            }
+        };
         let world_y = if game.mode.rules() == ModeKind::Puzzle {
             view_top - config.cells(look.winner_below_top)
         } else {
-            config.cells(state.height.max(0.0) + look.winner_above)
+            config.cells(state.height.max(0.0) + look.winner_above + drop)
         };
         let Ok(at) = camera.world_to_viewport(eye, Vec3::new(tower.origin_x, world_y, 0.0)) else {
             continue;
         };
-        let y = if banner.out { view.0.y * 0.35 } else { at.y };
-        centre_on(&mut node, computed, Vec2::new(at.x, y), view.0, 1.4);
-        // Shown once laid out, so it never flashes in the wrong place.
+        centre_on(&mut node, computed, at, view.0, 1.4);
+        // Shown once laid out, so it never flashes in the wrong place. WIZARD OUT! shows
+        // once its clip has faded it half in, and hides half way through fading out
+        // (ponytail: a cut, not the clip's 0.3 s alpha fades).
+        let shown = !banner.out
+            || (t >= look.out_show && banner.leave.is_none_or(|l| l < look.out_hide));
         if computed.size().x > 0.0 {
-            visibility.set_if_neq(Visibility::Inherited);
+            visibility.set_if_neq(if shown { Visibility::Inherited } else { Visibility::Hidden });
         }
-        let t = banner.time;
         if banner.out {
-            let (enter, stay, leave) = look.out_times;
-            let drop = view.0.y * 0.6;
-            let y = if t < enter {
-                -drop * (1.0 - ease_out(t / enter))
-            } else if t < enter + stay {
-                0.0
-            } else {
-                -drop * ease_out((t - enter - stay) / leave)
-            };
-            transform.translation = Val2::px(0.0, y);
-            if t > enter + stay + leave {
+            if banner.leave.is_some_and(|l| l > look.out_leave.last().map_or(0.0, |k| k.0)) {
                 commands.entity(entity).despawn();
             }
         } else {
