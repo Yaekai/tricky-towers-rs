@@ -52,12 +52,19 @@ Add-Piece 'race_wave' 'gph_wave'
 Add-Piece 'checkpoint_flag' 'gph_checkpointFlag'
 Add-Piece 'checkpoint_flag_pole' 'gph_checkpointFlagPole'
 
-# Whole textures.
-$noise = Join-Path $A 'Texture2D\gph_noise.png'
-if (Test-Path $noise) {
-  Copy-Item $noise (Join-Path $X 'backgrounds\scene_brick_zap_noise.png') -Force
-  $add.Add('    "brick_zap_noise": (file: "backgrounds/scene_brick_zap_noise.png"),')
-} else { "missing: brick_zap_noise (gph_noise)" }
+# Whole textures: the zap noise, and Endless Race's perspective cloud planes with their two
+# scrolling masks (CloudRaceEndless01/02).
+function Add-Whole($key, $texture) {
+  $src = Join-Path $A "Texture2D\$texture.png"
+  if (-not (Test-Path $src)) { "missing: $key ($texture)"; return }
+  Copy-Item $src (Join-Path $X "backgrounds\scene_$key.png") -Force
+  $add.Add("    `"$key`": (file: `"backgrounds/scene_$key.png`"),")
+}
+Add-Whole 'brick_zap_noise' 'gph_noise'
+Add-Whole 'endless_cloud_1' 'gph_cloudLargeRaceEndless_01'
+Add-Whole 'endless_cloud_2' 'gph_cloudLargeRaceEndless_02'
+Add-Whole 'endless_cloud_mask_1' 'gph_cloudLargeRaceEndless_mask01'
+Add-Whole 'endless_cloud_mask_2' 'gph_cloudLargeRaceEndless_mask02'
 
 $path = Join-Path $X 'manifest.ron'
 $keys = @{}; foreach ($l in $add) { if ($l -match '^\s*"([^"]+)"') { $keys[$Matches[1]] = 1 } }
