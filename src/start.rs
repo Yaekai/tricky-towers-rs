@@ -13,27 +13,27 @@ use crate::select::{place, shown};
 
 /// Pixels a unit of the logo's layout, at 1080 high.
 const UNIT: f32 = 26.0;
-/// The prompt bar's height and centre below the screen centre.
+/// The prompt bar's height and centre below the screen centre, its words' size, the
+/// space each side of the words, and the key picture's height.
 const PROMPT: (f32, f32) = (63.0, -218.0);
+const PROMPT_SIZE: f32 = 46.0;
+const PROMPT_PAD: f32 = 64.0;
+const PROMPT_KEY: f32 = 46.0;
+/// The gap between a word and the key picture (a space at 46 px).
+const PROMPT_GAP: f32 = 12.0;
+
+/// A piece of the prompt: the words before the key, the key, the words after.
+#[derive(Component, Clone, Copy, PartialEq)]
+pub(crate) enum PromptPart {
+    Before,
+    Key,
+    After,
+}
 
 #[derive(Component)]
 pub(crate) struct StartRoot;
 #[derive(Component)]
 pub(crate) struct StartPrompt;
-
-/// The prompt's words, so they can change with the pad.
-#[derive(Component)]
-pub(crate) struct StartPromptWords;
-
-/// The prompt's words: the key it takes, or the pad's button once a pad is plugged in
-/// (the original shows the key or button picture; words stand in until checked).
-pub(crate) fn prompt_words(pad: bool, playstation: bool) -> &'static str {
-    match (pad, playstation) {
-        (false, _) => "Press Space to start",
-        (true, false) => "Press A to start",
-        (true, true) => "Press Cross to start",
-    }
-}
 
 /// What a logo piece is, for how it moves.
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -130,27 +130,49 @@ pub(crate) fn spawn_start_screen(
                     TextColor(Color::WHITE),
                 ));
         }
-        // The prompt's bar across the screen; its own box, so blinking hides the
-        // letter-drawn copy too.
+        // The prompt (StartMessage): "PRESS [key] TO START" in EnzoBlackGold46 on the
+        // bar with the brick ends, as wide as its words and key plus 64 px a side
+        // (its ContentSizeFitter and padding). Its own box, so blinking hides the
+        // letter-drawn copies too; show_start_screen lays it out.
         let mut bar = root.spawn((
-            place((1920.0, PROMPT.0), (0.0, PROMPT.1)),
+            place((PROMPT_PAD * 2.0, PROMPT.0), (0.0, PROMPT.1)),
             Visibility::Hidden,
             StartPrompt,
         ));
         if let Some(back) = image("start_message_background") {
-            bar.insert(ImageNode::new(back));
+            bar.insert(crate::select::sliced(back, [77.0, 79.0, 0.0, 0.0]));
         }
-        bar.with_child((
-            Text::new(prompt_words(false, false)),
-            StartPromptWords,
-            TextFont {
-                font_size: FontSize::Vh(4.5),
-                ..default()
-            },
-            TextColor(Color::WHITE),
-            TextLayout::justify(Justify::Center),
-            crate::letters::TextLook::OUTLINED,
-        ));
+        bar.with_children(|b| {
+            for (part, words) in [(PromptPart::Before, "PRESS"), (PromptPart::After, "TO START")] {
+                b.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        height: Val::Percent(100.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    part,
+                ))
+                .with_child((
+                    Text::new(words),
+                    TextFont {
+                        font_size: FontSize::Vh(PROMPT_SIZE / 10.8),
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                    crate::letters::TextLook::GOLD,
+                ));
+            }
+            b.spawn((
+                ImageNode::default(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+                PromptPart::Key,
+            ));
+        });
     });
 }
 
@@ -235,21 +257,66 @@ pub(crate) fn show_start_screen(
     mut clock: ResMut<StartClock>,
     settings: Option<Res<crate::settings::Settings>>,
     pads: Query<&Gamepad>,
-    mut prompt_text: Query<&mut Text, With<StartPromptWords>>,
+    mut prompt_parts: Query<
+        (&PromptPart, &mut Node, Option<&mut ImageNode>),
+        (Without<StartPrompt>, Without<LogoPiece>),
+    >,
+    mut prompt_bar: Query<&mut Node, (With<StartPrompt>, Without<PromptPart>, Without<LogoPiece>)>,
     mut heard: Local<[bool; 3]>,
     mut root: Query<&mut Visibility, With<StartRoot>>,
     mut prompt: Query<&mut Visibility, (With<StartPrompt>, Without<StartRoot>)>,
     mut pieces: Query<
         (&LogoPiece, &mut Node, &mut UiTransform, &mut Visibility),
-        (Without<StartRoot>, Without<StartPrompt>),
+        (Without<StartRoot>, Without<StartPrompt>, Without<PromptPart>),
     >,
 ) {
     let on = game.phase == Phase::Menu && *screen == MenuScreen::Start;
     let playstation = pads.iter().next().is_some_and(crate::input::is_playstation);
-    let words = prompt_words(!pads.is_empty(), playstation);
-    for mut text in &mut prompt_text {
-        if text.0 != words {
-            text.0 = words.to_string();
+    // The key picture: Space, or the pad's A / Cross once one is plugged in.
+    let key = match (!pads.is_empty(), playstation) {
+        (false, _) => "menu_key_space",
+        (true, false) => "menu_pad_a",
+        (true, true) => "menu_pad_cross",
+    };
+    if let Some(art) = art.as_deref() {
+        let key_image = art.image(key);
+        let key_w = key_image
+            .as_ref()
+            .and_then(|h| images.as_ref()?.get(h))
+            .map_or(PROMPT_KEY, |i| PROMPT_KEY * i.width() as f32 / i.height().max(1) as f32);
+        let before = crate::letters::line_width(art, "PRESS", PROMPT_SIZE);
+        let after = crate::letters::line_width(art, "TO START", PROMPT_SIZE);
+        let inner = before + PROMPT_GAP + key_w + PROMPT_GAP + after;
+        let px = |v: f32| Val::Vh(v / 10.8);
+        for mut bar in &mut prompt_bar {
+            let want = inner + 2.0 * PROMPT_PAD;
+            if bar.width != Val::Percent(want / 19.2) {
+                bar.width = Val::Percent(want / 19.2);
+                bar.left = Val::Percent(50.0 - want / 2.0 / 19.2);
+            }
+        }
+        for (part, mut node, image) in &mut prompt_parts {
+            let (left, width) = match part {
+                PromptPart::Before => (PROMPT_PAD, before),
+                PromptPart::Key => (PROMPT_PAD + before + PROMPT_GAP, key_w),
+                PromptPart::After => (PROMPT_PAD + before + 2.0 * PROMPT_GAP + key_w, after),
+            };
+            if node.left != px(left) || node.width != px(width) {
+                node.left = px(left);
+                node.width = px(width);
+            }
+            if *part == PromptPart::Key {
+                let want_top = px((PROMPT.0 - PROMPT_KEY) / 2.0);
+                if node.top != want_top || node.height != px(PROMPT_KEY) {
+                    node.top = want_top;
+                    node.height = px(PROMPT_KEY);
+                }
+                if let (Some(mut img), Some(h)) = (image, key_image.clone())
+                    && img.image != h
+                {
+                    img.image = h;
+                }
+            }
         }
     }
     for mut v in &mut root {
@@ -328,14 +395,7 @@ pub(crate) fn show_start_screen(
 
 #[cfg(test)]
 mod tests {
-    use super::{keyed, prompt_words};
-
-    #[test]
-    fn the_prompt_names_the_key_or_the_plugged_pad_button() {
-        assert_eq!(prompt_words(false, false), "Press Space to start");
-        assert_eq!(prompt_words(true, false), "Press A to start");
-        assert_eq!(prompt_words(true, true), "Press Cross to start");
-    }
+    use super::keyed;
 
     #[test]
     fn keys_blend_straight_and_hold_at_the_ends() {

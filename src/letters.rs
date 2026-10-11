@@ -327,6 +327,25 @@ fn follow_nodes(
 /// Lays the letters out: one row per line, each letter cut from the sheet.
 /// Texts drawn before the distance fields had loaded used the plain letter pictures; once the
 /// fields are in, every text is drawn again from them.
+/// How wide `line` draws in the display letters at `size` (pixels, or the same unit
+/// the size is in), as `spawn_line` lays it out; 0 without the letter sheet.
+pub fn line_width(art: &Art, line: &str, size: f32) -> f32 {
+    let Some(sheet) = art.letters.get(FONT) else {
+        return 0.0;
+    };
+    let k = size / sheet.size.max(1.0);
+    line.chars()
+        .map(|ch| {
+            sheet
+                .glyphs
+                .get(&ch)
+                .or_else(|| sheet.glyphs.get(&ch.to_ascii_uppercase()))
+                .map_or(sheet.size * 0.3, |g| g.advance)
+                * k
+        })
+        .sum()
+}
+
 fn redraw_when_fields_load(
     art: Res<Art>,
     images: Option<Res<Assets<Image>>>,
