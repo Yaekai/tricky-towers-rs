@@ -1788,12 +1788,17 @@ pub struct MatchMoments {
     /// The original's WinMessage is world text, so it is sized in cells and grows and
     /// shrinks with the camera: WINNER!'s letter size and Puzzle's score digits (both
     /// measured on Max's Puzzle cup clip, 1080 high over 40 cells: WINNER! 331 px wide,
-    /// a digit 82 px tall).
+    /// a digit 82 px tall). Digits re-measured with their outline on Max's Puzzle battle clip
+    /// (27.5 px a cell): the winner's 124 px, a loser's 96 px.
     pub banner_cells: f32,
     pub score_cells: f32,
     /// Puzzle's count while it counts, and a loser's at the end (font 40 against the
     /// winner's 50, so 0.8 of `score_cells`).
     pub count_cells: f32,
+    /// Puzzle's 3-2-1 (CountDownEffect, font 52): its size in cells, and how far its middle
+    /// stands over its tower's top (Max's Puzzle clip).
+    pub countdown_cells: f32,
+    pub countdown_above: f32,
     /// Where WINNER! stands: this many cells over its tower's top (and 2 lower on a roofed
     /// tower that didn't win; AbstractGameBaskController), or in Puzzle this many under
     /// the view's top (PuzzleGameBaskController).
@@ -1864,8 +1869,10 @@ impl Default for MatchMoments {
         Self {
             banner_size: 96.0,
             banner_cells: 2.8,
-            score_cells: 4.2,
-            count_cells: 3.36,
+            score_cells: 4.9,
+            count_cells: 3.92,
+            countdown_cells: 5.1,
+            countdown_above: 7.6,
             winner_above: 10.0,
             winner_below_top: 11.0,
             countdown_size: 72.0,

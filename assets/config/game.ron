@@ -1710,8 +1710,10 @@
     moments: (
         banner_size: 96.0,
         banner_cells: 2.8,
-        score_cells: 4.2,
-        count_cells: 3.36,
+        score_cells: 4.9,
+        count_cells: 3.92,
+        countdown_cells: 5.1,
+        countdown_above: 7.6,
         winner_above: 10.0,
         winner_below_top: 11.0,
         countdown_size: 72.0,

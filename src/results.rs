@@ -6,6 +6,7 @@ use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 use crate::art::Art;
+use crate::letters::TextLook;
 use crate::brick_material::BrickFlash;
 use crate::config::{keyed, GameConfig, ModeKind};
 use crate::gameplay::{Brick, Match, Phase, Placed, Tower, TowerState, TowerStatus};
@@ -46,6 +47,37 @@ impl Tone {
         match self {
             Tone::Gold => "text_gradient_gold",
             Tone::Red => "text_gradient_red",
+        }
+    }
+
+    /// The front layer (EnzoBlackGoldFront / RedFront): the gradient face, no outline.
+    fn front(self) -> TextLook {
+        let face = match self {
+            Tone::Gold => TextLook::GOLD,
+            Tone::Red => TextLook::PINK,
+        };
+        TextLook {
+            face: face.face,
+            low: face.low,
+            ..default()
+        }
+    }
+
+    /// The back layer (EnzoBlackGoldBack / RedBack): the face dilated 0.2 in wine and an
+    /// outline 0.25 wide, drawn a little lower. The face isn't dilated here (ponytail: the
+    /// letters cut the face at 0.5 only), so the wine band is a little thinner.
+    fn back(self) -> TextLook {
+        let wine = match self {
+            Tone::Gold => Color::srgb_u8(158, 23, 64),
+            Tone::Red => Color::srgb_u8(160, 24, 101),
+        };
+        TextLook {
+            face: Some(wine),
+            outline: Some(Color::srgb_u8(37, 13, 40)),
+            // The material's 0.5 - (0.2 + 0.25) x 0.833 / 2 = 0.31 drew the outline about
+            // two thirds as wide as Max's Puzzle clip shows; 0.22 matches it.
+            outline_edge: 0.22,
+            ..default()
         }
     }
 
@@ -115,12 +147,14 @@ fn spawn_match_text(
     text: &str,
     size: f32,
     color: Color,
+    tone: Tone,
 ) -> Entity {
     let look = &config.moments;
     let [r, g, b] = look.shadow_color;
-    let layer = |color: Color, drop: f32| {
+    let layer = |color: Color, drop: f32, letters: TextLook| {
         (
             MatchLabel,
+            letters,
             Text::new(text),
             TextFont {
                 font_size: FontSize::Px(size),
@@ -151,8 +185,8 @@ fn spawn_match_text(
             Visibility::Hidden,
         ))
         .with_children(|parent| {
-            parent.spawn(layer(Color::srgb_u8(r, g, b), size * look.shadow_drop));
-            parent.spawn(layer(color, 0.0));
+            parent.spawn(layer(Color::srgb_u8(r, g, b), size * look.shadow_drop, tone.back()));
+            parent.spawn(layer(color, 0.0, tone.front()));
         })
         .id()
 }
@@ -233,7 +267,7 @@ fn start_moments(
         let won = state.status == TowerStatus::Won || (over && game.winner == Some(tower.index));
         if won && seen.1.insert((entity, true)) {
             let color = tone_color(&art, &images, Tone::Gold);
-            let banner = spawn_match_text(&mut commands, &config, win_words, win_size, color);
+            let banner = spawn_match_text(&mut commands, &config, win_words, win_size, color, Tone::Gold);
             commands.entity(banner).insert(Banner {
                 tower: entity,
                 out: false,
@@ -280,7 +314,7 @@ fn start_moments(
             && seen.1.insert((entity, false))
         {
             let color = tone_color(&art, &images, Tone::Red);
-            let banner = spawn_match_text(&mut commands, &config, out_words, out_size, color);
+            let banner = spawn_match_text(&mut commands, &config, out_words, out_size, color, Tone::Red);
             commands.entity(banner).insert(Banner {
                 tower: entity,
                 out: true,
@@ -597,7 +631,6 @@ fn show_puzzle_scores(
     } else {
         *counted = None;
     }
-    let gold = tone_color(&art, &images, Tone::Gold);
     let counts: Vec<u32> = towers
         .iter()
         .map(|(entity, _, _)| standing.get(&entity).copied().unwrap_or(0))
@@ -655,7 +688,9 @@ fn show_puzzle_scores(
                 } else {
                     config.moments.count_cells
                 };
-                (words, size, Some((from, height(n), since, counting)))
+                // A loser's final count turns red (COUNT_MESSAGE_TEXT_LOSER_*).
+                let tone = if done && total < most { Tone::Red } else { Tone::Gold };
+                (words, size, tone, Some((from, height(n), since, counting)))
             })
         } else {
             state
@@ -663,10 +698,10 @@ fn show_puzzle_scores(
                 .filter(|t| *t < rules.count_seconds)
                 .map(|t| {
                     let words = (rules.count_seconds - t).ceil().max(1.0).to_string();
-                    (words, config.moments.score_cells, None)
+                    (words, config.moments.countdown_cells, Tone::Gold, None)
                 })
         };
-        let Some((words, size, rise)) = shown else {
+        let Some((words, size, tone, rise)) = shown else {
             if let Some((_, label)) = labels.remove(&entity) {
                 if let Ok(mut label) = commands.get_entity(label) {
                     label.despawn();
@@ -674,7 +709,7 @@ fn show_puzzle_scores(
             }
             continue;
         };
-        let key = format!("{words}|{size}");
+        let key = format!("{words}|{size}|{tone:?}");
         let label = match labels.get(&entity) {
             Some((k, label)) if *k == key => *label,
             _ => {
@@ -683,8 +718,16 @@ fn show_puzzle_scores(
                         old.despawn();
                     }
                 }
-                let label = spawn_match_text(&mut commands, &config, &words, size * cell_px, gold);
-                commands.entity(label).insert(Visibility::Hidden);
+                let label = spawn_match_text(
+                    &mut commands,
+                    &config,
+                    &words,
+                    size * cell_px,
+                    tone_color(&art, &images, tone),
+                    tone,
+                );
+                // Over WINNER!'s sunrays, which would otherwise wash it out.
+                commands.entity(label).insert((Visibility::Hidden, GlobalZIndex(21)));
                 labels.insert(entity, (key, label));
                 label
             }
@@ -773,10 +816,13 @@ fn place_puzzle_scores(
                 transform.rotation = Rot2::degrees(-tip);
                 camera.world_to_viewport(eye, Vec3::new(tower.origin_x, y, 0.0))
             }
-            // The 3-2-1's middle, 0.156 of the view down (Max's Puzzle cup clip).
-            None => camera
-                .world_to_viewport(eye, Vec3::new(tower.origin_x, 0.0, 0.0))
-                .map(|p| Vec2::new(p.x, view.0.y * 0.156)),
+            // The 3-2-1 over its own tower's top (CountDownEffect; measured on Max's Puzzle
+            // clip, 7.6 cells over the top brick).
+            None => {
+                transform.rotation = Rot2::IDENTITY;
+                let y = config.cells(state.height.max(0.0) + config.moments.countdown_above);
+                camera.world_to_viewport(eye, Vec3::new(tower.origin_x, y, 0.0))
+            }
         };
         let Ok(at) = at else {
             continue;
@@ -808,6 +854,7 @@ fn show_hold_counts(
     )>,
     mut labels: Query<&mut Text, With<MatchLabel>>,
     mut faces: Query<&mut TextColor, With<MatchLabel>>,
+    mut looks: Query<&mut TextLook, With<MatchLabel>>,
     view: Res<ViewSize>,
 ) {
     let Ok((camera, eye)) = camera.single() else {
@@ -826,6 +873,7 @@ fn show_hold_counts(
                 "",
                 config.moments.countdown_size,
                 color,
+                Tone::Gold,
             );
             commands.entity(count).insert(HoldCount(entity));
         }
@@ -868,6 +916,13 @@ fn show_hold_counts(
             && color.0 != face
         {
             color.0 = face;
+        }
+        for (child, wanted) in children.iter().zip([tone.back(), tone.front()]) {
+            if let Ok(mut look) = looks.get_mut(child)
+                && *look != wanted
+            {
+                *look = wanted;
+            }
         }
         for child in children {
             if let Ok(mut text) = labels.get_mut(*child)
