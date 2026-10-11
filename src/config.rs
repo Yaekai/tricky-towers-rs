@@ -640,6 +640,8 @@ pub struct PuzzleRules {
     /// (also the time it takes to rise to its new height).
     pub count_tip: f32,
     pub count_tip_time: f32,
+    /// Each counted brick flashes white, fading over this many seconds.
+    pub count_flash: f32,
     /// How fast the base rises after a brick falls off, in cells a second.
     pub base_rise_speed: f32,
     /// The floor each round is built on, in place of a flat base.
@@ -694,6 +696,7 @@ impl Default for PuzzleRules {
             count_curve: 0.7,
             count_tip: 10.0,
             count_tip_time: 0.1,
+            count_flash: 0.3,
             base_rise_speed: 1.0,
             floor: PuzzleFloor::Normal,
             floor_depth: 6.0,

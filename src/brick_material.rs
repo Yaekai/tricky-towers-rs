@@ -326,7 +326,7 @@ struct LitBrick {
     shadow: vec4<f32>,
     // rgb: the outline colour.
     border: vec4<f32>,
-    // x: the brick's rotation (radians).
+    // x: the brick's rotation (radians), w: flash.
     params: vec4<f32>,
     // The effects' tint, multiplied in like a sprite's colour.
     tint: vec4<f32>,
@@ -379,6 +379,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // The outline and cracks (the map's blue, and its outside) in the line colour.
     let outline = 1.0 - (1.0 - map.b) * map.a;
     colour = mix(colour, material.border.rgb, outline);
+    colour = colour + material.params.w * (1.0 - colour);
     let wet = under_water(mesh.world_position.y, &colour);
 
     let alpha = max(pat_linear.a, map.b) * wet;
@@ -591,6 +592,10 @@ pub fn hologram_brick(
 #[derive(Component)]
 pub struct BrickQuad;
 
+/// On a brick: how white its material draws, 1 at a flash (FlashBrickModifier's `_Flash`).
+#[derive(Component)]
+pub struct BrickFlash(pub f32);
+
 /// Spawns under `brick` an empty sprite at `at` carrying `color` and `on_sprite`, with the quad
 /// of `size` drawn by `material` (and carrying `on_quad`) under it.
 pub fn spawn_quad<M: Material2d>(
@@ -664,6 +669,8 @@ fn follow_bricks(
     mut lit_materials: Option<ResMut<Assets<LitBrick>>>,
     mut galaxy_materials: Option<ResMut<Assets<GalaxyBrick>>>,
     mut diamond_materials: Option<ResMut<Assets<DiamondBrick>>>,
+    parents: Query<&ChildOf>,
+    flashes: Query<&BrickFlash>,
 ) {
     // The original turns the bricks' water on in Race (and the single-player race modes).
     let look = &config.water;
@@ -674,6 +681,13 @@ fn follow_bricks(
         rgb(look.brick_line),
         rgb(look.brick_colour),
     );
+    // The quad's parent is the tint sprite, whose parent is the brick.
+    let flash = |of: &ChildOf| {
+        parents
+            .get(of.parent())
+            .and_then(|brick| flashes.get(brick.parent()))
+            .map_or(0.0, |f| f.0)
+    };
     let tint = |of: &ChildOf| {
         sprites
             .get(of.parent())
@@ -683,13 +697,16 @@ fn follow_bricks(
         for (material, at, of) in &lit {
             let angle = at.rotation().to_euler(EulerRot::XYZ).2;
             let tint = tint(of);
+            let flash = flash(of);
             let same = materials
                 .get(&material.0)
                 .is_none_or(|m| {
                     (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint && m.look.water == water.0
+                        && m.look.params.w == flash
                 });
             if !same && let Some(mut brick) = materials.get_mut(&material.0) {
                 brick.look.params.x = angle;
+                brick.look.params.w = flash;
                 brick.look.tint = tint;
                 (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
@@ -699,13 +716,16 @@ fn follow_bricks(
         for (material, at, of) in &holo {
             let angle = at.rotation().to_euler(EulerRot::XYZ).2;
             let tint = tint(of);
+            let flash = flash(of);
             let same = materials
                 .get(&material.0)
                 .is_none_or(|m| {
                     (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint && m.look.water == water.0
+                        && m.look.params.w == flash
                 });
             if !same && let Some(mut brick) = materials.get_mut(&material.0) {
                 brick.look.params.x = angle;
+                brick.look.params.w = flash;
                 brick.look.tint = tint;
                 (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
@@ -714,10 +734,12 @@ fn follow_bricks(
     if let Some(materials) = galaxy_materials.as_mut() {
         for (material, of) in &galaxy {
             let tint = tint(of);
-            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.water != water.0)
+            let flash = flash(of);
+            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.params.w != flash || m.look.water != water.0)
                 && let Some(mut brick) = materials.get_mut(&material.0)
             {
                 brick.look.tint = tint;
+                brick.look.params.w = flash;
                 (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
         }
@@ -725,10 +747,12 @@ fn follow_bricks(
     if let Some(materials) = diamond_materials.as_mut() {
         for (material, of) in &diamond {
             let tint = tint(of);
-            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.water != water.0)
+            let flash = flash(of);
+            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.params.w != flash || m.look.water != water.0)
                 && let Some(mut brick) = materials.get_mut(&material.0)
             {
                 brick.look.tint = tint;
+                brick.look.params.w = flash;
                 (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
         }

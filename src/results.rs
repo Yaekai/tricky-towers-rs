@@ -6,6 +6,7 @@ use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 use crate::art::Art;
+use crate::brick_material::BrickFlash;
 use crate::config::{GameConfig, ModeKind};
 use crate::gameplay::{Brick, Match, Phase, Placed, Tower, TowerState, TowerStatus};
 use crate::spells::Zapped;
@@ -22,6 +23,7 @@ impl Plugin for ResultsPlugin {
                 show_hold_counts,
                 show_puzzle_scores,
                 place_puzzle_scores,
+                fade_flashes,
                 animate_banners,
                 animate_lights,
             )
@@ -542,7 +544,7 @@ fn show_puzzle_scores(
     art: Res<Art>,
     images: Res<Assets<Image>>,
     towers: Query<(Entity, &Tower, &TowerState)>,
-    bricks: Query<(&Brick, Has<Placed>, Has<Zapped>)>,
+    bricks: Query<(Entity, &Brick, Option<&Placed>, Has<Zapped>)>,
     time: Res<Time>,
     mut counted: Local<Option<(u64, f32)>>,
     mut labels: Local<HashMap<Entity, (String, Entity)>>,
@@ -569,8 +571,8 @@ fn show_puzzle_scores(
     let over = game.phase == Phase::Over;
     // Each brick still in a tower (placed and not zapped away), counted one by one.
     let mut standing: HashMap<Entity, u32> = HashMap::default();
-    for (brick, placed, zapped) in &bricks {
-        if placed && !zapped {
+    for (_, brick, placed, zapped) in &bricks {
+        if placed.is_some() && !zapped {
             *standing.entry(brick.tower).or_insert(0) += 1;
         }
     }
@@ -618,6 +620,18 @@ fn show_puzzle_scores(
                     raw > total
                 };
                 let counting = raw > 0 && raw <= total;
+                // The brick just counted flashes white, in the order they were placed.
+                if counting && since < time.delta_secs() {
+                    let mut order: Vec<_> = bricks
+                        .iter()
+                        .filter(|(_, b, p, z)| b.tower == entity && p.is_some() && !z)
+                        .map(|(e, _, p, _)| (p.map_or(0, |p| p.0), e))
+                        .collect();
+                    order.sort_unstable();
+                    if let Some(&(_, brick)) = order.get(n as usize - 1) {
+                        commands.entity(brick).try_insert(BrickFlash(1.0));
+                    }
+                }
                 let from = if counting { height(n - 1) } else { height(n) };
                 let words = if done && draw && total == most {
                     format!("{n} DRAW")
@@ -667,6 +681,21 @@ fn show_puzzle_scores(
             tower: entity,
             rise,
         });
+    }
+}
+
+/// Fades each brick's flash out over `PuzzleRules::count_flash` (FlashBrickModifier).
+fn fade_flashes(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    time: Res<Time>,
+    mut flashes: Query<(Entity, &mut BrickFlash)>,
+) {
+    for (entity, mut flash) in &mut flashes {
+        flash.0 -= time.delta_secs() / config.puzzle.count_flash.max(0.001);
+        if flash.0 <= 0.0 {
+            commands.entity(entity).remove::<BrickFlash>();
+        }
     }
 }
 

@@ -605,6 +605,7 @@
         count_curve: 0.7,
         count_tip: 10.0,
         count_tip_time: 0.1,
+        count_flash: 0.3,
         base_rise_speed: 1.0,
         floor: Normal,
         floor_depth: 6.0,
