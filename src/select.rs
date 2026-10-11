@@ -83,17 +83,6 @@ impl ModePick {
         }
     }
 
-    fn color(self) -> Color {
-        match self {
-            ModePick::Mode(ModeKind::Race) => Color::srgb(0.85, 0.35, 0.2),
-            ModePick::Mode(ModeKind::Survival) => Color::srgb(0.25, 0.55, 0.85),
-            ModePick::Mode(ModeKind::Puzzle) => Color::srgb(0.55, 0.35, 0.75),
-            ModePick::Mode(ModeKind::Endless) => Color::srgb(0.25, 0.6, 0.3),
-            ModePick::Mode(ModeKind::EndlessSurvival) => Color::srgb(0.2, 0.45, 0.7),
-            ModePick::Mode(ModeKind::EndlessPuzzle) => Color::srgb(0.45, 0.3, 0.65),
-            ModePick::Random => Color::srgb(0.85, 0.65, 0.15),
-        }
-    }
 
     /// Its name's place across the tile and face colour (ModeItem01-04 and their
     /// EnzoBlack<Mode> materials; Random is milky white).
@@ -309,6 +298,7 @@ const CUP_NAME_Y: f32 = -95.0;
 /// items 430 px apart; on Max's Select Mode clip the window runs from 350 px over the middle to
 /// 290 px under it).
 const ITEM_PITCH: f32 = 430.0;
+const SCROLL_SECONDS: f32 = 0.3;
 const WINDOW: ((f32, f32), f32) = ((520.0, 640.0), 30.0);
 /// An item's card (the tile pictures are drawn on a 480 x 393 card).
 const ITEM_CARD: (f32, f32) = (480.0, 393.0);
@@ -426,11 +416,7 @@ pub enum Part {
     SeatArrow(usize, usize, bool),
     /// The join prompt's key or button picture.
     SeatJoinGlyph(usize),
-    /// A column's tile picture (mode or difficulty), and the difficulty background.
-    ColumnPicture(usize),
-    DifficultyBack,
-    /// The cup column's background, its name ("Tiny Cup") and target ("First to 6 points").
-    CupBack,
+    /// The cup column's name ("Tiny Cup") and target ("First to 6 points").
     CupName,
     CupTarget,
     /// The difficulty's name on its tile.
@@ -441,8 +427,8 @@ pub enum Part {
     MagicIcon(usize),
     /// The window the active column's neighbouring items peek into.
     ColumnWindow(usize),
-    /// The item before (-1, above) or after (1, below) the current one in a column: its
-    /// background card and its picture.
+    /// The current item (0) and the ones before (-1, above) and after (1, below) it in a
+    /// column, sliding as the column scrolls: each item's background card and its picture.
     NeighbourBack(usize, i8),
     NeighbourPicture(usize, i8),
     /// A mode's name on its tile, by its place in the mode list (each has its own colour).
@@ -686,17 +672,6 @@ pub(crate) fn spawn_select_screens(
     let modes = spawn_page(&mut commands, art, "Select Mode");
     commands.entity(modes).insert(ModesRoot);
     commands.entity(modes).with_children(|page| {
-        let (back_offset, back_size) = DIFFICULTY_BACK;
-        page.spawn((
-            ImageNode::default(),
-            place(back_size, (COLUMN_X[1] + back_offset.0, back_offset.1)),
-            Part::DifficultyBack,
-        ));
-        page.spawn((
-            ImageNode::default(),
-            place(back_size, (COLUMN_X[2] + back_offset.0, back_offset.1)),
-            Part::CupBack,
-        ));
         for (part, size, y) in [(Part::CupName, 60.0, CUP_NAME_Y), (Part::CupTarget, 28.0, CUP_TARGET_Y)] {
             page.spawn(place((400.0, 100.0), (COLUMN_X[2], y)))
                 .with_children(|n| {
@@ -714,7 +689,7 @@ pub(crate) fn spawn_select_screens(
                 Part::ColumnWindow(column),
             ))
             .with_children(|w| {
-                for side in [-1i8, 1] {
+                for side in [-1i8, 0, 1] {
                     // In the window's own pixels, from its middle with y up.
                     let at = (0.0, -(side as f32) * ITEM_PITCH - wy);
                     let in_window = |size: (f32, f32), at: (f32, f32)| Node {
@@ -729,12 +704,6 @@ pub(crate) fn spawn_select_screens(
                     w.spawn((ImageNode::default(), in_window(ITEM_CARD, at), Part::NeighbourPicture(column, side)));
                 }
             });
-            page.spawn((
-                ImageNode::default(),
-                BackgroundColor(Color::NONE),
-                place((480.0, 393.0), (x, 0.0)),
-                Part::ColumnPicture(column),
-            ));
             // The name on the tile, 95 px under its middle, 60 px (DifficultyItem: milky
             // white with an outline).
             if column == 1 {
@@ -1236,6 +1205,8 @@ pub(crate) fn show_select_screens(
     art: Option<Res<Art>>,
     pads: Query<(Entity, &Gamepad)>,
     mut turning: Option<ResMut<Assets<crate::ui_material::TurningPicture>>>,
+    mut scroll: Local<[(usize, f32, f32); 3]>,
+    mut was_modes: Local<bool>,
     mut roots: ParamSet<(
         Query<&mut Visibility, With<PlayersRoot>>,
         Query<&mut Visibility, With<ModesRoot>>,
@@ -1264,6 +1235,7 @@ pub(crate) fn show_select_screens(
         v.set_if_neq(shown(modes_on));
     }
     if !players_on && !modes_on {
+        *was_modes = false;
         return;
     }
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
@@ -1313,6 +1285,33 @@ pub(crate) fn show_select_screens(
         let row = lobby.skin_row[seat].min(1);
         (lobby.seats[seat].human() && !lobby.confirmed[seat][row]).then_some(row)
     };
+    // Each column slides to its new item over 0.3 s, out-quad (ScrollPanelComponent): `slide`
+    // is how far the items still are from their places, in items, signed by the direction.
+    let counts = [modes.len(), DifficultyPick::ALL.len(), CUP_PICTURES.len().min(config.cups.sizes.len() + 1)];
+    let indexes = [lobby.mode, lobby.difficulty, cup_item];
+    let mut slide = [0.0f32; 3];
+    // The screen opens with every column at rest.
+    let opening = !*was_modes;
+    *was_modes = modes_on;
+    for c in 0..3 {
+        let (last, since, dir) = &mut scroll[c];
+        if opening || !modes_on {
+            *last = indexes[c];
+            *since = SCROLL_SECONDS;
+        } else if *last != indexes[c] {
+            let n = counts[c].max(1);
+            *dir = if indexes[c] == (*last + 1) % n { 1.0 } else { -1.0 };
+            *last = indexes[c];
+            *since = 0.0;
+        } else {
+            *since += time.delta_secs();
+        }
+        let x = (*since / SCROLL_SECONDS).min(1.0);
+        slide[c] = *dir * (1.0 - x) * (1.0 - x);
+    }
+    // A name shows once its item is less than half an item from its place (its alpha is
+    // 1 - 2 x the distance in the original).
+    let named = |c: usize| slide[c].abs() < 0.5;
     for (part, mut v, mut node, image_node, colour, transform, text, picture) in &mut parts {
         let want = match *part {
             Part::SeatIdle(seat) => !ready(seat),
@@ -1423,70 +1422,7 @@ pub(crate) fn show_select_screens(
                 turn_layer(layer, transform, picture);
                 lobby.confirmed[seat][1]
             }
-            Part::ColumnPicture(column) => {
-                let (name, offset, size, fallback) = if column == 0 {
-                    let (n, o, s) = mode.picture();
-                    (n, o, s, mode.color())
-                } else if column == 2 {
-                    let (n, o, s) = CUP_PICTURES[cup_item.min(CUP_PICTURES.len() - 1)];
-                    (n, o, s, Color::srgb(0.3, 0.35, 0.5))
-                } else {
-                    let (n, o, s) = difficulty.picture();
-                    (n, o, s, Color::srgb(0.3, 0.35, 0.5))
-                };
-                let x = COLUMN_X[column];
-                match (image(name), image_node) {
-                    (Some(handle), Some(mut img)) => {
-                        move_node(&mut node, size, (x + offset.0, offset.1));
-                        if img.image != handle {
-                            img.image = handle;
-                        }
-                        if let Some(mut c) = colour {
-                            c.0 = Color::NONE;
-                        }
-                        true
-                    }
-                    (_, Some(mut img)) => {
-                        // No art: a coloured card the size of the frame.
-                        move_node(&mut node, (480.0, 393.0), (x, 0.0));
-                        img.image = Handle::default();
-                        img.color = Color::NONE;
-                        if let Some(mut c) = colour
-                            && c.0 != fallback
-                        {
-                            c.0 = fallback;
-                        }
-                        true
-                    }
-                    _ => true,
-                }
-            }
-            Part::DifficultyBack => {
-                let name = if difficulty == DifficultyPick::Set(Difficulty::Pro) {
-                    "menu_difficulty_background_special"
-                } else {
-                    "menu_difficulty_background"
-                };
-                let back = image(name).or_else(|| image("menu_difficulty_background"));
-                match (back, image_node) {
-                    (Some(handle), Some(mut img)) => {
-                        if img.image != handle {
-                            img.image = handle;
-                        }
-                        true
-                    }
-                    _ => false,
-                }
-            }
-            Part::CupBack => match (image("menu_difficulty_background"), image_node) {
-                (Some(handle), Some(mut img)) => {
-                    if img.image != handle {
-                        img.image = handle;
-                    }
-                    true
-                }
-                _ => false,
-            },
+            Part::CupName | Part::CupTarget if !named(2) => false,
             Part::CupName | Part::CupTarget => {
                 let size = cup_item
                     .checked_sub(1)
@@ -1505,6 +1441,7 @@ pub(crate) fn show_select_screens(
                 true
             }
             Part::ColumnName(2) => false,
+            Part::ColumnName(_) if !named(1) => false,
             Part::ColumnName(_) => {
                 let name = difficulty.name().to_uppercase();
                 if let Some(mut text) = text
@@ -1514,6 +1451,7 @@ pub(crate) fn show_select_screens(
                 }
                 true
             }
+            Part::MagicSlot(_) | Part::MagicIcon(_) if !named(1) => false,
             Part::MagicSlot(slot) | Part::MagicIcon(slot) => {
                 // Random shows no slots; Endless and Random modes read as Race.
                 let kind = match mode {
@@ -1535,7 +1473,13 @@ pub(crate) fn show_select_screens(
                     _ => false,
                 }
             }
-            Part::ColumnWindow(column) => column == lobby.column,
+            Part::ColumnWindow(_) => true,
+            // Only the active column shows the items around its current one.
+            Part::NeighbourBack(column, side) | Part::NeighbourPicture(column, side)
+                if side != 0 && column != lobby.column && slide[column] == 0.0 =>
+            {
+                false
+            }
             Part::NeighbourBack(column, side) | Part::NeighbourPicture(column, side) => {
                 let count = match column {
                     0 => modes.len(),
@@ -1568,7 +1512,7 @@ pub(crate) fn show_select_screens(
                     (_, false) => CUP_PICTURES[k],
                 };
                 let (window, wy) = WINDOW;
-                let at = (offset.0, offset.1 - side as f32 * ITEM_PITCH - wy);
+                let at = (offset.0, offset.1 - (side as f32 + slide[column]) * ITEM_PITCH - wy);
                 node.left = Val::Percent((window.0 / 2.0 + at.0 - size.0 / 2.0) / window.0 * 100.0);
                 node.top = Val::Percent((window.1 / 2.0 - at.1 - size.1 / 2.0) / window.1 * 100.0);
                 node.width = Val::Percent(size.0 / window.0 * 100.0);
@@ -1583,6 +1527,7 @@ pub(crate) fn show_select_screens(
                     _ => false,
                 }
             }
+            Part::ModeName(_) if !named(0) => false,
             Part::ModeName(i) => LOCAL_MODES.iter().chain(SINGLE_MODES.iter()).nth(i) == Some(&mode),
             Part::Frame => {
                 // The frame slides to the active column.
