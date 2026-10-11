@@ -2305,12 +2305,24 @@ pub struct CupPanel {
     pub tab_bottom: f32,
     /// Seconds for the panel to slide up (?).
     pub slide: f32,
-    /// Seconds from the panel coming up: when the first medal lands (?), the gap
-    /// between medals (?), and how long a decided cup's panel stays up (52 s to 58 s
-    /// on the video).
+    /// Seconds from the panel coming up: when the first medal lands (?), and the gap
+    /// between medals (?).
     pub fill_start: f32,
     pub fill_step: f32,
-    pub decided_hold: f32,
+    /// The cup winner popup after a decided cup's CONTINUE (TournamentWinnerPopup), in
+    /// seconds from its opening: its fade in, the wait before the medal counts, each
+    /// count's run (AnimateMedalAmountEffect: 0.3 s over its amount, a 0.089 s hold, the
+    /// medal popping to 1.3 and back in 0.05 s), the wait before the trophy, which grows
+    /// from 0.4 over 0.6 s (MoveInTrophyEffect), when it closes, and its fade to black.
+    pub winner_in: f32,
+    pub winner_medals_after: f32,
+    pub winner_count: f32,
+    pub winner_count_hold: f32,
+    pub winner_pop: (f32, f32),
+    pub winner_trophy_after: f32,
+    pub winner_trophy_grow: (f32, f32),
+    pub winner_close: f32,
+    pub winner_fade: f32,
 }
 
 impl Default for CupPanel {
@@ -2371,7 +2383,15 @@ impl Default for CupPanel {
             slide: 0.4,
             fill_start: 0.5,
             fill_step: 0.55,
-            decided_hold: 6.0,
+            winner_in: 0.2,
+            winner_medals_after: 0.5,
+            winner_count: 0.3,
+            winner_count_hold: 0.089,
+            winner_pop: (1.3, 0.05),
+            winner_trophy_after: 0.3,
+            winner_trophy_grow: (0.4, 0.6),
+            winner_close: 12.0,
+            winner_fade: 3.0,
         }
     }
 }

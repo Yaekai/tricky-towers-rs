@@ -725,9 +725,17 @@ fn play_music(
     towers: Query<&Tower>,
     settings: Option<Res<crate::settings::Settings>>,
     screen: Option<Res<crate::menu::MenuScreen>>,
+    popup: Option<Res<crate::popup::Popup>>,
+    cup: Option<Res<crate::cups::Cup>>,
     mut last: Local<(u64, Option<crate::menu::MenuScreen>)>,
 ) {
     use crate::menu::MenuScreen;
+    // The cup winner popup stops the ambience and rolls a drum until its trophy is in,
+    // then plays the win music (TournamentWinnerPopup).
+    let cup_win = popup.as_ref().and_then(|p| p.winner_since()).map(|since| {
+        let trophy_in = cup.as_ref().map_or(0.0, |c| crate::cups_menu::winner_trophy_in(c, &config));
+        if since < trophy_in { "sfx_drum_roll" } else { "music_win_game_loop" }
+    });
     let volume = settings.as_ref().map_or(1.0, |s| s.music);
     if game.phase == Phase::Menu {
         last.1 = screen.as_deref().copied();
@@ -762,6 +770,7 @@ fn play_music(
     // Each mode's ambience loops through the whole match, the menu's in the menus.
     let race_pro = config.difficulty == Some(crate::config::Difficulty::Pro);
     let sounds: &[&'static str] = match (game.phase, game.mode.look()) {
+        _ if cup_win.is_some() => &[],
         (Phase::Menu, _) => &["sfx_amb_ambience_menu"],
         (_, ModeKind::Race) if race_pro => &["sfx_amb_ambience_storm_v4"],
         (_, ModeKind::Race) => &["sfx_amb_ambience_water", "sfx_amb_ambience_breeze"],
@@ -802,7 +811,7 @@ fn play_music(
         (_, ModeKind::Puzzle) => Some("music_puzzle"),
         (_, _) => unreachable!("Endless modes look like their battle mode"),
     };
-    let want = results.or(battle);
+    let want = cup_win.or(results).or(battle);
     if want.is_some_and(|want| playing.iter().any(|(_, m)| m.0 == want)) {
         return;
     }

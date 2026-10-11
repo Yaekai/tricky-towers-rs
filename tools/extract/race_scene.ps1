@@ -66,6 +66,21 @@ Add-Whole 'endless_cloud_2' 'gph_cloudLargeRaceEndless_02'
 Add-Whole 'endless_cloud_mask_1' 'gph_cloudLargeRaceEndless_mask01'
 Add-Whole 'endless_cloud_mask_2' 'gph_cloudLargeRaceEndless_mask02'
 
+# The cup winner popup (TournamentWinnerPopup): the name and trophy backs, the fourth-place
+# medal, and its sounds (SFX_DRUM_ROLL, TROPHY).
+Add-Piece 'cup_winner_name_back' 'gph_cupModeWinnerPopupNameBackground'
+Add-Piece 'cup_winner_trophy_back' 'gph_cupModeWinnerPopupTrophyBackground'
+Add-Piece 'menu_leaderboard_medal_4' 'gph_onlineScoreMedalLast'
+function Add-Sound($key, $clip) {
+  $src = Get-ChildItem $A -Recurse -Filter "$clip.ogg" | Select-Object -First 1
+  if (-not $src) { "missing: $key ($clip)"; return }
+  New-Item -ItemType Directory -Force (Join-Path $X 'audio') | Out-Null
+  Copy-Item $src.FullName (Join-Path $X "audio\$($src.Name)") -Force
+  $add.Add("    `"$key`": (file: `"audio/$($src.Name)`"),")
+}
+Add-Sound 'sfx_drum_roll' '017_Drum_roll'
+Add-Sound 'sfx_trophy' '103_Trophy'
+
 $path = Join-Path $X 'manifest.ron'
 $keys = @{}; foreach ($l in $add) { if ($l -match '^\s*"([^"]+)"') { $keys[$Matches[1]] = 1 } }
 $m = @([IO.File]::ReadAllLines($path) | Where-Object { -not ($_ -match '^\s*"([^"]+)"' -and $keys.ContainsKey($Matches[1])) -and $_ -notmatch 'staged by race_scene.ps1' })

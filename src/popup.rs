@@ -44,6 +44,8 @@ pub struct Popup {
     /// The clock when the popup came up.
     shown_at: f32,
     round: u64,
+    /// The clock when a decided cup's CONTINUE opened the cup winner popup.
+    winner_at: Option<f32>,
 }
 
 impl Popup {
@@ -53,10 +55,13 @@ impl Popup {
 
     /// The standings panel takes the popup's place while a cup runs, and for a
     /// while after it is decided.
-    pub fn panel_up(&self, cup: &Cup, panel: &CupPanel) -> bool {
-        self.shown
-            && cup.size.is_some()
-            && (cup.in_progress() || self.since_shown() < panel.decided_hold)
+    pub fn panel_up(&self, cup: &Cup, _panel: &CupPanel) -> bool {
+        self.shown && cup.size.is_some() && self.winner_at.is_none()
+    }
+
+    /// Seconds since the cup winner popup opened, while it is up.
+    pub fn winner_since(&self) -> Option<f32> {
+        self.winner_at.map(|at| self.clock - at)
     }
 
     /// CONTINUE shows on the panel once its medals have filled.
@@ -234,6 +239,7 @@ fn time_popup(
         popup.round = game.round;
         popup.clock = 0.0;
         popup.shown = false;
+        popup.winner_at = None;
         return;
     }
     // The winner's roof goes on first.
@@ -275,6 +281,18 @@ fn popup_input(
     if !popup.shown || game.phase != Phase::Over {
         return;
     }
+    // The cup winner popup closes by itself, fades to black and goes to Select Mode
+    // (CupMatchFlowController._HandleFinishTournament).
+    if let Some(since) = popup.winner_since() {
+        let p = &config.cup_panel;
+        if since >= p.winner_close + p.winner_fade {
+            game.phase = Phase::Menu;
+            *screen = MenuScreen::Modes;
+            popup.shown = false;
+            popup.winner_at = None;
+        }
+        return;
+    }
     let count = if config.trial.is_some() {
         TRIAL_ITEMS.len()
     } else {
@@ -311,10 +329,14 @@ fn popup_input(
         }
     }
     if popup.panel_up(&cup, &config.cup_panel) {
-        // CONTINUE takes an unfinished cup on; a decided cup's panel gives way by itself.
+        // CONTINUE takes an unfinished cup on, or opens a decided cup's winner popup.
         up = false;
         down = false;
-        pick &= cup.in_progress() && popup.panel_continue(&cup, &config);
+        pick &= popup.panel_continue(&cup, &config);
+        if pick && !cup.in_progress() {
+            popup.winner_at = Some(popup.clock);
+            return;
+        }
     }
     if up {
         popup.selected = (popup.selected + count - 1) % count;
@@ -399,7 +421,9 @@ fn show_popup(
     };
     let eased = 1.0 - (1.0 - t) * (1.0 - t);
     let bottom = px(-(height() + SPILL.1) * (1.0 - eased));
-    let visible = popup.shown && !popup.panel_up(&cup, &config.cup_panel);
+    let visible = popup.shown
+        && !popup.panel_up(&cup, &config.cup_panel)
+        && popup.winner_since().is_none();
     for (mut v, mut node) in &mut root {
         v.set_if_neq(if visible {
             Visibility::Inherited
