@@ -304,6 +304,9 @@ const CUP_PICTURES: [(&str, (f32, f32), (f32, f32)); 4] = [
     ("trophy_big", (-2.0, 13.2), (203.0, 203.0)),
     ("trophy_super", (0.0, 15.3), (307.0, 247.0)),
 ];
+/// The cup column's name: font 60 on a 400 px line (CupItem's Text, 50 px inside the 450).
+const CUP_NAME_SIZE: f32 = 60.0;
+const CUP_NAME_LINE: f32 = 400.0;
 const CUP_NAME_Y: f32 = -95.0;
 /// The scroll lists' item pitch and the window they show through (ScrollPanelComponent puts
 /// items 430 px apart; on Max's Select Mode clip the window runs from 350 px over the middle to
@@ -706,8 +709,9 @@ pub(crate) fn spawn_select_screens(
     let modes = spawn_page(&mut commands, art, "Select Mode");
     commands.entity(modes).insert(ModesRoot);
     commands.entity(modes).with_children(|page| {
-        for (part, size, y) in [(Part::CupName, 60.0, CUP_NAME_Y), (Part::CupTarget, 28.0, CUP_TARGET_Y)] {
-            page.spawn(place((400.0, 100.0), (COLUMN_X[2], y)))
+        for (part, size, y) in [(Part::CupName, CUP_NAME_SIZE, CUP_NAME_Y), (Part::CupTarget, 28.0, CUP_TARGET_Y)] {
+            // Over the column windows spawned after it, or the cards hide it.
+            page.spawn((place((CUP_NAME_LINE, 100.0), (COLUMN_X[2], y)), ZIndex(1)))
                 .with_children(|n| {
                     // EnzoBlackMilkyWhiteOutline60 and EnzoBlackMilkyWhite26 (CupItem).
                     n.spawn((label_with(size / 10.8, "", crate::letters::TextLook::TITLE), part));
@@ -1281,6 +1285,7 @@ pub(crate) fn show_select_screens(
             Option<&mut UiTransform>,
             Option<&mut Text>,
             Option<&MaterialNode<crate::ui_material::TurningPicture>>,
+            Option<&mut TextFont>,
         ),
         (Without<PlayersRoot>, Without<ModesRoot>),
     >,
@@ -1377,7 +1382,7 @@ pub(crate) fn show_select_screens(
     for seat in 0..MAX_TOWERS {
         pops[seat] = lobby.confirmed[seat][1].then(|| pops[seat].map_or(0.0, |t| t + time.delta_secs()));
     }
-    for (part, mut v, mut node, image_node, transform, text, picture) in &mut parts {
+    for (part, mut v, mut node, image_node, transform, text, picture, font) in &mut parts {
         let want = match *part {
             Part::SeatIdle(seat) => !ready(seat),
             Part::SeatTaken(seat) => ready(seat),
@@ -1495,6 +1500,21 @@ pub(crate) fn show_select_screens(
                     (_, Some(size)) => format!("First to {} points", size.target),
                     (_, None) => String::new(),
                 };
+                // The name auto-sizes (TMP, 60 down to 18) to fit its 400 px line.
+                if *part == Part::CupName
+                    && let (Some(art), Some(mut font)) = (art.as_ref(), font)
+                {
+                    let wide = crate::letters::line_width(art, &words, CUP_NAME_SIZE);
+                    let size = if wide > CUP_NAME_LINE {
+                        (CUP_NAME_SIZE * CUP_NAME_LINE / wide).max(18.0)
+                    } else {
+                        CUP_NAME_SIZE
+                    };
+                    let size = FontSize::Vh(size / 10.8);
+                    if font.font_size != size {
+                        font.font_size = size;
+                    }
+                }
                 if let Some(mut text) = text
                     && text.0 != words
                 {
