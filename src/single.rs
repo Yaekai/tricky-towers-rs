@@ -155,12 +155,15 @@ const LIST_LOOKS: [(crate::letters::TextLook, f32); 2] = [
             face: Some(Color::srgb(0.918, 0.933, 1.0)),
             outline: Some(Color::srgb(0.169, 0.035, 0.137)),
             low: None,
+            // Dilate and outline 0.3 (EnzoBlackWhite32).
+            outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
         },
         32.0,
     ),
     (
         crate::letters::TextLook {
             outline: Some(Color::srgb(0.318, 0.043, 0.180)),
+            outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
             ..crate::letters::TextLook::GOLD
         },
         27.4,

@@ -71,6 +71,7 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
     let image = |name: &str| art.as_deref().and_then(|a| a.image(name));
     let outlined = TextLook {
     low: None,
+    outline_edge: 0.0,
         body: false,
         face: None,
         outline: TextLook::OUTLINED.outline,

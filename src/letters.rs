@@ -91,6 +91,10 @@ pub struct TextLook {
     /// The face's colour at the bottom of each letter, for the materials whose face
     /// texture is a top-to-bottom gradient (gph_gradientTextureFont/Font02).
     pub low: Option<Color>,
+    /// Where the outline's outer edge sits in the field, from the material's face dilate
+    /// and outline width (0.5 - (dilate + width) x 0.833 / 2); 0 for the outlined Enzo
+    /// materials' usual 0.35 / 0.35 (OUTLINE_EDGE).
+    pub outline_edge: f32,
 }
 
 impl TextLook {
@@ -100,6 +104,8 @@ impl TextLook {
         face: Some(Color::srgb(253.0 / 255.0, 1.0, 102.0 / 255.0)),
         outline: Some(Color::srgb(0.169, 0.037, 0.138)),
         low: Some(Color::srgb(1.0, 137.0 / 255.0, 22.0 / 255.0)),
+        // Dilate and outline 0.25 (EnzoBlackGold46).
+        outline_edge: 0.5 - 0.5 * 0.8333 / 2.0,
     };
     /// EnzoBlackRed: red at the top to pink at the bottom (BACK).
     pub const PINK: Self = Self {
@@ -107,6 +113,8 @@ impl TextLook {
         face: Some(Color::srgb(239.0 / 255.0, 43.0 / 255.0, 97.0 / 255.0)),
         outline: Some(Color::srgb(0.145, 0.051, 0.157)),
         low: Some(Color::srgb(1.0, 41.0 / 255.0, 182.0 / 255.0)),
+        // Dilate and outline 0.25 (EnzoBlackRed46).
+        outline_edge: 0.5 - 0.5 * 0.8333 / 2.0,
     };
     /// List rows and buttons: near-black body letters.
     pub const BODY: Self = Self {
@@ -114,6 +122,7 @@ impl TextLook {
         face: Some(Color::srgb(0.07, 0.055, 0.12)),
         outline: None,
         low: None,
+        outline_edge: 0.0,
     };
     /// Screen titles: milky white display letters with a dark outline
     /// (the original's EnzoBlackMilkyWhiteOutline26). Its face (182, 197, 254) is lit by the
@@ -124,6 +133,7 @@ impl TextLook {
         face: Some(Color::srgb(0.816, 0.878, 0.992)),
         outline: Some(Color::srgb(0.145, 0.051, 0.157)),
         low: None,
+        outline_edge: 0.0,
     };
     /// Display letters in their own colour with the dark outline (button hints, tiles).
     pub const OUTLINED: Self = Self {
@@ -131,6 +141,7 @@ impl TextLook {
         face: None,
         outline: Some(Color::srgb(0.145, 0.051, 0.157)),
         low: None,
+        outline_edge: 0.0,
     };
 }
 
@@ -171,6 +182,7 @@ struct LetterText {
     body: bool,
     outline: Option<Color>,
     low: Option<Color>,
+    outline_edge: f32,
 }
 
 fn letter_text(
@@ -195,6 +207,7 @@ fn letter_text(
         body: look.body,
         outline: look.outline,
         low: look.low,
+        outline_edge: look.outline_edge,
     }
 }
 
@@ -451,7 +464,7 @@ fn spawn_line(
                                 height: len((h + 2.0 * p) * k),
                                 ..default()
                             };
-                        match from_field((x - p, y - p, w + 2.0 * p, h + 2.0 * p), color, OUTLINE_EDGE, None) {
+                        match from_field((x - p, y - p, w + 2.0 * p, h + 2.0 * p), color, if text.outline_edge > 0.0 { text.outline_edge } else { OUTLINE_EDGE }, None) {
                             Some(material) => {
                                 cell.spawn((material, place));
                             }
