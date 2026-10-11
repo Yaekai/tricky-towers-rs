@@ -463,7 +463,8 @@ fn animate_banners(
         return;
     };
     let look = &config.moments;
-    let half_view = view.0.y * 0.5
+    let half_view = view.0.y
+        * 0.5
         * match projection {
             Projection::Orthographic(o) => o.scale,
             _ => 1.0,
@@ -521,14 +522,18 @@ fn animate_banners(
 }
 
 /// A Puzzle battle's score over a lane, or the 3-2-1 over the lane that touched the laser.
+/// While counting, `rise` holds where the number is going (PuzzleGameBaskController): the
+/// count's height as a share of the way from over the laser to under the view top, before
+/// and after the last brick counted, the seconds since it, and whether it tips.
 #[derive(Component)]
 struct PuzzleScore {
     tower: Entity,
+    rise: Option<(f32, f32, f32, bool)>,
 }
 
 /// The Puzzle battle's count: the 3-2-1 over the lane that touched the laser, then each
-/// tower's brick count at the top of its lane, counting up in gold. A tie for the most
-/// bricks says DRAW.
+/// tower's bricks counted together, one at a time, each number riding up its lane. A tie
+/// for the most bricks says DRAW.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn show_puzzle_scores(
     mut commands: Commands,
@@ -560,7 +565,7 @@ fn show_puzzle_scores(
         }
         return;
     }
-    let count = config.puzzle.count_seconds;
+    let rules = &config.puzzle;
     let over = game.phase == Phase::Over;
     // Each brick still in a tower (placed and not zapped away), counted one by one.
     let mut standing: HashMap<Entity, u32> = HashMap::default();
@@ -572,18 +577,13 @@ fn show_puzzle_scores(
     if over {
         let since = match *counted {
             Some((round, t)) if round == game.round => t,
-            _ => {
-                *counted = Some((game.round, 0.0));
-                0.0
-            }
+            _ => 0.0,
         };
-        let t = since + time.delta_secs();
-        *counted = Some((game.round, t));
+        *counted = Some((game.round, since + time.delta_secs()));
     } else {
         *counted = None;
     }
     let gold = tone_color(&art, &images, Tone::Gold);
-    let counted_so_far = counted.map_or(0.0, |(_, t)| t);
     let counts: Vec<u32> = towers
         .iter()
         .map(|(entity, _, _)| standing.get(&entity).copied().unwrap_or(0))
@@ -591,73 +591,161 @@ fn show_puzzle_scores(
     let most = counts.iter().copied().max().unwrap_or(0);
     // DRAW only when two or more towers share the most bricks.
     let draw = over && puzzle_tie(&counts);
+    let ticks = counted.and_then(|(_, t)| {
+        puzzle_ticks(
+            t - rules.count_delay,
+            &counts,
+            rules.count_step,
+            rules.count_pause,
+        )
+    });
+    let height = |n: u32| {
+        if most == 0 {
+            rules.count_curve.exp() - 1.0
+        } else {
+            (rules.count_curve * n as f32 / most as f32).exp() - 1.0
+        }
+    };
     for (entity, _tower, state) in &towers {
         let total = standing.get(&entity).copied().unwrap_or(0);
         let shown = if over {
-            let step = config.puzzle.count_step.max(0.01);
-            let so_far = ((counted_so_far / step).floor() as u32).min(total);
-            // The count is gold for every tower, going up; only a tied tower says DRAW.
-            if draw && total == most {
-                Some((format!("{so_far} DRAW"), gold))
-            } else {
-                Some((so_far.to_string(), gold))
-            }
+            ticks.map(|(raw, since)| {
+                let n = raw.min(total);
+                // A tower stops a tick after its own total; the most bricks stop at once.
+                let done = if total == most {
+                    raw >= most
+                } else {
+                    raw > total
+                };
+                let counting = raw > 0 && raw <= total;
+                let from = if counting { height(n - 1) } else { height(n) };
+                let words = if done && draw && total == most {
+                    format!("{n} DRAW")
+                } else {
+                    n.to_string()
+                };
+                let size = if done && total == most {
+                    config.moments.score_cells
+                } else {
+                    config.moments.count_cells
+                };
+                (words, size, Some((from, height(n), since, counting)))
+            })
         } else {
             state
                 .laser_count
-                .filter(|t| *t < count)
-                .map(|t| ((count - t).ceil().max(1.0).to_string(), gold))
+                .filter(|t| *t < rules.count_seconds)
+                .map(|t| {
+                    let words = (rules.count_seconds - t).ceil().max(1.0).to_string();
+                    (words, config.moments.score_cells, None)
+                })
         };
-        let Some((words, colour)) = shown else {
+        let Some((words, size, rise)) = shown else {
             if let Some((_, label)) = labels.remove(&entity) {
                 if let Ok(mut label) = commands.get_entity(label) {
-                label.despawn();
-            }
+                    label.despawn();
+                }
             }
             continue;
         };
-        if labels.get(&entity).is_some_and(|(w, _)| *w == words) {
-            continue;
-        }
-        if let Some((_, old)) = labels.remove(&entity) {
-            if let Ok(mut old) = commands.get_entity(old) {
-                old.despawn();
+        let key = format!("{words}|{size}");
+        let label = match labels.get(&entity) {
+            Some((k, label)) if *k == key => *label,
+            _ => {
+                if let Some((_, old)) = labels.remove(&entity) {
+                    if let Ok(mut old) = commands.get_entity(old) {
+                        old.despawn();
+                    }
+                }
+                let label = spawn_match_text(&mut commands, &config, &words, size * cell_px, gold);
+                commands.entity(label).insert(Visibility::Hidden);
+                labels.insert(entity, (key, label));
+                label
             }
-        }
-        let label = spawn_match_text(&mut commands, &config, &words, config.moments.score_cells * cell_px, colour);
-        commands
-            .entity(label)
-            .insert((PuzzleScore { tower: entity }, Visibility::Hidden));
-        labels.insert(entity, (words, label));
+        };
+        commands.entity(label).insert(PuzzleScore {
+            tower: entity,
+            rise,
+        });
     }
 }
 
-/// Puts each Puzzle score over its own lane, near the top of the view.
+/// The shared count `t` seconds after it starts, for towers holding `totals` bricks:
+/// how many ticks so far and the seconds since the last. A tick comes every `step`, or
+/// `pause` after one that reached some tower's total, and stops at the most bricks.
+pub fn puzzle_ticks(t: f32, totals: &[u32], step: f32, pause: f32) -> Option<(u32, f32)> {
+    if t < 0.0 {
+        return None;
+    }
+    let most = totals.iter().copied().max().unwrap_or(0);
+    let (mut ticks, mut at, mut wait) = (0, 0.0, step);
+    while ticks < most && at + wait <= t {
+        at += wait;
+        ticks += 1;
+        wait = if totals.contains(&ticks) { pause } else { step };
+    }
+    Some((ticks, t - at))
+}
+
+/// Puts each Puzzle score over its own lane: the 3-2-1 near the top of the view, the
+/// count riding up from over the laser towards the view top as it counts.
+#[allow(clippy::type_complexity)]
 fn place_puzzle_scores(
+    config: Res<GameConfig>,
     camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
     view: Res<ViewSize>,
-    towers: Query<&Tower>,
-    mut scores: Query<(&PuzzleScore, &mut Node, &ComputedNode, &mut Visibility)>,
+    towers: Query<(&Tower, &TowerState)>,
+    mut scores: Query<(
+        &PuzzleScore,
+        &mut Node,
+        &ComputedNode,
+        &mut UiTransform,
+        &mut Visibility,
+    )>,
 ) {
     let Ok((camera, eye)) = camera.single() else {
         return;
     };
-    for (score, mut node, computed, mut visibility) in &mut scores {
-        let Ok(tower) = towers.get(score.tower) else {
+    let rules = &config.puzzle;
+    let c = config.cell_size;
+    let top = camera
+        .viewport_to_world_2d(eye, Vec2::ZERO)
+        .map_or(0.0, |p| p.y);
+    for (score, mut node, computed, mut transform, mut visibility) in &mut scores {
+        let Ok((tower, state)) = towers.get(score.tower) else {
             continue;
         };
-        let Ok(at) = camera.world_to_viewport(eye, Vec3::new(tower.origin_x, 0.0, 0.0)) else {
+        let at = match score.rise {
+            Some((from, to, since, tips)) => {
+                // DOTween's default OutQuad over the tip time, for both the rise and the tip.
+                let k = (since / rules.count_tip_time.max(0.001)).clamp(0.0, 1.0);
+                let k = 1.0 - (1.0 - k) * (1.0 - k);
+                let low = (state.laser(&config) + rules.count_over_laser) * c;
+                let high = top - rules.count_under_top * c;
+                let y = low + (from + (to - from) * k) * (high - low);
+                let tip = if tips {
+                    rules.count_tip * (1.0 - k)
+                } else {
+                    0.0
+                };
+                // Unity's +z turn is anticlockwise; Bevy's UI turns clockwise for positive angles.
+                transform.rotation = Rot2::degrees(-tip);
+                camera.world_to_viewport(eye, Vec3::new(tower.origin_x, y, 0.0))
+            }
+            // The 3-2-1's middle, 0.156 of the view down (Max's Puzzle cup clip).
+            None => camera
+                .world_to_viewport(eye, Vec3::new(tower.origin_x, 0.0, 0.0))
+                .map(|p| Vec2::new(p.x, view.0.y * 0.156)),
+        };
+        let Ok(at) = at else {
             continue;
         };
-        // The final count's middle, 0.156 of the view down (Max's Puzzle cup clip; the
-        // original's count rides up with the bricks it counts, which isn't done here).
-        centre_on(&mut node, computed, Vec2::new(at.x, view.0.y * 0.156), view.0, 1.0);
+        centre_on(&mut node, computed, at, view.0, 1.0);
         if computed.size().x > 0.0 {
             visibility.set_if_neq(Visibility::Inherited);
         }
     }
 }
-
 /// The race countdown above the finish line of each tower holding past it, higher
 /// over the leader, like the original.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -764,7 +852,19 @@ pub fn puzzle_tie(counts: &[u32]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::puzzle_tie;
+    use super::{puzzle_ticks, puzzle_tie};
+
+    #[test]
+    fn the_count_waits_at_each_towers_total_and_stops_at_the_most() {
+        let at = |t: f32| puzzle_ticks(t, &[2, 4], 0.15, 0.8).map(|(n, _)| n);
+        assert_eq!(at(-0.1), None, "nothing before the count starts");
+        assert_eq!(at(0.1), Some(0));
+        assert_eq!(at(0.31), Some(2));
+        // 2 is a tower's total, so the next brick waits 0.8 s.
+        assert_eq!(at(0.31 + 0.7), Some(2));
+        assert_eq!(at(0.31 + 0.8), Some(3));
+        assert_eq!(at(100.0), Some(4), "stops at the most bricks");
+    }
 
     #[test]
     fn only_a_shared_most_is_a_draw() {

@@ -625,8 +625,21 @@ pub struct PuzzleRules {
     pub drop_penalty: f32,
     /// After a brick touches the laser, the 3-2-1 this long before the bricks are counted.
     pub count_seconds: f32,
-    /// After the round is over, each brick is counted this many seconds after the last (guess).
+    /// The round's count (PuzzleGameBaskController): it starts this long after the round
+    /// is over, then a brick every `count_step`, waiting `count_pause` instead once the
+    /// count reaches some tower's total.
+    pub count_delay: f32,
     pub count_step: f32,
+    pub count_pause: f32,
+    /// The count rises from this many cells over the laser to `count_under_top` under the
+    /// view's top, along exp(`count_curve` x count / most) - 1.
+    pub count_over_laser: f32,
+    pub count_under_top: f32,
+    pub count_curve: f32,
+    /// Each counted brick tips the number this many degrees, easing back in `count_tip_time`
+    /// (also the time it takes to rise to its new height).
+    pub count_tip: f32,
+    pub count_tip_time: f32,
     /// How fast the base rises after a brick falls off, in cells a second.
     pub base_rise_speed: f32,
     /// The floor each round is built on, in place of a flat base.
@@ -673,7 +686,14 @@ impl Default for PuzzleRules {
             start_spell: Some(SpellKind::Ivy),
             drop_penalty: 0.5,
             count_seconds: 3.0,
-            count_step: 0.25,
+            count_delay: 1.5,
+            count_step: 0.15,
+            count_pause: 0.8,
+            count_over_laser: 4.0,
+            count_under_top: 6.0,
+            count_curve: 0.7,
+            count_tip: 10.0,
+            count_tip_time: 0.1,
             base_rise_speed: 1.0,
             floor: PuzzleFloor::Normal,
             floor_depth: 6.0,
@@ -1768,6 +1788,9 @@ pub struct MatchMoments {
     /// a digit 82 px tall).
     pub banner_cells: f32,
     pub score_cells: f32,
+    /// Puzzle's count while it counts, and a loser's at the end (font 40 against the
+    /// winner's 50, so 0.8 of `score_cells`).
+    pub count_cells: f32,
     /// Where WINNER! stands: this many cells over its tower's top (and 2 lower on a roofed
     /// tower that didn't win; AbstractGameBaskController), or in Puzzle this many under
     /// the view's top (PuzzleGameBaskController).
@@ -1831,6 +1854,7 @@ impl Default for MatchMoments {
             banner_size: 96.0,
             banner_cells: 2.8,
             score_cells: 4.2,
+            count_cells: 3.36,
             winner_above: 10.0,
             winner_below_top: 11.0,
             countdown_size: 72.0,
