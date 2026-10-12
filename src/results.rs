@@ -108,6 +108,10 @@ struct Moment;
 #[derive(Component)]
 struct MatchLabel;
 
+/// The back layer of a piece of match text (its EnzoBlack<Tone>Back material).
+#[derive(Component)]
+struct BackLayer;
+
 /// A banner over a lane, and how long it has shown.
 #[derive(Component)]
 struct Banner {
@@ -185,10 +189,21 @@ fn spawn_match_text(
             Visibility::Hidden,
         ))
         .with_children(|parent| {
-            parent.spawn(layer(Color::srgb_u8(r, g, b), size * look.shadow_drop, tone.back()));
+            parent.spawn((layer(Color::srgb_u8(r, g, b), size * look.shadow_drop, tone.back()), BackLayer));
             parent.spawn(layer(color, 0.0, tone.front()));
         })
         .id()
+}
+
+/// A text look at `alpha` (its face, gradient and outline alike).
+fn faded(look: TextLook, alpha: f32) -> TextLook {
+    let fade = |c: Option<Color>| c.map(|c| c.with_alpha(alpha));
+    TextLook {
+        face: fade(look.face),
+        low: fade(look.low),
+        outline: fade(look.outline),
+        ..look
+    }
 }
 
 /// Puts a text container centred on a point of the screen, kept inside it even
@@ -491,7 +506,9 @@ fn animate_banners(
         &ComputedNode,
         &mut UiTransform,
         &mut Visibility,
+        &Children,
     )>,
+    mut looks: Query<(&mut TextLook, Has<BackLayer>), With<MatchLabel>>,
     mut rays: Query<&mut UiTransform, (With<Sunrays>, Without<Banner>, Without<Trophy>)>,
     mut cups: Query<&mut UiTransform, (With<Trophy>, Without<Banner>, Without<Sunrays>)>,
 ) {
@@ -507,7 +524,7 @@ fn animate_banners(
         };
     let view_top = eye.translation().y + half_view;
     let dt = time.delta_secs();
-    for (entity, mut banner, mut node, computed, mut transform, mut visibility) in &mut banners {
+    for (entity, mut banner, mut node, computed, mut transform, mut visibility, children) in &mut banners {
         banner.time += dt;
         let Ok((tower, state)) = towers.get(banner.tower) else {
             continue;
@@ -543,13 +560,26 @@ fn animate_banners(
             continue;
         };
         centre_on(&mut node, computed, at, view.0, 1.4);
-        // Shown once laid out, so it never flashes in the wrong place. WIZARD OUT! shows
-        // once its clip has faded it half in, and hides half way through fading out
-        // (ponytail: a cut, not the clip's 0.3 s alpha fades).
-        let shown = !banner.out
-            || (t >= look.out_show && banner.leave.is_none_or(|l| l < look.out_hide));
+        // Shown once laid out, so it never flashes in the wrong place.
         if computed.size().x > 0.0 {
-            visibility.set_if_neq(if shown { Visibility::Inherited } else { Visibility::Hidden });
+            visibility.set_if_neq(Visibility::Inherited);
+        }
+        // WIZARD OUT! fades in and out with its clips (both layers' font alpha).
+        if banner.out {
+            let share = |t: f32, (from, to): (f32, f32)| ((t - from) / (to - from).max(0.001)).clamp(0.0, 1.0);
+            let alpha = match banner.leave {
+                Some(leave) => 1.0 - share(leave, look.out_fade_out),
+                None => share(t, look.out_fade_in),
+            };
+            for child in children.iter() {
+                if let Ok((mut letters, back)) = looks.get_mut(child) {
+                    let base = if back { Tone::Red.back() } else { Tone::Red.front() };
+                    let want = faded(base, alpha);
+                    if *letters != want {
+                        *letters = want;
+                    }
+                }
+            }
         }
         if banner.out {
             if banner.leave.is_some_and(|l| l > look.out_leave.last().map_or(0.0, |k| k.0)) {
@@ -854,7 +884,7 @@ fn show_hold_counts(
     )>,
     mut labels: Query<&mut Text, With<MatchLabel>>,
     mut faces: Query<&mut TextColor, With<MatchLabel>>,
-    mut looks: Query<&mut TextLook, With<MatchLabel>>,
+    mut looks: Query<(&mut TextLook, Has<BackLayer>), With<MatchLabel>>,
     view: Res<ViewSize>,
 ) {
     let Ok((camera, eye)) = camera.single() else {
@@ -917,11 +947,13 @@ fn show_hold_counts(
         {
             color.0 = face;
         }
-        for (child, wanted) in children.iter().zip([tone.back(), tone.front()]) {
-            if let Ok(mut look) = looks.get_mut(child)
-                && *look != wanted
-            {
-                *look = wanted;
+        // Children include the letter twins, so each layer goes by its marker.
+        for child in children.iter() {
+            if let Ok((mut look, back)) = looks.get_mut(child) {
+                let wanted = if back { tone.back() } else { tone.front() };
+                if *look != wanted {
+                    *look = wanted;
+                }
             }
         }
         for child in children {
