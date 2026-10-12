@@ -99,6 +99,8 @@ struct FlagWave {
     // this quad covers.
     params: vec4<f32>,
     tint: vec4<f32>,
+    // x: the wave's sideways offset (_XOffset; the Survival mist bands each have one).
+    extra: vec4<f32>,
 };
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: FlagWave;
@@ -108,7 +110,7 @@ struct FlagWave {
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let w = 2.0 * globals.time * material.params.y;
-    let x = 0.5 + (mesh.uv.x - 0.5) * material.params.w;
+    let x = 0.5 + (mesh.uv.x - 0.5) * material.params.w + material.extra.x;
     let wave = sin(9.0 * x + w) * sin(30.0 * x + 0.1 * w) * sin(5.0 * x + 0.5 * w);
     let y = clamp(wave * material.params.x + material.params.z + 1.0 - mesh.uv.y, 0.0, 1.0);
     let tex = textureSample(picture, picture_sampler, vec2(mesh.uv.x, 1.0 - y));
@@ -127,11 +129,13 @@ pub struct FlagWave {
     pub picture: Handle<Image>,
 }
 
-/// x amplitude, y speed, z offset up, w spans of 80 units covered; the tint.
+/// x amplitude, y speed, z offset up, w spans of 80 units covered; the tint; x of `extra`
+/// the wave's sideways offset.
 #[derive(ShaderType, Clone, Copy, Debug)]
 pub struct WaterLook {
     pub params: Vec4,
     pub tint: Vec4,
+    pub extra: Vec4,
 }
 
 impl Material2d for FlagWave {

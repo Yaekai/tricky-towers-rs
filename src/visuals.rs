@@ -1418,6 +1418,7 @@ fn ripple_water(
             look: crate::scene_material::WaterLook {
                 params: Vec4::new(amplitude, speed, up, units / scene.water_span.max(0.01)),
                 tint: Vec4::from_array(sprite.color.to_linear().to_f32_array()),
+                extra: Vec4::ZERO,
             },
             picture: sprite.image.clone(),
         });

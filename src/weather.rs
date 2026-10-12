@@ -33,6 +33,7 @@ impl Plugin for WeatherPlugin {
                     lightning,
                     fit_weather,
                     run_endless_sun,
+                    wave_mist_edges,
                     survival_wave_sky,
                 )
                     .chain(),
@@ -44,6 +45,34 @@ impl Plugin for WeatherPlugin {
 /// view's middle).
 #[derive(Component)]
 struct EndlessSunQuad;
+
+/// Sizes Survival's waving mist edges like the old edge sprites and speeds their wave up
+/// with a curse wave (MistLayer.ChangeSpeed, eased with the sky).
+fn wave_mist_edges(
+    config: Res<GameConfig>,
+    view_size: Res<ViewSize>,
+    mix: Res<WaveMix>,
+    camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
+    mut edges: Query<(&SurvivalMist, &MeshMaterial2d<crate::scene_material::FlagWave>, &mut Transform), Without<crate::visuals::MainCamera>>,
+    mut waves: Option<ResMut<Assets<crate::scene_material::FlagWave>>>,
+) {
+    let _ = &config;
+    let (_, size) = view(&camera, view_size.0);
+    let unit = size.y / 41.54;
+    let speed = MIST_SPEED.0 + (MIST_SPEED.1 - MIST_SPEED.0) * mix.0;
+    for (mist, material, mut transform) in &mut edges {
+        let top = -size.y * 0.5 + size.y * mist.top;
+        let h = MIST_EDGE * mist.squash * unit;
+        transform.scale = Vec3::new(size.x, h, 1.0);
+        transform.translation.x = 0.0;
+        transform.translation.y = top + h * 0.25;
+        if let Some(mut wave) = waves.as_mut().and_then(|w| w.get_mut(&material.0))
+            && wave.look.params.y != speed
+        {
+            wave.look.params.y = speed;
+        }
+    }
+}
 
 /// Places Endless Puzzle's sun and runs its eclipse: the amount and the gradient colour
 /// ease out-expo over the eclipse's 2 s (SunEndlessLayer.Eclipse).
@@ -140,12 +169,17 @@ struct SurvivalMist {
 }
 
 /// The bands: colour, top (14%, 19%, 24% of the view), edge squash, depth (in front
-/// of the front islands, between the islands, behind them).
-const SURVIVAL_MISTS: [([u8; 3], f32, f32, f32); 3] = [
-    ([192, 163, 225], 0.14, 0.8, -895.5),
-    ([207, 163, 222], 0.19, 0.6, -897.5),
-    ([151, 125, 216], 0.24, 0.4, -899.55),
+/// of the front islands, between the islands, behind them), and the edge wave's sideways
+/// offset (MistLayer's xOffset).
+const SURVIVAL_MISTS: [([u8; 3], f32, f32, f32, f32); 3] = [
+    ([192, 163, 225], 0.14, 0.8, -895.5, 0.1),
+    ([207, 163, 222], 0.19, 0.6, -897.5, 0.5),
+    ([151, 125, 216], 0.24, 0.4, -899.55, 0.3),
 ];
+/// The mist edge's wave (MistWave, Custom/FlagWave): amplitude, offset up, and its speed
+/// out of a curse wave and in one (SurvivalBackground: 1, then 5).
+const MIST_WAVE: (f32, f32) = (0.05, 0.05);
+const MIST_SPEED: (f32, f32) = (1.0, 5.0);
 /// The mist edge's height in background units before its squash (?).
 const MIST_EDGE: f32 = 4.0;
 
@@ -205,6 +239,7 @@ fn set_up_weather(
     old: Query<Entity, With<Weather>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut suns: Option<ResMut<Assets<crate::scene_material::EndlessSun>>>,
+    mut waves: Option<ResMut<Assets<crate::scene_material::FlagWave>>>,
 ) {
     // Behind the menus the picked mode's weather shows with its background (Select Mode,
     // Endless); the plain Race scene has none. Over a match (and its pause) the match's.
@@ -242,9 +277,30 @@ fn set_up_weather(
     if look.0 == ModeKind::Survival {
         let edge = art.image("mist");
         let solid = art.image("misc_cursed_line_solid");
-        for (color, top, squash, z) in SURVIVAL_MISTS {
+        for (color, top, squash, z, x_offset) in SURVIVAL_MISTS {
             let color = Color::srgb_u8(color[0], color[1], color[2]);
-            for (is_edge, image) in [(false, solid.clone()), (true, edge.clone())] {
+            // The edge waves along its top (a FlagWave quad, sized by `fit_weather`).
+            if let (Some(image), Some(meshes), Some(waves)) = (edge.clone(), meshes.as_mut(), waves.as_mut()) {
+                commands.entity(camera).with_child((
+                    Weather,
+                    SurvivalMist {
+                        top,
+                        edge: true,
+                        squash,
+                    },
+                    Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
+                    MeshMaterial2d(waves.add(crate::scene_material::FlagWave {
+                        look: crate::scene_material::WaterLook {
+                            params: Vec4::new(MIST_WAVE.0, MIST_SPEED.0, MIST_WAVE.1, 1.0),
+                            tint: Vec4::from_array(color.to_linear().to_f32_array()),
+                            extra: Vec4::new(x_offset, 0.0, 0.0, 0.0),
+                        },
+                        picture: image,
+                    })),
+                    Transform::from_xyz(0.0, 0.0, z + 0.01),
+                ));
+            }
+            for (is_edge, image) in [(false, solid.clone())] {
                 let sprite = match image {
                     Some(image) => Sprite {
                         image,
