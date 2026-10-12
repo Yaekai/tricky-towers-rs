@@ -3785,7 +3785,8 @@ impl Default for HudLook {
             card_left: 78.0 / 1280.0,
             card_color: [255, 255, 255],
             card_bar_color: [36, 52, 110],
-            count_size: 34.0 / 720.0,
+            // BricksView's label: font 64 on the 1080 canvas.
+            count_size: 64.0 / 1080.0,
             place_size: 22.0 / 720.0,
             place_below: 2.2,
             place_first: [255, 190, 60],

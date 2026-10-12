@@ -118,7 +118,8 @@ fn spawn_items(
                     position_type: PositionType::Absolute,
                     ..default()
                 },
-                GlobalZIndex(5),
+                // The Survival count sits over the card's corner.
+                GlobalZIndex(if kind == Kind::Count { 6 } else { 5 }),
                 Visibility::Hidden,
             ));
         }
@@ -166,7 +167,10 @@ fn wanted(
                     .saturating_sub(state.bricks_used()),
             );
             let over = game.phase == Phase::Over;
-            if over && state.status != TowerStatus::Won && game.winner.is_some() {
+            // An out tower's HUD hides with its next card (GameFinishController).
+            if state.status == TowerStatus::Out
+                || over && state.status != TowerStatus::Won && game.winner.is_some()
+            {
                 Shows::Nothing
             } else {
                 Shows::Text(left.to_string(), rgb(look.place_first))
@@ -303,11 +307,18 @@ fn build(
     match shows {
         Shows::Nothing => base,
         Shows::Text(words, color) => {
-            let size = match words.parse::<u32>() {
-                Ok(_) => look.count_size,
-                Err(_) => look.place_size,
-            } * height;
+            let count = words.parse::<u32>().is_ok();
+            let size = if count { look.count_size } else { look.place_size } * height;
             text(node, words, *color, size);
+            // The Survival count is BricksView's EnzoBlackGold60: the gold face, dilate and
+            // outline 0.2.
+            if count {
+                node.insert(crate::letters::TextLook {
+                    outline_edge: 0.5 - 0.4 * 0.8333 / 2.0,
+                    ..crate::letters::TextLook::GOLD
+                })
+                .remove::<TextShadow>();
+            }
             base
         }
         Shows::Hearts(lives, most) => {
@@ -496,8 +507,10 @@ fn place_items(
         // Centre of the item on screen.
         let at = match item.kind {
             Kind::Card => card_x.map(|x| Vec2::new(x, card_h * 0.5)),
-            // Left of the next-brick card, low on it (Max's screenshots of the original).
-            Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.85, card_h * 0.75)),
+            // Over the card's lower-left corner: BricksView's label sits 50.8 px left of
+            // and 91.2 px under the 126 x 101 card's top middle (NextBrickView), as Max's
+            // Survival clip shows.
+            Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.403, card_h * 0.903)),
             Kind::Place => screen(wizard - Vec2::Y * config.cells(look.place_below)),
             Kind::Hearts => screen(wizard - Vec2::Y * config.cells(look.heart_below)),
         };

@@ -226,6 +226,7 @@ fn mirror_texts(
             Option<&TextLook>,
             &mut Node,
             Option<&ChildOf>,
+            Option<&GlobalZIndex>,
         ),
         Without<MirroredBy>,
     >,
@@ -234,7 +235,7 @@ fn mirror_texts(
     if !art.letters.contains_key(FONT) {
         return;
     }
-    for (entity, text, font, color, layout, look, mut node, parent) in &mut texts {
+    for (entity, text, font, color, layout, look, mut node, parent, z) in &mut texts {
         let mirror = commands
             .spawn((
                 node.clone(),
@@ -242,6 +243,10 @@ fn mirror_texts(
                 Mirrors(entity),
             ))
             .id();
+        // A text's own stacking goes with it (HUD items sit over the lanes at their own z).
+        if let Some(z) = z {
+            commands.entity(mirror).insert(*z);
+        }
         if let Some(parent) = parent {
             let index = children
                 .get(parent.parent())

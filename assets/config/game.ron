@@ -1764,7 +1764,7 @@
         card_left: 0.0609375,
         card_color: (255, 255, 255),
         card_bar_color: (36, 52, 110),
-        count_size: 0.047222223,
+        count_size: 0.059259259,
         place_size: 0.030555556,
         place_below: 2.2,
         place_first: (255, 190, 60),
