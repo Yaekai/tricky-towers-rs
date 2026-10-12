@@ -400,6 +400,37 @@ pub(crate) fn corners(
     }
 }
 
+/// "[Tab] SHOP" in the bottom-left corner, mirroring the hints on the right (Max's Select
+/// Players and Single Player clips; the screens' OPEN_STORE navigation item).
+pub(crate) fn shop_hint(page: &mut ChildSpawnerCommands, art: Option<&Art>) {
+    let image = |name: &str| art.and_then(|a| a.image(name));
+    page.spawn(Node {
+        justify_content: JustifyContent::FlexStart,
+        align_items: AlignItems::Center,
+        column_gap: Val::Vh(12.0 / SCREEN.1 * 100.0),
+        ..place(
+            SHOP_HINT,
+            (-SCREEN.0 / 2.0 + 30.0 + SHOP_HINT.0 / 2.0, -SCREEN.1 / 2.0 + 50.0 + SHOP_HINT.1 / 2.0),
+        )
+    })
+    .with_children(|row| {
+        if let Some(tab) = image("menu_key_tab") {
+            row.spawn((
+                ImageNode::new(tab),
+                Node {
+                    height: Val::Vh(SHOP_HINT.1 / SCREEN.1 * 100.0),
+                    ..default()
+                },
+            ));
+        }
+        row.spawn(label_with(
+            46.0 / SCREEN.1 * 100.0,
+            "SHOP",
+            crate::letters::TextLook::GOLD,
+        ));
+    });
+}
+
 /// What a select-screen node is, so one system can show and update it.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub enum Part {
@@ -503,33 +534,7 @@ pub(crate) fn spawn_select_screens(
     let players = spawn_page(&mut commands, art, "Select Players");
     commands.entity(players).insert(PlayersRoot);
     commands.entity(players).with_children(|page| {
-        // "[Tab] SHOP" in the bottom-left corner, mirroring the hints on the right
-        // (Max's Select Players clip).
-        page.spawn(Node {
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::Center,
-            column_gap: Val::Vh(12.0 / SCREEN.1 * 100.0),
-            ..place(
-                SHOP_HINT,
-                (-SCREEN.0 / 2.0 + 30.0 + SHOP_HINT.0 / 2.0, -SCREEN.1 / 2.0 + 50.0 + SHOP_HINT.1 / 2.0),
-            )
-        })
-        .with_children(|row| {
-            if let Some(tab) = image("menu_key_tab") {
-                row.spawn((
-                    ImageNode::new(tab),
-                    Node {
-                        height: Val::Vh(SHOP_HINT.1 / SCREEN.1 * 100.0),
-                        ..default()
-                    },
-                ));
-            }
-            row.spawn(label_with(
-                46.0 / SCREEN.1 * 100.0,
-                "SHOP",
-                crate::letters::TextLook::GOLD,
-            ));
-        });
+        shop_hint(page, art);
         for (seat, wizard) in WIZARDS.iter().take(MAX_TOWERS).enumerate() {
             let x = seat_x(seat);
             let at = (x, SEAT_Y);

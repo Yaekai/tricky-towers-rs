@@ -249,7 +249,42 @@ const NEIGHBOUR_SCALE: f32 = 1.0;
 /// The choosing arrows either side of the seat and pack panels (the scene's ArrowPrevious
 /// and ArrowNext), and how far the choosing corners stand out (as on Select Players).
 const ROW_ARROW_X: f32 = 200.0;
-const FOCUS_OUT: f32 = 20.0;
+/// The scene's ItemHighlight corners: centred 10 px out from the panel's corners.
+const FOCUS_OUT: f32 = 10.0;
+
+/// The carousels' screen mask (UI/SinglePlayerSelectMask): an item shows fully between
+/// `edge` and 1 - `edge` of the screen's width and fades out over `ramp` past them; the
+/// wizards' material has edge 0.22 and ramp 0.1, the packs' 0.35 and 0.05.
+const WIZARD_MASK: (f32, f32) = (0.22, 0.1);
+const PACK_MASK: (f32, f32) = (0.35, 0.05);
+/// The far wizards' panels (two away) only show in the fade's outer part, at about this
+/// alpha on average.
+const FAR_ALPHA: f32 = 0.3;
+
+/// Spawns `fill` into a full-page box cut `cut` of the screen's width in from each side
+/// (ponytail: a hard cut standing in for the shader's fade; a UI material could fade it).
+fn masked(page: &mut ChildSpawnerCommands, cut: f32, fill: impl FnOnce(&mut ChildSpawnerCommands)) {
+    let share = 1.0 - 2.0 * cut;
+    page.spawn(Node {
+        position_type: PositionType::Absolute,
+        left: Val::Percent(cut * 100.0),
+        width: Val::Percent(share * 100.0),
+        height: Val::Percent(100.0),
+        overflow: Overflow::clip(),
+        ..default()
+    })
+    .with_children(|window| {
+        window
+            .spawn(Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(-cut / share * 100.0),
+                width: Val::Percent(100.0 / share),
+                height: Val::Percent(100.0),
+                ..default()
+            })
+            .with_children(fill);
+    });
+}
 
 impl Default for SingleMenu {
     fn default() -> Self {
@@ -372,6 +407,7 @@ pub(crate) fn spawn_single_screens(
     let single = spawn_page(&mut commands, art, "Single Player");
     commands.entity(single).insert(SingleRoot);
     commands.entity(single).with_children(|page| {
+        crate::select::shop_hint(page, art);
         // Player 1's seat: grey while the wizard is being chosen, orange once it is.
         let at = (0.0, SEAT_Y);
         let mut grey = page.spawn((place(SEAT_PANEL, at), BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3))));
@@ -413,30 +449,40 @@ pub(crate) fn spawn_single_screens(
                 Visibility::Hidden,
             ));
         }
-        // The neighbours on grey panels, and the arrows between.
-        for side in [-1.0f32, 1.0] {
-            let x = NEIGHBOUR_X * side;
-            let panel = (
-                SEAT_PANEL.0 * NEIGHBOUR_SCALE,
-                SEAT_PANEL.1 * NEIGHBOUR_SCALE,
-            );
-            let mut grey = page.spawn((
-                place(panel, (x, SEAT_Y)),
-                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
-            ));
-            if let Some(art) = image("menu_player_select_background_deselected") {
-                grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+        // The neighbours on grey panels, two each side, seen through the screen mask.
+        // Cut at the fade's outer end, the far ones see-through for the fade they sit in.
+        masked(page, WIZARD_MASK.0 - WIZARD_MASK.1, |page| {
+            for side in [-2.0f32, -1.0, 1.0, 2.0] {
+                let x = NEIGHBOUR_X * side;
+                let panel = (
+                    SEAT_PANEL.0 * NEIGHBOUR_SCALE,
+                    SEAT_PANEL.1 * NEIGHBOUR_SCALE,
+                );
+                // The far ones sit about a quarter of the way into the fade.
+                let alpha = if side.abs() > 1.0 { FAR_ALPHA } else { 1.0 };
+                let mut grey = page.spawn((
+                    place(panel, (x, SEAT_Y)),
+                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
+                ));
+                if let Some(art) = image("menu_player_select_background_deselected") {
+                    let mut back = sliced(art, [PANEL_SLICE; 4]);
+                    back.color = Color::WHITE.with_alpha(alpha);
+                    grey.insert((back, BackgroundColor(Color::NONE)));
+                }
+                let small = (size.0 * NEIGHBOUR_SCALE, size.1 * NEIGHBOUR_SCALE);
+                page.spawn((
+                    ImageNode {
+                        color: Color::WHITE.with_alpha(alpha),
+                        ..default()
+                    },
+                    place(small, (x + offset.0 * NEIGHBOUR_SCALE, SEAT_Y + offset.1)),
+                    Carousel(side as i32),
+                ));
             }
-            let small = (size.0 * NEIGHBOUR_SCALE, size.1 * NEIGHBOUR_SCALE);
-            page.spawn((
-                ImageNode::default(),
-                place(small, (x + offset.0 * NEIGHBOUR_SCALE, SEAT_Y + offset.1)),
-                Carousel(side as i32),
-            ));
-        }
+        });
         // The corners and arrows on the row being chosen (ScrollPanelComponent shows its
         // arrows only while enabled), 200 px either side of the middle.
-        let out = |(w, h): (f32, f32)| (w + 2.0 * FOCUS_OUT, h + 2.0 * FOCUS_OUT);
+        let out = |(w, h): (f32, f32)| (w + 2.0 * FOCUS_OUT + CORNER_SMALL.0, h + 2.0 * FOCUS_OUT + CORNER_SMALL.1);
         for (row, size, y) in [(0u8, SEAT_PANEL, SEAT_Y), (1, PACK_PANEL.0, SEAT_Y - PACK_BELOW_SEAT)] {
             if let Some(corner) = image("menu_corner_small") {
                 corners(page, &corner, out(size), (0.0, y), CORNER_SMALL, Item::RowFocus(row));
@@ -457,29 +503,32 @@ pub(crate) fn spawn_single_screens(
             }
         }
         // The pack panel's neighbours (its own scroll panel), grey, with the packs
-        // before and after the picked one.
-        for side in [-1i32, 1] {
-            let mut grey = page.spawn((
-                place(PACK_PANEL.0, (NEIGHBOUR_X * side as f32, SEAT_Y - PACK_BELOW_SEAT)),
-                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
-            ));
-            if let Some(art) = image("menu_player_select_background_deselected") {
-                grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
-            }
-            grey.with_children(|p| {
-                p.spawn((
-                    ImageNode::default(),
-                    Node {
-                        width: Val::Percent(90.0),
-                        height: Val::Percent(80.0),
-                        margin: UiRect::AUTO,
-                        ..default()
-                    },
-                    PackCard(side),
-                    Visibility::Hidden,
+        // before and after the picked one, cut by their narrower screen mask.
+        // Cut half way down the fade.
+        masked(page, PACK_MASK.0 - PACK_MASK.1 / 2.0, |page| {
+            for side in [-1i32, 1] {
+                let mut grey = page.spawn((
+                    place(PACK_PANEL.0, (NEIGHBOUR_X * side as f32, SEAT_Y - PACK_BELOW_SEAT)),
+                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
                 ));
-            });
-        }
+                if let Some(art) = image("menu_player_select_background_deselected") {
+                    grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+                }
+                grey.with_children(|p| {
+                    p.spawn((
+                        ImageNode::default(),
+                        Node {
+                            width: Val::Percent(90.0),
+                            height: Val::Percent(80.0),
+                            margin: UiRect::AUTO,
+                            ..default()
+                        },
+                        PackCard(side),
+                        Visibility::Hidden,
+                    ));
+                });
+            }
+        });
         // The brick pack panel under the seat, picked (its item's Selected: the orange
         // panel and turning rays cut to 327 x 95, then the dark frame); no name plate.
         let pack_at = (0.0, SEAT_Y - PACK_BELOW_SEAT);
