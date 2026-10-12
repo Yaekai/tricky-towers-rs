@@ -361,6 +361,18 @@ struct SpellDiamond;
 #[derive(Component)]
 struct TrialClock(f32);
 
+/// Where the trial clock's time stands on the pace line; the time itself is a UI text over
+/// it (`ClockLabel`), so it gets the original's letters and outline.
+#[derive(Component)]
+struct ClockAnchor;
+
+/// The trial clock's time in EnzoBlackYellowOrange: pale yellow face, orange outline
+/// (dilate and outline 0.2), the world font size 20 (1.75 cells here).
+#[derive(Component)]
+struct ClockLabel;
+const CLOCK_FACE: Color = Color::srgb(1.0, 0.984, 0.749);
+const CLOCK_OUTLINE: Color = Color::srgb(1.0, 0.373, 0.094);
+
 /// The race finish line or puzzle laser over a tower; both can come down.
 #[derive(Component)]
 pub(crate) struct FinishLine {
@@ -2664,13 +2676,7 @@ fn dress_platforms(
                         ));
                         l.spawn((
                             TrialClock(c * 0.45),
-                            Text2d::new(""),
-                            TextFont {
-                                font_size: FontSize::Px(c * 1.75),
-                                ..default()
-                            },
-                            // The original's pale gold face (its orange outline isn't drawn).
-                            TextColor(Color::srgba(1.0, 0.93, 0.6, 0.0)),
+                            ClockAnchor,
                             Transform::from_xyz(centre, c * 0.45, 1.0),
                         ));
                     });
@@ -3134,17 +3140,44 @@ fn update_hud(
 
 /// Moves each tower's spell line and the race finish line to where they are now.
 /// Counts the race trial's seconds down on the finish line, fading it in.
+#[allow(clippy::type_complexity)]
 fn show_trial_clock(
+    mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
+    view: Res<ViewSize>,
+    camera: Query<(&Camera, &GlobalTransform, &Projection), With<MainCamera>>,
     mut sprites: Query<(&TrialClock, &mut Sprite, &mut Transform)>,
-    mut texts: Query<(&TrialClock, &mut Text2d, &mut TextColor, &mut Transform), Without<Sprite>>,
+    mut anchors: Query<(&TrialClock, &mut Transform, &GlobalTransform), (With<ClockAnchor>, Without<Sprite>)>,
+    mut labels: Query<
+        (Entity, &mut Text, &mut TextFont, &mut crate::letters::TextLook, &mut Node, &ComputedNode),
+        With<ClockLabel>,
+    >,
 ) {
-    let Some(seconds) = config
+    let seconds = config
         .trial
         .and_then(|i| config.trials.get(i))
-        .and_then(|t| t.seconds)
-    else {
+        .and_then(|t| t.seconds);
+    // The label goes with its anchor (a new match or leaving the trial).
+    if anchors.is_empty() || seconds.is_none() {
+        for (entity, ..) in &labels {
+            commands.entity(entity).despawn();
+        }
+    } else if labels.is_empty() {
+        commands.spawn((
+            ClockLabel,
+            Text::new(""),
+            TextFont::default(),
+            TextLayout::justify(Justify::Center),
+            crate::letters::TextLook::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            GlobalZIndex(4),
+        ));
+    }
+    let Some(seconds) = seconds else {
         return;
     };
     let alpha = game.elapsed.clamp(0.0, 1.0);
@@ -3164,12 +3197,39 @@ fn show_trial_clock(
         sprite.color.set_alpha(alpha);
         transform.translation.y = drop + clock.0;
     }
-    for (clock, mut text, mut color, mut transform) in &mut texts {
-        if text.0 != words {
-            text.0 = words.clone();
-        }
-        color.0.set_alpha(alpha);
+    let Ok((camera, eye, projection)) = camera.single() else {
+        return;
+    };
+    let scale = match projection {
+        Projection::Orthographic(o) => o.scale.max(0.001),
+        _ => 1.0,
+    };
+    for (clock, mut transform, at) in &mut anchors {
         transform.translation.y = drop + clock.0;
+        let Ok(spot) = camera.world_to_viewport(eye, at.translation()) else {
+            continue;
+        };
+        for (_, mut text, mut font, mut look, mut node, computed) in &mut labels {
+            if text.0 != words {
+                text.0 = words.clone();
+            }
+            let size = FontSize::Px(config.cell_size * 1.75 / scale);
+            if font.font_size != size {
+                font.font_size = size;
+            }
+            let want = crate::letters::TextLook {
+                face: Some(CLOCK_FACE.with_alpha(alpha)),
+                outline: Some(CLOCK_OUTLINE.with_alpha(alpha)),
+                outline_edge: 0.5 - 0.4 * 0.8333 / 2.0,
+                ..default()
+            };
+            if *look != want {
+                *look = want;
+            }
+            let half = computed.size() * computed.inverse_scale_factor() * 0.5;
+            node.left = Val::Px((spot.x - half.x).clamp(0.0, view.0.x));
+            node.top = Val::Px(spot.y - half.y);
+        }
     }
 }
 
