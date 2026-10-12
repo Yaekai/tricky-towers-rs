@@ -27,7 +27,7 @@ const LIST_TOP: f32 = -175.0;
 const LIST_STEP: f32 = 100.0;
 /// `menu_button_background`'s 9-slice borders (left, right, top, bottom), the
 /// gap between a picked button and its corners, and the cup band's height.
-const BUTTON_SLICE: [f32; 4] = [18.0, 16.0, 71.0, 15.0];
+const BUTTON_SLICE: [f32; 4] = [18.0, 71.0, 15.0, 16.0];
 const CORNER_GAP: f32 = 10.0;
 const CUP_BAND: f32 = 54.0;
 /// The Endless buttons down the right: the column's top-left corner, the slot

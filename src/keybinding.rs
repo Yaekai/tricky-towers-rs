@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::art::Art;
-use crate::select::{CORNER_SMALL, SCREEN, corners, label, place, shown, sliced};
+use crate::select::{CORNER_SMALL, SCREEN, corners, label_with, place, shown, sliced};
 
 /// What a key does in a match.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -245,23 +245,51 @@ pub struct KeybindingMenu {
 
 /// Rows: one per action, then Reset.
 const ROWS: usize = Action::ALL.len() + 1;
-/// Layout from the readout (px of a 1920×1080 screen, y up): rows 65 px apart, the
-/// action's name size 32 at 50 px from the row's left, the key in a 300 px box 30 px
-/// from the right in size 28. The row's width and height and the list's place are
-/// guesses (?).
-const ROW: (f32, f32) = (800.0, 58.0);
-const ROW_STEP: f32 = 65.0;
+/// Layout from KeyBindingPopup, ActionItem and ResetItem (px of a 1920×1080 screen, y up):
+/// the 1000 x 800 Content 50 px over the middle, items 85 px apart from its top
+/// (KeybindingPopup's ListSelectComponent), each 65 tall across it; the action's name in
+/// EnzoBlack 32 from 50 px in, its key in EnzoBlack 24.55 in a 300 px box 30 px from the
+/// right, the box being edited the checkbox picture (300 x 45) with the key in
+/// EnzoBlackWhite32 28 blinking every 0.25 s; Reset's 600 x 58 background 29 px under its
+/// top, its words EnzoBlack 30; "Action" and "Key" headings (EnzoBlackWhite32 36) 50 px
+/// over the content; the choosing corners 10 px out.
+const CONTENT: (f32, f32) = (1000.0, 800.0);
+const CONTENT_Y: f32 = 50.0;
+const ROW: (f32, f32) = (1000.0, 65.0);
+const ROW_STEP: f32 = 85.0;
+const RESET: (f32, f32) = (600.0, 58.0);
 const NAME_X: f32 = 50.0;
 const NAME_SIZE: f32 = 32.0;
-const KEY_BOX: (f32, f32) = (300.0, 46.0);
+const KEY_BOX: (f32, f32) = (300.0, 45.0);
 const KEY_RIGHT: f32 = 30.0;
-const KEY_SIZE: f32 = 28.0;
+const KEY_SIZE: f32 = 24.55;
+const KEY_EDIT_SIZE: f32 = 28.0;
+const HEAD_SIZE: f32 = 36.0;
 const CORNER_GAP: f32 = 10.0;
+const BLINK: f32 = 0.25;
+/// EnzoBlack: black display letters, no outline.
+const ENZO_BLACK: crate::letters::TextLook = crate::letters::TextLook {
+    body: false,
+    face: Some(Color::BLACK),
+    outline: None,
+    low: None,
+    outline_edge: 0.0,
+};
+/// EnzoBlackWhite32: white face, dark outline (dilate and outline 0.3).
+const ENZO_WHITE: crate::letters::TextLook = crate::letters::TextLook {
+    body: false,
+    face: Some(Color::srgb(0.918, 0.933, 1.0)),
+    outline: Some(Color::srgb(0.169, 0.035, 0.137)),
+    low: None,
+    outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
+};
 /// `menu_button_background`'s 9-slice borders, as on the Settings rows.
-const BUTTON_SLICE: [f32; 4] = [18.0, 16.0, 71.0, 15.0];
+const BUTTON_SLICE: [f32; 4] = [18.0, 71.0, 15.0, 16.0];
 
+/// The middle of row `i` (Reset's background for the last).
 fn row_y(i: usize) -> f32 {
-    ROW_STEP / 2.0 * (ROWS as f32 - 1.0) - ROW_STEP * i as f32 - 20.0
+    let top = CONTENT_Y + CONTENT.1 / 2.0 - ROW_STEP * i as f32;
+    if i < Action::ALL.len() { top - ROW.1 / 2.0 } else { top - RESET.1 / 2.0 }
 }
 
 fn vh(px: f32) -> f32 {
@@ -275,6 +303,9 @@ pub(crate) struct KeybindingRoot;
 pub(crate) enum BindPart {
     Corner(usize),
     Key(usize),
+    /// The box shown while a key is being waited for, and its blinking key.
+    EditBox(usize),
+    EditKey(usize),
 }
 
 pub(crate) fn spawn_keybinding_popup(mut commands: Commands, art: Option<Res<Art>>) {
@@ -303,43 +334,62 @@ pub(crate) fn spawn_keybinding_popup(mut commands: Commands, art: Option<Res<Art
         ));
     }
     root.with_children(|page| {
+        let left = -CONTENT.0 / 2.0;
+        let head_y = CONTENT_Y + CONTENT.1 / 2.0 + 25.0;
+        page.spawn(Node {
+            justify_content: JustifyContent::FlexStart,
+            ..place((560.0, 50.0), (left + NAME_X + 280.0, head_y))
+        })
+        .with_children(|t| {
+            t.spawn(label_with(vh(HEAD_SIZE), "Action", ENZO_WHITE));
+        });
+        page.spawn(place((KEY_BOX.0, 50.0), (CONTENT.0 / 2.0 - KEY_RIGHT - KEY_BOX.0 / 2.0, head_y)))
+            .with_children(|t| {
+                t.spawn(label_with(vh(HEAD_SIZE), "Key", ENZO_WHITE));
+            });
         for i in 0..ROWS {
             let y = row_y(i);
+            let reset = i == Action::ALL.len();
+            let size = if reset { RESET } else { ROW };
             let mut row = page.spawn((
-                place(ROW, (0.0, y)),
+                place(size, (0.0, y)),
                 BackgroundColor(Color::srgba(0.3, 0.24, 0.55, 0.9)),
             ));
             if let Some(back) = image("menu_button_background") {
                 row.insert((sliced(back, BUTTON_SLICE), BackgroundColor(Color::NONE)));
             }
-            let name = Action::ALL
-                .get(i)
-                .map_or("Reset to defaults", |a| a.label());
-            let left = -ROW.0 / 2.0;
-            page.spawn(Node {
-                justify_content: JustifyContent::FlexStart,
-                ..place(
-                    (ROW.0 - NAME_X, ROW.1),
-                    (left + NAME_X + (ROW.0 - NAME_X) / 2.0, y),
-                )
-            })
-            .with_children(|t| {
-                t.spawn(label(vh(NAME_SIZE), name));
-            });
-            if i < Action::ALL.len() {
-                let x = ROW.0 / 2.0 - KEY_RIGHT - KEY_BOX.0 / 2.0;
-                let mut boxed = page.spawn((
+            if reset {
+                page.spawn(place(RESET, (0.0, y))).with_children(|t| {
+                    t.spawn(label_with(vh(30.0), "Reset to defaults", ENZO_BLACK));
+                });
+            } else {
+                let name = Action::ALL[i].label();
+                page.spawn(Node {
+                    justify_content: JustifyContent::FlexStart,
+                    ..place((560.0, ROW.1), (left + NAME_X + 280.0, y))
+                })
+                .with_children(|t| {
+                    t.spawn(label_with(vh(NAME_SIZE), name, ENZO_BLACK));
+                });
+                let x = CONTENT.0 / 2.0 - KEY_RIGHT - KEY_BOX.0 / 2.0;
+                page.spawn(place(KEY_BOX, (x, y))).with_children(|b| {
+                    b.spawn((label_with(vh(KEY_SIZE), "", ENZO_BLACK), BindPart::Key(i)));
+                });
+                let mut edit = page.spawn((
                     place(KEY_BOX, (x, y)),
                     BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+                    Visibility::Hidden,
+                    BindPart::EditBox(i),
                 ));
                 if let Some(back) = image("settings_checkbox") {
-                    boxed.insert((sliced(back, [12.0; 4]), BackgroundColor(Color::NONE)));
+                    edit.insert((sliced(back, [12.0; 4]), BackgroundColor(Color::NONE)));
                 }
-                boxed.with_children(|b| {
-                    b.spawn((label(vh(KEY_SIZE), ""), BindPart::Key(i)));
+                edit.with_children(|b| {
+                    b.spawn((label_with(vh(KEY_EDIT_SIZE), "", ENZO_WHITE), BindPart::EditKey(i)));
                 });
             }
-            let frame = (ROW.0 + 2.0 * CORNER_GAP, ROW.1 + 2.0 * CORNER_GAP);
+            // ItemHighlight: corner centres 10 px out from the item's corners.
+            let frame = (size.0 + 2.0 * CORNER_GAP + CORNER_SMALL.0, size.1 + 2.0 * CORNER_GAP + CORNER_SMALL.1);
             match image("menu_corner_small") {
                 Some(corner) => {
                     corners(
@@ -437,21 +487,29 @@ pub(crate) fn show_keybinding_popup(
     if !on {
         return;
     }
+    let editing = |i: usize| menu.waiting && i == menu.selected;
     for (part, mut v) in &mut parts {
-        if let BindPart::Corner(i) = *part {
-            v.set_if_neq(shown(i == menu.selected));
-        }
+        match *part {
+            BindPart::Corner(i) => v.set_if_neq(shown(i == menu.selected)),
+            BindPart::EditBox(i) => v.set_if_neq(shown(editing(i))),
+            _ => false,
+        };
     }
-    // The waited-on key blinks "..." (?: the original's wait look not read).
-    let blink = ((time.elapsed_secs() * 2.0) as u32).is_multiple_of(2);
+    // The key being edited shows on the checkbox, blinking every 0.25 s; the row's own
+    // key text hides under it.
+    let blink = ((time.elapsed_secs() / BLINK) as u32).is_multiple_of(2);
     for (part, mut text) in &mut texts {
-        let BindPart::Key(i) = *part else { continue };
-        let words = if menu.waiting && i == menu.selected {
-            if blink { "..." } else { "" }.to_string()
-        } else {
+        let (i, shows) = match *part {
+            BindPart::Key(i) => (i, !editing(i)),
+            BindPart::EditKey(i) => (i, editing(i) && blink),
+            _ => continue,
+        };
+        let words = if shows {
             Action::ALL
                 .get(i)
                 .map_or(String::new(), |a| key_name(bindings.key(*a)).to_string())
+        } else {
+            String::new()
         };
         if text.0 != words {
             text.0 = words;
