@@ -505,6 +505,10 @@ fn lightning(
     let size = view_size.0 * ortho.scale;
     let c = config.cell_size;
     let (flash_alpha, flash_fade) = weather.lightning_flash;
+    // One of the three thunder strikes (LIGHTNING_STRIKE_01..03).
+    if let Some(thunder) = art.sounds.get(&format!("sfx_thunder_{}", 1 + (roll(&mut seed) * 3.0) as usize % 3)) {
+        commands.spawn((AudioPlayer(thunder.clone()), PlaybackSettings::DESPAWN));
+    }
     commands.entity(camera).with_child((
         Weather,
         FlashStrike,
