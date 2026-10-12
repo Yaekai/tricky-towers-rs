@@ -3246,20 +3246,21 @@ fn update_lines(
     art: Res<Art>,
     mut lines: Query<(&SpellLine, &Children, &mut Transform, &mut Visibility), Without<FinishLine>>,
     mut finish: Query<(&FinishLine, &mut Transform, &mut Visibility), Without<SpellLine>>,
-    mut diamonds: Query<&mut Sprite, With<SpellDiamond>>,
+    mut diamonds: Query<(&mut Sprite, &Transform), (With<SpellDiamond>, Without<SpellLine>, Without<FinishLine>)>,
+    time: Res<Time>,
 ) {
     let c = config.cell_size;
     // Once a match is decided, the finish line and spell lines go at once.
     let over = game.phase == Phase::Over && game.mode.rules() != ModeKind::Puzzle;
-    let colors: Vec<Color> = match art.entries.get("spell_line").map(|e| e.colors()) {
-        Some(colors) if !colors.is_empty() => colors,
-        _ => config
-            .hud
-            .line_colors
-            .iter()
-            .map(|&[r, g, b]| Color::srgb_u8(r, g, b))
-            .collect(),
-    };
+    let _ = &art;
+    let colors: Vec<Color> = config
+        .hud
+        .line_colors
+        .iter()
+        .map(|&[r, g, b]| Color::srgba_u8(r, g, b, 192))
+        .collect();
+    // How far the colours have run (a colour a step).
+    let run = time.elapsed_secs() / config.hud.line_color_seconds.max(0.01);
     for (line, mut transform, mut visibility) in &mut finish {
         visibility.set_if_neq(if over {
             Visibility::Hidden
@@ -3283,13 +3284,18 @@ fn update_lines(
     for (line, children, mut transform, mut visibility) in &mut lines {
         let state = towers.get(line.tower).ok();
         let height = state.and_then(|s| s.spell_line).filter(|_| !over);
-        if let (Some(state), false) = (state, colors.is_empty()) {
-            let color = colors[state.lines_reached as usize % colors.len()];
+        if !colors.is_empty() {
+            let n = colors.len();
             for child in children {
-                if let Ok(mut sprite) = diamonds.get_mut(*child)
-                    && sprite.color != color
-                {
-                    sprite.color = color;
+                if let Ok((mut sprite, at)) = diamonds.get_mut(*child) {
+                    // The cell this diamond sits in, from the line's left end.
+                    let cell = (at.translation.x / c).floor();
+                    let v = cell / n as f32 + run;
+                    let i = v.floor().rem_euclid(n as f32) as usize;
+                    let color = colors[i].mix(&colors[(i + 1) % n], v.fract());
+                    if sprite.color != color {
+                        sprite.color = color;
+                    }
                 }
             }
         }

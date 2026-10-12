@@ -3755,11 +3755,14 @@ pub struct HudLook {
     /// Endless Race 8.5, Survival 12.5; Puzzle down to its floor).
     pub guide_below_race: f32,
     pub guide_below_survival: f32,
-    /// Spell line diamonds: size and gap in cells, and one colour per line in turn
-    /// when the art gives none (0-255).
+    /// Spell line diamonds: size and gap in cells, and the colours they run through
+    /// (LineSpellContainer._COLORS, 0-255, drawn at 192/255 alpha): each cell's piece starts
+    /// a ninth of a colour on from the one before and moves on a colour every
+    /// `line_color_seconds` (SpellContainerPiece).
     pub diamond_size: f32,
     pub diamond_step: f32,
     pub line_colors: Vec<[u8; 3]>,
+    pub line_color_seconds: f32,
     /// Losing towers turn this colour (0-1) by this much once the match is over.
     pub loser_tint: [f32; 3],
     pub loser_mix: f32,
@@ -3803,11 +3806,17 @@ impl Default for HudLook {
             diamond_size: 0.45,
             diamond_step: 0.6,
             line_colors: vec![
-                [80, 220, 255],
-                [110, 230, 90],
-                [255, 110, 200],
-                [200, 235, 80],
+                [255, 41, 117],
+                [194, 48, 255],
+                [40, 151, 255],
+                [58, 255, 255],
+                [27, 255, 140],
+                [168, 255, 65],
+                [255, 243, 58],
+                [255, 137, 58],
+                [255, 58, 58],
             ],
+            line_color_seconds: 1.0,
             loser_tint: [0.78, 0.82, 0.88],
             loser_mix: 0.7,
             wizard_vanish: 0.6,
