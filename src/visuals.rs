@@ -1796,8 +1796,10 @@ fn spawn_backgrounds(
     // the plain layers during the intro (`fade_eclipse`).
     let eclipse = mode == ModeKind::EndlessPuzzle && game.phase != Phase::Menu;
     // Behind the menus the foreground water runs along the view's bottom (RaceForeground's
-    // WaterLayer); in a match the water strip under the lanes is it.
-    if race_scene
+    // WaterLayer) for the Race family (Race, Race Special, Endless Race: Max's Endless
+    // screen clip shows it; Survival and Puzzle have none); in a match the water strip
+    // under the lanes is it.
+    if island_look.is_some()
         && menu_scene.0
         && let (Some(image), Some(entry)) = (art.image("water"), art.entries.get("water"))
     {

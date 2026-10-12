@@ -610,12 +610,20 @@ pub(crate) fn spawn_single_screens(
             }
             // "RACE CHALLENGE" right-aligned in a 60 px box hung from 70 px above the
             // button's centre, 30 px in from its right edge (TitleLabel, size 46,
-            // pivot top-right as Max's screenshots place it).
+            // pivot top-right as Max's screenshots place it), in EnzoBlackGold60: the gold
+            // face, dilate and outline 0.2.
             let mut title = place((ENDLESS_BUTTON.0 - 61.92, 60.0), (at.0 + 0.96, at.1 + 40.0));
             title.justify_content = JustifyContent::FlexEnd;
             page.spawn(title).with_children(|t| {
                 t.spawn((
-                    crate::select::label_with(46.0 / 10.8, "", crate::letters::TextLook::OUTLINED),
+                    crate::select::label_with(
+                        46.0 / 10.8,
+                        "",
+                        crate::letters::TextLook {
+                            outline_edge: 0.5 - 0.4 * 0.8333 / 2.0,
+                            ..crate::letters::TextLook::GOLD
+                        },
+                    ),
                     Item::EndlessText(index),
                 ));
             });
