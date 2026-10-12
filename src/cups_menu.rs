@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::config::GameConfig;
+use crate::config::{GameConfig, keyed};
 use crate::cups::Cup;
 use crate::gameplay::{MAX_TOWERS, Tower, TowerSkin};
 use crate::letters::TextLook;
@@ -18,7 +18,7 @@ pub struct CupsMenuPlugin;
 impl Plugin for CupsMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (spawn_cup_panel, spawn_cup_winner))
-            .add_systems(Update, (show_cup_panel, show_cup_winner).chain());
+            .add_systems(Update, (show_cup_panel, show_cup_winner, celebrate, fly_winner).chain());
     }
 }
 
@@ -973,6 +973,559 @@ fn shown_if(on: bool) -> Visibility {
         Visibility::Inherited
     } else {
         Visibility::Hidden
+    }
+}
+
+/// The cup winner popup's camera (TournamentWizardCamera): orthographic size 10, so a unit
+/// is 1080 / 20 pixels; its particles are placed in these units from the screen's middle.
+const WIN_UNIT: f32 = 54.0;
+
+/// One particle of the cup winner's confetti and fireworks, in units from the screen's
+/// middle (y up), drawn over the popup.
+#[derive(Component)]
+struct Spark {
+    at: Vec2,
+    speed: Vec2,
+    age: f32,
+    life: f32,
+    /// Size in units, and its curve over the life (time, share), held past the ends.
+    size: f32,
+    size_curve: &'static [(f32, f32)],
+    /// Alpha over the life.
+    alpha_curve: &'static [(f32, f32)],
+    /// Colours spread evenly over the life (one holds still).
+    colours: &'static [[u8; 3]],
+    tint: Color,
+    spin: f32,
+    angle: f32,
+    /// A sprite sheet of square frames side by side: how many, and how many times they run
+    /// over the life.
+    frames: Option<(u32, f32)>,
+    /// ClampVelocityModule: the speed it eases down to, and the share of the excess taken
+    /// off each frame (at 60 frames a second).
+    limit: Option<(f32, f32)>,
+}
+
+/// A firework's rocket (Firework): from (+-6, -6) to its burst point over 1 s (DOMove's
+/// default out-quad), trailing its colour; then the burst.
+#[derive(Component)]
+struct Rocket {
+    from: Vec2,
+    to: Vec2,
+    age: f32,
+    colour: &'static [[u8; 3]],
+    trail: f32,
+    whistle: Option<Entity>,
+}
+
+const WHITE: &[[u8; 3]] = &[[255, 255, 255]];
+/// FireWorksRed / FireWorksBlue start colours.
+const ROCKET_RED: &[[u8; 3]] = &[[251, 41, 80]];
+const ROCKET_BLUE: &[[u8; 3]] = &[[99, 255, 242]];
+/// The trail's size and alpha over its 0.8 s (SizeModule x 0.5, ColorModule).
+const TRAIL_SIZE: &[(f32, f32)] = &[(0.0, 0.631), (0.62, 0.116), (0.775, 0.268), (1.0, 0.0)];
+const TRAIL_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.78, 1.0), (1.0, 0.0)];
+/// The bursting stars (FireWorksEndParticle01/02): size, alpha and the colours they run
+/// through (their ColorModule's keys, taken as evenly spaced).
+const STAR_SIZE: &[(f32, f32)] = &[(0.0, 1.0), (0.614, 0.694), (0.775, 1.0), (1.0, 0.0)];
+const STAR_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.856, 1.0), (1.0, 0.0)];
+const STAR_COLOURS: &[[u8; 3]] = &[
+    [255, 38, 188],
+    [255, 255, 255],
+    [28, 255, 48],
+    [255, 255, 255],
+    [253, 255, 96],
+];
+/// The flash (Explosion, 0.07 s) and the ring (Shockwave: grows to 40 x its 0.1, fading by
+/// a fifth of its second).
+const FLASH_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.5, 0.55)];
+const RING_SIZE: &[(f32, f32)] = &[(0.0, 0.0), (0.25, 0.852), (1.0, 1.0)];
+const RING_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.118, 0.03), (0.2, 0.0)];
+const STEADY: &[(f32, f32)] = &[(0.0, 1.0)];
+/// ConfettiParticle01/02: their two pairs of colour gradients (a random point between them),
+/// speed and life; both 10 a second along a 24-unit edge, 0.25 units, spinning up to 18.85
+/// radians a second either way, their 3 frames running 52 times over the life.
+const CONFETTI: [([[u8; 3]; 2], [[u8; 3]; 2], f32, f32, &str); 2] = [
+    (
+        [[255, 58, 160], [255, 0, 58]],
+        [[77, 85, 255], [174, 163, 255]],
+        4.0,
+        7.0,
+        "confetti_1",
+    ),
+    (
+        [[203, 58, 255], [255, 0, 58]],
+        [[255, 77, 77], [255, 149, 68]],
+        3.0,
+        8.0,
+        "confetti_2",
+    ),
+];
+
+fn mix(a: [u8; 3], b: [u8; 3], k: f32) -> [f32; 3] {
+    [0, 1, 2].map(|i| (a[i] as f32 + (b[i] as f32 - a[i] as f32) * k) / 255.0)
+}
+
+/// Runs the cup winner's confetti and fireworks once its wizard is due (trophy in, then
+/// 0.92 s): confetti from the top edge (ponytail: the original's edge sits at y +5 and
+/// emits along its normal; Max's clip shows it falling from the top, which is what this
+/// does), a new firework every 0.3 to 0.6 s until the popup closes.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn celebrate(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    cup: Res<Cup>,
+    popup: Res<Popup>,
+    art: Option<Res<Art>>,
+    roots: Query<(Entity, &Win)>,
+    mut sparks: Query<(
+        Entity,
+        &mut Spark,
+        &mut Node,
+        &mut ImageNode,
+        &mut UiTransform,
+        &mut Visibility,
+    )>,
+    mut rockets: Query<(Entity, &mut Rocket)>,
+    images: Option<Res<Assets<Image>>>,
+    mut clock: Local<(f32, [f32; 2], u32)>,
+) {
+    let (next_rocket, confetti_due, seed) = &mut *clock;
+    let Some(since) = popup.winner_since() else {
+        for (entity, ..) in &sparks {
+            commands.entity(entity).despawn();
+        }
+        for (entity, rocket) in &rockets {
+            if let Some(whistle) = rocket.whistle {
+                commands.entity(whistle).try_despawn();
+            }
+            commands.entity(entity).despawn();
+        }
+        *next_rocket = 0.0;
+        *confetti_due = [0.0; 2];
+        return;
+    };
+    let dt = time.delta_secs();
+    if *seed == 0 {
+        *seed = 0x9e37_79b9 ^ (time.elapsed_secs() * 1000.0) as u32 | 1;
+    }
+    let mut roll = || crate::particles::roll(seed);
+    let Some(root) = roots.iter().find(|(_, w)| **w == Win::Root).map(|(e, _)| e) else {
+        return;
+    };
+    let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
+    let start = winner_trophy_in(&cup, &config) + WIN_WIZARD_AFTER;
+    let closing = since >= config.cup_panel.winner_close;
+    let spawn = |commands: &mut Commands, picture: &str, spark: Spark| {
+        let Some(picture) = image(picture) else {
+            return;
+        };
+        let node = Node {
+            position_type: PositionType::Absolute,
+            ..default()
+        };
+        let child = commands
+            .spawn((
+                ImageNode::new(picture),
+                node,
+                UiTransform::default(),
+                ZIndex(5),
+                // Hidden until placed, or it shows a frame in the corner at its own size.
+                Visibility::Hidden,
+                spark,
+            ))
+            .id();
+        commands.entity(root).add_child(child);
+    };
+    if since >= start && !closing {
+        // Confetti: 10 a second from each emitter.
+        for (k, &(warm, cool, speed, life, picture)) in CONFETTI.iter().enumerate() {
+            if confetti_due[k] == 0.0 {
+                confetti_due[k] = since;
+            }
+            while confetti_due[k] <= since {
+                confetti_due[k] += 0.1;
+                let t = roll();
+                let a = mix(warm[0], warm[1], t);
+                let b = mix(cool[0], cool[1], t);
+                let k2 = roll();
+                let colour = Color::srgb(
+                    a[0] + (b[0] - a[0]) * k2,
+                    a[1] + (b[1] - a[1]) * k2,
+                    a[2] + (b[2] - a[2]) * k2,
+                );
+                spawn(
+                    &mut commands,
+                    picture,
+                    Spark {
+                        at: Vec2::new(-12.0 + 24.0 * roll(), 10.5),
+                        speed: Vec2::new(0.0, -speed),
+                        age: 0.0,
+                        life,
+                        size: 0.25,
+                        size_curve: STEADY,
+                        alpha_curve: STEADY,
+                        colours: WHITE,
+                        tint: colour,
+                        spin: 18.85 * (roll() * 2.0 - 1.0),
+                        angle: roll() * std::f32::consts::TAU,
+                        frames: Some((3, 52.0)),
+                        limit: None,
+                    },
+                );
+            }
+        }
+        // A new firework every 0.3 to 0.6 s (the first one at once), red or blue, from
+        // either side.
+        if *next_rocket == 0.0 {
+            *next_rocket = since;
+        }
+        if since >= *next_rocket {
+            *next_rocket = since + 0.3 + 0.3 * roll();
+            let right = roll() < 0.5;
+            let (x0, (lo, hi)) = if right {
+                (6.0, (4.0, 8.0))
+            } else {
+                (-6.0, (-8.0, -4.0))
+            };
+            let colour = if roll() < 0.5 {
+                ROCKET_RED
+            } else {
+                ROCKET_BLUE
+            };
+            // The whistle: one of the four falling-brick sounds, at 0.3, pitch 0.9 to 1.2.
+            let whistle = art
+                .as_ref()
+                .and_then(|a| {
+                    a.sounds.get(&format!(
+                        "sfx_brick_fall_{}",
+                        1 + (roll() * 4.0) as usize % 4
+                    ))
+                })
+                .map(|h| {
+                    commands
+                        .spawn((
+                            AudioPlayer(h.clone()),
+                            PlaybackSettings::DESPAWN
+                                .with_volume(bevy::audio::Volume::Linear(0.3))
+                                .with_speed(0.9 + 0.3 * roll()),
+                        ))
+                        .id()
+                });
+            commands.spawn(Rocket {
+                from: Vec2::new(x0, -6.0),
+                to: Vec2::new(lo + (hi - lo) * roll(), -3.0 + 7.0 * roll()),
+                age: 0.0,
+                colour,
+                trail: 0.0,
+                whistle,
+            });
+        }
+    }
+    for (entity, mut rocket) in &mut rockets {
+        rocket.age += dt;
+        let k = rocket.age.min(1.0);
+        let at = rocket.from + (rocket.to - rocket.from) * (1.0 - (1.0 - k) * (1.0 - k));
+        // The trail: 100 a second, still where they are left.
+        rocket.trail += dt * 100.0;
+        while rocket.trail >= 1.0 && rocket.age < 1.0 {
+            rocket.trail -= 1.0;
+            spawn(
+                &mut commands,
+                "explosion_flash",
+                Spark {
+                    at,
+                    speed: Vec2::ZERO,
+                    age: 0.0,
+                    life: 0.8,
+                    size: 0.8,
+                    size_curve: TRAIL_SIZE,
+                    alpha_curve: TRAIL_ALPHA,
+                    colours: rocket.colour,
+                    tint: Color::WHITE,
+                    spin: 0.0,
+                    angle: 0.0,
+                    frames: None,
+                    limit: None,
+                },
+            );
+        }
+        if rocket.age < 1.0 {
+            continue;
+        }
+        // The burst: stars flying out and slowing, a flash, a ring, and a bang.
+        if let Some(whistle) = rocket.whistle {
+            commands.entity(whistle).try_despawn();
+        }
+        if let Some(bang) = art.as_ref().and_then(|a| {
+            a.sounds
+                .get(&format!("sfx_firework_{}", 1 + (roll() * 3.0) as usize % 3))
+        }) {
+            commands.spawn((AudioPlayer(bang.clone()), PlaybackSettings::DESPAWN));
+        }
+        for (count, size, picture, limit, frames) in [
+            (
+                3 + (roll() * 3.0) as usize,
+                0.4,
+                "firework_blob",
+                0.6,
+                Some((2, 1.0)),
+            ),
+            (
+                10 + (roll() * 6.0) as usize,
+                0.5,
+                "survival_star",
+                0.5,
+                None,
+            ),
+        ] {
+            for _ in 0..count {
+                let turn = roll() * std::f32::consts::TAU;
+                spawn(
+                    &mut commands,
+                    picture,
+                    Spark {
+                        at: rocket.to,
+                        speed: Vec2::from_angle(turn) * 60.0,
+                        age: 0.0,
+                        life: 0.8,
+                        size,
+                        size_curve: STAR_SIZE,
+                        alpha_curve: STAR_ALPHA,
+                        colours: STAR_COLOURS,
+                        tint: Color::WHITE,
+                        spin: roll() * 6.0 - 3.0,
+                        angle: turn,
+                        frames,
+                        limit: Some((limit, 0.6)),
+                    },
+                );
+            }
+        }
+        spawn(
+            &mut commands,
+            "firework_blob",
+            Spark {
+                at: rocket.to,
+                speed: Vec2::ZERO,
+                age: 0.0,
+                life: 0.07,
+                size: 3.0,
+                size_curve: STEADY,
+                alpha_curve: FLASH_ALPHA,
+                colours: WHITE,
+                tint: Color::WHITE,
+                spin: 0.0,
+                angle: std::f32::consts::FRAC_PI_2,
+                frames: Some((2, 1.0)),
+                limit: None,
+            },
+        );
+        spawn(
+            &mut commands,
+            "cast_circle_thin",
+            Spark {
+                at: rocket.to,
+                speed: Vec2::ZERO,
+                age: 0.0,
+                life: 1.0,
+                size: 4.0,
+                size_curve: RING_SIZE,
+                alpha_curve: RING_ALPHA,
+                colours: WHITE,
+                tint: Color::WHITE,
+                spin: 0.0,
+                angle: 0.0,
+                frames: None,
+                limit: None,
+            },
+        );
+        commands.entity(entity).despawn();
+    }
+    for (entity, mut spark, mut node, mut picture, mut transform, mut visibility) in &mut sparks {
+        visibility.set_if_neq(Visibility::Inherited);
+        spark.age += dt;
+        let t = spark.age / spark.life.max(0.001);
+        if t >= 1.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        if let Some((cap, dampen)) = spark.limit {
+            let speed = spark.speed.length();
+            if speed > cap {
+                let keep = (1.0 - dampen).powf(dt * 60.0);
+                spark.speed *= (cap + (speed - cap) * keep) / speed;
+            }
+        }
+        let step = spark.speed * dt;
+        spark.at += step;
+        spark.angle += spark.spin * dt;
+        let size = spark.size * keyed(spark.size_curve, t) * WIN_UNIT;
+        let x = SCREEN.0 / 2.0 + spark.at.x * WIN_UNIT - size / 2.0;
+        let y = SCREEN.1 / 2.0 - spark.at.y * WIN_UNIT - size / 2.0;
+        // Centred on the screen like the panel.
+        node.left = Val::Percent(50.0);
+        node.margin.left = px(x - SCREEN.0 / 2.0);
+        node.top = px(y);
+        node.width = px(size);
+        node.height = px(size);
+        transform.rotation = Rot2::radians(-spark.angle);
+        let n = spark.colours.len();
+        let at = (t * (n - 1) as f32).min((n - 1) as f32 - 0.0001).max(0.0);
+        let (i, k) = (at as usize, at.fract());
+        let c = mix(spark.colours[i], spark.colours[(i + 1).min(n - 1)], k);
+        let tint = spark.tint.to_srgba();
+        picture.color = Color::srgba(
+            c[0] * tint.red,
+            c[1] * tint.green,
+            c[2] * tint.blue,
+            keyed(spark.alpha_curve, t),
+        );
+        // Square frames side by side: show this one's slice of the sheet.
+        if let Some((count, cycles)) = spark.frames
+            && let Some(size) = images.as_ref().and_then(|i| i.get(&picture.image)).map(|i| i.size_f32())
+        {
+            let frame = ((t * cycles).fract() * count as f32) as u32 % count.max(1);
+            let w = size.x / count as f32;
+            let want = Some(Rect::new(w * frame as f32, 0.0, w * (frame + 1) as f32, size.y));
+            if picture.rect != want {
+                picture.rect = want;
+            }
+        }
+    }
+}
+
+/// The winner's wizard and the confetti come this long after the trophy is in.
+const WIN_WIZARD_AFTER: f32 = 0.92;
+
+/// The cup winner's wizard (ControllableWizard): it pops in at WizardSpawnPosition, 650 px
+/// right of and 380 px under the screen's middle, and the winner flies it about: its speed
+/// eases towards 10 units a second in the held direction (3 x the frame time each frame),
+/// and it faces the way it goes. It pops away as the popup closes.
+#[derive(Component)]
+struct Flyer {
+    at: Vec2,
+    speed: Vec2,
+    facing_left: bool,
+}
+
+/// Drawn with its Select Players picture (ponytail: the original flies the in-match wizard,
+/// with its cast and nudge tricks; this one only flies), about as tall as Max's clip shows.
+const FLYER_HEIGHT: f32 = 170.0;
+const FLYER_SPAWN: Vec2 = Vec2::new(650.0 / WIN_UNIT, -380.0 / WIN_UNIT);
+
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn fly_winner(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    cup: Res<Cup>,
+    popup: Res<Popup>,
+    art: Option<Res<Art>>,
+    keys: Option<Res<ButtonInput<KeyCode>>>,
+    pads: Query<&Gamepad>,
+    towers: Query<(&Tower, Option<&TowerSkin>)>,
+    roots: Query<(Entity, &Win)>,
+    mut flyers: Query<(Entity, &mut Flyer, &mut Node, &mut ImageNode)>,
+    images: Option<Res<Assets<Image>>>,
+) {
+    let since = popup.winner_since();
+    let due = winner_trophy_in(&cup, &config) + WIN_WIZARD_AFTER;
+    let up = since.is_some_and(|t| t >= due && t < config.cup_panel.winner_close);
+    let pop = |commands: &mut Commands| {
+        if let Some(sound) = art.as_ref().and_then(|a| a.sounds.get("sfx_wizard_lose")) {
+            commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+    };
+    if !up {
+        for (entity, ..) in &flyers {
+            // Closing pops it away; leaving the screen otherwise just clears it.
+            if since.is_some() {
+                pop(&mut commands);
+            }
+            commands.entity(entity).despawn();
+        }
+        return;
+    }
+    if flyers.is_empty() {
+        let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
+        let wizard = towers
+            .iter()
+            .find(|(t, _)| Some(t.index) == winner)
+            .map_or(0, |(t, skin)| skin.map_or(t.index, |s| s.wizard));
+        let picture = art.as_ref().and_then(|a| {
+            a.image(&crate::select::seat_picture(wizard, "ready"))
+                .or_else(|| a.image(&crate::select::seat_picture(0, "ready")))
+        });
+        let Some(picture) = picture else { return };
+        let Some(root) = roots.iter().find(|(_, w)| **w == Win::Root).map(|(e, _)| e) else {
+            return;
+        };
+        pop(&mut commands);
+        let flyer = commands
+            .spawn((
+                ImageNode::new(picture),
+                Node {
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+                ZIndex(4),
+                Flyer {
+                    at: FLYER_SPAWN,
+                    speed: Vec2::ZERO,
+                    // Its picture's own way, as the original's scale 1 starts.
+                    facing_left: true,
+                },
+            ))
+            .id();
+        commands.entity(root).add_child(flyer);
+        return;
+    }
+    // The held direction: the arrows, or any pad's d-pad or left stick.
+    let mut dir = Vec2::ZERO;
+    if let Some(keys) = &keys {
+        dir.x += keys.pressed(KeyCode::ArrowRight) as i32 as f32
+            - keys.pressed(KeyCode::ArrowLeft) as i32 as f32;
+        dir.y += keys.pressed(KeyCode::ArrowUp) as i32 as f32
+            - keys.pressed(KeyCode::ArrowDown) as i32 as f32;
+    }
+    for pad in &pads {
+        dir.x += pad.pressed(GamepadButton::DPadRight) as i32 as f32
+            - pad.pressed(GamepadButton::DPadLeft) as i32 as f32;
+        dir.y += pad.pressed(GamepadButton::DPadUp) as i32 as f32
+            - pad.pressed(GamepadButton::DPadDown) as i32 as f32;
+        dir += pad.left_stick();
+    }
+    let dir = dir.clamp_length_max(1.0);
+    let dt = time.delta_secs();
+    for (_, mut flyer, mut node, mut picture) in &mut flyers {
+        let target = dir * 10.0;
+        let k = (dt * 3.0).min(1.0);
+        flyer.speed = flyer.speed + (target - flyer.speed) * k;
+        let step = flyer.speed * dt;
+        flyer.at += step;
+        if flyer.speed.x > 0.5 {
+            flyer.facing_left = false;
+        } else if flyer.speed.x < -0.5 {
+            flyer.facing_left = true;
+        }
+        // The picture looks left; turned, it looks the way it flies.
+        if picture.flip_x != !flyer.facing_left {
+            picture.flip_x = !flyer.facing_left;
+        }
+        let shape = images
+            .as_ref()
+            .and_then(|i| i.get(&picture.image))
+            .map_or(Vec2::new(235.0, 314.0), |i| i.size_f32());
+        let size = Vec2::new(FLYER_HEIGHT * shape.x / shape.y, FLYER_HEIGHT);
+        let x = SCREEN.0 / 2.0 + flyer.at.x * WIN_UNIT - size.x / 2.0;
+        let y = SCREEN.1 / 2.0 - flyer.at.y * WIN_UNIT - size.y / 2.0;
+        node.left = Val::Percent(50.0);
+        node.margin.left = px(x - SCREEN.0 / 2.0);
+        node.top = px(y);
+        node.width = px(size.x);
+        node.height = px(size.y);
     }
 }
 
