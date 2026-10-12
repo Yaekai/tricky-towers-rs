@@ -240,6 +240,15 @@ $headLooks = @{
   'puzzle_pro' = @(', mask: ((200, 36, 70), (215, 44, 83))', 0.3, ', mask: ((126, 22, 60), (103, 14, 43))', 0.5)
   'endless_puzzle' = @(', mask: ((155, 29, 51), (174, 31, 61))', 0.1, ', mask: ((102, 21, 29), (75, 15, 25))', 0.3)
 }
+# The Puzzle sky's soft bands (BackgroundGradients, and BackgroundProGradients on Special): strips
+# stretched across the view at fixed heights from its middle, behind the sun and the ruins.
+ModeScreenBg 'puzzle' 20 'gph_skyGradientColored' 0.5 0.5 0.0 0.0 -44 0.0 'puzzle sky gradient' ', tint: (255, 228, 234), stretch: true, scale: 1.0, opacity: 1.0'
+ModeScreenBg 'puzzle' 21 'gph_gradientReflected' 0.5 0.5 0.0 9.1 -43 0.0 'puzzle sky gradient' ', tint: (255, 241, 172), stretch: true, scale: 1.0, opacity: 1.0'
+ModeScreenBg 'puzzle' 22 'gph_gradientReflected' 0.5 0.5 0.0 20.5 -42 0.0 'puzzle sky gradient' ', tint: (246, 152, 221), stretch: true, scale: 1.5, opacity: 0.298'
+ModeScreenBg 'puzzle' 23 'gph_gradientReflected' 0.5 0.5 0.0 -8.95 -41 0.0 'puzzle sky gradient' ', tint: (252, 230, 203), stretch: true, scale: 2.0, opacity: 1.0'
+ModeScreenBg 'puzzle_pro' 21 'gph_gradientReflected' 0.5 0.5 0.0 9.1 -41 0.0 'puzzle_pro sky gradient' ', tint: (255, 34, 60), stretch: true, scale: 1.0, opacity: 0.4'
+ModeScreenBg 'puzzle_pro' 22 'gph_gradientReflected' 0.5 0.5 0.0 20.5 -43 0.0 'puzzle_pro sky gradient' ', tint: (54, 10, 120), stretch: true, scale: 1.5, opacity: 0.4'
+ModeScreenBg 'puzzle_pro' 23 'gph_gradientReflected' 0.5 0.5 0.0 -8.95 -42 0.0 'puzzle_pro sky gradient' ', tint: (236, 74, 108), stretch: true, scale: 2.0, opacity: 1.0'
 foreach ($look in $headLooks.Keys) {
   $l = $headLooks[$look]
   foreach ($h in $heads) {
@@ -514,6 +523,7 @@ Add-Sprite 'grass_overlay' 'gph_grassLarge_var01' 'fx\grass.png'      'Grass tuf
 foreach ($b in 'I','O','T','S','Z','J','L') {
   Add-Sprite "brick_$($b)_stone" "gph_brick$($b)_petrified01" "bricks\stone_$b.png" "Petrified brick $b"
   Add-Sprite "brick_$($b)_ice"   "gph_brick$($b)_ice"         "bricks\ice_$b.png"   "Ice brick $b"
+  Add-Sprite "brick_$($b)_stone_ice" "gph_brick$($b)_petrified_Ice" "bricks\stone_ice_$b.png" "Petrified and iced brick $b (_PETRIFIED_ICE_PACK)"
 }
 foreach ($m in @(@('block','01'), @('blob','02'), @('table','03'))) {
   Add-Sprite "mystery_$($m[0])_stone" "gph_brickMystery$($m[1])_petrified" "bricks\mystery_$($m[0])_stone.png" "Petrified Mystery $($m[0])"

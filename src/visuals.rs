@@ -757,7 +757,18 @@ pub(crate) fn dress_bricks(
         // The plain sprite stands in for a missing stone or ice version, tinted.
         let (image, mut color) = match (whole, stone, brick.ice) {
             (false, ..) => (None, brick.color),
-            (true, true, _) => match variant("stone") {
+            // Petrified: iced too has its own look (_PETRIFIED_ICE_PACK), and the Puzzle
+            // desert its sandy stone (_PETRIFIED_DESERT_PACK, worldId 2).
+            (true, true, ice) => match (ice
+                .then(|| variant("stone_ice"))
+                .flatten())
+            .or_else(|| {
+                (config.mode.look() == ModeKind::Puzzle)
+                    .then(|| art.image(&format!("desert_stone_{}", def.name)))
+                    .flatten()
+            })
+            .or_else(|| variant("stone"))
+            {
                 Some(image) => (Some(image), Color::WHITE),
                 None => (art.image(&key), Color::WHITE.mix(&STONE, 0.75)),
             },
@@ -1876,9 +1887,10 @@ fn spawn_backgrounds(
         });
         let endless_look = island_look == Some("endless");
         let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
-        let tint = entry.tint.map_or(Color::WHITE, |(r, g, b)| {
-            Color::srgb(r / 255.0, g / 255.0, b / 255.0)
-        });
+        let tint = entry
+            .tint
+            .map_or(Color::WHITE, |(r, g, b)| Color::srgb(r / 255.0, g / 255.0, b / 255.0))
+            .with_alpha(entry.opacity.unwrap_or(1.0));
         let base = (
             Sprite {
                 image: art.images[name].clone(),
