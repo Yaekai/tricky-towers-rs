@@ -555,29 +555,26 @@ fn lightning(
                 .with_rotation(Quat::from_rotation_z(along.to_angle())),
         ));
     };
-    let pieces = 14;
-    let mut points = vec![top];
-    for i in 1..pieces {
-        let base = top.lerp(bottom, i as f32 / pieces as f32);
-        points.push(base + Vec2::X * (roll(&mut seed) - 0.5) * c * 3.0);
-    }
-    points.push(bottom);
-    for pair in points.windows(2) {
-        segment(&mut commands, pair[0], pair[1], c * 0.8);
-    }
-    let branches = (roll(&mut seed) * (weather.lightning_branches + 1) as f32) as usize;
-    for _ in 0..branches {
-        let from = points[1 + (roll(&mut seed) * (points.len() - 2) as f32) as usize];
-        let mut at = from;
-        let lean = if roll(&mut seed) < 0.5 { -1.0 } else { 1.0 };
-        for _ in 0..4 {
-            let next = at
-                + Vec2::new(
-                    lean * c * (1.0 + roll(&mut seed) * 2.0),
-                    -c * (1.5 + roll(&mut seed) * 2.0),
-                );
-            segment(&mut commands, at, next, c * 0.4);
-            at = next;
+    // LightningLayer._CreateLightningBranch: 10 points from top to bottom, all but the
+    // first nudged up to a unit sideways; at the fourth point, while the strike has fewer
+    // than its most bolts, 4 in 5 times a branch runs to the bottom up to 20 units aside.
+    let mut bolts = 0;
+    let mut stack = vec![(top, bottom)];
+    while let Some((from, to)) = stack.pop() {
+        bolts += 1;
+        let mut points = Vec::with_capacity(10);
+        for i in 0..10 {
+            let mut p = from.lerp(to, i as f32 / 9.0);
+            if i > 0 {
+                p.x += (roll(&mut seed) * 2.0 - 1.0) * c;
+            }
+            points.push(p);
+            if i == 3 && bolts + stack.len() < weather.lightning_branches as usize && roll(&mut seed) > 0.2 {
+                stack.push((p, to + Vec2::X * (roll(&mut seed) * 40.0 - 20.0) * c));
+            }
+        }
+        for pair in points.windows(2) {
+            segment(&mut commands, pair[0], pair[1], c * 0.8);
         }
     }
     state.seed = seed;
