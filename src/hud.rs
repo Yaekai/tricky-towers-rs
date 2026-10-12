@@ -159,6 +159,15 @@ fn wanted(
                 _ => Shows::Nothing,
             }
         }
+        // Endless Puzzle's bricks left in the level (BricksLeftView, BRICK_LEFT).
+        Kind::Count if game.mode == ModeKind::EndlessPuzzle && game.phase != Phase::Menu => {
+            if state.status == TowerStatus::Out || game.phase == Phase::Over {
+                Shows::Nothing
+            } else {
+                let left = state.level_end.saturating_sub(state.bricks_used());
+                Shows::Text(left.to_string(), rgb(look.place_first))
+            }
+        }
         Kind::Count if game.mode == ModeKind::Survival && game.phase != Phase::Menu => {
             let left = count_up.unwrap_or(
                 config
@@ -483,6 +492,7 @@ fn place_items(
     towers: Query<(&Tower, &TowerState)>,
     wizards: Query<(&Wizard, &GlobalTransform)>,
     mut items: Query<(&HudItem, &mut Node, &ComputedNode)>,
+    game: Res<Match>,
 ) {
     let Ok((camera, eye)) = camera.single() else {
         return;
@@ -510,6 +520,11 @@ fn place_items(
             // Over the card's lower-left corner: BricksView's label sits 50.8 px left of
             // and 91.2 px under the 126 x 101 card's top middle (NextBrickView), as Max's
             // Survival clip shows.
+            // Endless Puzzle's bricks left sit over the card's lower-right corner instead
+            // (BricksLeftView: 47.2 px right of the card's middle, 90 px down).
+            Kind::Count if game.mode == ModeKind::EndlessPuzzle => {
+                card_x.map(|x| Vec2::new(x + card_w * 0.375, card_h * 0.891))
+            }
             Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.403, card_h * 0.903)),
             Kind::Place => screen(wizard - Vec2::Y * config.cells(look.place_below)),
             Kind::Hearts => screen(wizard - Vec2::Y * config.cells(look.heart_below)),
