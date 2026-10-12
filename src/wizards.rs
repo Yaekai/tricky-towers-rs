@@ -64,7 +64,7 @@ fn voice_kind(clip: Clip) -> &'static str {
 /// Volume and pitch of wizard `number`'s voice lines of `kind`, from the original's
 /// speech table: wizards 1-4 laugh at 0.8; packs 5 (0.65), 9 (0.3) and 10-14 (1.1) have
 /// their own volume; guest characters 9-14 play at their own pitch, the rest at 1.13.
-fn voice_mix(number: u32, kind: &str) -> (f32, f32) {
+pub(crate) fn voice_mix(number: u32, kind: &str) -> (f32, f32) {
     let pitch = if number >= 9 { 1.0 } else { 1.13 };
     let volume = match number {
         5 => 0.65,

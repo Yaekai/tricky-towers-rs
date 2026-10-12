@@ -370,6 +370,11 @@ fn apply_debug_commands(
                     "Down" => KeyCode::ArrowDown,
                     "Left" => KeyCode::ArrowLeft,
                     "Right" => KeyCode::ArrowRight,
+                    // The default nudge and magic keys.
+                    "U" => KeyCode::KeyU,
+                    "I" => KeyCode::KeyI,
+                    "J" => KeyCode::KeyJ,
+                    "K" => KeyCode::KeyK,
                     _ => {
                         warn!("debug: unknown key {key}");
                         continue;

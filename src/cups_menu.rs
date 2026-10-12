@@ -1408,6 +1408,45 @@ struct Flyer {
     at: Vec2,
     speed: Vec2,
     facing_left: bool,
+    /// The winner's wizard (0 for wizard 1), for its voice lines.
+    wizard: usize,
+    /// A nudge under way: seconds since, and its way (+1 right, -1 left).
+    nudge: Option<(f32, f32)>,
+}
+
+/// One of the 8 ghosts a nudge leaves behind the wizard (ControllableWizard._NudgeWizard):
+/// ghost `i` sits (1 - i / 8) of 2.5 units back along the nudge, at (1 - i / 8) x 0.6 alpha,
+/// fading out over 0.3 s (TrailEffect).
+#[derive(Component)]
+struct Ghost(usize);
+
+/// The nudge: a 3-unit jump, the wizard squashed to half height growing back over 0.3 s
+/// (out-expo), and its ghost trail.
+const NUDGE_JUMP: f32 = 3.0;
+const NUDGE_TRAIL: f32 = 2.5;
+const NUDGE_TIME: f32 = 0.3;
+const GHOSTS: usize = 8;
+
+/// One of the wizard's voice lines of `kind` at random (its WizardSpeech table's volume and
+/// pitch), for the winner's tricks.
+fn say(commands: &mut Commands, art: &Art, wizard: usize, kind: &str, roll: f32) {
+    let key = format!("wizard{}", wizard + 1);
+    let count = (1..)
+        .take_while(|i| art.sounds.contains_key(&format!("{key}_say_{kind}_{i}")))
+        .count();
+    if count == 0 {
+        return;
+    }
+    let i = 1 + (roll * count as f32) as usize % count;
+    if let Some(sound) = art.sounds.get(&format!("{key}_say_{kind}_{i}")) {
+        let (volume, pitch) = crate::wizards::voice_mix(wizard as u32 + 1, kind);
+        commands.spawn((
+            AudioPlayer(sound.clone()),
+            PlaybackSettings::DESPAWN
+                .with_volume(bevy::audio::Volume::Linear(volume))
+                .with_speed(pitch),
+        ));
+    }
 }
 
 /// Drawn with its Select Players picture (ponytail: the original flies the in-match wizard,
@@ -1427,8 +1466,11 @@ fn fly_winner(
     pads: Query<&Gamepad>,
     towers: Query<(&Tower, Option<&TowerSkin>)>,
     roots: Query<(Entity, &Win)>,
-    mut flyers: Query<(Entity, &mut Flyer, &mut Node, &mut ImageNode)>,
+    mut flyers: Query<(Entity, &mut Flyer, &mut Node, &mut ImageNode), Without<Ghost>>,
+    mut ghosts: Query<(Entity, &Ghost, &mut Node, &mut ImageNode), Without<Flyer>>,
     images: Option<Res<Assets<Image>>>,
+    bindings: Option<Res<crate::keybinding::KeyBindings>>,
+    mut seed: Local<u32>,
 ) {
     let since = popup.winner_since();
     let due = winner_trophy_in(&cup, &config) + WIN_WIZARD_AFTER;
@@ -1444,6 +1486,9 @@ fn fly_winner(
             if since.is_some() {
                 pop(&mut commands);
             }
+            commands.entity(entity).despawn();
+        }
+        for (entity, ..) in &ghosts {
             commands.entity(entity).despawn();
         }
         return;
@@ -1476,6 +1521,8 @@ fn fly_winner(
                     speed: Vec2::ZERO,
                     // Its picture's own way, as the original's scale 1 starts.
                     facing_left: true,
+                    wizard,
+                    nudge: None,
                 },
             ))
             .id();
@@ -1499,7 +1546,70 @@ fn fly_winner(
     }
     let dir = dir.clamp_length_max(1.0);
     let dt = time.delta_secs();
+    // The tricks, on the player's own keys and pad buttons (ControllableWizard._DoAction):
+    // light magic casts on itself, dark magic laughs, game info laughs evilly, turning
+    // cheers, the nudges nudge.
+    use crate::keybinding::Action;
+    let key = |action: Action| {
+        let code = bindings.as_ref().map_or(action.default_key(), |b| b.key(action));
+        keys.as_ref().is_some_and(|k| k.just_pressed(code))
+    };
+    let pad = |button: GamepadButton| pads.iter().any(|p| p.just_pressed(button));
+    let light = key(Action::LightMagic) || pad(GamepadButton::West);
+    let dark = key(Action::DarkMagic) || pad(GamepadButton::East);
+    let overview = key(Action::GameInfo) || pad(GamepadButton::North);
+    let cheer = key(Action::TurnRight) || pad(GamepadButton::South) || pad(GamepadButton::RightTrigger2);
+    let nudge = if key(Action::NudgeRight) || pad(GamepadButton::RightTrigger) {
+        Some(1.0)
+    } else if key(Action::NudgeLeft) || pad(GamepadButton::LeftTrigger) {
+        Some(-1.0)
+    } else {
+        None
+    };
+    if *seed == 0 {
+        *seed = 0x2545_f491;
+    }
+    let mut roll = || crate::particles::roll(&mut seed);
     for (_, mut flyer, mut node, mut picture) in &mut flyers {
+        if let Some(art) = art.as_deref() {
+            if light && let Some(sound) = art.sounds.get("sfx_cast_light") {
+                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+            }
+            for (on, kind) in [(light, "cast_self"), (dark, "laugh"), (overview, "laugh_evil"), (cheer, "cheer")] {
+                if on {
+                    say(&mut commands, art, flyer.wizard, kind, roll());
+                }
+            }
+        }
+        if let Some(way) = nudge
+            && flyer.nudge.is_none()
+        {
+            flyer.at.x += way * NUDGE_JUMP;
+            flyer.nudge = Some((0.0, way));
+            if let Some(sound) = art.as_ref().and_then(|a| a.sounds.get("sfx_nudge")) {
+                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+            }
+            if let Some(root) = roots.iter().find(|(_, w)| **w == Win::Root).map(|(e, _)| e) {
+                for i in 0..GHOSTS {
+                    let ghost = commands
+                        .spawn((
+                            ImageNode {
+                                flip_x: picture.flip_x,
+                                ..ImageNode::new(picture.image.clone())
+                            },
+                            Node {
+                                position_type: PositionType::Absolute,
+                                ..default()
+                            },
+                            ZIndex(3),
+                            Visibility::Hidden,
+                            Ghost(i),
+                        ))
+                        .id();
+                    commands.entity(root).add_child(ghost);
+                }
+            }
+        }
         let target = dir * 10.0;
         let k = (dt * 3.0).min(1.0);
         flyer.speed = flyer.speed + (target - flyer.speed) * k;
@@ -1518,15 +1628,40 @@ fn fly_winner(
             .as_ref()
             .and_then(|i| i.get(&picture.image))
             .map_or(Vec2::new(235.0, 314.0), |i| i.size_f32());
-        let size = Vec2::new(FLYER_HEIGHT * shape.x / shape.y, FLYER_HEIGHT);
-        let x = SCREEN.0 / 2.0 + flyer.at.x * WIN_UNIT - size.x / 2.0;
-        let y = SCREEN.1 / 2.0 - flyer.at.y * WIN_UNIT - size.y / 2.0;
-        node.left = Val::Percent(50.0);
-        node.margin.left = px(x - SCREEN.0 / 2.0);
-        node.top = px(y);
-        node.width = px(size.x);
-        node.height = px(size.y);
+        // A nudge squashes it to half height, growing back out-expo.
+        let mut squash = 1.0;
+        if let Some((age, way)) = flyer.nudge {
+            let age = age + dt;
+            let k = (age / NUDGE_TIME).min(1.0);
+            squash = 0.5 + 0.5 * (1.0 - 2f32.powf(-10.0 * k));
+            flyer.nudge = (age < NUDGE_TIME).then_some((age, way));
+            for (entity, ghost, mut ghost_node, mut ghost_picture) in &mut ghosts {
+                if age >= NUDGE_TIME {
+                    commands.entity(entity).despawn();
+                    continue;
+                }
+                let share = 1.0 - ghost.0 as f32 / GHOSTS as f32;
+                let at = flyer.at - Vec2::new(way * NUDGE_TRAIL * share, 0.0);
+                ghost_picture.color = Color::WHITE.with_alpha(share * 0.6 * (1.0 - k));
+                place_flyer(&mut ghost_node, at, shape, squash);
+                commands.entity(entity).insert(Visibility::Inherited);
+            }
+        }
+        place_flyer(&mut node, flyer.at, shape, squash);
     }
+}
+
+/// Places a flyer picture of `shape` (pixels) at `at` (units from the screen's middle),
+/// squashed to `squash` of its height from its middle.
+fn place_flyer(node: &mut Node, at: Vec2, shape: Vec2, squash: f32) {
+    let size = Vec2::new(FLYER_HEIGHT * shape.x / shape.y, FLYER_HEIGHT * squash);
+    let x = SCREEN.0 / 2.0 + at.x * WIN_UNIT - size.x / 2.0;
+    let y = SCREEN.1 / 2.0 - at.y * WIN_UNIT - size.y / 2.0;
+    node.left = Val::Percent(50.0);
+    node.margin.left = px(x - SCREEN.0 / 2.0);
+    node.top = px(y);
+    node.width = px(size.x);
+    node.height = px(size.y);
 }
 
 #[cfg(test)]
