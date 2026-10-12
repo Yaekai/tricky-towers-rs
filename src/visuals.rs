@@ -110,6 +110,16 @@ pub(crate) struct EclipseFade(pub(crate) Color);
 const ECLIPSE_START: f32 = 1.5;
 const ECLIPSE_TIME: f32 = 2.0;
 
+/// How far Endless Puzzle's eclipse is, 0 to 1: done behind the menus, else over its 2 s
+/// in the intro.
+pub(crate) fn eclipse_progress(game: &Match) -> f32 {
+    if game.phase == Phase::Menu {
+        1.0
+    } else {
+        ((game.elapsed - ECLIPSE_START) / ECLIPSE_TIME).clamp(0.0, 1.0)
+    }
+}
+
 fn fade_eclipse(
     mut commands: Commands,
     game: Res<Match>,
@@ -117,11 +127,7 @@ fn fade_eclipse(
     mut layers: Query<(&EclipseFade, &mut Sprite)>,
     mut played: Local<u64>,
 ) {
-    let t = if game.phase == Phase::Menu {
-        1.0
-    } else {
-        ((game.elapsed - ECLIPSE_START) / ECLIPSE_TIME).clamp(0.0, 1.0)
-    };
+    let t = eclipse_progress(&game);
     if game.phase == Phase::Playing && game.elapsed >= ECLIPSE_START && *played != game.round {
         *played = game.round;
         if let Some(sound) = art.sounds.get("sfx_eclipse") {

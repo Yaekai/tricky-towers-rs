@@ -32,10 +32,39 @@ impl Plugin for WeatherPlugin {
                     rain,
                     lightning,
                     fit_weather,
+                    run_endless_sun,
                     survival_wave_sky,
                 )
                     .chain(),
             );
+    }
+}
+
+/// Endless Puzzle's sun quad (DesertEndlessSun's SunGraphic: 20 x 20 units, 9.35 over the
+/// view's middle).
+#[derive(Component)]
+struct EndlessSunQuad;
+
+/// Places Endless Puzzle's sun and runs its eclipse: the amount and the gradient colour
+/// ease out-expo over the eclipse's 2 s (SunEndlessLayer.Eclipse).
+fn run_endless_sun(
+    game: Res<Match>,
+    view_size: Res<ViewSize>,
+    camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
+    mut quads: Query<(&MeshMaterial2d<crate::scene_material::EndlessSun>, &mut Transform), (With<EndlessSunQuad>, Without<crate::visuals::MainCamera>)>,
+    mut suns: Option<ResMut<Assets<crate::scene_material::EndlessSun>>>,
+) {
+    let (_, size) = view(&camera, view_size.0);
+    let unit = size.y / 41.54;
+    let t = crate::visuals::eclipse_progress(&game);
+    let amount = if t >= 1.0 { 1.0 } else { 1.0 - 2f32.powf(-10.0 * t) };
+    for (material, mut transform) in &mut quads {
+        transform.translation.x = 0.0;
+        transform.translation.y = 9.35 * unit;
+        transform.scale = Vec3::new(20.0 * unit, 20.0 * unit, 1.0);
+        if let Some(mut sun) = suns.as_mut().and_then(|s| s.get_mut(&material.0)) {
+            sun.look = crate::scene_material::EndlessSunLook::at(amount);
+        }
     }
 }
 
@@ -174,6 +203,8 @@ fn set_up_weather(
     mut state: ResMut<WeatherState>,
     camera: Query<Entity, With<crate::visuals::MainCamera>>,
     old: Query<Entity, With<Weather>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut suns: Option<ResMut<Assets<crate::scene_material::EndlessSun>>>,
 ) {
     // Behind the menus the picked mode's weather shows with its background (Select Mode,
     // Endless); the plain Race scene has none. Over a match (and its pause) the match's.
@@ -303,19 +334,32 @@ fn set_up_weather(
             ChildOf(camera),
         ));
     }
-    if matches!(look.1, Some("puzzle_pro" | "endless_puzzle")) {
+    // Endless Puzzle has its own sun (DesertEndlessSun): a moon slides over it during the
+    // intro, leaving an orange crescent; no corona.
+    if look.1 == Some("endless_puzzle")
+        && let (Some(ramp), Some(meshes), Some(suns)) = (art.image("eclipse_gradient"), meshes.as_mut(), suns.as_mut())
+    {
+        commands.spawn((
+            Weather,
+            EndlessSunQuad,
+            Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
+            MeshMaterial2d(suns.add(crate::scene_material::EndlessSun {
+                look: crate::scene_material::EndlessSunLook::at(0.0),
+                ramp,
+            })),
+            Transform::from_xyz(0.0, 0.0, -930.0),
+            ChildOf(camera),
+        ));
+    }
+    if look.1 == Some("puzzle_pro") {
         if let Some(sun) = art.image("puzzle_pro_sun") {
-            let mut sun = commands.spawn((
+            commands.spawn((
                 Weather,
                 EclipseSun,
                 Sprite::from_image(sun),
                 Transform::from_xyz(0.0, 0.0, -930.0),
                 ChildOf(camera),
             ));
-            // Endless Puzzle's eclipse fades in with its intro.
-            if look.1 == Some("endless_puzzle") {
-                sun.insert(crate::visuals::EclipseFade(Color::WHITE));
-            }
         }
         if let Some(ray) = art.image("puzzle_pro_corona") {
             for i in 0..weather.corona.len() {

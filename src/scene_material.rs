@@ -393,6 +393,90 @@ fn run_perspective_clouds(
     }
 }
 
+const SUN_SHADER: Handle<Shader> = uuid_handle!("3c7d9e15-82a4-4b6f-9d03-5e1f7a2c8b64");
+
+const SUN_WGSL: &str = r#"// Endless Puzzle's sun (DesertEndlessSun, World/Background/Puzzle/Eclipse): a disc of
+// radius 0.3 fading out by 0.57 of the quad, with a moon of radius 0.2 (fading out by 0.38)
+// sliding in from the left to x = 0.67 x amount - 0.4. How much of the sun still shows picks
+// a point on the eclipse gradient: its blue mixes the gradient colour towards the sun colour,
+// its alpha is the alpha.
+#import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
+
+struct EndlessSun {
+    // x: the eclipse's amount, 0 to 1.
+    params: vec4<f32>,
+    // The colours (sRGB): the gradient's, which turns orange, and the sun's.
+    gradient: vec4<f32>,
+    sun: vec4<f32>,
+};
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: EndlessSun;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var ramp: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var ramp_sampler: sampler;
+
+fn inside(d: f32, start: f32, k: f32) -> f32 {
+    let s = clamp((d - start) * k, 0.0, 1.0);
+    return 1.0 - s * s * (3.0 - 2.0 * s);
+}
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let uv = mesh.uv;
+    let a = material.params.x;
+    let moon = inside(length(vec2(uv.x - (0.67 * a - 0.4), uv.y - 0.5)), 0.2, 5.5555558);
+    let sun = inside(length(uv - vec2(0.5)), 0.3, 3.7037032);
+    let shows = clamp(sun - moon, 0.0, 1.0);
+    let t = textureSample(ramp, ramp_sampler, vec2(1.0 - shows, 0.5));
+    let b = linear_to_srgb(t.rgb).b;
+    let colour = material.gradient.rgb + b * (material.sun.rgb - material.gradient.rgb);
+    return vec4(srgb_to_linear(colour), t.a);
+}
+"#;
+
+/// Endless Puzzle's sun: the eclipse's amount and colours, and the eclipse gradient.
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct EndlessSun {
+    #[uniform(0)]
+    pub look: EndlessSunLook,
+    #[texture(1)]
+    #[sampler(2)]
+    pub ramp: Handle<Image>,
+}
+
+#[derive(bevy::render::render_resource::ShaderType, Clone, Copy, Debug)]
+pub struct EndlessSunLook {
+    pub params: Vec4,
+    pub gradient: Vec4,
+    pub sun: Vec4,
+}
+
+impl Material2d for EndlessSun {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(SUN_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
+/// The Eclipse material's colours: the gradient starts pale gold and the eclipse turns it
+/// to #FF641F (DesertBackgroundEndlessSun.AnimateIn); the sun stays white.
+pub const SUN_GRADIENT_FROM: Vec4 = Vec4::new(1.0, 0.8833671, 0.63235295, 1.0);
+pub const SUN_GRADIENT_TO: Vec4 = Vec4::new(1.0, 100.0 / 255.0, 31.0 / 255.0, 1.0);
+
+impl EndlessSunLook {
+    /// The look `amount` (0 to 1, already eased) into the eclipse.
+    pub fn at(amount: f32) -> Self {
+        Self {
+            params: Vec4::new(amount, 0.0, 0.0, 0.0),
+            gradient: SUN_GRADIENT_FROM.lerp(SUN_GRADIENT_TO, amount),
+            sun: Vec4::ONE,
+        }
+    }
+}
+
 pub struct SceneMaterialPlugin;
 
 impl Plugin for SceneMaterialPlugin {
@@ -414,7 +498,12 @@ impl Plugin for SceneMaterialPlugin {
             Material2dPlugin::<FlagWave>::default(),
             Material2dPlugin::<CheckpointFlag>::default(),
             Material2dPlugin::<PerspectiveClouds>::default(),
+            Material2dPlugin::<EndlessSun>::default(),
         ));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(SUN_SHADER.id(), Shader::from_wgsl(SUN_WGSL, "endless_sun.wgsl"));
         let _ = app
             .world_mut()
             .resource_mut::<Assets<Shader>>()
