@@ -14,10 +14,10 @@ original and fix what differs:
 - Select Players, Select Mode, Single Player, Settings and the pause screen.
 
 ## 2. Gameplay still missing or estimated
-- **Puzzle**: the two-player layout compared frame by frame with the original.
+- **Puzzle**: compared with Max's clip; the laser and the foreground sand now match. The camera
+  framing at other moments (zoomed out for wide towers) is still to check.
 - **Survival**: the moon drop (it falls only for bricks 2.5× or bigger, and no spell here
   makes them that big yet).
-- **Cups**: Big and Super Cup layouts and the panel's slide-in timing.
 - Done since the last list: Endless Puzzle obstacle blocks (checked, they match), Auto Rotate
   wind-up and its sounds, Petrify's stone look in hand and its grass and moss, the cup's stray
   empty medal and medal sounds, two towers touching the Puzzle laser at once (tested).
@@ -25,13 +25,12 @@ original and fix what differs:
   (intro timings, cup panel timings, `moments` and `casts` values).
 
 ## 3. Look and effects
-- The beams' particle parts: sine waves, droplets and vertical lines (the blobs, the
-  impact and the collapse explosion are in).
+- The beams' particles are drawn alpha-blended; the original adds them (additive shaders).
 - Endless Race clouds: the cloud planes' texture direction.
 
 ## 4. Menus
-- Small layout differences left from the screenshot comparison (spacing on Single Player,
-  text weights).
+- Small layout differences left from the screenshot comparison (title tile labels about 5%
+  large, text weights). Single Player and the title match Max's clip otherwise.
 - Title tiles: the wizard over the Local Battle frame and the earth's size need those parts
   staged as their own layers.
 - Text from the original's 19 language files (the format is read in
