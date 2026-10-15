@@ -563,11 +563,15 @@ fn fit_strips(images: Res<Assets<Image>>, mut strips: Query<(&Strip, &mut Sprite
         let scale = transform.scale.x.max(f32::EPSILON);
         let height = strip.height.map_or(size.y, |h| h / transform.scale.y.max(f32::EPSILON));
         sprite.custom_size = Some(Vec2::new(strip.width / scale, height));
-        sprite.image_mode = SpriteImageMode::Tiled {
-            tile_x: true,
-            tile_y: false,
-            stretch_value: 1.0,
-        };
+        // A stretched quad (the Puzzle laser: its picture spans the whole quad once) isn't
+        // tiled; the other strips repeat their picture along.
+        if strip.height.is_none() {
+            sprite.image_mode = SpriteImageMode::Tiled {
+                tile_x: true,
+                tile_y: false,
+                stretch_value: 1.0,
+            };
+        }
     }
 }
 

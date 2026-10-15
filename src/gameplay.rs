@@ -806,11 +806,11 @@ fn raise_bases(
     time: Res<Time>,
     config: Res<GameConfig>,
     mut towers: Query<(Entity, &mut TowerState)>,
-    mut bases: Query<(&Raised, &mut LinearVelocity)>,
+    mut bases: Query<(&Raised, &mut Transform, Option<(&Position, &mut LinearVelocity)>)>,
 ) {
     let dt = time.delta_secs().max(f32::EPSILON);
     let rules = &config.puzzle;
-    let mut speeds: HashMap<Entity, f32> = HashMap::new();
+    let mut shown: HashMap<Entity, f32> = HashMap::new();
     for (entity, mut state) in &mut towers {
         // Each brick lost before the round's bricks are zapped moves the base up from where
         // it is to the new height over `base_rise_time` (DOTween's out-quad); once a tower
@@ -821,24 +821,34 @@ fn raise_bases(
             state.base_move = Some((state.base_shown, target, 0.0));
             state.base_moves += 1;
         }
-        let before = state.base_shown;
         if let Some((from, to, t)) = state.base_move.as_mut() {
             *t += dt;
             let k = (*t / rules.base_rise_time.max(0.001)).min(1.0);
-            let shown = *from + (*to - *from) * (1.0 - (1.0 - k) * (1.0 - k));
+            let at = *from + (*to - *from) * (1.0 - (1.0 - k) * (1.0 - k));
             if k >= 1.0 {
                 state.base_move = None;
             }
-            state.base_shown = shown;
+            state.base_shown = at;
         }
-        speeds.insert(entity, (state.base_shown - before) / dt * config.cell_size);
+        shown.insert(entity, state.base_shown * config.cell_size);
     }
-    // The bases are kinematic: moving them at a speed lifts the bricks on them, so
-    // nothing passes through the ground.
-    for (raised, mut velocity) in &mut bases {
-        let wanted = Vec2::new(0.0, speeds.get(&raised.tower).copied().unwrap_or(0.0));
-        if velocity.0 != wanted {
-            velocity.0 = wanted;
+    // Kinematic parts are moved at the speed that brings them to their height this step, so
+    // they lift the bricks on them and nothing passes through the ground; a part with no body
+    // (the platform holding the lines and art) is simply put there.
+    for (raised, mut transform, body) in &mut bases {
+        let want = raised.rest + shown.get(&raised.tower).copied().unwrap_or(0.0);
+        match body {
+            Some((position, mut velocity)) => {
+                let wanted = Vec2::new(0.0, (want - position.0.y) / dt);
+                if velocity.0 != wanted {
+                    velocity.0 = wanted;
+                }
+            }
+            None => {
+                if transform.translation.y != want {
+                    transform.translation.y = want;
+                }
+            }
         }
     }
 }

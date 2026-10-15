@@ -190,6 +190,43 @@ fn a_dropped_puzzle_brick_raises_the_base_not_the_laser() {
 }
 
 #[test]
+fn a_puzzle_base_rises_as_far_as_it_says() {
+    // The laser line hangs from the platform and takes the base's shown rise back out, so
+    // the platform must really move by that rise or the laser copies drift apart.
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.opponents = 1;
+    config.puzzle.line_height = 20.0;
+    let mut app = headless_app(config);
+    run_until(&mut app, 12.0, |app| {
+        human_input(app).left_held = true;
+        tower(app, 0).bricks_dropped >= 2
+    });
+    run_seconds(&mut app, 1.0, |_| {});
+    let c = app.world().resource::<GameConfig>().cell_size;
+    let state = tower(&mut app, 0);
+    let world = app.world_mut();
+    let owner = world
+        .query::<(Entity, &Tower)>()
+        .iter(world)
+        .find(|(_, t)| t.index == 0)
+        .map(|(e, _)| e)
+        .expect("tower");
+    let risen: Vec<f32> = world
+        .query::<(&tricky_towers::gameplay::Raised, &Transform)>()
+        .iter(world)
+        .filter(|(r, _)| r.tower == owner)
+        .map(|(r, t)| (t.translation.y - r.rest) / c)
+        .collect();
+    assert!(!risen.is_empty(), "no raised parts");
+    assert!(
+        risen.iter().all(|r| (r - state.base_shown).abs() < 0.05),
+        "parts rose {risen:?}, the tower says {}",
+        state.base_shown
+    );
+}
+
+#[test]
 fn puzzle_laser_is_shared_and_changes_each_round() {
     let mut config = fast_config();
     config.mode = ModeKind::Puzzle;

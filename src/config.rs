@@ -649,7 +649,8 @@ pub struct PuzzleRules {
     /// half a cell in 0.4 s, out-quad, with the rumble looping meanwhile).
     /// A battle's laser: how tall its plain (off) and bright (on) quads are drawn, in cells.
     /// LaserMultiplayer's quads are 1 and 1.23 under a root of 4, shrunk by the background
-    /// layer's zoom; these are measured from Max's Puzzle clip (the glow is ~1.2 cells).
+    /// layer's zoom; these are measured from Max's Puzzle clip (core and glow), and the
+    /// picture is stretched once across, not repeated.
     pub laser_heights: (f32, f32),
     pub base_rise_time: f32,
     /// The floor each round is built on, in place of a flat base.
@@ -706,7 +707,7 @@ impl Default for PuzzleRules {
             count_tip_time: 0.1,
             count_flash: 0.3,
             base_rise_time: 0.4,
-            laser_heights: (1.5, 1.85),
+            laser_heights: (1.2, 1.48),
             floor: PuzzleFloor::Normal,
             floor_depth: 6.0,
             easy_floor: (5, 0, 2),
