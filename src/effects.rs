@@ -26,6 +26,7 @@ impl Plugin for EffectsPlugin {
                 fly_droplets,
                 show_collapse,
                 fly_particles,
+                rumble_base_moves,
                 stop_rumble,
                 level_up_sounds,
                 grow_tufts,
@@ -418,6 +419,31 @@ struct Rumble {
 }
 
 /// How long a shard flies before it is gone, in seconds.
+
+/// A Puzzle base moving up after a lost brick rumbles while it moves (TowerMoveController's
+/// looping SFX_RUMBLE).
+fn rumble_base_moves(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    towers: Query<(Entity, &crate::gameplay::TowerState)>,
+    mut heard: Local<Vec<(Entity, u32)>>,
+) {
+    for (tower, state) in &towers {
+        let was = heard.iter().find(|h| h.0 == tower).map_or(0, |h| h.1);
+        if state.base_moves > was
+            && let Some(sound) = art.sounds.get("sfx_rumble")
+        {
+            commands.spawn((
+                AudioPlayer(sound.clone()),
+                PlaybackSettings::LOOP,
+                Rumble { left: config.puzzle.base_rise_time },
+            ));
+        }
+        heard.retain(|h| h.0 != tower);
+        heard.push((tower, state.base_moves));
+    }
+}
 
 /// Blasts, shakes and sounds for the towers falling apart at the end of a match.
 fn show_collapse(

@@ -618,7 +618,7 @@
         count_tip: 10.0,
         count_tip_time: 0.1,
         count_flash: 0.3,
-        base_rise_speed: 1.0,
+        base_rise_time: 0.4,
         floor: Normal,
         floor_depth: 6.0,
         easy_floor: (5, 0, 2),

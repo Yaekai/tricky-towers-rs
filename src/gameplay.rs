@@ -408,6 +408,10 @@ pub struct TowerState {
     pub laser_count: Option<f32>,
     /// Puzzle: how far the base has risen so far, in cells; it eases up to `base_rise`.
     pub base_shown: f32,
+    /// Puzzle: the base's current move (from, to, seconds in), and how many moves have
+    /// started (the effects rumble with each; TowerMoveController).
+    pub base_move: Option<(f32, f32, f32)>,
+    pub base_moves: u32,
     /// Remaining lives, for modes that have them.
     pub lives: Option<u32>,
     /// Height of the settled tower above the platform, in cells.
@@ -510,6 +514,8 @@ impl TowerState {
             bricks_dropped: 0,
             laser_count: None,
             base_shown: 0.0,
+            base_move: None,
+            base_moves: 0,
             lives: match config.mode {
                 // Endless Puzzle has one life: a lost brick ends the run.
                 ModeKind::EndlessPuzzle => Some(1),
@@ -803,13 +809,29 @@ fn raise_bases(
     mut bases: Query<(&Raised, &mut LinearVelocity)>,
 ) {
     let dt = time.delta_secs().max(f32::EPSILON);
-    let step = config.puzzle.base_rise_speed * dt;
+    let rules = &config.puzzle;
     let mut speeds: HashMap<Entity, f32> = HashMap::new();
     for (entity, mut state) in &mut towers {
-        let gap = state.base_rise(&config) - state.base_shown;
-        let moved = gap.clamp(-step, step);
-        state.base_shown += moved;
-        speeds.insert(entity, moved / dt * config.cell_size);
+        // Each brick lost before the round's bricks are zapped moves the base up from where
+        // it is to the new height over `base_rise_time` (DOTween's out-quad); once a tower
+        // touched the laser it stays put.
+        let target = state.base_rise(&config);
+        let heading = state.base_move.map_or(state.base_shown, |m| m.1);
+        if state.laser_count.is_none() && target != heading {
+            state.base_move = Some((state.base_shown, target, 0.0));
+            state.base_moves += 1;
+        }
+        let before = state.base_shown;
+        if let Some((from, to, t)) = state.base_move.as_mut() {
+            *t += dt;
+            let k = (*t / rules.base_rise_time.max(0.001)).min(1.0);
+            let shown = *from + (*to - *from) * (1.0 - (1.0 - k) * (1.0 - k));
+            if k >= 1.0 {
+                state.base_move = None;
+            }
+            state.base_shown = shown;
+        }
+        speeds.insert(entity, (state.base_shown - before) / dt * config.cell_size);
     }
     // The bases are kinematic: moving them at a speed lifts the bricks on them, so
     // nothing passes through the ground.
