@@ -26,6 +26,8 @@ impl Plugin for CastsPlugin {
                 start_casts,
                 run_beams,
                 run_impacts,
+                stream_beams,
+                run_streams,
                 run_orbs,
                 run_lightning,
                 track_clouds,
@@ -76,6 +78,8 @@ fn wizard_spot(
 /// One stage of a dark cast's beam, or the lane wave.
 #[derive(Component)]
 struct Beam {
+    /// Particles owed to each stream (they come out a fraction at a time).
+    owed: Vec<f32>,
     kind: BeamKind,
     /// The beam's foot (world pixels) and the lane centre it ends over.
     foot: Vec2,
@@ -228,6 +232,7 @@ fn spawn_beam(
     };
     let mut beam = commands.spawn((
         Beam {
+            owed: Vec::new(),
             kind,
             foot,
             lane_x,
@@ -299,6 +304,102 @@ fn spawn_victim_beams(
     commands
         .entity(lane)
         .insert((Visibility::Hidden, DelayedBy(config.casts.dark_start)));
+}
+
+/// A particle given off by a beam: its velocity (pixels a second), life, age, full size and
+/// whether it swells and shrinks in place (a droplet) or fades in and out (a streak or wave).
+#[derive(Component)]
+struct StreamBit {
+    velocity: Vec2,
+    life: f32,
+    age: f32,
+    size: Vec2,
+    pulse: bool,
+}
+
+/// Gives off each beam's particles while it stands (from the moment its column has grown).
+fn stream_beams(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    mut beams: Query<(Entity, &mut Beam, Option<&DelayedBy>)>,
+) {
+    let look = &config.casts;
+    let dt = time.delta_secs();
+    let c = config.cell_size;
+    for (entity, mut beam, delay) in &mut beams {
+        let streams = match beam.kind {
+            BeamKind::Up => &look.beam_streams_up,
+            BeamKind::Down => &look.beam_streams_down,
+            BeamKind::Lane => continue,
+        };
+        let grow = match beam.kind {
+            BeamKind::Up => look.beam_up.0,
+            _ => look.beam_down.0,
+        };
+        if delay.is_some() || beam.time < grow {
+            continue;
+        }
+        if beam.owed.len() != streams.len() {
+            beam.owed = vec![0.0; streams.len()];
+        }
+        let mut seed = (time.elapsed_secs().to_bits() ^ entity.index_u32().wrapping_mul(2_654_435_761)) | 1;
+        let mut unit = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            (seed % 10_000) as f32 / 10_000.0
+        };
+        for (i, stream) in streams.iter().enumerate() {
+            beam.owed[i] += stream.rate * dt;
+            let Some(image) = art.image(&stream.picture) else { continue };
+            while beam.owed[i] >= 1.0 {
+                beam.owed[i] -= 1.0;
+                let mut at = beam.foot + Vec2::new(stream.at.0, stream.at.1) * c;
+                at.x += (unit() - 0.5) * stream.spread * c;
+                if stream.ring > 0.0 {
+                    at += Vec2::from_angle(unit() * std::f32::consts::TAU) * stream.ring * c;
+                }
+                let speed = stream.speed.0 + (stream.speed.1 - stream.speed.0) * unit();
+                let way = if stream.down { -1.0 } else { 1.0 };
+                let (a, b) = stream.tints;
+                let k = unit();
+                let tint = Color::srgb_u8(a.0, a.1, a.2).mix(&Color::srgb_u8(b.0, b.1, b.2), k);
+                let pulse = stream.ring > 0.0;
+                let size = Vec2::new(stream.size.0, stream.size.1) * c * if pulse { unit() } else { 1.0 };
+                commands.spawn((
+                    StreamBit { velocity: Vec2::Y * way * speed * c, life: stream.life, age: 0.0, size, pulse },
+                    Sprite { image: image.clone(), color: tint.with_alpha(0.0), custom_size: Some(size), ..default() },
+                    Transform::from_translation(at.extend(16.2)),
+                ));
+            }
+        }
+    }
+}
+
+/// Moves the beams' particles: streaks and waves fade in and out over their first and last
+/// tenth, droplets swell and shrink (Droplets' size curve: 0.83 at 30%, full at 56%, 0.97 at
+/// 92%, gone at the end).
+fn run_streams(mut commands: Commands, time: Res<Time>, mut bits: Query<(Entity, &mut StreamBit, &mut Transform, &mut Sprite)>) {
+    let dt = time.delta_secs();
+    for (entity, mut bit, mut transform, mut sprite) in &mut bits {
+        bit.age += dt;
+        let t = bit.age / bit.life.max(0.001);
+        if t >= 1.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        transform.translation += (bit.velocity * dt).extend(0.0);
+        if bit.pulse {
+            let keys = [(0.0, 0.0), (0.3, 0.83), (0.556, 1.0), (0.923, 0.97), (1.0, 0.0)];
+            let k = crate::config::keyed(&keys, t);
+            sprite.custom_size = Some(bit.size * k);
+            sprite.color.set_alpha(1.0);
+        } else {
+            sprite.color.set_alpha((t / 0.1).min(1.0).min((1.0 - t) / 0.1));
+        }
+    }
 }
 
 /// The pictures of a down beam's impact, back to front.

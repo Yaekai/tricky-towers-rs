@@ -2773,6 +2773,10 @@ pub struct CastLook {
     /// the same time again).
     pub beam_blobs: Vec<Vec<(String, f32, f32, f32, f32)>>,
     pub beam_blob_grow: f32,
+    /// The particles each beam gives off once it has grown (Beam01 / BeamDown01's
+    /// VerticalLines, SineRight, SineLeft and Droplets), for the up and the down beam.
+    pub beam_streams_up: Vec<BeamStream>,
+    pub beam_streams_down: Vec<BeamStream>,
     /// Light cast: the lightning from the wizard to the brick lasts this long, and
     /// its wobble peaks at this many cells (a sixth of the way in; clip `Lightning`).
     pub lightning: f32,
@@ -2845,6 +2849,18 @@ impl Default for CastLook {
                 ],
             ],
             beam_blob_grow: 1.0 / 6.0,
+            beam_streams_up: vec![
+                BeamStream { picture: "cast_streak".into(), at: (0.0, 5.14), down: true, rate: 5.0, life: 3.0, speed: (0.0, 15.0), size: (0.1, 10.0), spread: 1.6, ring: 0.0, tints: ((205, 241, 255), (141, 243, 255)) },
+                BeamStream { picture: "cast_sine".into(), at: (1.1, 0.69), down: true, rate: 9.0, life: 10.0, speed: (7.6, 7.6), size: (1.5, 1.5), spread: 0.0, ring: 0.0, tints: ((255, 255, 255), (255, 255, 255)) },
+                BeamStream { picture: "cast_sine".into(), at: (-1.1, -0.31), down: false, rate: 9.0, life: 10.0, speed: (7.6, 7.6), size: (1.5, 1.5), spread: 0.0, ring: 0.0, tints: ((255, 255, 255), (255, 255, 255)) },
+                BeamStream { picture: "cast_droplet".into(), at: (0.0, -0.14), down: false, rate: 10.0, life: 0.7, speed: (0.0, 0.0), size: (0.2, 0.2), spread: 0.0, ring: 2.5, tints: ((255, 255, 255), (255, 255, 255)) },
+            ],
+            beam_streams_down: vec![
+                BeamStream { picture: "cast_streak".into(), at: (0.0, 5.14), down: true, rate: 5.0, life: 3.0, speed: (0.0, 15.0), size: (0.1, 10.0), spread: 1.6, ring: 0.0, tints: ((205, 241, 255), (141, 243, 255)) },
+                BeamStream { picture: "cast_sine".into(), at: (1.1, 1.66), down: true, rate: 9.0, life: 10.0, speed: (7.6, 7.6), size: (1.5, 1.5), spread: 0.0, ring: 0.0, tints: ((255, 255, 255), (255, 255, 255)) },
+                BeamStream { picture: "cast_sine".into(), at: (-1.1, 0.0), down: true, rate: 9.0, life: 10.0, speed: (7.6, 7.6), size: (1.5, 1.5), spread: 0.0, ring: 0.0, tints: ((255, 255, 255), (255, 255, 255)) },
+                BeamStream { picture: "cast_droplet".into(), at: (0.0, -0.14), down: false, rate: 10.0, life: 0.7, speed: (0.0, 0.0), size: (0.2, 0.2), spread: 0.0, ring: 2.5, tints: ((255, 255, 255), (255, 255, 255)) },
+            ],
             lightning: 0.4,
             lightning_wobble: 2.0,
             cloud_show: 0.83,
@@ -3913,4 +3929,25 @@ impl Default for ExplosionLook {
             debris_gravity: 9.81,
         }
     }
+}
+
+/// One particle stream of a cast beam: its picture, where it starts from the beam's foot
+/// (cells), whether it runs down or up the beam, particles a second, life (seconds), speed
+/// range (cells a second, random between), drawn size (cells, a stretched streak is tall),
+/// how wide a box it starts in, the radius of the ring it starts on instead (0 for none; a
+/// ring's particles stay put and swell and shrink), and the two tints it picks between.
+/// Speeds marked as ranges from 0 are guesses: the original's lower ends weren't saved.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct BeamStream {
+    pub picture: String,
+    pub at: (f32, f32),
+    pub down: bool,
+    pub rate: f32,
+    pub life: f32,
+    pub speed: (f32, f32),
+    pub size: (f32, f32),
+    pub spread: f32,
+    pub ring: f32,
+    pub tints: ((u8, u8, u8), (u8, u8, u8)),
 }

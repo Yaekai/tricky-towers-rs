@@ -75,6 +75,11 @@ Add-Piece 'menu_leaderboard_medal_4' 'gph_onlineScoreMedalLast'
 foreach ($i in 3..4) { Add-Piece "cast_blob_2_$i" "gph_castEffect2Blob0$i" }
 foreach ($i in 2..4) { Add-Piece "cast_blob_3_$i" "gph_castEffect3Blob0$i" }
 foreach ($i in 1..3) { Add-Piece "cast_blob_4_$i" "gph_castEffect4Blob0$i" }
+# The beams' particle pictures: the streaks (ParticleStreakMat), the sine waves
+# (Sine1WaveMat) and the droplets (SolidCircleMat).
+Add-Whole 'cast_streak' 'gph_castEffectGradientReflected'
+Add-Whole 'cast_sine' 'gph_castEffectSine'
+Add-Whole 'cast_droplet' 'gph_whiteCircle'
 # Petrified bricks' moss (PetrifyBrickModifier's MOSS_0..2 and MOSS_DESERT_0..2).
 foreach ($i in 1..3) {
   Add-Piece "moss_$i" "gph_moss_var0$i"
