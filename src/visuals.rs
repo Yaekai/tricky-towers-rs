@@ -2599,7 +2599,13 @@ fn dress_platforms(
                 ((config.players.max(1) + config.opponents) as usize)
                     .min(crate::gameplay::MAX_TOWERS)
             };
-            let race_lane = config.cells(config.lanes.width(lanes));
+            // A lone tower's camera is the whole screen, so its lines reach both edges
+            // (Max's Endless Race clip); shared screens keep the lanes' margins.
+            let race_lane = if lanes == 1 {
+                config.cells(config.lanes.screen_width)
+            } else {
+                config.cells(config.lanes.width(lanes))
+            };
             // A Puzzle trial's laser runs from the screen's left edge to its ball,
             // 21 cells right of the lane (the ball's place in Max's screenshot; the
             // original sets it 9 units into its zoomed background view, ?).
