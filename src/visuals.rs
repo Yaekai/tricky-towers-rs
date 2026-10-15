@@ -454,13 +454,26 @@ const GRASS: Color = Color::srgb(0.35, 0.8, 0.2);
 #[derive(Component)]
 struct Strip {
     width: f32,
+    /// Drawn this tall (world units) instead of the picture's own height.
+    height: Option<f32>,
 }
 
 /// An art sprite for a strip `width` world units wide, or `None` without the art.
 fn art_strip(art: &Art, name: &str, cell: f32, width: f32, at: Vec3) -> Option<impl Bundle> {
     let (sprite, anchor, transform) = art_sprite(art, name, cell)?;
     Some((
-        Strip { width },
+        Strip { width, height: None },
+        sprite,
+        anchor,
+        transform.with_translation(at),
+    ))
+}
+
+/// An art strip drawn `height` world units tall (a quad the original stretched).
+fn art_strip_tall(art: &Art, name: &str, cell: f32, width: f32, height: f32, at: Vec3) -> Option<impl Bundle> {
+    let (sprite, anchor, transform) = art_sprite(art, name, cell)?;
+    Some((
+        Strip { width, height: Some(height) },
         sprite,
         anchor,
         transform.with_translation(at),
@@ -548,7 +561,8 @@ fn fit_strips(images: Res<Assets<Image>>, mut strips: Query<(&Strip, &mut Sprite
         }
         let size = image.size_f32();
         let scale = transform.scale.x.max(f32::EPSILON);
-        sprite.custom_size = Some(Vec2::new(strip.width / scale, size.y));
+        let height = strip.height.map_or(size.y, |h| h / transform.scale.y.max(f32::EPSILON));
+        sprite.custom_size = Some(Vec2::new(strip.width / scale, height));
         sprite.image_mode = SpriteImageMode::Tiled {
             tile_x: true,
             tile_y: false,
@@ -2635,7 +2649,8 @@ fn dress_platforms(
                 } else {
                     name
                 };
-                if battle_laser && let Some(bright) = art_strip(&art, name, c, line_width, Vec3::ZERO) {
+                let (off_h, on_h) = config.puzzle.laser_heights;
+                if battle_laser && let Some(bright) = art_strip_tall(&art, name, c, line_width, config.cells(on_h), Vec3::ZERO) {
                     line.with_children(|line| {
                         line.spawn((
                             LaserSweep {
@@ -2649,14 +2664,18 @@ fn dress_platforms(
                         .with_child(bright);
                     });
                 }
-                match art_strip(&art, rest, c, line_width, Vec3::X * line_x) {
-                    Some(strip) if battle_laser => line.with_child((strip, LaserRest)),
-                    Some(strip) => line.with_child(strip),
-                    None => line.with_child((
+                let rest_strip = if battle_laser {
+                    art_strip_tall(&art, rest, c, line_width, config.cells(off_h), Vec3::X * line_x)
+                        .map(|strip| line.with_child((strip, LaserRest)).id())
+                } else {
+                    art_strip(&art, rest, c, line_width, Vec3::X * line_x).map(|strip| line.with_child(strip).id())
+                };
+                if rest_strip.is_none() {
+                    line.with_child((
                         Sprite::from_color(color, Vec2::new(line_width, 3.0)),
                         Transform::from_xyz(line_x, 0.0, 0.0),
-                    )),
-                };
+                    ));
+                }
                 // The finish line's tiles end in a cap at each side, the right one turned
                 // 180° (docs/research/trials-obstacles-roofs.md, "Finish line").
                 if name == "finish_line" {
