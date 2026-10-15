@@ -1,5 +1,7 @@
 # Tricky Towers, rebuilt in Rust + Bevy
 
+[![tests](https://github.com/Yaekai/tricky-towers-rs/actions/workflows/test.yml/badge.svg)](https://github.com/Yaekai/tricky-towers-rs/actions/workflows/test.yml)
+
 An unofficial, from-scratch rebuild of WeirdBeard Games' physics brick-stacking game
 *Tricky Towers*, aiming to match the original 1:1 (rules, values, menus, look and sound) and to
 be easy to mod.
