@@ -226,7 +226,7 @@
         tab_left: 768.0,
         tab_width: 361.0,
         tab_bottom: 617.0,
-        slide: 0.4,
+        slide: (0.2, 0.33),
         fill_start: 1.0,
         fill_step: 0.25,
         fill_row_gap: 0.75,

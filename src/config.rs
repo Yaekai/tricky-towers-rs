@@ -2318,8 +2318,9 @@ pub struct CupPanel {
     pub tab_left: f32,
     pub tab_width: f32,
     pub tab_bottom: f32,
-    /// Seconds for the panel to slide up (?).
-    pub slide: f32,
+    /// The panel waits for the popup's 0.2 s fade, then moves up a screen in this long
+    /// (BasePopup: out-back).
+    pub slide: (f32, f32),
     /// The latest match's medals fill row by row down the standings (AbstractTournamentResults
     /// Popup): a wait before the first row, each medal's pop until the next starts (MedalIn's
     /// IN_COMPLETE, when its sound plays), and the wait after each row.
@@ -2397,7 +2398,7 @@ impl Default for CupPanel {
             tab_left: 768.0,
             tab_width: 361.0,
             tab_bottom: 617.0,
-            slide: 0.4,
+            slide: (0.2, 0.33),
             fill_start: 1.0,
             fill_step: 0.25,
             fill_row_gap: 0.75,

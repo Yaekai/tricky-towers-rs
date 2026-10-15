@@ -336,13 +336,15 @@ fn show_cup_panel(
     let wide = (target as f32 - 6.0) * p.slot_pitch;
     let pitch = p.slot_pitch;
     let (cell, dot) = (p.slot_size, p.dot_size);
-    let slide = if p.slide > 0.0 {
-        let t = (since / p.slide).clamp(0.0, 1.0);
-        1.0 - (1.0 - t) * (1.0 - t)
+    // BasePopup: the popup fades in, then its panel moves up a whole screen with out-back.
+    let slide = if p.slide.1 > 0.0 {
+        let t = ((since - p.slide.0) / p.slide.1).clamp(0.0, 1.0);
+        let (c1, c3) = (1.70158, 2.70158);
+        1.0 + c3 * (t - 1.0).powi(3) + c1 * (t - 1.0).powi(2)
     } else {
         1.0
     };
-    let drop = (1.0 - slide) * (SCREEN.1 - p.bar_top);
+    let drop = (1.0 - slide) * SCREEN.1;
     let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
     let (fill, fill_end) = cup.fill_times(p.fill_start, p.fill_step, p.fill_row_gap);
     let filled = size.is_some() && since >= fill_end;
