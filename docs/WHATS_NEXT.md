@@ -45,7 +45,6 @@ original and fix what differs:
 - Remove or switch off everything in [`release-checklist.md`](release-checklist.md)
   (`grep -rn DEBUG-TOOL src`), and decide whether AI seats in local battles stay (the original
   has none).
-- Add `LICENSE-MIT` and `LICENSE-APACHE` files to match `Cargo.toml`.
 
 ## Not planned
 Online battle, the Shop and Help. XP and wizard levels exist as data only, since the original
