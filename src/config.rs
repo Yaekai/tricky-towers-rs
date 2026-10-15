@@ -2770,6 +2770,12 @@ pub struct CastLook {
     /// The glow disc at a beam's foot, per wizard (each wizard has its own beam,
     /// Beam01-04; skin wizards use wizard 1's until theirs are read).
     pub beam_glow: Vec<(f32, f32, f32, f32)>,
+    /// The blobs spinning at each beam's foot, per wizard (Beam01-04's Blobs, back to
+    /// front): picture, scale, starting angle and spin (degrees, a second; RotationBehaviour),
+    /// opacity. They grow in over `beam_blob_grow` (BeamIn: from the start; BeamDownIn: after
+    /// the same time again).
+    pub beam_blobs: Vec<Vec<(String, f32, f32, f32, f32)>>,
+    pub beam_blob_grow: f32,
     /// Light cast: the lightning from the wizard to the brick lasts this long, and
     /// its wobble peaks at this many cells (a sixth of the way in; clip `Lightning`).
     pub lightning: f32,
@@ -2813,6 +2819,29 @@ impl Default for CastLook {
                 (0.780, 1.0, 0.980, 0.153),
                 (1.0, 0.780, 0.839, 0.498),
             ],
+            beam_blobs: vec![
+                vec![
+                    ("cast_beam_blob".into(), 1.0, -100.0, 0.909, 150.0),
+                    ("cast_beam_blob".into(), 1.0, -36.28, 0.728, -100.0),
+                    ("cast_beam_blob_small".into(), 1.2, 0.0, 1.0, 200.0),
+                ],
+                vec![
+                    ("cast_blob_2_4".into(), 1.0, -36.28, 0.728, -150.0),
+                    ("cast_blob_2_3".into(), 1.0, -36.28, 0.728, 100.0),
+                    ("cast_blob_2_3".into(), 1.0, -36.28, 0.728, -200.0),
+                ],
+                vec![
+                    ("cast_blob_3_3".into(), 1.0, -100.0, 0.909, 150.0),
+                    ("cast_blob_3_2".into(), 1.0, -36.28, 0.728, -100.0),
+                    ("cast_blob_3_4".into(), 1.2, 0.0, 1.0, 200.0),
+                ],
+                vec![
+                    ("cast_blob_4_2".into(), 1.0, -100.0, 0.909, 150.0),
+                    ("cast_blob_4_3".into(), 1.0, -36.28, 0.728, -100.0),
+                    ("cast_blob_4_1".into(), 1.0, 0.0, 1.0, 200.0),
+                ],
+            ],
+            beam_blob_grow: 1.0 / 6.0,
             lightning: 0.4,
             lightning_wobble: 2.0,
             cloud_show: 0.83,

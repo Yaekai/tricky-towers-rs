@@ -71,6 +71,10 @@ Add-Whole 'endless_cloud_mask_2' 'gph_cloudLargeRaceEndless_mask02'
 Add-Piece 'cup_winner_name_back' 'gph_cupModeWinnerPopupNameBackground'
 Add-Piece 'cup_winner_trophy_back' 'gph_cupModeWinnerPopupTrophyBackground'
 Add-Piece 'menu_leaderboard_medal_4' 'gph_onlineScoreMedalLast'
+# The blobs spinning at the feet of wizards 2-4's cast beams (Beam02-04's Blobs).
+foreach ($i in 3..4) { Add-Piece "cast_blob_2_$i" "gph_castEffect2Blob0$i" }
+foreach ($i in 2..4) { Add-Piece "cast_blob_3_$i" "gph_castEffect3Blob0$i" }
+foreach ($i in 1..3) { Add-Piece "cast_blob_4_$i" "gph_castEffect4Blob0$i" }
 # Petrified bricks' moss (PetrifyBrickModifier's MOSS_0..2 and MOSS_DESERT_0..2).
 foreach ($i in 1..3) {
   Add-Piece "moss_$i" "gph_moss_var0$i"

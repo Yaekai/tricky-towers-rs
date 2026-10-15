@@ -236,24 +236,26 @@ fn spawn_beam(
         sprite,
         Transform::from_translation(foot.extend(16.0)),
     ));
-    if art.image("cast_circle_gradient").is_some() && kind == BeamKind::Up {
-        let glow = art.image("cast_circle_gradient").unwrap();
-        let glows = &config.casts.beam_glow;
-        let tint = glows
-            .get(wizard)
-            .or(glows.first())
-            .map_or(Color::WHITE, |&(r, g, b, a)| Color::srgba(r, g, b, a));
+    // The spinning blobs at the beam's foot (the glow and rings are only in the impact).
+    if kind != BeamKind::Lane {
+        let blobs = &config.casts.beam_blobs;
+        let parts = blobs.get(wizard).or(blobs.first()).cloned().unwrap_or_default();
         beam.with_children(|parent| {
-            parent.spawn((
-                BeamFoot,
-                Sprite {
-                    image: glow,
-                    color: tint,
-                    custom_size: Some(Vec2::splat(config.cells(config.casts.beam_width * 2.0))),
-                    ..default()
-                },
-                Transform::from_xyz(0.0, 0.0, 0.1),
-            ));
+            for (i, (name, scale, angle, alpha, spin)) in parts.into_iter().enumerate() {
+                let Some((mut sprite, anchor, transform)) = crate::visuals::art_sprite(art, &name, config.cell_size)
+                else {
+                    continue;
+                };
+                sprite.color = Color::WHITE.with_alpha(alpha);
+                parent.spawn((
+                    BeamBlob { size: transform.scale.x * scale, spin },
+                    sprite,
+                    anchor,
+                    Transform::from_xyz(0.0, 0.0, 0.1 + i as f32 * 0.01)
+                        .with_rotation(Quat::from_rotation_z(angle.to_radians()))
+                        .with_scale(Vec3::ZERO),
+                ));
+            }
         });
     }
     beam.id()
@@ -339,9 +341,13 @@ fn run_impacts(mut commands: Commands, time: Res<Time>, mut parts: Query<(Entity
     }
 }
 
-/// The glow at a beam's foot; it stays at the foot, not stretched with the beam.
+/// A blob at a beam's foot: its full size and spin (degrees a second). It stays at the
+/// foot, not stretched with the beam.
 #[derive(Component)]
-struct BeamFoot;
+struct BeamBlob {
+    size: f32,
+    spin: f32,
+}
 
 /// A lane's quad drawn from the grabbed background (post::BeamLane), under its sprite,
 /// which then only keeps the size.
@@ -364,10 +370,10 @@ fn run_beams(
         Option<&mut DelayedBy>,
         Option<&Children>,
     )>,
-    mut feet: Query<&mut Transform, (With<BeamFoot>, Without<Beam>, Without<crate::visuals::MainCamera>)>,
+    mut feet: Query<(&BeamBlob, &mut Transform), (Without<Beam>, Without<crate::visuals::MainCamera>)>,
     mut quads: Query<
         &mut Transform,
-        (With<LaneQuad>, Without<BeamFoot>, Without<Beam>, Without<crate::visuals::MainCamera>),
+        (With<LaneQuad>, Without<BeamBlob>, Without<Beam>, Without<crate::visuals::MainCamera>),
     >,
     mut lane_looks: Option<ResMut<Assets<crate::post::BeamLane>>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
@@ -502,10 +508,16 @@ fn run_beams(
         // Both beams stand on their foot: up from the wizard, down from the sky
         // onto the brick.
         transform.translation = (beam.foot + Vec2::Y * length * 0.5).extend(16.0);
+        // The blobs grow in (the down beam's after its column has started) and spin.
+        let wait = if beam.kind == BeamKind::Down { look.beam_blob_grow } else { 0.0 };
+        let grown = ((t - wait) / look.beam_blob_grow.max(0.001)).clamp(0.0, 1.0);
         if let Some(children) = children {
             for child in children.iter() {
-                if let Ok(mut foot) = feet.get_mut(child) {
+                if let Ok((blob, mut foot)) = feet.get_mut(child) {
                     foot.translation.y = -length * 0.5;
+                    foot.rotate_z(blob.spin.to_radians() * dt);
+                    let k = blob.size * grown * (1.0 - 0.99 * squeeze);
+                    foot.scale = Vec3::new(k, k, 1.0);
                 }
             }
         }
