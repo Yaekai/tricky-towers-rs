@@ -6,6 +6,8 @@
 !.gitignore
 !Cargo.toml
 !Cargo.lock
+!LICENSE-MIT
+!LICENSE-APACHE
 !*.md
 !docs/*.png
 !src/**/*.rs

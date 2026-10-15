@@ -114,5 +114,6 @@ words. Tunable numbers go in `GameConfig`, and `cargo test` must pass.
 [Rust rewrites and ports](https://github.com/auroraborealisno02/ai-game-modding-guides/blob/main/guides/03-rust-rewrites-and-ports.md)
 guide from the AI Game Modding Guides.
 
-The code in this repository is licensed MIT OR Apache-2.0 (see `Cargo.toml`). The licence does
+The code in this repository is licensed under either of [MIT](LICENSE-MIT) or
+[Apache-2.0](LICENSE-APACHE), at your option. The licence does
 not cover *Tricky Towers* or anything extracted from it.
