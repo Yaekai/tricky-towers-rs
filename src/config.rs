@@ -2105,6 +2105,8 @@ pub struct WeatherLook {
     pub lightning_every: (f32, f32),
     pub lightning_quiet_start: f32,
     pub lightning_flash: (f32, f32),
+    /// Seconds the islands' lit pictures take to fade after a strike.
+    pub lightning_islands: f32,
     pub lightning_bolt: (f32, f32),
     pub lightning_branches: u32,
     /// Puzzle sandstorm: back and front tint (RGB) and opacity, scroll speed as a
@@ -2159,6 +2161,7 @@ impl Default for WeatherLook {
             lightning_every: (5.0, 14.0),
             lightning_quiet_start: 3.0,
             lightning_flash: (0.65, 0.1),
+            lightning_islands: 0.2,
             lightning_bolt: (0.2, 0.2),
             lightning_branches: 4,
             sandstorm_back: ([0x9B, 0x86, 0x44], 0.38),
@@ -3405,6 +3408,11 @@ pub struct RaceScene {
     /// Wave crests (WAVE): one per row every `wave_every` seconds, each living `wave_time`.
     pub wave: String,
     pub wave_tint: (f32, f32, f32),
+    /// Endless Race's crests (WAVE_ENDLESS: the same picture, warmer), and the depth of
+    /// Race Special's back row, which sits in front of its islands (RaceProBackground adds
+    /// it after IslandsProLayer on BackgroundLandscapeFront).
+    pub wave_tint_endless: (f32, f32, f32),
+    pub wave_pro_z: f32,
     pub wave_every: f32,
     pub wave_time: f32,
     /// How far a crest drifts right over its life, times its scale.
@@ -3541,6 +3549,8 @@ impl Default for RaceScene {
             band_z: 4.5,
             wave: "race_wave".into(),
             wave_tint: (0.721_568_64, 0.772_549_03, 0.949_019_6),
+            wave_tint_endless: (1.0, 0.917_647_06, 0.764_705_9),
+            wave_pro_z: 7.5,
             wave_every: 1.4,
             wave_time: 6.0,
             wave_drift: 4.0,

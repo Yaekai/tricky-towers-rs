@@ -1341,6 +1341,8 @@ pub(crate) struct MenuScene(pub bool);
 #[derive(Resource, Default)]
 struct SceneState {
     race: bool,
+    /// Which of the Race family's looks is up ("race", "race_pro" or "endless").
+    look: &'static str,
     climb: f32,
     wave_clock: f32,
     seed: u32,
@@ -1620,8 +1622,12 @@ fn run_waves(
                 let n = roll();
                 let scale = row.scale.1 - n * (row.scale.1 - row.scale.0);
                 let at = Vec2::new(roll() * across, row.y + n * row.height);
-                let (r, g, b) = scene.wave_tint;
-                let z = if row.front { row.z } else { -900.0 + row.z };
+                let (r, g, b) = if state.look == "endless" { scene.wave_tint_endless } else { scene.wave_tint };
+                let z = match (row.front, state.look) {
+                    (true, _) => row.z,
+                    (false, "race_pro") => -900.0 + scene.wave_pro_z,
+                    _ => -900.0 + row.z,
+                };
                 commands.spawn((
                     SceneWave { at, scale, parallax: row.parallax, age: 0.0 },
                     Sprite { image: image.clone(), color: Color::srgba(r, g, b, 0.0), ..default() },
@@ -1763,6 +1769,7 @@ fn spawn_backgrounds(
         None
     };
     scene_state.race = island_look.is_some();
+    scene_state.look = island_look.unwrap_or("race");
     let scene = &config.race_scene;
     if race_scene {
         spawn_race_clouds(&mut commands, &art, &images, scene, camera);

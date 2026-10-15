@@ -203,6 +203,8 @@ struct WeatherState {
     /// 0 = Survival night sky, 1 = the curse-wave sky.
     wave_mix: f32,
     wave_drawn: f32,
+    /// Seconds since the last strike, for the islands' light (None before the first).
+    since_strike: Option<f32>,
 }
 
 fn roll(seed: &mut u32) -> f32 {
@@ -528,8 +530,7 @@ fn lightning(
     mut strikes: Query<(Entity, &mut Strike, &mut Sprite, Has<FlashStrike>)>,
 ) {
     let dt = time.delta_secs();
-    let mut lit = 0.0f32;
-    for (entity, mut strike, mut sprite, is_flash) in &mut strikes {
+    for (entity, mut strike, mut sprite, _) in &mut strikes {
         strike.time += dt;
         let fading = (strike.time - strike.hold).max(0.0) / strike.fade.max(0.001);
         if fading >= 1.0 {
@@ -537,11 +538,13 @@ fn lightning(
             continue;
         }
         sprite.color.set_alpha(strike.alpha * (1.0 - fading));
-        if is_flash {
-            lit = lit.max(1.0 - fading);
-        }
     }
-    flash.0 = lit;
+    // The islands' lit pictures fade on their own clock (IslandsProLayer: 1 to 0 over
+    // 0.2 s, DOTween's default out-quad), longer than the screen flash's 0.1 s.
+    let since = state.since_strike.map(|t| t + dt);
+    state.since_strike = since;
+    let k = since.map_or(1.0, |t| (t / config.weather.lightning_islands.max(0.001)).min(1.0));
+    flash.0 = (1.0 - k) * (1.0 - k);
     let stormy = state.look.is_some_and(|l| l.1 == Some("race_pro") && l.2);
     if !stormy || game.phase != Phase::Playing {
         return;
@@ -561,6 +564,7 @@ fn lightning(
     let size = view_size.0 * ortho.scale;
     let c = config.cell_size;
     let (flash_alpha, flash_fade) = weather.lightning_flash;
+    state.since_strike = Some(0.0);
     // One of the three thunder strikes (LIGHTNING_STRIKE_01..03).
     if let Some(thunder) = art.sounds.get(&format!("sfx_thunder_{}", 1 + (roll(&mut seed) * 3.0) as usize % 3)) {
         commands.spawn((AudioPlayer(thunder.clone()), PlaybackSettings::DESPAWN));
