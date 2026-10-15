@@ -5,8 +5,8 @@ work is done, without waiting to be asked. The cloud session edits this file to 
 Read-only on the Steam install, nothing from the game goes into the repo (see AGENTS.md),
 and nothing gets installed without Max's own go-ahead.
 
-## First: install the token-saving tools (Max's go-ahead given 2026-10-05)
-Max wants these in use on this project. Install them once on the PC, then
+## First: install the agent tools
+These are used on this project. Install them once on the PC, then
 check they're active at the start of every session. Read each repo's own install notes first;
 the steps below are from their READMEs on 2026-10-05.
 
@@ -27,20 +27,7 @@ the steps below are from their READMEs on 2026-10-05.
    already ignores it). `graphify install --project --strict` makes the agent use the graph
    before reading files; use it if the plain install gets ignored. Rebuild the graph after
    big changes (`graphify hook install` adds a post-commit refresh).
-3. **OmniRoute** (https://github.com/diegosouzapw/OmniRoute): a fallback, not always on. Max
-   uses it only after hitting the daily Claude limit, to finish a task that was cut off. It's
-   a local proxy server, not a Claude plugin: `npm install -g omniroute` (runs on
-   localhost:20128), then `omniroute run claude` (or `omniroute configure`) points Claude
-   Code at it. Set up per Max (2026-10-05): **all providers enabled**, with its automatic
-   fallback between them. Compression: use the `coding-safe` profile unless Max says
-   otherwise, since lossy modes can drop code or numbers from the research notes. Normal
-   sessions run straight on Claude, without OmniRoute. Rules while running through it:
-   - Never send anything from `extracted/`, `research/` or the game install through it (other
-     providers would get the original's files); keep to the repo's own source and notes.
-   - The model doing the work may not be Claude. Add the AGENTS.md log line for that session
-     with "via OmniRoute", so the next Claude session reviews that work before building on it.
-   Write the setup actually used (combo name, compression profile) here once done.
-4. **claude-code-setup** (Anthropic's official plugin, from
+3. **claude-code-setup** (Anthropic's official plugin, from
    https://github.com/anthropics/claude-plugins-official, `plugins/claude-code-setup`): looks
    at the codebase and recommends Claude Code automations (hooks, skills, MCP servers,
    subagents). Install: `/plugin marketplace add anthropics/claude-plugins-official`, then
@@ -53,9 +40,6 @@ the steps below are from their READMEs on 2026-10-05.
 - Installed (user scope): `ponytail@ponytail` 4.12.0, `claude-code-setup@claude-plugins-official`
   1.0.0, and uv (winget `astral-sh.uv`, Graphify's prerequisite). Python itself isn't installed;
   uv fetches its own.
-- OmniRoute installed with Max's OK (`npm install -g omniroute`, needs
-  `--allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild`).
-  Not configured yet: providers need Max's accounts, and it's only used after the Claude limit.
 - Graphify: Max ran `uv tool install --python 3.12 graphifyy` (the sandboxed session can't;
   uv's Python folder link is refused there). `graphify.exe` is in `~/.local/bin`, not on the
   session PATH. `graphify install --platform claude` done (user skill + `~/.claude/CLAUDE.md`).
@@ -70,7 +54,7 @@ there stays on this PC unless `.gitignore` gets an exception like `!.claude/sett
 Pick per item.
 1. **Plugin `rust-analyzer-lsp`** (same official marketplace): gives the agent go-to-definition
    and errors in Rust without a full `cargo check`. Needs rust-analyzer on PATH (rustup
-   component). Cheapest token win after Graphify.
+   component). The cheapest win after Graphify.
 2. **MCP `context7`**: live docs lookup for Bevy 0.19, avian2d 0.7 and bevy_egui 0.42, whose
    APIs change between versions and are past most models' training. Sends only library names
    and questions out, never repo files.
