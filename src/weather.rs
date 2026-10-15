@@ -326,11 +326,11 @@ fn set_up_weather(
         }
     }
     if look.0 == ModeKind::Puzzle {
-        // Back strip between the middle and front ruins (screen layers sit at -900 + z),
-        // front strip just in front of the front ruins.
+        // Back strip between the middle and front ruins (screen layers sit at -900 + z); the
+        // front strip is DesertForeground's sand, drawn by its own camera over the towers.
         for (front, name, z) in [
             (false, "puzzle_sand", -895.5),
-            (true, "puzzle_sand_front", -893.5),
+            (true, "puzzle_sand_front", 400.0),
         ] {
             if let Some(sand) = art.image(name) {
                 let alpha = if front { 1.0 } else { weather.sand_alpha };
@@ -359,8 +359,9 @@ fn set_up_weather(
             let mine = |b: &&(bool, u32, f32, f32)| b.0 == front;
             let index = weather.sandstorm_bands[..band].iter().filter(mine).count() as u32;
             let count = weather.sandstorm_bands.iter().filter(mine).count() as u32;
-            // The front band over the scenery but behind the towers and bricks.
-            let z = if front { -300.0 } else { -600.0 } + index as f32;
+            // The front bands are DesertForeground's too: over the towers and bricks (they
+            // sit low, so they only cover the floor's foot).
+            let z = if front { 401.0 } else { -600.0 } + index as f32;
             for copy in 0..2 {
                 commands.entity(camera).with_child((
                     Weather,
