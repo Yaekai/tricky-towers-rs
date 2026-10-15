@@ -16,7 +16,7 @@ original and fix what differs:
 ## 2. Gameplay still missing or estimated
 - **Puzzle**: the two-player layout compared frame by frame with the original.
 - **Survival**: the moon drop (it falls only for bricks 2.5× or bigger, and no spell here
-  makes them that big yet) and the curse-wave overlay colours.
+  makes them that big yet).
 - **Cups**: Big and Super Cup layouts and the panel's slide-in timing.
 - Done since the last list: Endless Puzzle obstacle blocks (checked, they match), Auto Rotate
   wind-up and its sounds, Petrify's stone look in hand and its grass and moss, the cup's stray
