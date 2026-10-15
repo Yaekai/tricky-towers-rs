@@ -14,28 +14,29 @@ original and fix what differs:
 - Select Players, Select Mode, Single Player, Settings and the pause screen.
 
 ## 2. Gameplay still missing or estimated
-- **Endless Puzzle obstacle blocks.**
-- **Auto Rotate wind-up**, and the stone and ice transitions.
-- **Puzzle**: the base rise speed and the half-cell rise per lost brick; two players touching
-  the laser at once; the two-player layout compared frame by frame with the original.
-- **Survival**: the moon drop (bricks 2.5× or bigger) and the curse-wave overlay colours.
-- **Cups**: a 4th place sometimes shows one empty medal; the medal sounds; Big and Super Cup
-  layouts and the slide and fill timings.
+- **Puzzle**: the base rise speed and the half-cell rise per lost brick; the two-player
+  layout compared frame by frame with the original.
+- **Survival**: the moon drop (it falls only for bricks 2.5× or bigger, and no spell here
+  makes them that big yet) and the curse-wave overlay colours.
+- **Cups**: Big and Super Cup layouts and the slide and fill timings.
+- **Ice**: the ice bricks' own collision sounds (`SFX_BRICK_PLACED_ICE_1..4`, played on every
+  hit in the original).
+- Done since the last list: Endless Puzzle obstacle blocks (checked, they match), Auto Rotate
+  wind-up and its sounds, Petrify's stone look in hand and its grass and moss, the cup's stray
+  empty medal and medal sounds, two towers touching the Puzzle laser at once (tested).
 - About 40 values marked `(?)` in `src/` and the guesses in `assets/config/game.ron`
   (intro timings, cup panel timings, `moments` and `casts` values).
 
 ## 3. Look and effects
-- Beam foot decorations and the explosion art.
+- The up beam's foot: its looping rays (the Sunrays clip), blobs, sine waves, droplets and
+  vertical lines. The down beam's impact (rays, rings, glow) and the collapse explosion
+  particles are in.
 - Spring brick pack look; Easter decoration timings.
-- WINNER!, WIZARD OUT! and Puzzle count timings (alpha fades, slide-ins).
-- Race Special: the wave rows and the island flash (the flash brightens only the islands).
 - Endless Race clouds: the cloud planes' texture direction.
-- The pacer grey also greys the lower half of the pace line; the original draws the line
-  after the grey.
 
 ## 4. Menus
 - Small layout differences left from the screenshot comparison (spacing on Single Player,
-  the SINGLE MATCH label width on Select Mode, key caps, text weights).
+  text weights).
 - Title tiles: the wizard over the Local Battle frame and the earth's size need those parts
   staged as their own layers.
 - Text from the original's 19 language files (the format is read in
