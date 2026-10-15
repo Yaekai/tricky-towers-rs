@@ -14,13 +14,10 @@ original and fix what differs:
 - Select Players, Select Mode, Single Player, Settings and the pause screen.
 
 ## 2. Gameplay still missing or estimated
-- **Puzzle**: the base rise speed and the half-cell rise per lost brick; the two-player
-  layout compared frame by frame with the original.
+- **Puzzle**: the two-player layout compared frame by frame with the original.
 - **Survival**: the moon drop (it falls only for bricks 2.5× or bigger, and no spell here
   makes them that big yet) and the curse-wave overlay colours.
-- **Cups**: Big and Super Cup layouts and the slide and fill timings.
-- **Ice**: the ice bricks' own collision sounds (`SFX_BRICK_PLACED_ICE_1..4`, played on every
-  hit in the original).
+- **Cups**: Big and Super Cup layouts and the panel's slide-in timing.
 - Done since the last list: Endless Puzzle obstacle blocks (checked, they match), Auto Rotate
   wind-up and its sounds, Petrify's stone look in hand and its grass and moss, the cup's stray
   empty medal and medal sounds, two towers touching the Puzzle laser at once (tested).
@@ -28,10 +25,8 @@ original and fix what differs:
   (intro timings, cup panel timings, `moments` and `casts` values).
 
 ## 3. Look and effects
-- The up beam's foot: its looping rays (the Sunrays clip), blobs, sine waves, droplets and
-  vertical lines. The down beam's impact (rays, rings, glow) and the collapse explosion
-  particles are in.
-- Spring brick pack look; Easter decoration timings.
+- The beams' particle parts: sine waves, droplets and vertical lines (the blobs, the
+  impact and the collapse explosion are in).
 - Endless Race clouds: the cloud planes' texture direction.
 
 ## 4. Menus

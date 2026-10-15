@@ -812,7 +812,7 @@ fn spawn_cloud(
         ))
         .with_children(|parent| {
             parent.spawn((cloud, Transform::default()));
-            parent.spawn((icon, Transform::from_xyz(0.0, 0.0, 0.1)));
+            parent.spawn((icon, CloudIcon, Transform::from_xyz(0.0, 0.0, 0.1)));
             // The button to press, 1.1 cells out to its side and 1.25 below the
             // bubble's centre, flicking up and down (SpellButtonIndicator*PC).
             if let Some((sprite, anchor, mut transform)) = hint {
@@ -823,6 +823,10 @@ fn spawn_cloud(
             }
         });
 }
+
+/// A spell bubble's icon (it blinks while the spell is used).
+#[derive(Component)]
+struct CloudIcon;
 
 /// A spell bubble's button hint, and whose bubble it is.
 #[derive(Component)]
@@ -876,12 +880,14 @@ fn animate_clouds(
     config: Res<GameConfig>,
     towers: Query<(Entity, &Tower, &TowerState)>,
     wizards: Query<(&Wizard, &GlobalTransform)>,
-    mut clouds: Query<(Entity, &mut SpellCloud, &mut Transform)>,
+    mut clouds: Query<(Entity, &mut SpellCloud, &mut Transform, Option<&Children>)>,
+    mut parts: Query<&mut Visibility, Or<(With<CloudIcon>, With<ButtonHint>)>>,
+    hints: Query<(), With<ButtonHint>>,
 ) {
     let look = &config.casts;
     let dt = time.delta_secs();
     let solo = towers.iter().count() == 1;
-    for (entity, mut cloud, mut transform) in &mut clouds {
+    for (entity, mut cloud, mut transform, children) in &mut clouds {
         let Ok((tower_entity, tower, state)) = towers.get(cloud.tower) else {
             commands.entity(entity).despawn();
             continue;
@@ -897,6 +903,7 @@ fn animate_clouds(
         let spot = Vec2::from(if cloud.dark { spots.1 } else { spots.0 });
         let spot = Vec2::new(if flip { -spot.x } else { spot.x }, spot.y);
         let t = cloud.time;
+        let mut drift = Vec2::ZERO;
         let (scale, lift) = match cloud.stage {
             CloudStage::Show => {
                 if t >= look.cloud_show {
@@ -906,18 +913,17 @@ fn animate_clouds(
                 (ease_out_back((t / look.cloud_show).min(1.0)), 0.0)
             }
             CloudStage::Float => {
-                let bob = (t / look.cloud_float * std::f32::consts::TAU).sin() * look.cloud_bob;
-                (1.0, bob)
+                let at = t % look.cloud_float.max(0.01);
+                let key = |pick: fn(&(f32, f32, f32, f32)) -> f32| {
+                    let pairs: Vec<(f32, f32)> = look.cloud_float_path.iter().map(|k| (k.0, pick(k))).collect();
+                    crate::config::keyed(&pairs, at)
+                };
+                drift = Vec2::new(key(|k| k.1), key(|k| k.2));
+                (key(|k| k.3), 0.0)
             }
             CloudStage::Used => {
-                // Swells, then pops away, rising as the spell leaves it (?).
-                let s = (t / look.cloud_used).min(1.0);
-                let size = if s < 0.3 {
-                    1.0 + s
-                } else {
-                    1.3 * (1.0 - (s - 0.3) / 0.7)
-                };
-                (size, 0.5 * s)
+                let (swell, size) = look.cloud_used_swell;
+                (1.0 + (size - 1.0) * (t / swell.max(0.001)).min(1.0), 0.0)
             }
             CloudStage::Hide => (1.0 - (t / look.cloud_hide).min(1.0), 0.0),
         };
@@ -930,8 +936,17 @@ fn animate_clouds(
             commands.entity(entity).despawn();
             continue;
         }
-        transform.translation = (at + config.cells(1.0) * (spot + Vec2::Y * lift)).extend(21.0);
+        transform.translation = (at + config.cells(1.0) * (spot + drift + Vec2::Y * lift)).extend(21.0);
         transform.scale = Vec3::splat(scale.max(0.0));
+        // While used, the spell icon blinks and the button hint hides.
+        let used = cloud.stage == CloudStage::Used;
+        let blink_off = used && look.cloud_used_blinks.iter().any(|&(a, b)| t >= a && t < b);
+        for child in children.into_iter().flatten() {
+            if let Ok(mut visibility) = parts.get_mut(*child) {
+                let hidden = if hints.contains(*child) { used } else { blink_off };
+                visibility.set_if_neq(if hidden { Visibility::Hidden } else { Visibility::Inherited });
+            }
+        }
     }
 }
 
@@ -961,10 +976,9 @@ fn grow_large_bricks(
         // A bigger brick than last seen: start growing from the old size.
         if brick.scale > entry.1 + 1e-4 {
             *entry = (entry.1, brick.scale, 0.0);
-            let (x, y, seconds) = look.large_shake;
-            shake
-                .kicks
-                .push((Vec2::new(x, y) * config.cell_size, seconds));
+            if !shake.held.iter().any(|h| h.0 == entity) {
+                shake.held.push((entity, config.cells(look.large_shake)));
+            }
             if let Some(sound) = art.sounds.get("sfx_large") {
                 commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
             }

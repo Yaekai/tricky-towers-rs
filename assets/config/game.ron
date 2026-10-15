@@ -115,14 +115,13 @@
         cloud_hide: 0.38,
         cloud_size: 3.5,
         cloud_icon: 0.69,
-        cloud_bob: 0.12,
         cloud_spots: [
             ((0.58, 4.8), (2.87, 3.53)),
             ((0.38, 5.37), (2.67, 4.1)),
             ((0.75, 5.0), (3.04, 3.73)),
         ],
         large_grow: 0.3,
-        large_shake: (0.1, 0.13, 0.3),
+        large_shake: 0.05,
     ),
     xp: (
         winner: (600, 800, 1000),

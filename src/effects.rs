@@ -374,7 +374,11 @@ fn fly_droplets(
 pub(crate) struct CameraShake {
     /// Reach in pixels (sideways, up) and seconds left.
     pub(crate) kicks: Vec<(Vec2, f32)>,
+    /// Random jumps of up to this many pixels each way, every frame, while this brick is
+    /// still in hand (Large's BrickCameraShakeEffect stops when the brick touches anything).
+    pub(crate) held: Vec<(Entity, f32)>,
     applied: Vec2,
+    seed: u32,
 }
 
 /// A piece of a blown-up brick.
@@ -590,6 +594,7 @@ fn unshake_camera(shake: Res<CameraShake>, mut camera: Query<&mut Transform, Wit
 fn shake_camera(
     time: Res<Time>,
     mut shake: ResMut<CameraShake>,
+    in_hand: Query<(), With<crate::gameplay::ActiveBrick>>,
     mut camera: Query<&mut Transform, With<crate::visuals::MainCamera>>,
 ) {
     let dt = time.delta_secs();
@@ -597,12 +602,18 @@ fn shake_camera(
         *left -= dt;
         *left > 0.0
     });
+    shake.held.retain(|(brick, _)| in_hand.contains(*brick));
     let t = time.elapsed_secs();
-    let offset = shake
+    let mut offset = shake
         .kicks
         .iter()
         .map(|(reach, _)| Vec2::new(reach.x * (t * 61.0).sin(), reach.y * (t * 47.0).cos()))
         .sum::<Vec2>();
+    let mut seed = shake.seed | 1;
+    for (_, reach) in shake.held.clone() {
+        offset += Vec2::new(roll(&mut seed) * 2.0 - 1.0, roll(&mut seed) * 2.0 - 1.0) * reach;
+    }
+    shake.seed = seed;
     shake.applied = Vec2::ZERO;
     if let Ok(mut transform) = camera.single_mut() {
         transform.translation += offset.extend(0.0);

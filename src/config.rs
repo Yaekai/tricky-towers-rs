@@ -2787,14 +2787,20 @@ pub struct CastLook {
     /// floating (?).
     pub cloud_size: f32,
     pub cloud_icon: f32,
-    pub cloud_bob: f32,
+    /// SpellCloudFloating's keys over one `cloud_float`: seconds, drift from the rest spot
+    /// (cells, sideways and up) and scale.
+    pub cloud_float_path: Vec<(f32, f32, f32, f32)>,
+    /// SpellCloudUsed: the cloud swells to `.1` in `.0` seconds and holds while the spell
+    /// icon blinks off in these windows (seconds) and the button hint hides.
+    pub cloud_used_swell: (f32, f32),
+    pub cloud_used_blinks: Vec<(f32, f32)>,
     /// Where each wizard's light and dark clouds sit, from the wizard.
     /// Wizard 4 wasn't read and uses wizard 1's.
     pub cloud_spots: Vec<((f32, f32), (f32, f32))>,
-    /// Large: the brick grows over this long, with this camera shake (cells
-    /// sideways, cells up, seconds; ?).
+    /// Large: the brick grows over this long, and the camera jumps up to this many cells
+    /// each way every frame until the brick lands (BrickCameraShakeEffect).
     pub large_grow: f32,
-    pub large_shake: (f32, f32, f32),
+    pub large_shake: f32,
 }
 
 impl Default for CastLook {
@@ -2847,14 +2853,22 @@ impl Default for CastLook {
             cloud_hide: 0.38,
             cloud_size: 3.5,
             cloud_icon: 0.69,
-            cloud_bob: 0.12,
+            cloud_float_path: vec![
+                (0.0, 0.0, 0.0, 1.0),
+                (0.85, -0.12, 0.07, 1.0167),
+                (1.0, -0.1, 0.0566, 1.05),
+                (1.8667, 0.1, -0.08, 1.0283),
+                (3.0, 0.0, 0.0, 1.0),
+            ],
+            cloud_used_swell: (0.0667, 1.3),
+            cloud_used_blinks: vec![(0.2, 0.2667), (0.4, 0.4833), (0.6167, 0.6833), (0.8167, 0.8833)],
             cloud_spots: vec![
                 ((0.58, 4.8), (2.87, 3.53)),
                 ((0.38, 5.37), (2.67, 4.1)),
                 ((0.75, 5.0), (3.04, 3.73)),
             ],
             large_grow: 0.3,
-            large_shake: (0.1, 0.13, 0.3),
+            large_shake: 0.05,
         }
     }
 }
