@@ -760,18 +760,21 @@ fn survival_wave_sky(
     } else {
         (state.wave_mix - step).max(0.0)
     };
-    mix.0 = state.wave_mix;
+    // DOTween's default out-quad on the way in and on the way back (SurvivalBackground's
+    // 1 s curse-mode tween).
+    let p = state.wave_mix;
+    mix.0 = if wave { 1.0 - (1.0 - p) * (1.0 - p) } else { p * p };
     // Redraw only while the colours are moving.
-    if state.wave_mix == state.wave_drawn {
+    if mix.0 == state.wave_drawn {
         return;
     }
-    state.wave_drawn = state.wave_mix;
+    state.wave_drawn = mix.0;
     let colors: Vec<Color> = weather
         .survival_sky
         .iter()
         .zip(&weather.survival_wave_sky)
         .map(|(&[r, g, b], &[wr, wg, wb])| {
-            Color::srgb_u8(r, g, b).mix(&Color::srgb_u8(wr, wg, wb), state.wave_mix)
+            Color::srgb_u8(r, g, b).mix(&Color::srgb_u8(wr, wg, wb), mix.0)
         })
         .collect();
     if colors.is_empty() {
