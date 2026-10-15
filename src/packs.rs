@@ -266,7 +266,7 @@ fn decorate_bricks(
     config: Res<GameConfig>,
     art: Res<Art>,
     bricks: Query<
-        (Entity, &Brick, Has<Stone>, Has<Placed>),
+        (Entity, &Brick, Has<Stone>, Has<Placed>, Option<&crate::gameplay::ActiveBrick>),
         Or<(
             Changed<Brick>,
             Added<Stone>,
@@ -285,7 +285,8 @@ fn decorate_bricks(
     mut lit_bricks: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
     mut images: Option<ResMut<Assets<Image>>>,
 ) {
-    for (entity, brick, stone, placed) in &bricks {
+    for (entity, brick, stone, placed, active) in &bricks {
+        let stone = stone || active.is_some_and(|a| a.mods.petrify);
         let Ok(skin) = skins.get(brick.tower) else {
             continue;
         };

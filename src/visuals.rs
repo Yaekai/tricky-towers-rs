@@ -728,6 +728,7 @@ pub(crate) fn dress_bricks(
             Has<Vined>,
             Has<Grassy>,
             Option<&Placed>,
+            Option<&ActiveBrick>,
         ),
         (
             Or<(
@@ -744,7 +745,8 @@ pub(crate) fn dress_bricks(
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut lit_bricks: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
 ) {
-    for (entity, brick, stone, vined, grassy, placed) in &bricks {
+    for (entity, brick, landed_stone, vined, grassy, placed, active) in &bricks {
+        let stone = landed_stone || active.is_some_and(|a| a.mods.petrify);
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
         let pack = skins.get(brick.tower).map(|s| s.pack).unwrap_or_default();
@@ -921,6 +923,52 @@ pub(crate) fn dress_bricks(
                 // is kept), one of 8 eggs and 8 flowers. Each shows after its own 0 to 0.3 s and
                 // grows in (`packs::edge_growth`).
                 let mut picks: Vec<(String, Vec2, f32)> = Vec::new();
+                // Petrified bricks, once landed, grow grass and moss on their top edges
+                // (PetrifyBrickModifier: each anchor 50%, grass GRASS_0..6 tinted one of three
+                // blue-greens, or the desert's #9DA247, after 0.5 to 0.8 s; moss MOSS_0..2, or
+                // MOSS_DESERT_0..2, after 0.2 to 0.5 s).
+                let desert = config.mode.look() == ModeKind::Puzzle;
+                let mut petrified: Vec<(String, Vec2, f32, Color)> = Vec::new();
+                if landed_stone {
+                    for (i, top) in top_cells(&brick.cells).into_iter().enumerate() {
+                        let at = (top + Vec2::Y * 0.5) * cell;
+                        let salt = 700 + i as u64 * 13;
+                        if roll(salt) < 0.5 {
+                            let n = 1 + (roll(salt + 1) * 7.0) as usize;
+                            let colour = if desert {
+                                Color::srgb_u8(0x9D, 0xA2, 0x47)
+                            } else {
+                                [
+                                    Color::srgb_u8(37, 134, 162),
+                                    Color::srgb_u8(27, 128, 134),
+                                    Color::srgb_u8(35, 146, 124),
+                                ][(roll(salt + 2) * 3.0) as usize % 3]
+                            };
+                            petrified.push((format!("grass_tuft_{}", n.min(7)), at, 0.5 + roll(salt + 3) * 0.3, colour));
+                        }
+                        if roll(salt + 4) < 0.5 {
+                            let n = 1 + (roll(salt + 5) * 3.0) as usize;
+                            let name = if desert { "moss_desert" } else { "moss" };
+                            petrified.push((format!("{name}_{}", n.min(3)), at, 0.2 + roll(salt + 6) * 0.3, Color::WHITE));
+                        }
+                    }
+                }
+                for (name, at, wait, colour) in petrified {
+                    if let Some((mut sprite, anchor, transform)) = art_sprite(&art, &name, cell) {
+                        sprite.color = colour;
+                        let show_at = time.elapsed_secs() + wait;
+                        entity.with_children(|parent| {
+                            parent
+                                .spawn((
+                                    Transform::from_translation(at.extend(0.2)),
+                                    Visibility::Hidden,
+                                    EdgeDelay { show_at },
+                                    EdgeGrow { start: show_at },
+                                ))
+                                .with_child((sprite, anchor, transform));
+                        });
+                    }
+                }
                 // EasterBrickModifier is applied when the brick is placed, not before.
                 if pack == crate::config::BrickPack::Spring && placed.is_some() {
                     for (i, top) in top_cells(&brick.cells).into_iter().enumerate() {

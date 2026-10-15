@@ -71,6 +71,11 @@ Add-Whole 'endless_cloud_mask_2' 'gph_cloudLargeRaceEndless_mask02'
 Add-Piece 'cup_winner_name_back' 'gph_cupModeWinnerPopupNameBackground'
 Add-Piece 'cup_winner_trophy_back' 'gph_cupModeWinnerPopupTrophyBackground'
 Add-Piece 'menu_leaderboard_medal_4' 'gph_onlineScoreMedalLast'
+# Petrified bricks' moss (PetrifyBrickModifier's MOSS_0..2 and MOSS_DESERT_0..2).
+foreach ($i in 1..3) {
+  Add-Piece "moss_$i" "gph_moss_var0$i"
+  Add-Piece "moss_desert_$i" "gph_mossDesert_var0$i"
+}
 function Add-Sound($key, $clip) {
   $src = Get-ChildItem $A -Recurse -Filter "$clip.ogg" | Select-Object -First 1
   if (-not $src) { "missing: $key ($clip)"; return }

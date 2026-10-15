@@ -344,6 +344,8 @@ impl Plugin for ArtPlugin {
                     play_music,
                     play_sounds,
                     menu_cursor_sound,
+                    auto_rotate_sounds,
+                    stone_and_ice_sounds,
                 ),
             );
     }
@@ -948,6 +950,10 @@ fn play_sounds(
         } else {
             "sfx_cast_light"
         });
+        // The curse's own start sound (AUTO_ROTATE's AudioEffect).
+        if cast.spell == crate::config::SpellKind::AutoRotate {
+            play("sfx_auto_rotate_start");
+        }
     }
     if game.phase == Phase::Over && heard.phase == Some(Phase::Playing) {
         play(if game.winner == Some(0) {
@@ -961,6 +967,59 @@ fn play_sounds(
     heard.lines = you.lines_reached;
     heard.casts = log.1;
     heard.phase = Some(game.phase);
+}
+
+/// A brick turning to stone plays one of SFX_PETRIFY_1..5; a brick iced plays
+/// SFX_SPAWN_ICE_BRICK (PetrifyBrickModifier, IceBrickModifier).
+fn stone_and_ice_sounds(
+    mut commands: Commands,
+    art: Res<Art>,
+    stones: Query<Entity, Added<crate::spells::Stone>>,
+    bricks: Query<(Entity, &crate::gameplay::Brick), Changed<crate::gameplay::Brick>>,
+    mut iced: Local<Vec<Entity>>,
+) {
+    let mut play = |name: &str| {
+        if let Some(handle) = art.sounds.get(name) {
+            commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
+        }
+    };
+    for stone in &stones {
+        play(&format!("sfx_petrify_brick_0{}", stone.to_bits() % 5 + 1));
+    }
+    for (entity, brick) in &bricks {
+        if brick.ice && !iced.contains(&entity) {
+            iced.push(entity);
+            play("sfx_spawn_icebrick");
+        }
+    }
+    if iced.len() > 256 {
+        iced.drain(..128);
+    }
+}
+
+/// Auto Rotate's turns after the first play one of SFX_AUTO_ROTATE_1..3, 0.3 s after the
+/// wind-back starts, at 0.95 to 1.05 pitch (AutoRotateBrickModifier, RandomAudioEffect).
+fn auto_rotate_sounds(
+    mut commands: Commands,
+    art: Res<Art>,
+    bricks: Query<(Entity, &ActiveBrick)>,
+    mut heard: Local<Vec<(Entity, u32)>>,
+) {
+    heard.retain(|(e, _)| bricks.contains(*e));
+    for (entity, brick) in &bricks {
+        let Some(cycle) = brick.mods.auto_rotate else { continue };
+        let turns = ((brick.auto_rotate_timer - 0.3) / cycle.max(0.01)).floor().max(0.0) as u32;
+        let was = heard.iter().find(|h| h.0 == entity).map_or(0, |h| h.1);
+        if turns > was {
+            let roll = (brick.auto_rotate_timer * 1000.0) as u32;
+            if let Some(handle) = art.sounds.get(&format!("sfx_auto_rotate_0{}", roll % 3 + 1)) {
+                let pitch = 0.95 + (roll % 101) as f32 / 1000.0;
+                commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN.with_speed(pitch)));
+            }
+        }
+        heard.retain(|h| h.0 != entity);
+        heard.push((entity, turns));
+    }
 }
 
 /// The results track for a finished battle: the win track when the first player's

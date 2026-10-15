@@ -645,6 +645,9 @@ fn curse_bricks(
         && let Ok((mut control, mut brick)) = active.get_mut(entity)
     {
         control.mods.merge(effect);
+        if effect.petrify {
+            brick.set_changed();
+        }
         if effect.large > 0 {
             brick.scale = control.mods.scale(config);
             control.reshape = true;

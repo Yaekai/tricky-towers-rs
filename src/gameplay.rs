@@ -751,7 +751,7 @@ pub struct ActiveBrick {
     repeating: bool,
     /// Current fall speed, in cells per second.
     speed: f32,
-    auto_rotate_timer: f32,
+    pub(crate) auto_rotate_timer: f32,
     /// Seconds before the balloon allows another sideways step.
     side_cooldown: f32,
     /// Seconds a refused turn (No Rotate) still shakes the brick; drawn by the
