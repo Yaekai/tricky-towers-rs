@@ -481,6 +481,67 @@ impl EndlessSunLook {
     }
 }
 
+const ADDITIVE_SHADER: Handle<Shader> = uuid_handle!("3c8f2a6e-51d4-4b7a-9e02-6f1d8b4c7a93");
+
+const ADDITIVE_WGSL: &str = r#"// Unity's Particles/Additive, which the cast beams' particles use: twice the tint times the
+// picture, added to what is behind (the pipeline blends SrcAlpha, One).
+#import bevy_sprite::mesh2d_vertex_output::VertexOutput
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> tint: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var picture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var picture_sampler: sampler;
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let c = textureSample(picture, picture_sampler, mesh.uv) * tint;
+    return vec4(c.rgb, c.a);
+}
+"#;
+
+/// A picture added onto the screen (Particles/Additive): its tint (alpha fades it).
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct AdditiveSprite {
+    #[uniform(0)]
+    pub tint: Vec4,
+    #[texture(1)]
+    #[sampler(2)]
+    pub picture: Handle<Image>,
+}
+
+impl Material2d for AdditiveSprite {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(ADDITIVE_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+
+    fn specialize(
+        descriptor: &mut bevy::render::render_resource::RenderPipelineDescriptor,
+        _layout: &bevy::mesh::MeshVertexBufferLayoutRef,
+        _key: bevy::sprite_render::Material2dKey<Self>,
+    ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
+        use bevy::render::render_resource::{BlendComponent, BlendFactor, BlendOperation, BlendState};
+        if let Some(target) = descriptor
+            .fragment
+            .as_mut()
+            .and_then(|f| f.targets.first_mut())
+            .and_then(|t| t.as_mut())
+        {
+            target.blend = Some(BlendState {
+                color: BlendComponent {
+                    src_factor: BlendFactor::SrcAlpha,
+                    dst_factor: BlendFactor::One,
+                    operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent::OVER,
+            });
+        }
+        Ok(())
+    }
+}
+
 pub struct SceneMaterialPlugin;
 
 impl Plugin for SceneMaterialPlugin {
@@ -503,7 +564,12 @@ impl Plugin for SceneMaterialPlugin {
             Material2dPlugin::<CheckpointFlag>::default(),
             Material2dPlugin::<PerspectiveClouds>::default(),
             Material2dPlugin::<EndlessSun>::default(),
+            Material2dPlugin::<AdditiveSprite>::default(),
         ));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(ADDITIVE_SHADER.id(), Shader::from_wgsl(ADDITIVE_WGSL, "additive_sprite.wgsl"));
         let _ = app
             .world_mut()
             .resource_mut::<Assets<Shader>>()

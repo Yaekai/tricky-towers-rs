@@ -318,13 +318,21 @@ struct StreamBit {
 }
 
 /// Gives off each beam's particles while it stands (from the moment its column has grown).
+#[allow(clippy::too_many_arguments)]
 fn stream_beams(
     mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
     art: Res<Art>,
     mut beams: Query<(Entity, &mut Beam, Option<&DelayedBy>)>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut adds: Option<ResMut<Assets<crate::scene_material::AdditiveSprite>>>,
+    mut quad: Local<Option<Handle<Mesh>>>,
 ) {
+    let (Some(meshes), Some(adds)) = (meshes.as_mut(), adds.as_mut()) else {
+        return;
+    };
+    let quad = quad.get_or_insert_with(|| meshes.add(Rectangle::new(1.0, 1.0))).clone();
     let look = &config.casts;
     let dt = time.delta_secs();
     let c = config.cell_size;
@@ -368,10 +376,15 @@ fn stream_beams(
                 let tint = Color::srgb_u8(a.0, a.1, a.2).mix(&Color::srgb_u8(b.0, b.1, b.2), k);
                 let pulse = stream.ring > 0.0;
                 let size = Vec2::new(stream.size.0, stream.size.1) * c * if pulse { unit() } else { 1.0 };
+                let tint = Vec4::from_array(tint.to_linear().to_f32_array());
                 commands.spawn((
                     StreamBit { velocity: Vec2::Y * way * speed * c, life: stream.life, age: 0.0, size, pulse },
-                    Sprite { image: image.clone(), color: tint.with_alpha(0.0), custom_size: Some(size), ..default() },
-                    Transform::from_translation(at.extend(16.2)),
+                    Mesh2d(quad.clone()),
+                    MeshMaterial2d(adds.add(crate::scene_material::AdditiveSprite {
+                        tint: tint.with_w(0.0),
+                        picture: image.clone(),
+                    })),
+                    Transform::from_translation(at.extend(16.2)).with_scale(Vec3::ZERO),
                 ));
             }
         }
@@ -381,9 +394,14 @@ fn stream_beams(
 /// Moves the beams' particles: streaks and waves fade in and out over their first and last
 /// tenth, droplets swell and shrink (Droplets' size curve: 0.83 at 30%, full at 56%, 0.97 at
 /// 92%, gone at the end).
-fn run_streams(mut commands: Commands, time: Res<Time>, mut bits: Query<(Entity, &mut StreamBit, &mut Transform, &mut Sprite)>) {
+fn run_streams(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut bits: Query<(Entity, &mut StreamBit, &mut Transform, &MeshMaterial2d<crate::scene_material::AdditiveSprite>)>,
+    mut adds: Option<ResMut<Assets<crate::scene_material::AdditiveSprite>>>,
+) {
     let dt = time.delta_secs();
-    for (entity, mut bit, mut transform, mut sprite) in &mut bits {
+    for (entity, mut bit, mut transform, material) in &mut bits {
         bit.age += dt;
         let t = bit.age / bit.life.max(0.001);
         if t >= 1.0 {
@@ -391,13 +409,17 @@ fn run_streams(mut commands: Commands, time: Res<Time>, mut bits: Query<(Entity,
             continue;
         }
         transform.translation += (bit.velocity * dt).extend(0.0);
-        if bit.pulse {
+        let (size, alpha) = if bit.pulse {
             let keys = [(0.0, 0.0), (0.3, 0.83), (0.556, 1.0), (0.923, 0.97), (1.0, 0.0)];
-            let k = crate::config::keyed(&keys, t);
-            sprite.custom_size = Some(bit.size * k);
-            sprite.color.set_alpha(1.0);
+            (bit.size * crate::config::keyed(&keys, t), 1.0)
         } else {
-            sprite.color.set_alpha((t / 0.1).min(1.0).min((1.0 - t) / 0.1));
+            (bit.size, (t / 0.1).min(1.0).min((1.0 - t) / 0.1))
+        };
+        transform.scale = size.extend(1.0);
+        if let Some(mut look) = adds.as_mut().and_then(|a| a.get_mut(&material.0))
+            && look.tint.w != alpha
+        {
+            look.tint.w = alpha;
         }
     }
 }
