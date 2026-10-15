@@ -16,4 +16,4 @@ user-invocable: false
   every tower goes through the same systems, only its `PlayerInput` writer differs.
 - Anything not in the original is tagged `DEBUG-TOOL` and listed in docs/release-checklist.md.
 - `cargo test` passes; add a headless test for new rules.
-- Append a dated line to the AGENTS.md log (add "via OmniRoute" if the session ran through it).
+- Append a dated line to the AGENTS.md log.

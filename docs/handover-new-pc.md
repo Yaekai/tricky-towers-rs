@@ -10,18 +10,16 @@ back to where the old one stopped. Read AGENTS.md and docs/pc-tasks.md too.
   minibase 2 wide, and this note. The PC session could not merge PRs itself (the permission
   check blocked it even with Max's OK), so Max merges.
 - A release build was made on the old PC outside the repo
-  (`C:\Users\hugoc\Documents\Claude\TrickyTowers-build`); it is local only (it contains staged art
+  (in a build folder); it is local only (it contains staged art
   from the install) and is rebuilt on the new PC as below.
 
 ## Setting up the new PC
 1. **Game and tools to install** (with Max's go-ahead, as before): Steam + Tricky Towers, Git,
    Rust (rustup, stable), Node.js (the repo's `.claude/hooks` run with `node`), Python 3 (Graphify
    needs it; on the old PC it was missing from PATH so Graphify's command never ran), AssetRipper.
-   The GitHub CLI wasn't installed on the old PC; PRs were opened through the GitHub API with the
-   git credential manager's token. Installing `gh` makes that simpler.
+   The GitHub CLI wasn't installed on the old PC; installing `gh` makes opening PRs simpler.
 2. **Claude Code plugins** (docs/pc-tasks.md, first section): Ponytail, Graphify, claude-code-setup,
-   rust-analyzer, context7 (it timed out on the old PC; check it connects), and OmniRoute as the
-   fallback only. The repo's `.claude/` (game-files guard, rustfmt hook, conventions and
+   rust-analyzer, context7 (it timed out on the old PC; check it connects). The repo's `.claude/` (game-files guard, rustfmt hook, conventions and
    offscreen-shot skills, 1:1 reviewer agent) comes with the clone.
 3. **Clone** `Yaekai/tricky-towers-rs`, then rebuild the local-only folders (both gitignored):
    - Export the install with AssetRipper ("Export Unity project") into `research\ripped`.

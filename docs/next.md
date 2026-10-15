@@ -26,7 +26,7 @@ ours and need checking against the original (see docs/research/*.md and the vide
   Settings rows centred; Settings row words heavier and near-black.
 - Title screen: six islands float (bob), wave crests scroll along the water, rays stay inside
   the picked tile.
-- Exe rebuilt at Documents\Claude\TrickyTowers-build\TrickyTowers.exe (15:44; rebuild after
+- Exe rebuilt in the local build folder (15:44; rebuild after
   today's last pushes, see below).
 
 ## Open: Puzzle (highest priority, Max tests it most)
@@ -102,7 +102,7 @@ ours and need checking against the original (see docs/research/*.md and the vide
 
 ## Process
 - Build the exe after the last push: `cargo build --release`, then copy `target\release\
-  tricky_towers.exe` to Documents\Claude\TrickyTowers-build\TrickyTowers.exe with `assets` and
+  tricky_towers.exe` to a build folder outside the repo with `assets` and
   `extracted` beside it.
 - Run `cargo test` before every push; regenerate the shipped config after changing defaults:
   `TT_WRITE_CONFIG=1 cargo test --lib write_shipped_config`.
