@@ -25,7 +25,7 @@ impl Plugin for EffectsPlugin {
                 splash,
                 fly_droplets,
                 show_collapse,
-                fly_shards,
+                fly_particles,
                 stop_rumble,
                 level_up_sounds,
                 grow_tufts,
@@ -378,11 +378,37 @@ pub(crate) struct CameraShake {
 
 /// A piece of a blown-up brick.
 #[derive(Component)]
-struct Shard {
+struct Particle {
     velocity: Vec2,
     spin: f32,
-    size: f32,
+    gravity: f32,
+    /// Speed limit and the share of the excess taken off each frame.
+    clamp: Option<(f32, f32)>,
+    shrink: ParticleShrink,
+    life: f32,
     time: f32,
+}
+
+impl Default for Particle {
+    fn default() -> Self {
+        Self {
+            velocity: Vec2::ZERO,
+            spin: 0.0,
+            gravity: 0.0,
+            clamp: None,
+            shrink: ParticleShrink::Fade,
+            life: 1.0,
+            time: 0.0,
+        }
+    }
+}
+
+/// How a particle changes over its life: fading out, or one of the explosion's size curves.
+#[derive(Clone, Copy)]
+enum ParticleShrink {
+    Fade,
+    Puff,
+    Debris,
 }
 
 /// The looping rumble sound, stopped when the rumble ends.
@@ -392,7 +418,6 @@ struct Rumble {
 }
 
 /// How long a shard flies before it is gone, in seconds.
-const SHARD_LIFE: f32 = 0.7;
 
 /// Blasts, shakes and sounds for the towers falling apart at the end of a match.
 fn show_collapse(
@@ -414,59 +439,55 @@ fn show_collapse(
         match &event.kind {
             // Only the controller rumbles here (src/input.rs).
             CollapseKind::Begin => {}
-            CollapseKind::Blast {
-                at,
-                rotation,
-                cells,
-                color,
-                scale,
-            } => {
+            CollapseKind::Blast { at, .. } => {
                 let (x, y, seconds) = look.blast_shake;
                 shake.kicks.push((Vec2::new(x, y) * c, seconds));
                 play(&mut commands, "sfx_explosion", PlaybackSettings::DESPAWN);
                 let mut seed = (time.elapsed_secs() * 1000.0) as u32 ^ (n as u32 * 7919) | 1;
-                let turn = Rot2::radians(*rotation);
-                let size = c * scale * 0.5;
-                // Each cell breaks into four pieces flung away from the brick's centre.
-                for &cell in cells {
-                    for corner in [
-                        Vec2::new(-1.0, -1.0),
-                        Vec2::new(1.0, -1.0),
-                        Vec2::new(-1.0, 1.0),
-                        Vec2::ONE,
-                    ] {
-                        let local = (cell + corner * 0.25) * c * scale;
-                        let from = *at + turn * local;
-                        let out = (turn * local).normalize_or(Vec2::Y);
-                        let speed = c * (4.0 + 6.0 * roll(&mut seed));
-                        commands.spawn((
-                            Shard {
-                                velocity: out * speed + Vec2::Y * c * 4.0,
-                                spin: (roll(&mut seed) - 0.5) * 20.0,
-                                size,
-                                time: 0.0,
-                            },
-                            Sprite::from_color(*color, Vec2::splat(size)),
-                            Transform::from_translation(from.extend(6.0))
-                                .with_rotation(Quat::from_rotation_z(*rotation)),
-                        ));
-                    }
-                }
-                if let Some(image) = art.image("explosion") {
+                // The brick hides and the original's EXPLOSION_PARTICLE plays where it was
+                // (BrickDisappearEffect): a flash, puffs of smoke and falling debris.
+                let blast = &look.explosion;
+                let at = at.extend(7.0);
+                let spawn = |commands: &mut Commands, name: &str, part: Particle, size: f32, seed: &mut u32| {
+                    let Some(image) = art.image(name) else { return };
+                    let turn = roll(seed) * std::f32::consts::TAU;
                     commands.spawn((
-                        Shard {
-                            velocity: Vec2::ZERO,
-                            spin: 0.0,
-                            size: c * 3.0,
-                            time: 0.0,
-                        },
+                        part,
                         Sprite {
                             image,
-                            custom_size: Some(Vec2::splat(c * 3.0)),
+                            custom_size: Some(Vec2::splat(size)),
                             ..default()
                         },
-                        Transform::from_translation(at.extend(7.0)),
+                        Transform::from_translation(at).with_rotation(Quat::from_rotation_z(turn)),
                     ));
+                };
+                let flash = Particle { life: blast.flash.1, ..default() };
+                spawn(&mut commands, "explosion_flash", flash, blast.flash.0 * c, &mut seed);
+                for _ in 0..blast.puffs.0 {
+                    let way = Vec2::from_angle(roll(&mut seed) * std::f32::consts::TAU);
+                    let part = Particle {
+                        velocity: way * roll(&mut seed) * blast.puffs.2 * c,
+                        spin: (roll(&mut seed) - 0.5) * 2.0,
+                        clamp: Some((blast.puff_clamp.0 * c, blast.puff_clamp.1)),
+                        shrink: ParticleShrink::Puff,
+                        life: blast.puffs.3,
+                        ..default()
+                    };
+                    let size = roll(&mut seed) * blast.puffs.1 * c;
+                    spawn(&mut commands, "explosion_puff", part, size, &mut seed);
+                }
+                for _ in 0..blast.debris.0 {
+                    let way = Vec2::from_angle(roll(&mut seed) * std::f32::consts::TAU);
+                    let part = Particle {
+                        velocity: way * roll(&mut seed) * blast.debris.2 * c,
+                        spin: (roll(&mut seed) - 0.5) * 6.0,
+                        gravity: blast.debris_gravity * c,
+                        shrink: ParticleShrink::Debris,
+                        life: blast.debris.3,
+                        ..default()
+                    };
+                    let size = roll(&mut seed) * blast.debris.1 * c;
+                    spawn(&mut commands, "explosion_debris", part, size, &mut seed);
                 }
             }
             CollapseKind::Rumble(seconds) => {
@@ -483,25 +504,43 @@ fn show_collapse(
     }
 }
 
-fn fly_shards(
+fn fly_particles(
     mut commands: Commands,
     time: Res<Time>,
-    config: Res<GameConfig>,
-    mut shards: Query<(Entity, &mut Shard, &mut Transform, &mut Sprite)>,
+    mut parts: Query<(Entity, &mut Particle, &mut Transform, &mut Sprite)>,
 ) {
     let dt = time.delta_secs();
-    for (entity, mut shard, mut transform, mut sprite) in &mut shards {
-        shard.time += dt;
-        if shard.time >= SHARD_LIFE {
+    for (entity, mut part, mut transform, mut sprite) in &mut parts {
+        part.time += dt;
+        let t = part.time / part.life.max(0.001);
+        if t >= 1.0 {
             commands.entity(entity).despawn();
             continue;
         }
-        shard.velocity.y -= config.cells(config.gravity) * dt;
-        transform.translation += (shard.velocity * dt).extend(0.0);
-        transform.rotate_z(shard.spin * dt);
-        let left = 1.0 - shard.time / SHARD_LIFE;
-        sprite.custom_size = Some(Vec2::splat(shard.size * (0.4 + 0.6 * left)));
-        sprite.color.set_alpha(left);
+        part.velocity.y -= part.gravity * dt;
+        // Limit Velocity over Lifetime: the speed past the limit is cut by `dampen` each
+        // frame (taken at 60 a second here).
+        if let Some((limit, dampen)) = part.clamp {
+            let speed = part.velocity.length();
+            if speed > limit {
+                let keep = (1.0 - dampen).powf(dt * 60.0);
+                part.velocity *= (limit + (speed - limit) * keep) / speed;
+            }
+        }
+        transform.translation += (part.velocity * dt).extend(0.0);
+        transform.rotate_z(part.spin * dt);
+        let k = match part.shrink {
+            ParticleShrink::Fade => {
+                sprite.color.set_alpha(1.0 - t);
+                1.0
+            }
+            // Size over Lifetime: 1, 0.76 at two thirds, 0 at the end.
+            ParticleShrink::Puff if t < 0.67 => 1.0 - 0.24 * t / 0.67,
+            ParticleShrink::Puff => 0.76 * (1.0 - (t - 0.67) / 0.33),
+            // Full size until 89% of its life, then gone by the end.
+            ParticleShrink::Debris => ((1.0 - t) / 0.11).min(1.0),
+        };
+        transform.scale = Vec3::new(k, k, 1.0);
     }
 }
 

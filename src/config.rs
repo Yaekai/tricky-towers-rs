@@ -1852,6 +1852,8 @@ pub struct MatchMoments {
     /// Camera shake per blast and for the rumble after the last one: cells
     /// sideways, cells up, seconds.
     pub blast_shake: (f32, f32, f32),
+    /// The blast's particles (Game/Particles/Explosion), in cells and seconds.
+    pub explosion: ExplosionLook,
     pub rumble: (f32, f32, f32),
     /// The losing player's controller rumbles this long when the sequence starts (the
     /// original: 2 s on the big motor after a 1.5 s wait, GameBaskController) and
@@ -1902,6 +1904,7 @@ impl Default for MatchMoments {
             blast_gap: (0.002, 0.007),
             blast_gap_cap: 10,
             blast_shake: (0.2, 0.26, 0.05),
+            explosion: ExplosionLook::default(),
             rumble: (0.1, 0.13, 2.5),
             pad_rumble: (2.0, 2.5),
             pad_rumble_strength: 1.0,
@@ -3835,6 +3838,32 @@ impl Default for HudLook {
             camera_height: 41.538_46,
             camera_tower_room: 20.0,
             camera_below_lowest: 10.0,
+        }
+    }
+}
+
+/// A collapsing tower's brick blast (Game/Particles/Explosion): the flash (size, life),
+/// the smoke puffs and the debris (count, largest size, top speed, life; size and speed are
+/// random up to those), the puffs' speed limit and dampening (Limit Velocity over Lifetime),
+/// and the debris' gravity (cells a second squared).
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct ExplosionLook {
+    pub flash: (f32, f32),
+    pub puffs: (u32, f32, f32, f32),
+    pub puff_clamp: (f32, f32),
+    pub debris: (u32, f32, f32, f32),
+    pub debris_gravity: f32,
+}
+
+impl Default for ExplosionLook {
+    fn default() -> Self {
+        Self {
+            flash: (4.0, 0.15),
+            puffs: (8, 1.0, 100.0, 0.5),
+            puff_clamp: (0.5, 0.28),
+            debris: (6, 0.5, 20.0, 3.0),
+            debris_gravity: 9.81,
         }
     }
 }
