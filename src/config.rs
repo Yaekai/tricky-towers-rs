@@ -1808,8 +1808,10 @@ pub struct MatchMoments {
     /// Shadow under match text, as a share of the text size, and its colour (0-255).
     pub shadow_drop: f32,
     pub shadow_color: [u8; 3],
-    /// WINNER! takes this long to move in.
-    pub winner_in: f32,
+    /// WINNER!'s scale keys (seconds, x, y): MessageController's MoveIn (squashing in from
+    /// 0.2 over 1 s), then its Idle looping (a slow 4 s breath down to 0.9).
+    pub winner_in: Vec<(f32, f32, f32)>,
+    pub winner_idle: Vec<(f32, f32, f32)>,
     /// WIZARD OUT! (LoseMessage, Survival only): its letter size in cells (font 20 against
     /// WINNER!'s 32.75, then 10% up to Max's Survival clip: 325 px wide), and its height in
     /// cells off `winner_above` over the tower as it moves in (MoveInLose; fading in over
@@ -1881,7 +1883,8 @@ impl Default for MatchMoments {
             countdown_size: 72.0,
             shadow_drop: 0.06,
             shadow_color: [227, 33, 61],
-            winner_in: 2.6,
+            winner_in: vec![(0.0, 0.2, 0.2), (0.25, 1.1366, 1.1), (0.3167, 1.1, 1.1366), (0.4833, 1.055, 0.94), (0.55, 0.94, 1.0377), (0.6, 1.0316, 1.01), (0.6667, 1.01, 0.9905), (0.7, 1.0, 1.0), (1.0, 1.0, 1.0)],
+            winner_idle: vec![(0.0, 1.0, 1.0), (1.0, 1.0, 1.0), (1.3833, 0.9642, 0.9594), (1.9333, 0.9057, 0.9), (2.0667, 0.9, 0.8978), (4.0, 1.0, 1.0)],
             out_cells: 1.88,
             out_in: vec![(0.0, 0.0), (1.0, 0.0), (1.4, -1.2036), (1.4833, -1.4055), (2.0, -1.39)],
             out_idle: vec![(0.0, -1.39), (1.0, -1.566), (2.0, -1.39)],

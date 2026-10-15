@@ -482,13 +482,6 @@ fn animate_lights(
     }
 }
 
-fn ease_out_elastic(x: f32) -> f32 {
-    if x >= 1.0 {
-        return 1.0;
-    }
-    2f32.powf(-10.0 * x) * ((10.0 * x - 0.75) * std::f32::consts::TAU / 3.0).sin() + 1.0
-}
-
 /// Moves the banners in, keeps them over their lane, and moves WIZARD OUT! away again.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn animate_banners(
@@ -586,7 +579,16 @@ fn animate_banners(
                 commands.entity(entity).despawn();
             }
         } else {
-            transform.scale = Vec2::splat(ease_out_elastic(t / look.winner_in.max(0.01)).max(0.0));
+            let moved_in = look.winner_in.last().map_or(0.0, |k| k.0);
+            let (keys, at) = match look.winner_idle.last() {
+                Some(&(length, ..)) if t > moved_in && length > 0.0 => (&look.winner_idle, (t - moved_in) % length),
+                _ => (&look.winner_in, t),
+            };
+            let axis = |pick: fn(&(f32, f32, f32)) -> f32| {
+                let pairs: Vec<(f32, f32)> = keys.iter().map(|k| (k.0, pick(k))).collect();
+                crate::config::keyed(&pairs, at)
+            };
+            transform.scale = Vec2::new(axis(|k| k.1), axis(|k| k.2));
         }
     }
     for mut ray in &mut rays {
