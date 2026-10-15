@@ -2205,10 +2205,9 @@ impl Default for WeatherLook {
     }
 }
 
-/// Local cups: a series of matches with points per place, a trophy for the cup
-/// winner, and XP (the original gives XP only in cups and online). Built from
-/// public descriptions and the trophy names read so far; the series length,
-/// points and tie rule are guesses `(?)` until read on the PC.
+/// Local cups: a series of matches with points per place and a trophy for the cup
+/// winner. Points are 4 − rank (CupMatchFlowController._GetMedalCount), ranks run 1..n
+/// with tied results sharing one, and a tie on the most points at the target plays on.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct CupRules {

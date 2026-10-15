@@ -170,13 +170,21 @@ impl Cup {
         self.size.is_some() && self.standings.is_none()
     }
 
-    /// Adds one match's result. Returns true when it decided the cup.
+    /// Adds one match's result, each tower in its finishing order taking that place.
+    /// Returns true when it decided the cup.
     pub fn add_match(&mut self, rules: &CupRules, order: &[usize]) -> bool {
+        let places: Vec<usize> = (0..order.len()).collect();
+        self.add_match_places(rules, order, &places)
+    }
+
+    /// Adds one match's result with each tower's place (0 = first; towers tied on the
+    /// match's value share a place, as MultiPlayerGameModePlayController's ranks do).
+    pub fn add_match_places(&mut self, rules: &CupRules, order: &[usize], places: &[usize]) -> bool {
         let Some(size) = self.rules(rules).cloned() else {
             return false;
         };
         self.stray = None;
-        for (place, &tower) in order.iter().enumerate() {
+        for (&tower, &place) in order.iter().zip(places) {
             let earned = rules.points.get(place).copied().unwrap_or(0);
             if self.points.len() <= tower {
                 self.points.resize(tower + 1, 0);
@@ -283,7 +291,17 @@ fn score_cup(
     cup.counted = game.round;
     let all: Vec<(usize, &TowerState)> = towers.iter().map(|(t, s)| (t.index, s)).collect();
     let order = placings(&game, &all);
-    cup.add_match(&config.cups, &order);
+    // A Puzzle round ranks by bricks, so towers with as many bricks share a place.
+    let places: Vec<usize> = if game.mode.rules() == ModeKind::Puzzle {
+        let bricks = |t: usize| all.iter().find(|(i, _)| *i == t).map_or(0, |(_, s)| s.bricks_placed);
+        order
+            .iter()
+            .map(|&t| order.iter().filter(|&&o| bricks(o) > bricks(t)).count())
+            .collect()
+    } else {
+        (0..order.len()).collect()
+    };
+    cup.add_match_places(&config.cups, &order, &places);
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.subsec_nanos());
@@ -311,6 +329,14 @@ mod tests {
         };
         cup.begin();
         (rules, cup)
+    }
+
+    #[test]
+    fn tied_towers_share_a_place_and_its_points() {
+        let (rules, mut cup) = cup(12);
+        cup.add_match_places(&rules, &[0, 1, 2], &[0, 0, 2]);
+        assert_eq!(cup.points[0], cup.points[1], "a draw scores both as first");
+        assert_eq!(cup.points[2], rules.points[2]);
     }
 
     #[test]
