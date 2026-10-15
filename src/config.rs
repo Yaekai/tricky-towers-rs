@@ -2320,10 +2320,12 @@ pub struct CupPanel {
     pub tab_bottom: f32,
     /// Seconds for the panel to slide up (?).
     pub slide: f32,
-    /// Seconds from the panel coming up: when the first medal lands (?), and the gap
-    /// between medals (?).
+    /// The latest match's medals fill row by row down the standings (AbstractTournamentResults
+    /// Popup): a wait before the first row, each medal's pop until the next starts (MedalIn's
+    /// IN_COMPLETE, when its sound plays), and the wait after each row.
     pub fill_start: f32,
     pub fill_step: f32,
+    pub fill_row_gap: f32,
     /// The cup winner popup after a decided cup's CONTINUE (TournamentWinnerPopup), in
     /// seconds from its opening: its fade in, the wait before the medal counts, each
     /// count's run (AnimateMedalAmountEffect: 0.3 s over its amount, a 0.089 s hold, the
@@ -2396,8 +2398,9 @@ impl Default for CupPanel {
             tab_width: 361.0,
             tab_bottom: 617.0,
             slide: 0.4,
-            fill_start: 0.5,
-            fill_step: 0.55,
+            fill_start: 1.0,
+            fill_step: 0.25,
+            fill_row_gap: 0.75,
             winner_in: 0.2,
             winner_medals_after: 0.5,
             winner_count: 0.3,
@@ -2411,13 +2414,6 @@ impl Default for CupPanel {
     }
 }
 
-impl CupPanel {
-    /// Seconds from the panel coming up until CONTINUE shows, once `fresh` new
-    /// medals have filled.
-    pub fn continue_at(&self, fresh: usize) -> f32 {
-        self.fill_start + self.fill_step * fresh as f32
-    }
-}
 /// A battle's opening, from the original's intro and countdown (docs/research/
 /// match-moments.md, "Match intro"): the mode title, the mode's own intro, then the
 /// 3-2-1. Seconds, and pixels of a 1920×1080 screen (y up from the centre).

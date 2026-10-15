@@ -322,11 +322,7 @@ fn show_cup_panel(
     }
     *was_up = grey_up;
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
-    let order: Vec<usize> = cup.standings.clone().unwrap_or_else(|| {
-        let mut order: Vec<usize> = (0..cup.points.len()).collect();
-        order.sort_by(|&a, &b| cup.points[b].cmp(&cup.points[a]).then(a.cmp(&b)));
-        order
-    });
+    let order: Vec<usize> = cup.panel_order();
     let tower = |row: usize| {
         order
             .get(row)
@@ -348,9 +344,10 @@ fn show_cup_panel(
     };
     let drop = (1.0 - slide) * (SCREEN.1 - p.bar_top);
     let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
-    let filled = size.is_some() && since >= p.continue_at(cup.fresh());
+    let (fill, fill_end) = cup.fill_times(p.fill_start, p.fill_step, p.fill_row_gap);
+    let filled = size.is_some() && since >= fill_end;
     // Medals from earlier matches are there at once; the latest match's fill in.
-    let shown_medals = |t: usize| shown_medals(&cup, p, since, t);
+    let shown_medals = |t: usize| shown_medals(&cup, &fill, since, t);
 
     for (part, mut node, mut visibility, image_node, colour) in &mut nodes {
         if *part == Part::Root {
@@ -1420,12 +1417,12 @@ const NUDGE_TRAIL: f32 = 2.5;
 const NUDGE_TIME: f32 = 0.3;
 const GHOSTS: usize = 8;
 
-/// Medals on the standings: those from earlier matches at once, the latest match's one by
-/// one from `fill_start`, `fill_step` apart.
-fn shown_medals(cup: &crate::cups::Cup, p: &crate::config::CupPanel, since: f32, t: usize) -> usize {
+/// Medals on the standings: those from earlier matches at once, the latest match's as their
+/// pop starts (`Cup::fill_times`).
+fn shown_medals(cup: &crate::cups::Cup, fill: &[Vec<f32>], since: f32, t: usize) -> usize {
     let before = cup.before.get(t).copied().unwrap_or(0);
-    let fresh = ((since - p.fill_start) / p.fill_step.max(0.01)).floor().max(-1.0) + 1.0;
-    cup.shown(t).min(before + fresh.max(0.0) as usize)
+    let started = fill.get(t).map_or(0, |times| times.iter().filter(|&&at| since >= at).count());
+    cup.shown(t).min(before + started)
 }
 
 /// Each medal landing on the standings plays its sound (AnimateMedalEffect): gold
@@ -1445,13 +1442,15 @@ fn medal_sounds(
         heard.clear();
         return;
     }
-    let since = popup.since_shown();
+    // Each medal's sound comes as its pop peaks (MedalIn's IN_COMPLETE, one step in).
+    let since = popup.since_shown() - p.fill_step;
+    let (fill, _) = cup.fill_times(p.fill_start, p.fill_step, p.fill_row_gap);
     let towers = cup.medals.len();
     if heard.len() != towers {
         *heard = (0..towers).map(|t| cup.before.get(t).copied().unwrap_or(0)).collect();
     }
     for t in 0..towers {
-        let now = shown_medals(&cup, p, since, t);
+        let now = shown_medals(&cup, &fill, since, t);
         while heard[t] < now {
             let name = match cup.medal(t, heard[t]) {
                 Some(0) => "sfx_medal_earned_gold".to_string(),

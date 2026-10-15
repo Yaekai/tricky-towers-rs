@@ -128,6 +128,32 @@ impl Cup {
             .unwrap_or(0)
     }
 
+    /// The standings' rows, top first: the final standings, or most points first.
+    pub fn panel_order(&self) -> Vec<usize> {
+        self.standings.clone().unwrap_or_else(|| {
+            let mut order: Vec<usize> = (0..self.points.len()).collect();
+            order.sort_by(|&a, &b| self.points[b].cmp(&self.points[a]).then(a.cmp(&b)));
+            order
+        })
+    }
+
+    /// When each of the latest match's medals starts to pop in, per tower, and when the
+    /// fill is over (CONTINUE): row by row down the standings, `step` apart within a row,
+    /// `row_gap` after each row, from `start`.
+    pub fn fill_times(&self, start: f32, step: f32, row_gap: f32) -> (Vec<Vec<f32>>, f32) {
+        let mut times = vec![Vec::new(); self.medals.len()];
+        let mut at = start;
+        for t in self.panel_order() {
+            let fresh = self.shown(t).saturating_sub(self.before.get(t).copied().unwrap_or(0));
+            for _ in 0..fresh {
+                times[t].push(at);
+                at += step;
+            }
+            at += row_gap;
+        }
+        (times, at)
+    }
+
     /// Medals tower `t` shows on the standings, the stray empty one included.
     pub fn shown(&self, t: usize) -> usize {
         self.medals.get(t).map_or(0, Vec::len) + usize::from(self.stray == Some(t))
@@ -285,6 +311,19 @@ mod tests {
         };
         cup.begin();
         (rules, cup)
+    }
+
+    #[test]
+    fn medals_fill_row_by_row_down_the_standings() {
+        let (rules, mut cup) = cup(12);
+        cup.add_match(&rules, &[1, 0]);
+        let (times, end) = cup.fill_times(1.0, 0.25, 0.75);
+        let gold = rules.points[0] as usize;
+        let silver = rules.points[1] as usize;
+        assert_eq!(times[1].len(), gold);
+        assert_eq!(times[1][0], 1.0, "the leader's row starts after the wait");
+        assert_eq!(times[0][0], 1.0 + 0.25 * gold as f32 + 0.75, "the next row after the leader's");
+        assert_eq!(end, 1.0 + 0.25 * (gold + silver) as f32 + 1.5);
     }
 
     #[test]

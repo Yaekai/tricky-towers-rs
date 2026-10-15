@@ -68,7 +68,10 @@ impl Popup {
     pub fn panel_continue(&self, cup: &Cup, config: &GameConfig) -> bool {
         self.panel_up(cup, &config.cup_panel)
             && cup.rules(&config.cups).is_some()
-            && self.since_shown() >= config.cup_panel.continue_at(cup.fresh())
+            && self.since_shown() >= {
+                let p = &config.cup_panel;
+                cup.fill_times(p.fill_start, p.fill_step, p.fill_row_gap).1
+            }
     }
 }
 
