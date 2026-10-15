@@ -224,7 +224,8 @@ struct PerspectiveClouds {
 
 // A plane's cloud at this ray: its (u, v) on the plane, or a negative u when the ray
 // misses it. The planes are Unity's 10 x 10 plane scaled 2 x 2.35, turned -158.9 degrees
-// about x, 11.52 ahead and 0.04 up; u runs to -x and v away from the camera.
+// about x, 11.52 ahead and 0.04 up; the picture's u runs away from the camera and its v to
+// -x (the long streaks lie across the view, as in Max's Endless Race clip).
 fn on_plane(dir: vec3<f32>, x: f32) -> vec2<f32> {
     let centre = vec3(x, 0.04, 11.52);
     let along = vec3(0.0, 0.360, -0.933);
@@ -239,7 +240,7 @@ fn on_plane(dir: vec3<f32>, x: f32) -> vec2<f32> {
     if abs(a) > 1.0 || abs(b) > 1.0 {
         return vec2(-1.0);
     }
-    return vec2((1.0 - a) * 0.5, (1.0 - b) * 0.5);
+    return vec2((1.0 - b) * 0.5, (1.0 - a) * 0.5);
 }
 
 fn cloud(main: vec4<f32>, uv: vec2<f32>) -> vec4<f32> {
