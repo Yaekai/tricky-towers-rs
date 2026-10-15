@@ -836,7 +836,6 @@ fn play_music(
 /// What your tower looked like last frame, to notice changes worth a sound.
 #[derive(Default)]
 struct Heard {
-    level: u32,
     placed: u32,
     dropped: u32,
     lines: u32,
@@ -914,11 +913,6 @@ fn play_sounds(
         if you.lines_reached > heard.lines {
             play("sfx_line_collect");
         }
-        // Endless Puzzle's laser moving up a level: one of MOVE_LASER_1..3.
-        if heard.level > 0 && you.puzzle_level > heard.level {
-            play(&format!("sfx_laser_move_{}", you.puzzle_level % 3 + 1));
-        }
-        heard.level = you.puzzle_level;
         let countdown = you.hold_timer.ceil() as u32;
         if countdown > heard.countdown {
             play("sfx_countdown");

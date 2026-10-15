@@ -43,6 +43,9 @@ pub struct Cup {
     /// Per tower index, how many matches it finished fourth (no points, so no medals): the
     /// cup winner popup counts them.
     pub fourths: Vec<u32>,
+    /// The tower whose fourth place in the latest match still shows one empty medal (1 in
+    /// 7, TournamentResultsItem's joke). It takes a slot only in that match's fill.
+    pub stray: Option<usize>,
     /// The final standings (tower indexes, first first) once the cup is over.
     pub standings: Option<Vec<usize>>,
     /// The mode and difficulty pairs the cup plays (more than one when Select Mode
@@ -119,12 +122,21 @@ impl Cup {
 
     /// The most medals any player earned in the latest match.
     pub fn fresh(&self) -> usize {
-        self.medals
-            .iter()
-            .zip(&self.before)
-            .map(|(m, &b)| m.len().saturating_sub(b))
+        (0..self.medals.len())
+            .map(|t| self.shown(t).saturating_sub(self.before.get(t).copied().unwrap_or(0)))
             .max()
             .unwrap_or(0)
+    }
+
+    /// Medals tower `t` shows on the standings, the stray empty one included.
+    pub fn shown(&self, t: usize) -> usize {
+        self.medals.get(t).map_or(0, Vec::len) + usize::from(self.stray == Some(t))
+    }
+
+    /// The place (0 = first, 3 = the empty medal) of tower `t`'s `k`th medal shown.
+    pub fn medal(&self, t: usize, k: usize) -> Option<usize> {
+        let medals = self.medals.get(t)?;
+        medals.get(k).copied().or((k == medals.len() && self.stray == Some(t)).then_some(3))
     }
 
     /// True while a cup has matches left to play.
@@ -137,6 +149,7 @@ impl Cup {
         let Some(size) = self.rules(rules).cloned() else {
             return false;
         };
+        self.stray = None;
         for (place, &tower) in order.iter().enumerate() {
             let earned = rules.points.get(place).copied().unwrap_or(0);
             if self.points.len() <= tower {
@@ -245,6 +258,12 @@ fn score_cup(
     let all: Vec<(usize, &TowerState)> = towers.iter().map(|(t, s)| (t.index, s)).collect();
     let order = placings(&game, &all);
     cup.add_match(&config.cups, &order);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.subsec_nanos());
+    if nanos % 7 == 0 {
+        cup.stray = order.get(3).copied();
+    }
 }
 
 #[cfg(test)]
@@ -266,6 +285,17 @@ mod tests {
         };
         cup.begin();
         (rules, cup)
+    }
+
+    #[test]
+    fn a_stray_empty_medal_shows_only_in_its_match() {
+        let (rules, mut cup) = cup(6);
+        cup.add_match(&rules, &[0, 1, 2, 3]);
+        cup.stray = Some(3);
+        assert_eq!((cup.shown(3), cup.medal(3, 0)), (1, Some(3)));
+        assert_eq!(cup.fresh(), 3, "the winner's three still lead the fill");
+        cup.add_match(&rules, &[0, 1, 2, 3]);
+        assert_eq!((cup.shown(3), cup.medal(3, 0)), (0, None));
     }
 
     #[test]

@@ -18,7 +18,8 @@ pub struct CupsMenuPlugin;
 impl Plugin for CupsMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (spawn_cup_panel, spawn_cup_winner))
-            .add_systems(Update, (show_cup_panel, show_cup_winner, celebrate, fly_winner).chain());
+            .add_systems(Update, (show_cup_panel, show_cup_winner, celebrate, fly_winner).chain())
+            .add_systems(Update, medal_sounds);
     }
 }
 
@@ -349,14 +350,7 @@ fn show_cup_panel(
     let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
     let filled = size.is_some() && since >= p.continue_at(cup.fresh());
     // Medals from earlier matches are there at once; the latest match's fill in.
-    let shown_medals = |t: usize| {
-        let (all, before) = (
-            cup.medals.get(t).map_or(0, Vec::len),
-            cup.before.get(t).copied().unwrap_or(0),
-        );
-        let fresh = ((since - p.fill_start) / p.fill_step.max(0.01)).floor().max(-1.0) + 1.0;
-        all.min(before + fresh.max(0.0) as usize)
-    };
+    let shown_medals = |t: usize| shown_medals(&cup, p, since, t);
 
     for (part, mut node, mut visibility, image_node, colour) in &mut nodes {
         if *part == Part::Root {
@@ -452,8 +446,7 @@ fn show_cup_panel(
                 let medal = order
                     .get(i)
                     .filter(|&&t| k < shown_medals(t))
-                    .and_then(|&t| cup.medals.get(t))
-                    .and_then(|m| m.get(k).copied())
+                    .and_then(|&t| cup.medal(t, k))
                     .map(|place| place.min(3));
                 let x = p.slot_left - p.row_left + k as f32 * pitch;
                 let y = (p.row_height - cell) / 2.0;
@@ -1426,6 +1419,53 @@ const NUDGE_JUMP: f32 = 3.0;
 const NUDGE_TRAIL: f32 = 2.5;
 const NUDGE_TIME: f32 = 0.3;
 const GHOSTS: usize = 8;
+
+/// Medals on the standings: those from earlier matches at once, the latest match's one by
+/// one from `fill_start`, `fill_step` apart.
+fn shown_medals(cup: &crate::cups::Cup, p: &crate::config::CupPanel, since: f32, t: usize) -> usize {
+    let before = cup.before.get(t).copied().unwrap_or(0);
+    let fresh = ((since - p.fill_start) / p.fill_step.max(0.01)).floor().max(-1.0) + 1.0;
+    cup.shown(t).min(before + fresh.max(0.0) as usize)
+}
+
+/// Each medal landing on the standings plays its sound (AnimateMedalEffect): gold
+/// LEVEL_UP, silver and bronze their own, the empty one one of six MEDAL_EARNED_EMPTY_
+/// (staged as sfx_4th_place_01..06; the name match is ours). Only medals inside the target
+/// land as pictures; past it they count up on "+N" with the same sound.
+fn medal_sounds(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    cup: Res<crate::cups::Cup>,
+    popup: Res<Popup>,
+    art: Option<Res<Art>>,
+    mut heard: Local<Vec<usize>>,
+) {
+    let p = &config.cup_panel;
+    if !popup.panel_up(&cup, p) {
+        heard.clear();
+        return;
+    }
+    let since = popup.since_shown();
+    let towers = cup.medals.len();
+    if heard.len() != towers {
+        *heard = (0..towers).map(|t| cup.before.get(t).copied().unwrap_or(0)).collect();
+    }
+    for t in 0..towers {
+        let now = shown_medals(&cup, p, since, t);
+        while heard[t] < now {
+            let name = match cup.medal(t, heard[t]) {
+                Some(0) => "sfx_medal_earned_gold".to_string(),
+                Some(1) => "sfx_medal_earned_silver".to_string(),
+                Some(2) => "sfx_medal_earned_bronze".to_string(),
+                _ => format!("sfx_4th_place_0{}", (since * 1000.0) as u32 % 6 + 1),
+            };
+            heard[t] += 1;
+            if let Some(sound) = art.as_ref().and_then(|a| a.sounds.get(&name)) {
+                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+            }
+        }
+    }
+}
 
 /// One of the wizard's voice lines of `kind` at random (its WizardSpeech table's volume and
 /// pitch), for the winner's tricks.
