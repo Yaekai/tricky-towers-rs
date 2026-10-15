@@ -314,6 +314,36 @@ fn puzzle_round_stops_the_tower_then_ends_after_the_count() {
 }
 
 #[test]
+fn two_towers_touching_the_laser_at_once_each_count_and_the_round_ends() {
+    // The original runs one 3-2-1 per tower that zapped (MultiPlayerPuzzleGameModePlayController:
+    // each controller with BRICKS_ZAPPED > 0 starts its own countdown), so two towers touching
+    // in the same step both stop and both count; the round then ends.
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.opponents = 1;
+    let count_seconds = config.puzzle.count_seconds;
+    let mut app = headless_app(config);
+    let both = run_until(&mut app, 20.0, |app| {
+        tower(app, 0).bricks_placed >= 1 && tower(app, 1).bricks_placed >= 1
+    });
+    assert!(both, "both towers should place a brick");
+    {
+        let world = app.world_mut();
+        for mut state in world.query::<&mut TowerState>().iter_mut(world) {
+            state.laser_base = -5.0;
+        }
+    }
+    run_seconds(&mut app, 0.1, |_| {});
+    let (a, b) = (tower(&mut app, 0), tower(&mut app, 1));
+    assert!(a.laser_count.is_some() && b.laser_count.is_some(), "{:?} {:?}", a.laser_count, b.laser_count);
+    assert_eq!((a.status, b.status), (TowerStatus::Out, TowerStatus::Out));
+    let ended = run_until(&mut app, count_seconds + 5.0, |app| {
+        app.world().resource::<Match>().phase == Phase::Over
+    });
+    assert!(ended, "the round did not end after both counts");
+}
+
+#[test]
 fn a_base_rise_that_lifts_a_brick_onto_the_line_ends_the_round() {
     // The base rises with each brick that fell off, and the bricks on it are carried
     // up. A rise that lifts the highest brick onto the laser must stop the tower, zap
