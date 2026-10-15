@@ -482,8 +482,22 @@ fn show_cup_panel(
             Part::Trophy(i) => {
                 let on = filled && winner.is_some() && order.get(i).copied() == winner;
                 visibility.set_if_neq(shown(on));
+                let small = cup.size.and_then(|s| p.row_trophies.get(s));
+                if let Some((_, w, h)) = small {
+                    let want = (px(*w), px(*h), px((p.row_height - h) / 2.0));
+                    if (node.width, node.height, node.top) != want {
+                        (node.width, node.height, node.top) = want;
+                    }
+                    let right = px(p.row_left + p.row_width - p.trophy_x - w / 2.0);
+                    if node.right != right {
+                        node.right = right;
+                    }
+                }
                 if let Some(mut trophy) = image_node {
-                    set_image(&mut trophy, size.and_then(|s| image(&s.trophy)));
+                    let picture = small
+                        .and_then(|(name, ..)| image(name))
+                        .or_else(|| size.and_then(|s| image(&s.trophy)));
+                    set_image(&mut trophy, picture);
                 }
             }
             Part::Continue => {

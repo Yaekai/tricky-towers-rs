@@ -2305,10 +2305,14 @@ pub struct CupPanel {
     /// The grey dot in an empty slot.
     pub dot_size: f32,
     pub dot_colour: (u8, u8, u8),
-    /// The winner's trophy on its row: centre x and size (?).
+    /// The winner's trophy on its row: centre x (TrophyContainer, 53 px past the row's right
+    /// end), the box it sits in, and per cup its small picture and size (TrophyTiny/Big/Super:
+    /// 29x35, 53x53, 73x63).
     pub trophy_x: f32,
     pub trophy_size: f32,
-    /// The medal pictures for 1st to 4th, and their colours when a picture is missing (?).
+    pub row_trophies: Vec<(String, f32, f32)>,
+    /// The medal pictures for 1st to 4th (the Gold/Silver/Bronze prefabs' leaderboard
+    /// medals), and their colours when a picture is missing.
     pub medals: Vec<String>,
     pub medal_colours: Vec<(u8, u8, u8)>,
     /// CONTINUE: its letter size in Vh, and the strip under the panel it sits in: its left
@@ -2365,7 +2369,7 @@ impl Default for CupPanel {
             row_height: 66.0,
             row_top: 350.0,
             row_pitch: 100.0,
-            row_colour: (208, 215, 240),
+            row_colour: (209, 216, 242),
             name_left: 783.0,
             name_top: -19.0,
             name_size: 18.0 / 10.8,
@@ -2378,13 +2382,18 @@ impl Default for CupPanel {
             slot_size: 40.0,
             medal_size: (44.0, 52.0),
             dot_size: 13.0,
-            dot_colour: (150, 164, 209),
-            trophy_x: 1215.0,
-            trophy_size: 44.0,
+            dot_colour: (151, 164, 211),
+            trophy_x: 1216.0,
+            trophy_size: 63.0,
+            row_trophies: vec![
+                ("menu_cup_tiny_small".into(), 29.0, 35.0),
+                ("menu_cup_big_small".into(), 53.0, 53.0),
+                ("menu_cup_super_small".into(), 73.0, 63.0),
+            ],
             medals: vec![
-                "menu_online_score_medal_gold".into(),
-                "menu_online_score_medal_silver".into(),
-                "menu_online_score_medal_bronze".into(),
+                "menu_leaderboard_medal_1".into(),
+                "menu_leaderboard_medal_2".into(),
+                "menu_leaderboard_medal_3".into(),
                 "menu_online_score_medal_last".into(),
             ],
             medal_colours: vec![
