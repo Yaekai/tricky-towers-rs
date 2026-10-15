@@ -170,9 +170,15 @@ struct MirroredBy(Entity);
 #[derive(Component)]
 struct Mirrors(Entity);
 
+/// A text's character spacing in the font's units (TextMeshPro's characterSpacing: added to
+/// every letter's advance before scaling; most of the original's menu texts use -1).
+#[derive(Component, Clone, Copy, PartialEq, Debug, Default)]
+pub struct LetterSpacing(pub f32);
+
 /// Text to draw with the letter sheet.
 #[derive(Component, Clone, PartialEq)]
 struct LetterText {
+    spacing: f32,
     text: String,
     size: f32,
     /// Whether `size` is a share of the view height rather than pixels.
@@ -191,6 +197,7 @@ fn letter_text(
     color: Option<&TextColor>,
     layout: Option<&TextLayout>,
     look: Option<&TextLook>,
+    spacing: Option<&LetterSpacing>,
 ) -> LetterText {
     let look = look.copied().unwrap_or_default();
     let (size, view_height) = match font.font_size {
@@ -199,6 +206,7 @@ fn letter_text(
         _ => (20.0, false),
     };
     LetterText {
+        spacing: spacing.map_or(0.0, |s| s.0),
         text: text.0.clone(),
         size,
         view_height,
@@ -227,6 +235,7 @@ fn mirror_texts(
             &mut Node,
             Option<&ChildOf>,
             Option<&GlobalZIndex>,
+            Option<&LetterSpacing>,
         ),
         Without<MirroredBy>,
     >,
@@ -235,11 +244,11 @@ fn mirror_texts(
     if !art.letters.contains_key(FONT) {
         return;
     }
-    for (entity, text, font, color, layout, look, mut node, parent, z) in &mut texts {
+    for (entity, text, font, color, layout, look, mut node, parent, z, spacing) in &mut texts {
         let mirror = commands
             .spawn((
                 node.clone(),
-                letter_text(text, font, color, layout, look),
+                letter_text(text, font, color, layout, look, spacing),
                 Mirrors(entity),
             ))
             .id();
@@ -271,6 +280,7 @@ fn sync_mirrors(
             Option<&TextColor>,
             Option<&TextLayout>,
             Option<&TextLook>,
+            Option<&LetterSpacing>,
         ),
         Or<(
             Changed<Text>,
@@ -281,9 +291,9 @@ fn sync_mirrors(
     >,
     mut mirrors: Query<&mut LetterText>,
 ) {
-    for (mirror, text, font, color, layout, look) in &texts {
+    for (mirror, text, font, color, layout, look, spacing) in &texts {
         if let Ok(mut letters) = mirrors.get_mut(mirror.0) {
-            let new = letter_text(text, font, color, layout, look);
+            let new = letter_text(text, font, color, layout, look, spacing);
             if *letters != new {
                 *letters = new;
             }
@@ -453,7 +463,7 @@ fn spawn_line(
                 let (x, y, w, h) = glyph.rect;
                 let (ox, oy) = glyph.offset;
                 row.spawn(Node {
-                    width: len(glyph.advance * k),
+                    width: len((glyph.advance + text.spacing) * k),
                     height: len(height),
                     ..default()
                 })

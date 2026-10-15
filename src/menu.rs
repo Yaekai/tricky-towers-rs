@@ -1153,6 +1153,8 @@ fn spawn_main_menu(
                             TextColor(Color::WHITE),
                             TextLayout::justify(Justify::Center),
                             look,
+                            // The MainMenu tile names' characterSpacing.
+                            crate::letters::LetterSpacing(-1.0),
                         ));
                     }
                 });
