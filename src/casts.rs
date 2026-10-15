@@ -25,6 +25,7 @@ impl Plugin for CastsPlugin {
             (
                 start_casts,
                 run_beams,
+                run_impacts,
                 run_orbs,
                 run_lightning,
                 track_clouds,
@@ -235,7 +236,7 @@ fn spawn_beam(
         sprite,
         Transform::from_translation(foot.extend(16.0)),
     ));
-    if art.image("cast_circle_gradient").is_some() && kind != BeamKind::Lane {
+    if art.image("cast_circle_gradient").is_some() && kind == BeamKind::Up {
         let glow = art.image("cast_circle_gradient").unwrap();
         let glows = &config.casts.beam_glow;
         let tint = glows
@@ -271,10 +272,71 @@ fn spawn_victim_beams(
     commands
         .entity(beam)
         .insert((Visibility::Hidden, DelayedBy(config.casts.dark_fall)));
+    // The impact on the victim's brick (BeamDownIn): rays, two rings and a glow.
+    let glows = &config.casts.beam_glow;
+    let tint = glows
+        .get(wizard)
+        .or(glows.first())
+        .map_or(Color::WHITE, |&(r, g, b, _)| Color::srgb(r, g, b));
+    for (part, name) in IMPACT_PARTS.iter().enumerate() {
+        if let Some((mut sprite, anchor, transform)) = crate::visuals::art_sprite(art, name, config.cell_size) {
+            sprite.color = tint.with_alpha(0.0);
+            commands.spawn((
+                Impact {
+                    part,
+                    size: transform.scale.x,
+                    time: -config.casts.dark_fall,
+                },
+                sprite,
+                anchor,
+                Transform::from_translation(foot.extend(16.5 + part as f32 * 0.01)).with_scale(Vec3::ZERO),
+            ));
+        }
+    }
     let lane = spawn_beam(commands, config, art, BeamKind::Lane, foot, lane_x, wizard);
     commands
         .entity(lane)
         .insert((Visibility::Hidden, DelayedBy(config.casts.dark_start)));
+}
+
+/// The pictures of a down beam's impact, back to front.
+const IMPACT_PARTS: [&str; 4] = ["cast_circle_gradient", "cast_circle_thin", "cast_circle_thick", "cast_sunrays"];
+
+/// One picture of a down beam's impact and its seconds since the beam started (negative
+/// while it waits).
+#[derive(Component)]
+struct Impact {
+    part: usize,
+    size: f32,
+    time: f32,
+}
+
+/// BeamDownIn's keys for the impact, from 0.2 s: the glow and the thin ring grow to 2 by
+/// 0.517 s fading out by 0.6 s (from 0.153 and 0.228); the thick ring grows from 0.267 s
+/// to 1.2 at 0.633 s fading from 0.516; the rays grow to 1 by 0.633 s, fading from 0.498
+/// after 0.4 s. Straight lines between keys (Unity's are smoothed).
+fn run_impacts(mut commands: Commands, time: Res<Time>, mut parts: Query<(Entity, &mut Impact, &mut Transform, &mut Sprite)>) {
+    let ramp = |t: f32, a: f32, b: f32| ((t - a) / (b - a)).clamp(0.0, 1.0);
+    for (entity, mut impact, mut transform, mut sprite) in &mut parts {
+        impact.time += time.delta_secs();
+        let t = impact.time;
+        if t >= 0.64 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let (scale, alpha) = if t < 0.2 {
+            (0.0, 0.0)
+        } else {
+            match impact.part {
+                0 => (2.0 * ramp(t, 0.2, 0.517), 0.153 * (1.0 - ramp(t, 0.2, 0.6))),
+                1 => (2.0 * ramp(t, 0.2, 0.517), 0.228 * (1.0 - ramp(t, 0.2, 0.6))),
+                2 => (1.2 * ramp(t, 0.267, 0.633), 0.516 * (1.0 - ramp(t, 0.267, 0.633))),
+                _ => (ramp(t, 0.2, 0.633), 0.498 * (1.0 - ramp(t, 0.4, 0.633))),
+            }
+        };
+        transform.scale = Vec3::new(scale * impact.size, scale * impact.size, 1.0);
+        sprite.color.set_alpha(alpha);
+    }
 }
 
 /// The glow at a beam's foot; it stays at the foot, not stretched with the beam.
