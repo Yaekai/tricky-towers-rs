@@ -637,15 +637,28 @@ struct EggPulse {
     x_first: bool,
 }
 
-fn grow_edges(time: Res<Time>, mut grows: Query<(&EdgeGrow, &mut Transform)>) {
+fn grow_edges(mut commands: Commands, time: Res<Time>, mut grows: Query<(Entity, &EdgeGrow, &mut Transform)>) {
     let now = time.elapsed_secs();
-    for (grow, mut transform) in &mut grows {
-        let k = crate::packs::edge_growth(now - grow.start);
+    for (entity, grow, mut transform) in &mut grows {
+        let t = now - grow.start;
+        let k = crate::packs::edge_growth(t);
         transform.scale = Vec3::new(k, k, 1.0);
+        // Grown: leave the scale to the egg's pulse.
+        if t >= 0.5 {
+            transform.scale = Vec3::ONE;
+            commands.entity(entity).remove::<EdgeGrow>();
+        }
     }
 }
 
-fn pulse_eggs(time: Res<Time>, mut eggs: Query<(&EggPulse, &mut Transform)>) {
+/// The next Easter decoration move starts 5 to 15 s after the last one ends
+/// (EasterBrickModifier._AnimateDecoration repeats for as long as the brick lives).
+fn next_easter_move(entity: Entity, now: f32) -> f32 {
+    let h = (entity.to_bits() ^ now.to_bits() as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    now + 5.0 + (h >> 40) as f32 / (1u64 << 24) as f32 * 10.0
+}
+
+fn pulse_eggs(time: Res<Time>, mut eggs: Query<(Entity, &mut EggPulse, &mut Transform)>) {
     let now = time.elapsed_secs();
     let elastic = |x: f32| {
         if x >= 1.0 {
@@ -654,8 +667,13 @@ fn pulse_eggs(time: Res<Time>, mut eggs: Query<(&EggPulse, &mut Transform)>) {
             2f32.powf(-10.0 * x) * ((x - 0.075) * std::f32::consts::TAU / 0.3).sin() + 1.0
         }
     };
-    for (egg, mut transform) in &mut eggs {
+    for (entity, mut egg, mut transform) in &mut eggs {
         let t = now - egg.start;
+        if t > 1.1 {
+            egg.start = next_easter_move(entity, now);
+            transform.scale = Vec3::ONE;
+            continue;
+        }
         // Before its time the egg is left to its growth in; then one axis squeezes first.
         if t < 0.0 {
             continue;
@@ -680,15 +698,20 @@ struct FlowerTurn {
     turn: f32,
 }
 
-fn turn_flowers(time: Res<Time>, mut flowers: Query<(&FlowerTurn, &mut Transform)>) {
+fn turn_flowers(time: Res<Time>, mut flowers: Query<(Entity, &mut FlowerTurn, &mut Transform)>) {
     let now = time.elapsed_secs();
     let ease_in_back = |x: f32| {
         let c = 1.70158;
         x * x * ((c + 1.0) * x - c)
     };
     let ease_out_expo = |x: f32| if x >= 1.0 { 1.0 } else { 1.0 - 2f32.powf(-10.0 * x) };
-    for (flower, mut transform) in &mut flowers {
+    for (entity, mut flower, mut transform) in &mut flowers {
         let t = now - flower.start;
+        if t > 2.0 {
+            flower.start = next_easter_move(entity, now);
+            transform.rotation = Quat::IDENTITY;
+            continue;
+        }
         let angle = if t < 0.0 {
             0.0
         } else if t < 0.5 {
