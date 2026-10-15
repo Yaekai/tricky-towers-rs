@@ -4,6 +4,7 @@
 // from is in docs/research/.
 (
     cell_size: 32.0,
+    ice_hit_speed: 0.5,
     gravity: 18.0,
     fall_speed_per_height: 0.1,
     fall_speed_per_out: 2.0,

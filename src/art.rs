@@ -346,6 +346,7 @@ impl Plugin for ArtPlugin {
                     menu_cursor_sound,
                     auto_rotate_sounds,
                     stone_and_ice_sounds,
+                    ice_hit_sounds,
                 ),
             );
     }
@@ -994,6 +995,40 @@ fn stone_and_ice_sounds(
     }
     if iced.len() > 256 {
         iced.drain(..128);
+    }
+}
+
+/// Ice bricks knock on everything they hit (IceBrickModifier's CollisionSoundBehaviour): one
+/// of SFX_BRICK_PLACED_ICE_1..4 (staged as sfx_ice_brick_hit_01..04) on each new contact
+/// faster than `ice_hit_speed` cells a second.
+fn ice_hit_sounds(
+    mut commands: Commands,
+    art: Res<Art>,
+    config: Res<crate::config::GameConfig>,
+    iced: Query<(Entity, &crate::gameplay::Brick), (Changed<crate::gameplay::Brick>, Without<avian2d::prelude::CollisionEventsEnabled>)>,
+    bricks: Query<&crate::gameplay::Brick>,
+    velocities: Query<&avian2d::prelude::LinearVelocity>,
+    mut starts: MessageReader<avian2d::prelude::CollisionStart>,
+    mut roll: Local<u32>,
+) {
+    for (entity, brick) in &iced {
+        if brick.ice {
+            commands.entity(entity).try_insert(avian2d::prelude::CollisionEventsEnabled);
+        }
+    }
+    let speed = |body: Option<Entity>| body.and_then(|b| velocities.get(b).ok()).map_or(Vec2::ZERO, |v| v.0);
+    for start in starts.read() {
+        let ice = [start.body1, start.body2]
+            .iter()
+            .flatten()
+            .any(|b| bricks.get(*b).is_ok_and(|brick| brick.ice));
+        if !ice || (speed(start.body1) - speed(start.body2)).length() <= config.cells(config.ice_hit_speed) {
+            continue;
+        }
+        *roll = (*roll * 7 + 3) % 4;
+        if let Some(sound) = art.sounds.get(&format!("sfx_ice_brick_hit_0{}", *roll + 1)) {
+            commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+        }
     }
 }
 

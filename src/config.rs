@@ -18,6 +18,9 @@ pub const DEFAULT_CONFIG_PATH: &str = "assets/config/game.ron";
 pub struct GameConfig {
     /// World units per brick cell. All other lengths are given in cells.
     pub cell_size: f32,
+    /// The slowest contact (cells a second) that makes an ice brick knock
+    /// (CollisionSoundBehaviour.velocityTresshold).
+    pub ice_hit_speed: f32,
     /// Downward gravity in cells per second squared.
     pub gravity: f32,
     /// Drop speed added per cell of the tallest tower in the match.
@@ -3090,6 +3093,7 @@ impl Default for GameConfig {
     fn default() -> Self {
         Self {
             cell_size: 32.0,
+            ice_hit_speed: 0.5,
             gravity: 18.0,
             fall_speed_per_height: 0.1,
             fall_speed_per_out: 2.0,
