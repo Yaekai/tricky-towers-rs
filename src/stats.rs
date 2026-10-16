@@ -48,10 +48,25 @@ pub struct Stats {
     pub records: Vec<Record>,
     pub cups_won: u32,
     pub seconds_played: f32,
+    /// StatsPopup's other stats, player 1's in every mode: bricks placed, bubbled bricks
+    /// that came down and settled ("Bubbles stomped"), the spells cast (by name), the
+    /// highest curse wave reached and the fastest won Race on Normal (seconds).
+    pub bricks_placed: u32,
+    pub bubbles_stomped: u32,
+    pub spells_used: Vec<crate::config::SpellKind>,
+    pub highest_wave: u32,
+    pub fastest_normal_race: Option<f32>,
     #[serde(skip)]
     pub file: Option<PathBuf>,
     #[serde(skip)]
     counted: u64,
+    /// Bricks player 1 had placed when last counted, the casts seen, this match's waves.
+    #[serde(skip)]
+    seen_placed: (u64, u32),
+    #[serde(skip)]
+    seen_casts: u64,
+    #[serde(skip)]
+    waves: (u64, u32, bool),
     #[serde(skip)]
     cup_counted: bool,
 }
@@ -112,23 +127,68 @@ impl Stats {
 }
 
 /// Counts time played and each finished local battle, and cups player 1 wins.
+#[allow(clippy::too_many_arguments)]
 fn count_stats(
     time: Res<Time>,
     game: Res<Match>,
     config: Res<GameConfig>,
     cup: Option<Res<crate::cups::Cup>>,
     towers: Query<(&Tower, &TowerState)>,
+    log: Option<Res<crate::spells::SpellLog>>,
+    mut unbubbled: RemovedComponents<crate::spells::Bubbled>,
+    bricks: Query<&crate::gameplay::Brick>,
     mut stats: ResMut<Stats>,
 ) {
     if game.phase == Phase::Playing {
         stats.seconds_played += time.delta_secs();
     }
+    let first = towers.iter().find(|(t, _)| t.is_first_player());
+    // Bricks placed, spells cast, bubbles that came down and curse waves reached.
+    if let Some((tower, state)) = first {
+        let (round, placed) = stats.seen_placed;
+        if round != game.round {
+            stats.seen_placed = (game.round, state.bricks_placed);
+        } else if state.bricks_placed > placed {
+            stats.bricks_placed += state.bricks_placed - placed;
+            stats.seen_placed.1 = state.bricks_placed;
+        }
+        if let Some(log) = log.as_deref() {
+            let new = log.1.saturating_sub(stats.seen_casts) as usize;
+            stats.seen_casts = log.1;
+            for cast in log.0.iter().rev().take(new) {
+                if cast.caster == tower.index && !stats.spells_used.contains(&cast.spell) {
+                    stats.spells_used.push(cast.spell);
+                }
+            }
+        }
+        for entity in unbubbled.read() {
+            if bricks.get(entity).is_ok_and(|b| towers.get(b.tower).is_ok_and(|(t, _)| t.index == tower.index)) {
+                stats.bubbles_stomped += 1;
+            }
+        }
+        let (round, count, on) = stats.waves;
+        let (count, mut on) = if round == game.round { (count, on) } else { (0, false) };
+        let mut count = count;
+        let waving = state.wave_left > 0.0 || state.wave_bricks > 0;
+        if waving && !on {
+            count += 1;
+            stats.highest_wave = stats.highest_wave.max(count);
+        }
+        on = waving;
+        stats.waves = (game.round, count, on);
+    }
     let battle = config.trial.is_none() && MODES.contains(&game.mode);
     if game.phase == Phase::Over && stats.counted != game.round && battle {
         stats.counted = game.round;
-        if let Some((_, you)) = towers.iter().find(|(t, _)| t.is_first_player()) {
+        if let Some((_, you)) = first {
             let won = you.status == TowerStatus::Won;
-            stats.add(game.mode, config.difficulty.unwrap_or_default(), won);
+            let difficulty = config.difficulty.unwrap_or_default();
+            stats.add(game.mode, difficulty, won);
+            // The fastest Race won on Normal (GoToRoof with levelId RACE_NORMAL).
+            if won && game.mode == ModeKind::Race && difficulty == Difficulty::Normal {
+                let time = game.elapsed;
+                stats.fastest_normal_race = Some(stats.fastest_normal_race.map_or(time, |t| t.min(time)));
+            }
             stats.save();
         }
     }
@@ -182,9 +242,15 @@ struct StatsRoot;
 #[derive(Component, Clone, Copy)]
 enum StatText {
     Cell(usize, usize, bool),
-    CupsWon,
+    BricksPlaced,
     TimePlayed,
+    Medals,
+    LocalMatches,
     Best(usize),
+    Bubbles,
+    SpellsUsed,
+    HighestWave,
+    FastestRace,
 }
 
 fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
@@ -286,31 +352,57 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
         }
         // Other stats: cups won, time played, the Endless bests.
         let ox = panel_x(false);
-        let otop = SCREEN.1 / 2.0 - TOP + 300.0 - OTHER_PANEL.1 / 2.0 + OTHER_PANEL.1 / 2.0 - 150.0;
-        let mut rows: Vec<(String, StatText)> = vec![
-            ("Cups won".into(), StatText::CupsWon),
+        // StatsPopup's rows, in its order (the English of each STATS_ key).
+        let rows: Vec<(String, StatText)> = vec![
+            ("Bricks placed".into(), StatText::BricksPlaced),
             ("Time played".into(), StatText::TimePlayed),
+            ("Medals".into(), StatText::Medals),
+            ("Local matches started".into(), StatText::LocalMatches),
+            ("Endless survival score".into(), StatText::Best(1)),
+            ("Endless puzzle score".into(), StatText::Best(2)),
+            ("Bubbles stomped".into(), StatText::Bubbles),
+            ("Spells used".into(), StatText::SpellsUsed),
+            ("Highest wave".into(), StatText::HighestWave),
+            ("Fastest normal race".into(), StatText::FastestRace),
         ];
-        for (i, name) in ["Endless Race", "Endless Survival", "Endless Puzzle"]
-            .iter()
-            .enumerate()
-        {
-            rows.push((format!("{name} best"), StatText::Best(i)));
-        }
+        // Each row is OtherStatsItem: a 45 px strip (gph_popupTextBackground02) across the
+        // container (the panel less 40 px a side, its top 75 px down), 55 px apart; the name
+        // 20 px in at 19 px in grey-blue and the value from 535 px at 26 px in dark navy
+        // (EnzoBlackBasicWhite tinted by each text's colour).
+        let width = OTHER_PANEL.0 - 80.0;
+        let panel_top = SCREEN.1 / 2.0 - TOP + 300.0;
+        let left = ox - width / 2.0;
         for (i, (name, part)) in rows.into_iter().enumerate() {
-            let y = otop - ROW_STEP * i as f32;
-            let left = ox - OTHER_PANEL.0 / 2.0 + 40.0;
+            let y = panel_top - 75.0 - 22.5 - 55.0 * i as f32;
+            let mut strip = root.spawn(place((width, 45.0), (ox, y)));
+            if let Some(back) = image("popup_text_background") {
+                strip.insert(ImageNode::new(back));
+            }
             root.spawn(Node {
                 justify_content: JustifyContent::FlexStart,
-                ..place((400.0, 40.0), (left + 200.0, y))
+                align_items: AlignItems::Center,
+                ..place((370.0, 45.0), (left + 20.0 + 185.0, y))
             })
             .with_children(|t| {
-                t.spawn(label(vh(TEXT), &name));
+                t.spawn(crate::select::label_with(vh(19.0), &name, crate::letters::TextLook {
+                    face: Some(Color::srgb(0.435, 0.474, 0.627)),
+                    ..default()
+                }));
             });
-            root.spawn(place((200.0, 40.0), (ox + OTHER_PANEL.0 / 2.0 - 140.0, y)))
-                .with_children(|t| {
-                    t.spawn((label(vh(TEXT), ""), part));
-                });
+            root.spawn(Node {
+                justify_content: JustifyContent::FlexEnd,
+                align_items: AlignItems::Center,
+                ..place((width - 555.0, 45.0), (left + 535.0 + (width - 555.0) / 2.0, y))
+            })
+            .with_children(|t| {
+                t.spawn((
+                    crate::select::label_with(vh(26.0), "", crate::letters::TextLook {
+                        face: Some(Color::srgb(0.094, 0.122, 0.239)),
+                        ..default()
+                    }),
+                    part,
+                ));
+            });
         }
     });
 }
@@ -327,6 +419,8 @@ fn show_stats_popup(
     screen: Res<crate::menu::MenuScreen>,
     game: Res<Match>,
     stats: Res<Stats>,
+    config: Res<GameConfig>,
+    progress: Option<Res<crate::trials::TrialProgress>>,
     board: Option<Res<crate::single::Leaderboard>>,
     mut root: Query<&mut Visibility, With<StatsRoot>>,
     mut texts: Query<(&StatText, &mut Text)>,
@@ -344,12 +438,28 @@ fn show_stats_popup(
                 let (games, won) = stats.get(MODES[m], DIFFICULTIES.get(c).copied());
                 if wins { won } else { games }.to_string()
             }
-            StatText::CupsWon => stats.cups_won.to_string(),
+            StatText::BricksPlaced => stats.bricks_placed.to_string(),
             StatText::TimePlayed => hours_minutes(stats.seconds_played),
+            StatText::Medals => format!(
+                "{}/{}",
+                progress.as_ref().map_or(0, |p| p.medals(&config.trial_tiers)),
+                config.trials.len() as u32 * config.trial_tiers.medals_per_trial
+            ),
+            StatText::LocalMatches => stats.records.iter().map(|r| r.games).sum::<u32>().to_string(),
             StatText::Best(i) => board
                 .as_ref()
                 .and_then(|b| b.scores[i].first().copied())
-                .map_or("-".to_string(), |s| s.to_string()),
+                .unwrap_or(0)
+                .to_string(),
+            StatText::Bubbles => stats.bubbles_stomped.to_string(),
+            // 17 regular spells, plus one for any super and one for any super duper curse
+            // (SpellName); our curses don't combine yet, so those two stay unearned.
+            StatText::SpellsUsed => format!("{}/19", stats.spells_used.len().min(17)),
+            StatText::HighestWave => stats.highest_wave.to_string(),
+            StatText::FastestRace => stats.fastest_normal_race.map_or("--:--:--".to_string(), |t| {
+                let cs = (t * 100.0).round() as u32;
+                format!("{:02}:{:02}:{:02}", cs / 6000, cs / 100 % 60, cs % 100)
+            }),
         };
         if text.0 != words {
             text.0 = words;
