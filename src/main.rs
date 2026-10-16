@@ -111,7 +111,9 @@ fn main() {
                         ..default()
                     })
                     .disable::<bevy::winit::WinitPlugin>()
-                    .disable::<bevy::audio::AudioPlugin>(),
+                    .disable::<bevy::audio::AudioPlugin>()
+                    // Pictures take no pad input: a controller in use on the PC would play them.
+                    .disable::<bevy::gilrs::GilrsPlugin>(),
             )
             .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
                 std::time::Duration::from_secs_f64(1.0 / 60.0),

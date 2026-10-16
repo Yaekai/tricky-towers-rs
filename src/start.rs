@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::config::{GameConfig, StartLook};
+use crate::config::{curve, GameConfig, StartLook};
 use crate::gameplay::{Match, Phase};
 use crate::menu::MenuScreen;
 use crate::select::{place, shown};
@@ -41,7 +41,7 @@ enum PieceKind {
     Logo,
     Brick,
     Debris,
-    Plant,
+    Plant(usize),
 }
 
 /// One picture of the logo, placed in units from the logo's centre.
@@ -79,9 +79,9 @@ pub(crate) fn spawn_start_screen(
     let plain = image("logo_plain").is_some();
     if plain {
         for (i, at) in PLANTS.iter().enumerate() {
-            pieces.push((format!("logo_plants_{}", i + 1), *at, 1.0, PieceKind::Plant));
+            pieces.push((format!("logo_plants_{}", i + 1), *at, 1.0, PieceKind::Plant(i)));
         }
-        pieces.push(("logo_plain".into(), Vec2::ZERO, 1.0, PieceKind::Logo));
+        pieces.push(("logo_plain".into(), LOGO, 1.0, PieceKind::Logo));
         for (i, at) in DEBRIS.iter().enumerate() {
             pieces.push((
                 format!("logo_debris_{}", i + 1),
@@ -95,7 +95,7 @@ pub(crate) fn spawn_start_screen(
         }
         pieces.push(("logo_brick".into(), BRICK, 1.0, PieceKind::Brick));
     } else {
-        pieces.push(("logo".into(), Vec2::ZERO, 1.0, PieceKind::Logo));
+        pieces.push(("logo".into(), LOGO, 1.0, PieceKind::Logo));
     }
     let any = pieces.iter().any(|(name, ..)| image(name).is_some());
     root.with_children(|root| {
@@ -179,6 +179,8 @@ pub(crate) fn spawn_start_screen(
 /// Brick, plants, rubble and the small rubble copies (with their sizes), in
 /// units from the logo's centre, y up.
 const BRICK: Vec2 = Vec2::new(-1.78, 10.11);
+/// The logo picture sits 7 units over LogoContainer's origin (the Start scene's Logo).
+const LOGO: Vec2 = Vec2::new(0.0, 7.0);
 const PLANTS: [Vec2; 4] = [
     Vec2::new(-9.67, 11.71),
     Vec2::new(-5.38, 11.79),
@@ -205,24 +207,6 @@ const SMALL_DEBRIS: &[(Vec2, f32)] = &[
     (Vec2::new(-9.03, 0.59), 0.587),
     (Vec2::new(-9.77, 0.94), 0.736),
 ];
-
-/// A value from (time, value) keys, straight between them and held past the ends.
-pub fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
-    let Some(&(first_t, first_v)) = keys.first() else {
-        return 0.0;
-    };
-    if t <= first_t {
-        return first_v;
-    }
-    for pair in keys.windows(2) {
-        let ((t0, v0), (t1, v1)) = (pair[0], pair[1]);
-        if t <= t1 {
-            let s = if t1 > t0 { (t - t0) / (t1 - t0) } else { 1.0 };
-            return v0 + (v1 - v0) * s;
-        }
-    }
-    keys.last().map_or(0.0, |k| k.1)
-}
 
 /// Enter, Space, A or Start goes on to the title tiles.
 pub(crate) fn start_input(
@@ -331,7 +315,8 @@ pub(crate) fn show_start_screen(
     let t = clock.0;
     let look: &StartLook = &config.start;
     // The original's sounds: the brick starts to fall, then lands with a nudge and a crumble.
-    let (_, fall, land) = look.brick_fall;
+    let fall = look.brick_y.first().map_or(0.0, |k| k.0);
+    let land = look.brick_y.get(1).map_or(fall, |k| k.0);
     let cues = [
         (fall, "sfx_brick_fall_1", 0),
         (land, "sfx_brick_nudge", 1),
@@ -350,10 +335,13 @@ pub(crate) fn show_start_screen(
             }
         }
     }
-    let drop = keyed(&look.drop, t) + keyed(&look.dip, t);
+    let drop = curve(&look.drop, t);
+    // MoveIn tilts the whole LogoContainer about its origin.
+    let tilt = curve(&look.tilt, t);
+    let turn = Rot2::degrees(tilt);
     let centre = Vec2::new(0.0, look.logo_y + drop * UNIT);
     for (piece, mut node, mut transform, mut visibility) in &mut pieces {
-        let Some(size) = images
+        let Some(mut size) = images
             .as_ref()
             .and_then(|all| all.get(&piece.image))
             .map(|i| i.size_f32() * piece.scale)
@@ -363,20 +351,29 @@ pub(crate) fn show_start_screen(
         };
         let mut at = piece.at;
         match piece.kind {
-            PieceKind::Debris => at.y += keyed(&look.debris_hop, t),
+            PieceKind::Debris => {
+                at.y += curve(&look.debris_hop, t);
+                size *= curve(&look.debris_pop, t);
+            }
             PieceKind::Brick => {
-                // Falls in from above, speeding up, and lands at its spot.
-                let (height, from, land) = look.brick_fall;
-                let s = ((t - from) / (land - from).max(0.01)).clamp(0.0, 1.0);
-                at.y += height * (1.0 - s * s);
+                // Hidden until it starts to fall, then squashes and stretches as it lands.
+                if t < fall {
+                    visibility.set_if_neq(Visibility::Hidden);
+                    continue;
+                }
+                at.y += curve(&look.brick_y, t);
+                size *= Vec2::new(curve(&look.brick_scale_x, t), curve(&look.brick_scale_y, t));
             }
-            PieceKind::Logo => {
-                let tilt = keyed(&look.tilt, t);
-                transform.rotation = Rot2::degrees(-tilt);
+            PieceKind::Logo => {}
+            PieceKind::Plant(i) => {
+                // Grows up from its foot.
+                let grow = look.plant_grow.get(i).map_or(1.0, |keys| curve(keys, t));
+                at.y -= size.y * (1.0 - grow) / 2.0 / UNIT;
+                size.y *= grow;
             }
-            PieceKind::Plant => {}
         }
-        let spot = centre + at * UNIT;
+        transform.rotation = Rot2::degrees(-tilt);
+        let spot = centre + turn * at * UNIT;
         let placed = place((size.x, size.y), (spot.x, spot.y));
         node.left = placed.left;
         node.top = placed.top;
@@ -393,16 +390,3 @@ pub(crate) fn show_start_screen(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::keyed;
-
-    #[test]
-    fn keys_blend_straight_and_hold_at_the_ends() {
-        let keys = [(0.0, 10.0), (1.0, 0.0), (2.0, 4.0)];
-        assert_eq!(keyed(&keys, -1.0), 10.0);
-        assert_eq!(keyed(&keys, 0.5), 5.0);
-        assert_eq!(keyed(&keys, 1.5), 2.0);
-        assert_eq!(keyed(&keys, 9.0), 4.0);
-    }
-}

@@ -23,8 +23,10 @@ original and fix what differs:
   (intro timings, cup panel timings, `moments` and `casts` values).
 
 ## 3. Look and effects
-- The WAVE N message's height on screen: the original places it in the background layer
-  at world height 0; ours sits around the screen's middle.
+- Animation curves: `config::curve` joins clip keys with their slopes as Unity does. The WAVE N
+  message and the start screen use it; other clip tables (WINNER!, WIZARD OUT!, the intro ribbon
+  and count, cup popups) are still straight lines between keys (`config::keyed`) and need their
+  clips' slopes read.
 
 ## 4. Menus
 - Text weights left from the screenshot comparison. Single Player and the title match Max's
@@ -32,7 +34,8 @@ original and fix what differs:
 - Languages: menu and match text follows the Language setting from the original's language
   files (`letters::Translations`), in the original's font per language (Meiryo for Russian and
   Japanese, Hans Sans for Chinese and Korean, Myriad for Arabic). Open: long Russian words run
-  past the seat panels (the original's text likely shrinks to fit); Arabic isn't drawn right to left.
+  past fixed boxes unless they carry `letters::AutoSize` (only the seat join label does so far);
+  Arabic isn't drawn right to left.
 
 ## 5. Before a release build
 - Remove or switch off everything in [`release-checklist.md`](release-checklist.md)

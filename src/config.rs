@@ -3145,19 +3145,25 @@ impl Default for SplashLook {
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct StartLook {
-    /// The logo's resting centre above the screen centre, in pixels.
+    /// LogoContainer's origin above the screen centre, in pixels (the logo picture is 7 units
+    /// over it, 182 px).
     pub logo_y: f32,
-    /// The logo dropping in and bouncing.
-    pub drop: Vec<(f32, f32)>,
-    /// The dip when the brick lands on it.
-    pub dip: Vec<(f32, f32)>,
-    /// The logo's tilt in degrees, clockwise positive, as the brick lands.
-    pub tilt: Vec<(f32, f32)>,
-    /// The rubble hopping up as the brick lands.
-    pub debris_hop: Vec<(f32, f32)>,
-    /// The brick falls from this many units above its spot, from this second,
-    /// and lands at this second (the fall's start and height are guesses).
-    pub brick_fall: (f32, f32, f32),
+    /// MoveIn's curves (seconds, value, in slope, out slope; `curve`).
+    /// The logo dropping in, bouncing, and dipping when the brick lands (the clip's root y, units).
+    pub drop: Vec<(f32, f32, f32, f32)>,
+    /// The logo's tilt in degrees as the brick lands (the clip's root z).
+    pub tilt: Vec<(f32, f32, f32, f32)>,
+    /// The rubble hopping up as the brick lands, from its place (units).
+    pub debris_hop: Vec<(f32, f32, f32, f32)>,
+    /// The rubble's scale: it pops in as the brick lands.
+    pub debris_pop: Vec<(f32, f32, f32, f32)>,
+    /// The brick, shown from the first key: its height over its place, falling and landing (units).
+    pub brick_y: Vec<(f32, f32, f32, f32)>,
+    /// The brick's squash and stretch as it falls and lands.
+    pub brick_scale_x: Vec<(f32, f32, f32, f32)>,
+    pub brick_scale_y: Vec<(f32, f32, f32, f32)>,
+    /// Each plant grows up from its foot (its y scale).
+    pub plant_grow: [Vec<(f32, f32, f32, f32)>; 4],
     /// Seconds before the prompt shows, and its blink: seconds on, seconds off.
     pub prompt_after: f32,
     pub blink: (f32, f32),
@@ -3166,34 +3172,15 @@ pub struct StartLook {
 impl Default for StartLook {
     fn default() -> Self {
         Self {
-            logo_y: 182.0,
-            drop: vec![
-                (0.0, 22.39),
-                (0.38, -2.41),
-                (0.466, -1.26),
-                (0.552, 0.64),
-                (0.638, 1.47),
-                (0.724, 0.15),
-                (0.81, 0.0),
-            ],
-            dip: vec![
-                (1.63, 0.0),
-                (1.92, -2.24),
-                (2.1, 0.33),
-                (2.3, -0.21),
-                (2.48, 0.0),
-            ],
-            tilt: vec![
-                (1.63, 0.0),
-                (1.69, 3.05),
-                (1.87, -1.87),
-                (1.97, 0.82),
-                (2.05, 0.32),
-                (2.11, -0.18),
-                (2.17, 0.0),
-            ],
-            debris_hop: vec![(1.63, 0.0), (1.8, 2.3), (2.04, 0.0)],
-            brick_fall: (20.0, 1.2, 1.63),
+            logo_y: 0.0,
+            drop: vec![(0.0, 22.39, 0.0, -64.48), (0.3846, -2.413, -6.002, -6.002), (0.4808, -1.263, 23.87, 23.87), (0.5577, 0.6369, 21.64, 21.64), (0.6346, 1.471, -3.827, -3.827), (0.7885, 0.1465, -8.356, -8.356), (0.8077, 0.0, -6.799, -6.799), (1.058, 0.02614, 0.2109, 0.2109), (1.635, 0.1194, -0.4698, -20.38), (1.923, -2.238, 10.02, 10.02), (2.077, 0.331, 7.063, 7.063), (2.288, -0.2134, -2.372, -2.372), (2.481, 0.0, 1.174, 0.0), (2.615, 0.0, 0.0, 0.0)],
+            tilt: vec![(0.0, 0.0, 0.0, 0.0), (1.635, 0.0, 0.0, 23.25), (1.692, 3.05, 12.21, 12.21), (1.865, -1.875, -9.583, -9.583), (1.923, 0.8214, 3.538, 0.0), (1.962, 0.3228, -19.44, -19.44), (2.0, -0.1758, 2.332, 0.0), (2.173, 0.0, -1.453, 0.0), (2.615, 0.0, 0.0, 0.0)],
+            debris_hop: vec![(0.0, 0.0, 0.0, 1.401), (1.635, 2.29, -2.296, -2.296), (2.038, -0.13, -5.992, 0.0)],
+            debris_pop: vec![(0.0, 0.0, 0.0, 0.0), (1.635, 0.0, 0.0, 5.2), (1.731, 1.0, 10.4, 0.0)],
+            brick_y: vec![(1.288, 17.87, 0.0, 19.77), (1.635, -0.823, -211.8, 1.34), (1.673, -0.728, 3.455, 3.455), (1.827, 0.0, 3.864, 0.0)],
+            brick_scale_x: vec![(1.288, 0.5989, 0.0, f32::INFINITY), (1.577, 0.6, 0.0, -0.007493), (1.635, 0.8887, 7.917, 7.917), (1.654, 1.042, 7.76, 7.76), (1.692, 1.271, 3.248, 3.248), (1.712, 1.317, 1.512, 1.512), (1.788, 1.247, -2.552, -2.552), (1.904, 1.0, -2.348, 0.0)],
+            brick_scale_y: vec![(1.288, 1.0, 0.5474, 0.5474), (1.577, 1.323, 1.167, 1.167), (1.635, 1.384, 0.9127, 0.9127), (1.654, 1.4, 0.8, -1.749), (1.692, 0.9532, -13.94, -13.94), (1.712, 0.7969, 3.113, 0.0), (1.788, 1.0, 2.641, 2.641), (1.904, 1.0, 1.001, 0.0)],
+            plant_grow: [vec![(0.0, 0.0, 0.0, 0.0), (0.8654, 0.0, 0.0, 0.0), (1.038, 1.0, -25.26, 0.0)], vec![(0.0, 0.0, 0.0, 0.0), (1.058, 0.0, 0.0, 0.0), (1.135, 0.8267, 14.95, 14.95), (1.231, 1.0, -21.57, 0.0)], vec![(0.0, 0.0, 0.0, 0.0), (1.154, 0.0, 0.0, 0.0), (1.231, 0.7331, 3.161, 0.0), (1.346, 1.0, -20.64, 0.0)], vec![(0.0, 0.0, 0.0, 0.0), (1.058, 0.0, 0.0, 0.0), (1.135, 0.9824, 17.38, 17.38), (1.231, 1.0, -29.77, 0.0)]],
             prompt_after: 2.62,
             blink: (0.5, 0.5),
         }
