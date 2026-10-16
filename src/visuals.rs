@@ -334,17 +334,23 @@ impl Default for ViewSize {
     }
 }
 
-/// The view's size as the camera draws it (its logical viewport, what its projection is
-/// sized by); a window's own width can differ from it (display scaling, a resolution set
-/// while full screen), which left the background short of the screen's edges.
+/// The view's size as the camera's projection sees it (its visible area over its zoom), so
+/// everything sized from it covers the screen exactly. With display scaling (125% on Max's
+/// screen) the window's own size didn't match it, and the background stopped short of the
+/// screen's sides and top.
 fn track_view_size(
-    cameras: Query<&Camera, With<MainCamera>>,
+    cameras: Query<(&Camera, &Projection), With<MainCamera>>,
     windows: Query<&Window>,
     mut view: ResMut<ViewSize>,
 ) {
     let size = cameras
         .iter()
-        .find_map(|c| c.logical_viewport_size())
+        .find_map(|(camera, projection)| match projection {
+            Projection::Orthographic(o) if o.area.width() > 0.0 && o.scale > 0.0 => {
+                Some(o.area.size() / o.scale)
+            }
+            _ => camera.logical_viewport_size(),
+        })
         .or_else(|| windows.single().ok().map(|w| Vec2::new(w.width(), w.height())));
     if let Some(size) = size
         && view.0 != size

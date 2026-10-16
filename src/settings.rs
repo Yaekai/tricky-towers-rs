@@ -966,10 +966,12 @@ fn apply_settings(
             window.present_mode = present;
         }
         let (w, h) = settings.resolution;
+        // The resolution is in screen pixels (as Unity's Screen.SetResolution), whatever the
+        // display's scaling.
         if !settings.fullscreen
-            && (window.resolution.width(), window.resolution.height()) != (w as f32, h as f32)
+            && (window.resolution.physical_width(), window.resolution.physical_height()) != (w, h)
         {
-            window.resolution.set(w as f32, h as f32);
+            window.resolution.set_physical_resolution(w, h);
         }
     }
 }
