@@ -1833,6 +1833,10 @@ pub struct MatchMoments {
     pub out_leave: Vec<(f32, f32)>,
     pub out_fade_in: (f32, f32),
     pub out_fade_out: (f32, f32),
+    /// The curse wave's WAVE N message (WaveMessage's MoveIn_2, 2.5 s, then gone): seconds,
+    /// its sideways place in cells from the middle (in from the left, out to the right) and
+    /// its width scale.
+    pub wave_message: Vec<(f32, f32, f32)>,
     /// The winner's beam: seconds before it fades in, the fade, its width in cells, and
     /// its opacity in Race, Survival and Puzzle.
     pub spotlight_delay: f32,
@@ -1901,6 +1905,7 @@ impl Default for MatchMoments {
             out_leave: vec![(0.0, -1.39), (0.1167, -1.1898), (0.25, -1.3158), (0.6667, -1.9652), (1.0, -4.4696)],
             out_fade_in: (1.0, 1.317),
             out_fade_out: (0.667, 0.833),
+            wave_message: vec![(0.0, -46.12, 0.9), (0.0833, -57.0, 0.9), (0.25, -30.0, 0.868), (0.4167, -3.0, 0.957), (0.5, -2.7, 1.0), (2.0833, 3.0, 1.05), (2.1833, -4.64, 0.9), (2.5, 56.26, 1.3)],
             spotlight_delay: 0.5,
             spotlight_fade: 1.0,
             spotlight_width: 1.5,

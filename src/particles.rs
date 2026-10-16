@@ -58,7 +58,7 @@ struct LostCross {
     size: f32,
 }
 
-/// The WAVE N message, shown for a moment (?).
+/// The WAVE N message, sliding through (`moments.wave_message`).
 #[derive(Component)]
 struct WaveMessage {
     time: f32,
@@ -508,8 +508,14 @@ fn wave_messages(
     if wave && !seen.1 {
         seen.2 += 1;
         let number = seen.2;
+        // SharedAgonyLayer.WaveActivated: the gong, then the message.
+        if let Some(gong) = art.sounds.get("sfx_gong_v2") {
+            commands.spawn((AudioPlayer(gong.clone()), PlaybackSettings::DESPAWN));
+        }
         let mut root = commands.spawn((
             WaveMessage { time: 0.0 },
+            UiTransform::default(),
+            Visibility::Hidden,
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(30.0),
@@ -556,13 +562,25 @@ fn wave_messages(
 fn fade_wave_messages(
     mut commands: Commands,
     time: Res<Time>,
-    mut messages: Query<(Entity, &mut WaveMessage)>,
+    config: Res<GameConfig>,
+    mut messages: Query<(Entity, &mut WaveMessage, &mut UiTransform, &mut Visibility)>,
 ) {
-    for (entity, mut message) in &mut messages {
+    let keys = &config.moments.wave_message;
+    let length = keys.last().map_or(0.0, |k| k.0);
+    // A cell is a 41.54th of the view's height.
+    let vh_per_cell = 100.0 / config.hud.camera_height.max(0.01);
+    for (entity, mut message, mut transform, mut visibility) in &mut messages {
         message.time += time.delta_secs();
-        // Shown for 2 s (?).
-        if message.time >= 2.0 {
+        if message.time >= length {
             commands.entity(entity).despawn();
+            continue;
         }
+        let at = |pick: fn(&(f32, f32, f32)) -> f32| {
+            let pairs: Vec<(f32, f32)> = keys.iter().map(|k| (k.0, pick(k))).collect();
+            crate::config::keyed(&pairs, message.time)
+        };
+        transform.translation = Val2::new(Val::Vh(at(|k| k.1) * vh_per_cell), Val::Px(0.0));
+        transform.scale = Vec2::new(at(|k| k.2), 1.0);
+        visibility.set_if_neq(Visibility::Inherited);
     }
 }
