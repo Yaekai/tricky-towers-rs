@@ -212,6 +212,9 @@ const LANGUAGE_FILES: [&str; 19] = [
 pub struct Translations {
     code: String,
     words: std::collections::HashMap<String, String>,
+    /// Lines with one placeholder (`First to {targetScore} points`): the English line's
+    /// capitals before and after it, and the picked language's line with its placeholder.
+    patterns: Vec<(String, String, String)>,
 }
 
 impl Translations {
@@ -219,16 +222,46 @@ impl Translations {
     /// is no translation or the letters can't draw it (the original switches to other fonts
     /// for Chinese, Japanese, Korean, Russian and Arabic; those aren't staged).
     fn apply(&self, text: &str, sheet: Option<&Letters>) -> String {
-        let Some(found) = self.words.get(&plain(text)) else {
+        let key = plain(text);
+        // A line with a value in it: the value goes into the picked language's line.
+        let filled = || {
+            self.patterns.iter().find_map(|(before, after, picked)| {
+                let middle = key.strip_prefix(before.as_str())?.strip_suffix(after.as_str())?;
+                if middle.is_empty() {
+                    return None;
+                }
+                // A value that is itself a line ("{cupType} Winner!") is translated too.
+                let middle = self.words.get(middle).cloned().unwrap_or_else(|| middle.to_string());
+                let start = picked.find('{')?;
+                let end = picked[start..].find('}')? + start;
+                Some(format!("{}{}{}", &picked[..start], middle, &picked[end + 1..]))
+            })
+        };
+        let Some(found) = self.words.get(&key).cloned().or_else(filled) else {
             return text.to_string();
         };
-        let found = if text == text.to_uppercase() { found.to_uppercase() } else { found.clone() };
+        let found = if text == text.to_uppercase() { found.to_uppercase() } else { found };
         let drawable = sheet.is_none_or(|sheet| {
             found.chars().filter(|c| !c.is_whitespace()).all(|c| {
                 sheet.glyphs.contains_key(&c) || c.to_uppercase().any(|u| sheet.glyphs.contains_key(&u))
             })
         });
         if drawable { found } else { text.to_string() }
+    }
+}
+
+/// The word the original puts for `[controller]` in each language (LanguageUtil).
+fn controller_word(code: &str) -> &'static str {
+    match code {
+        "es" => "mando",
+        "fl" => "ohjain",
+        "fr" => "manette de jeu",
+        "no" => "kontroller",
+        "pl" => "kontroler",
+        "pt" => "comando",
+        "sv" => "handkontroll",
+        "tr" => "kontrol cihazı",
+        _ => "controller",
     }
 }
 
@@ -250,20 +283,21 @@ static CURRENT: std::sync::LazyLock<std::sync::RwLock<std::collections::HashMap<
 /// How wide `line` draws in the picked language (see `line_width`).
 pub fn translated_width(art: &Art, line: &str, size: f32) -> f32 {
     let words = CURRENT.read().map(|w| w.clone()).unwrap_or_default();
-    let translations = Translations { code: String::new(), words };
+    let translations = Translations { code: String::new(), words, patterns: Vec::new() };
     line_width(art, &translations.apply(line, art.letters.get(FONT)), size)
 }
 
 /// A line as the translations are keyed: capitals, no button glyphs, one line.
 fn plain(text: &str) -> String {
-    clean(text).to_uppercase()
+    clean(text).split_whitespace().collect::<Vec<_>>().join(" ").to_uppercase()
 }
 
-/// A line without its button glyphs, on one line.
+/// A line without its button glyphs, its written line breaks (`\n`) made real ones and the
+/// spaces around them tidied.
 fn clean(text: &str) -> String {
     let mut out = String::new();
     let mut skipping = false;
-    for c in text.replace("\\n", " ").chars() {
+    for c in text.replace("\\n", "\n").chars() {
         match c {
             '[' => skipping = true,
             ']' => skipping = false,
@@ -271,7 +305,11 @@ fn clean(text: &str) -> String {
             _ => {}
         }
     }
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
+    out.lines()
+        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Every lookup of one of the original's language files, by key.
@@ -313,12 +351,32 @@ fn load_translations(
     }
     translations.code = code.to_string();
     translations.words.clear();
+    translations.patterns.clear();
     if code != "en" {
         let english = read_language("en");
         let picked = read_language(code);
+        // [controller] is the local word for a controller (LanguageUtil), not a button.
+        let word = controller_word(code);
         for (key, english) in &english {
-            if let Some(picked) = picked.get(key).filter(|p| !p.trim().is_empty()) {
+            let english = &english.replace("[controller]", "controller");
+            if let Some(picked) = picked
+                .get(key)
+                .filter(|p| !p.trim().is_empty())
+                .map(|p| p.replace("[controller]", word))
+                .as_ref()
+            {
                 translations.words.insert(plain(english), clean(picked));
+                let english_line = plain(english);
+                if let (Some(start), 1) = (english_line.find('{'), english_line.matches('{').count())
+                    && let Some(end) = english_line[start..].find('}').map(|e| e + start)
+                    && picked.matches('{').count() == 1
+                {
+                    translations.patterns.push((
+                        english_line[..start].to_string(),
+                        english_line[end + 1..].to_string(),
+                        clean(picked),
+                    ));
+                }
                 // A line around one button glyph ("Press [continue] to start") also gives its
                 // two halves, for screens that draw the glyph between two texts.
                 if let (Some((eb, ea)), Some((pb, pa))) = (around_glyph(english), around_glyph(picked)) {
@@ -713,9 +771,16 @@ mod tests {
         let translations = super::Translations {
             code: "de".into(),
             words: [("SELECT MODE".to_string(), "Modus auswählen".to_string())].into(),
+            patterns: Vec::new(),
         };
         assert_eq!(translations.apply("SELECT MODE", None), "MODUS AUSWÄHLEN");
         assert_eq!(translations.apply("Select Mode", None), "Modus auswählen");
         assert_eq!(translations.apply("RACE", None), "RACE");
+        let translations = super::Translations {
+            code: "de".into(),
+            words: Default::default(),
+            patterns: vec![("FIRST TO ".into(), " POINTS".into(), "Wer zuerst {targetScore} Punkte hat".into())],
+        };
+        assert_eq!(translations.apply("First to 6 points", None), "Wer zuerst 6 Punkte hat");
     }
 }
