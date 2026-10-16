@@ -524,7 +524,8 @@ fn place_items(
     camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
     towers: Query<(&Tower, &TowerState)>,
     wizards: Query<(&Wizard, &GlobalTransform)>,
-    mut items: Query<(&HudItem, &mut Node, &ComputedNode)>,
+    mut items: Query<(&HudItem, &mut Node, &ComputedNode, Option<&crate::letters::MirroredBy>)>,
+    twins: Query<&ComputedNode, Without<HudItem>>,
     game: Res<Match>,
 ) {
     let Ok((camera, eye)) = camera.single() else {
@@ -533,10 +534,12 @@ fn place_items(
     let look = &config.hud;
     let solo = towers.iter().count() == 1;
     let screen = |p: Vec2| camera.world_to_viewport(eye, p.extend(0.0)).ok();
-    for (item, mut node, computed) in &mut items {
+    for (item, mut node, computed, mirrored) in &mut items {
         let Ok((tower, state)) = towers.get(item.tower) else {
             continue;
         };
+        // A letter-drawn label's own node is hidden (size 0): centre it by its twin's size.
+        let computed = mirrored.and_then(|m| twins.get(m.0).ok()).unwrap_or(computed);
         let size = computed.size() * computed.inverse_scale_factor();
         let wizard = wizards
             .iter()

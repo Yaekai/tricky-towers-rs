@@ -200,7 +200,7 @@ impl Plugin for LettersPlugin {
 
 /// On a hidden `Text`: the node that draws it with the original's letters.
 #[derive(Component)]
-struct MirroredBy(Entity);
+pub(crate) struct MirroredBy(pub(crate) Entity);
 
 /// On a twin: the text it draws.
 #[derive(Component)]
