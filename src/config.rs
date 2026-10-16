@@ -1833,12 +1833,13 @@ pub struct MatchMoments {
     pub out_leave: Vec<(f32, f32)>,
     pub out_fade_in: (f32, f32),
     pub out_fade_out: (f32, f32),
-    /// The curse wave's WAVE N message (WaveMessage's MoveIn_2, 2.5 s, then gone): seconds,
-    /// its sideways place in cells from the middle (in from the left, out to the right) and
-    /// its width scale.
-    pub wave_message: Vec<(f32, f32, f32)>,
-    /// Its three front clouds drift on their own (CloudFront01-03): seconds and x in cells.
-    pub wave_clouds: Vec<Vec<(f32, f32)>>,
+    /// The curse wave's WAVE N message (WaveMessage's MoveIn_2, 2.5 s, then gone): its
+    /// sideways place in cells from the middle (in from the left, out to the right) and its
+    /// width scale, as the clip's curves (seconds, value, in slope, out slope; `curve`).
+    pub wave_x: Vec<(f32, f32, f32, f32)>,
+    pub wave_scale: Vec<(f32, f32, f32, f32)>,
+    /// Its three front clouds drift on their own (CloudFront01-03): x in cells, as curves.
+    pub wave_clouds: Vec<Vec<(f32, f32, f32, f32)>>,
     /// The winner's beam: seconds before it fades in, the fade, its width in cells, and
     /// its opacity in Race, Survival and Puzzle.
     pub spotlight_delay: f32,
@@ -1899,16 +1900,80 @@ impl Default for MatchMoments {
             countdown_size: 72.0,
             shadow_drop: 0.06,
             shadow_color: [227, 33, 61],
-            winner_in: vec![(0.0, 0.2, 0.2), (0.25, 1.1366, 1.1), (0.3167, 1.1, 1.1366), (0.4833, 1.055, 0.94), (0.55, 0.94, 1.0377), (0.6, 1.0316, 1.01), (0.6667, 1.01, 0.9905), (0.7, 1.0, 1.0), (1.0, 1.0, 1.0)],
-            winner_idle: vec![(0.0, 1.0, 1.0), (1.0, 1.0, 1.0), (1.3833, 0.9642, 0.9594), (1.9333, 0.9057, 0.9), (2.0667, 0.9, 0.8978), (4.0, 1.0, 1.0)],
+            winner_in: vec![
+                (0.0, 0.2, 0.2),
+                (0.25, 1.1366, 1.1),
+                (0.3167, 1.1, 1.1366),
+                (0.4833, 1.055, 0.94),
+                (0.55, 0.94, 1.0377),
+                (0.6, 1.0316, 1.01),
+                (0.6667, 1.01, 0.9905),
+                (0.7, 1.0, 1.0),
+                (1.0, 1.0, 1.0),
+            ],
+            winner_idle: vec![
+                (0.0, 1.0, 1.0),
+                (1.0, 1.0, 1.0),
+                (1.3833, 0.9642, 0.9594),
+                (1.9333, 0.9057, 0.9),
+                (2.0667, 0.9, 0.8978),
+                (4.0, 1.0, 1.0),
+            ],
             out_cells: 1.88,
-            out_in: vec![(0.0, 0.0), (1.0, 0.0), (1.4, -1.2036), (1.4833, -1.4055), (2.0, -1.39)],
+            out_in: vec![
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (1.4, -1.2036),
+                (1.4833, -1.4055),
+                (2.0, -1.39),
+            ],
             out_idle: vec![(0.0, -1.39), (1.0, -1.566), (2.0, -1.39)],
-            out_leave: vec![(0.0, -1.39), (0.1167, -1.1898), (0.25, -1.3158), (0.6667, -1.9652), (1.0, -4.4696)],
+            out_leave: vec![
+                (0.0, -1.39),
+                (0.1167, -1.1898),
+                (0.25, -1.3158),
+                (0.6667, -1.9652),
+                (1.0, -4.4696),
+            ],
             out_fade_in: (1.0, 1.317),
             out_fade_out: (0.667, 0.833),
-            wave_clouds: vec![vec![(0.0, -10.94), (0.4167, -12.5), (2.0833, -14.0), (2.5, -15.0)], vec![(0.0, -10.94), (0.4167, -10.1), (2.0833, -8.86), (2.5, -8.5)], vec![(0.0, -1.35), (0.4167, -0.6), (2.0833, 0.2), (2.5, 1.2)]],
-            wave_message: vec![(0.0, -46.12, 0.9), (0.0833, -57.0, 0.9), (0.25, -30.0, 0.868), (0.4167, -3.0, 0.957), (0.5, -2.7, 1.0), (2.0833, 3.0, 1.05), (2.1833, -4.64, 0.9), (2.5, 56.26, 1.3)],
+            wave_clouds: vec![
+                vec![
+                    (0.0, -10.94, 0.0, -3.744),
+                    (0.4167, -12.5, -2.322, -2.322),
+                    (2.0833, -14.0, -1.65, -1.65),
+                    (2.5, -15.0, -2.4, 0.0),
+                ],
+                vec![
+                    (0.0, -10.94, 0.0, 2.016),
+                    (0.4167, -10.1, 1.38, 1.38),
+                    (2.0833, -8.86, 0.804, 0.804),
+                    (2.5, -8.5, 0.864, 0.0),
+                ],
+                vec![
+                    (0.0, -1.35, 0.0, 1.8),
+                    (0.4167, -0.6, 1.14, 1.14),
+                    (2.0833, 0.2, 1.44, 1.44),
+                    (2.5, 1.2, 2.4, 0.0),
+                ],
+            ],
+            wave_x: vec![
+                (0.0, -46.12, 0.0, 0.0),
+                (0.0833, -57.0, 68.77, 68.77),
+                (0.4167, -3.0, 4.579, 3.6),
+                (2.0833, 3.0, 3.6, -76.42),
+                (2.1833, -4.642, -29.75, -29.75),
+                (2.5, 56.26, 168.7, 0.0),
+            ],
+            wave_scale: vec![
+                (0.0, 0.9, 0.0, -0.1266),
+                (0.25, 0.8683, -0.337, -0.337),
+                (0.4167, 0.9566, 0.8145, 0.8145),
+                (0.5, 1.0, 0.08223, 0.08223),
+                (2.0833, 1.05, -6.088, 0.0),
+                (2.1833, 0.9, -0.1184, -0.1184),
+                (2.5, 1.3, 1.263, 0.0),
+            ],
             spotlight_delay: 0.5,
             spotlight_fade: 1.0,
             spotlight_width: 1.5,
@@ -2590,6 +2655,33 @@ impl Default for IntroRules {
 }
 
 /// Straight-line value of `keys` (time, value) at `t`, held past either end.
+/// An animation clip's curve at `t`: keys of (seconds, value, in slope, out slope), joined
+/// as Unity joins them (cubic Hermite); an infinite slope holds the value until the next key.
+pub fn curve(keys: &[(f32, f32, f32, f32)], t: f32) -> f32 {
+    let Some(&(first_t, first, ..)) = keys.first() else {
+        return 0.0;
+    };
+    if t <= first_t {
+        return first;
+    }
+    for pair in keys.windows(2) {
+        let ((a, va, _, out), (b, vb, slope_in, _)) = (pair[0], pair[1]);
+        if t <= b {
+            if !out.is_finite() || !slope_in.is_finite() {
+                return va;
+            }
+            let h = (b - a).max(1e-6);
+            let s = (t - a) / h;
+            let (s2, s3) = (s * s, s * s * s);
+            return (2.0 * s3 - 3.0 * s2 + 1.0) * va
+                + (s3 - 2.0 * s2 + s) * h * out
+                + (-2.0 * s3 + 3.0 * s2) * vb
+                + (s3 - s2) * h * slope_in;
+        }
+    }
+    keys.last().map_or(first, |k| k.1)
+}
+
 pub fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
     let Some(&(first_t, first)) = keys.first() else {
         return 0.0;
@@ -2873,16 +2965,104 @@ impl Default for CastLook {
             ],
             beam_blob_grow: 1.0 / 6.0,
             beam_streams_up: vec![
-                BeamStream { picture: "cast_streak".into(), at: (0.0, 5.14), down: true, rate: 5.0, life: 3.0, speed: (0.0, 15.0), size: (0.1, 10.0), spread: 1.6, ring: 0.0, tints: ((205, 241, 255), (141, 243, 255)) },
-                BeamStream { picture: "cast_sine".into(), at: (1.1, 0.69), down: true, rate: 9.0, life: 10.0, speed: (7.6, 7.6), size: (1.5, 1.5), spread: 0.0, ring: 0.0, tints: ((255, 255, 255), (255, 255, 255)) },
-                BeamStream { picture: "cast_sine".into(), at: (-1.1, -0.31), down: false, rate: 9.0, life: 10.0, speed: (7.6, 7.6), size: (1.5, 1.5), spread: 0.0, ring: 0.0, tints: ((255, 255, 255), (255, 255, 255)) },
-                BeamStream { picture: "cast_droplet".into(), at: (0.0, -0.14), down: false, rate: 10.0, life: 0.7, speed: (0.0, 0.0), size: (0.2, 0.2), spread: 0.0, ring: 2.5, tints: ((255, 255, 255), (255, 255, 255)) },
+                BeamStream {
+                    picture: "cast_streak".into(),
+                    at: (0.0, 5.14),
+                    down: true,
+                    rate: 5.0,
+                    life: 3.0,
+                    speed: (0.0, 15.0),
+                    size: (0.1, 10.0),
+                    spread: 1.6,
+                    ring: 0.0,
+                    tints: ((205, 241, 255), (141, 243, 255)),
+                },
+                BeamStream {
+                    picture: "cast_sine".into(),
+                    at: (1.1, 0.69),
+                    down: true,
+                    rate: 9.0,
+                    life: 10.0,
+                    speed: (7.6, 7.6),
+                    size: (1.5, 1.5),
+                    spread: 0.0,
+                    ring: 0.0,
+                    tints: ((255, 255, 255), (255, 255, 255)),
+                },
+                BeamStream {
+                    picture: "cast_sine".into(),
+                    at: (-1.1, -0.31),
+                    down: false,
+                    rate: 9.0,
+                    life: 10.0,
+                    speed: (7.6, 7.6),
+                    size: (1.5, 1.5),
+                    spread: 0.0,
+                    ring: 0.0,
+                    tints: ((255, 255, 255), (255, 255, 255)),
+                },
+                BeamStream {
+                    picture: "cast_droplet".into(),
+                    at: (0.0, -0.14),
+                    down: false,
+                    rate: 10.0,
+                    life: 0.7,
+                    speed: (0.0, 0.0),
+                    size: (0.2, 0.2),
+                    spread: 0.0,
+                    ring: 2.5,
+                    tints: ((255, 255, 255), (255, 255, 255)),
+                },
             ],
             beam_streams_down: vec![
-                BeamStream { picture: "cast_streak".into(), at: (0.0, 5.14), down: true, rate: 5.0, life: 3.0, speed: (0.0, 15.0), size: (0.1, 10.0), spread: 1.6, ring: 0.0, tints: ((205, 241, 255), (141, 243, 255)) },
-                BeamStream { picture: "cast_sine".into(), at: (1.1, 1.66), down: true, rate: 9.0, life: 10.0, speed: (7.6, 7.6), size: (1.5, 1.5), spread: 0.0, ring: 0.0, tints: ((255, 255, 255), (255, 255, 255)) },
-                BeamStream { picture: "cast_sine".into(), at: (-1.1, 0.0), down: true, rate: 9.0, life: 10.0, speed: (7.6, 7.6), size: (1.5, 1.5), spread: 0.0, ring: 0.0, tints: ((255, 255, 255), (255, 255, 255)) },
-                BeamStream { picture: "cast_droplet".into(), at: (0.0, -0.14), down: false, rate: 10.0, life: 0.7, speed: (0.0, 0.0), size: (0.2, 0.2), spread: 0.0, ring: 2.5, tints: ((255, 255, 255), (255, 255, 255)) },
+                BeamStream {
+                    picture: "cast_streak".into(),
+                    at: (0.0, 5.14),
+                    down: true,
+                    rate: 5.0,
+                    life: 3.0,
+                    speed: (0.0, 15.0),
+                    size: (0.1, 10.0),
+                    spread: 1.6,
+                    ring: 0.0,
+                    tints: ((205, 241, 255), (141, 243, 255)),
+                },
+                BeamStream {
+                    picture: "cast_sine".into(),
+                    at: (1.1, 1.66),
+                    down: true,
+                    rate: 9.0,
+                    life: 10.0,
+                    speed: (7.6, 7.6),
+                    size: (1.5, 1.5),
+                    spread: 0.0,
+                    ring: 0.0,
+                    tints: ((255, 255, 255), (255, 255, 255)),
+                },
+                BeamStream {
+                    picture: "cast_sine".into(),
+                    at: (-1.1, 0.0),
+                    down: true,
+                    rate: 9.0,
+                    life: 10.0,
+                    speed: (7.6, 7.6),
+                    size: (1.5, 1.5),
+                    spread: 0.0,
+                    ring: 0.0,
+                    tints: ((255, 255, 255), (255, 255, 255)),
+                },
+                BeamStream {
+                    picture: "cast_droplet".into(),
+                    at: (0.0, -0.14),
+                    down: false,
+                    rate: 10.0,
+                    life: 0.7,
+                    speed: (0.0, 0.0),
+                    size: (0.2, 0.2),
+                    spread: 0.0,
+                    ring: 2.5,
+                    tints: ((255, 255, 255), (255, 255, 255)),
+                },
             ],
             lightning: 0.4,
             lightning_wobble: 2.0,
@@ -2900,7 +3080,12 @@ impl Default for CastLook {
                 (3.0, 0.0, 0.0, 1.0),
             ],
             cloud_used_swell: (0.0667, 1.3),
-            cloud_used_blinks: vec![(0.2, 0.2667), (0.4, 0.4833), (0.6167, 0.6833), (0.8167, 0.8833)],
+            cloud_used_blinks: vec![
+                (0.2, 0.2667),
+                (0.4, 0.4833),
+                (0.6167, 0.6833),
+                (0.8167, 0.8833),
+            ],
             cloud_spots: vec![
                 ((0.58, 4.8), (2.87, 3.53)),
                 ((0.38, 5.37), (2.67, 4.1)),
@@ -3406,7 +3591,14 @@ fn default_cup_decos() -> Vec<CupDeco> {
         leaves_at,
     };
     vec![
-        deco("menu_cup_tiny_medium", (45.0, 53.0), (-40.0, 8.0), "", (0.0, 0.0), (0.0, 0.0)),
+        deco(
+            "menu_cup_tiny_medium",
+            (45.0, 53.0),
+            (-40.0, 8.0),
+            "",
+            (0.0, 0.0),
+            (0.0, 0.0),
+        ),
         deco(
             "menu_cup_big_medium",
             (64.0, 82.0),
@@ -3442,9 +3634,20 @@ pub struct CoronaPart {
 
 fn default_corona() -> Vec<CoronaPart> {
     let part = |angle: f32, scale: (f32, f32), tint: [u8; 3], spin: f32, fade: (f32, f32, f32)| {
-        CoronaPart { angle, scale, tint, spin, fade }
+        CoronaPart {
+            angle,
+            scale,
+            tint,
+            spin,
+            fade,
+        }
     };
-    let (pink, rose, orange, red) = ([255, 188, 205], [255, 143, 209], [255, 144, 84], [255, 12, 109]);
+    let (pink, rose, orange, red) = (
+        [255, 188, 205],
+        [255, 143, 209],
+        [255, 144, 84],
+        [255, 12, 109],
+    );
     vec![
         part(-349.4, (0.8, 1.97), pink, 1.0, (0.5, 1.0, 0.3)),
         part(-147.4, (0.58, 0.45), rose, 8.0, (0.5, 1.0, 0.3)),
@@ -3573,14 +3776,19 @@ pub struct WaveRow {
 
 impl Default for RaceScene {
     fn default() -> Self {
-        let names = |range: std::ops::RangeInclusive<u32>| range.map(|n| format!("race_cloud_{n}")).collect();
+        let names = |range: std::ops::RangeInclusive<u32>| {
+            range.map(|n| format!("race_cloud_{n}")).collect()
+        };
         let line = (0.827_451, 0.835_294_1, 1.0);
         let island = |art: &str, bobs, line_at, line_size, line_z| SceneIsland {
             art: art.into(),
             pro: art.replace("background_race_", "background_race_pro_"),
             endless: format!(
                 "background_endless_{}",
-                art.trim_start_matches("background_race_").parse::<u32>().unwrap_or(2) - 2
+                art.trim_start_matches("background_race_")
+                    .parse::<u32>()
+                    .unwrap_or(2)
+                    - 2
             ),
             endless_line: None,
             bobs,
@@ -3591,9 +3799,15 @@ impl Default for RaceScene {
             line_z,
         };
         Self {
-            replaces: ["background_race_0", "background_race_1", "background_race_8", "background_race_9", "background_race_10"]
-                .map(String::from)
-                .to_vec(),
+            replaces: [
+                "background_race_0",
+                "background_race_1",
+                "background_race_8",
+                "background_race_9",
+                "background_race_10",
+            ]
+            .map(String::from)
+            .to_vec(),
             clouds: vec![
                 CloudRow {
                     art: vec!["race_cloud_large_1".into(), "race_cloud_large_2".into()],
@@ -3603,8 +3817,22 @@ impl Default for RaceScene {
                     parallax: 0.2,
                     z: 0.5,
                 },
-                CloudRow { art: names(1..=6), speed: (0.4, 0.5), y: (0.5, 2.0), rounds: 3, parallax: 0.6, z: 8.0 },
-                CloudRow { art: names(7..=10), speed: (0.4, 0.5), y: (0.5, 2.0), rounds: 3, parallax: 0.8, z: 9.0 },
+                CloudRow {
+                    art: names(1..=6),
+                    speed: (0.4, 0.5),
+                    y: (0.5, 2.0),
+                    rounds: 3,
+                    parallax: 0.6,
+                    z: 8.0,
+                },
+                CloudRow {
+                    art: names(7..=10),
+                    speed: (0.4, 0.5),
+                    y: (0.5, 2.0),
+                    rounds: 3,
+                    parallax: 0.8,
+                    z: 9.0,
+                },
             ],
             island_scale: 0.9,
             island_root: 6.0,
@@ -3616,13 +3844,45 @@ impl Default for RaceScene {
                     endless_line: Some(((0.0, 0.14), (20.0, 1.0))),
                     ..island("background_race_2", false, (0.0, 0.01), (20.0, 0.6), 2.1)
                 },
-                island("background_race_3", true, (7.69, 0.62), (4.183_838, 0.8), 4.1),
-                island("background_race_4", true, (-8.86, 0.93), (4.954_848, 0.8), 4.1),
-                island("background_race_5", true, (4.79, 1.45), (2.594_628, 0.8), 4.6),
-                island("background_race_6", true, (8.01, 0.59), (4.187_103, 0.8), 4.6),
-                island("background_race_7", true, (-6.94, 1.45), (4.183_838, 0.8), 2.5),
+                island(
+                    "background_race_3",
+                    true,
+                    (7.69, 0.62),
+                    (4.183_838, 0.8),
+                    4.1,
+                ),
+                island(
+                    "background_race_4",
+                    true,
+                    (-8.86, 0.93),
+                    (4.954_848, 0.8),
+                    4.1,
+                ),
+                island(
+                    "background_race_5",
+                    true,
+                    (4.79, 1.45),
+                    (2.594_628, 0.8),
+                    4.6,
+                ),
+                island(
+                    "background_race_6",
+                    true,
+                    (8.01, 0.59),
+                    (4.187_103, 0.8),
+                    4.6,
+                ),
+                island(
+                    "background_race_7",
+                    true,
+                    (-6.94, 1.45),
+                    (4.183_838, 0.8),
+                    2.5,
+                ),
             ],
-            bob_also: (1..=4).map(|n| format!("background_survival_{n}")).collect(),
+            bob_also: (1..=4)
+                .map(|n| format!("background_survival_{n}"))
+                .collect(),
             bob: (0.2, 0.4),
             bob_time: (2.5, 4.0),
             waterline: "race_waterline".into(),
@@ -3650,8 +3910,22 @@ impl Default for RaceScene {
             flag_right_x: -1.12,
             flag_wave: (0.1, 2.0, 1.0),
             waves: vec![
-                WaveRow { y: 3.0, height: 2.0, scale: (0.2, 0.5), parallax: 0.3, front: false, z: 2.05 },
-                WaveRow { y: 2.5, height: 0.5, scale: (0.5, 0.7), parallax: 1.0, front: true, z: 0.0 },
+                WaveRow {
+                    y: 3.0,
+                    height: 2.0,
+                    scale: (0.2, 0.5),
+                    parallax: 0.3,
+                    front: false,
+                    z: 2.05,
+                },
+                WaveRow {
+                    y: 2.5,
+                    height: 0.5,
+                    scale: (0.5, 0.7),
+                    parallax: 1.0,
+                    front: true,
+                    z: 0.0,
+                },
             ],
         }
     }
@@ -3668,7 +3942,10 @@ mod tests {
         for pack in [BrickPack::Hologram, BrickPack::Galaxy, BrickPack::Halloween] {
             assert_eq!(pack.brick_art("square"), "brick_square", "{pack:?}");
         }
-        assert_eq!(BrickPack::Christmas.brick_art("square"), "brick_christmas_square");
+        assert_eq!(
+            BrickPack::Christmas.brick_art("square"),
+            "brick_christmas_square"
+        );
     }
 
     #[test]
@@ -3680,10 +3957,34 @@ mod tests {
         assert!((race.countdown_at - 4.267).abs() < 1e-3);
         // Rematch keeps the title but skips the sweep; a later cup match skips the title.
         assert!((intro.plan(ModeKind::Race, true, true, 0).countdown_at - 2.267).abs() < 1e-3);
-        assert_eq!(intro.plan(ModeKind::Puzzle, false, true, 0).countdown_at, 0.0);
+        assert_eq!(
+            intro.plan(ModeKind::Puzzle, false, true, 0).countdown_at,
+            0.0
+        );
         let survival = intro.plan(ModeKind::Survival, false, false, 33);
-        assert_eq!((survival.count_up, survival.countdown_at), (Some((0.0, 1.0)), 1.3));
+        assert_eq!(
+            (survival.count_up, survival.countdown_at),
+            (Some((0.0, 1.0)), 1.3)
+        );
         assert_eq!(keyed(&intro.count_scale, 0.0625), (1.15 + 1.035) / 2.0);
+    }
+
+    #[test]
+    fn curves_pass_their_keys_and_follow_their_slopes() {
+        // Slopes of a straight line give the straight line; flat ends ease in and out.
+        let line = [(0.0, 0.0, 2.0, 2.0), (1.0, 2.0, 2.0, 2.0)];
+        assert!((curve(&line, 0.25) - 0.5).abs() < 1e-6);
+        let eased = [(0.0, 0.0, 0.0, 0.0), (1.0, 1.0, 0.0, 0.0)];
+        assert_eq!(
+            (curve(&eased, 0.0), curve(&eased, 0.5), curve(&eased, 1.0)),
+            (0.0, 0.5, 1.0)
+        );
+        assert!(curve(&eased, 0.1) < 0.1);
+        // An infinite slope holds the value (a step).
+        assert_eq!(
+            curve(&[(0.0, 3.0, 0.0, f32::INFINITY), (1.0, 5.0, 0.0, 0.0)], 0.9),
+            3.0
+        );
     }
 
     #[test]

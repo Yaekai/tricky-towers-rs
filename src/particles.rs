@@ -62,7 +62,7 @@ struct LostCross {
 #[derive(Component)]
 struct WaveCloud(usize);
 
-/// The WAVE N message, sliding through (`moments.wave_message`).
+/// The WAVE N message, sliding through (`moments.wave_x`, `wave_scale`).
 #[derive(Component)]
 struct WaveMessage {
     time: f32,
@@ -596,8 +596,8 @@ fn fade_wave_messages(
     mut messages: Query<(Entity, &mut WaveMessage, &mut UiTransform, &mut Visibility, &Children)>,
     mut clouds: Query<(&WaveCloud, &mut UiTransform), Without<WaveMessage>>,
 ) {
-    let keys = &config.moments.wave_message;
-    let length = keys.last().map_or(0.0, |k| k.0);
+    let moments = &config.moments;
+    let length = moments.wave_x.last().map_or(0.0, |k| k.0);
     // A cell is a 41.54th of the view's height.
     let vh_per_cell = 100.0 / config.hud.camera_height.max(0.01);
     for (entity, mut message, mut transform, mut visibility, children) in &mut messages {
@@ -606,19 +606,16 @@ fn fade_wave_messages(
             commands.entity(entity).despawn();
             continue;
         }
-        let at = |pick: fn(&(f32, f32, f32)) -> f32| {
-            let pairs: Vec<(f32, f32)> = keys.iter().map(|k| (k.0, pick(k))).collect();
-            crate::config::keyed(&pairs, message.time)
-        };
-        transform.translation = Val2::new(Val::Vh(at(|k| k.1) * vh_per_cell), Val::Px(0.0));
-        transform.scale = Vec2::new(at(|k| k.2), 1.0);
+        let x = crate::config::curve(&moments.wave_x, message.time);
+        transform.translation = Val2::new(Val::Vh(x * vh_per_cell), Val::Px(0.0));
+        transform.scale = Vec2::new(crate::config::curve(&moments.wave_scale, message.time), 1.0);
         visibility.set_if_neq(Visibility::Inherited);
         for child in children.iter() {
             if let Ok((cloud, mut drift)) = clouds.get_mut(child)
                 && let Some(keys) = config.moments.wave_clouds.get(cloud.0)
             {
                 let start = keys.first().map_or(0.0, |k| k.1);
-                let x = crate::config::keyed(keys, message.time) - start;
+                let x = crate::config::curve(keys, message.time) - start;
                 drift.translation = Val2::new(Val::Vh(x * vh_per_cell), Val::Px(0.0));
             }
         }
