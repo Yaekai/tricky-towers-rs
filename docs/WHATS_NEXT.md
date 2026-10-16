@@ -23,15 +23,13 @@ original and fix what differs:
   (intro timings, cup panel timings, `moments` and `casts` values).
 
 ## 3. Look and effects
-- Character spacing (`letters::LetterSpacing`) is set on the title names, match text, menu
-  hints, intro and Survival count; other texts the prefabs space (-1, -2 on SURVIVAL/SPECIAL,
-  -4 on scores) still draw at 0.
+- Character spacing (`letters::LetterSpacing`) is set on the menus, match text, HUD and intro;
+  popups (confirm, credits, explanation, trial results) still draw at 0 where the prefabs space
+  -1 or -2.
 
 ## 4. Menus
 - Text weights left from the screenshot comparison. Single Player and the title match Max's
   clip.
-- Title tiles: the wizard over the Local Battle frame and the earth's size need those parts
-  staged as their own layers.
 - Text from the original's 19 language files (the format is read in
   `docs/research/text-keys.md`; menus use built-in English today).
 
