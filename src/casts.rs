@@ -410,8 +410,15 @@ fn run_streams(
         }
         transform.translation += (bit.velocity * dt).extend(0.0);
         let (size, alpha) = if bit.pulse {
-            let keys = [(0.0, 0.0), (0.3, 0.83), (0.556, 1.0), (0.923, 0.97), (1.0, 0.0)];
-            (bit.size * crate::config::keyed(&keys, t), 1.0)
+            // Droplets' SizeModule curve with its slopes.
+            let keys = [
+                (0.0, 0.0, 0.0, 0.0),
+                (0.3006, 0.8291, 1.235, 1.235),
+                (0.556, 1.0, 0.0, 0.0),
+                (0.9227, 0.9712, -0.7031, -0.7031),
+                (1.0, 0.0, 0.0, 0.0),
+            ];
+            (bit.size * crate::config::curve(&keys, t), 1.0)
         } else {
             (bit.size, (t / 0.1).min(1.0).min((1.0 - t) / 0.1))
         };

@@ -996,7 +996,8 @@ struct Spark {
     life: f32,
     /// Size in units, and its curve over the life (time, share), held past the ends.
     size: f32,
-    size_curve: &'static [(f32, f32)],
+    /// Its SizeModule curve (seconds as a share of its life, value, in and out slope).
+    size_curve: &'static [(f32, f32, f32, f32)],
     /// Alpha over the life.
     alpha_curve: &'static [(f32, f32)],
     /// Colours spread evenly over the life (one holds still).
@@ -1029,11 +1030,13 @@ const WHITE: &[[u8; 3]] = &[[255, 255, 255]];
 const ROCKET_RED: &[[u8; 3]] = &[[251, 41, 80]];
 const ROCKET_BLUE: &[[u8; 3]] = &[[99, 255, 242]];
 /// The trail's size and alpha over its 0.8 s (SizeModule x 0.5, ColorModule).
-const TRAIL_SIZE: &[(f32, f32)] = &[(0.0, 0.631), (0.62, 0.116), (0.775, 0.268), (1.0, 0.0)];
+const TRAIL_SIZE: &[(f32, f32, f32, f32)] =
+    &[(0.0, 0.6313, 0.0, 0.0), (0.6195, 0.1162, 0.0927, 0.0927), (0.7752, 0.2677, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0)];
 const TRAIL_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.78, 1.0), (1.0, 0.0)];
 /// The bursting stars (FireWorksEndParticle01/02): size, alpha and the colours they run
 /// through (their ColorModule's keys, taken as evenly spaced).
-const STAR_SIZE: &[(f32, f32)] = &[(0.0, 1.0), (0.614, 0.694), (0.775, 1.0), (1.0, 0.0)];
+const STAR_SIZE: &[(f32, f32, f32, f32)] =
+    &[(0.0, 1.0, 0.0, 0.0), (0.6138, 0.6943, 0.0927, 0.0927), (0.7752, 1.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0)];
 const STAR_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.856, 1.0), (1.0, 0.0)];
 const STAR_COLOURS: &[[u8; 3]] = &[
     [255, 38, 188],
@@ -1045,9 +1048,11 @@ const STAR_COLOURS: &[[u8; 3]] = &[
 /// The flash (Explosion, 0.07 s) and the ring (Shockwave: grows to 40 x its 0.1, fading by
 /// a fifth of its second).
 const FLASH_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.5, 0.55)];
-const RING_SIZE: &[(f32, f32)] = &[(0.0, 0.0), (0.25, 0.852), (1.0, 1.0)];
+const RING_SIZE: &[(f32, f32, f32, f32)] =
+    &[(0.0, 0.0, 2.78, 2.78), (0.2503, 0.8517, 0.4494, 0.4494), (0.9971, 1.0, 0.035, 0.035)];
 const RING_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.118, 0.03), (0.2, 0.0)];
 const STEADY: &[(f32, f32)] = &[(0.0, 1.0)];
+const STEADY_SIZE: &[(f32, f32, f32, f32)] = &[(0.0, 1.0, 0.0, 0.0)];
 /// ConfettiParticle01/02: their two pairs of colour gradients (a random point between them),
 /// speed and life; both 10 a second along a 24-unit edge, 0.25 units, spinning up to 18.85
 /// radians a second either way, their 3 frames running 52 times over the life.
@@ -1170,7 +1175,7 @@ fn celebrate(
                         age: 0.0,
                         life,
                         size: 0.25,
-                        size_curve: STEADY,
+                        size_curve: STEADY_SIZE,
                         alpha_curve: STEADY,
                         colours: WHITE,
                         tint: colour,
@@ -1318,7 +1323,7 @@ fn celebrate(
                 age: 0.0,
                 life: 0.07,
                 size: 3.0,
-                size_curve: STEADY,
+                size_curve: STEADY_SIZE,
                 alpha_curve: FLASH_ALPHA,
                 colours: WHITE,
                 tint: Color::WHITE,
@@ -1367,7 +1372,7 @@ fn celebrate(
         let step = spark.speed * dt;
         spark.at += step;
         spark.angle += spark.spin * dt;
-        let size = spark.size * keyed(spark.size_curve, t) * WIN_UNIT;
+        let size = spark.size * crate::config::curve(spark.size_curve, t) * WIN_UNIT;
         let x = SCREEN.0 / 2.0 + spark.at.x * WIN_UNIT - size / 2.0;
         let y = SCREEN.1 / 2.0 - spark.at.y * WIN_UNIT - size / 2.0;
         // Centred on the screen like the panel.
