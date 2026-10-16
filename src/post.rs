@@ -343,8 +343,13 @@ fn follow_grab(
     {
         // It draws only what lies under GRAB_Z (the camera looks down -z).
         let near = at.translation.z - GRAB_Z;
-        if to.scale != from.scale || to.area != from.area || to.near != near {
+        // The grab picture is in screen pixels and an image has no display scaling, so with
+        // Windows scaling (125%) the same zoom would see 1.25 times as much: zoom in by it.
+        let scaling = camera.target_scaling_factor().unwrap_or(1.0).max(0.01);
+        let scale = from.scale / scaling;
+        if to.scale != scale || to.near != near {
             *to = from.clone();
+            to.scale = scale;
             to.near = near;
         }
     }
