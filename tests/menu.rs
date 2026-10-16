@@ -315,9 +315,17 @@ fn trials_list_plays_the_picked_trial() {
     tap(&mut app, KeyCode::Enter);
     tap(&mut app, KeyCode::Enter);
     assert_eq!(screen(&app), MenuScreen::Trials);
+    // A cup left over from Local Battle doesn't carry into the trial.
+    {
+        let mut cup = app.world_mut().resource_mut::<tricky_towers::cups::Cup>();
+        cup.pick = Some(0);
+        cup.begin();
+    }
     // The second sample trial is Survival.
     tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
+    let cup = app.world().resource::<tricky_towers::cups::Cup>();
+    assert_eq!((cup.pick, cup.size), (None, None));
     let game = app.world().resource::<Match>();
     assert_eq!(
         (game.phase, game.mode),

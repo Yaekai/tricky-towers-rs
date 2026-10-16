@@ -497,6 +497,7 @@ pub(crate) fn trials_input(
     mut config: ResMut<GameConfig>,
     mut request: ResMut<MatchRequest>,
     progress: Res<TrialProgress>,
+    mut cup: ResMut<crate::cups::Cup>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Trials {
         return;
@@ -537,6 +538,8 @@ pub(crate) fn trials_input(
         config.trial = Some(menu.selected);
         // A trial's own values go over Normal's (?).
         config.difficulty = Some(Difficulty::Normal);
+        // A trial is never part of a cup (a finished cup's panel showed after it).
+        *cup = default();
         request.pending = true;
         menu.from_trial = true;
     }

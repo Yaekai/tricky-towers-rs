@@ -998,6 +998,7 @@ pub(crate) fn endless_input(
     mut menu: ResMut<SingleMenu>,
     mut config: ResMut<GameConfig>,
     mut request: ResMut<MatchRequest>,
+    mut cup: ResMut<crate::cups::Cup>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Endless {
         return;
@@ -1028,6 +1029,8 @@ pub(crate) fn endless_input(
     config.players = 1;
     config.opponents = 0;
     config.trial = None;
+    // An Endless run is never part of a cup.
+    *cup = default();
     request.pending = true;
 }
 
