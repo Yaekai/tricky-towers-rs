@@ -222,6 +222,18 @@ pub(crate) fn turn_single_rays(
 #[derive(Component)]
 pub(crate) struct PackCard(i32);
 
+/// The pack item's Graphic (BrickPacks/<pack>): 252 x 100 on the 332 x 100 panel, 6 px up.
+fn pack_graphic() -> Node {
+    Node {
+        position_type: PositionType::Absolute,
+        left: Val::Percent((332.0 - 252.0) / 2.0 / 332.0 * 100.0),
+        top: Val::Percent(-6.0),
+        width: Val::Percent(252.0 / 332.0 * 100.0),
+        height: Val::Percent(100.0),
+        ..default()
+    }
+}
+
 /// An Indie guest's game logo over its carousel panel (slot as in `Carousel`).
 #[derive(Component)]
 pub(crate) struct CarouselLogo(i32);
@@ -517,12 +529,7 @@ pub(crate) fn spawn_single_screens(
                 grey.with_children(|p| {
                     p.spawn((
                         ImageNode::default(),
-                        Node {
-                            width: Val::Percent(90.0),
-                            height: Val::Percent(80.0),
-                            margin: UiRect::AUTO,
-                            ..default()
-                        },
+                        pack_graphic(),
                         PackCard(side),
                         Visibility::Hidden,
                     ));
@@ -571,12 +578,7 @@ pub(crate) fn spawn_single_screens(
         pack.with_children(|p| {
             p.spawn((
                 ImageNode::default(),
-                Node {
-                    width: Val::Percent(90.0),
-                    height: Val::Percent(80.0),
-                    margin: UiRect::AUTO,
-                    ..default()
-                },
+                pack_graphic(),
                 PackCard(0),
                 Visibility::Hidden,
             ));
