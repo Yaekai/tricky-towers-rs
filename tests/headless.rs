@@ -1659,6 +1659,10 @@ fn endless_survival_waves_last_a_number_of_bricks() {
     let state = tower(&mut app, 0);
     assert_eq!(state.wave_bricks, 0);
     assert_eq!(state.wave_mod, None, "the second brick was the last");
+    // The 3 to 4 s wait for the next wave starts only now that this one is over.
+    run_seconds(&mut app, 2.5, |_| {});
+    assert_eq!(tower(&mut app, 0).wave_mod, None, "no wave before the gap has run");
+    assert!(run_until(&mut app, 2.5, |app| tower(app, 0).wave_mod.is_some()));
 }
 
 #[test]

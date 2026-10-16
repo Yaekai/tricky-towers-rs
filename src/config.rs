@@ -2491,7 +2491,7 @@ impl Default for CupPanel {
 /// A battle's opening, from the original's intro and countdown (docs/research/
 /// match-moments.md, "Match intro"): the mode title, the mode's own intro, then the
 /// 3-2-1. Seconds, and pixels of a 1920×1080 screen (y up from the centre).
-/// Keyframes are interpolated in straight lines; the original's curves are smooth (?).
+/// The clip tables are curves with the clips' slopes (`config::curve`).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct IntroRules {

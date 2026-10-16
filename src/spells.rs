@@ -204,6 +204,8 @@ pub(crate) fn update_spell_lines(
 pub(crate) struct WaveClock {
     round: u64,
     next_in: f32,
+    /// A wave counted in bricks is running: the gap to the next starts when it ends.
+    counting: bool,
     deck: WaveDeck,
     rng: u64,
 }
@@ -345,6 +347,16 @@ pub(crate) fn run_curse_waves(
         };
         clock.next_in = clock.seconds(rules.gap);
     }
+    // The next wave's wait starts once a wave is over (WorldCurseSpawner._CurseWaveCompleted):
+    // a counted wave ends with its last cursed brick.
+    if clock.counting
+        && towers
+            .iter()
+            .all(|(_, _, s)| s.status != TowerStatus::Building || s.wave_bricks == 0)
+    {
+        clock.counting = false;
+        clock.next_in = clock.seconds(rules.gap);
+    }
     clock.next_in -= dt;
     if clock.next_in > 0.0 {
         return;
@@ -357,15 +369,19 @@ pub(crate) fn run_curse_waves(
     };
     let wave = &rules.levels[level][index];
     // A wave lasts some seconds, or (Endless Survival) some bricks, the one in
-    // hand first. The next wave counts from the end of a timed one, from the
-    // start of a counted one (?).
+    // hand first; the next wave's wait starts when it ends.
     let counted = wave.bricks > 0;
     let length = if counted {
         0.0
     } else {
         clock.seconds(wave.seconds)
     };
-    clock.next_in = length + clock.seconds(rules.gap);
+    if counted {
+        clock.counting = true;
+        clock.next_in = f32::INFINITY;
+    } else {
+        clock.next_in = length + clock.seconds(rules.gap);
+    }
     let mut effect = BrickMod::default();
     for &spell in &wave.curses {
         if let Some(e) = brick_effect(spell, &config.magic) {
@@ -374,7 +390,7 @@ pub(crate) fn run_curse_waves(
     }
     let cursed = effect != BrickMod::default();
     let ghost = wave.curses.contains(&SpellKind::Ghost);
-    // How long Mist fogs a tower when the wave is counted in bricks (?).
+    // A wave's Mist is the Mist spell's own (SpawnMistEffect), however the wave is counted.
     let magic_mist = config.magic.mist_seconds;
     for (_, _, mut state) in &mut towers {
         if state.status != TowerStatus::Building {
