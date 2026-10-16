@@ -25,10 +25,14 @@ original and fix what differs:
 ## 3. Look and effects
 - Animation curves: `config::curve` joins clip keys with their slopes as Unity does. The WAVE N
   message, the start screen, WINNER! (with its swing in), WIZARD OUT!, the mode title ribbon and
-  the 3-2-1 (with its tilt) and the spell clouds use it. Particle curves (beam blobs, confetti,
-  fireworks) are still straight lines between keys (`config::keyed`).
+  the 3-2-1 (with its tilt), the spell clouds and the firework, shockwave and beam droplet
+  sizes use it. Particle alpha keys are gradients (straight, as the original's).
 
 ## 4. Menus
+- Display scaling (125% in Windows): the Puzzle heat haze's screen copy now follows it; check
+  other screens at 125% too.
+- Settings → Stats follows StatsPopup (Game and Other stats rows); Resolution lists the monitor's
+  own modes.
 - Text weights left from the screenshot comparison. Single Player and the title match Max's
   clip.
 - Languages: menu and match text follows the Language setting from the original's language
