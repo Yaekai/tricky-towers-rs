@@ -241,6 +241,12 @@ const FOCUS_OUT: f32 = 20.0;
 /// (measured on Max's Select Players clip).
 const JOIN_GLYPH: (f32, f32) = (60.0, 40.0);
 const JOIN_GLYPH_Y: f32 = 28.0;
+/// JoinLabel auto-sizes down to 18 px inside the panel less 30 px a side (in view heights,
+/// as the label's 3.6).
+const JOIN_FIT: crate::letters::AutoSize = crate::letters::AutoSize {
+    min: 18.0 / 10.8,
+    width: (SEAT_PANEL.0 - 60.0) / 10.8,
+};
 /// 9-slice borders of the seat panels and outline, and of the name plate.
 pub(crate) const PANEL_SLICE: f32 = 60.0;
 pub(crate) const PLATE_SLICE: f32 = 13.0;
@@ -608,10 +614,7 @@ pub(crate) fn spawn_select_screens(
                     },
                     Part::SeatJoinGlyph(seat),
                 ));
-                p.spawn((
-                    label_with(3.6, "", crate::letters::TextLook::TITLE),
-                    Part::SeatJoin(seat),
-                ));
+                p.spawn((label_with(3.6, "", crate::letters::TextLook::TITLE), JOIN_FIT, Part::SeatJoin(seat)));
             });
             if let Some(arrow) = image("menu_arrow_small") {
                 for (row, y) in [(0, SEAT_Y), (1, PACK_PANEL.1)] {
@@ -1409,6 +1412,16 @@ pub(crate) fn show_select_screens(
                     (Some(handle), Some(mut img)) if lobby.seats[seat] == Seat::Empty => {
                         if img.image != handle {
                             img.image = handle;
+                        }
+                        // The picture sits on the label's first (empty) line, which rises as
+                        // the translated label takes more lines (the block stays centred).
+                        let (lines, line) = art
+                            .as_deref()
+                            .map_or((2, 0.0), |art| crate::letters::translated_lines(art, "\nTO JOIN", 3.6, &JOIN_FIT));
+                        let y = JOIN_GLYPH_Y + lines.saturating_sub(2) as f32 * line * 10.8 / 2.0;
+                        let top = Val::Percent(50.0 - (y + JOIN_GLYPH.1 / 2.0) / SEAT_PANEL.1 * 100.0);
+                        if node.top != top {
+                            node.top = top;
                         }
                         true
                     }

@@ -204,6 +204,48 @@ struct Mirrors(Entity);
 #[derive(Component, Clone, Copy, PartialEq, Debug, Default)]
 pub struct LetterSpacing(pub f32);
 
+/// TextMeshPro's auto-size: the text shrinks, down to `min`, until its widest line fits
+/// `width` (both in the text's own font-size unit).
+#[derive(Component, Clone, Copy)]
+pub struct AutoSize {
+    pub min: f32,
+    pub width: f32,
+}
+
+/// The size `words` draws at once `fit` has shrunk it.
+fn fit_size(sheet: &Letters, words: &str, size: f32, spacing: f32, fit: &AutoSize) -> f32 {
+    let k = size / sheet.size.max(1.0);
+    let widest = words
+        .split('\n')
+        .map(|line| {
+            line.chars()
+                .map(|ch| {
+                    let advance = sheet
+                        .glyphs
+                        .get(&ch)
+                        .or_else(|| sheet.glyphs.get(&ch.to_ascii_uppercase()))
+                        .map_or(sheet.size * 0.3, |g| g.advance);
+                    (advance + spacing) * k
+                })
+                .sum::<f32>()
+        })
+        .fold(0.0, f32::max);
+    if widest > fit.width { (size * fit.width / widest).max(fit.min) } else { size }
+}
+
+/// How many lines `text` draws in the picked language, and their line height, at `size`
+/// shrunk by `fit` (same unit as `size`).
+pub fn translated_lines(art: &Art, text: &str, size: f32, fit: &AutoSize) -> (usize, f32) {
+    let words = CURRENT.read().map(|w| w.clone()).unwrap_or_default();
+    let translations = Translations { code: String::new(), words, patterns: Vec::new() };
+    let Some(sheet) = display_sheet(art) else {
+        return (text.split('\n').count(), size);
+    };
+    let words = translations.apply(text, Some(sheet));
+    let size = fit_size(sheet, &words, size, 0.0, fit);
+    (words.split('\n').count(), sheet.line_height * size / sheet.size.max(1.0))
+}
+
 /// Text to draw with the letter sheet.
 #[derive(Component, Clone, PartialEq)]
 struct LetterText {
@@ -261,6 +303,8 @@ impl Translations {
             return text.to_string();
         };
         let found = if text == text.to_uppercase() { found.to_uppercase() } else { found };
+        // Leading empty lines leave room for a button picture drawn over them ("\nTO JOIN").
+        let found = format!("{}{found}", "\n".repeat(text.len() - text.trim_start_matches('\n').len()));
         let drawable = sheet.is_none_or(|sheet| {
             found.chars().filter(|c| !c.is_whitespace()).all(|c| {
                 sheet.glyphs.contains_key(&c) || c.to_uppercase().any(|u| sheet.glyphs.contains_key(&u))
@@ -432,18 +476,24 @@ fn letter_text(
     layout: Option<&TextLayout>,
     look: Option<&TextLook>,
     spacing: Option<&LetterSpacing>,
+    fit: Option<&AutoSize>,
     translations: &Translations,
     sheet: Option<&Letters>,
 ) -> LetterText {
     let look = look.copied().unwrap_or_default();
-    let (size, view_height) = match font.font_size {
+    let (mut size, view_height) = match font.font_size {
         FontSize::Px(px) => (px, false),
         FontSize::Vh(vh) => (vh, true),
         _ => (20.0, false),
     };
+    let spacing = spacing.map_or(0.0, |s| s.0);
+    let words = translations.apply(&text.0, sheet);
+    if let (Some(fit), Some(sheet)) = (fit, sheet) {
+        size = fit_size(sheet, &words, size, spacing, fit);
+    }
     LetterText {
-        spacing: spacing.map_or(0.0, |s| s.0),
-        text: translations.apply(&text.0, sheet),
+        spacing,
+        text: words,
         size,
         view_height,
         color: look.face.unwrap_or(color.map_or(Color::WHITE, |c| c.0)),
@@ -473,6 +523,7 @@ fn mirror_texts(
             Option<&ChildOf>,
             Option<&GlobalZIndex>,
             Option<&LetterSpacing>,
+            Option<&AutoSize>,
         ),
         Without<MirroredBy>,
     >,
@@ -481,11 +532,11 @@ fn mirror_texts(
     if !art.letters.contains_key(FONT) {
         return;
     }
-    for (entity, text, font, color, layout, look, mut node, parent, z, spacing) in &mut texts {
+    for (entity, text, font, color, layout, look, mut node, parent, z, spacing, fit) in &mut texts {
         let mirror = commands
             .spawn((
                 node.clone(),
-                letter_text(text, font, color, layout, look, spacing, &translations, display_sheet(&art)),
+                letter_text(text, font, color, layout, look, spacing, fit, &translations, display_sheet(&art)),
                 Mirrors(entity),
             ))
             .id();
@@ -520,6 +571,7 @@ fn sync_mirrors(
             Option<&TextLayout>,
             Option<&TextLook>,
             Option<&LetterSpacing>,
+            Option<&AutoSize>,
         ),
         Or<(
             Changed<Text>,
@@ -531,9 +583,9 @@ fn sync_mirrors(
     >,
     mut mirrors: Query<&mut LetterText>,
 ) {
-    for (mirror, text, font, color, layout, look, spacing) in &texts {
+    for (mirror, text, font, color, layout, look, spacing, fit) in &texts {
         if let Ok(mut letters) = mirrors.get_mut(mirror.0) {
-            let new = letter_text(text, font, color, layout, look, spacing, &translations, display_sheet(&art));
+            let new = letter_text(text, font, color, layout, look, spacing, fit, &translations, display_sheet(&art));
             if *letters != new {
                 *letters = new;
             }
