@@ -9,7 +9,7 @@
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::config::{Difficulty, GameConfig, IntroPlan, ModeKind, keyed};
+use crate::config::{curve, keyed, Difficulty, GameConfig, IntroPlan, ModeKind};
 use crate::cups::Cup;
 use crate::gameplay::{IntroOn, Match, Phase};
 use crate::letters::TextLook;
@@ -388,9 +388,9 @@ fn show_title(
         if !show {
             continue;
         }
-        let width = keyed(&look.title_widths[d], t);
+        let width = curve(&look.title_widths[d], t);
         let rise = if t >= out_at {
-            keyed(&look.title_out_y, t - out_at)
+            curve(&look.title_out_y, t - out_at)
         } else {
             0.0
         };
@@ -474,7 +474,9 @@ fn show_countdown(
         } else {
             Visibility::Hidden
         });
-        transform.scale = Vec2::splat(keyed(&look.count_scale, t));
+        transform.scale = Vec2::splat(curve(&look.count_scale, t));
+        // Unity turns counter-clockwise for a positive z; UI rotation runs the other way.
+        transform.rotation = Rot2::degrees(-keyed(&look.count_turn, t));
     }
     for (part, mut text) in &mut layers {
         if matches!(part, Part::CountBack | Part::CountFace) && text.0 != words {

@@ -2514,20 +2514,23 @@ pub struct IntroRules {
     pub laser_sweep: f32,
     pub laser_fade: f32,
     /// The 3-2-1: a number every `count_step`, play starts at `count_go`, and Race's
-    /// word stays up until `count_end`. Its centre, letter size (Vh), scale keys, and
+    /// word stays up until `count_end`. Its centre, letter size (Vh), scale curve, and
     /// each number's sound pitch.
     pub count_step: f32,
     pub count_go: f32,
     pub count_end: f32,
     pub count_y: f32,
     pub count_size: f32,
-    pub count_scale: Vec<(f32, f32)>,
+    pub count_scale: Vec<(f32, f32, f32, f32)>,
+    /// Each number's turn in degrees (Countdown, sampled every frame in the clip).
+    pub count_turn: Vec<(f32, f32)>,
     pub count_pitch: [f32; 3],
     /// The title band per difficulty (Easy, Normal, Special): its art suffix, centre
-    /// height, width keys of the move-in, the stars' distances from each end.
+    /// height, width curve of the move-in (Easy/Normal/SpecialMoveIn), the stars' distances
+    /// from each end.
     pub title_art: [String; 3],
     pub title_y: [f32; 3],
-    pub title_widths: [Vec<(f32, f32)>; 3],
+    pub title_widths: [Vec<(f32, f32, f32, f32)>; 3],
     pub title_stars: [Vec<f32>; 3],
     /// 9-slice borders (left, right) of the band picture.
     pub title_slice: [(f32, f32); 3],
@@ -2544,8 +2547,8 @@ pub struct IntroRules {
     pub title_bottom: f32,
     pub overtime_size: f32,
     pub overtime_bottom: f32,
-    /// Move-out: the band's height keys (relative to where it sits) and its fade.
-    pub title_out_y: Vec<(f32, f32)>,
+    /// Move-out (MoveOut_0): the band's height curve (relative to where it sits) and its fade.
+    pub title_out_y: Vec<(f32, f32, f32, f32)>,
     pub title_fade: (f32, f32),
 }
 
@@ -2574,44 +2577,12 @@ impl Default for IntroRules {
             count_end: 3.0,
             count_y: 100.0,
             count_size: 12.5,
-            count_scale: vec![
-                (0.0, 1.15),
-                (0.125, 1.035),
-                (0.1875, 1.0),
-                (0.75, 1.15),
-                (0.9375, 1.0),
-                (1.5, 1.15),
-                (1.625, 0.945),
-                (1.6875, 1.0),
-                (2.25, 1.2),
-                (3.0, 1.0),
-            ],
+            count_scale: vec![(0.0, 1.15, 0.0, -0.8), (0.125, 1.035, -0.8, -0.8), (0.1875, 1.0, -0.2667, f32::INFINITY), (0.75, 1.15, 0.0, -7.2), (0.9375, 1.0, -0.2667, f32::INFINITY), (1.5, 1.15, 0.0, -7.2), (1.625, 0.9451, 1.333, 1.333), (1.6875, 1.0, -0.2222, f32::INFINITY), (2.25, 1.2, 0.0, -1.8), (3.0, 1.0, -0.2667, 0.0)],
+            count_turn: vec![(0.0, 15.0), (0.0125, 14.0), (0.025, 12.9), (0.0375, 11.9), (0.05, 10.8), (0.0625, 9.66), (0.075, 8.55), (0.0875, 7.45), (0.1, 6.37), (0.1125, 5.31), (0.125, 4.29), (0.1375, 3.32), (0.15, 2.39), (0.1625, 1.53), (0.175, 0.74), (0.1875, 0.0), (0.75, 0.0), (0.7625, -14.6), (0.775, -14.0), (0.7875, -13.2), (0.8, -12.3), (0.8125, -11.2), (0.825, -10.0), (0.8375, -8.78), (0.85, -7.5), (0.8625, -6.21), (0.875, -4.94), (0.8875, -3.72), (0.9, -2.58), (0.9125, -1.56), (0.925, -0.68), (0.9375, 0.0), (1.488, 0.0), (1.5, 10.0), (1.513, 9.77), (1.525, 9.33), (1.538, 8.75), (1.55, 8.05), (1.563, 7.26), (1.575, 6.39), (1.588, 5.49), (1.6, 4.58), (1.613, 3.67), (1.625, 2.81), (1.638, 2.02), (1.65, 1.31), (1.663, 0.73), (1.675, 0.29), (1.688, 0.0), (2.238, 0.0), (2.25, 15.0), (2.263, 13.9), (2.275, 11.8), (2.288, 8.86), (2.3, 5.52), (2.313, 2.11), (2.325, -1.01), (2.338, -3.5), (2.35, -5.0), (2.363, -5.47), (2.375, -5.21), (2.388, -4.43), (2.4, -3.32), (2.413, -2.08), (2.425, -0.91), (2.438, 0.0)],
             count_pitch: [1.0, 1.1667, 1.3333],
             title_art: ["easy".into(), "normal".into(), "special".into()],
             title_y: [120.0, 160.0, 120.0],
-            title_widths: [
-                vec![
-                    (0.0, 642.5),
-                    (0.22, 920.8),
-                    (0.32, 870.9),
-                    (0.42, 920.8),
-                    (0.6, 920.0),
-                ],
-                vec![
-                    (0.0, 642.5),
-                    (0.22, 1288.8),
-                    (0.32, 1208.8),
-                    (0.42, 1228.8),
-                    (0.54, 1220.0),
-                ],
-                vec![
-                    (0.0, 642.5),
-                    (0.22, 1422.5),
-                    (0.32, 1370.1),
-                    (0.42, 1420.0),
-                    (0.6, 1422.5),
-                ],
-            ],
+            title_widths: [vec![(0.0, 642.5, 0.0, 1265.0), (0.22, 920.8, 382.8, 382.8), (0.32, 870.9, 0.0001, 0.0), (0.42, 920.8, 249.7, 249.7), (0.54, 920.8, -6.637, -6.637), (0.6, 920.0, -13.27, 0.0)], vec![(0.0, 642.5, 0.0, 2938.0), (0.22, 1288.8, 1069.0, 1069.0), (0.32, 1208.8, -300.0, -300.0), (0.42, 1228.8, 63.48, 63.48), (0.54, 1220.0, -36.52, -36.52), (0.6, 1220.0, 0.0, 0.0)], vec![(0.0, 642.5, 0.0, 3545.0), (0.22, 1422.5, 1511.0, 1511.0), (0.32, 1370.1, -12.48, -12.48), (0.42, 1420.0, 249.7, 249.7), (0.54, 1420.0, 20.8, 20.8), (0.6, 1422.5, 41.61, 0.0)]],
             title_stars: [
                 vec![60.0],
                 vec![40.0, 90.0, 140.0],
@@ -2627,13 +2598,12 @@ impl Default for IntroRules {
             title_bottom: 40.0,
             overtime_size: 4.3,
             overtime_bottom: 96.0,
-            title_out_y: vec![(0.0, 0.0), (0.15, 15.0), (0.367, -95.0)],
+            title_out_y: vec![(0.0, 0.0, 0.0, 288.5), (0.15, 15.0, -29.31, -827.8), (0.3667, -95.0, -507.7, 0.0)],
             title_fade: (0.2, 0.367),
         }
     }
 }
 
-/// Straight-line value of `keys` (time, value) at `t`, held past either end.
 /// An animation clip's curve at `t`: keys of (seconds, value, in slope, out slope), joined
 /// as Unity joins them (cubic Hermite); an infinite slope holds the value until the next key.
 pub fn curve(keys: &[(f32, f32, f32, f32)], t: f32) -> f32 {
@@ -2661,6 +2631,7 @@ pub fn curve(keys: &[(f32, f32, f32, f32)], t: f32) -> f32 {
     keys.last().map_or(first, |k| k.1)
 }
 
+/// Straight-line value of `keys` (time, value) at `t`, held past either end.
 pub fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
     let Some(&(first_t, first)) = keys.first() else {
         return 0.0;
@@ -3932,7 +3903,7 @@ mod tests {
             (survival.count_up, survival.countdown_at),
             (Some((0.0, 1.0)), 1.3)
         );
-        assert_eq!(keyed(&intro.count_scale, 0.0625), (1.15 + 1.035) / 2.0);
+        assert!((curve(&intro.count_scale, 0.125) - 1.035).abs() < 1e-6);
     }
 
     #[test]

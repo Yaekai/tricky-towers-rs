@@ -24,9 +24,9 @@ original and fix what differs:
 
 ## 3. Look and effects
 - Animation curves: `config::curve` joins clip keys with their slopes as Unity does. The WAVE N
-  message and the start screen use it; other clip tables (WINNER!, WIZARD OUT!, the intro ribbon
-  and count, cup popups) are still straight lines between keys (`config::keyed`) and need their
-  clips' slopes read.
+  message, the start screen, WINNER! (with its swing in), WIZARD OUT!, the mode title ribbon and
+  the 3-2-1 (with its tilt) use it; the cup popups and the menus' clip tables are still straight
+  lines between keys (`config::keyed`) and need their clips' slopes read.
 
 ## 4. Menus
 - Text weights left from the screenshot comparison. Single Player and the title match Max's
