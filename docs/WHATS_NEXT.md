@@ -23,9 +23,8 @@ original and fix what differs:
   (intro timings, cup panel timings, `moments` and `casts` values).
 
 ## 3. Look and effects
-- Character spacing (`letters::LetterSpacing`) is set on the menus, match text, HUD and intro;
-  popups (confirm, credits, explanation, trial results) still draw at 0 where the prefabs space
-  -1 or -2.
+- The WAVE N message's height on screen: the original places it in the background layer
+  at world height 0; ours sits around the screen's middle.
 
 ## 4. Menus
 - Text weights left from the screenshot comparison. Single Player and the title match Max's

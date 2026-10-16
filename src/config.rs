@@ -2783,10 +2783,11 @@ pub struct CastLook {
     pub lane_wave: (f32, f32),
     /// A finished beam squeezes to nothing this fast.
     pub beam_squeeze: f32,
-    /// Beam width (the white edges sit at ±0.88) and how far above the view top
-    /// the beams reach (?).
+    /// Beam width (the white edges sit at ±0.88) and how long the up and the down beam
+    /// grow from their foot (the 14 px column at 26 px a unit stretched 200 and 360 times
+    /// by BeamIn and BeamDownIn).
     pub beam_width: f32,
-    pub beam_reach: f32,
+    pub beam_reach: (f32, f32),
     /// The glow disc at a beam's foot, per wizard (each wizard has its own beam,
     /// Beam01-04; skin wizards use wizard 1's until theirs are read).
     pub beam_glow: Vec<(f32, f32, f32, f32)>,
@@ -2810,8 +2811,7 @@ pub struct CastLook {
     pub cloud_used: f32,
     pub cloud_hide: f32,
     /// Cloud size in cells (the 139 px backing at 52 px a unit, drawn ×1.31), the icon's
-    /// share of it (126 px icons at 52 px a unit, unscaled), and how far it bobs while
-    /// floating (?).
+    /// share of it (126 px icons at 52 px a unit, unscaled).
     pub cloud_size: f32,
     pub cloud_icon: f32,
     /// SpellCloudFloating's keys over one `cloud_float`: seconds, drift from the rest spot
@@ -2842,7 +2842,7 @@ impl Default for CastLook {
             lane_wave: (0.7, 0.1),
             beam_squeeze: 0.03,
             beam_width: 1.76,
-            beam_reach: 30.0,
+            beam_reach: (107.7, 193.8),
             beam_glow: vec![
                 (0.780, 1.0, 0.980, 0.153),
                 (0.780, 1.0, 0.980, 0.153),

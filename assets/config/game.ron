@@ -100,7 +100,7 @@
         lane_wave: (0.7, 0.1),
         beam_squeeze: 0.03,
         beam_width: 1.76,
-        beam_reach: 30.0,
+        beam_reach: (107.7, 193.8),
         beam_glow: [
             (0.78, 1.0, 0.98, 0.153),
             (0.78, 1.0, 0.98, 0.153),

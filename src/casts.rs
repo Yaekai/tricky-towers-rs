@@ -518,7 +518,6 @@ fn run_beams(
         })
         .unwrap_or((0.0, 2000.0));
     let width = config.cells(look.beam_width);
-    let reach = config.cells(look.beam_reach);
     for (entity, mut beam, mut sprite, mut transform, mut visibility, delay, children) in &mut beams
     {
         if let Some(mut delay) = delay {
@@ -621,6 +620,7 @@ fn run_beams(
             continue;
         }
         // Grows out of its foot, holds, then squeezes to nothing.
+        let reach = config.cells(if beam.kind == BeamKind::Down { look.beam_reach.1 } else { look.beam_reach.0 });
         let length = reach * (t / grow).clamp(0.0, 1.0);
         let squeeze = ((t - last) / look.beam_squeeze.max(0.001)).clamp(0.0, 1.0);
         if squeeze >= 1.0 {
