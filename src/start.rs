@@ -284,8 +284,8 @@ pub(crate) fn show_start_screen(
             .as_ref()
             .and_then(|h| images.as_ref()?.get(h))
             .map_or(PROMPT_KEY, |i| PROMPT_KEY * i.width() as f32 / i.height().max(1) as f32);
-        let before = crate::letters::line_width(art, "PRESS", PROMPT_SIZE);
-        let after = crate::letters::line_width(art, "TO START", PROMPT_SIZE);
+        let before = crate::letters::translated_width(art, "PRESS", PROMPT_SIZE);
+        let after = crate::letters::translated_width(art, "TO START", PROMPT_SIZE);
         let inner = before + PROMPT_GAP + key_w + PROMPT_GAP + after;
         let px = |v: f32| Val::Vh(v / 10.8);
         for mut bar in &mut prompt_bar {

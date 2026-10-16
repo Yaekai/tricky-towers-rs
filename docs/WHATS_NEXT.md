@@ -29,8 +29,10 @@ original and fix what differs:
 ## 4. Menus
 - Text weights left from the screenshot comparison. Single Player and the title match Max's
   clip.
-- Text from the original's 19 language files (the format is read in
-  `docs/research/text-keys.md`; menus use built-in English today).
+- Languages: menu and match text follows the Language setting from the original's language
+  files (`letters::Translations`). Chinese, Japanese, Korean, Russian and Arabic stay English
+  until their fonts are staged; texts with placeholders ({playerIndex}, {targetScore}...) aren't
+  matched yet.
 
 ## 5. Before a release build
 - Remove or switch off everything in [`release-checklist.md`](release-checklist.md)

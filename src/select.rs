@@ -1516,7 +1516,7 @@ pub(crate) fn show_select_screens(
                 if *part == Part::CupName
                     && let (Some(art), Some(mut font)) = (art.as_ref(), font)
                 {
-                    let wide = crate::letters::line_width(art, &words, CUP_NAME_SIZE);
+                    let wide = crate::letters::translated_width(art, &words, CUP_NAME_SIZE);
                     let size = if wide > CUP_NAME_LINE {
                         (CUP_NAME_SIZE * CUP_NAME_LINE / wide).max(18.0)
                     } else {

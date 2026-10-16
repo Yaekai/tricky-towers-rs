@@ -6,7 +6,8 @@
 //! its changes wait for Apply. Kept between runs in `settings.ron`.
 //!
 //! Stats, Credits and Keybinding open their popups (stats.rs, credits.rs, keybinding.rs).
-//! Not done: Quality (kept but changes nothing), text in languages other than English,
+//! Text follows the picked language through `letters::Translations` (languages the letter
+//! sheet can't draw stay English). Not done: Quality (kept but changes nothing),
 //! language flags, slider repeat while held (every 0.2 s), and the tips that
 //! Explanations turns on.
 
@@ -74,8 +75,7 @@ pub const RESOLUTIONS: [(u32, u32); 10] = [
     (3440, 1440),
 ];
 
-/// The original's 19 language flags, in its order, by name (the original shows
-/// flags; only English text exists here).
+/// The original's 19 language flags, in its order, by name (the original shows flags).
 pub const LANGUAGES: [&str; 19] = [
     "English",
     "German",

@@ -153,9 +153,17 @@ impl Plugin for LettersPlugin {
             let _ = shaders.insert(SDF_SHADER.id(), Shader::from_wgsl(SDF_WGSL, "sdf_letter.wgsl"));
             app.add_plugins(bevy::ui_render::prelude::UiMaterialPlugin::<SdfLetter>::default());
         }
-        app.add_systems(
+        app.init_resource::<Translations>().add_systems(
             PostUpdate,
-            (mirror_texts, sync_mirrors, tidy_mirrors, follow_nodes, redraw_when_fields_load, draw_letters)
+            (
+                load_translations,
+                mirror_texts,
+                sync_mirrors,
+                tidy_mirrors,
+                follow_nodes,
+                redraw_when_fields_load,
+                draw_letters,
+            )
                 .chain()
                 .before(bevy::ui::UiSystems::Prepare),
         );
@@ -191,6 +199,146 @@ struct LetterText {
     outline_edge: f32,
 }
 
+/// The language files' names, in `settings::LANGUAGES` order (Finnish is `fl`).
+const LANGUAGE_FILES: [&str; 19] = [
+    "en", "de", "fr", "es", "pt", "it", "ch", "tw", "jp", "ko", "ru", "pl", "ar", "tr", "nl", "sv",
+    "no", "fl", "ro",
+];
+
+/// The picked language's wording for our English texts: each English line of the original's
+/// `en.txt`, in capitals with its button glyphs (`[continue]`...) and line breaks taken out,
+/// mapped to the same key's line in the picked language's file (staged `language/<code>.txt`).
+#[derive(Resource, Default)]
+pub struct Translations {
+    code: String,
+    words: std::collections::HashMap<String, String>,
+}
+
+impl Translations {
+    /// `text` in the picked language, kept in capitals if it was, or `text` itself when there
+    /// is no translation or the letters can't draw it (the original switches to other fonts
+    /// for Chinese, Japanese, Korean, Russian and Arabic; those aren't staged).
+    fn apply(&self, text: &str, sheet: Option<&Letters>) -> String {
+        let Some(found) = self.words.get(&plain(text)) else {
+            return text.to_string();
+        };
+        let found = if text == text.to_uppercase() { found.to_uppercase() } else { found.clone() };
+        let drawable = sheet.is_none_or(|sheet| {
+            found.chars().filter(|c| !c.is_whitespace()).all(|c| {
+                sheet.glyphs.contains_key(&c) || c.to_uppercase().any(|u| sheet.glyphs.contains_key(&u))
+            })
+        });
+        if drawable { found } else { text.to_string() }
+    }
+}
+
+/// The text before and after a line's only button glyph (`[...]`), if it has exactly one.
+fn around_glyph(line: &str) -> Option<(String, String)> {
+    let open = line.find('[')?;
+    let close = line[open..].find(']')? + open;
+    if line[close + 1..].contains('[') {
+        return None;
+    }
+    Some((line[..open].to_string(), line[close + 1..].to_string()))
+}
+
+/// The current translations for code that measures text outside the ECS (a copy of
+/// `Translations::words`).
+static CURRENT: std::sync::LazyLock<std::sync::RwLock<std::collections::HashMap<String, String>>> =
+    std::sync::LazyLock::new(Default::default);
+
+/// How wide `line` draws in the picked language (see `line_width`).
+pub fn translated_width(art: &Art, line: &str, size: f32) -> f32 {
+    let words = CURRENT.read().map(|w| w.clone()).unwrap_or_default();
+    let translations = Translations { code: String::new(), words };
+    line_width(art, &translations.apply(line, art.letters.get(FONT)), size)
+}
+
+/// A line as the translations are keyed: capitals, no button glyphs, one line.
+fn plain(text: &str) -> String {
+    clean(text).to_uppercase()
+}
+
+/// A line without its button glyphs, on one line.
+fn clean(text: &str) -> String {
+    let mut out = String::new();
+    let mut skipping = false;
+    for c in text.replace("\\n", " ").chars() {
+        match c {
+            '[' => skipping = true,
+            ']' => skipping = false,
+            _ if !skipping => out.push(c),
+            _ => {}
+        }
+    }
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Every lookup of one of the original's language files, by key.
+fn read_language(code: &str) -> std::collections::HashMap<String, String> {
+    let text = std::fs::read_to_string(crate::art::extracted_dir().join(format!("language/{code}.txt")))
+        .unwrap_or_default();
+    let mut words = std::collections::HashMap::new();
+    for block in text.split("<lookup>").skip(1) {
+        let between = |open: &str, close: &str| {
+            let start = block.find(open)? + open.len();
+            let end = block[start..].find(close)? + start;
+            Some(block[start..end].to_string())
+        };
+        if let (Some(key), Some(value)) = (between("<key>", "</key>"), between("<translation>", "</translation>")) {
+            let value = value
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&apos;", "'");
+            words.insert(key, value);
+        }
+    }
+    words
+}
+
+/// Loads the picked language when Settings changes it, and has every text redrawn.
+fn load_translations(
+    settings: Option<Res<crate::settings::Settings>>,
+    mut translations: ResMut<Translations>,
+    mut texts: Query<&mut Text, With<MirroredBy>>,
+) {
+    let code = settings
+        .as_ref()
+        .and_then(|s| crate::settings::LANGUAGES.iter().position(|&l| l == s.language))
+        .map_or("en", |i| LANGUAGE_FILES[i]);
+    if translations.code == code {
+        return;
+    }
+    translations.code = code.to_string();
+    translations.words.clear();
+    if code != "en" {
+        let english = read_language("en");
+        let picked = read_language(code);
+        for (key, english) in &english {
+            if let Some(picked) = picked.get(key).filter(|p| !p.trim().is_empty()) {
+                translations.words.insert(plain(english), clean(picked));
+                // A line around one button glyph ("Press [continue] to start") also gives its
+                // two halves, for screens that draw the glyph between two texts.
+                if let (Some((eb, ea)), Some((pb, pa))) = (around_glyph(english), around_glyph(picked)) {
+                    for (e, p) in [(eb, pb), (ea, pa)] {
+                        if !plain(&e).is_empty() {
+                            translations.words.entry(plain(&e)).or_insert_with(|| clean(&p));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if let Ok(mut words) = CURRENT.write() {
+        *words = translations.words.clone();
+    }
+    for mut text in &mut texts {
+        text.set_changed();
+    }
+}
+
 fn letter_text(
     text: &Text,
     font: &TextFont,
@@ -198,6 +346,8 @@ fn letter_text(
     layout: Option<&TextLayout>,
     look: Option<&TextLook>,
     spacing: Option<&LetterSpacing>,
+    translations: &Translations,
+    sheet: Option<&Letters>,
 ) -> LetterText {
     let look = look.copied().unwrap_or_default();
     let (size, view_height) = match font.font_size {
@@ -207,7 +357,7 @@ fn letter_text(
     };
     LetterText {
         spacing: spacing.map_or(0.0, |s| s.0),
-        text: text.0.clone(),
+        text: translations.apply(&text.0, sheet),
         size,
         view_height,
         color: look.face.unwrap_or(color.map_or(Color::WHITE, |c| c.0)),
@@ -224,6 +374,7 @@ fn letter_text(
 fn mirror_texts(
     mut commands: Commands,
     art: Res<Art>,
+    translations: Res<Translations>,
     mut texts: Query<
         (
             Entity,
@@ -248,7 +399,7 @@ fn mirror_texts(
         let mirror = commands
             .spawn((
                 node.clone(),
-                letter_text(text, font, color, layout, look, spacing),
+                letter_text(text, font, color, layout, look, spacing, &translations, art.letters.get(FONT)),
                 Mirrors(entity),
             ))
             .id();
@@ -272,6 +423,8 @@ fn mirror_texts(
 /// Copies text changes to the twin.
 #[allow(clippy::type_complexity)]
 fn sync_mirrors(
+    art: Res<Art>,
+    translations: Res<Translations>,
     texts: Query<
         (
             &MirroredBy,
@@ -294,7 +447,7 @@ fn sync_mirrors(
 ) {
     for (mirror, text, font, color, layout, look, spacing) in &texts {
         if let Ok(mut letters) = mirrors.get_mut(mirror.0) {
-            let new = letter_text(text, font, color, layout, look, spacing);
+            let new = letter_text(text, font, color, layout, look, spacing, &translations, art.letters.get(FONT));
             if *letters != new {
                 *letters = new;
             }
@@ -545,4 +698,24 @@ fn spawn_line(
                 });
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn translations_are_keyed_without_button_glyphs() {
+        assert_eq!(super::plain("Continue [continue]"), "CONTINUE");
+        assert_eq!(super::plain("Connect\n[controller]"), "CONNECT");
+        assert_eq!(
+            super::around_glyph("Press [continue] to start"),
+            Some(("Press ".to_string(), " to start".to_string()))
+        );
+        let translations = super::Translations {
+            code: "de".into(),
+            words: [("SELECT MODE".to_string(), "Modus auswählen".to_string())].into(),
+        };
+        assert_eq!(translations.apply("SELECT MODE", None), "MODUS AUSWÄHLEN");
+        assert_eq!(translations.apply("Select Mode", None), "Modus auswählen");
+        assert_eq!(translations.apply("RACE", None), "RACE");
+    }
 }

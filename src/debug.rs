@@ -131,6 +131,11 @@ pub enum DebugCommand {
     Tap {
         key: String,
     },
+    /// DEBUG-TOOL: pick the menu language by its Settings name (`German`, `French`...), for
+    /// pictures of the translated menus.
+    Language {
+        name: String,
+    },
     /// Save a picture named `name` (offscreen runs only).
     Picture {
         name: String,
@@ -210,6 +215,7 @@ fn apply_debug_commands(
     mut keyboard: Option<ResMut<ButtonInput<KeyCode>>>,
     mut cups: ResMut<crate::cups::Cup>,
     mut galaxy: Option<ResMut<crate::packs::GalaxyDebug>>,
+    mut settings: Option<ResMut<crate::settings::Settings>>,
     mut commands: Commands,
 ) {
     // The tower with this index, as (state, input).
@@ -358,6 +364,11 @@ fn apply_debug_commands(
             DebugCommand::Lose { tower: index } => {
                 if let Some((mut state, _)) = tower!(index) {
                     state.status = TowerStatus::Out;
+                }
+            }
+            DebugCommand::Language { name } => {
+                if let Some(settings) = settings.as_mut() {
+                    settings.language = name;
                 }
             }
             DebugCommand::Tap { key } => {
