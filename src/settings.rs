@@ -42,7 +42,7 @@ impl Plugin for SettingsPlugin {
             .add_systems(Startup, crate::keybinding::spawn_keybinding_popup)
             .add_systems(Update, crate::keybinding::show_keybinding_popup)
             .add_systems(Startup, spawn_settings_screen)
-            .add_systems(Update, (apply_settings, set_effect_volume));
+            .add_systems(Update, (apply_settings, set_effect_volume, read_screen_modes));
     }
 }
 
@@ -62,7 +62,9 @@ impl Quality {
 
 /// Window sizes offered, from 512×384 up to 1920×1080 (the in-between ones are
 /// common sizes, not read from the original, ?), plus Max's 3440×1440 monitor.
-pub const RESOLUTIONS: [(u32, u32); 10] = [
+/// Used when the screen's own modes can't be read (the original lists Screen.resolutions,
+/// the monitor's modes).
+pub const RESOLUTIONS: [(u32, u32); 11] = [
     (512, 384),
     (640, 480),
     (800, 600),
@@ -72,6 +74,7 @@ pub const RESOLUTIONS: [(u32, u32); 10] = [
     (1366, 768),
     (1600, 900),
     (1920, 1080),
+    (2560, 1440),
     (3440, 1440),
 ];
 
@@ -130,6 +133,9 @@ pub struct Settings {
     pub language: String,
     #[serde(skip)]
     pub file: Option<PathBuf>,
+    /// The monitor's own modes (Screen.resolutions), smallest first; empty until read.
+    #[serde(skip)]
+    pub screen_modes: Vec<(u32, u32)>,
 }
 
 impl Default for Settings {
@@ -144,6 +150,7 @@ impl Default for Settings {
             vsync: false,
             language: LANGUAGES[0].to_string(),
             file: None,
+            screen_modes: Vec::new(),
         }
     }
 }
@@ -189,9 +196,14 @@ impl Settings {
             Row::Fullscreen => self.fullscreen = !self.fullscreen,
             Row::Vsync => self.vsync = !self.vsync,
             Row::Resolution => {
-                let at = RESOLUTIONS.iter().position(|&r| r == self.resolution);
-                let next = at.map_or(RESOLUTIONS.len() - 1, |i| cycle(i, RESOLUTIONS.len()));
-                self.resolution = RESOLUTIONS[next];
+                let list = if self.screen_modes.is_empty() {
+                    RESOLUTIONS.to_vec()
+                } else {
+                    self.screen_modes.clone()
+                };
+                let at = list.iter().position(|&r| r == self.resolution);
+                let next = at.map_or(list.len() - 1, |i| cycle(i, list.len()));
+                self.resolution = list[next];
             }
             Row::Quality => {
                 let at = Quality::ALL
@@ -976,6 +988,29 @@ fn apply_settings(
     }
 }
 
+/// Reads the primary monitor's modes once it shows up, for the Resolution row.
+fn read_screen_modes(
+    monitors: Query<&bevy::window::Monitor, With<bevy::window::PrimaryMonitor>>,
+    mut settings: ResMut<Settings>,
+    mut menu: Option<ResMut<SettingsMenu>>,
+) {
+    if !settings.screen_modes.is_empty() {
+        return;
+    }
+    let Ok(monitor) = monitors.single() else { return };
+    let mut modes: Vec<(u32, u32)> =
+        monitor.video_modes.iter().map(|m| (m.physical_size.x, m.physical_size.y)).collect();
+    modes.sort_unstable();
+    modes.dedup();
+    if modes.is_empty() {
+        return;
+    }
+    if let Some(pending) = menu.as_mut().and_then(|m| m.pending.as_mut()) {
+        pending.screen_modes = modes.clone();
+    }
+    settings.screen_modes = modes;
+}
+
 /// Every new sound effect plays at the sound-effects volume (music has its own,
 /// set where it starts). Runs before the audio output picks the sounds up.
 fn set_effect_volume(
@@ -1011,6 +1046,8 @@ mod tests {
         assert!(!s.step(Row::Apply, 1), "Apply has nothing to change");
         // Choices wrap around.
         assert_eq!(s.resolution, (1920, 1080));
+        s.step(Row::Resolution, 1);
+        assert_eq!(s.resolution, (2560, 1440));
         s.step(Row::Resolution, 1);
         assert_eq!(s.resolution, (3440, 1440));
         s.step(Row::Resolution, 1);
