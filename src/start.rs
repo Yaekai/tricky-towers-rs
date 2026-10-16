@@ -223,7 +223,7 @@ pub(crate) fn start_input(
     });
     let pad = gamepads
         .iter()
-        .any(|p| p.any_just_pressed([GamepadButton::South, GamepadButton::Start]));
+        .any(|p| p.any_just_pressed([crate::input::continue_back(p).0, GamepadButton::Start]));
     if key || pad {
         *screen = MenuScreen::Main;
     }
@@ -257,9 +257,11 @@ pub(crate) fn show_start_screen(
     let on = game.phase == Phase::Menu && *screen == MenuScreen::Start;
     let playstation = pads.iter().next().is_some_and(crate::input::is_playstation);
     // The key picture: Space, or the pad's A / Cross once one is plugged in.
+    let swapped = pads.iter().next().is_some_and(crate::input::swaps_continue);
     let key = match (!pads.is_empty(), playstation) {
         (false, _) => "menu_key_space",
         (true, false) => "menu_pad_a",
+        (true, true) if swapped => "menu_pad_circle",
         (true, true) => "menu_pad_cross",
     };
     if let Some(art) = art.as_deref() {

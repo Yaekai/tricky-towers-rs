@@ -35,8 +35,9 @@ original and fix what differs:
   files (`letters::Translations`), in the original's font per language (Meiryo for Russian and
   Japanese, Hans Sans for Chinese and Korean, Myriad for Arabic). Open: long Russian words run
   past fixed boxes unless they carry `letters::AutoSize` (only the seat join label does so far);
-  Arabic is reversed letter by letter like the original (LanguageManager._ReverseText). Japanese
-  swaps the Continue and Back button pictures in the original (LanguageUtil); not done.
+  Arabic is reversed letter by letter like the original (LanguageManager._ReverseText). In
+  Japanese a PlayStation pad confirms with Circle and goes back with Cross (`input::continue_back`);
+  not yet tried with a real PlayStation pad.
 
 ## 5. Before a release build
 - Remove or switch off everything in [`release-checklist.md`](release-checklist.md)

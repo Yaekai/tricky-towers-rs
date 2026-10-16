@@ -634,7 +634,7 @@ fn pause_input(
     for pad in &gamepads {
         up |= pad.just_pressed(GamepadButton::DPadUp);
         down |= pad.just_pressed(GamepadButton::DPadDown);
-        pick |= pad.just_pressed(GamepadButton::South);
+        pick |= pad.just_pressed(crate::input::continue_back(pad).0);
         // Start resumes, as Esc does.
         if pad.just_pressed(GamepadButton::Start) {
             pause.selected = 0;
@@ -1278,7 +1278,7 @@ fn main_menu_input(
                 dir = d;
             }
         }
-        pick |= pad.any_just_pressed([GamepadButton::South, GamepadButton::Start]);
+        pick |= pad.any_just_pressed([crate::input::continue_back(pad).0, GamepadButton::Start]);
     }
     if dir != Vec2::ZERO {
         menu.selected = tile_towards(menu.selected, dir);

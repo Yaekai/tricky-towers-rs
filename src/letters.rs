@@ -85,6 +85,13 @@ const BODY_FONT: &str = "font_body";
 /// and Arabic (Myriad) (InitFontsCommand). The body letters stay Hans Sans Bold everywhere.
 static DISPLAY: std::sync::RwLock<&str> = std::sync::RwLock::new(FONT);
 
+/// The picked language's file code ("en", "jp"...).
+static LANGUAGE: std::sync::RwLock<&str> = std::sync::RwLock::new("en");
+
+pub(crate) fn language() -> &'static str {
+    LANGUAGE.read().map_or("en", |code| *code)
+}
+
 fn display_font(code: &str) -> &'static str {
     match code {
         "ru" | "jp" => "font_meiryo",
@@ -492,6 +499,9 @@ fn load_translations(
     }
     if let Ok(mut font) = DISPLAY.write() {
         *font = display_font(code);
+    }
+    if let Ok(mut language) = LANGUAGE.write() {
+        *language = code;
     }
     for mut text in &mut texts {
         text.set_changed();

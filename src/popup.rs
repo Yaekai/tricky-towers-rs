@@ -314,7 +314,7 @@ fn popup_input(
     for pad in &gamepads {
         up |= pad.just_pressed(GamepadButton::DPadUp);
         down |= pad.just_pressed(GamepadButton::DPadDown);
-        pick |= pad.just_pressed(GamepadButton::South);
+        pick |= pad.just_pressed(crate::input::continue_back(pad).0);
     }
     // The mouse: an item under the cursor is selected as it moves, and a click picks it.
     if let Ok(window) = windows.single() {

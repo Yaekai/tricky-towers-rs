@@ -905,10 +905,11 @@ pub(crate) fn read_taps(
         taps.down |= pad.just_pressed(GamepadButton::DPadDown);
         taps.left |= pad.just_pressed(GamepadButton::DPadLeft);
         taps.right |= pad.just_pressed(GamepadButton::DPadRight);
-        if pad.any_just_pressed([GamepadButton::South, GamepadButton::Start]) {
+        let (go_on, back) = crate::input::continue_back(pad);
+        if pad.any_just_pressed([go_on, GamepadButton::Start]) {
             taps.pad_pick.push(entity);
         }
-        if pad.just_pressed(GamepadButton::East) {
+        if pad.just_pressed(back) {
             taps.pad_back.push(entity);
         }
         taps.pad_add |= pad.just_pressed(GamepadButton::West);

@@ -37,6 +37,21 @@ pub(crate) fn is_playstation(pad: &Gamepad) -> bool {
     pad.vendor_id() == Some(0x054C)
 }
 
+/// Whether a PlayStation pad swaps Continue and Back: in Japanese, Circle confirms and Cross
+/// goes back (JapanesePS4InputMappingFilter, and the PlayStation profile's swapped pictures).
+pub(crate) fn swaps_continue(pad: &Gamepad) -> bool {
+    is_playstation(pad) && crate::letters::language() == "jp"
+}
+
+/// A pad's Continue and Back buttons (South and East, swapped by `swaps_continue`).
+pub(crate) fn continue_back(pad: &Gamepad) -> (GamepadButton, GamepadButton) {
+    if swaps_continue(pad) {
+        (GamepadButton::East, GamepadButton::South)
+    } else {
+        (GamepadButton::South, GamepadButton::East)
+    }
+}
+
 /// Which player a gamepad drives: pads drive players 2, 3, 4 in the order they
 /// connected; alone, the first pad drives player 1.
 fn player_for_slot(players: usize, slot: usize) -> usize {

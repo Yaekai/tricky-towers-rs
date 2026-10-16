@@ -273,9 +273,12 @@ fn show_nav_bar(
     }
     let pad = !pads.is_empty();
     let playstation = pads.iter().next().is_some_and(crate::input::is_playstation);
+    let swapped = pads.iter().next().is_some_and(crate::input::swaps_continue);
     for (glyph, mut image) in &mut glyphs {
         let (keyboard, button) = glyph.0.glyphs();
         let button = match (playstation, glyph.0) {
+            (true, NavItem::Continue) if swapped => "menu_pad_circle",
+            (true, NavItem::Back) if swapped => "menu_pad_cross",
             (true, NavItem::Continue) => "menu_pad_cross",
             (true, NavItem::Back) => "menu_pad_circle",
             _ => button,
