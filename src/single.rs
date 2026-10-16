@@ -1020,7 +1020,8 @@ pub(crate) fn endless_input(
         return;
     }
     config.mode = ENDLESS[menu.endless].mode;
-    // Endless runs use Normal's values (?).
+    // The Endless modes set their own speeds, lives and spells (EndlessPlay); the difficulty
+    // only names a default for what they leave alone.
     config.difficulty = Some(Difficulty::Normal);
     config.players = 1;
     config.opponents = 0;

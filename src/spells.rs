@@ -142,7 +142,7 @@ pub(crate) fn update_spell_lines(
             state.line_wait = magic.wait(game.players, config.difficulty.unwrap_or_default());
             continue;
         };
-        // Endless Race hands out spells like a race (?).
+        // Race lines slide down to the tower; Endless Race's stay at their checkpoint.
         if game.mode == ModeKind::Race {
             let above = line - height;
             if above > magic.line_rush_beyond || state.line_wait <= 0.0 {
@@ -172,6 +172,8 @@ pub(crate) fn update_spell_lines(
             state.auto_cast_light = now;
             continue;
         }
+        // Endless Race's award rule is EndlessRaceGameModeFactory's InstantSpellPicker: Ivy,
+        // Undo, Ivy, Undo, Petrify at random, never the same twice in a row.
         let finish_gap = (game.mode == ModeKind::Race).then(|| game.finish_height - height);
         let behind = leader - height;
         let hurt = state.lives.is_some_and(|l| l < config.survival.lives);
