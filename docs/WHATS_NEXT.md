@@ -34,7 +34,8 @@ original and fix what differs:
 - Languages: menu and match text follows the Language setting from the original's language
   files (`letters::Translations`), in the original's font per language (Meiryo for Russian and
   Japanese, Hans Sans for Chinese and Korean, Myriad for Arabic). Open: long Russian words run
-  past fixed boxes unless they carry `letters::AutoSize` (only the seat join label does so far);
+  past fixed boxes unless they carry `letters::AutoSize` (the seat join label, Settings rows and
+  title tile names do);
   Arabic is reversed letter by letter like the original (LanguageManager._ReverseText). In
   Japanese a PlayStation pad confirms with Circle and goes back with Cross (`input::continue_back`);
   not yet tried with a real PlayStation pad.

@@ -1157,6 +1157,20 @@ fn spawn_main_menu(
                             look,
                             // The MainMenu tile names' characterSpacing.
                             crate::letters::LetterSpacing(-1.0),
+                            // They auto-size down to 18 px across the tile less a margin
+                            // (MainMenu: Local Battle 36, Online Battle 80, Shop 60, the rest 30).
+                            crate::letters::AutoSize {
+                                min: 18.0 / SCREEN.1 * 100.0,
+                                width: (tile.size.0
+                                    - match tile.key {
+                                        "local" => 36.0,
+                                        "online" => 80.0,
+                                        "shop" => 60.0,
+                                        _ => 30.0,
+                                    })
+                                    / SCREEN.1
+                                    * 100.0,
+                            },
                         ));
                     }
                 });

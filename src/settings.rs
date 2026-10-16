@@ -357,6 +357,8 @@ const AREA_CENTRE: f32 = 0.0;
 const ICON: ((f32, f32), f32, f32) = ((100.0, 100.0), 79.0, 11.0);
 const TITLE_X: f32 = 150.0;
 const TITLE_SIZE: f32 = 36.0;
+/// The smallest a row title auto-sizes to.
+const TITLE_MIN: f32 = 24.0;
 /// The row words: EnzoBlack, the display letters in black with no outline.
 const ROW_TEXT: TextLook = TextLook {
     body: false,
@@ -555,7 +557,16 @@ fn spawn_row(
         ..place(title_box, (left + TITLE_X + title_box.0 / 2.0, y))
     })
     .with_children(|t| {
-        t.spawn(label_with(TITLE_SIZE / SCREEN.1 * 100.0, row.title(), ROW_TEXT));
+        // Titles auto-size from 36 down to 24 px in their box: the row less 510 px beside a
+        // slider or a choice, less 263.8 beside a toggle or alone (SettingsList*Item).
+        let free = if matches!(row.kind(), Kind::Slider | Kind::Choice) { 510.0 } else { 263.8 };
+        t.spawn((
+            label_with(TITLE_SIZE / SCREEN.1 * 100.0, row.title(), ROW_TEXT),
+            crate::letters::AutoSize {
+                min: TITLE_MIN / SCREEN.1 * 100.0,
+                width: (ROW.0 - free) / SCREEN.1 * 100.0,
+            },
+        ));
     });
     let arrows = |page: &mut ChildSpawnerCommands| {
         for right in [false, true] {
