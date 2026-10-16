@@ -2856,12 +2856,21 @@ pub struct CastLook {
     /// share of it (126 px icons at 52 px a unit, unscaled).
     pub cloud_size: f32,
     pub cloud_icon: f32,
-    /// SpellCloudFloating's keys over one `cloud_float`: seconds, drift from the rest spot
-    /// (cells, sideways and up) and scale.
-    pub cloud_float_path: Vec<(f32, f32, f32, f32)>,
-    /// SpellCloudUsed: the cloud swells to `.1` in `.0` seconds and holds while the spell
-    /// icon blinks off in these windows (seconds) and the button hint hides.
-    pub cloud_used_swell: (f32, f32),
+    /// SpellCloudFloating's curves over one `cloud_float` (`config::curve`): drift from the
+    /// rest spot (cells, sideways and up) and scale.
+    /// SpellCloudShow / Used / Hide's scale curves, sideways and up (Show hidden until its
+    /// first key; Used and Hide squash the cloud away).
+    pub cloud_show_x: Vec<(f32, f32, f32, f32)>,
+    pub cloud_show_y: Vec<(f32, f32, f32, f32)>,
+    pub cloud_used_x: Vec<(f32, f32, f32, f32)>,
+    pub cloud_used_y: Vec<(f32, f32, f32, f32)>,
+    pub cloud_hide_x: Vec<(f32, f32, f32, f32)>,
+    pub cloud_hide_y: Vec<(f32, f32, f32, f32)>,
+    pub cloud_float_x: Vec<(f32, f32, f32, f32)>,
+    pub cloud_float_y: Vec<(f32, f32, f32, f32)>,
+    pub cloud_float_scale: Vec<(f32, f32, f32, f32)>,
+    /// SpellCloudUsed: the spell icon blinks off in these windows (seconds) and the button
+    /// hint hides.
     pub cloud_used_blinks: Vec<(f32, f32)>,
     /// Where each wizard's light and dark clouds sit, from the wizard.
     /// Wizard 4 wasn't read and uses wizard 1's.
@@ -3022,14 +3031,15 @@ impl Default for CastLook {
             cloud_hide: 0.38,
             cloud_size: 3.5,
             cloud_icon: 0.69,
-            cloud_float_path: vec![
-                (0.0, 0.0, 0.0, 1.0),
-                (0.85, -0.12, 0.07, 1.0167),
-                (1.0, -0.1, 0.0566, 1.05),
-                (1.8667, 0.1, -0.08, 1.0283),
-                (3.0, 0.0, 0.0, 1.0),
-            ],
-            cloud_used_swell: (0.0667, 1.3),
+            cloud_show_x: vec![(0.3333, 0.2, 0.0, 1.161), (0.4, 0.3896, 4.143, 4.143), (0.5, 0.8544, 4.288, 4.288), (0.5333, 0.9805, 3.182, 3.182), (0.6, 0.9734, -2.338, -2.338), (0.6667, 0.8098, -1.514, -1.514), (0.7333, 0.8276, 1.562, 1.562), (0.8333, 0.9953, 0.6947, 0.0)],
+            cloud_show_y: vec![(0.3333, 0.2, 0.0, 0.0), (0.4, 0.2, 1.161, 1.161), (0.5, 0.5397, 4.768, 4.768), (0.5333, 0.7011, 4.816, 4.816), (0.6, 0.9805, 3.182, 3.182), (0.6667, 0.9734, -2.338, -2.338), (0.7333, 0.8098, -1.514, -1.514), (0.8333, 0.9953, 0.6947, 0.0)],
+            cloud_used_x: vec![(0.0, 1.0, 0.0, 2.345), (0.06667, 1.3, -1.043, -1.043), (0.2, 1.3, -1.814, 0.0), (0.8167, 1.267, 1.27, 0.0), (0.8833, 1.3, -2.541, 0.0), (0.9833, 1.234, -1.079, -1.079), (1.083, 0.7128, -7.592, -7.592), (1.217, 0.0, -2.336, 0.0)],
+            cloud_used_y: vec![(0.0, 1.0, 0.0, 0.0), (0.06667, 1.3, 2.194, 0.0), (0.6833, 1.3, 0.0, 0.0), (0.8167, 1.279, -6.864, 0.0), (0.8833, 1.3, 1.373, 0.0), (0.9833, 1.251, -1.023, -1.023), (1.083, 1.085, -2.35, -2.35), (1.217, 0.0, 6.402, 0.0)],
+            cloud_hide_x: vec![(0.0, 1.0, 0.0, 2.345), (0.05, 1.134, 1.487, 1.487), (0.08333, 1.1, -4.241, -4.241), (0.1333, 0.8271, -6.368, -6.368), (0.2667, 0.05515, -3.028, -3.028), (0.3, 0.0, -0.1448, -0.1448), (0.3833, 0.0, -1.043, 0.0)],
+            cloud_hide_y: vec![(0.0, 1.0, 0.0, 0.0), (0.05, 1.0, 2.589, 2.589), (0.08333, 1.08, 1.915, 1.915), (0.1333, 1.085, -2.35, -2.35), (0.2667, 0.0, 0.1419, 0.1419), (0.3, 0.002413, 0.01448, 0.01448), (0.3833, 0.0, 1.344, 0.0)],
+            cloud_float_x: vec![(0.0, 0.0, 0.0, -0.1412), (0.85, -0.12, 0.03761, 0.03761), (1.867, 0.1, 0.06408, 0.06408), (3.0, 0.0, -0.08824, 0.0)],
+            cloud_float_y: vec![(0.0, 0.0, 0.0, 0.08235), (0.85, 0.07, -0.03259, -0.03259), (1.867, -0.08, -0.03848, -0.03848), (3.0, 0.0, 0.07059, 0.0)],
+            cloud_float_scale: vec![(0.0, 1.0, 0.0, 0.05), (1.0, 1.05, 0.0125, 0.0125), (3.0, 1.0, -0.025, 0.0)],
             cloud_used_blinks: vec![
                 (0.2, 0.2667),
                 (0.4, 0.4833),

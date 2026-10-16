@@ -990,12 +990,6 @@ fn flick_hints(
     }
 }
 
-fn ease_out_back(x: f32) -> f32 {
-    let c1 = 1.70158;
-    let c3 = c1 + 1.0;
-    1.0 + c3 * (x - 1.0).powi(3) + c1 * (x - 1.0).powi(2)
-}
-
 /// Places each cloud beside its wizard and plays Show, Floating, Used and Hide.
 fn animate_clouds(
     mut commands: Commands,
@@ -1027,28 +1021,28 @@ fn animate_clouds(
         let spot = Vec2::new(if flip { -spot.x } else { spot.x }, spot.y);
         let t = cloud.time;
         let mut drift = Vec2::ZERO;
-        let (scale, lift) = match cloud.stage {
+        use crate::config::curve;
+        let pair = |x: &[(f32, f32, f32, f32)], y: &[(f32, f32, f32, f32)]| Vec2::new(curve(x, t), curve(y, t));
+        let scale = match cloud.stage {
             CloudStage::Show => {
                 if t >= look.cloud_show {
                     cloud.stage = CloudStage::Float;
                     cloud.time = 0.0;
                 }
-                (ease_out_back((t / look.cloud_show).min(1.0)), 0.0)
+                // Hidden until the clip turns it on.
+                if t < look.cloud_show_x.first().map_or(0.0, |k| k.0) {
+                    Vec2::ZERO
+                } else {
+                    pair(&look.cloud_show_x, &look.cloud_show_y)
+                }
             }
             CloudStage::Float => {
                 let at = t % look.cloud_float.max(0.01);
-                let key = |pick: fn(&(f32, f32, f32, f32)) -> f32| {
-                    let pairs: Vec<(f32, f32)> = look.cloud_float_path.iter().map(|k| (k.0, pick(k))).collect();
-                    crate::config::keyed(&pairs, at)
-                };
-                drift = Vec2::new(key(|k| k.1), key(|k| k.2));
-                (key(|k| k.3), 0.0)
+                drift = Vec2::new(curve(&look.cloud_float_x, at), curve(&look.cloud_float_y, at));
+                Vec2::splat(curve(&look.cloud_float_scale, at))
             }
-            CloudStage::Used => {
-                let (swell, size) = look.cloud_used_swell;
-                (1.0 + (size - 1.0) * (t / swell.max(0.001)).min(1.0), 0.0)
-            }
-            CloudStage::Hide => (1.0 - (t / look.cloud_hide).min(1.0), 0.0),
+            CloudStage::Used => pair(&look.cloud_used_x, &look.cloud_used_y),
+            CloudStage::Hide => pair(&look.cloud_hide_x, &look.cloud_hide_y),
         };
         let done = match cloud.stage {
             CloudStage::Used => t >= look.cloud_used,
@@ -1059,8 +1053,8 @@ fn animate_clouds(
             commands.entity(entity).despawn();
             continue;
         }
-        transform.translation = (at + config.cells(1.0) * (spot + drift + Vec2::Y * lift)).extend(21.0);
-        transform.scale = Vec3::splat(scale.max(0.0));
+        transform.translation = (at + config.cells(1.0) * (spot + drift)).extend(21.0);
+        transform.scale = scale.max(Vec2::ZERO).extend(1.0);
         // While used, the spell icon blinks and the button hint hides.
         let used = cloud.stage == CloudStage::Used;
         let blink_off = used && look.cloud_used_blinks.iter().any(|&(a, b)| t >= a && t < b);
