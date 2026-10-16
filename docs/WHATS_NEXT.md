@@ -35,7 +35,8 @@ original and fix what differs:
   files (`letters::Translations`), in the original's font per language (Meiryo for Russian and
   Japanese, Hans Sans for Chinese and Korean, Myriad for Arabic). Open: long Russian words run
   past fixed boxes unless they carry `letters::AutoSize` (only the seat join label does so far);
-  Arabic isn't drawn right to left.
+  Arabic is reversed letter by letter like the original (LanguageManager._ReverseText). Japanese
+  swaps the Continue and Back button pictures in the original (LanguageUtil); not done.
 
 ## 5. Before a release build
 - Remove or switch off everything in [`release-checklist.md`](release-checklist.md)

@@ -90,7 +90,7 @@ fn display_font(code: &str) -> &'static str {
         "ru" | "jp" => "font_meiryo",
         "ch" | "tw" => BODY_FONT,
         "ko" => "font_hans_kr",
-        "ar" => "font_myriad",
+        "ar" => "font_myriad_letters",
         _ => FONT,
     }
 }
@@ -325,8 +325,40 @@ fn controller_word(code: &str) -> &'static str {
         "pt" => "comando",
         "sv" => "handkontroll",
         "tr" => "kontrol cihazı",
+        "ch" | "tw" => "控制器",
+        "jp" => "コントローラー",
+        "ko" => "컨트롤러",
+        // Reversed like every Arabic line (LanguageUtil).
+        "ar" => "مكحت ةدحو",
         _ => "controller",
     }
+}
+
+/// Arabic lines as the original draws them (LanguageManager._ReverseText): the letters in
+/// reverse order, with `[...]` and `{...}` kept readable; no joining of the letters.
+fn reverse_text(text: &str) -> String {
+    let mut out: Vec<char> = Vec::new();
+    let mut chars = text.chars().peekable();
+    // Reverse each bracketed part first, so the whole-line reverse turns it back.
+    while let Some(c) = chars.next() {
+        let close = match c {
+            '[' => ']',
+            '{' => '}',
+            _ => {
+                out.push(c);
+                continue;
+            }
+        };
+        let mut part = vec![c];
+        for d in chars.by_ref() {
+            part.push(d);
+            if d == close {
+                break;
+            }
+        }
+        out.extend(part.into_iter().rev());
+    }
+    out.into_iter().rev().collect()
 }
 
 /// The text before and after a line's only button glyph (`[...]`), if it has exactly one.
@@ -427,6 +459,7 @@ fn load_translations(
             if let Some(picked) = picked
                 .get(key)
                 .filter(|p| !p.trim().is_empty())
+                .map(|p| if code == "ar" { reverse_text(&p.replace("\\n", "\n")) } else { p.clone() })
                 .map(|p| p.replace("[controller]", word))
                 .as_ref()
             {
@@ -840,6 +873,11 @@ fn spawn_line(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn arabic_lines_reverse_with_their_brackets_kept() {
+        assert_eq!(super::reverse_text("ab [cd] {ef}"), "{ef} [cd] ba");
+    }
+
     #[test]
     fn translations_are_keyed_without_button_glyphs() {
         assert_eq!(super::plain("Continue [continue]"), "CONTINUE");
