@@ -342,19 +342,28 @@ fn build(
                     let lost = art.image("heart_lost");
                     node.with_children(|row| {
                         for i in 0..*most {
-                            let (picture, color) = if i < *lives {
-                                (image.clone(), Color::WHITE)
+                            // gph_cross is 25 x 24 px against the heart's 29, drawn at its own
+                            // size in the heart's place.
+                            let (picture, color, shown) = if i < *lives {
+                                (image.clone(), Color::WHITE, Vec2::splat(size))
                             } else {
                                 match &lost {
-                                    Some(cross) => (cross.clone(), Color::WHITE),
-                                    None => (image.clone(), Color::srgba(0.2, 0.2, 0.25, 0.6)),
+                                    Some(cross) => (cross.clone(), Color::WHITE, Vec2::new(25.0, 24.0) / 29.0 * size),
+                                    None => (image.clone(), Color::srgba(0.2, 0.2, 0.25, 0.6), Vec2::splat(size)),
                                 }
                             };
-                            row.spawn((
+                            row.spawn(Node {
+                                width: Val::Px(size),
+                                height: Val::Px(size),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            })
+                            .with_child((
                                 ImageNode::new(picture).with_color(color),
                                 Node {
-                                    width: Val::Px(size),
-                                    height: Val::Px(size),
+                                    width: Val::Px(shown.x),
+                                    height: Val::Px(shown.y),
                                     ..default()
                                 },
                             ));

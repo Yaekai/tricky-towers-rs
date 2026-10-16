@@ -516,6 +516,7 @@ foreach ($w in 1..4) { Add-Sprite "wizard_$w" "icn_gameInfoWizard0$w" "hud\wizar
 # --- Orbs and overlays ---
 Add-Sprite 'life_orb'      'gph_heart_filled'     'fx\life_orb.png'   'Heart (used for the Extra Life orb and HUD hearts)'
 Add-Sprite 'heart'         'gph_heart_filled'     'hud\heart.png'     'HUD heart'
+Add-Sprite 'heart_lost'    'gph_cross'            'hud\heart_lost.png' 'HUD lost life cross'
 Add-Sprite 'drop_guide'    'gph_brick_guide'      'fx\drop_guide.png' 'Drop guide (stretched to the brick width and view height, tinted)'
 Add-Sprite 'spell_line'    'gph_spellPickup'      'fx\spell_line.png' 'One 1-unit piece of the spell line (16 per line, tinted with 9 rainbow colours)'
 Add-Sprite 'finish_line'   'gph_finishLineEnd'    'fx\finish_line.png' 'Finish line tile, repeated every 1.2 cells (the original names it "End")'
