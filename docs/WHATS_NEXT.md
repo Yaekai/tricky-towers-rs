@@ -14,8 +14,8 @@ original and fix what differs:
 - Select Players, Select Mode, Single Player, Settings and the pause screen.
 
 ## 2. Gameplay still missing or estimated
-- **Puzzle**: compared with Max's clip; the laser and the foreground sand now match. The camera
-  framing at other moments (zoomed out for wide towers) is still to check.
+- **Puzzle**: compared with Max's clip at 15 s and 40 s; the laser, the foreground sand and the
+  base rise now match.
 - **Survival**: the moon drop (it falls only for bricks 2.5× or bigger, and no spell here
   makes them that big yet).
 - Done since the last list: Endless Puzzle obstacle blocks (checked, they match), Auto Rotate
@@ -25,12 +25,13 @@ original and fix what differs:
   (intro timings, cup panel timings, `moments` and `casts` values).
 
 ## 3. Look and effects
-- The beams' particles are drawn alpha-blended; the original adds them (additive shaders).
-- Endless Race clouds: the cloud planes' texture direction.
+- Character spacing (`letters::LetterSpacing`) is set on the title names, match text, menu
+  hints, intro and Survival count; other texts the prefabs space (-1, -2 on SURVIVAL/SPECIAL,
+  -4 on scores) still draw at 0.
 
 ## 4. Menus
-- Small layout differences left from the screenshot comparison (title tile labels about 5%
-  large, text weights). Single Player and the title match Max's clip otherwise.
+- Text weights left from the screenshot comparison. Single Player and the title match Max's
+  clip.
 - Title tiles: the wizard over the Local Battle frame and the earth's size need those parts
   staged as their own layers.
 - Text from the original's 19 language files (the format is read in
