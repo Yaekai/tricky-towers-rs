@@ -26,6 +26,7 @@ impl Plugin for VisualsPlugin {
             .init_resource::<MenuLook>()
             .init_resource::<MenuScene>()
             .init_resource::<SceneState>()
+            .init_resource::<ViewClimb>()
             .add_systems(Startup, setup_scene)
             .add_systems(
                 Update,
@@ -53,6 +54,7 @@ impl Plugin for VisualsPlugin {
             .add_systems(Update, twinkle_stars.before(fit_backgrounds))
             .add_systems(Update, fade_eclipse)
             .add_systems(Update, sweep_lasers)
+            .add_systems(Update, place_pillar_bases.after(frame_towers))
             .add_systems(Update, drop_stars.before(twinkle_stars))
             .add_systems(
                 Update,
@@ -332,12 +334,22 @@ impl Default for ViewSize {
     }
 }
 
-fn track_view_size(windows: Query<&Window>, mut view: ResMut<ViewSize>) {
-    if let Ok(window) = windows.single() {
-        let size = Vec2::new(window.width(), window.height());
-        if view.0 != size {
-            view.0 = size;
-        }
+/// The view's size as the camera draws it (its logical viewport, what its projection is
+/// sized by); a window's own width can differ from it (display scaling, a resolution set
+/// while full screen), which left the background short of the screen's edges.
+fn track_view_size(
+    cameras: Query<&Camera, With<MainCamera>>,
+    windows: Query<&Window>,
+    mut view: ResMut<ViewSize>,
+) {
+    let size = cameras
+        .iter()
+        .find_map(|c| c.logical_viewport_size())
+        .or_else(|| windows.single().ok().map(|w| Vec2::new(w.width(), w.height())));
+    if let Some(size) = size
+        && view.0 != size
+    {
+        view.0 = size;
     }
 }
 
@@ -1347,6 +1359,27 @@ fn layer_z(art: &Art, name: &str, order: usize) -> f32 {
     -900.0 + z
 }
 
+/// The Puzzle trial pillar's base (PUZZLE_LASER_PILAR): it stands on the view's bottom edge.
+#[derive(Component)]
+struct PillarBase;
+
+fn place_pillar_bases(
+    view_size: Res<ViewSize>,
+    camera: Query<(&Transform, &Projection), With<MainCamera>>,
+    mut bases: Query<(&mut Transform, &ChildOf), (With<PillarBase>, Without<MainCamera>)>,
+    parents: Query<&GlobalTransform>,
+) {
+    let Ok((camera, Projection::Orthographic(ortho))) = camera.single() else {
+        return;
+    };
+    let bottom = camera.translation.y - view_size.0.y * ortho.scale * 0.5;
+    for (mut transform, parent) in &mut bases {
+        if let Ok(line) = parents.get(parent.parent()) {
+            transform.translation.y = bottom - line.translation().y;
+        }
+    }
+}
+
 /// A background layer pinned to the screen (manifest entries with `screen`).
 #[derive(Component, Clone)]
 struct ScreenLayer {
@@ -1377,6 +1410,11 @@ struct ScreenLayer {
 /// it shows, the camera draws only the scene's layers, so a match left behind stays hidden.
 #[derive(Resource, Default, PartialEq)]
 pub(crate) struct MenuScene(pub bool);
+
+/// How far the camera has climbed above the lowest it has been, in view units (41.54 a view):
+/// background layers with parallax 1 (the desert sand) sink by it, as BackgroundLayer.Update.
+#[derive(Resource, Default)]
+pub(crate) struct ViewClimb(pub f32);
 
 /// Whether the live Race scene is up (its waves run), and how far the camera has climbed.
 #[derive(Resource, Default)]
@@ -2269,7 +2307,9 @@ fn fit_backgrounds(
     mut lowest: Local<Option<f32>>,
     menu_scene: Res<MenuScene>,
     mut scene_state: ResMut<SceneState>,
+    mut view_climb: ResMut<ViewClimb>,
     config: Res<GameConfig>,
+    game: Res<Match>,
 ) {
     let Ok((Projection::Orthographic(ortho), camera)) = camera.single() else {
         return;
@@ -2287,7 +2327,12 @@ fn fit_backgrounds(
     for mut sprite in &mut sky {
         sprite.custom_size = Some(view);
     }
-    // How far the camera has climbed above the lowest it has been.
+    // How far the camera has climbed above the lowest it has been this match.
+    // It counts from where the camera sits when play starts (BackgroundLayer keeps the
+    // camera's first bottom): the menus and the intro's sweep don't count.
+    if menu_scene.0 || !matches!(game.phase, Phase::Playing | Phase::Over) {
+        *lowest = None;
+    }
     let low = lowest.get_or_insert(camera.translation.y);
     *low = low.min(camera.translation.y);
     // Behind the menus the scene sits as at a match's start.
@@ -2297,6 +2342,7 @@ fn fit_backgrounds(
         camera.translation.y - *low
     };
     scene_state.climb = climb / (view.y / config.hud.camera_height.max(0.01)).max(0.0001);
+    view_climb.0 = scene_state.climb;
     for (mut layer, mut transform, mut star, sprite, falling) in &mut screen {
         let unit = view.y / layer.view_height;
         let across = view.x / unit;
@@ -2677,6 +2723,10 @@ fn dress_platforms(
                 let rest_strip = if battle_laser {
                     art_strip_tall(&art, rest, c, line_width, config.cells(off_h), Vec3::X * line_x)
                         .map(|strip| line.with_child((strip, LaserRest)).id())
+                } else if trial_laser && name == "laser" {
+                    // A Puzzle trial's laser is on all the time (PuzzleSinglePlayerLaserLayer).
+                    art_strip_tall(&art, rest, c, line_width, config.cells(config.puzzle.trial_laser_height), Vec3::X * line_x)
+                        .map(|strip| line.with_child(strip).id())
                 } else {
                     art_strip(&art, rest, c, line_width, Vec3::X * line_x).map(|strip| line.with_child(strip).id())
                 };
@@ -2709,47 +2759,56 @@ fn dress_platforms(
                     }
                 }
                 // A Puzzle trial's laser comes from a glowing ball on a pillar at its
-                // right end (the original's PuzzleSinglePlayerLaserLayer: PUZZLE_LASER's
-                // Ball and PUZZLE_LASER_PILAR, ?: their size here).
+                // right end, laid out as the original's PUZZLE_LASER prefab (in cells, from
+                // the ball): the pink top 5.2 under it, six column tiles from 9.08 down every
+                // 3.2, each picture at its own size; and at the view's bottom the
+                // PUZZLE_LASER_PILAR base of grassy floor columns and two cacti (`PillarBase`).
                 if name == "laser"
                     && config.trial.is_some()
-                    && let Some(ball) = art.image("fx_laserball")
+                    && art.image("fx_laserball").is_some()
                 {
                     let x = ball_x;
-                    if let Some(tile) = art.image("fx_laser_pillar_tile") {
-                        let depth = config.cells(height) + c * 9.0;
-                        line.with_child((
-                            Sprite {
-                                image: tile,
-                                custom_size: Some(Vec2::new(c * 1.6, depth)),
-                                image_mode: SpriteImageMode::Tiled {
-                                    tile_x: false,
-                                    tile_y: true,
-                                    stretch_value: 1.0,
-                                },
-                                ..default()
-                            },
-                            Transform::from_xyz(x, -depth * 0.5, -0.2),
-                        ));
+                    let piece = |key: &str, at: Vec2, z: f32, flip: bool, l: &mut EntityCommands| {
+                        if let Some((sprite, anchor, mut transform)) = art_sprite(&art, key, c) {
+                            transform.translation = Vec3::new(x + at.x * c, at.y * c, z);
+                            if flip {
+                                transform.scale.x = -transform.scale.x;
+                            }
+                            l.with_child((sprite, anchor, transform));
+                        }
+                    };
+                    for y in [-9.08, -12.28, -15.48, -18.66, -21.86, -25.06] {
+                        piece("fx_laser_pillar_tile", Vec2::new(0.0, y), -0.2, false, &mut line);
                     }
-                    if let Some(top) = art.image("fx_laser_pillar_top") {
-                        line.with_child((
-                            Sprite {
-                                image: top,
-                                custom_size: Some(Vec2::new(c * 2.4, c * 3.0)),
-                                ..default()
-                            },
-                            Transform::from_xyz(x, -c * 0.6, -0.1),
-                        ));
+                    piece("fx_laser_pillar_top", Vec2::new(0.0, -5.2), -0.1, false, &mut line);
+                    piece("fx_laserball", Vec2::ZERO, 0.6, false, &mut line);
+                    let mut parts = Vec::new();
+                    for (key, at, z, flip) in [
+                        ("bg_race_cactus_right", Vec2::new(1.6, 9.21), -0.1, false),
+                        ("bg_race_cactus_left", Vec2::new(-1.53, 9.04), -0.1, false),
+                        ("puzzle_piece_2", Vec2::new(0.57, 8.82), 0.0, false),
+                        ("puzzle_piece_1", Vec2::new(-1.16, 8.53), 0.0, true),
+                        ("puzzle_piece_2", Vec2::new(1.48, 8.02), 0.1, true),
+                        ("puzzle_piece_1", Vec2::new(-0.54, 6.62), 0.1, true),
+                    ] {
+                        if let Some((sprite, anchor, mut transform)) = art_sprite(&art, key, c) {
+                            transform.translation = Vec3::new(at.x * c, at.y * c, z);
+                            if flip {
+                                transform.scale.x = -transform.scale.x;
+                            }
+                            parts.push((sprite, anchor, transform));
+                        }
                     }
-                    line.with_child((
-                        Sprite {
-                            image: ball,
-                            custom_size: Some(Vec2::splat(c * 2.4)),
-                            ..default()
-                        },
-                        Transform::from_xyz(x, 0.0, 0.6),
-                    ));
+                    let base = line
+                        .commands()
+                        .spawn((PillarBase, Transform::from_xyz(x, 0.0, -0.3), Visibility::default()))
+                        .with_children(|b| {
+                            for part in parts {
+                                b.spawn(part);
+                            }
+                        })
+                        .id();
+                    line.add_child(base);
                 }
                 // A race trial's finish line carries the time left beside an hourglass
                 // (gap-scan.md 4), fading in over the first second.

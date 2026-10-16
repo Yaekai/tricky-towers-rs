@@ -672,10 +672,13 @@ fn fit_weather(
         Query<(&CoronaRay, &mut Sprite, &mut Transform), Without<crate::visuals::MainCamera>>,
         Query<(&SurvivalMist, &mut Sprite, &mut Transform), Without<crate::visuals::MainCamera>>,
     )>,
+    climb: Option<Res<crate::visuals::ViewClimb>>,
 ) {
     let weather = &config.weather;
     let (_, size) = view(&camera, view_size.0);
     let t = time.elapsed_secs();
+    // The sand and sandstorm layers (parallax 1) sink as the camera climbs.
+    let sink = climb.as_deref().map_or(0.0, |c| c.0) * size.y / 41.54;
     for (strip, mut sprite, mut transform) in &mut parts.p0() {
         let (h, lift) = if strip.front {
             (weather.sand_front, 0.0)
@@ -684,7 +687,7 @@ fn fit_weather(
         };
         let h = size.y * h;
         sprite.custom_size = Some(Vec2::new(size.x, h));
-        transform.translation.y = -size.y * (0.5 - lift) + h * 0.5;
+        transform.translation.y = -size.y * (0.5 - lift) + h * 0.5 - sink;
     }
     let unit = size.y / 41.54;
     for (layer, mut sprite, mut transform) in &mut parts.p1() {
@@ -694,7 +697,7 @@ fn fit_weather(
         // A band across the view near its bottom; two copies side by side slide
         // across and wrap, each band starting a share further on and running faster.
         sprite.custom_size = Some(Vec2::new(size.x, height * unit));
-        transform.translation.y = -size.y * 0.5 + centre * unit;
+        transform.translation.y = -size.y * 0.5 + centre * unit - sink;
         let i = layer.index as f32;
         let speed = weather.sandstorm_speed + i * weather.sandstorm_offset;
         let shift = (t * speed + i / layer.count.max(1) as f32).fract();

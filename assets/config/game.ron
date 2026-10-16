@@ -373,7 +373,7 @@
         sand_strip: 0.085,
         sand_lift: 0.027,
         sand_alpha: 0.803,
-        sand_front: 0.2,
+        sand_front: 0.15,
         puzzle_pro_sky: [
             (171, 5, 76),
             (184, 68, 66),
@@ -572,6 +572,7 @@
         count_flash: 0.3,
         base_rise_time: 0.4,
         laser_heights: (1.2, 1.48),
+        trial_laser_height: 1.02,
         floor: Normal,
         floor_depth: 6.0,
         easy_floor: (5, 0, 2),

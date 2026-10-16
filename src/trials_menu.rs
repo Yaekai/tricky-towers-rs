@@ -197,7 +197,8 @@ pub(crate) enum TrialPart {
     Face(usize),
 }
 
-/// Trial `index`'s place on its page: column-major, 1-5 down the left (?).
+/// Trial `index`'s place on its page: column-major, 1-5 down the left, 125 px apart, columns
+/// 440 px apart (ListSelectComponent with 5 per column).
 fn slot(index: usize, per_tier: usize) -> (f32, f32) {
     let local = index % per_tier.max(1);
     let (column, row) = (local / ROWS, local % ROWS);
@@ -715,7 +716,7 @@ pub(crate) fn show_trials_screen(
                     format!("{} TRIALS", name.to_uppercase())
                 })
             }
-            // The count against all the medals there are (?).
+            // Medals earned against all there are (MedalsText: earned + "/" + total).
             TrialPart::MedalCount => format!(
                 "{medals}/{}",
                 config.trials.len() as u32 * tiers.medals_per_trial

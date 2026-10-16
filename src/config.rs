@@ -656,6 +656,8 @@ pub struct PuzzleRules {
     /// layer's zoom; these are measured from Max's Puzzle clip (core and glow), and the
     /// picture is stretched once across, not repeated.
     pub laser_heights: (f32, f32),
+    /// A trial's laser (always on), measured from Max's trial 7 screenshot.
+    pub trial_laser_height: f32,
     pub base_rise_time: f32,
     /// The floor each round is built on, in place of a flat base.
     pub floor: PuzzleFloor,
@@ -712,6 +714,7 @@ impl Default for PuzzleRules {
             count_flash: 0.3,
             base_rise_time: 0.4,
             laser_heights: (1.2, 1.48),
+            trial_laser_height: 1.02,
             floor: PuzzleFloor::Normal,
             floor_depth: 6.0,
             easy_floor: (5, 0, 2),
@@ -2253,7 +2256,7 @@ impl Default for WeatherLook {
             sand_strip: 0.085,
             sand_lift: 0.027,
             sand_alpha: 0.803,
-            sand_front: 0.2,
+            sand_front: 0.15,
             puzzle_pro_sky: vec![[0xAB, 0x05, 0x4C], [0xB8, 0x44, 0x42]],
             // DesertProSun sits 9 units above the view centre; gph_eclipsedSun is
             // 408 px at 26 px a unit; the view is 41.54 units tall.

@@ -185,6 +185,17 @@ fn wanted(
                 Shows::Text(left.to_string(), rgb(look.place_first))
             }
         }
+        // A Puzzle trial's bricks left to place (BricksLeftView beside the next card).
+        Kind::Count
+            if game.mode == ModeKind::Puzzle && config.trial.is_some() && game.phase != Phase::Menu =>
+        {
+            if state.status == TowerStatus::Out || game.phase == Phase::Over {
+                Shows::Nothing
+            } else {
+                let left = config.puzzle.bricks.saturating_sub(state.bricks_used());
+                Shows::Text(left.to_string(), rgb(look.place_first))
+            }
+        }
         // Places only in battles: trials show none.
         Kind::Place if game.mode == ModeKind::Race && config.trial.is_none() && playing => {
             match place {
@@ -204,6 +215,15 @@ fn wanted(
                 }
                 None => Shows::Nothing,
             }
+        }
+        // A Puzzle trial has one life: a dropped brick fails it (one heart under the wizard).
+        Kind::Hearts
+            if game.mode == ModeKind::Puzzle
+                && config.trial.is_some()
+                && state.status != TowerStatus::Out
+                && game.phase != Phase::Over =>
+        {
+            Shows::Hearts(1, 1)
         }
         Kind::Hearts if state.status != TowerStatus::Out && game.phase != Phase::Over => {
             match state.lives {
