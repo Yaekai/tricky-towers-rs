@@ -80,6 +80,27 @@ const OUTLINE_EDGE: f32 = 0.208;
 const FONT: &str = "font_main";
 const BODY_FONT: &str = "font_body";
 
+/// The display letters in use: the original swaps EnzoBlack for another font in Russian and
+/// Japanese (Meiryo Bold), Chinese (Hans Sans Bold, our body letters), Korean (Hans Sans KR)
+/// and Arabic (Myriad) (InitFontsCommand). The body letters stay Hans Sans Bold everywhere.
+static DISPLAY: std::sync::RwLock<&str> = std::sync::RwLock::new(FONT);
+
+fn display_font(code: &str) -> &'static str {
+    match code {
+        "ru" | "jp" => "font_meiryo",
+        "ch" | "tw" => BODY_FONT,
+        "ko" => "font_hans_kr",
+        "ar" => "font_myriad",
+        _ => FONT,
+    }
+}
+
+/// The picked language's display letters, or EnzoBlack's when that font isn't staged.
+fn display_sheet(art: &Art) -> Option<&Letters> {
+    let name = DISPLAY.read().map_or(FONT, |n| *n);
+    art.letters.get(name).or_else(|| art.letters.get(FONT))
+}
+
 /// How a text looks when drawn with the original's letters, like its TextMeshPro
 /// material: the body letters or the display ones, a face colour that replaces the
 /// `TextColor` (which stays readable on the plain-shape screens), and an outline.
@@ -219,8 +240,7 @@ pub struct Translations {
 
 impl Translations {
     /// `text` in the picked language, kept in capitals if it was, or `text` itself when there
-    /// is no translation or the letters can't draw it (the original switches to other fonts
-    /// for Chinese, Japanese, Korean, Russian and Arabic; those aren't staged).
+    /// is no translation or the letters can't draw it (the language's font isn't staged).
     fn apply(&self, text: &str, sheet: Option<&Letters>) -> String {
         let key = plain(text);
         // A line with a value in it: the value goes into the picked language's line.
@@ -284,7 +304,7 @@ static CURRENT: std::sync::LazyLock<std::sync::RwLock<std::collections::HashMap<
 pub fn translated_width(art: &Art, line: &str, size: f32) -> f32 {
     let words = CURRENT.read().map(|w| w.clone()).unwrap_or_default();
     let translations = Translations { code: String::new(), words, patterns: Vec::new() };
-    line_width(art, &translations.apply(line, art.letters.get(FONT)), size)
+    line_width(art, &translations.apply(line, display_sheet(art)), size)
 }
 
 /// A line as the translations are keyed: capitals, no button glyphs, one line.
@@ -341,6 +361,7 @@ fn load_translations(
     settings: Option<Res<crate::settings::Settings>>,
     mut translations: ResMut<Translations>,
     mut texts: Query<&mut Text, With<MirroredBy>>,
+    mut drawn: Query<&mut LetterText>,
 ) {
     let code = settings
         .as_ref()
@@ -392,7 +413,14 @@ fn load_translations(
     if let Ok(mut words) = CURRENT.write() {
         *words = translations.words.clone();
     }
+    if let Ok(mut font) = DISPLAY.write() {
+        *font = display_font(code);
+    }
     for mut text in &mut texts {
+        text.set_changed();
+    }
+    // Texts that read the same (numbers) are drawn again in the new letters too.
+    for mut text in &mut drawn {
         text.set_changed();
     }
 }
@@ -457,7 +485,7 @@ fn mirror_texts(
         let mirror = commands
             .spawn((
                 node.clone(),
-                letter_text(text, font, color, layout, look, spacing, &translations, art.letters.get(FONT)),
+                letter_text(text, font, color, layout, look, spacing, &translations, display_sheet(&art)),
                 Mirrors(entity),
             ))
             .id();
@@ -505,7 +533,7 @@ fn sync_mirrors(
 ) {
     for (mirror, text, font, color, layout, look, spacing) in &texts {
         if let Ok(mut letters) = mirrors.get_mut(mirror.0) {
-            let new = letter_text(text, font, color, layout, look, spacing, &translations, art.letters.get(FONT));
+            let new = letter_text(text, font, color, layout, look, spacing, &translations, display_sheet(&art));
             if *letters != new {
                 *letters = new;
             }
@@ -557,7 +585,7 @@ fn follow_nodes(
 /// How wide `line` draws in the display letters at `size` (pixels, or the same unit
 /// the size is in), as `spawn_line` lays it out; 0 without the letter sheet.
 pub fn line_width(art: &Art, line: &str, size: f32) -> f32 {
-    let Some(sheet) = art.letters.get(FONT) else {
+    let Some(sheet) = display_sheet(art) else {
         return 0.0;
     };
     let k = size / sheet.size.max(1.0);
@@ -602,7 +630,7 @@ fn draw_letters(
     mut sdf: Option<ResMut<Assets<SdfLetter>>>,
     texts: Query<(Entity, &LetterText), Changed<LetterText>>,
 ) {
-    let Some(main) = art.letters.get(FONT) else {
+    let Some(main) = display_sheet(&art) else {
         return;
     };
     for (entity, text) in &texts {

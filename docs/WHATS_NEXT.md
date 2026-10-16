@@ -30,9 +30,9 @@ original and fix what differs:
 - Text weights left from the screenshot comparison. Single Player and the title match Max's
   clip.
 - Languages: menu and match text follows the Language setting from the original's language
-  files (`letters::Translations`). Chinese, Japanese, Korean, Russian and Arabic stay English
-  until their fonts are staged; texts with placeholders ({playerIndex}, {targetScore}...) aren't
-  matched yet.
+  files (`letters::Translations`), in the original's font per language (Meiryo for Russian and
+  Japanese, Hans Sans for Chinese and Korean, Myriad for Arabic). Open: long Russian words run
+  past the seat panels (the original's text likely shrinks to fit); Arabic isn't drawn right to left.
 
 ## 5. Before a release build
 - Remove or switch off everything in [`release-checklist.md`](release-checklist.md)

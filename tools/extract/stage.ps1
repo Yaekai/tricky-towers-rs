@@ -482,6 +482,14 @@ $manifest.Add('    "font_main": (file: "fonts/main.ron"),')
 # The body letters (list rows, settings labels): Hans Sans Bold.
 & (Join-Path $PSScriptRoot 'font.ps1') -Repo $Repo -FontName 'HansSansBold SDF' -OutName 'body'
 $manifest.Add('    "font_body": (file: "fonts/body.ron"),')
+# The fonts the original swaps in for EnzoBlack by language (InitFontsCommand): Meiryo Bold for
+# Russian and Japanese, Hans Sans KR for Korean, Myriad for Arabic (Chinese uses the body's).
+& (Join-Path $PSScriptRoot 'font.ps1') -Repo $Repo -FontName 'meiryoBoldSDF' -OutName 'meiryo'
+$manifest.Add('    "font_meiryo": (file: "fonts/meiryo.ron"),')
+& (Join-Path $PSScriptRoot 'font.ps1') -Repo $Repo -FontName 'HansSansKR SDF' -OutName 'hans_kr'
+$manifest.Add('    "font_hans_kr": (file: "fonts/hans_kr.ron"),')
+& (Join-Path $PSScriptRoot 'font.ps1') -Repo $Repo -FontName 'Myriad SDF' -OutName 'myriad'
+$manifest.Add('    "font_myriad": (file: "fonts/myriad.ron"),')
 $notes.Add('- font_main : the original''s Enzo letters, from its distance-field atlas turned into plain white letters (fonts/main.png, 1024x1024) with 199 glyph metrics (fonts/main.ron). The original also draws an outline and gradient on titles.')
 
 # --- Title screen ---
