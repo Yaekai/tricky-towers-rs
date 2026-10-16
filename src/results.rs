@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use crate::art::Art;
 use crate::letters::TextLook;
 use crate::brick_material::BrickFlash;
-use crate::config::{keyed, GameConfig, ModeKind};
+use crate::config::{curve, keyed, GameConfig, ModeKind};
 use crate::gameplay::{Brick, Match, Phase, Placed, Tower, TowerState, TowerStatus};
 use crate::spells::Zapped;
 use crate::visuals::{FramedCamera, ViewSize};
@@ -535,14 +535,14 @@ fn animate_banners(
         }
         let drop = match (banner.out, banner.leave) {
             (false, _) => 0.0,
-            (true, Some(leave)) => keyed(&look.out_leave, leave),
+            (true, Some(leave)) => curve(&look.out_leave, leave),
             (true, None) => {
                 let moved_in = look.out_in.last().map_or(0.0, |k| k.0);
                 let idle = look.out_idle.last().map_or(1.0, |k| k.0).max(0.01);
                 if t < moved_in {
-                    keyed(&look.out_in, t)
+                    curve(&look.out_in, t)
                 } else {
-                    keyed(&look.out_idle, (t - moved_in) % idle)
+                    curve(&look.out_idle, (t - moved_in) % idle)
                 }
             }
         };
@@ -581,16 +581,16 @@ fn animate_banners(
                 commands.entity(entity).despawn();
             }
         } else {
-            let moved_in = look.winner_in.last().map_or(0.0, |k| k.0);
-            let (keys, at) = match look.winner_idle.last() {
-                Some(&(length, ..)) if t > moved_in && length > 0.0 => (&look.winner_idle, (t - moved_in) % length),
-                _ => (&look.winner_in, t),
+            let moved_in = look.winner_in_x.last().map_or(0.0, |k| k.0);
+            let ((x, y), at) = match look.winner_idle_x.last() {
+                Some(&(length, ..)) if t > moved_in && length > 0.0 => {
+                    ((&look.winner_idle_x, &look.winner_idle_y), (t - moved_in) % length)
+                }
+                _ => ((&look.winner_in_x, &look.winner_in_y), t),
             };
-            let axis = |pick: fn(&(f32, f32, f32)) -> f32| {
-                let pairs: Vec<(f32, f32)> = keys.iter().map(|k| (k.0, pick(k))).collect();
-                crate::config::keyed(&pairs, at)
-            };
-            transform.scale = Vec2::new(axis(|k| k.1), axis(|k| k.2));
+            transform.scale = Vec2::new(curve(x, at), curve(y, at));
+            // Unity turns counter-clockwise for a positive z; UI rotation runs the other way.
+            transform.rotation = Rot2::degrees(-keyed(&look.winner_turn, t));
         }
     }
     for mut ray in &mut rays {

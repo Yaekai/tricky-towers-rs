@@ -1818,19 +1818,24 @@ pub struct MatchMoments {
     /// Shadow under match text, as a share of the text size, and its colour (0-255).
     pub shadow_drop: f32,
     pub shadow_color: [u8; 3],
-    /// WINNER!'s scale keys (seconds, x, y): MessageController's MoveIn (squashing in from
-    /// 0.2 over 1 s), then its Idle looping (a slow 4 s breath down to 0.9).
-    pub winner_in: Vec<(f32, f32, f32)>,
-    pub winner_idle: Vec<(f32, f32, f32)>,
+    /// WINNER!'s scale as curves (`config::curve`): MessageController's MoveIn (MoveIn_1,
+    /// squashing in from 0.2 over 1 s), then its Idle looping (Idle_1, a slow 4 s breath down
+    /// to 0.9); and MoveIn's turn in degrees (sampled every frame in the clip), from 30 swinging
+    /// to rest by 0.7 s.
+    pub winner_in_x: Vec<(f32, f32, f32, f32)>,
+    pub winner_in_y: Vec<(f32, f32, f32, f32)>,
+    pub winner_idle_x: Vec<(f32, f32, f32, f32)>,
+    pub winner_idle_y: Vec<(f32, f32, f32, f32)>,
+    pub winner_turn: Vec<(f32, f32)>,
     /// WIZARD OUT! (LoseMessage, Survival only): its letter size in cells (font 20 against
     /// WINNER!'s 32.75, then 10% up to Max's Survival clip: 325 px wide), and its height in
     /// cells off `winner_above` over the tower as it moves in (MoveInLose; fading in over
     /// `out_fade_in`), bobs (IdleLose, looping) and moves out when the match ends
     /// (MoveOutLose; fading out over `out_fade_out`).
     pub out_cells: f32,
-    pub out_in: Vec<(f32, f32)>,
-    pub out_idle: Vec<(f32, f32)>,
-    pub out_leave: Vec<(f32, f32)>,
+    pub out_in: Vec<(f32, f32, f32, f32)>,
+    pub out_idle: Vec<(f32, f32, f32, f32)>,
+    pub out_leave: Vec<(f32, f32, f32, f32)>,
     pub out_fade_in: (f32, f32),
     pub out_fade_out: (f32, f32),
     /// The curse wave's WAVE N message (WaveMessage's MoveIn_2, 2.5 s, then gone): its
@@ -1900,41 +1905,15 @@ impl Default for MatchMoments {
             countdown_size: 72.0,
             shadow_drop: 0.06,
             shadow_color: [227, 33, 61],
-            winner_in: vec![
-                (0.0, 0.2, 0.2),
-                (0.25, 1.1366, 1.1),
-                (0.3167, 1.1, 1.1366),
-                (0.4833, 1.055, 0.94),
-                (0.55, 0.94, 1.0377),
-                (0.6, 1.0316, 1.01),
-                (0.6667, 1.01, 0.9905),
-                (0.7, 1.0, 1.0),
-                (1.0, 1.0, 1.0),
-            ],
-            winner_idle: vec![
-                (0.0, 1.0, 1.0),
-                (1.0, 1.0, 1.0),
-                (1.3833, 0.9642, 0.9594),
-                (1.9333, 0.9057, 0.9),
-                (2.0667, 0.9, 0.8978),
-                (4.0, 1.0, 1.0),
-            ],
+            winner_in_x: vec![(0.0, 0.2, 0.0, 7.797), (0.25, 1.137, 0.2164, 0.2164), (0.3167, 1.1, -1.277, 1.185), (0.4833, 1.055, -1.428, -1.428), (0.55, 0.94, -1.975, 3.233), (0.6, 1.032, 0.6345, 0.6345), (0.6667, 1.01, -0.9169, 2.978), (0.7, 1.0, 7.254, 0.0), (0.7667, 1.0, -1.384, 0.0), (1.0, 1.0, 0.0, 0.0)],
+            winner_in_y: vec![(0.0, 0.2, 0.0, 8.572), (0.25, 1.1, -1.602, 0.9973), (0.3167, 1.137, 0.08817, 0.08817), (0.4833, 0.94, -2.53, 2.197), (0.55, 1.038, 0.4927, 0.4927), (0.6, 1.01, -1.738, -1.738), (0.6667, 0.9905, 0.446, 0.446), (0.7, 1.0, -0.05, 0.0), (0.7667, 1.0, 0.0, 0.0), (1.0, 1.0, 0.0, 0.0)],
+            winner_idle_x: vec![(0.0, 1.0, 0.0, 0.0), (1.0, 1.0, -0.05208, -0.05208), (1.383, 0.9642, -0.12, -0.12), (1.933, 0.9057, -0.06227, -0.06227), (2.067, 0.9, -0.0207, -0.0207), (4.0, 1.001, -0.003203, 0.0)],
+            winner_idle_y: vec![(0.0, 1.0, 0.0, 0.0), (1.0, 1.0, -0.04908, -0.04908), (1.383, 0.9594, -0.1397, -0.1397), (1.933, 0.9, -0.02909, -0.02909), (2.067, 0.8978, -0.003863, -0.003863), (4.0, 1.001, -0.003018, 0.0)],
+            winner_turn: vec![(0.0, 30.0), (0.01667, 26.9), (0.03333, 23.5), (0.05, 19.9), (0.06667, 16.2), (0.08333, 12.4), (0.1, 8.64), (0.1167, 4.93), (0.1333, 1.35), (0.15, -2.04), (0.1667, -5.18), (0.1833, -8.02), (0.2, -10.5), (0.2167, -12.5), (0.2333, -14.0), (0.25, -15.0), (0.2667, -15.2), (0.2833, -14.5), (0.3, -13.2), (0.3167, -11.2), (0.3333, -8.84), (0.35, -6.14), (0.3667, -3.26), (0.3833, -0.339), (0.4, 2.49), (0.4167, 5.09), (0.4333, 7.33), (0.45, 9.08), (0.4667, 10.2), (0.4833, 10.5), (0.5, 10.0), (0.5167, 7.2), (0.5333, 2.33), (0.55, -2.45), (0.5667, -5.0), (0.5833, -3.71), (0.6, -0.402), (0.6167, 2.0), (0.6333, 2.41), (0.65, 1.99), (0.6667, 1.17), (0.6833, 0.363), (0.7, 0.0)],
             out_cells: 1.88,
-            out_in: vec![
-                (0.0, 0.0),
-                (1.0, 0.0),
-                (1.4, -1.2036),
-                (1.4833, -1.4055),
-                (2.0, -1.39),
-            ],
-            out_idle: vec![(0.0, -1.39), (1.0, -1.566), (2.0, -1.39)],
-            out_leave: vec![
-                (0.0, -1.39),
-                (0.1167, -1.1898),
-                (0.25, -1.3158),
-                (0.6667, -1.9652),
-                (1.0, -4.4696),
-            ],
+            out_in: vec![(0.0, 0.0, 0.0, 0.0), (1.0, 0.0, -0.2366, -0.2366), (1.4, -1.204, -3.086, -3.086), (1.483, -1.406, -1.643, -1.643), (2.0, -1.39, 0.03002, 0.0)],
+            out_idle: vec![(0.0, -1.39, 0.0, -1.309), (1.0, -1.566, -0.006702, -0.006702), (2.0, -1.39, 0.00687, 0.0)],
+            out_leave: vec![(0.0, -1.39, 0.0, 1.716), (0.1167, -1.19, -0.1479, -0.1479), (0.25, -1.316, -1.584, -1.584), (0.6667, -1.965, 9.621, 0.0), (1.0, -4.47, -11.35, 0.0)],
             out_fade_in: (1.0, 1.317),
             out_fade_out: (0.667, 0.833),
             wave_clouds: vec![
