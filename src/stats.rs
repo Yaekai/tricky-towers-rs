@@ -1,7 +1,7 @@
 //! Player 1's statistics and the Stats popup from Settings, laid out from the PC readout
 //! (docs/research/gap-scan.md, section 7): two panels side by side over a dark modal,
-//! Game stats (730×900: per mode, games and wins in columns Easy / Normal / Pro / Total
-//! with their small icons) and Other stats (730×695: cups, time played, high scores),
+//! Game stats (730×900: per mode, Won / Draw (Puzzle) / Lost / Ratio in columns Easy /
+//! Normal / Special / Total under their small icons) and Other stats (730×695: ten rows),
 //! with the menu's BACK hint in the corner (navbar.rs). Kept between runs in `stats.ron`.
 //!
 //! What counts: local battles only (not trials or Endless runs), from player 1's tower.
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::art::Art;
 use crate::config::{Difficulty, GameConfig, ModeKind};
 use crate::gameplay::{Match, Phase, Tower, TowerState, TowerStatus};
-use crate::select::{SCREEN, label, place, shown, sliced};
+use crate::select::{SCREEN, place, shown, sliced};
 
 pub struct StatsPlugin;
 
@@ -31,13 +31,15 @@ impl Plugin for StatsPlugin {
 pub const MODES: [ModeKind; 3] = [ModeKind::Race, ModeKind::Survival, ModeKind::Puzzle];
 pub const DIFFICULTIES: [Difficulty; 3] = [Difficulty::Easy, Difficulty::Normal, Difficulty::Pro];
 
-/// Games and wins in one mode at one difficulty.
+/// Games, wins and draws (Puzzle) in one mode at one difficulty.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Record {
     pub mode: ModeKind,
     pub difficulty: Difficulty,
     pub games: u32,
     pub wins: u32,
+    #[serde(default)]
+    pub draws: u32,
 }
 
 /// Player 1's statistics. Kept in `file` when one is set (the game sets it; tests and
@@ -78,6 +80,24 @@ impl Stats {
             .iter()
             .filter(|r| r.mode == mode && difficulty.is_none_or(|d| r.difficulty == d))
             .fold((0, 0), |(g, w), r| (g + r.games, w + r.wins))
+    }
+
+    /// Won, drawn and lost in `mode` at `difficulty`, or over every difficulty with `None`.
+    pub fn outcomes(&self, mode: ModeKind, difficulty: Option<Difficulty>) -> (u32, u32, u32) {
+        self.records
+            .iter()
+            .filter(|r| r.mode == mode && difficulty.is_none_or(|d| r.difficulty == d))
+            .fold((0, 0, 0), |(w, d, l), r| {
+                (w + r.wins, d + r.draws, l + r.games.saturating_sub(r.wins + r.draws))
+            })
+    }
+
+    /// A drawn match (a Puzzle tie): counted as a game and a draw.
+    pub fn add_draw(&mut self, mode: ModeKind, difficulty: Difficulty) {
+        self.add(mode, difficulty, false);
+        if let Some(r) = self.records.iter_mut().find(|r| r.mode == mode && r.difficulty == difficulty) {
+            r.draws += 1;
+        }
     }
 
     pub fn add(&mut self, mode: ModeKind, difficulty: Difficulty, won: bool) {
@@ -183,7 +203,12 @@ fn count_stats(
         if let Some((_, you)) = first {
             let won = you.status == TowerStatus::Won;
             let difficulty = config.difficulty.unwrap_or_default();
-            stats.add(game.mode, difficulty, won);
+            // A Puzzle round nobody wins is a draw (the game stats' Draw row).
+            if !won && game.mode == ModeKind::Puzzle && game.winner.is_none() {
+                stats.add_draw(game.mode, difficulty);
+            } else {
+                stats.add(game.mode, difficulty, won);
+            }
             // The fastest Race won on Normal (GoToRoof with levelId RACE_NORMAL).
             if won && game.mode == ModeKind::Race && difficulty == Difficulty::Normal {
                 let time = game.elapsed;
@@ -217,18 +242,11 @@ pub struct StatsMenu {
     pub open: bool,
 }
 
-/// Layout in px of a 1920×1080 screen from its centre (y up). Panel sizes are from the
-/// readout; their gap, heights on screen, the row layout and text sizes are guesses (?).
+/// Layout in px of a 1920×1080 screen from its centre (y up), from StatsPopup.
 const GAME_PANEL: (f32, f32) = (730.0, 900.0);
 const OTHER_PANEL: (f32, f32) = (730.0, 695.0);
-const GAP: f32 = 40.0;
-const TOP: f32 = 470.0;
-const COLUMNS_X: [f32; 4] = [20.0, 140.0, 260.0, 380.0];
-const ICON: f32 = 48.0;
-/// Numbers and the stat names beside them (SubStatsItem: 26 and 19).
-const TEXT: f32 = 26.0;
-const NAME_TEXT: f32 = 19.0;
-const ROW_STEP: f32 = 62.0;
+/// Both panels' top, up from the screen's middle.
+const PANEL_TOP: f32 = 450.0;
 
 fn vh(px: f32) -> f32 {
     px / SCREEN.1 * 100.0
@@ -237,11 +255,11 @@ fn vh(px: f32) -> f32 {
 #[derive(Component)]
 struct StatsRoot;
 
-/// A number in the Game stats table: mode, column (0-2 a difficulty, 3 the total),
-/// and whether it's wins.
+/// A number in the Game stats table: mode, row (0 won, 1 drawn, 2 lost, 3 ratio) and
+/// column (0-2 a difficulty, 3 the total).
 #[derive(Component, Clone, Copy)]
 enum StatText {
-    Cell(usize, usize, bool),
+    Cell(usize, usize, usize),
     BricksPlaced,
     TimePlayed,
     Medals,
@@ -253,6 +271,13 @@ enum StatText {
     FastestRace,
 }
 
+/// StatsPopup's layout in px of a 1920 x 1080 screen from its middle (y up): the Game panel
+/// (730 x 900) with its right edge 25 left of the middle, the Other panel (730 x 695) with its
+/// left edge 25 right of it, both topped 450 up; gold titles on the panels' top edges; the
+/// column icons 97 under the Game panel's top; each panel's items in a container 40 in from
+/// the sides and 75 under the top. A mode item (StatsItem) is its name (30 px, black) over
+/// rows (SubStatsItem: 45 px strips 52 apart, from 50 under the item's top) of Won, Draw
+/// (Puzzle), Lost and Ratio, the items 10 apart after their 40 px margin.
 fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
     let art = art.as_deref();
     let image = |name: &str| art.and_then(|a| a.image(name));
@@ -278,15 +303,23 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
             BackgroundColor(Color::NONE),
         ));
     }
+    let name_look = crate::letters::TextLook {
+        face: Some(Color::srgb(0.435, 0.474, 0.627)),
+        ..default()
+    };
+    let value_look = crate::letters::TextLook {
+        face: Some(Color::srgb(0.094, 0.122, 0.239)),
+        ..default()
+    };
     root.with_children(|root| {
-        let panel_x = |left: bool| (GAME_PANEL.0 + GAP) / 2.0 * if left { -1.0 } else { 1.0 };
+        let game_left = -25.0 - GAME_PANEL.0;
+        let other_left = 25.0;
         for (size, left, title) in [
-            (GAME_PANEL, true, "Game stats"),
-            (OTHER_PANEL, false, "Other stats"),
+            (GAME_PANEL, game_left, "Game stats"),
+            (OTHER_PANEL, other_left, "Other stats"),
         ] {
-            let (x, y) = (panel_x(left), SCREEN.1 / 2.0 - TOP + 300.0 - size.1 / 2.0);
             let mut panel = root.spawn((
-                place(size, (x, y)),
+                place(size, (left + size.0 / 2.0, PANEL_TOP - size.1 / 2.0)),
                 BackgroundColor(Color::srgba(0.12, 0.1, 0.25, 0.95)),
             ));
             if let Some(back) = image("menu_leaderboard_panel") {
@@ -295,64 +328,85 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
                     BackgroundColor(Color::NONE),
                 ));
             }
-            root.spawn(place((size.0, 60.0), (x, y + size.1 / 2.0 - 60.0)))
+            root.spawn(place((size.0, 60.0), (left + size.0 / 2.0, PANEL_TOP + 9.0)))
                 .with_children(|t| {
-                    t.spawn(label(vh(40.0), title));
+                    t.spawn(crate::select::label_with(vh(46.0), title, crate::letters::TextLook::GOLD));
                 });
         }
-        // Game stats: column icons, then per mode a games row and a wins row.
-        let gx = panel_x(true) - GAME_PANEL.0 / 2.0 + 250.0;
-        let top = SCREEN.1 / 2.0 - TOP + 300.0 - GAME_PANEL.1 / 2.0 + GAME_PANEL.1 / 2.0 - 140.0;
-        for (c, icon) in [
-            "stats_icon_easy",
-            "stats_icon_normal",
-            "stats_icon_special",
-            "stats_icon_total",
-        ]
-        .iter()
-        .enumerate()
-        {
-            let at = (gx + COLUMNS_X[c], top);
-            let mut node = root.spawn(place((ICON, ICON), at));
-            match image(icon) {
-                Some(art) => {
-                    node.insert(ImageNode::new(art));
-                }
-                None => {
-                    let words = ["Easy", "Normal", "Special", "Total"][c];
-                    node.with_children(|t| {
-                        t.spawn(label(vh(20.0), words));
+        // A 45 px strip with a name and values, as SubStatsItem / OtherStatsItem.
+        let strip = |root: &mut ChildSpawnerCommands, left: f32, width: f32, y: f32| {
+            let mut strip = root.spawn(place((width, 45.0), (left + width / 2.0, y)));
+            if let Some(back) = image("popup_text_background") {
+                strip.insert(ImageNode::new(back));
+            }
+        };
+        // Column icons over the Easy, Normal, Special and Total columns.
+        let inner = game_left + 40.0;
+        let width = GAME_PANEL.0 - 80.0;
+        for (icon, size, x) in [
+            ("stats_icon_easy", (26.0, 25.0), inner + 262.0),
+            ("stats_icon_normal", (41.0, 27.0), inner + 377.0),
+            ("stats_icon_special", (52.0, 31.0), inner + 493.0),
+            ("stats_icon_total", (18.0, 20.0), inner + width - 19.0 - 10.0),
+        ] {
+            let mut node = root.spawn(place(size, (x, PANEL_TOP - 97.0)));
+            if let Some(art) = image(icon) {
+                node.insert(ImageNode::new(art));
+            }
+        }
+        let mut top = PANEL_TOP - 75.0;
+        for (m, mode) in MODES.iter().enumerate() {
+            root.spawn(Node {
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::Center,
+                ..place((200.0, 50.0), (inner + 20.0 + 100.0, top - 25.0))
+            })
+            .with_children(|t| {
+                t.spawn(crate::select::label_with(vh(30.0), mode.name(), crate::letters::TextLook {
+                    face: Some(Color::BLACK),
+                    ..default()
+                }));
+            });
+            let rows: &[(usize, &str)] = if *mode == ModeKind::Puzzle {
+                &[(0, "Won"), (1, "Draw"), (2, "Lost"), (3, "Ratio")]
+            } else {
+                &[(0, "Won"), (2, "Lost"), (3, "Ratio")]
+            };
+            for (i, &(row, name)) in rows.iter().enumerate() {
+                let y = top - 50.0 - 22.5 - 52.0 * i as f32;
+                strip(root, inner, width, y);
+                root.spawn(Node {
+                    justify_content: JustifyContent::FlexStart,
+                    align_items: AlignItems::Center,
+                    ..place((200.0, 45.0), (inner + 20.0 + 100.0, y))
+                })
+                .with_children(|t| {
+                    t.spawn(crate::select::label_with(vh(19.0), name, name_look));
+                });
+                // Easy, Normal, Pro centred in 115 px boxes from 205, 320, 435; the total
+                // right-aligned from 535.
+                for (c, (x, w, right)) in [
+                    (205.0, 115.0, false),
+                    (320.0, 115.0, false),
+                    (435.0, 115.0, false),
+                    (535.0, width - 555.0, true),
+                ]
+                .into_iter()
+                .enumerate()
+                {
+                    root.spawn(Node {
+                        justify_content: if right { JustifyContent::FlexEnd } else { JustifyContent::Center },
+                        align_items: AlignItems::Center,
+                        ..place((w, 45.0), (inner + x + w / 2.0, y))
+                    })
+                    .with_children(|t| {
+                        t.spawn((crate::select::label_with(vh(26.0), "0", value_look), StatText::Cell(m, row, c)));
                     });
                 }
             }
+            top -= 50.0 + 52.0 * rows.len() as f32 + 40.0 - 50.0 + 10.0;
         }
-        for (m, mode) in MODES.iter().enumerate() {
-            for (k, wins) in [false, true].into_iter().enumerate() {
-                let y = top - 80.0 - ROW_STEP * (2 * m + k) as f32 - 20.0 * m as f32;
-                let left = panel_x(true) - GAME_PANEL.0 / 2.0 + 40.0;
-                let name = if wins {
-                    "Wins".to_string()
-                } else {
-                    format!("{} games", mode.name())
-                };
-                root.spawn(Node {
-                    justify_content: JustifyContent::FlexStart,
-                    ..place((220.0, 40.0), (left + 110.0, y))
-                })
-                .with_children(|t| {
-                    t.spawn(label(vh(NAME_TEXT), &name));
-                });
-                for (c, column_x) in COLUMNS_X.iter().enumerate() {
-                    root.spawn(place((110.0, 40.0), (gx + column_x, y)))
-                        .with_children(|t| {
-                            t.spawn((label(vh(TEXT), "0"), StatText::Cell(m, c, wins)));
-                        });
-                }
-            }
-        }
-        // Other stats: cups won, time played, the Endless bests.
-        let ox = panel_x(false);
-        // StatsPopup's rows, in its order (the English of each STATS_ key).
+        // Other stats: StatsPopup's rows, in its order (the English of each STATS_ key).
         let rows: Vec<(String, StatText)> = vec![
             ("Bricks placed".into(), StatText::BricksPlaced),
             ("Time played".into(), StatText::TimePlayed),
@@ -365,43 +419,26 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
             ("Highest wave".into(), StatText::HighestWave),
             ("Fastest normal race".into(), StatText::FastestRace),
         ];
-        // Each row is OtherStatsItem: a 45 px strip (gph_popupTextBackground02) across the
-        // container (the panel less 40 px a side, its top 75 px down), 55 px apart; the name
-        // 20 px in at 19 px in grey-blue and the value from 535 px at 26 px in dark navy
-        // (EnzoBlackBasicWhite tinted by each text's colour).
+        let inner = other_left + 40.0;
         let width = OTHER_PANEL.0 - 80.0;
-        let panel_top = SCREEN.1 / 2.0 - TOP + 300.0;
-        let left = ox - width / 2.0;
         for (i, (name, part)) in rows.into_iter().enumerate() {
-            let y = panel_top - 75.0 - 22.5 - 55.0 * i as f32;
-            let mut strip = root.spawn(place((width, 45.0), (ox, y)));
-            if let Some(back) = image("popup_text_background") {
-                strip.insert(ImageNode::new(back));
-            }
+            let y = PANEL_TOP - 75.0 - 22.5 - 55.0 * i as f32;
+            strip(root, inner, width, y);
             root.spawn(Node {
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::Center,
-                ..place((370.0, 45.0), (left + 20.0 + 185.0, y))
+                ..place((370.0, 45.0), (inner + 20.0 + 185.0, y))
             })
             .with_children(|t| {
-                t.spawn(crate::select::label_with(vh(19.0), &name, crate::letters::TextLook {
-                    face: Some(Color::srgb(0.435, 0.474, 0.627)),
-                    ..default()
-                }));
+                t.spawn(crate::select::label_with(vh(19.0), &name, name_look));
             });
             root.spawn(Node {
                 justify_content: JustifyContent::FlexEnd,
                 align_items: AlignItems::Center,
-                ..place((width - 555.0, 45.0), (left + 535.0 + (width - 555.0) / 2.0, y))
+                ..place((width - 555.0, 45.0), (inner + 535.0 + (width - 555.0) / 2.0, y))
             })
             .with_children(|t| {
-                t.spawn((
-                    crate::select::label_with(vh(26.0), "", crate::letters::TextLook {
-                        face: Some(Color::srgb(0.094, 0.122, 0.239)),
-                        ..default()
-                    }),
-                    part,
-                ));
+                t.spawn((crate::select::label_with(vh(26.0), "", value_look), part));
             });
         }
     });
@@ -434,9 +471,25 @@ fn show_stats_popup(
     }
     for (part, mut text) in &mut texts {
         let words = match *part {
-            StatText::Cell(m, c, wins) => {
-                let (games, won) = stats.get(MODES[m], DIFFICULTIES.get(c).copied());
-                if wins { won } else { games }.to_string()
+            StatText::Cell(m, row, c) => {
+                let (won, drawn, lost) = stats.outcomes(MODES[m], DIFFICULTIES.get(c).copied());
+                match row {
+                    0 => won.to_string(),
+                    1 => drawn.to_string(),
+                    2 => lost.to_string(),
+                    // GameStatsItem: (won + drawn in Puzzle) / lost, or that count with no
+                    // losses, or "-" with neither; two decimals.
+                    _ => {
+                        let good = (won + if MODES[m] == ModeKind::Puzzle { drawn } else { 0 }) as f32;
+                        if lost > 0 {
+                            format!("{:.2}", good / lost as f32)
+                        } else if good > 0.0 {
+                            format!("{good:.2}")
+                        } else {
+                            "-".to_string()
+                        }
+                    }
+                }
             }
             StatText::BricksPlaced => stats.bricks_placed.to_string(),
             StatText::TimePlayed => hours_minutes(stats.seconds_played),
