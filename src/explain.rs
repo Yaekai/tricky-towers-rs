@@ -88,6 +88,7 @@ fn text(
     TextFont,
     TextColor,
     TextLayout,
+    crate::letters::LetterSpacing,
 ) {
     (
         Text::new(""),
@@ -98,6 +99,15 @@ fn text(
         },
         TextColor(Color::WHITE),
         TextLayout::justify(Justify::Center),
+        // ModeExplanationItem: the 75 px title spaces -2, the 26 px lines -1, the
+        // difficulty names at 46 none.
+        crate::letters::LetterSpacing(if size >= 75.0 {
+            -2.0
+        } else if size <= 26.0 {
+            -1.0
+        } else {
+            0.0
+        }),
     )
 }
 
@@ -230,7 +240,8 @@ fn spawn_explain(
                 JustifyContent::FlexEnd
             };
             root.spawn((node, Part::Buttons)).with_children(|b| {
-                b.spawn(text(46.0)).insert(Text::new(words.to_uppercase()));
+                // MenuItemYellow / MenuItemRed space -1.
+                b.spawn(text(46.0)).insert((Text::new(words.to_uppercase()), crate::letters::LetterSpacing(-1.0)));
             });
         }
     });
@@ -287,7 +298,8 @@ fn spawn_controls(
                 JustifyContent::FlexEnd
             };
             root.spawn(node).with_children(|b| {
-                b.spawn(text(46.0)).insert(Text::new(words.to_uppercase()));
+                // MenuItemYellow / MenuItemRed space -1.
+                b.spawn(text(46.0)).insert((Text::new(words.to_uppercase()), crate::letters::LetterSpacing(-1.0)));
             });
         }
     });

@@ -60,6 +60,7 @@ fn line(
     TextFont,
     TextColor,
     TextLayout,
+    crate::letters::LetterSpacing,
 ) {
     (
         Text::new(text.to_uppercase()),
@@ -70,6 +71,8 @@ fn line(
         },
         TextColor(Color::WHITE),
         TextLayout::justify(Justify::Center),
+        // CreditsName, CreditsTitle and CreditsPopup's texts space -1.
+        crate::letters::LetterSpacing(-1.0),
     )
 }
 

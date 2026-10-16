@@ -219,6 +219,8 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
                     TextLayout::justify(Justify::Right),
                     crate::letters::TextLook::OUTLINED,
                     PopupWords(i),
+                    // WinPopupMenuItem spaces -1.
+                    crate::letters::LetterSpacing(-1.0),
                 ));
             });
         }
