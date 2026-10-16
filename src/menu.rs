@@ -565,6 +565,8 @@ fn spawn_pause_menu(
                     r.spawn((
                         text(PAUSE_ROW.1, option, crate::letters::TextLook::OUTLINED),
                         PauseWords(i),
+                        // PopupListItem's words space -1.
+                        crate::letters::LetterSpacing(-1.0),
                     ));
                 });
             }

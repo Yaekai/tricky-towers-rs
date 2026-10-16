@@ -517,7 +517,8 @@ pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str
         }
         page.spawn(place(HEADER, (0.0, (SCREEN.1 - HEADER.1) / 2.0))).with_children(|h| {
             // 60 px, as the scenes' header titles (ModeSelect, PlayerSelect).
-            h.spawn(label_with(60.0 / 10.8, title, crate::letters::TextLook::TITLE));
+            // The scenes' header titles space -1.
+            h.spawn((label_with(60.0 / 10.8, title, crate::letters::TextLook::TITLE), crate::letters::LetterSpacing(-1.0)));
         });
     });
     page.id()
@@ -776,6 +777,9 @@ pub(crate) fn spawn_select_screens(
                         n.spawn((
                             label_with(60.0 / 10.8, "", crate::letters::TextLook::TITLE),
                             Part::ColumnName(column),
+                            // DifficultyItem/CupItem names space -1 (SPECIAL and SUPER CUP -2,
+                            // set with their words).
+                            crate::letters::LetterSpacing(-1.0),
                         ));
                     });
             }
@@ -795,7 +799,9 @@ pub(crate) fn spawn_select_screens(
                         Part::ModeName(i),
                     ))
                     .with_children(|n| {
-                        n.spawn(label_with(60.0 / 10.8, pick.name(), look));
+                        // ModeItem names space -1, SURVIVAL -2.
+                        let spacing = if pick.name().eq_ignore_ascii_case("survival") { -2.0 } else { -1.0 };
+                        n.spawn((label_with(60.0 / 10.8, pick.name(), look), crate::letters::LetterSpacing(spacing)));
                     });
                 }
             }
@@ -1291,6 +1297,7 @@ pub(crate) fn show_select_screens(
             Option<&mut Text>,
             Option<&MaterialNode<crate::ui_material::TurningPicture>>,
             Option<&mut TextFont>,
+            Option<&mut crate::letters::LetterSpacing>,
         ),
         (Without<PlayersRoot>, Without<ModesRoot>),
     >,
@@ -1387,7 +1394,7 @@ pub(crate) fn show_select_screens(
     for seat in 0..MAX_TOWERS {
         pops[seat] = lobby.confirmed[seat][1].then(|| pops[seat].map_or(0.0, |t| t + time.delta_secs()));
     }
-    for (part, mut v, mut node, image_node, transform, text, picture, font) in &mut parts {
+    for (part, mut v, mut node, image_node, transform, text, picture, font, spacing) in &mut parts {
         let want = match *part {
             Part::SeatIdle(seat) => !ready(seat),
             Part::SeatTaken(seat) => ready(seat),
@@ -1531,6 +1538,10 @@ pub(crate) fn show_select_screens(
             Part::ColumnName(_) if !named(1) => false,
             Part::ColumnName(_) => {
                 let name = difficulty.name().to_uppercase();
+                // DifficultyItem03 (SPECIAL) spaces -2, the others -1.
+                if let Some(mut spacing) = spacing {
+                    spacing.set_if_neq(crate::letters::LetterSpacing(if name == "SPECIAL" { -2.0 } else { -1.0 }));
+                }
                 if let Some(mut text) = text
                     && text.0 != name
                 {

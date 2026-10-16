@@ -540,6 +540,8 @@ fn wave_messages(
                     ..default()
                 },
                 Text::new(format!("WAVE {number}")),
+                // WaveMessage spaces -1.
+                crate::letters::LetterSpacing(-1.0),
                 TextFont {
                     font_size: FontSize::Vh(7.0),
                     ..default()

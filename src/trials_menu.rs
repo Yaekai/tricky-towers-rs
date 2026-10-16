@@ -279,10 +279,9 @@ pub(crate) fn spawn_trials_screen(
             }
             root.spawn(place((160.0, 40.0), (left + 95.0, at.1 + 18.0)))
                 .with_children(|t| {
-                    t.spawn(label_with(
-                        vh(22.0),
-                        "MEDALS:",
-                        crate::letters::TextLook::OUTLINED,
+                    t.spawn((
+                        label_with(vh(22.0), "MEDALS:", crate::letters::TextLook::OUTLINED),
+                        crate::letters::LetterSpacing(-1.0),
                     ));
                 });
             root.spawn(place((160.0, 60.0), (left + 95.0, at.1 - 18.0)))
@@ -433,7 +432,7 @@ fn spawn_locked(
                         "LOCKED",
                         crate::letters::TextLook::OUTLINED,
                     ))
-                    .insert(TextColor(locked));
+                    .insert((TextColor(locked), crate::letters::LetterSpacing(-1.0)));
                 });
             page.spawn(place((348.0, 150.0), (82.5, y)))
                 .with_children(|t| {

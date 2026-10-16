@@ -287,6 +287,7 @@ fn sync_mirrors(
             Changed<TextColor>,
             Changed<TextFont>,
             Changed<TextLook>,
+            Changed<LetterSpacing>,
         )>,
     >,
     mut mirrors: Query<&mut LetterText>,

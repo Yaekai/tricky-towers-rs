@@ -704,7 +704,7 @@ fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
             // SCORE: (EnzoBlackMilkyWhiteOutline46 at 64) ends 342 px left of the middle.
             root.spawn(to_right(hud_box(960.0 - 342.0 - 268.4, 0.3, 268.4, 80.0, true)))
                 .with_children(|b| {
-                    b.spawn(label_with(64.0 / 10.8, "SCORE:", TextLook::TITLE));
+                    b.spawn((label_with(64.0 / 10.8, "SCORE:", TextLook::TITLE), crate::letters::LetterSpacing(-2.0)));
                 });
             // The score (EnzoBlackGold75) centred 253.5 px left of the middle.
             root.spawn(hud_box(
@@ -718,13 +718,14 @@ fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
                 b.spawn((
                     label_with(75.0 / 10.8, "0", TextLook::GOLD),
                     ScorePart::Score,
+                    crate::letters::LetterSpacing(-4.0),
                 ));
             });
             // PERSONAL BEST: (26) ends 32 px from the right edge; the best (EnzoBlackGold60)
             // centred 91 px from it.
             root.spawn(to_right(hud_box(1920.0 - 32.0 - 268.3, -5.0, 268.3, 50.0, false)))
                 .with_children(|b| {
-                    b.spawn(label_with(26.0 / 10.8, "PERSONAL BEST:", TextLook::TITLE));
+                    b.spawn((label_with(26.0 / 10.8, "PERSONAL BEST:", TextLook::TITLE), crate::letters::LetterSpacing(-2.0)));
                 });
             root.spawn(hud_box(
                 1920.0 - 91.0 - 100.0,
@@ -737,6 +738,7 @@ fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
                 b.spawn((
                     label_with(60.0 / 10.8, "0", TextLook::GOLD),
                     ScorePart::Best,
+                    crate::letters::LetterSpacing(-4.0),
                 ));
             });
         });
