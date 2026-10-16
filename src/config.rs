@@ -2166,6 +2166,8 @@ pub struct WeatherLook {
     pub rain_front: (f32, f32, f32, f32, [f32; 4]),
     pub rain_back: (f32, f32, f32, f32, [f32; 4]),
     pub rain_tilt: f32,
+    /// Rain drops are stretched billboards this many times their size long (LengthScale).
+    pub rain_stretch: f32,
     /// Lightning: seconds between strikes (random in range), no strikes in the first
     /// seconds, flash opacity and fade, bolt hold and fade, and the most bolts a strike
     /// has, its branches included (LightningLayer: _LIGHTNING_DURATION 0.4 with the last
@@ -2226,6 +2228,7 @@ impl Default for WeatherLook {
             rain_front: (100.0, 1.0, 100.0, 3.0, [0.82, 0.78, 0.96, 0.9]),
             rain_back: (1024.0, 3.0, 40.0, 1.0, [0.43, 0.45, 0.79, 0.9]),
             rain_tilt: 30.0,
+            rain_stretch: 5.0,
             lightning_every: (5.0, 14.0),
             lightning_quiet_start: 3.0,
             lightning_flash: (0.65, 0.1),

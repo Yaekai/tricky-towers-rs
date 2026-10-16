@@ -197,6 +197,9 @@ struct CoronaRay(usize);
 #[derive(Resource, Default)]
 struct WeatherState {
     look: Option<(ModeKind, Option<&'static str>, bool)>,
+    /// How many pictures were staged when the weather was last built: it is built again
+    /// once more have loaded (Art changes every frame, which kept clearing the rain).
+    art_count: usize,
     rain_debt: (f32, f32),
     next_strike: f32,
     seed: u32,
@@ -260,10 +263,11 @@ fn set_up_weather(
             in_match,
         ),
     };
-    if state.look == Some(look) && !art.is_changed() {
+    if state.look == Some(look) && state.art_count == art.images.len() {
         return;
     }
     state.look = Some(look);
+    state.art_count = art.images.len();
     state.seed = (game.round as u32).wrapping_mul(2_654_435_761) | 1;
     state.next_strike = config.weather.lightning_quiet_start;
     for entity in &old {
@@ -485,19 +489,25 @@ fn rain(
             let x = centre.x - side * size.y * 0.5 * tilt.tan().abs()
                 + (roll(&mut seed) * 2.0 - 1.0) * reach;
             let y = centre.y + size.y * 0.5 + c * (2.0 + roll(&mut seed) * 6.0);
-            let sprite = match &image {
-                Some(image) => Sprite {
-                    image: image.clone(),
-                    color: Color::srgba(colour[0], colour[1], colour[2], colour[3]),
-                    custom_size: Some(Vec2::new(
-                        c * 0.12 * length.max(1.0) / 3.0 + c * 0.05,
-                        c * length,
-                    )),
-                    ..default()
-                },
-                None => Sprite::from_color(
-                    Color::srgba(colour[0], colour[1], colour[2], colour[3] * 0.6),
-                    Vec2::new(c * 0.06, c * length),
+            // Rain and RainBackground draw as stretched billboards (length scale 5 times the
+            // particle size): gph_rainDrop is a thin streak along its width, so it lies along
+            // the fall, its bright end leading.
+            let (sprite, turn) = match &image {
+                Some(image) => (
+                    Sprite {
+                        image: image.clone(),
+                        color: Color::srgba(colour[0], colour[1], colour[2], colour[3]),
+                        custom_size: Some(Vec2::new(c * length * weather.rain_stretch, c * length)),
+                        ..default()
+                    },
+                    dir.y.atan2(dir.x),
+                ),
+                None => (
+                    Sprite::from_color(
+                        Color::srgba(colour[0], colour[1], colour[2], colour[3] * 0.6),
+                        Vec2::new(c * 0.06, c * length),
+                    ),
+                    tilt,
                 ),
             };
             commands.spawn((
@@ -508,7 +518,7 @@ fn rain(
                 },
                 sprite,
                 Transform::from_xyz(x, y, if front { 25.0 } else { -500.0 })
-                    .with_rotation(Quat::from_rotation_z(tilt)),
+                    .with_rotation(Quat::from_rotation_z(turn)),
             ));
         }
     }
