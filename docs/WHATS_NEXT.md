@@ -16,8 +16,6 @@ original and fix what differs:
 ## 2. Gameplay still missing or estimated
 - **Puzzle**: compared with Max's clip at 15 s and 40 s; the laser, the foreground sand and the
   base rise now match.
-- **Survival**: the moon drop (it falls only for bricks 2.5× or bigger, and no spell here
-  makes them that big yet).
 - Done since the last list: Endless Puzzle obstacle blocks (checked, they match), Auto Rotate
   wind-up and its sounds, Petrify's stone look in hand and its grass and moss, the cup's stray
   empty medal and medal sounds, two towers touching the Puzzle laser at once (tested).

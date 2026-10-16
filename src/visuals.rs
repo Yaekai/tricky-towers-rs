@@ -182,8 +182,8 @@ const STAR_SOUNDS: [&str; 4] = [
 /// A Large brick placed in Survival knocks a star out of the sky (SurvivalBackground
 /// `_HandlePlaceBrick`, StarrySkyLayer.DropStar): it leaves a dark copy (#2E1D5B)
 /// behind and falls from an upward kick of (-2..2, 6) units/s, spinning 40x its
-/// sideways speed. The moon only falls for bricks 2.5x or more (not done: no spell
-/// makes them that big here).
+/// sideways speed. The moon only falls for bricks 2.5x or more: a brick hit by Large twice
+/// (LargeBrickModifier: 2 + 0.5 per earlier Large).
 #[allow(clippy::too_many_arguments)]
 fn drop_stars(
     mut commands: Commands,
