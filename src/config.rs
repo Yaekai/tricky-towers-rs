@@ -586,6 +586,9 @@ pub struct SurvivalRules {
     /// Curse waves hit everyone instead of dark spells (Pro, "Magic Waves").
     pub curse_waves: bool,
     pub waves: WaveRules,
+    /// A tower that goes out turns to stone brick by brick (GameFinishController): each brick
+    /// after a random .0 to .1 seconds plus its height in cells over .2.
+    pub out_petrify: (f32, f32, f32),
 }
 
 impl Default for SurvivalRules {
@@ -599,6 +602,7 @@ impl Default for SurvivalRules {
             same_bricks: false,
             dark_magic: true,
             curse_waves: false,
+            out_petrify: (0.05, 0.1, 40.0),
             waves: WaveRules::default(),
         }
     }

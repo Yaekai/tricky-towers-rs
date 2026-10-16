@@ -400,8 +400,11 @@ fn move_wizards(
         let Ok((tower, state)) = towers.get(wizard.tower) else {
             continue;
         };
-        // A lost match: the wizard shrinks away in a moment, like a poof.
-        let gone = if !wizard.enemy && crate::hud::lost(&game, tower, state) {
+        // A lost match, or a Survival tower out while the others play on
+        // (GameFinishController hides the wizard): it shrinks away in a moment, like a poof.
+        let out_of_survival =
+            game.mode.rules() == crate::config::ModeKind::Survival && state.status == TowerStatus::Out;
+        let gone = if !wizard.enemy && (crate::hud::lost(&game, tower, state) || out_of_survival) {
             wizard.vanish += dt;
             (wizard.vanish / config.hud.wizard_vanish.max(0.01)).min(1.0)
         } else {

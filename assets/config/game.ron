@@ -539,6 +539,7 @@
         same_bricks: false,
         dark_magic: true,
         curse_waves: false,
+        out_petrify: (0.05, 0.1, 40.0),
         waves: (
             gap: (12, 18),
             waves_per_level: 2,

@@ -50,6 +50,7 @@ impl Plugin for GameplayPlugin {
                     )
                         .chain(),
                     judge_match,
+                    petrify_out_towers,
                     raise_bases,
                     zap_over_laser,
                     place_obstacles,
@@ -1855,6 +1856,60 @@ fn track_towers(
 /// are zapped away like Undo's (the original's MaximumHeightGamePlayRule). Bricks
 /// joined by Ivy stay: removing one from a cluster isn't safe.
 #[allow(clippy::type_complexity)]
+/// A brick of a tower that went out, turning to stone in this many seconds.
+#[derive(Component)]
+pub struct PetrifyIn(pub f32);
+
+/// A Survival tower that goes out turns to stone from the bottom up (GameFinishController
+/// petrifies every brick of a finished tower: PetrifyBrickModifier(instant) after a random
+/// 0.05 to 0.1 s plus its height / 40).
+fn petrify_out_towers(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    mut towers: Query<&mut TowerState>,
+    fresh: Query<
+        (Entity, &Brick, &Position),
+        (
+            Without<ActiveBrick>,
+            Without<FloorBlock>,
+            Without<crate::spells::Stone>,
+            Without<PetrifyIn>,
+            Without<ChildOf>,
+        ),
+    >,
+    mut waiting: Query<(Entity, &mut PetrifyIn)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut wait) in &mut waiting {
+        wait.0 -= dt;
+        if wait.0 <= 0.0 {
+            commands
+                .entity(entity)
+                .remove::<PetrifyIn>()
+                .insert((RigidBody::Static, crate::spells::Stone));
+        }
+    }
+    if game.mode.rules() != ModeKind::Survival || game.phase != Phase::Playing {
+        return;
+    }
+    let (low, high, per) = config.survival.out_petrify;
+    for (entity, brick, position) in &fresh {
+        let Ok(mut state) = towers.get_mut(brick.tower) else {
+            continue;
+        };
+        if state.status != TowerStatus::Out {
+            continue;
+        }
+        let r = (state.random() % 1000) as f32 / 1000.0;
+        let height = position.0.y / config.cell_size;
+        commands
+            .entity(entity)
+            .insert(PetrifyIn(low + (high - low) * r + height.max(0.0) / per.max(0.01)));
+    }
+}
+
 fn zap_over_laser(
     mut commands: Commands,
     config: Res<GameConfig>,

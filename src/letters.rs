@@ -661,10 +661,15 @@ fn tidy_mirrors(
 /// Moves each twin with its text: HUD labels (place, counts) are placed every frame
 /// after the twin was made, and a twin left behind showed at its first spot.
 fn follow_nodes(
-    texts: Query<(&MirroredBy, &Node), Changed<Node>>,
+    mut texts: Query<(&MirroredBy, &mut Node), Changed<Node>>,
     mut twins: Query<&mut Node, Without<MirroredBy>>,
 ) {
-    for (mirror, node) in &texts {
+    for (mirror, mut node) in &mut texts {
+        // A text whose whole Node was replaced (the HUD rebuilds its items) would show
+        // itself again beside its twin.
+        if node.display != Display::None {
+            node.display = Display::None;
+        }
         if let Ok(mut twin) = twins.get_mut(mirror.0) {
             twin.left = node.left;
             twin.top = node.top;
