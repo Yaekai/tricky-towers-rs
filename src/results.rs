@@ -37,7 +37,7 @@ impl Plugin for ResultsPlugin {
 /// The colour of match text: gold for winners and the countdown, red for losers,
 /// bronze for a draw.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Tone {
+pub(crate) enum Tone {
     Gold,
     Red,
 }
@@ -51,7 +51,7 @@ impl Tone {
     }
 
     /// The front layer (EnzoBlackGoldFront / RedFront): the gradient face, no outline.
-    fn front(self) -> TextLook {
+    pub(crate) fn front(self) -> TextLook {
         let face = match self {
             Tone::Gold => TextLook::GOLD,
             Tone::Red => TextLook::PINK,
@@ -66,7 +66,7 @@ impl Tone {
     /// The back layer (EnzoBlackGoldBack / RedBack): the face dilated 0.2 in wine and an
     /// outline 0.25 wide, drawn a little lower. The face isn't dilated here (ponytail: the
     /// letters cut the face at 0.5 only), so the wine band is a little thinner.
-    fn back(self) -> TextLook {
+    pub(crate) fn back(self) -> TextLook {
         let wine = match self {
             Tone::Gold => Color::srgb_u8(158, 23, 64),
             Tone::Red => Color::srgb_u8(160, 24, 101),

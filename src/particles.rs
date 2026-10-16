@@ -58,6 +58,10 @@ struct LostCross {
     size: f32,
 }
 
+/// A front cloud of the WAVE N message, drifting by its own keys (`moments.wave_clouds`).
+#[derive(Component)]
+struct WaveCloud(usize);
+
 /// The WAVE N message, sliding through (`moments.wave_message`).
 #[derive(Component)]
 struct WaveMessage {
@@ -495,6 +499,8 @@ fn spin_crosses(
 fn wave_messages(
     mut commands: Commands,
     art: Res<Art>,
+    config: Res<GameConfig>,
+    images: Option<Res<Assets<Image>>>,
     game: Res<Match>,
     towers: Query<(&Tower, &TowerState)>,
     mut seen: Local<(u64, bool, u32)>,
@@ -512,48 +518,72 @@ fn wave_messages(
         if let Some(gong) = art.sounds.get("sfx_gong_v2") {
             commands.spawn((AudioPlayer(gong.clone()), PlaybackSettings::DESPAWN));
         }
+        // WaveMessage's layout in cells from the screen's middle (y up): two back clouds,
+        // WAVE and the number in EnzoBlackRed front and back layers (the back 0.21 lower and
+        // 1.11 tall), then three front clouds that drift (`moments.wave_clouds`). TMP world
+        // text at 42 is 42 / 32.75 of WINNER!'s size.
+        let cell = 100.0 / config.hud.camera_height.max(0.01);
+        let place = |x: f32, y: f32, w: f32, h: f32| Node {
+            position_type: PositionType::Absolute,
+            left: Val::Vh((x - w / 2.0) * cell),
+            top: Val::Vh((-y - h / 2.0) * cell),
+            width: Val::Vh(w * cell),
+            height: Val::Vh(h * cell),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        };
+        let size = |name: &str| {
+            art.entries.get(name).and_then(|e| {
+                let ppu = e.pixels_per_unit.unwrap_or(100.0).max(1.0);
+                art.image(name).and_then(|h| images.as_ref().and_then(|i| i.get(&h))).map(|i| i.size_f32() / ppu)
+            })
+        };
+        let text_vh = config.moments.banner_cells * 42.0 / 32.75 * cell;
         let mut root = commands.spawn((
             WaveMessage { time: 0.0 },
             UiTransform::default(),
             Visibility::Hidden,
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Percent(30.0),
-                width: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                left: Val::Percent(50.0),
+                top: Val::Percent(50.0),
                 ..default()
             },
             GlobalZIndex(18),
         ));
         root.with_children(|row| {
-            for i in 1..=4 {
-                if let Some(cloud) = art.image(&format!("wave_cloud_{i}")) {
-                    row.spawn((
-                        ImageNode::new(cloud),
-                        Node {
-                            width: Val::Vh(12.0),
-                            height: Val::Vh(9.0),
-                            margin: UiRect::horizontal(Val::Vh(-1.5)),
+            let cloud = |row: &mut ChildSpawnerCommands, name: &str, x: f32, y: f32, drift: Option<usize>| {
+                let (Some(image), Some(s)) = (art.image(name), size(name)) else { return };
+                let mut node = row.spawn((ImageNode::new(image), place(x, y, s.x, s.y)));
+                if let Some(i) = drift {
+                    node.insert((WaveCloud(i), UiTransform::default()));
+                }
+            };
+            cloud(row, "wave_cloud_4", -6.16, 7.5, None);
+            cloud(row, "wave_cloud_3", 2.99, 6.21, None);
+            for (words, x, y) in [("WAVE".to_string(), -6.16 + 1.93, 7.5 + 1.18), (number.to_string(), 3.0 + 2.09, 6.09 + 1.19)] {
+                for back in [true, false] {
+                    let tone = crate::results::Tone::Red;
+                    let (look, drop, tall) = if back { (tone.back(), 0.21, 1.11) } else { (tone.front(), 0.0, 1.0) };
+                    row.spawn(place(x, y - drop, 12.0, 4.0)).with_child((
+                        Text::new(words.clone()),
+                        // WaveMessage spaces -1.
+                        crate::letters::LetterSpacing(-1.0),
+                        look,
+                        TextFont {
+                            font_size: FontSize::Vh(text_vh),
                             ..default()
                         },
+                        TextColor(Color::WHITE),
+                        TextLayout::justify(Justify::Center),
+                        UiTransform::from_scale(Vec2::new(1.0, tall)),
                     ));
                 }
             }
-            row.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                Text::new(format!("WAVE {number}")),
-                // WaveMessage spaces -1.
-                crate::letters::LetterSpacing(-1.0),
-                TextFont {
-                    font_size: FontSize::Vh(7.0),
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-            ));
+            cloud(row, "wave_cloud_2", -10.94, 6.09, Some(0));
+            cloud(row, "wave_cloud_2", -10.94 + 8.86, 6.22, Some(1));
+            cloud(row, "wave_cloud_1", -1.35 + 8.86, 5.28, Some(2));
         });
     }
     seen.1 = wave;
@@ -563,13 +593,14 @@ fn fade_wave_messages(
     mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
-    mut messages: Query<(Entity, &mut WaveMessage, &mut UiTransform, &mut Visibility)>,
+    mut messages: Query<(Entity, &mut WaveMessage, &mut UiTransform, &mut Visibility, &Children)>,
+    mut clouds: Query<(&WaveCloud, &mut UiTransform), Without<WaveMessage>>,
 ) {
     let keys = &config.moments.wave_message;
     let length = keys.last().map_or(0.0, |k| k.0);
     // A cell is a 41.54th of the view's height.
     let vh_per_cell = 100.0 / config.hud.camera_height.max(0.01);
-    for (entity, mut message, mut transform, mut visibility) in &mut messages {
+    for (entity, mut message, mut transform, mut visibility, children) in &mut messages {
         message.time += time.delta_secs();
         if message.time >= length {
             commands.entity(entity).despawn();
@@ -582,5 +613,14 @@ fn fade_wave_messages(
         transform.translation = Val2::new(Val::Vh(at(|k| k.1) * vh_per_cell), Val::Px(0.0));
         transform.scale = Vec2::new(at(|k| k.2), 1.0);
         visibility.set_if_neq(Visibility::Inherited);
+        for child in children.iter() {
+            if let Ok((cloud, mut drift)) = clouds.get_mut(child)
+                && let Some(keys) = config.moments.wave_clouds.get(cloud.0)
+            {
+                let start = keys.first().map_or(0.0, |k| k.1);
+                let x = crate::config::keyed(keys, message.time) - start;
+                drift.translation = Val2::new(Val::Vh(x * vh_per_cell), Val::Px(0.0));
+            }
+        }
     }
 }
