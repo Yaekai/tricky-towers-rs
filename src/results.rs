@@ -159,6 +159,8 @@ fn spawn_match_text(
         (
             MatchLabel,
             letters,
+            // WinMessage, LoseMessage, the counts and the trial messages all space -1.
+            crate::letters::LetterSpacing(-1.0),
             Text::new(text),
             TextFont {
                 font_size: FontSize::Px(size),

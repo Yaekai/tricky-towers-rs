@@ -79,6 +79,8 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
     let words = |size: f32| {
         (
             Text::new(""),
+            // ModeTitleMessage* and CountdownMessage space -1.
+            crate::letters::LetterSpacing(-1.0),
             TextFont {
                 font_size: FontSize::Vh(size),
                 ..default()

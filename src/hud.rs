@@ -322,10 +322,14 @@ fn build(
             // The Survival count is BricksView's EnzoBlackGold60: the gold face, dilate and
             // outline 0.2.
             if count {
-                node.insert(crate::letters::TextLook {
-                    outline_edge: 0.5 - 0.4 * 0.8333 / 2.0,
-                    ..crate::letters::TextLook::GOLD
-                })
+                node.insert((
+                    crate::letters::TextLook {
+                        outline_edge: 0.5 - 0.4 * 0.8333 / 2.0,
+                        ..crate::letters::TextLook::GOLD
+                    },
+                    // BricksView's count spaces -4.
+                    crate::letters::LetterSpacing(-4.0),
+                ))
                 .remove::<TextShadow>();
             }
             base

@@ -156,6 +156,8 @@ fn spawn_nav_bar(mut commands: Commands, art: Option<Res<Art>>) {
                     row.spawn((
                         Text::new(item.words()),
                         NavWords(item),
+                        // MenuItemYellow / MenuItemRed space their words -1.
+                        crate::letters::LetterSpacing(-1.0),
                         item.look(),
                         TextFont {
                             font_size: FontSize::Vh(vh(TEXT_SIZE)),
