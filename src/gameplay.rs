@@ -759,8 +759,9 @@ pub struct ActiveBrick {
     /// Current fall speed, in cells per second.
     speed: f32,
     pub(crate) auto_rotate_timer: f32,
-    /// Seconds before the balloon allows another sideways step.
-    side_cooldown: f32,
+    /// The balloon's cap on held-down falling, and whether down was held last step.
+    slow_cap: f32,
+    down_before: bool,
     /// Seconds a refused turn (No Rotate) still shakes the brick; drawn by the
     /// visuals.
     pub refused: f32,
@@ -781,7 +782,8 @@ impl ActiveBrick {
             repeating: false,
             speed: 0.0,
             auto_rotate_timer: 0.0,
-            side_cooldown: 0.0,
+            slow_cap: 0.0,
+            down_before: false,
             refused: 0.0,
             picture_shake: 0.0,
         }
@@ -1493,16 +1495,6 @@ fn control_active_brick(
                 step = true;
             }
         }
-        // The balloon only lets the brick drift sideways slowly.
-        control.side_cooldown = (control.side_cooldown - dt).max(0.0);
-        if control.mods.slow && step {
-            if control.side_cooldown > 0.0 {
-                step = false;
-            } else {
-                control.side_cooldown =
-                    config.move_step / config.magic.slow_side_speed.max(f32::EPSILON);
-            }
-        }
         if step && dir != 0 {
             let sign = dir as f32;
             let want = config.cells(config.move_step);
@@ -1599,11 +1591,19 @@ fn control_active_brick(
 
         // Falling: holding down accelerates, letting go slows back to the drop speed.
         let base = drop_speed;
+        let magic = &config.magic;
+        let pressed = input.fast_fall_held && !control.down_before;
+        control.down_before = input.fast_fall_held;
         control.speed = if control.mods.slow {
+            // SlowBrickModifier: a press lets it fall up to 6 again, easing back to 3.
+            if pressed {
+                control.slow_cap = magic.slow_fast_fall_speed;
+            }
+            control.slow_cap = (control.slow_cap - magic.slow_fast_ease * dt).max(magic.slow_fast_floor);
             if input.fast_fall_held {
-                config.magic.slow_fast_fall_speed
+                (control.speed.max(base) + config.drop_acceleration * dt).min(control.slow_cap)
             } else {
-                config.magic.slow_fall_speed
+                (control.speed - config.drop_deceleration * dt).max(base).min(magic.slow_fall_speed)
             }
         } else if input.fast_fall_held {
             (control.speed.max(base) + config.drop_acceleration * dt).min(config.drop_max_speed)
