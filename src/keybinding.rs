@@ -32,8 +32,8 @@ impl Action {
         Action::MoveLeft,
         Action::MoveRight,
         Action::Drop,
-        Action::TurnRight,
         Action::TurnLeft,
+        Action::TurnRight,
         Action::NudgeLeft,
         Action::NudgeRight,
         Action::LightMagic,
@@ -41,19 +41,19 @@ impl Action {
         Action::GameInfo,
     ];
 
-    /// The row's words (?: the original's are language keys not read yet).
+    /// The row's words, as Max's clip of the original's list shows them.
     pub fn label(self) -> &'static str {
         match self {
             Action::MoveLeft => "Move left",
             Action::MoveRight => "Move right",
-            Action::Drop => "Drop",
+            Action::Drop => "Drop down",
             Action::TurnRight => "Rotate right",
             Action::TurnLeft => "Rotate left",
             Action::NudgeLeft => "Nudge left",
             Action::NudgeRight => "Nudge right",
             Action::LightMagic => "Light magic",
             Action::DarkMagic => "Dark magic",
-            Action::GameInfo => "Game info",
+            Action::GameInfo => "Online player info",
         }
     }
 
@@ -146,6 +146,17 @@ const KEY_NAMES: &[(KeyCode, &str)] = &[
     (KeyCode::Minus, "-"),
     (KeyCode::Equal, "="),
 ];
+
+/// A key's name as the original shows it (Unity's KeyCode names for the arrows).
+pub fn cap_name(name: &str) -> &str {
+    match name {
+        "Left" => "LeftArrow",
+        "Right" => "RightArrow",
+        "Up" => "UpArrow",
+        "Down" => "DownArrow",
+        name => name,
+    }
+}
 
 pub fn key_name(key: KeyCode) -> &'static str {
     KEY_NAMES
@@ -265,7 +276,8 @@ const KEY_RIGHT: f32 = 30.0;
 const KEY_SIZE: f32 = 24.55;
 const KEY_EDIT_SIZE: f32 = 28.0;
 const HEAD_SIZE: f32 = 36.0;
-const CORNER_GAP: f32 = 10.0;
+/// The corners sit this far out from the picked row (measured on Max's clip).
+const CORNER_GAP: f32 = 4.0;
 const BLINK: f32 = 0.25;
 /// EnzoBlack: black display letters, no outline.
 const ENZO_BLACK: crate::letters::TextLook = crate::letters::TextLook {
@@ -360,7 +372,7 @@ pub(crate) fn spawn_keybinding_popup(mut commands: Commands, art: Option<Res<Art
             }
             if reset {
                 page.spawn(place(RESET, (0.0, y))).with_children(|t| {
-                    t.spawn(label_with(vh(30.0), "Reset to defaults", ENZO_BLACK));
+                    t.spawn(label_with(vh(30.0), "Reset to default", ENZO_BLACK));
                 });
             } else {
                 let name = Action::ALL[i].label();
@@ -507,7 +519,7 @@ pub(crate) fn show_keybinding_popup(
         let words = if shows {
             Action::ALL
                 .get(i)
-                .map_or(String::new(), |a| key_name(bindings.key(*a)).to_string())
+                .map_or(String::new(), |a| cap_name(key_name(bindings.key(*a))).to_string())
         } else {
             String::new()
         };

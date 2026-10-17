@@ -268,16 +268,6 @@ const CONTROLS_SECTIONS: [(f32, f32, &str, &[KeyCap]); 5] = {
     ]
 };
 
-/// A key's name on its cap as the original writes it (Unity's KeyCode names).
-fn cap_name(name: &str) -> &str {
-    match name {
-        "Left" => "LeftArrow",
-        "Right" => "RightArrow",
-        "Up" => "UpArrow",
-        "Down" => "DownArrow",
-        name => name,
-    }
-}
 
 /// The keyboard controls panel centred at `centre` (px from the top-left), or at
 /// the pause screen's place.
@@ -388,7 +378,7 @@ pub(crate) fn spawn_controls_panel(
                 });
                 let half = (w - 2.0 * CONTROLS_INSET) / 2.0;
                 for &(action, (dx, dy), arrow) in caps {
-                    let name = cap_name(crate::keybinding::key_name(keys.key(action)));
+                    let name = crate::keybinding::cap_name(crate::keybinding::key_name(keys.key(action)));
                     s.spawn(Node {
                         position_type: PositionType::Absolute,
                         left: px(half + dx - 50.0),
