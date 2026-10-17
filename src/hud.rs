@@ -672,6 +672,8 @@ enum ScorePart {
     Root,
     Score,
     Best,
+    /// HighscoreView's NewHighscore, shown once FINISH is in when the run beat the best.
+    NewHigh,
 }
 
 /// A box on the 1920 x 1080 screen from its top-left corner: `centred` boxes keep their
@@ -773,22 +775,45 @@ fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
                     crate::letters::LetterSpacing(-4.0),
                 ));
             });
+            // NEW HIGHSCORE! (EnzoBlackRed46) ends 20 px from the right edge, 130.9 px down.
+            root.spawn((
+                to_right(hud_box(1920.0 - 20.0 - 400.0, 130.9 - 23.0, 400.0, 46.0, false)),
+                Visibility::Hidden,
+                ScorePart::NewHigh,
+            ))
+            .with_children(|b| {
+                b.spawn(label_with(46.0 / 10.8, "New highscore!", TextLook::PINK));
+            });
         });
 }
 
 /// Shows the Endless score panels while an Endless run plays: the score (Endless Race's
 /// height score, the bricks in the tower otherwise) and the best of it and the mode's
 /// leaderboard (HighscoreView).
+#[allow(clippy::too_many_arguments)]
 fn show_scores(
+    time: Res<Time>,
     config: Res<GameConfig>,
     game: Res<Match>,
     board: Option<Res<crate::single::Leaderboard>>,
     towers: Query<(&Tower, &TowerState)>,
     mut parts: Query<(&ScorePart, &mut Visibility)>,
     mut texts: Query<(&ScorePart, &mut Text)>,
+    mut before: Local<(u64, u32, f32)>,
 ) {
     let index = game.mode.endless_index();
     let on = index.is_some() && game.phase != Phase::Menu;
+    // The best before this run, and how long FINISH has been in (it comes once the roof is
+    // done; NEW HIGHSCORE! shows at the end of its move in, SinglePlayerLeaderboardBask).
+    let board_best = |i: usize| board.as_ref().and_then(|b| b.scores[i].first().copied()).unwrap_or(0);
+    if before.0 != game.round || game.phase == Phase::Playing {
+        *before = (game.round, index.map_or(0, board_best), 0.0);
+    }
+    let roofs_done = towers.iter().all(|(_, s)| s.roof == crate::gameplay::RoofStage::Done);
+    if game.phase == Phase::Over && roofs_done {
+        before.2 += time.delta_secs();
+    }
+    let move_in = config.moments.winner_in_x.last().map_or(1.0, |k| k.0);
     for (part, mut visibility) in &mut parts {
         if *part == ScorePart::Root {
             visibility.set_if_neq(if on {
@@ -808,16 +833,18 @@ fn show_scores(
             ModeKind::Endless => config.endless.score(state.best_height),
             _ => state.endless_score(),
         });
-    let best = board
-        .as_ref()
-        .and_then(|b| b.scores[index].first().copied())
-        .unwrap_or(0)
-        .max(score);
+    let best = board_best(index).max(score);
+    let new_high = score > before.1 && before.2 >= move_in;
+    for (part, mut visibility) in &mut parts {
+        if *part == ScorePart::NewHigh {
+            visibility.set_if_neq(if new_high { Visibility::Inherited } else { Visibility::Hidden });
+        }
+    }
     for (part, mut text) in &mut texts {
         let words = match part {
             ScorePart::Score => score.to_string(),
             ScorePart::Best => best.to_string(),
-            ScorePart::Root => continue,
+            ScorePart::Root | ScorePart::NewHigh => continue,
         };
         if text.0 != words {
             text.0 = words;

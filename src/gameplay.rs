@@ -2026,16 +2026,19 @@ fn judge_match(
             ModeKind::Endless => {
                 state.best_height = state.best_height.max(state.height);
                 advance_pacer(&config.endless, &mut state, dt);
+                // Caught: the run is over, and like any finished single-player run the
+                // tower gets its roof and FINISH (EndlessRaceGameMode's ROOF and BASK states).
                 if state.pacer >= state.height {
-                    state.status = TowerStatus::Out;
+                    state.status = TowerStatus::Won;
                 }
             }
             ModeKind::EndlessSurvival => {
                 // No brick limit: the run ends with the last life.
                 state.invincible = (state.invincible - dt).max(0.0);
                 state.best_height = state.best_height.max(state.height);
+                // The last life ends the run with the roof (ROOF_02) and FINISH.
                 if state.lives == Some(0) {
-                    state.status = TowerStatus::Out;
+                    state.status = TowerStatus::Won;
                 }
             }
             ModeKind::EndlessPuzzle => {
@@ -2229,8 +2232,17 @@ pub struct Obstacle;
 
 /// True while this tower won and its roof isn't on yet: the match moments and
 /// the popup wait for it.
+/// The modes whose finished tower gets a roof: Race and Survival battles, and Endless Race
+/// and Survival runs (LocalRoofController with ROOF_01 / ROOF_02).
+fn roofed(mode: ModeKind) -> bool {
+    matches!(
+        mode,
+        ModeKind::Race | ModeKind::Survival | ModeKind::Endless | ModeKind::EndlessSurvival
+    )
+}
+
 pub fn roof_waiting(game: &Match, tower: &Tower, state: &TowerState) -> bool {
-    matches!(game.mode, ModeKind::Race | ModeKind::Survival)
+    roofed(game.mode)
         && game.phase == Phase::Over
         && game.winner == Some(tower.index)
         && state.roof != RoofStage::Done
@@ -2276,7 +2288,7 @@ fn steer_roofs(
 ) {
     let dt = time.delta_secs();
     let rules = &config.roofs;
-    let roofed = matches!(game.mode, ModeKind::Race | ModeKind::Survival);
+    let roofed = roofed(game.mode);
     for (entity, tower, mut state, mut input) in &mut towers {
         match state.roof {
             RoofStage::None => {
@@ -2292,7 +2304,7 @@ fn steer_roofs(
                         commands.entity(brick).insert(RigidBody::Static);
                     }
                 }
-                let survival = game.mode == ModeKind::Survival;
+                let survival = game.mode.rules() == ModeKind::Survival;
                 let boxes = if survival {
                     &rules.survival
                 } else {

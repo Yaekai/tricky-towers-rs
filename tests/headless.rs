@@ -1358,7 +1358,8 @@ fn endless_race_ends_when_the_line_catches_the_tower() {
     let mut app = headless_app(config);
     // An empty base is caught within a second.
     run_seconds(&mut app, 1.0, |_| {});
-    assert_eq!(tower(&mut app, 0).status, TowerStatus::Out);
+    // A finished run gets its roof and FINISH, like the original's (ROOF, then BASK).
+    assert_eq!(tower(&mut app, 0).status, TowerStatus::Won);
     assert_eq!(app.world().resource::<Match>().phase, Phase::Over);
 }
 
@@ -1625,7 +1626,7 @@ fn endless_survival_has_no_brick_limit_and_ends_with_the_lives() {
         app.world().resource::<Match>().phase == Phase::Over
     }));
     let state = tower(&mut app, 0);
-    assert_eq!(state.status, TowerStatus::Out);
+    assert_eq!(state.status, TowerStatus::Won);
     assert_eq!(state.lives, Some(0));
     // The score is the bricks still in the tower.
     assert_eq!(

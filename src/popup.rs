@@ -84,9 +84,9 @@ fn popup_row_at(cursor: Vec2, window: Vec2, count: usize) -> Option<usize> {
     if !(LABEL_RIGHT..=LABEL_RIGHT + LABEL.0).contains(&right) {
         return None;
     }
-    let top = 1080.0 - height();
+    let top = 1080.0 - height(count);
     (0..count).find(|&i| {
-        let centre = top + HEADER + ROW * i as f32 + ROW / 2.0;
+        let centre = top + ITEMS_TOP + ROW * i as f32 + ROW / 2.0;
         (y - centre).abs() <= ROW / 2.0
     })
 }
@@ -107,6 +107,9 @@ pub fn place_name(place: usize) -> String {
 /// bar behind the picked item.
 const WIDTH: f32 = 610.0;
 const HEADER: f32 = 70.0;
+/// Where the items start under the panel's top: the first item's words sit 62 px under it on
+/// Max's Endless clip (ListSelectComponent's own offset isn't read).
+const ITEMS_TOP: f32 = 49.0;
 const ROW: f32 = 60.0;
 const SPILL: (f32, f32) = (120.0, 100.0);
 const LABEL: (f32, f32) = (465.0, 30.0);
@@ -132,8 +135,9 @@ pub(crate) fn sliced(image: Handle<Image>, border: [f32; 4]) -> ImageNode {
     }))
 }
 
-fn height() -> f32 {
-    ROW * POPUP_ITEMS.len() as f32 + HEADER
+/// EndGamePopup's Content: 60 px an item and 70 more.
+fn height(items: usize) -> f32 {
+    ROW * items as f32 + HEADER
 }
 
 #[derive(Component)]
@@ -151,6 +155,20 @@ const OTHER: Color = Color::srgb(1.0, 0.31, 0.55);
 
 /// The items after a trial: Retry and Select Trial (the original's slanted panel).
 const TRIAL_ITEMS: [&str; 2] = ["Retry", "Select Trial"];
+/// After an Endless run: Retry and Back to menu (EndGamePopup with no Next, its quit label
+/// END_GAME_POPUP_QUIT_LEADERBOARD), which go where Rematch and Select Mode go.
+const ENDLESS_ITEMS: [&str; 2] = ["Retry", "Back to menu"];
+
+/// The two-item lists that replace Rematch / Select Mode / Main menu.
+fn short_items(config: &GameConfig) -> Option<[&'static str; 2]> {
+    if config.trial.is_some() {
+        Some(TRIAL_ITEMS)
+    } else if config.mode.is_endless() {
+        Some(ENDLESS_ITEMS)
+    } else {
+        None
+    }
+}
 
 fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
@@ -160,7 +178,7 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
             right: px(0.0),
             bottom: px(0.0),
             width: px(WIDTH),
-            height: px(height()),
+            height: px(height(POPUP_ITEMS.len())),
             ..default()
         },
         GlobalZIndex(21),
@@ -174,8 +192,8 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
                 position_type: PositionType::Absolute,
                 left: px(0.0),
                 top: px(0.0),
+                bottom: px(-SPILL.1),
                 width: px(WIDTH + SPILL.0),
-                height: px(height() + SPILL.1),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.08, 0.06, 0.14, 0.92)),
@@ -185,7 +203,7 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
         }
         let bar = image("menu_item_selected");
         for (i, item) in POPUP_ITEMS.iter().enumerate() {
-            let top = HEADER + ROW * i as f32 + (ROW - LABEL.1) / 2.0;
+            let top = ITEMS_TOP + ROW * i as f32 + (ROW - LABEL.1) / 2.0;
             // The bar sits behind the label, as wide as the label's words.
             let mut row = root.spawn((
                 Node {
@@ -211,13 +229,14 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
             row.with_children(|r| {
                 r.spawn((
                     Text::new(item.to_uppercase()),
+                    // WinPopupMenuItem: 40 px, EnzoBlackGold46 when picked, EnzoBlackRed46 not.
                     TextFont {
-                        font_size: FontSize::Vh(LABEL.1 / 10.8),
+                        font_size: FontSize::Vh(40.0 / 10.8),
                         ..default()
                     },
                     TextColor(Color::WHITE),
                     TextLayout::justify(Justify::Right),
-                    crate::letters::TextLook::OUTLINED,
+                    crate::letters::TextLook::PINK,
                     PopupWords(i),
                     // WinPopupMenuItem spaces -1.
                     crate::letters::LetterSpacing(-1.0),
@@ -298,11 +317,7 @@ fn popup_input(
         }
         return;
     }
-    let count = if config.trial.is_some() {
-        TRIAL_ITEMS.len()
-    } else {
-        POPUP_ITEMS.len()
-    };
+    let count = short_items(&config).map_or(POPUP_ITEMS.len(), |items| items.len());
     let (mut up, mut down, mut pick) = (false, false, false);
     if let Some(keys) = keys {
         // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
@@ -395,28 +410,32 @@ fn show_popup(
         Option<&mut ImageNode>,
         &mut BackgroundColor,
         &mut Visibility,
+        &mut Node,
     )>,
     cup: Res<crate::cups::Cup>,
-    mut texts: Query<(&PopupWords, &mut Text, &mut TextColor)>,
+    art: Option<Res<Art>>,
+    mut texts: Query<(&PopupWords, &mut Text, &mut TextColor, &mut crate::letters::TextLook)>,
 ) {
-    let trial = config.trial.is_some();
-    for (item, mut text, mut color) in &mut texts {
-        let words = match (trial, item.0) {
-            (true, i) => TRIAL_ITEMS.get(i).copied().unwrap_or(""),
-            (false, i) => POPUP_ITEMS[i],
+    let short = short_items(&config);
+    for (item, mut text, mut color, mut look) in &mut texts {
+        let words = match short {
+            Some(items) => items.get(item.0).copied().unwrap_or(""),
+            None => POPUP_ITEMS[item.0],
         }
         .to_uppercase();
         if text.0 != words {
             text.0 = words;
         }
-        let want = if item.0 == popup.selected {
-            PICKED
-        } else {
-            OTHER
-        };
+        let picked = item.0 == popup.selected;
+        let want = if picked { PICKED } else { OTHER };
         if color.0 != want {
             color.0 = want;
         }
+        look.set_if_neq(if picked {
+            crate::letters::TextLook::GOLD
+        } else {
+            crate::letters::TextLook::PINK
+        });
     }
     // Slides up from below the bottom edge, easing out.
     let t = if config.moments.popup_slide > 0.0 {
@@ -425,7 +444,8 @@ fn show_popup(
         1.0
     };
     let eased = 1.0 - (1.0 - t) * (1.0 - t);
-    let bottom = px(-(height() + SPILL.1) * (1.0 - eased));
+    let items = short.map_or(POPUP_ITEMS.len(), |items| items.len());
+    let bottom = px(-(height(items) + SPILL.1) * (1.0 - eased));
     let visible = popup.shown
         && !popup.panel_up(&cup, &config.cup_panel)
         && popup.winner_since().is_none();
@@ -438,12 +458,31 @@ fn show_popup(
         if node.bottom != bottom {
             node.bottom = bottom;
         }
+        let tall = px(height(items));
+        if node.height != tall {
+            node.height = tall;
+        }
     }
     if !visible {
         return;
     }
-    for (bar, image, mut colour, mut shown) in &mut bars {
-        shown.set_if_neq(if trial && bar.0 >= TRIAL_ITEMS.len() {
+    for (bar, image, mut colour, mut shown, mut node) in &mut bars {
+        // The bar is as wide as its words (the label's content-size fit) and the padding;
+        // the words are drawn by their letter twin, which gives the row no width of its own.
+        let words = match short {
+            Some(items) => items.get(bar.0).copied().unwrap_or(""),
+            None => POPUP_ITEMS[bar.0],
+        };
+        if let Some(art) = art.as_deref() {
+            let wide = crate::letters::line_width(art, &words.to_uppercase(), 40.0);
+            if wide > 0.0 {
+                let width = px(wide + 24.0 + (LABEL_RIGHT - BAR_RIGHT));
+                if node.width != width {
+                    node.width = width;
+                }
+            }
+        }
+        shown.set_if_neq(if short.is_some_and(|items| bar.0 >= items.len()) {
             Visibility::Hidden
         } else {
             Visibility::Inherited

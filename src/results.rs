@@ -263,7 +263,8 @@ fn start_moments(
     let over = game.phase == Phase::Over;
     // Trials end on FINISH / FAILED instead (the original's CHALLENGE_FINISH_MESSAGE and
     // CHALLENGE_FAILED_MESSAGE; same size as WINNER! in Max's screenshots).
-    let (win_words, win_size, out_words, out_size) = if config.trial.is_some() {
+    // Endless runs end on FINISH too (SinglePlayerLeaderboardBaskController).
+    let (win_words, win_size, out_words, out_size) = if config.trial.is_some() || game.mode.is_endless() {
         ("FINISH", look.banner_size, "FAILED", look.banner_size)
     } else {
         (
