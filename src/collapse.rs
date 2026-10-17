@@ -141,6 +141,7 @@ fn run_collapse(
     config: Res<crate::config::GameConfig>,
     mut towers: Query<(Entity, &Tower, &TowerState, &mut Collapse)>,
     bricks: Query<(Entity, &Brick, &Position, &Rotation, Option<&Placed>)>,
+    masses: Query<(&ComputedMass, &ComputedAngularInertia)>,
 
     mut events: MessageWriter<CollapseEvent>,
 ) {
@@ -163,6 +164,11 @@ fn run_collapse(
                 own.sort_by_key(|(placed, entity)| (placed.is_none(), *placed, *entity));
                 for &(_, brick) in &own {
                     commands.entity(brick).insert(Sensor);
+                    // A sensor adds no mass, so the body keeps the mass it had (avian
+                    // warns about massless bodies and they can turn to NaN).
+                    if let Ok((mass, inertia)) = masses.get(brick) {
+                        commands.entity(brick).insert((Mass(mass.value()), AngularInertia(inertia.value())));
+                    }
                 }
                 let every = if state.status == TowerStatus::Out {
                     1

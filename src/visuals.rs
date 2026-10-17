@@ -666,7 +666,8 @@ fn dress_floor(
         };
         let half = brick.cells.len() as f32 * 0.5;
         let mut node = commands.entity(entity);
-        node.despawn_children();
+        // Its pictures are children, so it needs visibility of its own.
+        node.despawn_children().insert(Visibility::default());
         if matches!(block.part, FloorPart::Column(_) | FloorPart::Pillar | FloorPart::Wide) {
             // Pivot on the top-left, a hair left of and above the block's corner (two cells
             // wide for the wide piece).
