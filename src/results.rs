@@ -603,7 +603,9 @@ fn animate_banners(
                 }
             }
         };
-        let world_y = if game.mode.rules() == ModeKind::Puzzle {
+        // Puzzle battles place it under the view's top (PuzzleGameBask); single-player runs
+        // and trials over the tower (SinglePlayerBask's _GetEndTextPos).
+        let world_y = if game.mode == ModeKind::Puzzle && config.trial.is_none() {
             view_top - config.cells(look.winner_below_top)
         } else {
             config.cells(state.height.max(0.0) + look.winner_above + drop)
@@ -692,7 +694,7 @@ fn show_puzzle_scores(
             Ok(Projection::Orthographic(o)) => o.scale.max(0.001),
             _ => 1.0,
         };
-    let battle = game.mode.rules() == ModeKind::Puzzle
+    let battle = game.mode == ModeKind::Puzzle
         && config.trial.is_none()
         && game.phase != Phase::Menu;
     if !battle {

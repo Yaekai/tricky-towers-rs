@@ -1708,7 +1708,7 @@ fn endless_puzzle_levels_raise_the_laser_and_a_lost_brick_ends_the_run() {
         app.world().resource::<Match>().phase == Phase::Over
     }));
     let state = tower(&mut app, 0);
-    assert_eq!(state.status, TowerStatus::Out);
+    assert_eq!(state.status, TowerStatus::Won);
     assert!(state.bricks_dropped >= 1);
 }
 

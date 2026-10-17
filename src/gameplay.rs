@@ -2061,7 +2061,9 @@ fn judge_match(
                 } else if (state.all_settled && state.height > state.laser(&config) + 0.05)
                     || state.lives == Some(0)
                 {
-                    state.status = TowerStatus::Out;
+                    // The run's end is a win for the leaderboard: PuzzleRoofController puts
+                    // no roof on but makes the wizard the winner, so the bask says FINISH.
+                    state.status = TowerStatus::Won;
                 } else if state.bricks_used() >= state.level_end
                     && state.active.is_none()
                     && state.all_settled

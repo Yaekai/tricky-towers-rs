@@ -809,7 +809,9 @@ fn show_scores(
     if before.0 != game.round || game.phase == Phase::Playing {
         *before = (game.round, index.map_or(0, board_best), 0.0);
     }
-    let roofs_done = towers.iter().all(|(_, s)| s.roof == crate::gameplay::RoofStage::Done);
+    // Endless Puzzle gets no roof (PuzzleRoofController), so FINISH comes at once.
+    let roofs_done = game.mode == ModeKind::EndlessPuzzle
+        || towers.iter().all(|(_, s)| s.roof == crate::gameplay::RoofStage::Done);
     if game.phase == Phase::Over && roofs_done {
         before.2 += time.delta_secs();
     }
