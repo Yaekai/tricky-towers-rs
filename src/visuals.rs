@@ -407,11 +407,43 @@ pub(crate) struct FinishLine {
     pub(crate) tower: Entity,
 }
 
-/// Fog over a tower hit by Mist.
+/// A Mist spell's fog (Game/Magic/Mist): a bank at a fixed height that sends out puffs
+/// for its first 10 s, fading out over 1 s when the match ends.
 #[derive(Component)]
-struct MistCloud {
-    tower: Entity,
+struct MistBank {
+    age: f32,
+    fade: f32,
+    due: f32,
 }
+
+/// One of a bank's puffs (MistParticles): a soft streak stretched along its drift.
+#[derive(Component)]
+struct MistPuff {
+    age: f32,
+    colour: Color,
+}
+
+/// MistParticles: 2 puffs a second for 10 s, each living 5 s, born 9 units right of the
+/// bank anywhere in its 5-unit band and drifting right at 0.5; 4 units tall, drawn as a
+/// stretched billboard 5 sizes long behind its head; colour between its two start colours,
+/// alpha along its lifetime keys (Particles/Alpha Blended at tint 0.5, so as given).
+/// Mist.HEIGHT: a bank's band, and the step between stacked banks.
+const MIST_HEIGHT: f32 = 5.0;
+const MIST_RATE: f32 = 2.0;
+const MIST_EMIT: f32 = 10.0;
+const MIST_LIFE: f32 = 5.0;
+const MIST_HEAD_X: f32 = 9.0;
+const MIST_SPEED: f32 = 0.5;
+const MIST_SIZE: f32 = 4.0;
+const MIST_LENGTH: f32 = 5.0;
+const MIST_COLOURS: [(f32, f32, f32); 2] = [(0.816, 0.816, 0.992), (0.769, 0.769, 0.976)];
+const MIST_ALPHA: [(f32, f32); 5] = [
+    (0.0, 0.0),
+    (0.203, 0.71),
+    (0.488, 0.49),
+    (0.774, 0.824),
+    (1.0, 0.0),
+];
 
 /// Child sprite of a brick, one per cell.
 #[derive(Component)]
@@ -3132,26 +3164,6 @@ fn dress_platforms(
                     }
                 });
             }
-            parent.spawn((
-                MistCloud {
-                    tower: platform.tower,
-                },
-                // The staged fog picture if there is one; its alpha fades in and out.
-                Sprite {
-                    image: art.image("mist").unwrap_or_default(),
-                    color: if art.image("mist").is_some() {
-                        Color::WHITE.with_alpha(0.0)
-                    } else {
-                        Color::srgba(0.85, 0.88, 0.95, 0.0)
-                    },
-                    custom_size: Some(Vec2::new(
-                        config.cells(config.platform_width + 6.0),
-                        config.cells(40.0),
-                    )),
-                    ..default()
-                },
-                Transform::from_xyz(0.0, config.cells(20.0), 5.0),
-            ));
         });
     }
 }
@@ -3651,25 +3663,102 @@ fn update_lines(
     }
 }
 
-/// Fog over the top of a tower while Mist lasts, fading out at the end.
+/// Mist (SpawnMistEffect): each cast lays a bank at the tower's height, or 5 units over the
+/// highest bank already there; banks stay where they were laid and puff out their fog.
+#[allow(clippy::too_many_arguments)]
 fn update_mist(
+    mut commands: Commands,
     config: Res<GameConfig>,
+    game: Res<Match>,
+    time: Res<Time>,
+    art: Res<Art>,
     towers: Query<&TowerState>,
-    mut clouds: Query<(&MistCloud, &mut Sprite, &mut Transform)>,
+    platforms: Query<(Entity, &Platform, Option<&Children>)>,
+    mut banks: Query<(Entity, &mut MistBank, &Transform)>,
+    mut puffs: Query<(Entity, &ChildOf, &mut MistPuff, &mut Sprite, &mut Transform), Without<MistBank>>,
+    mut last: Local<std::collections::HashMap<Entity, f32>>,
+    mut seed: Local<u32>,
 ) {
-    let c = config.cell_size;
-    for (cloud, mut sprite, mut transform) in &mut clouds {
-        let Ok(state) = towers.get(cloud.tower) else {
+    let dt = time.delta_secs();
+    let mut roll = || {
+        *seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345) | 1;
+        (*seed >> 8) as f32 / (1u32 << 24) as f32
+    };
+    for (platform, owner, children) in &platforms {
+        let Ok(state) = towers.get(owner.tower) else {
             continue;
         };
-        let height = config.magic.mist_height;
-        transform.translation.y = config.cells(state.height + height * 0.5) + c * 0.5;
-        sprite.custom_size = Some(Vec2::new(
-            config.cells(config.platform_width + 6.0),
-            config.cells(height * 2.0),
+        let before = last.insert(owner.tower, state.mist_timer).unwrap_or(0.0);
+        if state.mist_timer <= before + 0.5 {
+            continue;
+        }
+        let highest = children
+            .into_iter()
+            .flatten()
+            .filter_map(|&c| banks.get(c).ok())
+            .map(|(_, _, t)| t.translation.y)
+            .fold(f32::MIN, f32::max);
+        let y = (config.cells(state.height) + config.cell_size * 0.5).max(highest + config.cells(MIST_HEIGHT));
+        commands.spawn((
+            MistBank { age: 0.0, fade: 1.0, due: 0.0 },
+            Transform::from_xyz(0.0, y, 5.0),
+            Visibility::default(),
+            ChildOf(platform),
         ));
-        let fade = (state.mist_timer / 1.5).min(1.0);
-        sprite.color = sprite.color.with_alpha(fade * 0.92);
+        if let Some(sound) = art.sounds.get("sfx_spawn_mist") {
+            commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+    }
+    let ended = game.phase != Phase::Playing;
+    let image = art.image("fx_gradient_reflected_soft").unwrap_or_default();
+    for (bank, mut state, _) in &mut banks {
+        state.age += dt;
+        if ended {
+            state.fade = (state.fade - dt).max(0.0);
+        }
+        if state.age > MIST_EMIT + MIST_LIFE || state.fade <= 0.0 {
+            commands.entity(bank).despawn();
+            continue;
+        }
+        while state.due <= state.age.min(MIST_EMIT) {
+            state.due += 1.0 / MIST_RATE;
+            let (a, b) = (MIST_COLOURS[0], MIST_COLOURS[1]);
+            let t = roll();
+            let colour = Color::srgb(a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t, a.2 + (b.2 - a.2) * t);
+            let dy = (roll() - 0.5) * MIST_HEIGHT;
+            commands.spawn((
+                MistPuff { age: 0.0, colour },
+                Sprite {
+                    image: image.clone(),
+                    color: colour.with_alpha(0.0),
+                    custom_size: Some(Vec2::new(
+                        config.cells(MIST_SIZE * MIST_LENGTH),
+                        config.cells(MIST_SIZE),
+                    )),
+                    ..default()
+                },
+                Anchor::CENTER_RIGHT,
+                Transform::from_xyz(config.cells(MIST_HEAD_X), config.cells(dy), roll() * 0.1),
+                ChildOf(bank),
+            ));
+        }
+    }
+    for (puff, parent, mut state, mut sprite, mut transform) in &mut puffs {
+        let Ok((_, bank, _)) = banks.get(parent.parent()) else {
+            continue;
+        };
+        state.age += dt;
+        if state.age >= MIST_LIFE {
+            commands.entity(puff).despawn();
+            continue;
+        }
+        transform.translation.x += config.cells(MIST_SPEED) * dt;
+        let life = state.age / MIST_LIFE;
+        let alpha = MIST_ALPHA
+            .windows(2)
+            .find(|k| life <= k[1].0)
+            .map_or(0.0, |k| k[0].1 + (k[1].1 - k[0].1) * (life - k[0].0) / (k[1].0 - k[0].0));
+        sprite.color = state.colour.with_alpha(alpha * bank.fade);
     }
 }
 

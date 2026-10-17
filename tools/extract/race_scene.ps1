@@ -108,6 +108,8 @@ foreach ($i in 1..4) { Add-Sound "sfx_brick_fall_$i" "058_Falling_brick_0$i" }
 foreach ($i in 1..3) { Add-Sound "sfx_firework_$i" "104_Fireworks_0$i" }
 # The winner's wizard pops in and out with SFX_WIZARD_LOSE.
 Add-Sound 'sfx_wizard_lose' '089_Wizard_lose_v2'
+# Mist (SpawnMistEffect) plays SFX_SPAWN_MIST as it lays its fog.
+Add-Sound 'sfx_spawn_mist' '084_Spawn_fog'
 # Race Special's thunder (LIGHTNING_STRIKE_01..03).
 foreach ($i in 1..3) { Add-Sound "sfx_thunder_$i" "099_Ambience_thunderstrikes_0$i" }
 Add-Whole 'firework_blob' 'gph_castEffect3Blob04'
