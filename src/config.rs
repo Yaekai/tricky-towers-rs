@@ -1962,7 +1962,8 @@ impl Default for MatchMoments {
             ],
             spotlight_delay: 0.5,
             spotlight_fade: 1.0,
-            spotlight_width: 1.5,
+            // WinnerHighlightLayer scales the 386 x 32 px sprite (32 px a unit) by 1.5 across.
+            spotlight_width: 18.09,
             spotlight_alpha: (151.0 / 255.0, 130.0 / 255.0, 1.0),
             veil_gap: 8.0,
             veil_width: 60.0,

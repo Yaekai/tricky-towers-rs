@@ -143,6 +143,11 @@ struct Light {
     time: f32,
 }
 
+/// A winner's beam drawn as SpriteBlendModeOverlay over the background (the Race and Puzzle
+/// worlds' WinnerHighlight material); its quad child is made once the grab picture exists.
+#[derive(Component)]
+struct OverlayBeam(Option<(Entity, Handle<crate::post::SpotOverlay>)>);
+
 /// Match text in the original's style: a shadow a little below, the face on top.
 /// Returns the container, which is positioned and scaled as one.
 fn spawn_match_text(
@@ -310,7 +315,7 @@ fn start_moments(
                 commands.entity(banner).insert_children(0, &[rays]);
             }
             // No cup after a single match: cups only end a cup (not built yet).
-            spawn_light(
+            let beam = spawn_light(
                 &mut commands,
                 &art,
                 &format!("spotlight_winner_{key}"),
@@ -325,6 +330,10 @@ fn start_moments(
                 },
                 Color::WHITE,
             );
+            // Survival's world (World02) draws its beam as a plain sprite.
+            if key != "survival" {
+                commands.entity(beam).insert((OverlayBeam(None), crate::post::NeedsGrab));
+            }
         }
         // Only Survival says WIZARD OUT! (its finish message); trials say FAILED.
         if state.status == TowerStatus::Out
@@ -414,7 +423,7 @@ fn spawn_light(
     alpha: f32,
     strip: Strip,
     fallback: Color,
-) {
+) -> Entity {
     let mut sprite = match art.image(name) {
         // The veil's art is drawn dark, like the original; the beam as it is.
         Some(image) => Sprite {
@@ -445,36 +454,83 @@ fn spawn_light(
         },
         sprite,
         anchor,
-        Transform::from_xyz(0.0, 0.0, 30.0),
+        // Winner/LoserHighlightBackground draw on their own background camera (depth 7):
+        // over the scenery, under the towers.
+        Transform::from_xyz(0.0, 0.0, -100.0),
         strip,
-    ));
+    ))
+    .id()
 }
 
 #[allow(clippy::type_complexity)]
 /// Fades the lights in and keeps them covering their lane from the bottom of the
 /// screen to the top.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn animate_lights(
+    mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
     view: Res<ViewSize>,
     camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<Light>)>,
     towers: Query<&Tower>,
-    mut lights: Query<(&mut Light, &Strip, &mut Sprite, &mut Transform)>,
+    mut lights: Query<(Entity, &mut Light, &Strip, &mut Sprite, &mut Transform, Option<&mut OverlayBeam>)>,
+    mut quads: Query<&mut Transform, (Without<Light>, Without<crate::visuals::MainCamera>)>,
+    grab: Option<Res<crate::post::GrabTarget>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut spots: Option<ResMut<Assets<crate::post::SpotOverlay>>>,
 ) {
     let Ok((eye, Projection::Orthographic(ortho))) = camera.single() else {
         return;
     };
     let height = view.0.y * ortho.scale;
     let bottom = eye.translation.y - height * 0.5;
-    for (mut light, strip, mut sprite, mut transform) in &mut lights {
+    for (entity, mut light, strip, mut sprite, mut transform, overlay) in &mut lights {
         light.time += time.delta_secs();
         let Ok(tower) = towers.get(light.tower) else {
             continue;
         };
         let fade =
             ((light.time - light.delay) / config.moments.spotlight_fade.max(0.01)).clamp(0.0, 1.0);
-        sprite.color = sprite.color.with_alpha(light.alpha * fade);
-        sprite.custom_size = Some(Vec2::new(config.cells(strip.width), height));
+        let size = Vec2::new(config.cells(strip.width), height);
+        sprite.custom_size = Some(size);
+        let mut drawn = false;
+        if let Some(mut overlay) = overlay {
+            if overlay.0.is_none()
+                && let (Some(grab), Some(meshes), Some(spots)) = (grab.as_ref(), meshes.as_mut(), spots.as_mut())
+            {
+                let spot = spots.add(crate::post::SpotOverlay {
+                    colour: Vec4::new(1.0, 1.0, 1.0, 0.0),
+                    picture: sprite.image.clone(),
+                    grab: grab.0.clone(),
+                });
+                let quad = commands
+                    .spawn((
+                        Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
+                        MeshMaterial2d(spot.clone()),
+                        Transform::default(),
+                    ))
+                    .id();
+                commands.entity(entity).add_child(quad);
+                overlay.0 = Some((quad, spot));
+            }
+            if let Some((quad, spot)) = &overlay.0 {
+                // The sprite stands on its bottom middle; the quad is centred.
+                if let Ok(mut q) = quads.get_mut(*quad) {
+                    q.translation = Vec3::new(0.0, size.y * 0.5, 0.0);
+                    q.scale = size.extend(1.0);
+                }
+                if let Some(spots) = spots.as_mut()
+                    && let Some(mut m) = spots.get_mut(spot)
+                {
+                    m.colour.w = light.alpha * fade;
+                }
+                sprite.color = sprite.color.with_alpha(0.0);
+                drawn = true;
+            }
+        }
+        if !drawn {
+            sprite.color = sprite.color.with_alpha(light.alpha * fade);
+        }
         transform.translation.x = if strip.screen {
             // The whole-screen strip follows the camera.
             eye.translation.x

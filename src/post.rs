@@ -51,6 +51,65 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
+const SPOT_SHADER: Handle<Shader> =
+    bevy::asset::uuid_handle!("8c3f1d27-5a94-4e60-b1d8-27e9c4f5a613");
+
+const SPOT_WGSL: &str = r#"// SpriteBlendMode/SpriteBlendModeOverlay (the winner's spotlight in the Race and Puzzle
+// worlds): the picture times its colour laid over the grabbed background in an overlay
+// blend, at the picture's alpha times the colour's. On stored (sRGB) values.
+#import bevy_sprite::{
+    mesh2d_vertex_output::VertexOutput,
+    mesh2d_view_bindings::view,
+}
+#import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
+
+struct SpotOverlay {
+    colour: vec4<f32>,
+};
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: SpotOverlay;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var picture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var picture_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var grab: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(4) var grab_sampler: sampler;
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let p = textureSample(picture, picture_sampler, mesh.uv);
+    let a = linear_to_srgb(p.rgb) * material.colour.rgb;
+    let uv = (mesh.position.xy - view.viewport.xy) / view.viewport.zw;
+    let b = linear_to_srgb(textureSample(grab, grab_sampler, uv).rgb);
+    let low = 2.0 * a * b;
+    let high = vec3(1.0) - 2.0 * (vec3(1.0) - a) * (vec3(1.0) - b);
+    let o = select(high, low, b < vec3(0.5));
+    return vec4(srgb_to_linear(o), p.a * material.colour.a);
+}
+"#;
+
+/// The winner's spotlight drawn as SpriteBlendModeOverlay: `colour` is the sprite colour
+/// (its alpha the fade).
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct SpotOverlay {
+    #[uniform(0)]
+    pub colour: Vec4,
+    #[texture(1)]
+    #[sampler(2)]
+    pub picture: Handle<Image>,
+    #[texture(3)]
+    #[sampler(4)]
+    pub grab: Handle<Image>,
+}
+
+impl Material2d for SpotOverlay {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(SPOT_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
 const GUIDE_SHADER: Handle<Shader> =
     bevy::asset::uuid_handle!("5d0b8a93-2e71-4c6f-b8d4-91f3a6c27e05");
 
@@ -516,11 +575,13 @@ impl Plugin for PostPlugin {
                 GUIDE_SHADER.id(),
                 Shader::from_wgsl(GUIDE_WGSL, "guide_overlay.wgsl"),
             );
+            let _ = shaders.insert(SPOT_SHADER.id(), Shader::from_wgsl(SPOT_WGSL, "spot_overlay.wgsl"));
             app.add_plugins((
                 FullscreenMaterialPlugin::<GreyOut>::default(),
                 Material2dPlugin::<GuideOverlay>::default(),
                 Material2dPlugin::<HeatHaze>::default(),
                 Material2dPlugin::<BeamLane>::default(),
+                Material2dPlugin::<SpotOverlay>::default(),
             ));
         }
     }

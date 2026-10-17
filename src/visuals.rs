@@ -1817,7 +1817,7 @@ fn spawn_backgrounds(
             With<SceneWave>,
         )>,
     >,
-    mut water: Query<&mut Visibility, With<WaterStrip>>,
+    mut water: Query<(Entity, &mut Visibility, &mut Sprite, Option<&Children>), With<WaterStrip>>,
     mut shown: Local<Option<(ModeKind, Option<&'static str>, bool)>>,
 ) {
     let Ok(camera) = camera.single() else {
@@ -1918,12 +1918,29 @@ fn spawn_backgrounds(
             )
         });
     let water_off = pro_band.is_none() && band.is_some_and(|b| b.colors().is_empty());
-    for mut visibility in &mut water {
+    // Endless Race's strip is its own magenta water (RaceForeground's endless WaterLayer,
+    // Max's Endless clip); the menus keep the blue one.
+    let strip_art = if mode == ModeKind::Endless && in_match {
+        art.image("bg_race_foreground_water_endless").or_else(|| art.image("water"))
+    } else {
+        art.image("water")
+    };
+    for (entity, mut visibility, mut sprite, children) in &mut water {
         visibility.set_if_neq(if water_off {
             Visibility::Hidden
         } else {
             Visibility::Inherited
         });
+        if let Some(image) = strip_art.clone()
+            && sprite.image != image
+        {
+            // The ripple quad is drawn again from the new picture.
+            sprite.image = image;
+            for child in children.into_iter().flatten() {
+                commands.entity(*child).despawn();
+            }
+            commands.entity(entity).insert(RippleWater);
+        }
     }
     if let Some((colors, height, parallax, view_height)) = pro_band {
         commands.entity(camera).with_child((
