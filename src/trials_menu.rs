@@ -28,19 +28,24 @@ use crate::trials::TrialProgress;
 const BUTTON: (f32, f32) = (423.0, 101.0);
 const ROW_STEP: f32 = 125.0;
 const COLUMN_STEP: f32 = 440.0;
-/// The top row's centre (?: the readout gives the spacing, not the place).
-const TOP_ROW: f32 = 230.0;
+/// The top row's centre: the five rows sit about centred on LevelsAnchor (the screen's
+/// middle); 257 is measured on Max's clip (the rows sit 7 px over the middle there).
+const TOP_ROW: f32 = 257.0;
 const ROWS: usize = 5;
 const NUMBER_SIZE: f32 = 46.0;
-const FACE: ((f32, f32), f32) = ((84.0, 84.0), -119.0);
-const MEDAL: ((f32, f32), f32) = ((70.0, 96.0), 145.0);
-const CORNER_FRAME: (f32, f32) = (449.0, 134.0);
-/// The medal panel in the top-right corner: its picture at 1.1x, "MEDALS:" and the count
-/// on the left, the medal on the right (measured from Max's screenshots of the original, ?).
-const INFO: ((f32, f32), (f32, f32)) = (
-    (251.0, 91.0),
-    (SCREEN.0 / 2.0 - 135.0, SCREEN.1 / 2.0 - 50.0),
-);
+/// LevelSelectElement's parts, from the element's centre (y up): the ChallengeWizard picture
+/// (110 x 108 in the prefab; shown at 0.75 and 128 left, 3 down on Max's clip while picked,
+/// where the Wizard box's own place is -119.3, +10), the Medal and the Selected corner frame.
+const FACE: ((f32, f32), (f32, f32)) = ((82.5, 81.0), (-128.0, -3.0));
+const MEDAL: ((f32, f32), (f32, f32)) = ((70.0, 96.0), (145.3, -4.46));
+const CORNER_FRAME: ((f32, f32), (f32, f32)) = ((448.9, 134.1), (3.0, -2.2));
+/// SinglePlayerGameModeSelect's medal corner, as centres from the screen's middle (y up):
+/// MedalsBackground 382 x 183 hanging 100 px over the top right, "MEDALS:" (26 px milky
+/// white) and the count (46 px gold) in their boxes, the medal at 0.9.
+const INFO: ((f32, f32), (f32, f32)) = ((382.0, 183.0), (889.0, 548.5));
+const INFO_TITLE: ((f32, f32), (f32, f32)) = ((200.0, 50.0), (800.0, 509.0));
+const INFO_COUNT: ((f32, f32), (f32, f32)) = ((150.0, 50.0), (810.0, 470.0));
+const INFO_MEDAL: ((f32, f32), (f32, f32)) = ((63.0, 86.4), (923.8, 470.3));
 const LOCKED: (f32, f32) = (783.0, 215.0);
 const LOCK: (f32, f32) = (68.0, 63.0);
 const LINK: (f32, f32) = (48.0, 35.0);
@@ -217,6 +222,15 @@ fn button_art(mode: ModeKind) -> (&'static str, (f32, f32), usize) {
     }
 }
 
+/// The pivots of Puzzle/Race/SurvivalChallengeBackground.
+fn button_pivot(picture: &str) -> (f32, f32) {
+    match picture {
+        "trial_button_puzzle" => (0.52, 0.6),
+        "trial_button_survival" => (0.49, 0.55),
+        _ => (0.49, 0.49),
+    }
+}
+
 fn vh(px: f32) -> f32 {
     px / SCREEN.1 * 100.0
 }
@@ -239,7 +253,8 @@ pub(crate) fn spawn_trials_screen(
             root.spawn(place((800.0, 90.0), (0.0, HEADER_Y)))
                 .with_children(|h| {
                     h.spawn((
-                        label_with(4.5, "", crate::letters::TextLook::TITLE),
+                        label_with(vh(60.0), "", crate::letters::TextLook::TITLE),
+                        crate::letters::LetterSpacing(-1.0),
                         TrialPart::Title,
                     ));
                 });
@@ -270,32 +285,25 @@ pub(crate) fn spawn_trials_screen(
             if let Some(back) = image("menu_info_background") {
                 info.insert((ImageNode::new(back), BackgroundColor(Color::NONE)));
             }
-            let left = at.0 - size.0 / 2.0;
             if let Some(medal) = image("medal_large") {
-                let medal_size = (MEDAL.0.0 * 0.6, MEDAL.0.1 * 0.6);
-                root.spawn((
-                    ImageNode::new(medal),
-                    place(medal_size, (left + size.0 - 40.0, at.1)),
-                ));
+                root.spawn((ImageNode::new(medal), place(INFO_MEDAL.0, INFO_MEDAL.1)));
             }
-            root.spawn(place((160.0, 40.0), (left + 95.0, at.1 + 18.0)))
-                .with_children(|t| {
-                    t.spawn((
-                        label_with(vh(22.0), "MEDALS:", crate::letters::TextLook::OUTLINED),
-                        crate::letters::LetterSpacing(-1.0),
-                    ));
-                });
-            root.spawn(place((160.0, 60.0), (left + 95.0, at.1 - 18.0)))
-                .with_children(|t| {
-                    t.spawn((
-                        label_with(vh(36.0), "", crate::letters::TextLook::OUTLINED),
-                        TrialPart::MedalCount,
-                    ));
-                });
+            root.spawn(place(INFO_TITLE.0, INFO_TITLE.1)).with_children(|t| {
+                t.spawn((
+                    label_with(vh(26.0), "MEDALS:", crate::letters::TextLook::OUTLINED),
+                    crate::letters::LetterSpacing(-1.0),
+                ));
+            });
+            root.spawn(place(INFO_COUNT.0, INFO_COUNT.1)).with_children(|t| {
+                t.spawn((
+                    label_with(vh(46.0), "", crate::letters::TextLook::GOLD),
+                    TrialPart::MedalCount,
+                ));
+            });
             for right in [false, true] {
                 let x = if right { PAGE_ARROW.1 } else { -PAGE_ARROW.1 };
                 let mut arrow = root.spawn((
-                    place(PAGE_ARROW.0, (x, TOP_ROW - ROW_STEP * 2.0)),
+                    place(PAGE_ARROW.0, (x, 0.0)),
                     TrialPart::PageArrow(right),
                 ));
                 match image("menu_arrow") {
@@ -352,8 +360,10 @@ fn button_parts(
     (x, y): (f32, f32),
     (picture, size, face): (&str, (f32, f32), usize),
 ) {
+    // Each background prefab sits on the element's centre by its own pivot.
+    let pivot = button_pivot(picture);
     let mut button = page.spawn((
-        place(size, (x, y)),
+        place(size, (x + (0.5 - pivot.0) * size.0, y + (0.5 - pivot.1) * size.1)),
         BackgroundColor(Color::srgba(0.3, 0.24, 0.55, 0.8)),
     ));
     if let Some(art) = image(picture) {
@@ -362,7 +372,7 @@ fn button_parts(
     if let Some(art) = image(&format!("menu_challenge_wizard{face}")) {
         page.spawn((
             ImageNode::new(art),
-            place(FACE.0, (x + FACE.1, y)),
+            place(FACE.0, (x + FACE.1.0, y + FACE.1.1)),
             TrialPart::Face(index),
         ));
     }
@@ -370,10 +380,13 @@ fn button_parts(
         n.spawn(label_with(
             vh(NUMBER_SIZE),
             &(index % per_tier + 1).to_string(),
-            crate::letters::TextLook::OUTLINED,
+            crate::letters::TextLook::GOLD,
         ));
     });
-    let mut medal = page.spawn((place(MEDAL.0, (x + MEDAL.1, y)), TrialPart::Medal(index)));
+    let mut medal = page.spawn((
+        place(MEDAL.0, (x + MEDAL.1.0, y + MEDAL.1.1)),
+        TrialPart::Medal(index),
+    ));
     match image("medal_large") {
         Some(art) => {
             medal.insert(ImageNode::new(art));
@@ -386,14 +399,14 @@ fn button_parts(
         Some(corner) => corners(
             page,
             &corner,
-            CORNER_FRAME,
-            (x, y),
+            CORNER_FRAME.0,
+            (x + CORNER_FRAME.1.0, y + CORNER_FRAME.1.1),
             CORNER_SMALL,
             TrialPart::Corner(index),
         ),
         None => {
             page.spawn((
-                place(CORNER_FRAME, (x, y)),
+                place(CORNER_FRAME.0, (x + CORNER_FRAME.1.0, y + CORNER_FRAME.1.1)),
                 Outline::new(Val::Px(3.0), Val::ZERO, Color::WHITE),
                 TrialPart::Corner(index),
             ));
