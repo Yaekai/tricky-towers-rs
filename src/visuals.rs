@@ -56,7 +56,7 @@ impl Plugin for VisualsPlugin {
             .add_systems(Update, sweep_lasers)
             .add_systems(Update, place_pillar_bases.after(frame_towers))
             .add_systems(Update, drop_stars.before(twinkle_stars))
-            .add_systems(Update, (dress_tower_pieces, show_vines.before(dress_bricks)))
+            .add_systems(Update, (dress_tower_pieces, show_vines.before(dress_bricks), wave_finish_tiles))
             .add_systems(
                 Update,
                 (
@@ -1159,6 +1159,29 @@ fn show_vines(
             commands.entity(entity).remove::<crate::spells::VineDelay>();
             brick.set_changed();
         }
+    }
+}
+
+/// A tile of the race finish line.
+#[derive(Component)]
+struct FinishTile;
+
+/// Custom/FinishLine's vertex wave: each tile rises and falls by 1% of the view's half height
+/// along sin(2 x + 2 t), x being its place across the view (-1 to 1).
+fn wave_finish_tiles(
+    time: Res<Time>,
+    view: Res<ViewSize>,
+    camera: Query<(&GlobalTransform, &Projection), With<MainCamera>>,
+    mut tiles: Query<(&mut Transform, &GlobalTransform), With<FinishTile>>,
+) {
+    let Ok((eye, Projection::Orthographic(ortho))) = camera.single() else {
+        return;
+    };
+    let half = view.0 * 0.5 * ortho.scale;
+    let t = time.elapsed_secs();
+    for (mut transform, at) in &mut tiles {
+        let x = (at.translation().x - eye.translation().x) / half.x.max(1.0);
+        transform.translation.y = 0.01 * half.y * (2.0 * x + 2.0 * t).sin();
     }
 }
 
@@ -2709,12 +2732,12 @@ fn dress_platforms(
     images: Res<Assets<Image>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut flags: Option<ResMut<Assets<crate::scene_material::CheckpointFlag>>>,
-    platforms: Query<(Entity, &Platform), Added<Platform>>,
+    platforms: Query<(Entity, &Platform, &Transform), Added<Platform>>,
 ) {
     let c = config.cell_size;
     let art_name = format!("platform_{}", mode_key(game.mode));
     let art_name = art_name.as_str();
-    for (entity, platform) in &platforms {
+    for (entity, platform, placed) in &platforms {
         let mut base = commands.entity(entity);
         // In Puzzle the floor blocks stand in for the base, and a trial's own floor
         // may replace it.
@@ -2773,7 +2796,19 @@ fn dress_platforms(
             // original sets it 9 units into its zoomed background view, ?).
             let ball_x = c * 21.0;
             let trial_laser = config.trial.is_some() && game.mode.rules() == ModeKind::Puzzle;
+            // A race battle's finish line is one flag across the whole screen: each tower's
+            // part meets its neighbour's halfway and the outer ones reach the screen's edges.
+            let race_span = {
+                let half_screen = config.cells(config.lanes.screen_width) * 0.5;
+                let half_step = config.cells(config.lanes.spacing(lanes)) * 0.5;
+                let outer = half_step * (lanes as f32 - 1.0);
+                let x = placed.translation.x;
+                let left = if x <= -outer + c { -half_screen - x } else { -half_step };
+                let right = if x >= outer - c { half_screen - x } else { half_step };
+                (right - left, (left + right) * 0.5)
+            };
             let (line_width, line_x) = match game.mode.rules() {
+                ModeKind::Race if lanes > 1 && config.trial.is_none() => race_span,
                 ModeKind::Race | ModeKind::Endless => (race_lane, 0.0),
                 ModeKind::Puzzle if trial_laser => (ball_x + c * 24.0, (ball_x - c * 24.0) * 0.5),
                 // A battle's laser is one line across the screen: each tower's copy is wide
@@ -2839,6 +2874,25 @@ fn dress_platforms(
                     // A Puzzle trial's laser is on all the time (PuzzleSinglePlayerLaserLayer).
                     art_strip_tall(&art, rest, c, line_width, config.cells(config.puzzle.trial_laser_height), Vec3::X * line_x)
                         .map(|strip| line.with_child(strip).id())
+                } else if name == "finish_line" {
+                    // FinishFlag: tiles 1.2 cells apart at 0.7 alpha, each one bobbing on the
+                    // Custom/FinishLine wave (`wave_finish_tiles`).
+                    let step = c * 1.2;
+                    let count = (line_width / step).ceil().max(1.0) as i32;
+                    let mut any = None;
+                    for i in 0..count {
+                        let x = line_x - line_width * 0.5 + step * (i as f32 + 0.5);
+                        if let Some((mut sprite, anchor, transform)) = art_sprite(&art, rest, c) {
+                            sprite.color = Color::WHITE.with_alpha(0.7);
+                            any = Some(line.with_child((
+                                sprite,
+                                anchor,
+                                transform.with_translation(Vec3::new(x, 0.0, 0.0)),
+                                FinishTile,
+                            )).id());
+                        }
+                    }
+                    any
                 } else {
                     art_strip(&art, rest, c, line_width, Vec3::X * line_x).map(|strip| line.with_child(strip).id())
                 };
@@ -2850,7 +2904,9 @@ fn dress_platforms(
                 }
                 // The finish line's tiles end in a cap at each side, the right one turned
                 // 180° (docs/research/trials-obstacles-roofs.md, "Finish line").
-                if name == "finish_line" {
+                // The flag's end caps sit 33.6 / 34 cells out, past a shared screen's lanes:
+                // only a lone tower's view reaches them.
+                if name == "finish_line" && lanes == 1 {
                     for side in [-1.0f32, 1.0] {
                         if let Some((mut sprite, anchor, transform)) =
                             art_sprite(&art, "finish_line_end", c)
