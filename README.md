@@ -89,7 +89,8 @@ differs, which keeps bots, replays and netplay simple. More in [`PLAN.md`](PLAN.
 | Explanation, Help and Credits popups | 🟡 | |
 | Text in the original's 19 languages | 🟡 | from the original's language files; long words can still overflow |
 | Values still estimated | 🟡 | about 40 marked `(?)` in `src/` |
-| Online battle, Shop | ❌ | not planned |
+| Online battle menus | ❌ | planned (no online play yet) |
+| Shop | ❌ | not planned |
 
 Not in the original, kept as extras: AI wizards in local battles, the `mods/` folder and the
 debug tools (F1 panel, F3 readout, scripted runs), listed in

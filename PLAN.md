@@ -72,8 +72,9 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    when a trial starts, and checking it all against the original on Max's PC.
 7. **Mod loading** (done): a `mods/` folder of RON config changes and art packs, merged at
    startup in name order (`src/mods.rs`, `docs/modding.md`).
-8. **Not planned yet:** Online battle, Shop, Help, the Stats/Credits/Keybinding popups, text in
-   languages other than English.
+8. **Online battle menus** (planned, Max 2026-10-17): the Online Battle screens laid out like the
+   original's, with no networking yet; online play itself may follow.
+9. **Not planned yet:** the Shop.
 
 ## How work is split
 - Code is written on a `claude/*` branch (cloud or PC) and merged into `main` through a pull

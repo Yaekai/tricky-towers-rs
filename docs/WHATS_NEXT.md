@@ -49,6 +49,11 @@ original and fix what differs:
   (`grep -rn DEBUG-TOOL src`), and decide whether AI seats in local battles stay (the original
   has none).
 
+## 6. Online battle menus (Max, 2026-10-17)
+Build the Online Battle screens (OnlinePlayerSelect, OnlineLobby, AcceptOnlineInvite scenes) so
+the title's Online Battle tile opens them like the original, even though no match can be played
+online yet; the networking itself may come later.
+
 ## Not planned
-Online battle and the Shop. XP and wizard levels exist as data only, since the original
+The Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.
