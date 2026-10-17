@@ -1460,15 +1460,25 @@ fn control_active_brick(
                 .shape_intersections(&shape, pos, rot.as_radians(), &filter)
                 .is_empty()
         };
+        // The steering shape is inset, so like the original's BrickMovementController.Move
+        // it looks the inset further and stops that much short: the full-size brick then
+        // just touches what it met (stopping at the shrunk shape's contact sank it 0.15 cells
+        // into its neighbours, and the physics popped it out by a varying amount).
+        let inset = config.cells(config.steer_inset) * brick.scale;
         let cast = |from: Vec2, rot: Rotation, dir: Dir2, max: f32| {
-            spatial.cast_shape(
-                &shape,
-                from,
-                rot.as_radians(),
-                dir,
-                &ShapeCastConfig::from_max_distance(max),
-                &filter,
-            )
+            spatial
+                .cast_shape(
+                    &shape,
+                    from,
+                    rot.as_radians(),
+                    dir,
+                    &ShapeCastConfig::from_max_distance(max + inset),
+                    &filter,
+                )
+                .map(|mut hit| {
+                    hit.distance -= inset;
+                    hit
+                })
         };
         let reach = config.cells(config.lane_reach(state.half_width));
         let in_lane = |x: f32| (x - tower.origin_x).abs() <= reach;
