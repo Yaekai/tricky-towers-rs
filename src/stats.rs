@@ -1,6 +1,6 @@
 //! Player 1's statistics and the Stats popup from Settings, laid out from the PC readout
 //! (docs/research/gap-scan.md, section 7): two panels side by side over a dark modal,
-//! Game stats (730×900: per mode, Won / Draw (Puzzle) / Lost / Ratio in columns Easy /
+//! Online stats (730×900: per mode, Games won / draw (Puzzle) / lost / Win-lose ratio in columns Easy /
 //! Normal / Special / Total under their small icons) and Other stats (730×695: ten rows),
 //! with the menu's BACK hint in the corner (navbar.rs). Kept between runs in `stats.ron`.
 //!
@@ -80,16 +80,6 @@ impl Stats {
             .iter()
             .filter(|r| r.mode == mode && difficulty.is_none_or(|d| r.difficulty == d))
             .fold((0, 0), |(g, w), r| (g + r.games, w + r.wins))
-    }
-
-    /// Won, drawn and lost in `mode` at `difficulty`, or over every difficulty with `None`.
-    pub fn outcomes(&self, mode: ModeKind, difficulty: Option<Difficulty>) -> (u32, u32, u32) {
-        self.records
-            .iter()
-            .filter(|r| r.mode == mode && difficulty.is_none_or(|d| r.difficulty == d))
-            .fold((0, 0, 0), |(w, d, l), r| {
-                (w + r.wins, d + r.draws, l + r.games.saturating_sub(r.wins + r.draws))
-            })
     }
 
     /// A drawn match (a Puzzle tie): counted as a game and a draw.
@@ -259,7 +249,6 @@ struct StatsRoot;
 /// column (0-2 a difficulty, 3 the total).
 #[derive(Component, Clone, Copy)]
 enum StatText {
-    Cell(usize, usize, usize),
     BricksPlaced,
     TimePlayed,
     Medals,
@@ -311,11 +300,21 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
         face: Some(Color::srgb(0.094, 0.122, 0.239)),
         ..default()
     };
+    // SubStatsItem's value colours: Easy green, Normal blue, Pro red, Total dark navy.
+    let column_look = |c: usize| crate::letters::TextLook {
+        face: Some(match c {
+            0 => Color::srgb(0.149, 0.612, 0.380),
+            1 => Color::srgb(0.227, 0.239, 0.698),
+            2 => Color::srgb(0.580, 0.071, 0.282),
+            _ => Color::srgb(0.094, 0.122, 0.239),
+        }),
+        ..default()
+    };
     root.with_children(|root| {
         let game_left = -25.0 - GAME_PANEL.0;
         let other_left = 25.0;
         for (size, left, title) in [
-            (GAME_PANEL, game_left, "Game stats"),
+            (GAME_PANEL, game_left, "Online stats"),
             (OTHER_PANEL, other_left, "Other stats"),
         ] {
             let mut panel = root.spawn((
@@ -355,22 +354,22 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
             }
         }
         let mut top = PANEL_TOP - 75.0;
-        for (m, mode) in MODES.iter().enumerate() {
+        for mode in MODES.iter() {
             root.spawn(Node {
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::Center,
                 ..place((200.0, 50.0), (inner + 20.0 + 100.0, top - 25.0))
             })
             .with_children(|t| {
-                t.spawn(crate::select::label_with(vh(30.0), mode.name(), crate::letters::TextLook {
+                t.spawn(plain(vh(30.0), mode.name(), crate::letters::TextLook {
                     face: Some(Color::BLACK),
                     ..default()
                 }));
             });
             let rows: &[(usize, &str)] = if *mode == ModeKind::Puzzle {
-                &[(0, "Won"), (1, "Draw"), (2, "Lost"), (3, "Ratio")]
+                &[(0, "Games won"), (1, "Games draw"), (2, "Games lost"), (3, "Win-lose ratio")]
             } else {
-                &[(0, "Won"), (2, "Lost"), (3, "Ratio")]
+                &[(0, "Games won"), (2, "Games lost"), (3, "Win-lose ratio")]
             };
             for (i, &(row, name)) in rows.iter().enumerate() {
                 let y = top - 50.0 - 22.5 - 52.0 * i as f32;
@@ -381,7 +380,7 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
                     ..place((200.0, 45.0), (inner + 20.0 + 100.0, y))
                 })
                 .with_children(|t| {
-                    t.spawn(crate::select::label_with(vh(19.0), name, name_look));
+                    t.spawn(plain(vh(19.0), name, name_look));
                 });
                 // Easy, Normal, Pro centred in 115 px boxes from 205, 320, 435; the total
                 // right-aligned from 535.
@@ -400,11 +399,58 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
                         ..place((w, 45.0), (inner + x + w / 2.0, y))
                     })
                     .with_children(|t| {
-                        t.spawn((crate::select::label_with(vh(26.0), "0", value_look), StatText::Cell(m, row, c)));
+                        // These count online matches only (LocalGameController.UpdateStats runs
+                        // from the online game type), so with no online play they stay at 0, and
+                        // "-" for the ratio with neither wins nor losses.
+                        t.spawn(plain(vh(26.0), if row == 3 { "-" } else { "0" }, column_look(c)));
                     });
                 }
             }
             top -= 50.0 + 52.0 * rows.len() as f32 + 40.0 - 50.0 + 10.0;
+        }
+        // CupStatsItem: "Online cups" with Won, Lost and Ratio over its columns (18 px, grey)
+        // and the total icon, then one CupSubStatsItem strip.
+        let middle = inner + width / 2.0;
+        root.spawn(Node {
+            justify_content: JustifyContent::FlexStart,
+            align_items: AlignItems::Center,
+            ..place((180.0, 50.0), (inner + 20.0 + 90.0, top - 25.0))
+        })
+        .with_children(|t| {
+            t.spawn(plain(vh(30.0), "Online cups", crate::letters::TextLook {
+                face: Some(Color::BLACK),
+                ..default()
+            }));
+        });
+        for (x, name) in [(-108.0, "Won"), (7.0, "Lost"), (122.0, "Ratio")] {
+            root.spawn(place((90.0, 50.0), (middle + x + 45.0, top - 25.0))).with_children(|t| {
+                t.spawn(plain(vh(18.0), name, name_look));
+            });
+        }
+        let mut icon = root.spawn(place((18.0, 20.0), (inner + width - 19.0 - 10.0, top - 25.0)));
+        if let Some(art) = image("stats_icon_total") {
+            icon.insert(ImageNode::new(art));
+        }
+        let y = top - 50.0 - 22.5;
+        strip(root, inner, width, y);
+        // Won, Lost, Ratio and the total, coloured green, blue, then dark.
+        for (c, (x, w, right, words)) in [
+            (205.0, 115.0, false, "0"),
+            (320.0, 115.0, false, "0"),
+            (435.0, 115.0, false, "-"),
+            (535.0, width - 555.0, true, "0"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            root.spawn(Node {
+                justify_content: if right { JustifyContent::FlexEnd } else { JustifyContent::Center },
+                align_items: AlignItems::Center,
+                ..place((w, 45.0), (inner + x + w / 2.0, y))
+            })
+            .with_children(|t| {
+                t.spawn(plain(vh(26.0), words, column_look(if c == 2 { 3 } else { c })));
+            });
         }
         // Other stats: StatsPopup's rows, in its order (the English of each STATS_ key).
         let rows: Vec<(String, StatText)> = vec![
@@ -430,7 +476,7 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
                 ..place((370.0, 45.0), (inner + 20.0 + 185.0, y))
             })
             .with_children(|t| {
-                t.spawn(crate::select::label_with(vh(19.0), &name, name_look));
+                t.spawn(plain(vh(19.0), &name, name_look));
             });
             root.spawn(Node {
                 justify_content: JustifyContent::FlexEnd,
@@ -442,6 +488,17 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
             });
         }
     });
+}
+
+/// A stats text as written, not in capitals (EnzoBlack has small letters).
+fn plain(size: f32, text: &str, look: crate::letters::TextLook) -> impl Bundle + use<> {
+    (
+        Text::new(text),
+        look,
+        TextFont { font_size: FontSize::Vh(size), ..default() },
+        TextColor(Color::WHITE),
+        TextLayout::justify(Justify::Center),
+    )
 }
 
 /// "1h 05m" style (?: the original's time format not read).
@@ -471,26 +528,6 @@ fn show_stats_popup(
     }
     for (part, mut text) in &mut texts {
         let words = match *part {
-            StatText::Cell(m, row, c) => {
-                let (won, drawn, lost) = stats.outcomes(MODES[m], DIFFICULTIES.get(c).copied());
-                match row {
-                    0 => won.to_string(),
-                    1 => drawn.to_string(),
-                    2 => lost.to_string(),
-                    // GameStatsItem: (won + drawn in Puzzle) / lost, or that count with no
-                    // losses, or "-" with neither; two decimals.
-                    _ => {
-                        let good = (won + if MODES[m] == ModeKind::Puzzle { drawn } else { 0 }) as f32;
-                        if lost > 0 {
-                            format!("{:.2}", good / lost as f32)
-                        } else if good > 0.0 {
-                            format!("{good:.2}")
-                        } else {
-                            "-".to_string()
-                        }
-                    }
-                }
-            }
             StatText::BricksPlaced => stats.bricks_placed.to_string(),
             StatText::TimePlayed => hours_minutes(stats.seconds_played),
             StatText::Medals => format!(
