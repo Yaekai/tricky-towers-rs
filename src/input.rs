@@ -1,5 +1,6 @@
-//! Keyboard and gamepad input. Player 1 uses the keyboard; gamepads drive
-//! players 2 to 4 in the order they were connected (with one player, the first
+//! Keyboard and gamepad input. In a local battle each device drives the player whose
+//! seat it took on Select Players; otherwise player 1 uses the keyboard and gamepads
+//! drive players 2 to 4 in the order they were connected (with one player, the first
 //! gamepad drives player 1 too). Input is written into each tower's
 //! [`PlayerInput`] once per frame; the fixed-step gameplay systems consume it.
 
@@ -58,6 +59,22 @@ fn player_for_slot(players: usize, slot: usize) -> usize {
     if players <= 1 { slot } else { slot + 1 }
 }
 
+/// The people seated on Select Players, in player order, when they are the match's
+/// players (a local battle); None otherwise (single player, scripted matches).
+fn seated(lobby: Option<&crate::select::Lobby>, players: usize) -> Option<Vec<crate::select::Seat>> {
+    let humans: Vec<_> = lobby?.seats.iter().copied().filter(|s| s.human()).collect();
+    (players > 1 && humans.len() == players).then_some(humans)
+}
+
+/// The player a pad drives: its seat's player in a local battle (none if it didn't
+/// join), else by connection order.
+fn pad_player(seats: Option<&[crate::select::Seat]>, players: usize, slot: usize, pad: Entity) -> Option<usize> {
+    match seats {
+        Some(seats) => seats.iter().position(|s| *s == crate::select::Seat::Pad(pad)),
+        None => Some(player_for_slot(players, slot)),
+    }
+}
+
 /// Rumbles a losing player's controller as their tower falls apart: once while it
 /// waits to give way, and again with the rumble after the blasts.
 fn rumble_losers(
@@ -65,11 +82,13 @@ fn rumble_losers(
     mut events: MessageReader<CollapseEvent>,
     gamepads: Query<Entity, With<Gamepad>>,
     towers: Query<&Tower>,
+    lobby: Option<Res<crate::select::Lobby>>,
     mut rumble: MessageWriter<GamepadRumbleRequest>,
 ) {
     let mut pads: Vec<Entity> = gamepads.iter().collect();
     pads.sort();
     let players = towers.iter().filter(|t| t.human).count();
+    let seats = seated(lobby.as_deref(), players);
     let look = &config.moments;
     for event in events.read() {
         let seconds = match event.kind {
@@ -85,7 +104,7 @@ fn rumble_losers(
             continue;
         };
         let pad = (0..pads.len())
-            .find(|&slot| player_for_slot(players, slot) == player)
+            .find(|&slot| pad_player(seats.as_deref(), players, slot, pads[slot]) == Some(player))
             .map(|slot| pads[slot]);
         if let Some(gamepad) = pad {
             rumble.write(GamepadRumbleRequest::Add {
@@ -119,15 +138,25 @@ fn read_keyboard(
     game: Res<Match>,
     mut request: ResMut<MatchRequest>,
     mut towers: Query<(&Tower, &mut PlayerInput)>,
+    lobby: Option<Res<crate::select::Lobby>>,
 ) {
     if game.phase == Phase::Menu {
         return;
     }
+    // In a local battle the keyboard drives the player whose seat it took.
+    let players = towers.iter().filter(|(t, _)| t.human).count();
+    let player = match seated(lobby.as_deref(), players) {
+        Some(seats) => match seats.iter().position(|s| *s == crate::select::Seat::Keyboard) {
+            Some(p) => p,
+            None => return,
+        },
+        None => 0,
+    };
     // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
     if keys.any_just_pressed(RESTART) {
         request.pending = true;
     }
-    let Some((_, mut input)) = towers.iter_mut().find(|(tower, _)| tower.is_first_player()) else {
+    let Some((_, mut input)) = towers.iter_mut().find(|(tower, _)| tower.player == Some(player)) else {
         return;
     };
     let key = |action| bindings.key(action);
@@ -170,10 +199,12 @@ fn read_gamepads(
     gamepads: Query<(Entity, &Gamepad)>,
     mut towers: Query<(&Tower, &mut PlayerInput)>,
     mut last: Local<bevy::platform::collections::HashMap<Entity, PadState>>,
+    lobby: Option<Res<crate::select::Lobby>>,
 ) {
     let mut pads: Vec<_> = gamepads.iter().collect();
     pads.sort_by_key(|(e, _)| *e);
     let players = towers.iter().filter(|(t, _)| t.human).count();
+    let seats = seated(lobby.as_deref(), players);
     for (slot, (entity, pad)) in pads.into_iter().enumerate() {
         // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
         // Start restarts a finished match; in the original the popup does that.
@@ -183,7 +214,9 @@ fn read_gamepads(
         if game.phase == Phase::Menu {
             continue;
         }
-        let player = player_for_slot(players, slot);
+        let Some(player) = pad_player(seats.as_deref(), players, slot, entity) else {
+            continue;
+        };
         let Some((_, mut input)) = towers.iter_mut().find(|(t, _)| t.player == Some(player)) else {
             continue;
         };
@@ -220,6 +253,22 @@ fn read_gamepads(
 mod tests {
     use super::*;
     use crate::config::GameConfig;
+
+    #[test]
+    fn seated_pads_drive_their_own_seats_player() {
+        use crate::select::Seat;
+        let pad_a = Entity::from_raw_u32(7).unwrap();
+        let pad_b = Entity::from_raw_u32(9).unwrap();
+        // Two pads joined seats 1 and 2, nobody on the keyboard.
+        let seats = [Seat::Pad(pad_a), Seat::Pad(pad_b)];
+        assert_eq!(pad_player(Some(&seats), 2, 0, pad_a), Some(0));
+        assert_eq!(pad_player(Some(&seats), 2, 1, pad_b), Some(1));
+        // A pad that didn't join drives nobody.
+        let other = Entity::from_raw_u32(11).unwrap();
+        assert_eq!(pad_player(Some(&seats), 2, 2, other), None);
+        // Without seats, pads follow connection order after the keyboard.
+        assert_eq!(pad_player(None, 2, 0, pad_a), Some(1));
+    }
 
     #[test]
     fn a_losing_players_pad_rumbles_at_the_start_and_with_the_collapse() {
