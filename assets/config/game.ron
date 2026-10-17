@@ -1744,7 +1744,7 @@
         guide_below_race: 8.5,
         guide_below_survival: 12.5,
         diamond_size: 0.45,
-        diamond_step: 0.6,
+        diamond_step: 1.0,
         line_colors: [
             (255, 41, 117),
             (194, 48, 255),

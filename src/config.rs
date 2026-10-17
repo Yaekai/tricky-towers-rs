@@ -4115,7 +4115,8 @@ pub struct HudLook {
     /// Endless Race 8.5, Survival 12.5; Puzzle down to its floor).
     pub guide_below_race: f32,
     pub guide_below_survival: f32,
-    /// Spell line diamonds: size and gap in cells, and the colours they run through
+    /// Spell line diamonds: size (when the picture is missing) and the step between pieces in
+    /// cells (one a unit, 16 a line), and the colours they run through
     /// (LineSpellContainer._COLORS, 0-255, drawn at 192/255 alpha): each cell's piece starts
     /// a ninth of a colour on from the one before and moves on a colour every
     /// `line_color_seconds` (SpellContainerPiece).
@@ -4165,7 +4166,7 @@ impl Default for HudLook {
             guide_below_race: 8.5,
             guide_below_survival: 12.5,
             diamond_size: 0.45,
-            diamond_step: 0.6,
+            diamond_step: 1.0,
             line_colors: vec![
                 [255, 41, 117],
                 [194, 48, 255],

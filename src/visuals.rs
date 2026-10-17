@@ -375,6 +375,9 @@ struct SpellLine {
     tower: Entity,
 }
 
+/// The pieces in a spell line (SpellContainerSpawner's container width).
+const SPELL_LINE_PIECES: u32 = 16;
+
 /// One diamond of a spell line.
 #[derive(Component)]
 struct SpellDiamond;
@@ -2881,15 +2884,17 @@ fn dress_platforms(
             if config.magic.enabled {
                 // A row of diamonds across the lane, all one colour per line
                 // (`update_lines` picks it); no caps at the ends.
-                let width = config.cells(config.platform_width + 2.0);
                 let look = &config.hud;
+                // SpellContainerSpawner makes every line 16 pieces wide, one a unit
+                // (LineSpellContainer puts piece i at i + 0.5).
+                let width = config.cells(SPELL_LINE_PIECES as f32 * look.diamond_step);
                 let sprite = art_sprite(&art, "spell_line", c);
                 let count = art
                     .entries
                     .get("spell_line")
                     .and_then(|e| e.count)
                     .filter(|_| sprite.is_some())
-                    .unwrap_or((width / config.cells(look.diamond_step)) as u32)
+                    .unwrap_or(SPELL_LINE_PIECES)
                     .max(1);
                 let mut line = parent.spawn((
                     SpellLine {
