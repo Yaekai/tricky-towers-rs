@@ -858,7 +858,8 @@ pub const TILES: [Tile; 7] = [
         at: (0.0, -406.0),
         color: (0.7, 0.2, 0.25),
         front: None,
-        bar: (-10.0, 41.1, 456.0, 26.0),
+        // Its TopBar hangs from the tile's middle (anchors 0.5), 41.1 up: 7.1 over its top.
+        bar: (-10.0, 41.1 - 68.0 / 2.0, 456.0, 26.0),
         frame: ((0.0, 5.0), (456.0, 78.0)),
     },
 ];

@@ -238,18 +238,16 @@ fn pack_graphic() -> Node {
 #[derive(Component)]
 pub(crate) struct CarouselLogo(i32);
 
-/// The Indie guests' game logos (wizards 9-14) and their sizes in pixels.
-const INDIE_LOGOS: [(&str, (f32, f32)); 6] = [
-    ("menu_logo_lethal_league", (637.0, 459.0)),
-    ("menu_logo_awesomenauts", (525.0, 112.0)),
-    ("menu_logo_towerfall", (397.0, 176.0)),
-    ("menu_logo_armello", (164.0, 100.0)),
-    ("menu_logo_nuclear_throne", (504.0, 181.0)),
-    ("menu_logo_octodad", (518.0, 140.0)),
+/// The Indie guests' game logos (wizards 9-14): each Character09-14 prefab's Logo rect, its
+/// size and its centre from the panel's centre (they stand clear above the 283 px panel).
+const INDIE_LOGOS: [(&str, (f32, f32), (f32, f32)); 6] = [
+    ("menu_logo_lethal_league", (160.0, 116.0), (-10.0, 193.0)),
+    ("menu_logo_awesomenauts", (264.0, 88.0), (0.0, 185.0)),
+    ("menu_logo_towerfall", (200.0, 88.0), (0.0, 190.0)),
+    ("menu_logo_armello", (164.0, 100.0), (0.0, 192.0)),
+    ("menu_logo_nuclear_throne", (260.0, 100.0), (0.0, 188.0)),
+    ("menu_logo_octodad", (266.0, 72.0), (0.0, 189.0)),
 ];
-/// The box a logo is fitted into, and its centre above the panel's top edge.
-const LOGO_BOX: (f32, f32) = (260.0, 80.0);
-const LOGO_ABOVE: f32 = 10.0;
 
 /// Wizards in the carousel, as many as the original has.
 const CAROUSEL_WIZARDS: usize = 14;
@@ -426,19 +424,38 @@ pub(crate) fn spawn_single_screens(
         if let Some(art) = image("menu_player_select_background_deselected") {
             grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
         }
-        let mut panel = page.spawn((
-            place(SEAT_PANEL, at),
+        // PlayerReady (CharacterNN prefabs): the orange background and five turning sunrays in
+        // a 327 x 267 mask, then the dark frame. PlayerWaiting has no frame, so the frame (whose
+        // middle is a faint red) only shows once the wizard is picked.
+        let seat_clip = (327.0, 267.0);
+        page.spawn((
+            Node {
+                overflow: Overflow::clip(),
+                ..place(seat_clip, at)
+            },
             BackgroundColor(Color::srgba(1.0, 0.8, 0.3, 0.35)),
             Item::SeatReady,
-        ));
-        if let Some(colour) = image("menu_player_select_background_selected") {
-            panel.insert((
-                sliced(colour, [PANEL_SLICE; 4]),
-                BackgroundColor(Color::NONE),
-            ));
-        }
+        ))
+        .with_children(|c| {
+            if let Some(back) = image("menu_player_select_background_selected") {
+                c.spawn((
+                    sliced(back, [PANEL_SLICE; 4]),
+                    Node {
+                        position_type: PositionType::Absolute,
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        ..default()
+                    },
+                ));
+            }
+            for layer in 0..5 {
+                if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
+                    crate::select::turning_rays(c, &mut turning, rays, seat_clip, SingleRay(layer));
+                }
+            }
+        });
         if let Some(outline) = image("menu_player_select_outline") {
-            page.spawn((sliced(outline, [PANEL_SLICE; 4]), place(SEAT_PANEL, at)));
+            page.spawn((sliced(outline, [PANEL_SLICE; 4]), place(SEAT_PANEL, at), Item::SeatReady));
         }
         let (offset, size) = WIZARDS[0][1];
         page.spawn((
@@ -451,11 +468,8 @@ pub(crate) fn spawn_single_screens(
             page.spawn((
                 ImageNode::default(),
                 place(
-                    (LOGO_BOX.0 * scale, LOGO_BOX.1 * scale),
-                    (
-                        NEIGHBOUR_X * slot as f32,
-                        SEAT_Y + SEAT_PANEL.1 * scale / 2.0 + LOGO_ABOVE,
-                    ),
+                    (260.0 * scale, 80.0 * scale),
+                    (NEIGHBOUR_X * slot as f32, SEAT_Y + 189.0 * scale),
                 ),
                 CarouselLogo(slot),
                 Visibility::Hidden,
@@ -571,7 +585,7 @@ pub(crate) fn spawn_single_screens(
             }
         });
         if let Some(outline) = image("menu_player_select_outline") {
-            page.spawn((sliced(outline, [PANEL_SLICE; 4]), place(PACK_PANEL.0, pack_at)));
+            page.spawn((sliced(outline, [PANEL_SLICE; 4]), place(PACK_PANEL.0, pack_at), Item::PackReady));
         }
         let mut pack = page.spawn(place(PACK_PANEL.0, pack_at));
         // The picked brick pack's card on it, as on Select Players.
@@ -1273,16 +1287,14 @@ pub(crate) fn show_carousel(
         let picked = wizard
             .checked_sub(8)
             .and_then(|i| INDIE_LOGOS.get(i))
-            .and_then(|&(name, size)| Some((art.as_ref()?.image(name)?, size)));
+            .and_then(|&(name, size, at)| Some((art.as_ref()?.image(name)?, size, at)));
         match picked {
-            Some((image, (w, h))) => {
+            Some((image, (w, h), (dx, dy))) => {
                 node.image = image;
-                // Fitted into the box, keeping the logo's shape.
                 let scale = if logo.0 == 0 { 1.0 } else { NEIGHBOUR_SCALE };
-                let fit = (LOGO_BOX.0 / w).min(LOGO_BOX.1 / h) * scale;
-                let x = NEIGHBOUR_X * logo.0 as f32;
-                let y = SEAT_Y + SEAT_PANEL.1 * scale / 2.0 + LOGO_ABOVE;
-                let want = place((w * fit, h * fit), (x, y));
+                let x = NEIGHBOUR_X * logo.0 as f32 + dx * scale;
+                let y = SEAT_Y + dy * scale;
+                let want = place((w * scale, h * scale), (x, y));
                 layout.left = want.left;
                 layout.top = want.top;
                 layout.width = want.width;

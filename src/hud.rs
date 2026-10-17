@@ -72,6 +72,9 @@ struct HudItem {
     shows: Option<Shows>,
     /// The view height the item was built at; sizes follow it.
     built_at: f32,
+    /// How many pictures the art had then: `Art` reads as changed every frame, and rebuilding
+    /// each frame swapped the letter twins, so two counts could show on top of each other.
+    built_art: usize,
 }
 
 /// A brick sprite already turned pale for a lost match.
@@ -113,6 +116,7 @@ fn spawn_items(
                     kind,
                     shows: None,
                     built_at: 0.0,
+                    built_art: 0,
                 },
                 Node {
                     position_type: PositionType::Absolute,
@@ -276,7 +280,10 @@ fn fill_items(
             count_up.as_ref().and_then(|c| c.0),
             tower.index,
         );
-        if item.shows.as_ref() == Some(&shows) && item.built_at == height && !art.is_changed() {
+        if item.shows.as_ref() == Some(&shows)
+            && item.built_at == height
+            && item.built_art == art.images.len()
+        {
             continue;
         }
         let mut node = commands.entity(entity);
@@ -299,6 +306,7 @@ fn fill_items(
         });
         item.shows = Some(shows);
         item.built_at = height;
+        item.built_art = art.images.len();
     }
 }
 

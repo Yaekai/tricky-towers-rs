@@ -112,9 +112,9 @@ const LANGUAGE_FLAGS: [&str; 19] = [
 #[derive(Component)]
 pub(crate) struct LanguageFlag(usize);
 
-/// Apply is a small button centred under the rows, not a full row (Max's
-/// screenshots of the original, ?: its exact size).
-const APPLY_BUTTON: (f32, f32) = (390.0, 45.0);
+/// Apply is a button centred under the rows, not a full row: SettingsListApplyItem's
+/// background is the list's width less 400 px, 58 px tall, its title 30 px.
+const APPLY_BUTTON: (f32, f32) = (ROW.0 - 400.0, 58.0);
 
 /// The player's settings. Kept in `file` when one is set (the game sets it;
 /// tests and offscreen pictures don't).
@@ -549,8 +549,13 @@ fn spawn_row(
             back.insert((sliced(art, BUTTON_SLICE), BackgroundColor(Color::NONE)));
         }
         back.with_children(|b| {
-            b.spawn(label_with(TITLE_SIZE * 0.8 / SCREEN.1 * 100.0, row.title(), ROW_TEXT));
+            b.spawn(label_with(30.0 / SCREEN.1 * 100.0, row.title(), ROW_TEXT));
         });
+        // Its Selected corners sit 10 px out from the button, as on the other rows.
+        if let Some(corner) = image("menu_corner_small") {
+            let frame = (APPLY_BUTTON.0 + 2.0 * CORNER_GAP, APPLY_BUTTON.1 + 2.0 * CORNER_GAP);
+            corners(page, &corner, frame, (0.0, y), CORNER_SMALL, SettingsPart::Corner(p, i));
+        }
         return;
     }
     let mut back = page.spawn((
