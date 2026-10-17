@@ -6,9 +6,6 @@ the overview; `docs/pc-tasks.md` and `docs/research/compare-2026-10-06.md` keep 
 working notes.
 
 ## For Max (when you have time)
-- **Candy skin:** send a screenshot of candy bricks in the original next to ours. Ours use the
-  same pattern, bevel map and light colours as the original's material, so the difference
-  can't be found from the files alone.
 - **Font:** if any screen shows text in a font other than the original's, say which one.
 
 ## 1. Check the newest work against the original
@@ -58,7 +55,8 @@ original and fix what differs:
 ## 6. Online battle menus (Max, 2026-10-17)
 Build the Online Battle screens (OnlinePlayerSelect, OnlineLobby, AcceptOnlineInvite scenes) so
 the title's Online Battle tile opens them like the original, even though no match can be played
-online yet; the networking itself may come later.
+online yet; the networking itself may come later. OnlinePlayerSelect is done (list and rank plate);
+OnlineLobby and AcceptOnlineInvite are next.
 
 ## Not planned
 The Shop. XP and wizard levels exist as data only, since the original
