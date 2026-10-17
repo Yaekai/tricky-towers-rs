@@ -1232,6 +1232,7 @@ fn main_menu_input(
     mut screen: ResMut<MenuScreen>,
     mut menu: ResMut<MainMenu>,
     mut lobby: ResMut<Lobby>,
+    mut single: ResMut<SingleMenu>,
     mut exit: MessageWriter<AppExit>,
     mut last_cursor: Local<Option<Vec2>>,
 ) {
@@ -1299,7 +1300,8 @@ fn main_menu_input(
             lobby.single = false;
             *screen = MenuScreen::Players;
         }
-        "single" => {
+        "single" | "online" => {
+            single.online = TILES[menu.selected].key == "online";
             *screen = MenuScreen::Single;
         }
         "settings" => {

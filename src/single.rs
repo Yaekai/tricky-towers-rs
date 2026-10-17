@@ -15,7 +15,7 @@ use crate::gameplay::{Match, MatchRequest, Phase, Tower, TowerState};
 use crate::menu::MenuScreen;
 use crate::select::{
     CORNER_SMALL, PACK_PANEL, PANEL_SLICE, SEAT_PANEL, WIZARDS, corners, label, place, read_taps,
-    shown, sliced, spawn_page,
+    shown, sliced, spawn_page, spawn_page_lifted,
 };
 
 /// The seat sits this far above the centre, its brick pack panel this far
@@ -72,6 +72,30 @@ const BOARD_LENGTH: usize = 10;
 
 /// A Single Player list entry: its name and whether it's built yet.
 const LIST: [(&str, bool); 2] = [("Trials", true), ("Endless", true)];
+/// Online Battle's list (OnlinePlayerSelectStateController): the cup, the quick match on the
+/// banded Endless button, and playing with friends. Nothing is played online yet.
+const ONLINE_LIST: [(&str, bool); 3] = [
+    ("Find Online Cup", true),
+    ("Find Online Game", true),
+    ("Play with friends", true),
+];
+/// OnlinePlayerSelect: the seat 250 px up (PlayerSlot), the buttons from 110 px under the
+/// middle with the first 10 px over it, the header 55 px up with no title.
+const ONLINE_SEAT_Y: f32 = 250.0;
+const ONLINE_LIST_TOP: f32 = -100.0;
+const ONLINE_HEADER_LIFT: f32 = 55.0;
+/// LevelRankInfo at the bottom middle: 800 x 150, the name's middle 5 px over its top,
+/// the rank 40 px under it, the bar 150 px narrower and 40 tall, 30 px up from its bottom.
+const RANK_PLATE: (f32, f32) = (800.0, 150.0);
+const RANK_BAR: (f32, f32) = (650.0, 40.0);
+
+fn list(online: bool) -> &'static [(&'static str, bool)] {
+    if online { &ONLINE_LIST } else { &LIST }
+}
+
+fn seat_y(online: bool) -> f32 {
+    if online { ONLINE_SEAT_Y } else { SEAT_Y }
+}
 
 /// An Endless button: its name, picture (its size and how far up it sits in
 /// the slot), wizard face and whether it's built.
@@ -138,6 +162,8 @@ pub struct SingleMenu {
     pub endless: usize,
     /// The player's wizard (0 for wizard 1), picked with Left/Right.
     pub wizard: usize,
+    /// The screen is Online Battle (its list and rank plate), not Single Player.
+    pub online: bool,
 }
 
 /// A wizard in the Single Player carousel: the picked one (0) or its
@@ -152,7 +178,7 @@ pub(crate) struct ListRibbon(usize);
 /// The list buttons' words (SinglePlayerSelectButton and ...ButtonEndless): Trials in
 /// EnzoBlackWhite32, Endless in EnzoBlackGoldRedOutline26 (the gold face, a wine outline)
 /// on the cup band its button always carries; their sizes.
-const LIST_LOOKS: [(crate::letters::TextLook, f32); 2] = [
+const LIST_LOOKS: [(crate::letters::TextLook, f32); 3] = [
     (
         crate::letters::TextLook {
             body: false,
@@ -171,6 +197,18 @@ const LIST_LOOKS: [(crate::letters::TextLook, f32); 2] = [
             ..crate::letters::TextLook::GOLD
         },
         27.4,
+    ),
+    // Play with friends: a plain button like Trials.
+    (
+        crate::letters::TextLook {
+            body: false,
+            face: Some(Color::srgb(0.918, 0.933, 1.0)),
+            outline: Some(Color::srgb(0.169, 0.035, 0.137)),
+            low: None,
+            // Dilate and outline 0.3 (EnzoBlackWhite32).
+            outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
+        },
+        32.0,
     ),
 ];
 /// The list button whose prefab has the cup band (Endless).
@@ -303,6 +341,7 @@ impl Default for SingleMenu {
             selected: 0,
             endless: 0,
             wizard: 0,
+            online: false,
         }
     }
 }
@@ -378,7 +417,7 @@ pub fn save_dir() -> PathBuf {
 }
 
 #[derive(Component)]
-pub(crate) struct SingleRoot;
+pub(crate) struct SingleRoot(bool);
 #[derive(Component)]
 pub(crate) struct EndlessRoot;
 
@@ -414,12 +453,19 @@ pub(crate) fn spawn_single_screens(
     let art = art.as_deref();
     let image = |name: &str| art.and_then(|a| a.image(name));
 
-    let single = spawn_page(&mut commands, art, "Single Player");
-    commands.entity(single).insert(SingleRoot);
+    for online in [false, true] {
+    let seat_y = seat_y(online);
+    let list_top = if online { ONLINE_LIST_TOP } else { LIST_TOP };
+    let single = if online {
+        spawn_page_lifted(&mut commands, art, "", ONLINE_HEADER_LIFT)
+    } else {
+        spawn_page(&mut commands, art, "Single Player")
+    };
+    commands.entity(single).insert(SingleRoot(online));
     commands.entity(single).with_children(|page| {
         crate::select::shop_hint(page, art);
         // Player 1's seat: grey while the wizard is being chosen, orange once it is.
-        let at = (0.0, SEAT_Y);
+        let at = (0.0, seat_y);
         let mut grey = page.spawn((place(SEAT_PANEL, at), BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3))));
         if let Some(art) = image("menu_player_select_background_deselected") {
             grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
@@ -460,7 +506,7 @@ pub(crate) fn spawn_single_screens(
         let (offset, size) = WIZARDS[0][1];
         page.spawn((
             ImageNode::default(),
-            place(size, (offset.0, SEAT_Y + offset.1)),
+            place(size, (offset.0, seat_y + offset.1)),
             Carousel(0),
         ));
         for slot in -1..=1 {
@@ -469,7 +515,7 @@ pub(crate) fn spawn_single_screens(
                 ImageNode::default(),
                 place(
                     (260.0 * scale, 80.0 * scale),
-                    (NEIGHBOUR_X * slot as f32, SEAT_Y + 189.0 * scale),
+                    (NEIGHBOUR_X * slot as f32, seat_y + 189.0 * scale),
                 ),
                 CarouselLogo(slot),
                 Visibility::Hidden,
@@ -487,7 +533,7 @@ pub(crate) fn spawn_single_screens(
                 // The far ones sit about a quarter of the way into the fade.
                 let alpha = if side.abs() > 1.0 { FAR_ALPHA } else { 1.0 };
                 let mut grey = page.spawn((
-                    place(panel, (x, SEAT_Y)),
+                    place(panel, (x, seat_y)),
                     BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
                 ));
                 if let Some(art) = image("menu_player_select_background_deselected") {
@@ -501,7 +547,7 @@ pub(crate) fn spawn_single_screens(
                         color: Color::WHITE.with_alpha(alpha),
                         ..default()
                     },
-                    place(small, (x + offset.0 * NEIGHBOUR_SCALE, SEAT_Y + offset.1)),
+                    place(small, (x + offset.0 * NEIGHBOUR_SCALE, seat_y + offset.1)),
                     Carousel(side as i32),
                 ));
             }
@@ -509,7 +555,7 @@ pub(crate) fn spawn_single_screens(
         // The corners and arrows on the row being chosen (ScrollPanelComponent shows its
         // arrows only while enabled), 200 px either side of the middle.
         let out = |(w, h): (f32, f32)| (w + 2.0 * FOCUS_OUT + CORNER_SMALL.0, h + 2.0 * FOCUS_OUT + CORNER_SMALL.1);
-        for (row, size, y) in [(0u8, SEAT_PANEL, SEAT_Y), (1, PACK_PANEL.0, SEAT_Y - PACK_BELOW_SEAT)] {
+        for (row, size, y) in [(0u8, SEAT_PANEL, seat_y), (1, PACK_PANEL.0, seat_y - PACK_BELOW_SEAT)] {
             if let Some(corner) = image("menu_corner_small") {
                 corners(page, &corner, out(size), (0.0, y), CORNER_SMALL, Item::RowFocus(row));
             }
@@ -534,7 +580,7 @@ pub(crate) fn spawn_single_screens(
         masked(page, PACK_MASK.0 - PACK_MASK.1 / 2.0, |page| {
             for side in [-1i32, 1] {
                 let mut grey = page.spawn((
-                    place(PACK_PANEL.0, (NEIGHBOUR_X * side as f32, SEAT_Y - PACK_BELOW_SEAT)),
+                    place(PACK_PANEL.0, (NEIGHBOUR_X * side as f32, seat_y - PACK_BELOW_SEAT)),
                     BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
                 ));
                 if let Some(art) = image("menu_player_select_background_deselected") {
@@ -552,7 +598,7 @@ pub(crate) fn spawn_single_screens(
         });
         // The brick pack panel under the seat, picked (its item's Selected: the orange
         // panel and turning rays cut to 327 x 95, then the dark frame); no name plate.
-        let pack_at = (0.0, SEAT_Y - PACK_BELOW_SEAT);
+        let pack_at = (0.0, seat_y - PACK_BELOW_SEAT);
         let clip = (PACK_PANEL.0.0 - 5.0, PACK_PANEL.0.1 - 5.0);
         let mut grey = page.spawn((place(PACK_PANEL.0, pack_at), BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3))));
         if let Some(art) = image("menu_player_select_background_deselected") {
@@ -600,8 +646,8 @@ pub(crate) fn spawn_single_screens(
         let button = image("menu_button_background");
         let band = image("menu_button_cup_background");
         let corner = image("menu_corner_small");
-        for (index, (name, _)) in LIST.iter().enumerate() {
-            let y = LIST_TOP - LIST_STEP * index as f32;
+        for (index, (name, _)) in list(online).iter().enumerate() {
+            let y = list_top - LIST_STEP * index as f32;
             let mut node = page.spawn((
                 place(LIST_BUTTON, (0.0, y)),
                 BackgroundColor(LIST_COLOR),
@@ -651,7 +697,11 @@ pub(crate) fn spawn_single_screens(
                 );
             }
         }
-    });
+        if online {
+            rank_plate(page, &image);
+        }
+        });
+    }
 
     let endless = crate::select::spawn_page(&mut commands, art, "Endless");
     commands.entity(endless).insert(EndlessRoot);
@@ -712,6 +762,30 @@ pub(crate) fn spawn_single_screens(
             }
         }
         spawn_board(page, &image);
+    });
+}
+
+/// Online Battle's LevelRankInfo plate: the player's name, rank and XP bar. XP only comes
+/// from online play, so the rank is the first and the bar empty (its fill starts at
+/// `progress * width - width`).
+fn rank_plate(page: &mut ChildSpawnerCommands, image: &dyn Fn(&str) -> Option<Handle<Image>>) {
+    let plate_y = -(crate::select::SCREEN.1 - RANK_PLATE.1) / 2.0;
+    let top = plate_y + RANK_PLATE.1 / 2.0;
+    let mut plate = page.spawn(place(RANK_PLATE, (0.0, plate_y)));
+    if let Some(back) = image("menu_rank_panel_background") {
+        plate.insert(sliced(back, [45.0, 46.0, 43.0, 6.0]));
+    }
+    let bar_y = plate_y - RANK_PLATE.1 / 2.0 + 30.0 + RANK_BAR.1 / 2.0;
+    let mut bar = page.spawn(place(RANK_BAR, (0.0, bar_y)));
+    if let Some(back) = image("menu_rank_bar_background") {
+        bar.insert(sliced(back, [12.0, 12.0, 14.0, 14.0]));
+    }
+    page.spawn(place((600.0, 106.0), (0.0, top + 5.0))).with_children(|t| {
+        t.spawn(crate::select::label_with(46.0 / 10.8, PLAYER_NAME, crate::letters::TextLook::GOLD));
+    });
+    let rank = crate::config::XpRules::default().names[0].to_uppercase();
+    page.spawn(place((331.0, 45.0), (0.0, top - 40.0))).with_children(|t| {
+        t.spawn(crate::select::label_with(26.0 / 10.8, &rank, LIST_LOOKS[0].0));
     });
 }
 
@@ -976,9 +1050,10 @@ pub(crate) fn single_input(
         return;
     }
     if taps.down {
-        menu.selected = (menu.selected + 1).min(LIST.len() - 1);
+        menu.selected = (menu.selected + 1).min(list(menu.online).len() - 1);
     }
-    if pick {
+    // ponytail: no online play yet, so Online Battle's buttons do nothing.
+    if pick && !menu.online {
         match LIST[menu.selected].0 {
             "Endless" => {
                 menu.endless = 0;
@@ -1057,7 +1132,7 @@ pub(crate) fn show_single_screens(
     board: Res<Leaderboard>,
     mut menu_look: ResMut<crate::visuals::MenuLook>,
     mut roots: ParamSet<(
-        Query<&mut Visibility, With<SingleRoot>>,
+        Query<(&mut Visibility, &SingleRoot)>,
         Query<&mut Visibility, With<EndlessRoot>>,
     )>,
     mut items: Query<
@@ -1075,8 +1150,8 @@ pub(crate) fn show_single_screens(
     let menu_up = game.phase == Phase::Menu;
     let single_on = menu_up && *screen == MenuScreen::Single;
     let endless_on = menu_up && *screen == MenuScreen::Endless;
-    for mut v in &mut roots.p0() {
-        v.set_if_neq(shown(single_on));
+    for (mut v, root) in &mut roots.p0() {
+        v.set_if_neq(shown(single_on && root.0 == menu.online));
     }
     for mut v in &mut roots.p1() {
         v.set_if_neq(shown(endless_on));
@@ -1143,7 +1218,7 @@ pub(crate) fn show_single_screens(
         }
         let look = match *item {
             // List buttons stay plain; the ribbon marks the picked one.
-            Item::ListButton(i) => Some(tint(true, LIST[i].1)),
+            Item::ListButton(i) => Some(tint(true, list(menu.online).get(i).is_some_and(|l| l.1))),
             // Endless buttons stay bright too (Max's screenshots); corners mark the picked one.
             Item::EndlessButton(i) => Some(tint(true, ENDLESS[i].built)),
             _ => None,
@@ -1172,7 +1247,7 @@ pub(crate) fn show_single_screens(
         }
         let words = match *item {
             Item::ListText(i) => {
-                let (name, built) = LIST[i];
+                let Some(&(name, built)) = list(menu.online).get(i) else { continue };
                 if let Some(mut c) = text_colour {
                     let want = if menu.step == 2 && menu.selected == i {
                         Color::srgb(1.0, 0.85, 0.3)
@@ -1293,7 +1368,7 @@ pub(crate) fn show_carousel(
                 node.image = image;
                 let scale = if logo.0 == 0 { 1.0 } else { NEIGHBOUR_SCALE };
                 let x = NEIGHBOUR_X * logo.0 as f32 + dx * scale;
-                let y = SEAT_Y + dy * scale;
+                let y = seat_y(menu.online) + dy * scale;
                 let want = place((w * scale, h * scale), (x, y));
                 layout.left = want.left;
                 layout.top = want.top;

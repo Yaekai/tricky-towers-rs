@@ -502,6 +502,12 @@ pub(crate) struct ModesRoot;
 
 /// A full-screen page with the header bar, over the live scene (visuals::MenuScene).
 pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str) -> Entity {
+    spawn_page_lifted(commands, art, title, 0.0)
+}
+
+/// [`spawn_page`] with the header raised by `lift` px (OnlinePlayerSelect moves it up 55
+/// and hides its title).
+pub(crate) fn spawn_page_lifted(commands: &mut Commands, art: Option<&Art>, title: &str, lift: f32) -> Entity {
     let mut page = commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -515,7 +521,7 @@ pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str
     page.with_children(|page| {
         let back = (HEADER.0, HEADER.1 + HEADER_BACK_EXTRA);
         let mut bar = page.spawn((
-            place(back, (0.0, (SCREEN.1 - HEADER.1 + HEADER_BACK_EXTRA) / 2.0)),
+            place(back, (0.0, (SCREEN.1 - HEADER.1 + HEADER_BACK_EXTRA) / 2.0 + lift)),
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.45)),
         ));
         if let Some(art) = art.and_then(|a| a.image("menu_header")) {
