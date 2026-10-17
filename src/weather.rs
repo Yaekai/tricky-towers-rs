@@ -171,10 +171,14 @@ struct SurvivalMist {
 /// The bands: colour, top (14%, 19%, 24% of the view), edge squash, depth (in front
 /// of the front islands, between the islands, behind them), and the edge wave's sideways
 /// offset (MistLayer's xOffset).
-const SURVIVAL_MISTS: [([u8; 3], f32, f32, f32, f32); 3] = [
+const SURVIVAL_MISTS: [([u8; 3], f32, f32, f32, f32); 4] = [
     ([192, 163, 225], 0.14, 0.8, -895.5, 0.1),
     ([207, 163, 222], 0.19, 0.6, -897.5, 0.5),
     ([151, 125, 216], 0.24, 0.4, -899.55, 0.3),
+    // MistForeground: its own camera over the towers, the bottom 10% of its view (0.08 of
+    // ours matches Max's Survival clip, as ours draws its edge a little higher).
+    // ponytail: it doesn't sink to 8 cells under the lowest tower when that is lower.
+    ([227, 214, 246], 0.08, 1.0, 450.0, 0.0),
 ];
 /// The mist edge's wave (MistWave, Custom/FlagWave): amplitude, offset up, and its speed
 /// out of a curse wave and in one (SurvivalBackground: 1, then 5).
