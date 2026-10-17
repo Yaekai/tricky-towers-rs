@@ -51,6 +51,9 @@ pub(crate) struct LogoPiece {
     at: Vec2,
     scale: f32,
     kind: PieceKind,
+    /// The sprite's pivot height (0 bottom .. 1 top): the brick and the plants stand on
+    /// their foot (gph_logoBrick and gph_logoPlantsNN pivot at 0.5, 0).
+    pivot_y: f32,
 }
 
 /// Seconds the start screen has been up.
@@ -73,11 +76,14 @@ pub(crate) fn spawn_start_screen(
         Visibility::Hidden,
         StartRoot,
     ));
-    // The pieces, back to front: plants behind the logo, then the logo, the
-    // rubble and the brick. With only the combined logo staged it moves alone.
+    // The pieces, back to front: the brick, the plants behind the logo, then the logo
+    // and the rubble. With only the combined logo staged it moves alone.
     let mut pieces: Vec<(String, Vec2, f32, PieceKind)> = Vec::new();
     let plain = image("logo_plain").is_some();
     if plain {
+        // The brick sits at z 0 behind the logo, plants and rubble (all at z -1): its foot
+        // is hidden by the letters it lands on.
+        pieces.push(("logo_brick".into(), BRICK, 1.0, PieceKind::Brick));
         for (i, at) in PLANTS.iter().enumerate() {
             pieces.push((format!("logo_plants_{}", i + 1), *at, 1.0, PieceKind::Plant(i)));
         }
@@ -93,7 +99,6 @@ pub(crate) fn spawn_start_screen(
         for &(at, scale) in SMALL_DEBRIS {
             pieces.push(("logo_debris_8".into(), at, scale, PieceKind::Debris));
         }
-        pieces.push(("logo_brick".into(), BRICK, 1.0, PieceKind::Brick));
     } else {
         pieces.push(("logo".into(), LOGO, 1.0, PieceKind::Logo));
     }
@@ -103,6 +108,11 @@ pub(crate) fn spawn_start_screen(
             let Some(picture) = image(&name) else {
                 continue;
             };
+            let pivot_y = art
+                .as_ref()
+                .and_then(|a| a.entries.get(&name))
+                .and_then(|e| e.pivot)
+                .map_or(0.5, |p| p.1);
             root.spawn((
                 ImageNode::new(picture.clone()),
                 Node {
@@ -116,6 +126,7 @@ pub(crate) fn spawn_start_screen(
                     at,
                     scale,
                     kind,
+                    pivot_y,
                 },
             ));
         }
@@ -210,9 +221,12 @@ const SMALL_DEBRIS: &[(Vec2, f32)] = &[
 
 /// Enter, Space, A or Start goes on to the title tiles.
 pub(crate) fn start_input(
+    mut commands: Commands,
     keys: Option<Res<ButtonInput<KeyCode>>>,
     gamepads: Query<&Gamepad>,
     game: Res<Match>,
+    art: Option<Res<Art>>,
+    settings: Option<Res<crate::settings::Settings>>,
     mut screen: ResMut<MenuScreen>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Start {
@@ -225,6 +239,17 @@ pub(crate) fn start_input(
         .iter()
         .any(|p| p.any_just_pressed([crate::input::continue_back(p).0, GamepadButton::Start]));
     if key || pad {
+        // StartStateController plays the start sounds with the logo's rumble.
+        // ponytail: goes on at once; the Rumble clip before the title isn't played.
+        let volume = settings.as_deref().map_or(1.0, |s| s.volume);
+        for name in ["sfx_start_game_v2", "sfx_brick_heavy", "sfx_menu_crumble"] {
+            if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
+                commands.spawn((
+                    AudioPlayer(handle.clone()),
+                    PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+                ));
+            }
+        }
         *screen = MenuScreen::Main;
     }
 }
@@ -246,7 +271,7 @@ pub(crate) fn show_start_screen(
         (Without<StartPrompt>, Without<LogoPiece>),
     >,
     mut prompt_bar: Query<&mut Node, (With<StartPrompt>, Without<PromptPart>, Without<LogoPiece>)>,
-    mut heard: Local<[bool; 3]>,
+    mut heard: Local<usize>,
     mut root: Query<&mut Visibility, With<StartRoot>>,
     mut prompt: Query<&mut Visibility, (With<StartPrompt>, Without<StartRoot>)>,
     mut pieces: Query<
@@ -310,23 +335,17 @@ pub(crate) fn show_start_screen(
     }
     if !on {
         clock.0 = 0.0;
-        *heard = [false; 3];
+        *heard = 0;
         return;
     }
     clock.0 += time.delta_secs();
     let t = clock.0;
     let look: &StartLook = &config.start;
-    // The original's sounds: the brick starts to fall, then lands with a nudge and a crumble.
     let fall = look.brick_y.first().map_or(0.0, |k| k.0);
-    let land = look.brick_y.get(1).map_or(fall, |k| k.0);
-    let cues = [
-        (fall, "sfx_brick_fall_1", 0),
-        (land, "sfx_brick_nudge", 1),
-        (land, "sfx_menu_crumble", 2),
-    ];
-    for (at, name, slot) in cues {
-        if !heard[slot] && t >= at {
-            heard[slot] = true;
+    // The clip's sound events, each once.
+    while let Some((_, names)) = look.sounds.get(*heard).filter(|(at, _)| t >= *at) {
+        *heard += 1;
+        for name in names {
             if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
                 // The sound-effects volume from Settings, as every effect plays at.
                 let volume = settings.as_deref().map_or(1.0, |s| s.volume);
@@ -370,10 +389,11 @@ pub(crate) fn show_start_screen(
             PieceKind::Plant(i) => {
                 // Grows up from its foot.
                 let grow = look.plant_grow.get(i).map_or(1.0, |keys| curve(keys, t));
-                at.y -= size.y * (1.0 - grow) / 2.0 / UNIT;
                 size.y *= grow;
             }
         }
+        // Placed by the sprite's pivot: its middle sits half a picture from it.
+        at.y += (0.5 - piece.pivot_y) * size.y / UNIT;
         transform.rotation = Rot2::degrees(-tilt);
         let spot = centre + turn * at * UNIT;
         let placed = place((size.x, size.y), (spot.x, spot.y));

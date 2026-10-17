@@ -3138,6 +3138,8 @@ pub struct StartLook {
     /// Seconds before the prompt shows, and its blink: seconds on, seconds off.
     pub prompt_after: f32,
     pub blink: (f32, f32),
+    /// The MoveIn clip's sound events (StartStateController): when, and which sounds.
+    pub sounds: Vec<(f32, Vec<String>)>,
 }
 
 impl Default for StartLook {
@@ -3154,6 +3156,15 @@ impl Default for StartLook {
             plant_grow: [vec![(0.0, 0.0, 0.0, 0.0), (0.8654, 0.0, 0.0, 0.0), (1.038, 1.0, -25.26, 0.0)], vec![(0.0, 0.0, 0.0, 0.0), (1.058, 0.0, 0.0, 0.0), (1.135, 0.8267, 14.95, 14.95), (1.231, 1.0, -21.57, 0.0)], vec![(0.0, 0.0, 0.0, 0.0), (1.154, 0.0, 0.0, 0.0), (1.231, 0.7331, 3.161, 0.0), (1.346, 1.0, -20.64, 0.0)], vec![(0.0, 0.0, 0.0, 0.0), (1.058, 0.0, 0.0, 0.0), (1.135, 0.9824, 17.38, 17.38), (1.231, 1.0, -29.77, 0.0)]],
             prompt_after: 2.62,
             blink: (0.5, 0.5),
+            // SWOOSH, FALLING_BRICK, three GRASS_GROW and BRICK_LAND.
+            sounds: vec![
+                (0.0962, vec!["sfx_swoosh".into()]),
+                (0.7885, vec!["sfx_brick_fall_1".into()]),
+                (0.8654, vec!["sfx_grass_grow_01".into()]),
+                (1.0577, vec!["sfx_grass_grow_01".into()]),
+                (1.1538, vec!["sfx_grass_grow_01".into()]),
+                (1.6346, vec!["sfx_nudge".into(), "sfx_menu_crumble".into()]),
+            ],
         }
     }
 }

@@ -175,7 +175,7 @@ fn main() {
     if let Some(file) = value("--trials") {
         app.insert_resource(tricky_towers::trials::TrialProgress::load(file.into()));
     }
-    // `--menu title|players|modes|single|endless|trials|settings|pause` opens on that menu screen, for scripted pictures.
+    // `--menu start|title|players|modes|single|endless|trials|settings|pause` opens on that menu screen, for scripted pictures.
     // Player select shows the keyboard player and one AI wizard seated.
     if let Some(menu) = value("--menu") {
         use tricky_towers::menu::MenuScreen;
@@ -192,6 +192,7 @@ fn main() {
             "trials" => MenuScreen::Trials,
             "settings" => MenuScreen::Settings,
             "help" => MenuScreen::Help,
+            "start" => MenuScreen::Start,
             "title" => MenuScreen::Main,
             "pause" => MenuScreen::Pause,
             _ => MenuScreen::Modes,
