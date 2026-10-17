@@ -56,7 +56,7 @@ impl Plugin for VisualsPlugin {
             .add_systems(Update, sweep_lasers)
             .add_systems(Update, place_pillar_bases.after(frame_towers))
             .add_systems(Update, drop_stars.before(twinkle_stars))
-            .add_systems(Update, dress_tower_pieces)
+            .add_systems(Update, (dress_tower_pieces, show_vines.before(dress_bricks)))
             .add_systems(
                 Update,
                 (
@@ -810,6 +810,7 @@ pub(crate) fn dress_bricks(
             Option<&Grassy>,
             Option<&Placed>,
             Option<&ActiveBrick>,
+            Has<crate::spells::VineDelay>,
         ),
         (
             Or<(
@@ -827,7 +828,9 @@ pub(crate) fn dress_bricks(
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut lit_bricks: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
 ) {
-    for (entity, brick, landed_stone, vined, grass, placed, active) in &bricks {
+    for (entity, brick, landed_stone, vined, grass, placed, active, vine_waits) in &bricks {
+        // Joined bricks show their vines once their turn in the spread comes (show_vines).
+        let vined = vined && !vine_waits;
         let grassy = grass.is_some();
         let stone = landed_stone || active.is_some_and(|a| a.mods.petrify);
         let cell = config.cell_size * brick.scale;
@@ -1141,6 +1144,22 @@ fn top_cells(cells: &[Vec2]) -> Vec<Vec2> {
         .copied()
         .filter(|&c| !cells.iter().any(|&o| (o - c - Vec2::Y).length() < 0.1))
         .collect()
+}
+
+/// A joined Ivy brick's vines show when its delay is up: the brick is drawn again with them,
+/// so their growth animation starts then.
+fn show_vines(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut waiting: Query<(Entity, &crate::spells::VineDelay, &mut Brick)>,
+) {
+    let now = time.elapsed_secs();
+    for (entity, delay, mut brick) in &mut waiting {
+        if now >= delay.0 {
+            commands.entity(entity).remove::<crate::spells::VineDelay>();
+            brick.set_changed();
+        }
+    }
 }
 
 /// Draws a Minibase tower piece with its own picture (TowerPieceL/R01 or 02's Graphic).

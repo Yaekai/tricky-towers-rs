@@ -29,6 +29,11 @@ pub struct Stone;
 #[derive(Component, Debug)]
 pub struct Vined;
 
+/// When a newly joined brick's vines show (the game's clock, seconds): IvyChildBrickModifier
+/// shows them a tenth of a second per unit away from the Ivy brick, so they spread out.
+#[derive(Component, Debug)]
+pub struct VineDelay(pub f32);
+
 /// A placed Ivy brick waiting to be vined to what it touches.
 #[derive(Component, Debug)]
 pub struct IvyPending;
@@ -918,6 +923,7 @@ pub(crate) fn reshape_active_bricks(
 #[allow(clippy::type_complexity)]
 pub(crate) fn grow_ivy(
     mut commands: Commands,
+    time: Res<Time>,
     config: Res<GameConfig>,
     spatial: SpatialQuery,
     bricks: Query<
@@ -1009,9 +1015,17 @@ pub(crate) fn grow_ivy(
             .id();
         let inverse = rotation.inverse();
         for &m in &members {
-            let Ok((_, brick_m, p, r, ..)) = bricks.get(m) else {
+            let Ok((_, brick_m, p, r, .., child_of)) = bricks.get(m) else {
                 continue;
             };
+            // Bricks joining now show their vines after their distance / 10 s; the ones
+            // already in a cluster keep theirs.
+            if child_of.is_none() {
+                let units = (p.0 - position.0).length() / config.cell_size.max(0.01);
+                commands
+                    .entity(m)
+                    .insert(VineDelay(time.elapsed_secs() + units * config.magic.ivy_spread));
+            }
             let local = inverse * (p.0 - position.0);
             let turn = (inverse * *r).as_radians();
             // A new collider, so no contact still names the brick as its body.

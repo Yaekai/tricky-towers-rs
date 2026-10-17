@@ -1201,6 +1201,8 @@ pub struct MagicRules {
 
     /// Ivy joins bricks closer than this, in cells.
     pub ivy_reach: f32,
+    /// Seconds per cell before a joined brick's vines show (IvyChildBrickModifier: / 10).
+    pub ivy_spread: f32,
     /// Seconds Undo's zap lasts before the brick is gone, and its dissolving edge's colour
     /// (UndoLastPlacedBrickEffect).
     pub undo_seconds: f32,
@@ -1428,6 +1430,7 @@ impl Default for MagicRules {
                 ),
             ],
             ivy_reach: 0.2,
+            ivy_spread: 0.1,
             undo_seconds: 0.75,
             undo_edge: [171, 250, 255],
             minibase_offset: (3.0, 5.0),
