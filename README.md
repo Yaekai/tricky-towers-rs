@@ -86,10 +86,10 @@ differs, which keeps bots, replays and netplay simple. More in [`PLAN.md`](PLAN.
 | In-match HUD and effects | 🟡 | cast beam foot decorations, explosion art |
 | Match end (WINNER!, collapse, Game Completed, cup winner) | 🟡 | timings still estimated |
 | Menus: start, title, players, modes, single player, endless, trials, settings, keybinding, stats, pause | 🟡 | small layout differences |
-| Explanation and Credits popups | 🟡 | |
-| Text in the original's 19 languages | ❌ | menus use built-in English |
+| Explanation, Help and Credits popups | 🟡 | |
+| Text in the original's 19 languages | 🟡 | from the original's language files; long words can still overflow |
 | Values still estimated | 🟡 | about 40 marked `(?)` in `src/` |
-| Online battle, Shop, Help | ❌ | not planned |
+| Online battle, Shop | ❌ | not planned |
 
 Not in the original, kept as extras: AI wizards in local battles, the `mods/` folder and the
 debug tools (F1 panel, F3 readout, scripted runs), listed in

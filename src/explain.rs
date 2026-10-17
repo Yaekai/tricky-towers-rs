@@ -82,6 +82,7 @@ enum Part {
 
 fn text(
     size: f32,
+    look: crate::letters::TextLook,
 ) -> (
     Text,
     crate::letters::TextLook,
@@ -92,7 +93,7 @@ fn text(
 ) {
     (
         Text::new(""),
-        crate::letters::TextLook::OUTLINED,
+        look,
         TextFont {
             font_size: FontSize::Vh(size / 10.8),
             ..default()
@@ -122,7 +123,16 @@ fn part(
 ) -> Entity {
     let mut node = root.spawn((place(size, at), Slide { delay, size, at }, part));
     if words > 0.0 {
-        node.with_child((text(words), part));
+        // ModeExplanationPopup's materials: Gold75 title, White32 line, the difficulty in
+        // BlackThickOutline over its Red75 subtitle.
+        let look = match part {
+            Part::Title => crate::letters::TextLook::GOLD_75,
+            Part::Subtitle => crate::letters::TextLook::WHITE_32,
+            Part::DifficultyTitle => crate::letters::TextLook::DARK_THICK,
+            Part::DifficultySubtitle => crate::letters::TextLook::PINK_75,
+            _ => crate::letters::TextLook::OUTLINED,
+        };
+        node.with_child((text(words, look), part));
     } else {
         node.insert(ImageNode::default());
     }
@@ -241,7 +251,7 @@ fn spawn_explain(
             };
             root.spawn((node, Part::Buttons)).with_children(|b| {
                 // MenuItemYellow / MenuItemRed space -1.
-                b.spawn(text(46.0)).insert((Text::new(words.to_uppercase()), crate::letters::LetterSpacing(-1.0)));
+                b.spawn(text(46.0, crate::letters::TextLook::GOLD)).insert((Text::new(words.to_uppercase()), crate::letters::LetterSpacing(-1.0)));
             });
         }
     });
@@ -299,7 +309,7 @@ fn spawn_controls(
             };
             root.spawn(node).with_children(|b| {
                 // MenuItemYellow / MenuItemRed space -1.
-                b.spawn(text(46.0)).insert((Text::new(words.to_uppercase()), crate::letters::LetterSpacing(-1.0)));
+                b.spawn(text(46.0, crate::letters::TextLook::GOLD)).insert((Text::new(words.to_uppercase()), crate::letters::LetterSpacing(-1.0)));
             });
         }
     });

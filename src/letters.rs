@@ -144,6 +144,27 @@ impl TextLook {
         // Dilate and outline 0.25 (EnzoBlackRed46).
         outline_edge: 0.5 - 0.5 * 0.8333 / 2.0,
     };
+    /// EnzoBlackGold75: the gold gradient with a thinner outline (dilate and outline 0.15).
+    pub const GOLD_75: Self = Self { outline_edge: 0.5 - 0.3 * 0.8333 / 2.0, ..Self::GOLD };
+    /// EnzoBlackRed75: the red gradient, dilate and outline 0.15.
+    pub const PINK_75: Self = Self { outline_edge: 0.5 - 0.3 * 0.8333 / 2.0, ..Self::PINK };
+    /// EnzoBlackWhite32: face (234, 238, 255), dark outline, dilate and outline 0.3.
+    pub const WHITE_32: Self = Self {
+        body: false,
+        face: Some(Color::srgb(0.918, 0.933, 1.0)),
+        outline: Some(Color::srgb(0.169, 0.035, 0.137)),
+        low: None,
+        outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
+    };
+    /// EnzoBlackBlackThickOutline: a dark face in a pale blue outline (182, 197, 254),
+    /// dilate and outline 0.3.
+    pub const DARK_THICK: Self = Self {
+        body: false,
+        face: Some(Color::srgb(0.145, 0.051, 0.157)),
+        outline: Some(Color::srgb(0.714, 0.773, 0.996)),
+        low: None,
+        outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
+    };
     /// List rows and buttons: near-black body letters.
     pub const BODY: Self = Self {
         body: true,

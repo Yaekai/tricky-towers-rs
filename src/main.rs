@@ -191,6 +191,7 @@ fn main() {
             "endless" => MenuScreen::Endless,
             "trials" => MenuScreen::Trials,
             "settings" => MenuScreen::Settings,
+            "help" => MenuScreen::Help,
             "title" => MenuScreen::Main,
             "pause" => MenuScreen::Pause,
             _ => MenuScreen::Modes,

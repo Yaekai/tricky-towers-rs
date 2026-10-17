@@ -664,3 +664,23 @@ fn a_finished_battle_counts_in_stats_and_the_stats_popup_opens_from_settings() {
     assert!(!app.world().resource::<StatsMenu>().open);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Settings);
 }
+
+#[test]
+fn help_pages_turn_both_ways_and_escape_goes_back_to_the_title() {
+    use tricky_towers::help::HelpMenu;
+    let mut app = app();
+    *app.world_mut().resource_mut::<MenuScreen>() = MenuScreen::Help;
+    app.update();
+    let page = |app: &App| app.world().resource::<HelpMenu>().page;
+    assert_eq!(page(&app), 0);
+    tap(&mut app, KeyCode::ArrowRight);
+    assert_eq!(page(&app), 1);
+    // Left from the controls wraps round to the last page.
+    tap(&mut app, KeyCode::ArrowLeft);
+    tap(&mut app, KeyCode::ArrowLeft);
+    assert_eq!(page(&app), 6);
+    tap(&mut app, KeyCode::Escape);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
+    // It opens on the controls again.
+    assert_eq!(page(&app), 0);
+}

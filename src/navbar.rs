@@ -85,6 +85,8 @@ fn items(screen: MenuScreen) -> &'static [NavItem] {
         // The pause screen shows its controls instead of hints.
         MenuScreen::Start | MenuScreen::Pause | MenuScreen::Explain => &[],
         MenuScreen::Main => &[NavItem::Continue],
+        // ModeExplanationOverviewPopup has only its Back.
+        MenuScreen::Help => &[NavItem::Back],
         _ => &[NavItem::Back, NavItem::Continue],
     }
 }

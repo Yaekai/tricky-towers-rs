@@ -50,5 +50,5 @@ original and fix what differs:
   has none).
 
 ## Not planned
-Online battle, the Shop and Help. XP and wizard levels exist as data only, since the original
+Online battle and the Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.

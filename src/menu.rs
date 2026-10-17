@@ -134,6 +134,7 @@ fn menu_escape(
             }
         }
         (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => *screen = MenuScreen::Single,
+        (Phase::Menu, MenuScreen::Help) => *screen = MenuScreen::Main,
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
         // The explanation popup waits for Continue.
         (Phase::Menu, MenuScreen::Explain) => {}
@@ -180,6 +181,8 @@ pub enum MenuScreen {
     Pause,
     /// The explanation popup before a match (explain.rs).
     Explain,
+    /// Help: the controls and every mode's explanation, page by page (help.rs).
+    Help,
 }
 
 /// The pause menu's highlighted option and the phase Resume goes back to.
@@ -1310,6 +1313,9 @@ fn main_menu_input(
         }
         "settings" => {
             *screen = MenuScreen::Settings;
+        }
+        "help" => {
+            *screen = MenuScreen::Help;
         }
         "quit" => {
             exit.write(AppExit::Success);
