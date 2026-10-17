@@ -5,6 +5,12 @@ original; those are marked `(?)` in `src/`. The status table in the [README](../
 the overview; `docs/pc-tasks.md` and `docs/research/compare-2026-10-06.md` keep the detailed
 working notes.
 
+## For Max (when you have time)
+- **Candy skin:** send a screenshot of candy bricks in the original next to ours. Ours use the
+  same pattern, bevel map and light colours as the original's material, so the difference
+  can't be found from the files alone.
+- **Font:** if any screen shows text in a font other than the original's, say which one.
+
 ## 1. Check the newest work against the original
 Most recent features were checked in offscreen pictures only. Compare them in play with the
 original and fix what differs:
