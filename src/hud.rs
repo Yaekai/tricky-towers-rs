@@ -355,7 +355,10 @@ fn build(
             base
         }
         Shows::Hearts(lives, most) => {
-            let size = look.heart_size * height;
+            // WizardHealthView: hearts 1.3 units apart in rows of three, every other one
+            // 0.5 units lower, in the wizard's world (a unit is a cell of the view).
+            let cell = height / config.hud.camera_height.max(1.0);
+            let size = look.heart_size * cell;
             match art.image("heart") {
                 Some(image) => {
                     // A lost life shows a cross (`heart_lost`, gph_cross), else a dim heart.
@@ -375,6 +378,11 @@ fn build(
                             row.spawn(Node {
                                 width: Val::Px(size),
                                 height: Val::Px(size),
+                                margin: UiRect {
+                                    left: Val::Px(if i % 3 == 0 { 0.0 } else { (1.3 * cell - size).max(0.0) }),
+                                    top: Val::Px(if i % 2 == 1 { cell } else { 0.0 }),
+                                    ..default()
+                                },
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 ..default()

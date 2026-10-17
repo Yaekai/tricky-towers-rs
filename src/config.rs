@@ -4099,7 +4099,7 @@ pub struct HudLook {
     pub place_below: f32,
     pub place_first: [u8; 3],
     pub place_other: [u8; 3],
-    /// Hearts under the wizard: size (the original's 1.12 cells over the 30-cell view) and
+    /// Hearts under the wizard: size in cells of the view (gph_heart, 29 px at 26 a unit) and
     /// cells from the wizard down to the row's centre (1.53 + 0.3).
     pub heart_size: f32,
     pub heart_below: f32,
@@ -4154,7 +4154,8 @@ impl Default for HudLook {
             place_below: 2.2,
             place_first: [255, 190, 60],
             place_other: [205, 190, 240],
-            heart_size: 1.12 / 30.0,
+            // gph_heart: 29 px at 26 px a unit.
+            heart_size: 29.0 / 26.0,
             heart_below: 1.83,
             guide_race: [133.0 / 255.0, 177.0 / 255.0, 1.0, 0.75],
             guide_survival: [1.0, 13.0 / 15.0, 1.0, 0.5],

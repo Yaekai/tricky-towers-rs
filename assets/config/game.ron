@@ -1734,7 +1734,7 @@
         place_below: 2.2,
         place_first: (255, 190, 60),
         place_other: (205, 190, 240),
-        heart_size: 0.037333332,
+        heart_size: 1.1153846,
         heart_below: 1.83,
         guide_race: (0.52156866, 0.69411767, 1.0, 0.75),
         guide_survival: (1.0, 0.8666667, 1.0, 0.5),
