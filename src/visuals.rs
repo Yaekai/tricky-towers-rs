@@ -56,6 +56,7 @@ impl Plugin for VisualsPlugin {
             .add_systems(Update, sweep_lasers)
             .add_systems(Update, place_pillar_bases.after(frame_towers))
             .add_systems(Update, drop_stars.before(twinkle_stars))
+            .add_systems(Update, dress_tower_pieces)
             .add_systems(
                 Update,
                 (
@@ -768,11 +769,29 @@ struct EdgeDelay {
     show_at: f32,
 }
 
-fn show_edge_delays(time: Res<Time>, mut delays: Query<(&EdgeDelay, &mut Visibility)>) {
+/// A decoration whose growth starts with a sound (Grassy's: one of SFX_GRAS_GROW_1..4).
+#[derive(Component)]
+struct EdgeSound(&'static str);
+
+fn show_edge_delays(
+    mut commands: Commands,
+    time: Res<Time>,
+    art: Res<Art>,
+    settings: Option<Res<crate::settings::Settings>>,
+    mut delays: Query<(Entity, &EdgeDelay, &mut Visibility, Option<&EdgeSound>)>,
+) {
     let now = time.elapsed_secs();
-    for (delay, mut visibility) in &mut delays {
-        if now >= delay.show_at {
+    for (entity, delay, mut visibility, sound) in &mut delays {
+        if now >= delay.show_at && *visibility == Visibility::Hidden {
             visibility.set_if_neq(Visibility::Inherited);
+            if let Some(handle) = sound.and_then(|s| art.sounds.get(s.0)) {
+                let volume = settings.as_deref().map_or(1.0, |s| s.volume);
+                commands.spawn((
+                    AudioPlayer(handle.clone()),
+                    PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+                ));
+                commands.entity(entity).remove::<EdgeSound>();
+            }
         }
     }
 }
@@ -788,7 +807,7 @@ pub(crate) fn dress_bricks(
             &Brick,
             Has<Stone>,
             Has<Vined>,
-            Has<Grassy>,
+            Option<&Grassy>,
             Option<&Placed>,
             Option<&ActiveBrick>,
         ),
@@ -801,13 +820,15 @@ pub(crate) fn dress_bricks(
                 Added<Placed>,
             )>,
             Without<FloorBlock>,
+            Without<crate::spells::TowerPiece>,
         ),
     >,
     skins: Query<&crate::gameplay::TowerSkin>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut lit_bricks: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
 ) {
-    for (entity, brick, landed_stone, vined, grassy, placed, active) in &bricks {
+    for (entity, brick, landed_stone, vined, grass, placed, active) in &bricks {
+        let grassy = grass.is_some();
         let stone = landed_stone || active.is_some_and(|a| a.mods.petrify);
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
@@ -878,7 +899,10 @@ pub(crate) fn dress_bricks(
         .find(|name| art.image(name).is_some())
         .unwrap_or_default();
         let vine_art = art.image(&vine_name).filter(|_| art_drawn && vined);
-        let grass_art = art.image("grass_overlay").filter(|_| art_drawn && grassy);
+        // Grassy grows grass and moss on the brick's top edges (below), not over it.
+        let grass_art = art.image("grass_large_1").is_none()
+            .then(|| art.image("grass_overlay").filter(|_| art_drawn && grassy))
+            .flatten();
         if vined && vine_art.is_none() {
             color = color.mix(&VINES, if art_drawn { 0.25 } else { 0.4 });
         }
@@ -1015,19 +1039,41 @@ pub(crate) fn dress_bricks(
                         }
                     }
                 }
+                // Grassy (GrassyBrickModifier): large grass on every top edge after 0.5 to 0.8 s,
+                // moss on half of them after 0.2 to 0.5 s, both from the cast's own delay.
+                let mut first_grass = true;
+                if let Some(g) = grass.filter(|_| art.image("grass_large_1").is_some()) {
+                    for (i, top) in top_cells(&brick.cells).into_iter().enumerate() {
+                        let at = (top + Vec2::Y * 0.5) * cell;
+                        let salt = 900 + i as u64 * 13;
+                        let n = 1 + (roll(salt) * 4.0) as usize;
+                        petrified.push((format!("grass_large_{}", n.min(4)), at, g.delay + 0.5 + roll(salt + 1) * 0.3, Color::WHITE));
+                        if roll(salt + 2) < 0.5 {
+                            let n = 1 + (roll(salt + 3) * 6.0) as usize;
+                            petrified.push((format!("moss_large_{}", n.min(6)), at, g.delay + 0.2 + roll(salt + 4) * 0.3, Color::WHITE));
+                        }
+                    }
+                }
                 for (name, at, wait, colour) in petrified {
+                    let sound = (first_grass && name.starts_with("grass_large")).then(|| {
+                        first_grass = false;
+                        ["sfx_grass_grow_01", "sfx_grass_grow_02", "sfx_grass_grow_03", "sfx_grass_grow_04"]
+                            [(roll(77) * 4.0) as usize % 4]
+                    });
                     if let Some((mut sprite, anchor, transform)) = art_sprite(&art, &name, cell) {
                         sprite.color = colour;
                         let show_at = time.elapsed_secs() + wait;
                         entity.with_children(|parent| {
-                            parent
-                                .spawn((
-                                    Transform::from_translation(at.extend(0.2)),
-                                    Visibility::Hidden,
-                                    EdgeDelay { show_at },
-                                    EdgeGrow { start: show_at },
-                                ))
-                                .with_child((sprite, anchor, transform));
+                            let mut holder = parent.spawn((
+                                Transform::from_translation(at.extend(0.2)),
+                                Visibility::Hidden,
+                                EdgeDelay { show_at },
+                                EdgeGrow { start: show_at },
+                            ));
+                            if let Some(sound) = sound {
+                                holder.insert(EdgeSound(sound));
+                            }
+                            holder.with_child((sprite, anchor, transform));
                         });
                     }
                 }
@@ -1095,6 +1141,27 @@ fn top_cells(cells: &[Vec2]) -> Vec<Vec2> {
         .copied()
         .filter(|&c| !cells.iter().any(|&o| (o - c - Vec2::Y).length() < 0.1))
         .collect()
+}
+
+/// Draws a Minibase tower piece with its own picture (TowerPieceL/R01 or 02's Graphic).
+fn dress_tower_pieces(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    pieces: Query<(Entity, &crate::spells::TowerPiece), Added<crate::spells::TowerPiece>>,
+) {
+    for (entity, piece) in &pieces {
+        let Some(shape) = config.magic.minibase_pieces.get(piece.0) else { continue };
+        let Some((sprite, anchor, transform)) = art_sprite(&art, &shape.picture, config.cell_size) else {
+            continue;
+        };
+        let at = Vec2::new(shape.graphic.0, shape.graphic.1) * config.cell_size;
+        commands.entity(entity).insert(Visibility::default()).with_child((
+            sprite,
+            anchor,
+            transform.with_translation(at.extend(0.0)),
+        ));
+    }
 }
 
 /// The bubble drawn around a brick lifted by the Bubble spell.

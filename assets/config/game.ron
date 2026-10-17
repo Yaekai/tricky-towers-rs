@@ -1623,6 +1623,7 @@
         undo_edge: (171, 250, 255),
         minibase_offset: (3.0, 5.0),
         minibase_lift: 3.0,
+        minibase_lift_survival: 5.0,
         minibase_floor: 2.0,
         minibase_width: 2.0,
         life_orb_x: -5.0,

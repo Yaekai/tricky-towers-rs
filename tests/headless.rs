@@ -923,6 +923,24 @@ fn minibase_adds_a_stone_ledge() {
     cast_now(&mut app, SpellKind::Minibase, None);
     run_seconds(&mut app, 0.1, |_| {});
     assert_eq!(count::<(With<Stone>, With<Brick>)>(&mut app), 1);
+    assert_eq!(count::<With<tricky_towers::spells::TowerPiece>>(&mut app), 1);
+}
+
+#[test]
+fn minibase_tower_pieces_build_their_colliders_in_both_worlds() {
+    // Race's polygon pieces and Survival's boxes and circles.
+    for mode in [ModeKind::Race, ModeKind::Survival] {
+        let mut config = fast_config();
+        config.mode = mode;
+        config.magic.enabled = true;
+        let mut app = headless_app(config);
+        run_seconds(&mut app, 0.5, |_| {});
+        for _ in 0..4 {
+            cast_now(&mut app, SpellKind::Minibase, None);
+            run_seconds(&mut app, 0.1, |_| {});
+        }
+        assert_eq!(count::<With<tricky_towers::spells::TowerPiece>>(&mut app), 4);
+    }
 }
 
 #[test]

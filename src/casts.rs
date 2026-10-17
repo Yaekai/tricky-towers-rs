@@ -912,15 +912,17 @@ fn spawn_cloud(
         },
         None => Sprite::from_color(Color::srgba(0.05, 0.03, 0.12, 0.7), Vec2::splat(size * 0.8)),
     };
-    let icon = match art.image(&format!("spell_icon_{spell:?}")) {
-        Some(image) => Sprite {
-            image,
-            custom_size: Some(Vec2::splat(size * look.cloud_icon)),
-            ..default()
-        },
-        None => Sprite::from_color(
-            if dark { DARK_FALLBACK } else { LIGHT_FALLBACK },
-            Vec2::splat(size * look.cloud_icon * 0.7),
+    // The icon prefab sits in the cloud's SpellContainer at its own size (52 px a unit) and
+    // by its pivot; icons aren't square (Grassy's is wide, its pivot high).
+    let icon = match crate::visuals::art_sprite(art, &format!("spell_icon_{spell:?}"), config.cell_size) {
+        Some((sprite, anchor, transform)) => (sprite, anchor, transform.with_translation(Vec3::Z * 0.1)),
+        None => (
+            Sprite::from_color(
+                if dark { DARK_FALLBACK } else { LIGHT_FALLBACK },
+                Vec2::splat(size * look.cloud_icon * 0.7),
+            ),
+            bevy::sprite::Anchor::CENTER,
+            Transform::from_xyz(0.0, 0.0, 0.1),
         ),
     };
     let side = if dark { "dark" } else { "light" };
@@ -942,7 +944,7 @@ fn spawn_cloud(
         ))
         .with_children(|parent| {
             parent.spawn((cloud, Transform::default()));
-            parent.spawn((icon, CloudIcon, Transform::from_xyz(0.0, 0.0, 0.1)));
+            parent.spawn((icon, CloudIcon));
             // The button to press, 1.1 cells out to its side and 1.25 below the
             // bubble's centre, flicking up and down (SpellButtonIndicator*PC).
             if let Some((sprite, anchor, mut transform)) = hint {

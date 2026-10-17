@@ -85,6 +85,14 @@ foreach ($i in 1..3) {
   Add-Piece "moss_$i" "gph_moss_var0$i"
   Add-Piece "moss_desert_$i" "gph_mossDesert_var0$i"
 }
+# Grassy's grass and moss (GrassyBrickModifier: GRASS_LARGE_0..3, MOSS_3..8) and the Minibase
+# tower pieces (TOWER_PIECE_LEFT/RIGHT_01 for Race, _02 for Survival).
+foreach ($i in 1..4) { Add-Piece "grass_large_$i" "gph_grassLarge_var0$i" }
+foreach ($i in 1..6) { Add-Piece "moss_large_$i" "gph_mossLarge_var_0$i" }
+foreach ($s in 'L','R') {
+  Add-Piece "tower_piece_1_$s" "gph_towerPiece01$($s)_var01"
+  Add-Piece "tower_piece_2_$s" "gph_towerPiece02$s"
+}
 function Add-Sound($key, $clip) {
   $src = Get-ChildItem $A -Recurse -Filter "$clip.ogg" | Select-Object -First 1
   if (-not $src) { "missing: $key ($clip)"; return }

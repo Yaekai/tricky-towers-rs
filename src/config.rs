@@ -1207,8 +1207,13 @@ pub struct MagicRules {
     pub undo_edge: [u8; 3],
     /// Minibase ledge: distance from the tower centre, in cells, min and max.
     pub minibase_offset: (f32, f32),
-    /// Minibase ledge height above the tower (or `minibase_floor`, if higher).
+    /// Minibase ledge height above the tower (or `minibase_floor`, if higher): SpawnTowerPiece
+    /// Effect's 3 in Race, `minibase_lift_survival` (5) in Survival.
     pub minibase_lift: f32,
+    pub minibase_lift_survival: f32,
+    /// The tower pieces Minibase spawns (TOWER_PIECE_LEFT/RIGHT_01 in Race, _02 in Survival),
+    /// left then right per world.
+    pub minibase_pieces: Vec<TowerPieceShape>,
     pub minibase_floor: f32,
     /// Minibase ledge width, in cells: the flat top of the original's ledge piece (it
     /// also has a raised lip on the outer side, not modelled).
@@ -1255,6 +1260,8 @@ pub struct MagicRules {
     /// Height of the fog over the tower top, in cells.
     pub mist_height: f32,
     pub grassy_radius: f32,
+    /// Grassy's grass starts this much later per cell away from the cast brick.
+    pub grassy_delay_per_cell: f32,
     /// Ghost: seconds the brick is held, and how far up and outward it is carried.
     pub ghost_seconds: f32,
     pub ghost_lift: f32,
@@ -1422,6 +1429,8 @@ impl Default for MagicRules {
             undo_edge: [171, 250, 255],
             minibase_offset: (3.0, 5.0),
             minibase_lift: 3.0,
+            minibase_lift_survival: 5.0,
+            minibase_pieces: default_tower_pieces(),
             minibase_floor: 2.0,
             minibase_width: 2.0,
             life_orb_x: -5.0,
@@ -1450,6 +1459,7 @@ impl Default for MagicRules {
             mist_seconds: 15.0,
             mist_height: 5.0,
             grassy_radius: 5.0,
+            grassy_delay_per_cell: 0.1,
             ghost_seconds: 4.0,
             ghost_lift: 3.0,
             ghost_carry: 3.0,
@@ -3599,6 +3609,61 @@ pub struct CoronaPart {
     pub tint: [u8; 3],
     pub spin: f32,
     pub fade: (f32, f32, f32),
+}
+
+/// One Minibase tower piece (TowerPieceL01/R01/L02/R02): its picture and where it sits from
+/// the piece's origin, and its collider (a polygon, boxes and circles), in cells.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct TowerPieceShape {
+    pub picture: String,
+    pub graphic: (f32, f32),
+    pub polygon: Vec<(f32, f32)>,
+    /// Boxes: centre and size.
+    pub boxes: Vec<((f32, f32), (f32, f32))>,
+    /// Circles: centre and radius.
+    pub circles: Vec<((f32, f32), f32)>,
+}
+
+fn default_tower_pieces() -> Vec<TowerPieceShape> {
+    // The polygons' points are in their Polygon object, which sits at `at` in the piece.
+    let poly = |at: (f32, f32), points: &[(f32, f32)]| -> Vec<(f32, f32)> {
+        points.iter().map(|&(x, y)| (x + at.0, y + at.1)).collect()
+    };
+    vec![
+        TowerPieceShape {
+            picture: "tower_piece_1_L".into(),
+            graphic: (0.0, 0.0),
+            polygon: poly(
+                (1.647, -2.01),
+                &[(-3.9001, 1.7063), (-3.5153, 2.0865), (-3.5161, 2.5448), (-3.0776, 2.5499), (-1.6401, 4.0314), (-1.641, 1.9968), (0.3627, 1.9935), (0.3638, 1.2462), (0.1517, 1.25), (0.1384, 0.6167), (-0.1075, 0.613), (-0.1083, 0.0697), (-2.4867, 0.0265), (-3.6113, 1.3563), (-3.8983, 1.3652)],
+            ),
+            ..default()
+        },
+        TowerPieceShape {
+            picture: "tower_piece_1_R".into(),
+            graphic: (0.0, 0.0),
+            polygon: poly(
+                (2.083, -1.994),
+                &[(0.2236, 1.7131), (-0.176, 2.0765), (-0.1688, 2.5491), (-0.6269, 2.5587), (-2.045, 3.9993), (-2.0582, 1.9721), (-4.0416, 1.9713), (-4.0395, 1.2074), (-3.8383, 1.1745), (-3.8502, 0.6167), (-3.5894, 0.613), (-3.6048, 0.0309), (-1.2161, 0.0265), (-1.0804, 0.2887), (-0.0946, 1.2807), (0.2205, 1.2776)],
+            ),
+            ..default()
+        },
+        TowerPieceShape {
+            picture: "tower_piece_2_L".into(),
+            graphic: (0.014, -0.127),
+            boxes: vec![((0.0, -0.43), (4.0, 0.79)), ((0.12, -1.14), (3.48, 0.62)), ((0.0, -1.76), (3.14, 0.62))],
+            circles: vec![((-1.07, 1.12), 0.87), ((-0.96, 0.32), 0.87)],
+            ..default()
+        },
+        TowerPieceShape {
+            picture: "tower_piece_2_R".into(),
+            graphic: (0.127, -0.127),
+            boxes: vec![((-0.25, -0.43), (3.5, 0.79)), ((-0.18, -1.14), (3.2, 0.62)), ((-0.12, -1.76), (2.87, 0.62))],
+            circles: vec![((1.02, 1.01), 0.93), ((0.79, 0.34), 0.72)],
+            ..default()
+        },
+    ]
 }
 
 fn default_corona() -> Vec<CoronaPart> {

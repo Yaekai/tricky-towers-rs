@@ -58,9 +58,38 @@ pub struct Ghosted {
     pub to: Vec2,
 }
 
-/// A brick covered in grass (looks only).
+/// A brick covered in grass (looks only): it starts to grow `delay` seconds after the cast,
+/// 0.1 s per cell away from the brick it was cast on (GrassyEffect).
 #[derive(Component, Debug)]
-pub struct Grassy;
+pub struct Grassy {
+    pub delay: f32,
+}
+
+/// A Minibase tower piece: which of `MagicRules::minibase_pieces` it is.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct TowerPiece(pub usize);
+
+/// A tower piece's collider from its shape: the polygon cut into convex parts, its boxes and
+/// its circles.
+pub fn tower_piece_collider(piece: &crate::config::TowerPieceShape, cell: f32) -> Collider {
+    let v = |(x, y): (f32, f32)| Vec2::new(x, y) * cell;
+    // A polygon piece (Race's) is its convex decomposition, itself a compound; compounds don't
+    // nest, so it stands alone.
+    if piece.polygon.len() >= 3 {
+        let points: Vec<Vec2> = piece.polygon.iter().map(|&p| v(p)).collect();
+        let n = points.len() as u32;
+        let edges = (0..n).map(|i| [i, (i + 1) % n]).collect();
+        return Collider::convex_decomposition(points, edges);
+    }
+    let mut parts: Vec<(Vec2, Rotation, Collider)> = Vec::new();
+    for &(at, size) in &piece.boxes {
+        parts.push((v(at), Rotation::IDENTITY, Collider::rectangle(size.0 * cell, size.1 * cell)));
+    }
+    for &(at, r) in &piece.circles {
+        parts.push((v(at), Rotation::IDENTITY, Collider::circle(r * cell)));
+    }
+    Collider::compound(parts)
+}
 
 /// Extra Life's heart orb. Touch it with one of your bricks for a life.
 #[derive(Component, Debug)]
@@ -753,7 +782,11 @@ fn cast_on_tower(
                 -1.0
             };
             let offset = ((lo + (hi - lo) * t) * 2.0).round() * 0.5 * side;
-            let y = state.height.max(magic.minibase_floor) + magic.minibase_lift;
+            let survival = config.mode.look() == ModeKind::Survival;
+            let lift = if survival { magic.minibase_lift_survival } else { magic.minibase_lift };
+            let y = state.height.max(magic.minibase_floor) + lift;
+            // SpawnTowerPieceEffect: the world's left or right piece, by the side it lands on.
+            let shape = usize::from(survival) * 2 + usize::from(side > 0.0);
             let width = magic.minibase_width.max(1.0).round() as i32;
             let cells: Vec<Vec2> = (0..width)
                 .map(|i| Vec2::new(i as f32 - (width - 1) as f32 * 0.5, 0.0))
@@ -767,10 +800,15 @@ fn cast_on_tower(
                 mass: 1.0,
                 ice: false,
             };
-            let (collider, _) = brick_body(config, &ledge);
+            let collider = magic
+                .minibase_pieces
+                .get(shape)
+                .map(|piece| tower_piece_collider(piece, config.cell_size))
+                .unwrap_or_else(|| brick_body(config, &ledge).0);
             let position = Vec2::new(tower.origin_x + config.cells(offset), config.cells(y));
             commands.spawn((
                 ledge,
+                TowerPiece(shape),
                 Stone,
                 RigidBody::Static,
                 collider,
@@ -828,8 +866,10 @@ fn cast_on_tower(
             if let Some((_, _, centre, ..)) = last {
                 let reach = config.cells(magic.grassy_radius);
                 for (entity, brick, position, ..) in placed {
-                    if brick.tower == target && position.0.distance(centre.0) <= reach {
-                        commands.entity(entity).insert(Grassy);
+                    let away = position.0.distance(centre.0);
+                    if brick.tower == target && away <= reach {
+                        let delay = away / config.cell_size.max(0.01) * magic.grassy_delay_per_cell;
+                        commands.entity(entity).insert(Grassy { delay });
                     }
                 }
             }
