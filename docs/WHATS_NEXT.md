@@ -6,6 +6,13 @@ the overview; `docs/pc-tasks.md` and `docs/research/compare-2026-10-06.md` keep 
 working notes.
 
 ## For Max (when you have time)
+- **AI seats:** the original's local battle has no computer players. Keep them in the release (they
+  are handy alone) or take them out?
+- **Puzzle laser:** does it keep dropping half a cell per lost brick (ours) or only once?
+- **WAVE N banner:** it widens to 1.3x as it slides out (the original's animation). If it looks
+  wrong in the original footage, tell me where.
+- **Online Battle:** the buttons open the lobby but nothing connects. Say if you want a local
+  stand-in (fake players) so the connected lobby can be pictured.
 - **Font:** if any screen shows text in a font other than the original's, say which one.
 
 ## 1. Check the newest work against the original
