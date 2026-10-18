@@ -47,6 +47,7 @@ impl Plugin for GameplayPlugin {
                         crate::spells::float_bubbles,
                         crate::spells::carry_ghosts,
                         crate::spells::collect_life_orbs,
+                        crate::spells::home_balloons,
                     )
                         .chain(),
                     judge_match,
@@ -768,6 +769,11 @@ pub struct ActiveBrick {
     /// How far (world units) the brick's picture jumps about while a curse wave
     /// lifts and holds it; 0 when not. Only the picture shakes, not the body.
     pub picture_shake: f32,
+    /// Seconds the brick still hangs where it is, taking no input (Slow's balloon catching
+    /// it: PauseBrickControlEffect ... ResumeBrickControlEffect); it shakes while
+    /// `hold_shake` is above 0.
+    pub hold: f32,
+    pub hold_shake: f32,
 }
 
 impl ActiveBrick {
@@ -786,6 +792,8 @@ impl ActiveBrick {
             down_before: false,
             refused: 0.0,
             picture_shake: 0.0,
+            hold: 0.0,
+            hold_shake: 0.0,
         }
     }
 }
@@ -952,6 +960,7 @@ fn start_match(
             With<Brick>,
             With<Platform>,
             With<crate::spells::LifeOrb>,
+            With<crate::spells::BalloonOrb>,
             With<RoofPiece>,
             With<RivalLane>,
             With<crate::spells::IvyCluster>,
@@ -1450,6 +1459,18 @@ fn control_active_brick(
             commands
                 .entity(entity)
                 .insert((Position(at), LinearVelocity::ZERO));
+            continue;
+        }
+        // Caught by Slow's balloon: it hangs still a moment, shaking at first.
+        if control.hold > 0.0 {
+            control.hold = (control.hold - dt).max(0.0);
+            control.hold_shake = (control.hold_shake - dt).max(0.0);
+            control.picture_shake = if control.hold_shake > 0.0 {
+                config.cells(config.magic.no_rotate_jump) / brick.scale.max(1.0)
+            } else {
+                0.0
+            };
+            commands.entity(entity).insert(LinearVelocity::ZERO);
             continue;
         }
         let (mut position, mut rotation) = (*position, *rotation);

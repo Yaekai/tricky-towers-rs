@@ -20,6 +20,7 @@ impl Plugin for EffectsPlugin {
             Update,
             (
                 float_balloons,
+                show_balloon_orbs,
                 attach_skulls,
                 fly_skulls,
                 splash,
@@ -85,6 +86,13 @@ fn float_balloons(
         if !control.mods.slow || balloons.iter().any(|(_, b, _)| b.brick == entity) {
             continue;
         }
+        // The catch: SFX_BALLOON_COLLISION, then one of the balloon-down sounds.
+        let down = ["sfx_hit_balloon_01", "sfx_hit_balloon_02"][(entity.index_u32() % 2) as usize];
+        for name in ["sfx_brick_spawn", down] {
+            if let Some(sound) = art.sounds.get(name) {
+                commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
+            }
+        }
         let string = commands
             .spawn((
                 Sprite::from_color(Color::srgb(0.95, 0.95, 0.9), Vec2::new(3.0, 1.0)),
@@ -101,6 +109,42 @@ fn float_balloons(
             anchor,
             transform,
         ));
+    }
+}
+
+/// Slow's homing balloon on its way to the brick: it pops in (OutElastic over 0.5 s, with
+/// SFX_SPAWN_BALLOON), wobbles (HomingBalloonOrb: 1 + 0.05 (sin 10t + 1) across,
+/// 1 + 0.05 (sin 5t + 1) up), and shrinks away (InBack 0.5 s) if it gives up.
+fn show_balloon_orbs(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    time: Res<Time>,
+    added: Query<Entity, Added<crate::spells::BalloonOrb>>,
+    mut orbs: Query<(&crate::spells::BalloonOrb, &mut Transform)>,
+) {
+    for entity in &added {
+        commands.entity(entity).insert(Visibility::default());
+        if let Some(image) = art.image("balloon") {
+            let (sprite, anchor, picture) = sized(&art, "balloon", image, config.cell_size);
+            commands.entity(entity).with_child((sprite, anchor, picture));
+        }
+        if let Some(sound) = art.sounds.get("sfx_spawn_balloon") {
+            commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+    }
+    let t = time.elapsed_secs();
+    for (orb, mut transform) in &mut orbs {
+        transform.scale = match orb.leaving {
+            Some(left) => Vec3::splat((1.0 - crate::packs::in_back((left / 0.5).min(1.0))).max(0.001)),
+            None if orb.age < 0.5 => Vec3::splat(crate::packs::out_elastic(orb.age / 0.5).max(0.0001)),
+            None => Vec3::new(
+                1.0 + ((t * 10.0).sin() + 1.0) * 0.05,
+                1.0 + ((t * 5.0).sin() + 1.0) * 0.05,
+                1.0,
+            ),
+        };
+        transform.translation.z = 5.0;
     }
 }
 

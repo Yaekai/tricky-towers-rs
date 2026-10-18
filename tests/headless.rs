@@ -1064,6 +1064,31 @@ fn bubble_lifts_the_last_brick() {
 }
 
 #[test]
+fn slow_sends_a_balloon_that_catches_the_brick_in_hand() {
+    use tricky_towers::gameplay::ActiveBrick;
+    use tricky_towers::spells::BalloonOrb;
+    let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    config.opponents = 1;
+    config.magic.enabled = true;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 2.0, |_| {});
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Slow));
+    // No brick is slowed at once: a balloon goes up after it.
+    assert_eq!(count::<With<BalloonOrb>>(&mut app), 1);
+    let slowed = |app: &mut App| {
+        let world = app.world_mut();
+        world
+            .query::<&ActiveBrick>()
+            .iter(world)
+            .any(|b| b.mods.slow)
+    };
+    assert!(!slowed(&mut app));
+    assert!(run_until(&mut app, 10.0, |app| slowed(app)
+        || count::<With<BalloonOrb>>(app) == 0));
+}
+
+#[test]
 fn ghost_carries_off_the_last_brick() {
     let mut config = fast_config();
     config.mode = ModeKind::Race;

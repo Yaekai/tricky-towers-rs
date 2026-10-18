@@ -696,7 +696,6 @@ pub(crate) fn brick_effect(spell: SpellKind, magic: &MagicRules) -> Option<Brick
             m.friction = Some(magic.ice_friction);
             m.tint = Some(Color::srgb(0.75, 0.92, 1.0));
         }
-        SpellKind::Slow => m.slow = true,
         SpellKind::Mystery => m.mystery = true,
         _ => return None,
     }
@@ -853,6 +852,19 @@ fn cast_on_tower(
             ));
         }
         SpellKind::Mist => state.mist_timer = magic.mist_seconds,
+        SpellKind::Slow => {
+            // Over the tower's top part (GetTopTowerpartFromTowerEffect), 2 cells over
+            // the tower's height.
+            let x = last.map_or(tower.origin_x, |b| b.2.0.x);
+            commands.spawn((
+                BalloonOrb {
+                    tower: target,
+                    age: 0.0,
+                    leaving: None,
+                },
+                Transform::from_xyz(x, config.cells(state.height + 2.0), 0.0),
+            ));
+        }
         SpellKind::Bubble => {
             // BubbleEffect on the tower's last brick not already in a bubble (GetLastBrick
             // skipping Bubble and BubbleFail): a vined or stone brick only gets a bubble
@@ -1244,6 +1256,85 @@ pub(crate) fn carry_ghosts(
         }
         // Ease toward the spot over the first second or so.
         velocity.0 = (ghost.to - position.0) * 2.0;
+    }
+}
+
+/// Slow's homing balloon (SpawnBalloonOrbEffect, HomingBalloonOrb): it pops up over the
+/// tower's top, rises and drifts towards the brick in hand; the brick it touches is
+/// caught and slowed. It gives up 8 cells under where bricks appear.
+#[derive(Component, Debug)]
+pub struct BalloonOrb {
+    pub tower: Entity,
+    /// Seconds since it appeared, and since it started to leave (shrinking away).
+    pub age: f32,
+    pub leaving: Option<f32>,
+}
+
+/// HomingBalloonOrb: 2.5 cells/s up, x eased towards the brick at 1 a second, active once
+/// its 0.5 s pop-in is over, gone 0.5 s after it starts leaving; its trigger circle sits
+/// 1.1 cells up with a 1.05 radius. The catch holds the brick 0.6 s, shaking the first 0.3.
+const BALLOON_RISE: f32 = 2.5;
+const BALLOON_EASE: f32 = 1.0;
+const BALLOON_POP_IN: f32 = 0.5;
+const BALLOON_LEAVE: f32 = 0.5;
+const BALLOON_MARGIN: f32 = 8.0;
+const BALLOON_REACH: (Vec2, f32) = (Vec2::new(0.03, 1.1), 1.05);
+const BALLOON_HOLD: (f32, f32) = (0.6, 0.3);
+
+#[allow(clippy::type_complexity)]
+pub(crate) fn home_balloons(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    spatial: SpatialQuery,
+    mut orbs: Query<(Entity, &mut BalloonOrb, &mut Transform), Without<ActiveBrick>>,
+    states: Query<&TowerState>,
+    mut active: Query<(&mut ActiveBrick, &Position)>,
+) {
+    let dt = time.delta_secs();
+    let c = config.cell_size;
+    for (entity, mut orb, mut transform) in &mut orbs {
+        orb.age += dt;
+        if let Some(left) = orb.leaving.as_mut() {
+            *left += dt;
+            if *left >= BALLOON_LEAVE {
+                commands.entity(entity).despawn();
+            }
+            continue;
+        }
+        let Ok(state) = states.get(orb.tower) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        transform.translation.y += BALLOON_RISE * c * dt;
+        let brick = state.active.and_then(|b| active.get(b).ok().map(|(_, p)| (b, p.0)));
+        if let Some((_, at)) = brick {
+            let x = transform.translation.x;
+            transform.translation.x = x + (at.x - x) * (dt * BALLOON_EASE).min(1.0);
+        }
+        if orb.age < BALLOON_POP_IN {
+            continue;
+        }
+        let (offset, radius) = BALLOON_REACH;
+        let centre = transform.translation.truncate() + offset * c;
+        let touched = brick.filter(|(b, _)| {
+            spatial
+                .shape_intersections(&Collider::circle(radius * c), centre, 0.0, &SpatialQueryFilter::default())
+                .contains(b)
+        });
+        if let Some((b, _)) = touched
+            && let Ok((mut control, _)) = active.get_mut(b)
+        {
+            control.mods.slow = true;
+            control.hold = BALLOON_HOLD.0;
+            control.hold_shake = BALLOON_HOLD.1;
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let spawn = config.cells(state.stack_top + config.spawn_gap);
+        if transform.translation.y >= spawn - config.cells(BALLOON_MARGIN) {
+            orb.leaving = Some(0.0);
+        }
     }
 }
 

@@ -691,7 +691,7 @@ pub(crate) fn out_elastic(x: f32) -> f32 {
 }
 
 /// DOTween's InBack.
-fn in_back(x: f32) -> f32 {
+pub(crate) fn in_back(x: f32) -> f32 {
     let c = 1.70158;
     (c + 1.0) * x * x * x - c * x * x
 }
