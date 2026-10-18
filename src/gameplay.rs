@@ -2145,7 +2145,6 @@ fn judge_match(
             *t += dt;
         }
     }
-    let survival_battle = game.mode == ModeKind::Survival && towers.iter().count() > 1;
     let mut winner = None;
     let mut building = Vec::new();
     let mut humans_building = 0;
@@ -2180,15 +2179,14 @@ fn judge_match(
                 winner = leaders.first().copied();
             }
         }
-    } else if winner.is_none() && count > 1 && building.len() == 1 && !survival_battle {
-        // Last tower standing.
+    } else if winner.is_none() && count > 1 && building.len() == 1 {
+        // Last tower standing: with two players the match ends when one goes out, and the
+        // other gets its roof and WINNER! (Max's Survival clips); with more it goes on.
         winner = Some(building[0]);
     }
     // Over when someone wins, nobody is left, or every human is out (a Puzzle round
-    // waits for its count). A Survival battle plays on while any tower still builds: the
-    // ones left finish their bricks, and the roof and WINNER! go to whoever does.
-    let humans_out = humans > 0 && humans_building == 0 && !survival_battle;
-    if !counting && (winner.is_some() || building.is_empty() || humans_out) {
+    // waits for its count).
+    if !counting && (winner.is_some() || building.is_empty() || (humans > 0 && humans_building == 0)) {
         game.phase = Phase::Over;
         game.winner = winner;
     }

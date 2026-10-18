@@ -1655,8 +1655,6 @@ fn the_winner_keeps_its_tower_while_the_loser_falls_apart() {
     let mut config = fast_config();
     config.opponents = 1;
     config.survival.drop_speed = 3.0;
-    // A Survival battle plays on until a tower finishes its bricks or all are out.
-    config.survival.bricks_to_place = 6;
     let mut app = headless_app(config);
     // You throw every brick away; the computer wizard is the last one standing.
     assert!(run_until(&mut app, 40.0, |app| {
@@ -2023,8 +2021,6 @@ fn a_cup_plays_matches_until_someone_reaches_the_target() {
     let mut config = fast_config();
     config.opponents = 1;
     config.survival.drop_speed = 3.0;
-    // A Survival battle plays on until a tower finishes its bricks or all are out.
-    config.survival.bricks_to_place = 6;
     config.cups.sizes = vec![CupSize {
         name: "Test Cup".into(),
         target: 6,

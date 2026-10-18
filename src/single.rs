@@ -1332,7 +1332,7 @@ pub(crate) fn show_carousel(
     art: Option<Res<Art>>,
     config: Res<GameConfig>,
     mut slots: Query<
-        (&Carousel, &mut ImageNode, &mut Visibility),
+        (&Carousel, &mut ImageNode, &mut Visibility, &mut Node),
         (Without<PackCard>, Without<CarouselLogo>),
     >,
     mut cards: Query<(&PackCard, &mut ImageNode, &mut Visibility), Without<Carousel>>,
@@ -1392,15 +1392,24 @@ pub(crate) fn show_carousel(
             }
         }
     }
-    for (slot, mut node, mut visibility) in &mut slots {
+    for (slot, mut node, mut visibility, mut layout) in &mut slots {
         let wizard = (menu.wizard as i32 + slot.0).rem_euclid(n) as usize;
-        let pose = if slot.0 == 0 { "ready" } else { "sleeping" };
+        // The picked wizard sleeps until it is confirmed (PlayerWaiting, then PlayerReady);
+        // each has its own picture size and offset (the Character prefabs).
+        let awake = slot.0 == 0 && menu.step >= 1;
+        let pose = if awake { "ready" } else { "sleeping" };
         let picture = art
             .as_ref()
             .and_then(|a| a.image(&crate::select::seat_picture(wizard, pose)));
         match picture {
             Some(image) => {
                 node.image = image;
+                let (offset, size) = WIZARDS[wizard.min(WIZARDS.len() - 1)][awake as usize];
+                let want = place(size, (NEIGHBOUR_X * slot.0 as f32 + offset.0, seat_y(menu.online) + offset.1));
+                layout.left = want.left;
+                layout.top = want.top;
+                layout.width = want.width;
+                layout.height = want.height;
                 visibility.set_if_neq(Visibility::Inherited);
             }
             None => {
