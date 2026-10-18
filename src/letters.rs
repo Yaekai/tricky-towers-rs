@@ -744,12 +744,17 @@ fn redraw_when_fields_load(
     }
 }
 
+/// Letter materials already made, by their look and field.
+#[derive(Default)]
+struct SdfCache(std::collections::HashMap<Vec<u32>, Handle<SdfLetter>>);
+
 fn draw_letters(
     mut commands: Commands,
     art: Res<Art>,
     images: Option<Res<Assets<Image>>>,
     mut sdf: Option<ResMut<Assets<SdfLetter>>>,
     texts: Query<(Entity, &LetterText), Changed<LetterText>>,
+    mut cache: Local<SdfCache>,
 ) {
     let Some(main) = display_sheet(&art) else {
         return;
@@ -779,7 +784,13 @@ fn draw_letters(
             };
             lines.spawn(column).with_children(|lines| {
                 for line in text.text.split('\n') {
-                    spawn_line(lines, sheet, text, line, field.clone().zip(sdf.as_deref_mut()));
+                    spawn_line(
+                        lines,
+                        sheet,
+                        text,
+                        line,
+                        field.clone().zip(sdf.as_deref_mut().map(|s| (s, &mut *cache))),
+                    );
                 }
             });
         });
@@ -791,7 +802,7 @@ fn spawn_line(
     sheet: &Letters,
     text: &LetterText,
     line: &str,
-    mut field: Option<((Handle<Image>, Vec2), &mut Assets<SdfLetter>)>,
+    mut field: Option<((Handle<Image>, Vec2), (&mut Assets<SdfLetter>, &mut SdfCache))>,
 ) {
     let k = text.size / sheet.size.max(1.0);
     let len = |v: f32| {
@@ -835,17 +846,32 @@ fn spawn_line(
                     let has_field = field.is_some();
                     // A letter from the field: its rectangle as shares of the atlas.
                     let mut from_field = |rect: (f32, f32, f32, f32), color: Color, edge: f32, low: Option<Color>| {
-                        let ((handle, size), sdf) = field.as_mut()?;
+                        let ((handle, size), (sdf, cache)) = field.as_mut()?;
                         let look = SdfLook {
                             color: Vec4::from_array(color.to_linear().to_f32_array()),
                             rect: Vec4::new(rect.0 / size.x, rect.1 / size.y, rect.2 / size.x, rect.3 / size.y),
                             edge: Vec4::new(edge, 0.0, 0.0, 0.0),
                             low: low.map_or(Vec4::ZERO, |c| Vec4::from_array(c.to_linear().to_f32_array())),
                         };
-                        Some(bevy::ui_render::prelude::MaterialNode(sdf.add(SdfLetter {
-                            look,
-                            field: handle.clone(),
-                        })))
+                        // A letter drawn before reuses its material: a new one isn't ready to draw
+                        // for a frame, so a changing count showed only some of its layers.
+                        let key: Vec<u32> = [look.color, look.rect, look.edge, look.low]
+                            .iter()
+                            .flat_map(|v| v.to_array())
+                            .map(f32::to_bits)
+                            .chain([{
+                                use std::hash::{Hash, Hasher};
+                                let mut h = std::collections::hash_map::DefaultHasher::new();
+                                handle.id().hash(&mut h);
+                                h.finish() as u32
+                            }])
+                            .collect();
+                        let material = cache
+                            .0
+                            .entry(key)
+                            .or_insert_with(|| sdf.add(SdfLetter { look, field: handle.clone() }))
+                            .clone();
+                        Some(bevy::ui_render::prelude::MaterialNode(material))
                     };
                     if let Some(color) = text.outline
                         && (sheet.outline_handle.is_some() || has_field)

@@ -253,7 +253,13 @@ fn fill_items(
         Option<&mut BrickBag>,
         Option<&crate::gameplay::TowerSkin>,
     )>,
-    mut items: Query<(Entity, &mut HudItem, &mut Visibility, Has<crate::letters::MirroredBy>)>,
+    mut items: Query<(
+        Entity,
+        &mut HudItem,
+        &mut Visibility,
+        Has<crate::letters::MirroredBy>,
+        &Node,
+    )>,
     count_up: Option<Res<crate::intro::IntroCount>>,
     time: Res<Time>,
     mut steady: Local<HashMap<usize, (Option<usize>, Option<usize>, f32)>>,
@@ -266,7 +272,7 @@ fn fill_items(
     let refs: Vec<(usize, &TowerState)> = order.iter().map(|(i, s)| (*i, s)).collect();
     let places = placings(&game, &refs);
     let height = view.0.y.max(1.0);
-    for (entity, mut item, mut visibility, twin) in &mut items {
+    for (entity, mut item, mut visibility, twin, old) in &mut items {
         let Ok((tower, state, bag, skin)) = towers.get_mut(item.tower) else {
             continue;
         };
@@ -318,6 +324,10 @@ fn fill_items(
         if twin {
             layout.display = Display::None;
         }
+        // Keep where it stands until `place_items` lays it out again: the new Node's default
+        // place moved the letters for a frame (the count showed cut off behind its card).
+        layout.left = old.left;
+        layout.top = old.top;
         node.insert(layout);
         visibility.set_if_neq(if shows == Shows::Nothing {
             Visibility::Hidden
@@ -580,6 +590,11 @@ fn place_items(
         // A letter-drawn label's own node is hidden (size 0): centre it by its twin's size.
         let computed = mirrored.and_then(|m| twins.get(m.0).ok()).unwrap_or(computed);
         let size = computed.size() * computed.inverse_scale_factor();
+        // While its letters are laid out again (a frame after the text changes) the twin has
+        // no size yet: centring on that dropped the label half its height for a frame.
+        if mirrored.is_some() && size.y < 1.0 {
+            continue;
+        }
         let wizard = wizards
             .iter()
             .find(|(w, _)| !w.enemy() && w.tower() == item.tower)
