@@ -60,6 +60,28 @@ its buttons open the OnlineLobby screen as it stands before connecting (every sl
 games, or creating one when inviting). The connected lobby (players, timer, mode
 indicator) and AcceptOnlineInvite need online play to show anything.
 
+## Next ten tasks (prepared 2026-10-18)
+1. Online Battle: AcceptOnlineInvite and the connected lobby (player slots filled, STARTING IN
+   timer, mode indicator) as layouts, driven by a local stand-in until online play exists.
+2. Stop the menu music when the lobby opens (`MusicStopEffect` in the original's join handlers).
+3. Check the spell changes in Max's next two-player playtest log and notes: Slow's balloon,
+   Bubble on stuck bricks, the Extra Life orb, No Rotate chains, the cup winner's lightning
+   (its wand spot is a guess).
+4. Compare the remaining untouched clips (Max's recordings 2 to 4, 6 to 11, 14 to 19) screen
+   by screen, starting with the longest unseen ones, and fix what differs.
+5. The cup winner's remaining pieces: the fade-out overlay and the `WIZARD_*_AUDIO` triggers
+   checked against the original's timings.
+6. Concrete (Petrify) on a loaded tower and the roof's Survival hitbox, played by hand with a
+   friend, since offscreen runs only prove the code paths.
+7. Puzzle: the base rise trigger and the laser's per-lost-brick drop, checked against Max's Puzzle
+   clip frame by frame (open since 2026-10-09).
+8. The remaining `(?)` values in `src/` (about 20), read from the install where a prefab or
+   clip has them: cup panel timings, `moments`, `casts` sizes.
+9. Mouse in the menus left over: Single Player, Trials, Endless and Settings pages' arrows and
+   buttons, checked with the real mouse.
+10. Release-build cleanup: go through `release-checklist.md`, decide the AI seats question, and
+    list what is still guessed for Max.
+
 ## Not planned
 The Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.
