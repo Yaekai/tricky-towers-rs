@@ -5,7 +5,7 @@
 //! it. Once a match is won, the winner gets its roof and the losers turn pale and
 //! their wizards vanish (docs/research/video-notes.md, `GameConfig::hud`).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use bevy::prelude::*;
 
@@ -255,6 +255,8 @@ fn fill_items(
     )>,
     mut items: Query<(Entity, &mut HudItem, &mut Visibility, Has<crate::letters::MirroredBy>)>,
     count_up: Option<Res<crate::intro::IntroCount>>,
+    time: Res<Time>,
+    mut steady: Local<HashMap<usize, (Option<usize>, Option<usize>, f32)>>,
 ) {
     let order: Vec<(usize, TowerState)> = towers
         .iter()
@@ -268,7 +270,20 @@ fn fill_items(
         let Ok((tower, state, bag, skin)) = towers.get_mut(item.tower) else {
             continue;
         };
-        let place = places.iter().position(|&i| i == tower.index);
+        let raw = places.iter().position(|&i| i == tower.index);
+        // Towers swapping heights as bricks land and wobble would flip 1ST and 2ND every few
+        // frames: a place only changes once the new one has held for half a second.
+        let kept = steady.entry(tower.index).or_insert((raw, raw, 0.0));
+        if raw != kept.1 {
+            kept.1 = raw;
+            kept.2 = 0.0;
+        } else {
+            kept.2 += time.delta_secs();
+        }
+        if kept.2 >= PLACE_HOLD || kept.0.is_none() || raw.is_none() {
+            kept.0 = kept.1;
+        }
+        let place = kept.0;
         let shows = wanted(
             item.kind,
             &config,
@@ -537,6 +552,9 @@ fn wizard_point(config: &GameConfig, solo: bool, tower: &Tower, state: &TowerSta
         config.cells(state.height + look.lift),
     )
 }
+
+/// Seconds a new place must hold before the label changes.
+const PLACE_HOLD: f32 = 0.5;
 
 #[allow(clippy::too_many_arguments)]
 fn place_items(

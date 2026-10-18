@@ -1426,9 +1426,14 @@ fn control_active_brick(
     let (highest, out) = towers.iter().fold((0.0f32, 0u32), |(h, o), (_, s, _)| {
         (h.max(s.height), o + (s.status == TowerStatus::Out) as u32)
     });
+    // Puzzle keeps one pace the whole game (Max): only Race and Survival speed up.
+    let steady = game.mode.rules() == ModeKind::Puzzle;
     let drop_speed = config.drop_speed()
-        + highest * config.fall_speed_per_height
-        + out as f32 * config.fall_speed_per_out;
+        + if steady {
+            0.0
+        } else {
+            highest * config.fall_speed_per_height + out as f32 * config.fall_speed_per_out
+        };
 
     for (tower, mut state, mut input) in &mut towers {
         let left_pressed = std::mem::take(&mut input.left_pressed);

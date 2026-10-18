@@ -1016,16 +1016,28 @@ pub(crate) fn dress_bricks(
                 {
                     if let Some(overlay) = overlay {
                         let mut child = entity.commands();
-                        let id = child
-                            .spawn((
+                        // A vine animation's frames are bigger than the brick (leaves hang over
+                        // its edges) and keep their own size and pivot; stretching them to the
+                        // brick's box squashed the leaves.
+                        let native = art
+                            .frame_name(name, 1.0e6)
+                            .and_then(|frame| art_sprite(&art, frame, cell));
+                        let id = match native {
+                            Some((_, anchor, scale)) => child.spawn((
+                                Sprite::from_image(overlay),
+                                anchor,
+                                Transform::from_translation(center.extend(z)).with_scale(scale.scale),
+                            )),
+                            None => child.spawn((
                                 Sprite {
                                     image: overlay,
                                     custom_size: Some(size),
                                     ..default()
                                 },
                                 Transform::from_translation(center.extend(z)),
-                            ))
-                            .id();
+                            )),
+                        }
+                        .id();
                         if art.is_animation(name) {
                             child.entity(id).insert(Animated::new(name));
                         }
