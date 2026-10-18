@@ -97,11 +97,38 @@ fn main() {
             .unwrap_or_else(|err| panic!("can't read script {path}: {err}"))
     });
 
-    if std::env::var("TT_LOG_ASSETS").is_ok() {
-        // DEBUG-TOOL: see debug.rs Quit.
+    // DEBUG-TOOL: TT_LOG_ASSETS=<file>, or a file named log_assets.txt beside the exe, logs every
+    // art and sound name looked up (written on exit: the env path, else asset_lookups.txt there).
+    let mut asset_log_path: Option<std::path::PathBuf> = None;
+    let log_beside = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(|d| d.to_path_buf()))
+        .filter(|d| d.join("log_assets.txt").is_file());
+    if std::env::var("TT_LOG_ASSETS").is_ok() || log_beside.is_some() {
         *tricky_towers::art::USED.lock().unwrap() = Some(Default::default());
+        let out = std::env::var_os("TT_LOG_ASSETS")
+            .map(std::path::PathBuf::from)
+            .or_else(|| log_beside.map(|d| d.join("asset_lookups.txt")));
+        asset_log_path = out;
     }
     let mut app = App::new();
+    if let Some(out) = asset_log_path {
+        app.add_systems(
+            Last,
+            move |mut exits: MessageReader<bevy::app::AppExit>| {
+                if exits.read().next().is_some()
+                    && let Some(path) = Some(&out)
+                    && let Ok(mut used) = tricky_towers::art::USED.lock()
+                    && let Some(set) = used.take()
+                {
+                    let mut names: Vec<_> = set.into_iter().collect();
+                    names.sort();
+                    let _ = std::fs::write(path, names.join("
+"));
+                }
+            },
+        );
+    }
     // Original art and sound from your own install, if extracted (see docs/art-layout.md).
     tricky_towers::art::register_source(&mut app);
     match &offscreen {
