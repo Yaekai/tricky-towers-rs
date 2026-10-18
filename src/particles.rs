@@ -504,9 +504,16 @@ fn wave_messages(
     game: Res<Match>,
     towers: Query<(&Tower, &TowerState)>,
     mut seen: Local<(u64, bool, u32)>,
+    old: Query<Entity, With<WaveMessage>>,
 ) {
-    if game.phase == Phase::Menu || seen.0 != game.round {
+    // A new match starts the count again. (The pause menu is the Menu phase too: resetting
+    // there made every paused frame start another banner, smeared over the pause screen.)
+    if seen.0 != game.round {
         *seen = (game.round, false, 0);
+        // A banner left from the last match (it waits while paused) goes.
+        for entity in &old {
+            commands.entity(entity).despawn();
+        }
     }
     let wave = towers
         .iter()
@@ -550,7 +557,7 @@ fn wave_messages(
                 top: Val::Percent(50.0),
                 ..default()
             },
-            GlobalZIndex(18),
+            GlobalZIndex(10),
         ));
         root.with_children(|row| {
             let cloud = |row: &mut ChildSpawnerCommands, name: &str, x: f32, y: f32, drift: Option<usize>| {
@@ -592,6 +599,7 @@ fn wave_messages(
 fn fade_wave_messages(
     mut commands: Commands,
     time: Res<Time>,
+    game: Res<Match>,
     config: Res<GameConfig>,
     mut messages: Query<(Entity, &mut WaveMessage, &mut UiTransform, &mut Visibility, &Children)>,
     mut clouds: Query<(&WaveCloud, &mut UiTransform), Without<WaveMessage>>,
@@ -601,7 +609,10 @@ fn fade_wave_messages(
     // A cell is a 41.54th of the view's height.
     let vh_per_cell = 100.0 / config.hud.camera_height.max(0.01);
     for (entity, mut message, mut transform, mut visibility, children) in &mut messages {
-        message.time += time.delta_secs();
+        // The banner waits with the match while the pause menu is up.
+        if game.phase != Phase::Menu {
+            message.time += time.delta_secs();
+        }
         if message.time >= length {
             commands.entity(entity).despawn();
             continue;
