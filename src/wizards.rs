@@ -110,6 +110,8 @@ pub struct Wizard {
     rng: u64,
     /// The trial's enemy wizard: floats by the player's tower, only laughs.
     enemy: bool,
+    /// Pixels a unit its parts are drawn at (the cup winner's rig is bigger than a tower's).
+    cell: f32,
 }
 
 impl Wizard {
@@ -222,6 +224,7 @@ fn spawn_wizards(
             },
             rng: config.seed ^ ((tower.index as u64 + 1) * 0x9E37_79B9),
             enemy,
+            cell,
         };
         wizard.action_countdown = wizard.random(look.action_every.0, look.action_every.1);
         if enemy {
@@ -296,6 +299,7 @@ pub(crate) fn spawn_free_wizard(
         seen: Seen::default(),
         rng: 1,
         enemy: false,
+        cell,
     };
     Some(
         commands
@@ -518,13 +522,14 @@ fn move_wizards(
 /// Shows each part's frame for the current clip and moves on when it ends.
 fn pose_wizards(
     time: Res<Time>,
-    config: Res<GameConfig>,
     art: Res<Art>,
     mut wizards: Query<(&mut Wizard, &Children)>,
     mut parts: Query<(&WizardPart, &mut Sprite, &mut Anchor, &mut Transform)>,
 ) {
-    let cell = config.cell_size;
     for (mut wizard, children) in &mut wizards {
+        // Each rig keeps the scale it was built at: the cup winner's parts shrank to a
+        // tower's size as they animated while its cloud stayed big.
+        let cell = wizard.cell;
         wizard.clip_time += time.delta_secs();
         let clip = wizard.clip.name();
         // The clip lasts as long as its longest part animation.

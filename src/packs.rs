@@ -52,6 +52,13 @@ impl Plugin for PacksPlugin {
     }
 }
 
+/// The Christmas snow caps' sizes in pixels and pivots (gph_snow_var01..03).
+const SNOW_CAPS: [((f32, f32), (f32, f32)); 3] = [
+    ((65.0, 56.0), (0.4935, 0.9078)),
+    ((63.0, 43.0), (0.5083, 0.8759)),
+    ((63.0, 57.0), (0.4959, 0.8987)),
+];
+
 /// A Christmas brick's lights: which frame of the two-frame picture shows, from the time and
 /// the brick's own offset.
 #[derive(Component)]
@@ -266,7 +273,14 @@ fn decorate_bricks(
     config: Res<GameConfig>,
     art: Res<Art>,
     bricks: Query<
-        (Entity, &Brick, Has<Stone>, Has<Placed>, Option<&crate::gameplay::ActiveBrick>),
+        (
+            Entity,
+            &Brick,
+            Has<Stone>,
+            Has<Placed>,
+            Option<&crate::gameplay::ActiveBrick>,
+            Option<&avian2d::prelude::Rotation>,
+        ),
         Or<(
             Changed<Brick>,
             Added<Stone>,
@@ -285,7 +299,8 @@ fn decorate_bricks(
     mut lit_bricks: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
     mut images: Option<ResMut<Assets<Image>>>,
 ) {
-    for (entity, brick, stone, placed, active) in &bricks {
+    for (entity, brick, stone, placed, active, turned) in &bricks {
+        let turned = turned.map_or(0.0, |r| r.as_radians());
         let stone = stone || active.is_some_and(|a| a.mods.petrify);
         let Ok(skin) = skins.get(brick.tower) else {
             continue;
@@ -325,16 +340,35 @@ fn decorate_bricks(
                 }
                 // Snow on top edges: 25% each, once the brick is placed (the original applies
                 // ChristmasBrickModifier then).
-                let snows: Vec<Handle<Image>> = (1..=3)
-                    .filter_map(|i| art.image(&format!("brick_christmas_snow_{i}")))
+                // Each cap hangs from the cell's top edge at its own size (gph_snow_var01..03:
+                // 65 px a unit, pivot near its top), drooping down over the brick's face.
+                let snows: Vec<(Handle<Image>, Vec2, Vec2)> = SNOW_CAPS
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, &(size, pivot))| {
+                        art.image(&format!("brick_christmas_snow_{}", i + 1))
+                            .map(|image| (image, Vec2::from(size) / 65.0 * c, Vec2::from(pivot)))
+                    })
                     .filter(|_| placed)
                     .collect();
-                for &cell in cells {
-                    let covered = cells.iter().any(|&o| (o - cell - Vec2::Y).length() < 0.1);
-                    if covered || snows.is_empty() || roll(&mut seed) >= 0.25 {
+                // EdgeDecorationModifier keeps only the edge anchors facing within 45 degrees of
+                // straight up in the world when the brick lands, so a brick lying on its side
+                // gets snow on what is now its top, turned to stand up.
+                let edges: Vec<(Vec2, Vec2)> = cells
+                    .iter()
+                    .flat_map(|&cell| [Vec2::Y, Vec2::X, Vec2::NEG_Y, Vec2::NEG_X].map(|d| (cell, d)))
+                    .filter(|&(cell, d)| !cells.iter().any(|&o| (o - cell - d).length() < 0.1))
+                    .filter(|&(_, d)| {
+                        let world = Vec2::from_angle(turned).rotate(d);
+                        world.y >= std::f32::consts::FRAC_1_SQRT_2 - 1.0e-3
+                    })
+                    .collect();
+                for (cell, d) in edges {
+                    if snows.is_empty() || roll(&mut seed) >= 0.25 {
                         continue;
                     }
-                    let pick = snows[(roll(&mut seed) * snows.len() as f32) as usize % snows.len()]
+                    let (pick, size, pivot) = snows
+                        [(roll(&mut seed) * snows.len() as f32) as usize % snows.len()]
                         .clone();
                     let flip = if roll(&mut seed) < 0.5 { 1.0 } else { -1.0 };
                     let full = Vec3::new(flip, 1.0, 1.0);
@@ -343,10 +377,12 @@ fn decorate_bricks(
                         Snow { time: -delay, full },
                         Sprite {
                             image: pick,
-                            custom_size: Some(Vec2::new(c, c * 0.45)),
+                            custom_size: Some(size),
                             ..default()
                         },
-                        Transform::from_translation((cell * c + Vec2::Y * c * 0.5).extend(0.06))
+                        bevy::sprite::Anchor(pivot - Vec2::splat(0.5)),
+                        Transform::from_translation((cell * c + d * c * 0.5).extend(0.06))
+                            .with_rotation(Quat::from_rotation_z(Vec2::Y.angle_to(d)))
                             .with_scale(Vec3::ZERO),
                     ));
                 }
