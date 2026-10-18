@@ -511,6 +511,8 @@ pub(crate) fn trials_input(
     mut request: ResMut<MatchRequest>,
     progress: Res<TrialProgress>,
     mut cup: ResMut<crate::cups::Cup>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Trials {
         return;
@@ -542,7 +544,25 @@ pub(crate) fn trials_input(
         config.trial_tiers.size,
         count,
     );
-    if taps.key_pick || !taps.pad_pick.is_empty() {
+    // The mouse: the button under the cursor is selected, a click takes it.
+    let mut clicked = false;
+    if let Ok(window) = windows.single()
+        && let Some(c) = window.cursor_position()
+    {
+        let x = c.x / window.width() * 1920.0 - 960.0;
+        let y = 540.0 - c.y / window.height() * 1080.0;
+        let per_tier = config.trial_tiers.size.max(1);
+        let base = menu.selected.min(count - 1) / per_tier * per_tier;
+        let hit = (0..per_tier.min(count - base)).find(|&i| {
+            let (sx, sy) = slot(i, per_tier);
+            (x - sx).abs() <= BUTTON.0 / 2.0 && (y - sy).abs() <= BUTTON.1 / 2.0
+        });
+        if let Some(i) = hit {
+            menu.selected = base + i;
+            clicked = mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left));
+        }
+    }
+    if clicked || taps.key_pick || !taps.pad_pick.is_empty() {
         // A tier opens once enough medals are earned.
         let medals = progress.medals(&config.trial_tiers);
         if !config.trial_tiers.is_open(menu.selected, medals) {

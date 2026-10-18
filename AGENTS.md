@@ -297,3 +297,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-18 (PC): Single Player carousel wizards take each wizard's own picture size and offset (they all used wizard 1's, so they stretched); the picked one sleeps until confirmed. Survival ends when a two-player tower goes out (last standing), Puzzle plays on; per Max. Tests pass.
 - 2026-10-18 (PC): the Puzzle laser question is settled from the original's PuzzleMultiplayerLaserLayer (its height is fixed; lost bricks raise the base only), which is what we do; no change.
 - 2026-10-18 (PC): mouse on the Single Player and Online Battle lists: hover selects a button, a click takes it (single.rs single_input). Not checked in game.
+- 2026-10-18 (PC): mouse on the Trials grid: hover selects the button, a click starts the trial (trials_menu.rs trials_input). Not checked in game.
