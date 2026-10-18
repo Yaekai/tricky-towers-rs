@@ -136,7 +136,7 @@ fn menu_escape(
         (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Help) => *screen = MenuScreen::Main,
         // Back leaves the lobby for the Online Battle screen.
-        (Phase::Menu, MenuScreen::Lobby) => *screen = MenuScreen::Single,
+        (Phase::Menu, MenuScreen::Lobby | MenuScreen::Invite) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
         // The explanation popup waits for Continue.
         (Phase::Menu, MenuScreen::Explain) => {}
@@ -187,6 +187,8 @@ pub enum MenuScreen {
     Help,
     /// Online Battle's lobby, looking for a game (online_lobby.rs).
     Lobby,
+    /// "Accepting Invite..." (AcceptOnlineInvite, online_lobby.rs).
+    Invite,
 }
 
 /// The pause menu's highlighted option and the phase Resume goes back to.

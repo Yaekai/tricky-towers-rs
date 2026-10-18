@@ -16,8 +16,8 @@ pub struct OnlineLobbyPlugin;
 impl Plugin for OnlineLobbyPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<OnlineLobby>()
-            .add_systems(Startup, spawn_lobby)
-            .add_systems(Update, show_lobby.after(crate::menu::MenuSystems));
+            .add_systems(Startup, (spawn_lobby, spawn_invite))
+            .add_systems(Update, (show_lobby, show_invite).after(crate::menu::MenuSystems));
     }
 }
 
@@ -185,6 +185,77 @@ fn show_lobby(
             }
             _ => {}
         }
+    }
+}
+
+#[derive(Component)]
+struct InviteRoot;
+#[derive(Component)]
+struct InviteSpinner;
+
+/// AcceptOnlineInvite: the modal tile over the whole screen, "Accepting Invite..." in the
+/// middle (EnzoBlackMilkyWhite46) and the spinner brick 100 px in from the bottom right.
+fn spawn_invite(mut commands: Commands, art: Option<Res<Art>>) {
+    let art = art.as_deref();
+    let image = |name: &str| art.and_then(|a| a.image(name));
+    let mut root = commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgb(0.12, 0.1, 0.2)),
+        GlobalZIndex(23),
+        Visibility::Hidden,
+        InviteRoot,
+    ));
+    if let Some(tile) = image("modal_tile") {
+        root.insert((
+            ImageNode::new(tile).with_mode(NodeImageMode::Tiled {
+                tile_x: true,
+                tile_y: true,
+                stretch_value: 1.0,
+            }),
+            BackgroundColor(Color::NONE),
+        ));
+    }
+    root.with_children(|r| {
+        r.spawn(place((SCREEN.0, 46.0), (0.0, 0.0))).with_child(label_with(
+            46.0 / 10.8,
+            "Accepting Invite...",
+            crate::letters::TextLook::TITLE,
+        ));
+        if let Some(brick) = image("next_brick_default_J") {
+            r.spawn((
+                ImageNode::new(brick),
+                place(SPINNER, (SCREEN.0 / 2.0 - 100.0, -SCREEN.1 / 2.0 + 100.0)),
+                UiTransform::default(),
+                InviteSpinner,
+            ));
+        }
+    });
+}
+
+fn show_invite(
+    time: Res<Time>,
+    game: Res<Match>,
+    screen: Res<MenuScreen>,
+    mut roots: Query<&mut Visibility, With<InviteRoot>>,
+    mut spinners: Query<&mut UiTransform, With<InviteSpinner>>,
+    mut since: Local<f32>,
+) {
+    let on = game.phase == Phase::Menu && *screen == MenuScreen::Invite;
+    for mut v in &mut roots {
+        v.set_if_neq(shown(on));
+    }
+    if !on {
+        *since = 0.0;
+        return;
+    }
+    *since += time.delta_secs();
+    for mut ui in &mut spinners {
+        ui.rotation = Rot2::degrees(-spinner_angle(*since));
     }
 }
 

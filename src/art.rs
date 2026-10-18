@@ -807,6 +807,8 @@ fn play_music(
         .then(|| results_music(game.winner, you))
         .filter(|name| art.sounds.contains_key(*name));
     let battle = match (game.phase, game.mode.look()) {
+        // Joining an online game stops the music (the join handlers' MusicStopEffect).
+        (Phase::Menu, _) if matches!(screen.as_deref(), Some(MenuScreen::Lobby | MenuScreen::Invite)) => None,
         (Phase::Menu, _) => Some("music_menu"),
         (Phase::Intro, _) => None,
         (_, ModeKind::Race) if race_pro && art.sounds.contains_key("music_racepro_v3") => {

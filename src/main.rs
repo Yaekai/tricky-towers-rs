@@ -189,6 +189,7 @@ fn main() {
             }
             "single" => MenuScreen::Single,
             "lobby" => MenuScreen::Lobby,
+            "invite" => MenuScreen::Invite,
             "online" => {
                 app.insert_resource(tricky_towers::single::SingleMenu {
                     online: true,

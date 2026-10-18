@@ -87,6 +87,8 @@ fn items(screen: MenuScreen) -> &'static [NavItem] {
         MenuScreen::Main => &[NavItem::Continue],
         // ModeExplanationOverviewPopup has only its Back.
         MenuScreen::Help | MenuScreen::Lobby => &[NavItem::Back],
+        // AcceptOnlineInvite has no hints.
+        MenuScreen::Invite => &[],
         _ => &[NavItem::Back, NavItem::Continue],
     }
 }
