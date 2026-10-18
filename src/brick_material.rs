@@ -633,7 +633,10 @@ pub fn lit_brick(
     materials: &mut Assets<LitBrick>,
 ) -> Option<(Handle<Mesh>, Handle<LitBrick>)> {
     let entry = art.entries.get(key)?;
-    let ((hr, hg, hb, ha), (sr, sg, sb, sa)) = entry.light.as_ref()?.get()?;
+    let ((hr, hg, hb, mut ha), (sr, sg, sb, mut sa)) = entry.light.as_ref()?.get()?;
+    if crate::art::unlit_brick(key) {
+        (ha, sa) = (0.0, 0.0);
+    }
     let (lr, lg, lb) = entry.line.unwrap_or(crate::art::BRICK_LINE);
     let bevel = art.images.get(entry.bevel.as_ref()?)?.clone();
     let pattern = art.images.get(&format!("{key}_raw"))?.clone();

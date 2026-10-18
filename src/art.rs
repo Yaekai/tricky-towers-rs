@@ -633,6 +633,12 @@ fn recolor_masks(
 
 /// The bricks' outline and crack colour, fixed in the original's lit brick shaders (default,
 /// Christmas, Halloween): (19, 13, 40).
+/// Bricks whose material has no light: Candy's (World/Bricks/Default with _BorderColor,
+/// disassembled: the pattern lerped to the border colour by the outline, plus the flash).
+pub(crate) fn unlit_brick(name: &str) -> bool {
+    name.starts_with("brick_candy_")
+}
+
 pub(crate) const BRICK_LINE: (f32, f32, f32) = (0.074_509_81, 0.050_980_39, 0.156_862_75);
 
 /// The light's direction in the original's lit brick shaders, up and to the left. The
@@ -652,7 +658,7 @@ fn light_bricks(
     mut images: ResMut<Assets<Image>>,
     mut done: Local<std::collections::HashSet<String>>,
 ) {
-    type Ready = (String, Handle<Image>, Handle<Image>, [Srgba; 2], f32);
+    type Ready = (String, Handle<Image>, Handle<Image>, [Srgba; 2], (f32, f32, f32));
     let ready: Vec<Ready> = art
         .entries
         .iter()
@@ -663,11 +669,15 @@ fn light_bricks(
             let bevel = art.images.raw().get(entry.bevel.as_ref()?)?.clone();
             images.get(&pattern)?;
             images.get(&bevel)?;
-            let light = [Srgba::new(hr, hg, hb, ha), Srgba::new(sr, sg, sb, sa)];
-            Some((name.clone(), pattern, bevel, light, 0.0))
+            // Candy's World/Bricks/Default (the variant with _BorderColor) draws the pattern and
+            // its outline only: no highlight or shadow.
+            let shade = if unlit_brick(name) { 0.0 } else { 1.0 };
+            let light = [Srgba::new(hr, hg, hb, ha * shade), Srgba::new(sr, sg, sb, sa * shade)];
+            let line = entry.line.unwrap_or(BRICK_LINE);
+            Some((name.clone(), pattern, bevel, light, line))
         })
         .collect();
-    for (name, pattern, bevel, [high, shadow], _) in ready {
+    for (name, pattern, bevel, [high, shadow], line) in ready {
         done.insert(name.clone());
         let (Some(pattern), Some(mut out)) =
             (images.get(&pattern).cloned(), images.get(&bevel).cloned())
@@ -698,9 +708,9 @@ fn light_bricks(
                     c + (line - c) * outline
                 };
                 let color = Color::srgba(
-                    lit(base.red, to.red, BRICK_LINE.0).clamp(0.0, 1.0),
-                    lit(base.green, to.green, BRICK_LINE.1).clamp(0.0, 1.0),
-                    lit(base.blue, to.blue, BRICK_LINE.2).clamp(0.0, 1.0),
+                    lit(base.red, to.red, line.0).clamp(0.0, 1.0),
+                    lit(base.green, to.green, line.1).clamp(0.0, 1.0),
+                    lit(base.blue, to.blue, line.2).clamp(0.0, 1.0),
                     base.alpha.max(map.blue),
                 );
                 let _ = out.set_color_at(x, y, color);
