@@ -1292,9 +1292,10 @@ const SHORT: &str = "trial_chain_link_short";
 const END: &str = "trial_chain_link_end";
 const PADLOCK: LockPiece = ("trial_lock", 0.0, 0.0, 0.0, 0.0, 0.0);
 
-/// The NoRotate<shape> prefabs and their clips, in `pieces` order (I, O, T, S, Z, J, L).
+/// The NoRotate<shape> prefabs and their clips, in `pieces` order (I, O, T, S, Z, J, L), then
+/// the Mystery shapes.
 /// Z has no clip of its own; it takes S's timings, mirrored like its prefab.
-const LOCKS: [&[LockPiece]; 7] = [
+const LOCKS: [&[LockPiece]; 10] = [
     &[
         PADLOCK,
         (LINK, -0.38, 0.0, 0.0, 0.283, 0.383),
@@ -1363,6 +1364,48 @@ const LOCKS: [&[LockPiece]; 7] = [
         (SHORT, -1.3, 0.5, 0.0, 0.65, 0.75),
         (SHORT, -1.0, 0.8, -90.0, 0.65, 0.75),
     ],
+    // The Mystery shapes (NoRotateMystery01-03, in `mystery_pieces` order).
+    &[
+        PADLOCK,
+        (LINK, 0.0, -0.38, 90.0, 0.25, 0.35),
+        (LINK, 0.0, 0.38, -90.0, 0.25, 0.35),
+        (LINK, 0.0, -0.88, 90.0, 0.367, 0.467),
+        (LINK, 0.0, 0.88, -90.0, 0.367, 0.467),
+        (END, -0.38, 0.0, 0.0, 0.483, 0.583),
+        (END, 0.38, 0.0, 180.0, 0.483, 0.583),
+        (END, 0.0, -1.38, 90.0, 0.483, 0.583),
+        (END, 0.0, 1.38, -90.0, 0.483, 0.583),
+    ],
+    &[
+        PADLOCK,
+        (LINK, 0.0, -0.38, 90.0, 0.25, 0.35),
+        (LINK, -0.29, -0.24, 60.0, 0.25, 0.35),
+        (LINK, -0.38, 0.0, 0.0, 0.25, 0.35),
+        (LINK, 0.38, 0.0, 180.0, 0.25, 0.35),
+        (LINK, 0.0, 0.38, -90.0, 0.25, 0.35),
+        (LINK, 0.0, -0.88, 90.0, 0.367, 0.467),
+        (LINK, -0.579, -0.74, 60.0, 0.367, 0.467),
+        (END, -0.88, 0.0, 0.0, 0.483, 0.583),
+        (END, 0.88, 0.0, 180.0, 0.483, 0.583),
+        (LINK, 0.0, 0.88, -90.0, 0.367, 0.467),
+        (END, 0.0, -1.38, 90.0, 0.483, 0.583),
+        (END, -0.879, -1.24, 60.0, 0.483, 0.583),
+        (END, 0.0, 1.38, -90.0, 0.483, 0.583),
+    ],
+    &[
+        ("trial_lock", 0.0, 0.5, 0.0, 0.0, 0.0),
+        (LINK, -0.29, 0.23, 30.0, 0.25, 0.35),
+        (LINK, -0.38, 0.5, 0.0, 0.25, 0.35),
+        (LINK, -0.88, 0.5, 0.0, 0.367, 0.467),
+        (LINK, 0.38, 0.5, 180.0, 0.25, 0.35),
+        (LINK, 0.88, 0.5, 180.0, 0.367, 0.467),
+        (LINK, -0.74, -0.05, 30.0, 0.367, 0.467),
+        (END, -1.38, 0.5, 0.0, 0.483, 0.583),
+        (END, 1.38, 0.5, 180.0, 0.483, 0.583),
+        (END, 0.0, 0.18, 90.0, 0.483, 0.583),
+        (END, -1.23, -0.35, 30.0, 0.483, 0.583),
+        (END, 0.0, 0.88, -90.0, 0.483, 0.583),
+    ],
 ];
 
 /// The padlock's pop (every NoRotate clip): size 0.4 to 1.4 by 0.067 s, held, 1 by 0.233 s;
@@ -1381,7 +1424,6 @@ fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
 
 /// No Rotate puts its padlock and chains on the brick (in hand and after it lands), popping
 /// in by the clip; they come back whenever the brick's pictures are redrawn.
-// ponytail: the Mystery shapes' locks (NoRotateMystery01-03) aren't laid out; those go bare.
 #[allow(clippy::type_complexity)]
 fn lock_bricks(
     time: Res<Time>,
