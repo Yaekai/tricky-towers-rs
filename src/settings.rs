@@ -39,6 +39,7 @@ impl Plugin for SettingsPlugin {
                 crate::credits::CreditsPlugin,
                 crate::explain::ExplainPlugin,
                 crate::help::HelpPlugin,
+                crate::online_lobby::OnlineLobbyPlugin,
             ))
             .add_systems(Startup, crate::keybinding::spawn_keybinding_popup)
             .add_systems(Update, crate::keybinding::show_keybinding_popup)

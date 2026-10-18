@@ -135,6 +135,8 @@ fn menu_escape(
         }
         (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Help) => *screen = MenuScreen::Main,
+        // Back leaves the lobby for the Online Battle screen.
+        (Phase::Menu, MenuScreen::Lobby) => *screen = MenuScreen::Single,
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
         // The explanation popup waits for Continue.
         (Phase::Menu, MenuScreen::Explain) => {}
@@ -183,6 +185,8 @@ pub enum MenuScreen {
     Explain,
     /// Help: the controls and every mode's explanation, page by page (help.rs).
     Help,
+    /// Online Battle's lobby, looking for a game (online_lobby.rs).
+    Lobby,
 }
 
 /// The pause menu's highlighted option and the phase Resume goes back to.

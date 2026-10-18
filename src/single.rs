@@ -997,6 +997,8 @@ pub(crate) fn single_input(
     mut menu: ResMut<SingleMenu>,
     mut config: ResMut<GameConfig>,
     art: Option<Res<Art>>,
+    mut lobby: ResMut<crate::online_lobby::OnlineLobby>,
+    mut commands: Commands,
     mut was_on: Local<bool>,
 ) {
     let on = game.phase == Phase::Menu && *screen == MenuScreen::Single;
@@ -1052,8 +1054,17 @@ pub(crate) fn single_input(
     if taps.down {
         menu.selected = (menu.selected + 1).min(list(menu.online).len() - 1);
     }
-    // ponytail: no online play yet, so Online Battle's buttons do nothing.
-    if pick && !menu.online {
+    // Online Battle's buttons all go to the lobby, which looks for a game that never comes
+    // (no online play); Play with friends opens it inviting.
+    if pick && menu.online {
+        lobby.invite = menu.selected == 2;
+        *screen = MenuScreen::Lobby;
+        if let Some(sound) = art.as_ref().and_then(|a| a.sounds.get("sfx_start_game_v2")) {
+            commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+        return;
+    }
+    if pick {
         match LIST[menu.selected].0 {
             "Endless" => {
                 menu.endless = 0;

@@ -208,7 +208,7 @@ impl Lobby {
 pub(crate) const SCREEN: (f32, f32) = (1920.0, 1080.0);
 /// The header bar hanging from the top centre, and its 9-slice borders
 /// (left, right, top, bottom).
-const HEADER: (f32, f32) = (800.0, 90.0);
+pub(crate) const HEADER: (f32, f32) = (800.0, 90.0);
 /// gph_menuHeaderBackground's 9-slice borders (left, right, top, bottom): Unity's
 /// (84, 75, 92, 15) are left, bottom, right, top.
 const HEADER_SLICE: [f32; 4] = [84.0, 92.0, 15.0, 75.0];

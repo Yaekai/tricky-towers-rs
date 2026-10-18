@@ -55,8 +55,10 @@ original and fix what differs:
 ## 6. Online battle menus (Max, 2026-10-17)
 Build the Online Battle screens (OnlinePlayerSelect, OnlineLobby, AcceptOnlineInvite scenes) so
 the title's Online Battle tile opens them like the original, even though no match can be played
-online yet; the networking itself may come later. OnlinePlayerSelect is done (list and rank plate);
-OnlineLobby and AcceptOnlineInvite are next.
+online yet; the networking itself may come later. OnlinePlayerSelect is done (list and rank plate) and
+its buttons open the OnlineLobby screen as it stands before connecting (every slot looking for
+games, or creating one when inviting). The connected lobby (players, timer, mode
+indicator) and AcceptOnlineInvite need online play to show anything.
 
 ## Not planned
 The Shop. XP and wizard levels exist as data only, since the original

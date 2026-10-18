@@ -188,6 +188,7 @@ fn main() {
                 MenuScreen::Players
             }
             "single" => MenuScreen::Single,
+            "lobby" => MenuScreen::Lobby,
             "online" => {
                 app.insert_resource(tricky_towers::single::SingleMenu {
                     online: true,

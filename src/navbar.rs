@@ -86,7 +86,7 @@ fn items(screen: MenuScreen) -> &'static [NavItem] {
         MenuScreen::Start | MenuScreen::Pause | MenuScreen::Explain => &[],
         MenuScreen::Main => &[NavItem::Continue],
         // ModeExplanationOverviewPopup has only its Back.
-        MenuScreen::Help => &[NavItem::Back],
+        MenuScreen::Help | MenuScreen::Lobby => &[NavItem::Back],
         _ => &[NavItem::Back, NavItem::Continue],
     }
 }

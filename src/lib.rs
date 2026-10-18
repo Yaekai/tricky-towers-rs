@@ -25,6 +25,7 @@ pub mod debug_panel;
 pub mod effects;
 pub mod explain;
 pub mod help;
+pub mod online_lobby;
 pub mod game_info;
 pub mod gameplay;
 pub mod hud;
