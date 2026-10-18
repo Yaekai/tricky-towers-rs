@@ -999,6 +999,8 @@ pub(crate) fn single_input(
     art: Option<Res<Art>>,
     mut lobby: ResMut<crate::online_lobby::OnlineLobby>,
     mut commands: Commands,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut was_on: Local<bool>,
 ) {
     let on = game.phase == Phase::Menu && *screen == MenuScreen::Single;
@@ -1039,7 +1041,23 @@ pub(crate) fn single_input(
             _ => {}
         }
     }
-    let pick = taps.key_pick || !taps.pad_pick.is_empty();
+    let mut pick = taps.key_pick || !taps.pad_pick.is_empty();
+    // The mouse on the list: the button under the cursor is selected, a click takes it.
+    if menu.step >= 2
+        && let Ok(window) = windows.single()
+        && let Some(c) = window.cursor_position()
+    {
+        let y = 540.0 - c.y / window.height() * 1080.0;
+        let x = c.x / window.width() * 1920.0 - 960.0;
+        let top = if menu.online { ONLINE_LIST_TOP } else { LIST_TOP };
+        let row = (0..list(menu.online).len()).find(|&i| {
+            x.abs() <= LIST_BUTTON.0 / 2.0 && (y - (top - LIST_STEP * i as f32)).abs() <= LIST_BUTTON.1 / 2.0
+        });
+        if let Some(i) = row {
+            menu.selected = i;
+            pick |= mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left));
+        }
+    }
     if taps.up {
         step_back(&mut menu);
         return;
