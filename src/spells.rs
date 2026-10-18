@@ -331,6 +331,8 @@ pub(crate) fn run_curse_waves(
             Option<&RigidBody>,
             Has<Stone>,
             Has<Vined>,
+            Option<&crate::gameplay::Placed>,
+            Has<Bubbled>,
         ),
         Without<ActiveBrick>,
     >,
@@ -584,6 +586,8 @@ pub(crate) fn cast_spells(
             Option<&RigidBody>,
             Has<Stone>,
             Has<Vined>,
+            Option<&crate::gameplay::Placed>,
+            Has<Bubbled>,
         ),
         Without<ActiveBrick>,
     >,
@@ -764,6 +768,8 @@ fn cast_on_tower(
             Option<&RigidBody>,
             Has<Stone>,
             Has<Vined>,
+            Option<&crate::gameplay::Placed>,
+            Has<Bubbled>,
         ),
         Without<ActiveBrick>,
     >,
@@ -848,8 +854,20 @@ fn cast_on_tower(
         }
         SpellKind::Mist => state.mist_timer = magic.mist_seconds,
         SpellKind::Bubble => {
-            // Only a loose brick can float off.
-            if let Some((entity, _, _, Some(RigidBody::Dynamic), false, false)) = last {
+            // BubbleEffect on the tower's last brick not already in a bubble (GetLastBrick
+            // skipping Bubble and BubbleFail): a vined or stone brick only gets a bubble
+            // that pops 0.7 s later (BubbleFailModifier); a loose one floats off.
+            let pick = placed
+                .iter()
+                .filter(|b| b.1.tower == target && !b.7)
+                .filter_map(|b| b.6.map(|order| (order.0, b)))
+                .max_by_key(|(order, _)| *order)
+                .map(|(_, b)| b);
+            let loose = matches!(pick, Some((_, _, _, Some(RigidBody::Dynamic), false, false, ..)));
+            if let Some((entity, ..)) = pick.filter(|_| !loose) {
+                commands.entity(entity).insert(BubbleFail { timer: BUBBLE_FAIL_SECONDS });
+            }
+            if let Some((entity, ..)) = pick.filter(|_| loose) {
                 let tilt = (3.0 + (state.random() % 900) as f32 / 100.0).to_radians();
                 let sign = if state.random().is_multiple_of(2) {
                     1.0
@@ -871,7 +889,7 @@ fn cast_on_tower(
         }
         SpellKind::Ghost => {
             // Only a loose brick can be carried off.
-            if let Some((entity, _, at, Some(RigidBody::Dynamic), false, false)) = last {
+            if let Some((entity, _, at, Some(RigidBody::Dynamic), false, false, ..)) = last {
                 let outward = if at.0.x >= tower.origin_x { 1.0 } else { -1.0 };
                 let to = at.0
                     + Vec2::new(
@@ -1153,6 +1171,15 @@ pub(crate) fn zap_bricks(
     }
 }
 
+/// A bubble on a brick that can't float (vined or stone): it pops after a moment.
+#[derive(Component, Debug)]
+pub struct BubbleFail {
+    pub timer: f32,
+}
+
+/// BubbleFailModifier's time out.
+const BUBBLE_FAIL_SECONDS: f32 = 0.7;
+
 /// Lifts bubbled bricks, easing the pull, and pops the bubble when time is up
 /// or another brick hits it.
 pub(crate) fn float_bubbles(
@@ -1165,7 +1192,14 @@ pub(crate) fn float_bubbles(
         &mut GravityScale,
         Option<&CollidingEntities>,
     )>,
+    mut fails: Query<(Entity, &mut BubbleFail)>,
 ) {
+    for (entity, mut fail) in &mut fails {
+        fail.timer -= time.delta_secs();
+        if fail.timer <= 0.0 {
+            commands.entity(entity).remove::<BubbleFail>();
+        }
+    }
     let magic = &config.magic;
     let (start, eased, rest) = magic.bubble_lift;
     for (entity, mut bubble, mut gravity, colliding) in &mut bubbles {

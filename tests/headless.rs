@@ -1043,6 +1043,24 @@ fn bubble_lifts_the_last_brick() {
     );
     let rose = run_until(&mut app, 1.0, |app| y(app) > before + 4.0);
     assert!(rose, "bubble did not lift: {before} -> {}", y(&app));
+    // A second Bubble passes over the bubbled brick to the one placed before it
+    // (GetLastBrick skips bricks in a bubble): it floats or, if it can't, gets a bubble
+    // that pops.
+    // Let the wizard place another brick or two first.
+    run_seconds(&mut app, 1.0, |_| {});
+    let still = app.world().get::<tricky_towers::spells::Bubbled>(last).is_some();
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Bubble));
+    let world = app.world_mut();
+    let others = world
+        .query_filtered::<Entity, Or<(
+            With<tricky_towers::spells::Bubbled>,
+            With<tricky_towers::spells::BubbleFail>,
+        )>>()
+        .iter(world)
+        .filter(|e| *e != last)
+        .count();
+    // While the first bubble lasts, the second goes to another brick.
+    assert!(!still || others == 1, "{still} {others}");
 }
 
 #[test]

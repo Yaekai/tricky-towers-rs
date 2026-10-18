@@ -1245,16 +1245,23 @@ fn dress_tower_pieces(
 #[derive(Component)]
 struct BubbleSprite;
 
+#[allow(clippy::type_complexity)]
 fn dress_bubbles(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
-    added: Query<(Entity, &Brick), Added<Bubbled>>,
+    bricks: Query<(Entity, &Brick, Option<&Children>), Or<(With<Bubbled>, With<crate::spells::BubbleFail>)>>,
     mut popped: RemovedComponents<Bubbled>,
+    mut failed: RemovedComponents<crate::spells::BubbleFail>,
     children: Query<&Children>,
     bubbles: Query<(), With<BubbleSprite>>,
 ) {
-    for (entity, brick) in &added {
+    // Every bubbled brick wears its bubble; it comes back if the brick's pictures were
+    // redrawn (they take all its children with them).
+    for (entity, brick, kids) in &bricks {
+        if kids.is_some_and(|k| k.iter().any(|c| bubbles.contains(c))) {
+            continue;
+        }
         let max = brick
             .cells
             .iter()
@@ -1282,11 +1289,20 @@ fn dress_bubbles(
             Transform::from_xyz(0.0, 0.0, 0.5),
         ));
     }
-    for entity in popped.read() {
+    // A bubble that goes pops (SFX_BUBBLE_POP).
+    for entity in popped.read().chain(failed.read()) {
+        if bricks.contains(entity) {
+            continue;
+        }
+        let mut had = false;
         for child in children.iter_descendants(entity) {
             if bubbles.contains(child) {
                 commands.entity(child).despawn();
+                had = true;
             }
+        }
+        if had && let Some(sound) = art.sounds.get("sfx_bubble_pop") {
+            commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
         }
     }
 }
