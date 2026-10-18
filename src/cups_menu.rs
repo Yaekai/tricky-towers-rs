@@ -374,11 +374,13 @@ fn show_cup_panel(
             }
             Part::Frame => {
                 let width = (target as f32 - 1.0).max(0.0) * p.slot_pitch + 420.0;
-                let height = order.len() as f32 * 98.0 + 180.0;
+                // It follows the white panel (31 px over it, 75 px taller: Max's two-row clip),
+                // so a third and fourth row grow it downwards with the rows.
+                let height = p.panel_height + grow + 75.0;
                 let want = (
                     Val::Percent(50.0),
                     px(-width / 2.0),
-                    px(SCREEN.1 / 2.0 - 102.0 - height / 2.0 + drop),
+                    px(p.panel_top - 31.0 + drop),
                     px(width),
                     px(height),
                 );
