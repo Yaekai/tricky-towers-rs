@@ -97,6 +97,10 @@ fn main() {
             .unwrap_or_else(|err| panic!("can't read script {path}: {err}"))
     });
 
+    if std::env::var("TT_LOG_ASSETS").is_ok() {
+        // DEBUG-TOOL: see debug.rs Quit.
+        *tricky_towers::art::USED.lock().unwrap() = Some(Default::default());
+    }
     let mut app = App::new();
     // Original art and sound from your own install, if extracted (see docs/art-layout.md).
     tricky_towers::art::register_source(&mut app);

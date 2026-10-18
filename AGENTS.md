@@ -300,3 +300,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-18 (PC): mouse on the Trials grid: hover selects the button, a click starts the trial (trials_menu.rs trials_input). Not checked in game.
 - 2026-10-18 (PC): mouse on the Endless screen (hover selects, click plays a built mode); every menu now takes the mouse except the lobby, Keybinding list and Help. Not checked in game.
 - 2026-10-18 (PC): mouse clicks on the Help screen's arrows turn the page (help.rs). Not checked in game.
+- 2026-10-18 (PC): TT_LOG_ASSETS=<file> logs every art and sound name looked up (art.rs Lookup, debug.rs Quit; DEBUG-TOOL); docs/asset-audit.md has the first result. Offscreen loads no sounds, so the sound half is unreliable.

@@ -196,11 +196,69 @@ impl ArtEntry {
     }
 }
 
+/// DEBUG-TOOL: names looked up this run, written by `--log-assets`.
+pub static USED: std::sync::Mutex<Option<std::collections::HashSet<String>>> =
+    std::sync::Mutex::new(None);
+
+pub(crate) fn note_used(name: &str) {
+    if let Ok(mut used) = USED.lock()
+        && let Some(set) = used.as_mut()
+        && !set.contains(name)
+    {
+        set.insert(name.to_string());
+    }
+}
+
+/// A name-to-handle map that notes every name the game asks for (DEBUG-TOOL, for the asset
+/// audit); `raw()` reads without noting, for the loader's own passes.
+pub struct Lookup<T>(HashMap<String, T>);
+
+impl<T> Default for Lookup<T> {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
+}
+
+impl<T> std::ops::Deref for Lookup<T> {
+    type Target = HashMap<String, T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> std::ops::DerefMut for Lookup<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<T> Lookup<T> {
+    pub fn get(&self, name: &str) -> Option<&T> {
+        note_used(name);
+        self.0.get(name)
+    }
+    pub fn contains_key(&self, name: &str) -> bool {
+        note_used(name);
+        self.0.contains_key(name)
+    }
+    pub fn raw(&self) -> &HashMap<String, T> {
+        &self.0
+    }
+}
+
+impl<T> std::ops::Index<&str> for Lookup<T> {
+    type Output = T;
+    fn index(&self, name: &str) -> &T {
+        note_used(name);
+        &self.0[name]
+    }
+}
+
 /// Images and sounds found in the extracted folder, by logical name.
 #[derive(Resource, Default)]
 pub struct Art {
-    pub images: HashMap<String, Handle<Image>>,
-    pub sounds: HashMap<String, Handle<AudioSource>>,
+    pub images: Lookup<Handle<Image>>,
+    pub sounds: Lookup<Handle<AudioSource>>,
     pub fonts: HashMap<String, Handle<Font>>,
     /// Fonts the original only has as a picture of its letters (`font_*` entries
     /// pointing at a `.ron` letter sheet).
@@ -516,7 +574,7 @@ fn recolor_masks(
         .filter(|(name, _)| !done.contains(*name))
         .filter_map(|(name, entry)| {
             let (a, b) = entry.mask.as_ref()?.get()?;
-            let handle = art.images.get(name)?.clone();
+            let handle = art.images.raw().get(name)?.clone();
             images.get(&handle)?;
             let color = |(r, g, b): (f32, f32, f32)| Color::srgb_u8(r as u8, g as u8, b as u8);
             let rgba = |(r, g, b, a): (f32, f32, f32, f32)| {
@@ -601,8 +659,8 @@ fn light_bricks(
         .filter(|(name, _)| !done.contains(*name))
         .filter_map(|(name, entry)| {
             let ((hr, hg, hb, ha), (sr, sg, sb, sa)) = entry.light.as_ref()?.get()?;
-            let pattern = art.images.get(name)?.clone();
-            let bevel = art.images.get(entry.bevel.as_ref()?)?.clone();
+            let pattern = art.images.raw().get(name)?.clone();
+            let bevel = art.images.raw().get(entry.bevel.as_ref()?)?.clone();
             images.get(&pattern)?;
             images.get(&bevel)?;
             let light = [Srgba::new(hr, hg, hb, ha), Srgba::new(sr, sg, sb, sa)];

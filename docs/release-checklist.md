@@ -23,3 +23,4 @@ Not tagged, decide before release:
 | Start with a brick pack | `src/debug.rs` (`Start`, `pack`) | Every tower uses one brick pack in a scripted match, so Galaxy and the others can be pictured without Select Players. |
 | Pack line | `src/debug.rs` (`PackLine`) | Spawns one static brick of each shape in a row, in one brick pack, for side-by-side pictures against a reference. |
 | Language command | `src/debug.rs` (`Language`) | Sets the menu language from a script, for pictures of the translated menus. |
+| TT_LOG_ASSETS asset lookup log | src/art.rs (Lookup, USED), src/debug.rs (Quit), src/main.rs | Remove with the debug tools |

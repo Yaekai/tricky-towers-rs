@@ -402,6 +402,16 @@ fn apply_debug_commands(
                 pictures.write(DebugPicture(name));
             }
             DebugCommand::Quit => {
+                // DEBUG-TOOL: TT_LOG_ASSETS=<file> lists every art and sound name looked up.
+                if let Ok(path) = std::env::var("TT_LOG_ASSETS")
+                    && let Ok(mut used) = crate::art::USED.lock()
+                    && let Some(set) = used.take()
+                {
+                    let mut names: Vec<_> = set.into_iter().collect();
+                    names.sort();
+                    let _ = std::fs::write(path, names.join("
+"));
+                }
                 exit.write(AppExit::Success);
             }
         }

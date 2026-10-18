@@ -1533,7 +1533,7 @@ fn background_names_for(art: &Art, mode: ModeKind, pro: Option<&str>) -> Vec<Str
         let mut found: Vec<(f32, u32, String)> = art
             .entries
             .iter()
-            .filter(|(name, _)| art.images.contains_key(*name))
+            .filter(|(name, _)| art.images.raw().contains_key(*name))
             .filter_map(|(name, entry)| {
                 let n = name.strip_prefix(prefix)?.parse::<u32>().ok()?;
                 Some((entry.z.unwrap_or(n as f32), n, name.clone()))
