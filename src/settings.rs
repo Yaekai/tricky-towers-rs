@@ -739,8 +739,23 @@ pub(crate) fn settings_input(
     }
     let mut taps = read_taps(keys.as_deref(), &pads);
     let mut clicked = 0;
+    // The Keybinding list's mouse: hover selects a row, a click takes it (waits for a key, or
+    // resets); the Settings rows behind the list don't hear it.
+    let list_mouse = binds.open && !binds.waiting;
+    if list_mouse
+        && let Ok(window) = windows.single()
+        && let Some(c) = window.cursor_position()
+        && let Some(i) = crate::keybinding::row_at(screen_point(c, window.size()))
+    {
+        binds.selected = i;
+        if mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left)) {
+            taps.key_pick = true;
+        }
+    }
     // The mouse: a row under the cursor is selected as it moves, and a click acts on it.
-    if let Ok(window) = windows.single() {
+    if !binds.open
+        && let Ok(window) = windows.single()
+    {
         let cursor = window.cursor_position();
         let over = cursor.and_then(|c| row_at(c, window.size(), PAGES[menu.page].len()));
         if over.is_some() && cursor != *last_cursor {

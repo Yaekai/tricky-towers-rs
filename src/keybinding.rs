@@ -304,6 +304,14 @@ fn row_y(i: usize) -> f32 {
     if i < Action::ALL.len() { top - ROW.1 / 2.0 } else { top - RESET.1 / 2.0 }
 }
 
+/// The list's row under a point (screen centre origin, y up): an action or Reset (the last).
+pub(crate) fn row_at(point: Vec2) -> Option<usize> {
+    (0..ROWS).find(|&i| {
+        let size = if i < Action::ALL.len() { ROW } else { RESET };
+        (point.x).abs() <= size.0 / 2.0 && (point.y - row_y(i)).abs() <= size.1 / 2.0
+    })
+}
+
 fn vh(px: f32) -> f32 {
     px / SCREEN.1 * 100.0
 }
