@@ -1650,7 +1650,7 @@ fn control_active_brick(
                 placed_brick.insert(RigidBody::Dynamic);
             }
             if control.mods.ivy {
-                placed_brick.insert(crate::spells::IvyPending);
+                placed_brick.insert((crate::spells::IvyPending, crate::spells::IvyBrick));
             }
             if control.mods.comes_back() {
                 placed_brick.insert(Cursed {
@@ -2423,9 +2423,12 @@ fn steer_roofs(
                     None => at.y -= fall,
                 }
                 // Steered past the tower and out of sight: it counts as set down.
+                // (It is gone, so nothing more goes to it: an insert after the despawn
+                // panicked, Max's crash when steering the roof into the void.)
                 if at.y < -config.cells(config.kill_depth) {
                     commands.entity(roof_entity).despawn();
                     state.roof = RoofStage::Resting(0.0);
+                    continue;
                 }
                 commands.entity(roof_entity).insert(Position(at));
             }

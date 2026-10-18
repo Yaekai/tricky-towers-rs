@@ -2153,6 +2153,28 @@ fn the_survival_winner_steers_a_roof_onto_the_tower_before_winner_shows() {
 }
 
 #[test]
+fn a_roof_steered_off_into_the_void_does_not_panic() {
+    use tricky_towers::gameplay::RoofStage;
+    let mut config = fast_config();
+    config.survival.bricks_to_place = 3;
+    config.survival.finish_countdown = 0.5;
+    config.spawn_gap = 17.0;
+    let mut app = headless_app(config);
+    assert!(run_until(&mut app, 15.0, |app| tower(app, 0).roof
+        == RoofStage::Steering));
+    // Held left, past the tower's side, then down under the water.
+    run_seconds(&mut app, 3.0, |app| human_input(app).left_held = true);
+    assert!(run_until(&mut app, 30.0, |app| {
+        let mut input = human_input(app);
+        input.left_held = true;
+        input.fast_fall_held = true;
+        tower(app, 0).roof == RoofStage::Done
+    }));
+    // It went under, not onto the tower.
+    assert_eq!(count::<With<tricky_towers::gameplay::RoofPiece>>(&mut app), 0);
+}
+
+#[test]
 fn a_trial_has_its_own_floor_lane_and_rival_tower() {
     use tricky_towers::gameplay::{Platform, RivalLane};
     let mut config = fast_config();

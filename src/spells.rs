@@ -38,6 +38,11 @@ pub struct VineDelay(pub f32);
 #[derive(Component, Debug)]
 pub struct IvyPending;
 
+/// The brick Ivy was cast on: it wears its vines from the moment the spell takes it
+/// (IvyBrickModifier.Apply adds its _IVY child), whether or not it joins anything.
+#[derive(Component, Debug)]
+pub struct IvyBrick;
+
 /// A brick being zapped away (Undo, or the Puzzle laser): the time left, how long the whole
 /// zap takes and its dissolving edge's colour.
 #[derive(Component, Debug)]
@@ -697,7 +702,7 @@ fn curse_bricks(
         && let Ok((mut control, mut brick)) = active.get_mut(entity)
     {
         control.mods.merge(effect);
-        if effect.petrify {
+        if effect.petrify || effect.ivy {
             brick.set_changed();
         }
         if effect.large > 0 {

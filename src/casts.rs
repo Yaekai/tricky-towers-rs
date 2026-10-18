@@ -34,6 +34,7 @@ impl Plugin for CastsPlugin {
                 animate_clouds,
                 flick_hints,
                 grow_large_bricks,
+                lock_bricks,
             )
                 .chain(),
         );
@@ -244,16 +245,24 @@ fn spawn_beam(
     // The spinning blobs at the beam's foot (the glow and rings are only in the impact).
     if kind != BeamKind::Lane {
         let blobs = &config.casts.beam_blobs;
-        let parts = blobs.get(wizard).or(blobs.first()).cloned().unwrap_or_default();
+        let parts = blobs
+            .get(wizard)
+            .or(blobs.first())
+            .cloned()
+            .unwrap_or_default();
         beam.with_children(|parent| {
             for (i, (name, scale, angle, alpha, spin)) in parts.into_iter().enumerate() {
-                let Some((mut sprite, anchor, transform)) = crate::visuals::art_sprite(art, &name, config.cell_size)
+                let Some((mut sprite, anchor, transform)) =
+                    crate::visuals::art_sprite(art, &name, config.cell_size)
                 else {
                     continue;
                 };
                 sprite.color = Color::WHITE.with_alpha(alpha);
                 parent.spawn((
-                    BeamBlob { size: transform.scale.x * scale, spin },
+                    BeamBlob {
+                        size: transform.scale.x * scale,
+                        spin,
+                    },
                     sprite,
                     anchor,
                     Transform::from_xyz(0.0, 0.0, 0.1 + i as f32 * 0.01)
@@ -286,7 +295,9 @@ fn spawn_victim_beams(
         .or(glows.first())
         .map_or(Color::WHITE, |&(r, g, b, _)| Color::srgb(r, g, b));
     for (part, name) in IMPACT_PARTS.iter().enumerate() {
-        if let Some((mut sprite, anchor, transform)) = crate::visuals::art_sprite(art, name, config.cell_size) {
+        if let Some((mut sprite, anchor, transform)) =
+            crate::visuals::art_sprite(art, name, config.cell_size)
+        {
             sprite.color = tint.with_alpha(0.0);
             commands.spawn((
                 Impact {
@@ -296,7 +307,8 @@ fn spawn_victim_beams(
                 },
                 sprite,
                 anchor,
-                Transform::from_translation(foot.extend(16.5 + part as f32 * 0.01)).with_scale(Vec3::ZERO),
+                Transform::from_translation(foot.extend(16.5 + part as f32 * 0.01))
+                    .with_scale(Vec3::ZERO),
             ));
         }
     }
@@ -310,6 +322,8 @@ fn spawn_victim_beams(
 /// whether it swells and shrinks in place (a droplet) or fades in and out (a streak or wave).
 #[derive(Component)]
 struct StreamBit {
+    /// The beam it came from: its particles go with it (they live in the beam's object).
+    beam: Entity,
     velocity: Vec2,
     life: f32,
     age: f32,
@@ -332,7 +346,9 @@ fn stream_beams(
     let (Some(meshes), Some(adds)) = (meshes.as_mut(), adds.as_mut()) else {
         return;
     };
-    let quad = quad.get_or_insert_with(|| meshes.add(Rectangle::new(1.0, 1.0))).clone();
+    let quad = quad
+        .get_or_insert_with(|| meshes.add(Rectangle::new(1.0, 1.0)))
+        .clone();
     let look = &config.casts;
     let dt = time.delta_secs();
     let c = config.cell_size;
@@ -352,7 +368,8 @@ fn stream_beams(
         if beam.owed.len() != streams.len() {
             beam.owed = vec![0.0; streams.len()];
         }
-        let mut seed = (time.elapsed_secs().to_bits() ^ entity.index_u32().wrapping_mul(2_654_435_761)) | 1;
+        let mut seed =
+            (time.elapsed_secs().to_bits() ^ entity.index_u32().wrapping_mul(2_654_435_761)) | 1;
         let mut unit = || {
             seed ^= seed << 13;
             seed ^= seed >> 17;
@@ -361,7 +378,9 @@ fn stream_beams(
         };
         for (i, stream) in streams.iter().enumerate() {
             beam.owed[i] += stream.rate * dt;
-            let Some(image) = art.image(&stream.picture) else { continue };
+            let Some(image) = art.image(&stream.picture) else {
+                continue;
+            };
             while beam.owed[i] >= 1.0 {
                 beam.owed[i] -= 1.0;
                 let mut at = beam.foot + Vec2::new(stream.at.0, stream.at.1) * c;
@@ -375,10 +394,18 @@ fn stream_beams(
                 let k = unit();
                 let tint = Color::srgb_u8(a.0, a.1, a.2).mix(&Color::srgb_u8(b.0, b.1, b.2), k);
                 let pulse = stream.ring > 0.0;
-                let size = Vec2::new(stream.size.0, stream.size.1) * c * if pulse { unit() } else { 1.0 };
+                let size =
+                    Vec2::new(stream.size.0, stream.size.1) * c * if pulse { unit() } else { 1.0 };
                 let tint = Vec4::from_array(tint.to_linear().to_f32_array());
                 commands.spawn((
-                    StreamBit { velocity: Vec2::Y * way * speed * c, life: stream.life, age: 0.0, size, pulse },
+                    StreamBit {
+                        beam: entity,
+                        velocity: Vec2::Y * way * speed * c,
+                        life: stream.life,
+                        age: 0.0,
+                        size,
+                        pulse,
+                    },
                     Mesh2d(quad.clone()),
                     MeshMaterial2d(adds.add(crate::scene_material::AdditiveSprite {
                         tint: tint.with_w(0.0),
@@ -397,14 +424,22 @@ fn stream_beams(
 fn run_streams(
     mut commands: Commands,
     time: Res<Time>,
-    mut bits: Query<(Entity, &mut StreamBit, &mut Transform, &MeshMaterial2d<crate::scene_material::AdditiveSprite>)>,
+    mut bits: Query<(
+        Entity,
+        &mut StreamBit,
+        &mut Transform,
+        &MeshMaterial2d<crate::scene_material::AdditiveSprite>,
+    )>,
+    beams: Query<(), With<Beam>>,
     mut adds: Option<ResMut<Assets<crate::scene_material::AdditiveSprite>>>,
 ) {
     let dt = time.delta_secs();
     for (entity, mut bit, mut transform, material) in &mut bits {
         bit.age += dt;
         let t = bit.age / bit.life.max(0.001);
-        if t >= 1.0 {
+        // A finished beam takes its particles with it (the white waves Max saw falling on
+        // after a cast outlived it by up to 10 s).
+        if t >= 1.0 || !beams.contains(bit.beam) {
             commands.entity(entity).despawn();
             continue;
         }
@@ -432,7 +467,12 @@ fn run_streams(
 }
 
 /// The pictures of a down beam's impact, back to front.
-const IMPACT_PARTS: [&str; 4] = ["cast_circle_gradient", "cast_circle_thin", "cast_circle_thick", "cast_sunrays"];
+const IMPACT_PARTS: [&str; 4] = [
+    "cast_circle_gradient",
+    "cast_circle_thin",
+    "cast_circle_thick",
+    "cast_sunrays",
+];
 
 /// One picture of a down beam's impact and its seconds since the beam started (negative
 /// while it waits).
@@ -447,7 +487,11 @@ struct Impact {
 /// 0.517 s fading out by 0.6 s (from 0.153 and 0.228); the thick ring grows from 0.267 s
 /// to 1.2 at 0.633 s fading from 0.516; the rays grow to 1 by 0.633 s, fading from 0.498
 /// after 0.4 s. Straight lines between keys (Unity's are smoothed).
-fn run_impacts(mut commands: Commands, time: Res<Time>, mut parts: Query<(Entity, &mut Impact, &mut Transform, &mut Sprite)>) {
+fn run_impacts(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut parts: Query<(Entity, &mut Impact, &mut Transform, &mut Sprite)>,
+) {
     let ramp = |t: f32, a: f32, b: f32| ((t - a) / (b - a)).clamp(0.0, 1.0);
     for (entity, mut impact, mut transform, mut sprite) in &mut parts {
         impact.time += time.delta_secs();
@@ -462,7 +506,10 @@ fn run_impacts(mut commands: Commands, time: Res<Time>, mut parts: Query<(Entity
             match impact.part {
                 0 => (2.0 * ramp(t, 0.2, 0.517), 0.153 * (1.0 - ramp(t, 0.2, 0.6))),
                 1 => (2.0 * ramp(t, 0.2, 0.517), 0.228 * (1.0 - ramp(t, 0.2, 0.6))),
-                2 => (1.2 * ramp(t, 0.267, 0.633), 0.516 * (1.0 - ramp(t, 0.267, 0.633))),
+                2 => (
+                    1.2 * ramp(t, 0.267, 0.633),
+                    0.516 * (1.0 - ramp(t, 0.267, 0.633)),
+                ),
                 _ => (ramp(t, 0.2, 0.633), 0.498 * (1.0 - ramp(t, 0.4, 0.633))),
             }
         };
@@ -500,10 +547,18 @@ fn run_beams(
         Option<&mut DelayedBy>,
         Option<&Children>,
     )>,
-    mut feet: Query<(&BeamBlob, &mut Transform), (Without<Beam>, Without<crate::visuals::MainCamera>)>,
+    mut feet: Query<
+        (&BeamBlob, &mut Transform),
+        (Without<Beam>, Without<crate::visuals::MainCamera>),
+    >,
     mut quads: Query<
         &mut Transform,
-        (With<LaneQuad>, Without<BeamBlob>, Without<Beam>, Without<crate::visuals::MainCamera>),
+        (
+            With<LaneQuad>,
+            Without<BeamBlob>,
+            Without<Beam>,
+            Without<crate::visuals::MainCamera>,
+        ),
     >,
     mut lane_looks: Option<ResMut<Assets<crate::post::BeamLane>>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
@@ -627,7 +682,11 @@ fn run_beams(
             continue;
         }
         // Grows out of its foot, holds, then squeezes to nothing.
-        let reach = config.cells(if beam.kind == BeamKind::Down { look.beam_reach.1 } else { look.beam_reach.0 });
+        let reach = config.cells(if beam.kind == BeamKind::Down {
+            look.beam_reach.1
+        } else {
+            look.beam_reach.0
+        });
         let length = reach * (t / grow).clamp(0.0, 1.0);
         let squeeze = ((t - last) / look.beam_squeeze.max(0.001)).clamp(0.0, 1.0);
         if squeeze >= 1.0 {
@@ -639,7 +698,11 @@ fn run_beams(
         // onto the brick.
         transform.translation = (beam.foot + Vec2::Y * length * 0.5).extend(16.0);
         // The blobs grow in (the down beam's after its column has started) and spin.
-        let wait = if beam.kind == BeamKind::Down { look.beam_blob_grow } else { 0.0 };
+        let wait = if beam.kind == BeamKind::Down {
+            look.beam_blob_grow
+        } else {
+            0.0
+        };
         let grown = ((t - wait) / look.beam_blob_grow.max(0.001)).clamp(0.0, 1.0);
         if let Some(children) = children {
             for child in children.iter() {
@@ -914,17 +977,20 @@ fn spawn_cloud(
     };
     // The icon prefab sits in the cloud's SpellContainer at its own size (52 px a unit) and
     // by its pivot; icons aren't square (Grassy's is wide, its pivot high).
-    let icon = match crate::visuals::art_sprite(art, &format!("spell_icon_{spell:?}"), config.cell_size) {
-        Some((sprite, anchor, transform)) => (sprite, anchor, transform.with_translation(Vec3::Z * 0.1)),
-        None => (
-            Sprite::from_color(
-                if dark { DARK_FALLBACK } else { LIGHT_FALLBACK },
-                Vec2::splat(size * look.cloud_icon * 0.7),
+    let icon =
+        match crate::visuals::art_sprite(art, &format!("spell_icon_{spell:?}"), config.cell_size) {
+            Some((sprite, anchor, transform)) => {
+                (sprite, anchor, transform.with_translation(Vec3::Z * 0.1))
+            }
+            None => (
+                Sprite::from_color(
+                    if dark { DARK_FALLBACK } else { LIGHT_FALLBACK },
+                    Vec2::splat(size * look.cloud_icon * 0.7),
+                ),
+                bevy::sprite::Anchor::CENTER,
+                Transform::from_xyz(0.0, 0.0, 0.1),
             ),
-            bevy::sprite::Anchor::CENTER,
-            Transform::from_xyz(0.0, 0.0, 0.1),
-        ),
-    };
+        };
     let side = if dark { "dark" } else { "light" };
     let hint = crate::visuals::art_sprite(
         art,
@@ -1031,7 +1097,9 @@ fn animate_clouds(
         let t = cloud.time;
         let mut drift = Vec2::ZERO;
         use crate::config::curve;
-        let pair = |x: &[(f32, f32, f32, f32)], y: &[(f32, f32, f32, f32)]| Vec2::new(curve(x, t), curve(y, t));
+        let pair = |x: &[(f32, f32, f32, f32)], y: &[(f32, f32, f32, f32)]| {
+            Vec2::new(curve(x, t), curve(y, t))
+        };
         let scale = match cloud.stage {
             CloudStage::Show => {
                 if t >= look.cloud_show {
@@ -1047,7 +1115,10 @@ fn animate_clouds(
             }
             CloudStage::Float => {
                 let at = t % look.cloud_float.max(0.01);
-                drift = Vec2::new(curve(&look.cloud_float_x, at), curve(&look.cloud_float_y, at));
+                drift = Vec2::new(
+                    curve(&look.cloud_float_x, at),
+                    curve(&look.cloud_float_y, at),
+                );
                 Vec2::splat(curve(&look.cloud_float_scale, at))
             }
             CloudStage::Used => pair(&look.cloud_used_x, &look.cloud_used_y),
@@ -1069,8 +1140,16 @@ fn animate_clouds(
         let blink_off = used && look.cloud_used_blinks.iter().any(|&(a, b)| t >= a && t < b);
         for child in children.into_iter().flatten() {
             if let Ok(mut visibility) = parts.get_mut(*child) {
-                let hidden = if hints.contains(*child) { used } else { blink_off };
-                visibility.set_if_neq(if hidden { Visibility::Hidden } else { Visibility::Inherited });
+                let hidden = if hints.contains(*child) {
+                    used
+                } else {
+                    blink_off
+                };
+                visibility.set_if_neq(if hidden {
+                    Visibility::Hidden
+                } else {
+                    Visibility::Inherited
+                });
             }
         }
     }
@@ -1165,6 +1244,212 @@ fn grow_large_bricks(
             transform.translation =
                 (base.translation.truncate() * factor + wobble).extend(base.translation.z);
             transform.scale = base.scale * factor;
+        }
+    }
+}
+
+/// No Rotate's padlock and chains on a brick (NoRotateBrickModifier's NoRotate<shape> child):
+/// it stays on the brick once placed; `age` is how far its pop-in has run.
+#[derive(Component)]
+pub(crate) struct NoRotateLock {
+    age: f32,
+}
+
+/// The holder of a brick's lock pictures, and one of them (an index into its shape's parts).
+#[derive(Component)]
+struct LockHolder;
+#[derive(Component)]
+struct LockPart(usize);
+
+/// One piece of a lock: its picture, where it sits on the brick (cells, from the brick's
+/// middle), its turn in degrees, and when its chain link grows out (0 to full width, from
+/// the link's own pivot); the padlock (first) pops instead.
+type LockPiece = (&'static str, f32, f32, f32, f32, f32);
+
+const LINK: &str = "trial_chain_link";
+const SHORT: &str = "trial_chain_link_short";
+const END: &str = "trial_chain_link_end";
+const PADLOCK: LockPiece = ("trial_lock", 0.0, 0.0, 0.0, 0.0, 0.0);
+
+/// The NoRotate<shape> prefabs and their clips, in `pieces` order (I, O, T, S, Z, J, L).
+/// Z has no clip of its own; it takes S's timings, mirrored like its prefab.
+const LOCKS: [&[LockPiece]; 7] = [
+    &[
+        PADLOCK,
+        (LINK, -0.38, 0.0, 0.0, 0.283, 0.383),
+        (LINK, 0.38, 0.0, 180.0, 0.283, 0.383),
+        (LINK, -0.88, 0.0, 0.0, 0.383, 0.483),
+        (LINK, 0.88, 0.0, 180.0, 0.383, 0.483),
+        (SHORT, 0.0, -0.3, 90.0, 0.5, 0.617),
+        (SHORT, 0.0, 0.3, -90.0, 0.5, 0.617),
+        (END, -1.38, 0.0, 0.0, 0.5, 0.617),
+        (END, 1.38, 0.0, 180.0, 0.5, 0.617),
+    ],
+    &[
+        PADLOCK,
+        (END, 0.0, -0.3, 90.0, 0.267, 0.383),
+        (END, 0.0, 0.3, -90.0, 0.267, 0.383),
+        (END, -0.38, 0.0, 0.0, 0.267, 0.383),
+        (END, 0.38, 0.0, 180.0, 0.267, 0.383),
+    ],
+    &[
+        ("trial_lock", 0.0, 0.5, 0.0, 0.0, 0.0),
+        (END, 0.0, 0.2, 90.0, 0.283, 0.383),
+        (END, -0.38, 0.5, 0.0, 0.283, 0.383),
+        (END, 0.38, 0.5, 180.0, 0.283, 0.383),
+        (END, 0.0, -0.3, 90.0, 0.4, 0.517),
+        (SHORT, 0.0, 0.8, -90.0, 0.4, 0.517),
+        (END, -0.88, 0.5, 0.0, 0.4, 0.517),
+        (END, 0.88, 0.5, 180.0, 0.4, 0.517),
+    ],
+    &[
+        PADLOCK,
+        (LINK, -0.38, -0.31, 15.0, 0.283, 0.383),
+        (LINK, 0.38, 0.31, -165.0, 0.283, 0.383),
+        (END, 0.0, -0.35, 90.0, 0.4, 0.517),
+        (END, -0.88, -0.46, 15.0, 0.4, 0.517),
+        (END, 0.88, 0.46, -165.0, 0.4, 0.517),
+        (END, 0.0, 0.35, -90.0, 0.4, 0.517),
+    ],
+    &[
+        PADLOCK,
+        (LINK, 0.38, -0.31, 165.0, 0.283, 0.383),
+        (LINK, -0.38, 0.31, -15.0, 0.283, 0.383),
+        (END, 0.0, -0.35, 90.0, 0.4, 0.517),
+        (END, 0.88, -0.46, 165.0, 0.4, 0.517),
+        (END, -0.88, 0.46, -15.0, 0.4, 0.517),
+        (END, 0.0, 0.35, -90.0, 0.4, 0.517),
+    ],
+    &[
+        ("trial_lock", 1.0, 0.5, 0.0, 0.0, 0.0),
+        (LINK, 1.0, 0.18, 90.0, 0.517, 0.617),
+        (LINK, 0.62, 0.5, 0.0, 0.283, 0.383),
+        (LINK, 0.12, 0.5, 0.0, 0.4, 0.5),
+        (LINK, -0.38, 0.5, 0.0, 0.517, 0.617),
+        (END, 1.0, -0.35, 90.0, 0.717, 0.817),
+        (END, -0.88, 0.5, 0.0, 0.717, 0.817),
+        (SHORT, 1.3, 0.5, 180.0, 0.717, 0.817),
+        (SHORT, 0.98, 0.8, -90.0, 0.717, 0.817),
+    ],
+    &[
+        ("trial_lock", -1.0, 0.5, 0.0, 0.0, 0.0),
+        (LINK, -1.0, 0.18, 90.0, 0.533, 0.633),
+        (LINK, -0.62, 0.5, 180.0, 0.283, 0.383),
+        (LINK, -0.12, 0.5, 180.0, 0.383, 0.517),
+        (LINK, 0.38, 0.5, 180.0, 0.533, 0.633),
+        (END, -1.0, -0.35, 90.0, 0.65, 0.75),
+        (END, 0.88, 0.5, 180.0, 0.65, 0.75),
+        (SHORT, -1.3, 0.5, 0.0, 0.65, 0.75),
+        (SHORT, -1.0, 0.8, -90.0, 0.65, 0.75),
+    ],
+];
+
+/// The padlock's pop (every NoRotate clip): size 0.4 to 1.4 by 0.067 s, held, 1 by 0.233 s;
+/// turned 10 degrees to -10 by 0.067 s, held to 0.134 s, back to 0 by 0.25 s.
+const LOCK_SIZE: [(f32, f32); 4] = [(0.0, 0.4), (0.067, 1.4), (0.133, 1.4), (0.233, 1.0)];
+const LOCK_TURN: [(f32, f32); 4] = [(0.0, 10.0), (0.067, -10.0), (0.134, -10.0), (0.25, 0.0)];
+/// NoRotateBrickModifier shakes the lock by up to 0.06 units while a refused turn shakes.
+const LOCK_SHAKE: f32 = 0.06;
+
+fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
+    match keys.windows(2).find(|k| t <= k[1].0) {
+        Some(k) => k[0].1 + (k[1].1 - k[0].1) * ((t - k[0].0) / (k[1].0 - k[0].0)).clamp(0.0, 1.0),
+        None => keys.last().map_or(1.0, |k| k.1),
+    }
+}
+
+/// No Rotate puts its padlock and chains on the brick (in hand and after it lands), popping
+/// in by the clip; they come back whenever the brick's pictures are redrawn.
+// ponytail: the Mystery shapes' locks (NoRotateMystery01-03) aren't laid out; those go bare.
+#[allow(clippy::type_complexity)]
+fn lock_bricks(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    mut commands: Commands,
+    mut bricks: Query<(
+        Entity,
+        &Brick,
+        Option<&ActiveBrick>,
+        Option<&mut NoRotateLock>,
+        Option<&Children>,
+    )>,
+    holders: Query<(), With<LockHolder>>,
+    mut parts: Query<(&LockPart, &mut Transform, &ChildOf), Without<LockHolder>>,
+    mut holder_moves: Query<&mut Transform, (With<LockHolder>, Without<LockPart>)>,
+    mut seed: Local<u32>,
+) {
+    let dt = time.delta_secs();
+    let cell = config.cell_size;
+    for (entity, brick, control, lock, children) in &mut bricks {
+        let Some(def) = LOCKS.get(brick.piece) else {
+            continue;
+        };
+        let Some(mut lock) = lock else {
+            if control.is_some_and(|c| c.mods.no_rotate) {
+                commands.entity(entity).insert(NoRotateLock { age: 0.0 });
+            }
+            continue;
+        };
+        lock.age += dt;
+        let Some(holder) = children.and_then(|c| c.iter().find(|c| holders.contains(*c))) else {
+            // Not drawn yet, or the brick's pictures were just redrawn.
+            commands.entity(entity).with_children(|b| {
+                b.spawn((
+                    LockHolder,
+                    Transform::from_xyz(0.0, 0.0, 3.0).with_scale(Vec3::splat(brick.scale)),
+                    Visibility::default(),
+                ))
+                .with_children(|h| {
+                    for (i, &(name, x, y, turn, ..)) in def.iter().enumerate() {
+                        if let Some((sprite, anchor, mut t)) =
+                            crate::visuals::art_sprite(&art, name, cell)
+                        {
+                            t.translation = Vec3::new(x * cell, y * cell, i as f32 * 0.01);
+                            t.rotation = Quat::from_rotation_z(turn.to_radians());
+                            t.scale = Vec3::ZERO;
+                            h.spawn((sprite, anchor, t, LockPart(i)));
+                        }
+                    }
+                });
+            });
+            continue;
+        };
+        // A refused turn shakes the lock about (in hand only).
+        if let Ok(mut t) = holder_moves.get_mut(holder) {
+            let shaking = control.is_some_and(|c| c.refused > 0.0);
+            let reach = LOCK_SHAKE * cell;
+            let mut roll = || {
+                *seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345) | 1;
+                ((*seed >> 8) as f32 / (1u32 << 24) as f32 * 2.0 - 1.0) * reach
+            };
+            let jump = if shaking {
+                Vec2::new(roll(), roll())
+            } else {
+                Vec2::ZERO
+            };
+            t.translation = jump.extend(3.0);
+        }
+        let age = lock.age;
+        for (part, mut t, parent) in &mut parts {
+            if parent.parent() != holder {
+                continue;
+            }
+            let Some(&(name, _, _, turn, from, to)) = def.get(part.0) else {
+                continue;
+            };
+            let base = art
+                .entries
+                .get(name)
+                .and_then(|e| e.pixels_per_unit)
+                .map_or(1.0, |ppu| cell / ppu.max(1.0));
+            if part.0 == 0 {
+                t.scale = Vec3::new(base, base, 1.0) * keyed(&LOCK_SIZE, age);
+                t.rotation = Quat::from_rotation_z((turn + keyed(&LOCK_TURN, age)).to_radians());
+            } else {
+                let grow = ((age - from) / (to - from).max(0.001)).clamp(0.0, 1.0);
+                t.scale = Vec3::new(base * grow, base, 1.0);
+            }
         }
     }
 }

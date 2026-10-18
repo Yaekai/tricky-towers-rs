@@ -844,6 +844,7 @@ pub(crate) fn dress_bricks(
             Option<&Placed>,
             Option<&ActiveBrick>,
             Has<crate::spells::VineDelay>,
+            Has<crate::spells::IvyBrick>,
         ),
         (
             Or<(
@@ -861,9 +862,10 @@ pub(crate) fn dress_bricks(
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut lit_bricks: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
 ) {
-    for (entity, brick, landed_stone, vined, grass, placed, active, vine_waits) in &bricks {
-        // Joined bricks show their vines once their turn in the spread comes (show_vines).
-        let vined = vined && !vine_waits;
+    for (entity, brick, landed_stone, vined, grass, placed, active, vine_waits, ivy) in &bricks {
+        // Joined bricks show their vines once their turn in the spread comes (show_vines);
+        // the Ivy brick itself wears them from the cast, in hand too.
+        let vined = (vined && !vine_waits) || ivy || active.is_some_and(|a| a.mods.ivy);
         let grassy = grass.is_some();
         let stone = landed_stone || active.is_some_and(|a| a.mods.petrify);
         let cell = config.cell_size * brick.scale;
