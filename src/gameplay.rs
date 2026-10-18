@@ -2191,6 +2191,19 @@ fn judge_match(
                     && state.height > state.laser(&config) + 0.05
                 {
                     state.laser_count = Some(0.0);
+                    info!(
+                        "puzzle: a brick touched the laser (height {:.2}, laser {:.2}, {} placed, settled {})",
+                        state.height,
+                        state.laser(&config),
+                        state.bricks_placed,
+                        state.all_settled
+                    );
+                }
+                if trial_drop && state.status == TowerStatus::Building {
+                    info!(
+                        "puzzle trial: a brick was lost ({} dropped, {} placed, height {:.2})",
+                        state.bricks_dropped, state.bricks_placed, state.height
+                    );
                 }
                 if trial_drop || state.laser_count.is_some() {
                     state.status = TowerStatus::Out;
