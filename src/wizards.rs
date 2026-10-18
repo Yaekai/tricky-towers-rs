@@ -164,7 +164,8 @@ fn spawn_wizards(
     wizards: Query<(Entity, &Wizard)>,
 ) {
     for (entity, wizard) in &wizards {
-        if !towers.contains(wizard.tower) {
+        // The cup winner's flying wizard has no tower.
+        if wizard.tower != Entity::PLACEHOLDER && !towers.contains(wizard.tower) {
             commands.entity(entity).despawn();
         }
     }
@@ -233,25 +234,81 @@ fn spawn_wizards(
                 Transform::from_xyz(tower.origin_x, 0.0, 20.0),
                 Visibility::default(),
             ))
-            .with_children(|wizard| {
-                for (i, part) in parts.iter().enumerate() {
-                    let name = format!("{key}_{part}");
-                    let Some(image) = art
-                        .image(&format!("{name}_idle"))
-                        .or_else(|| art.image(&name))
-                    else {
-                        continue;
-                    };
-                    let (anchor, mut transform) = part_transform(&art, &name, &name, cell);
-                    transform.translation.z = i as f32 * 0.01;
-                    wizard.spawn((
-                        WizardPart(name),
-                        Sprite::from_image(image),
-                        anchor,
-                        transform,
-                    ));
-                }
-            });
+            .with_children(|wizard| add_parts(wizard, &art, &key, &parts, cell, ()));
+    }
+}
+
+/// A wizard's parts, each in its idle picture, carrying `extra` (a render layer).
+fn add_parts(
+    wizard: &mut ChildSpawnerCommands,
+    art: &Art,
+    key: &str,
+    parts: &[String],
+    cell: f32,
+    extra: impl Bundle + Clone,
+) {
+    for (i, part) in parts.iter().enumerate() {
+        let name = format!("{key}_{part}");
+        let Some(image) = art
+            .image(&format!("{name}_idle"))
+            .or_else(|| art.image(&name))
+        else {
+            continue;
+        };
+        let (anchor, mut transform) = part_transform(art, &name, &name, cell);
+        transform.translation.z = i as f32 * 0.01;
+        wizard.spawn((
+            WizardPart(name),
+            Sprite::from_image(image),
+            anchor,
+            transform,
+            extra.clone(),
+        ));
+    }
+}
+
+/// A wizard rig with no tower, for the cup winner (ControllableWizard): wizard `number`
+/// (0 for wizard 1) drawn `cell` pixels a unit with `extra` on its root and parts. It plays
+/// its clips like a tower's wizard; its owner moves it.
+pub(crate) fn spawn_free_wizard(
+    commands: &mut Commands,
+    art: &Art,
+    number: usize,
+    cell: f32,
+    extra: impl Bundle + Clone,
+) -> Option<Entity> {
+    let key = format!("wizard{}", number + 1);
+    let parts = art.entries.get(&key).and_then(|e| e.parts.clone())?;
+    let wizard = Wizard {
+        tower: Entity::PLACEHOLDER,
+        lane: 0,
+        key: key.clone(),
+        clip: Clip::Idle,
+        clip_time: 0.0,
+        then: None,
+        time: 0.0,
+        y: None,
+        action_countdown: 0,
+        laugh_cooldown: 0.0,
+        startle_cooldown: 0.0,
+        shake: 0.0,
+        vanish: 0.0,
+        seen: Seen::default(),
+        rng: 1,
+        enemy: false,
+    };
+    Some(
+        commands
+            .spawn((wizard, Transform::default(), Visibility::default(), extra.clone()))
+            .with_children(|w| add_parts(w, art, &key, &parts, cell, extra))
+            .id(),
+    )
+}
+
+impl Wizard {
+    /// Plays `clip` once, then idles.
+    pub(crate) fn act(&mut self, clip: Clip) {
+        play(self, clip, None);
     }
 }
 

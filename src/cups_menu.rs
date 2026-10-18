@@ -1509,10 +1509,18 @@ fn say(commands: &mut Commands, art: &Art, wizard: usize, kind: &str, roll: f32)
     }
 }
 
-/// Drawn with its Select Players picture (ponytail: the original flies the in-match wizard,
-/// with its cast and nudge tricks; this one only flies), about as tall as Max's clip shows.
-const FLYER_HEIGHT: f32 = 170.0;
+/// The winner's wizard is the in-match wizard rig, drawn by its own camera over the popup
+/// (the original's ControllableWizard is the world wizard in front of the popup), on this
+/// render layer, `WIN_UNIT` pixels a unit like the popup's sparks.
+const FLYER_LAYER: usize = 7;
 const FLYER_SPAWN: Vec2 = Vec2::new(650.0 / WIN_UNIT, -380.0 / WIN_UNIT);
+/// Where the wand is on the rig, in units from its middle facing left (the lightning starts
+/// there; SpellCastContainer's spot isn't read, a guess from the cast pose).
+const FLYER_WAND: Vec2 = Vec2::new(-0.9, 1.0);
+
+/// The camera drawing the winner's wizard over the popup.
+#[derive(Component)]
+struct FlyerCamera;
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn fly_winner(
@@ -1525,10 +1533,22 @@ fn fly_winner(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<&Gamepad>,
     towers: Query<(&Tower, Option<&TowerSkin>)>,
-    roots: Query<(Entity, &Win)>,
-    mut flyers: Query<(Entity, &mut Flyer, &mut Node, &mut ImageNode), Without<Ghost>>,
-    mut ghosts: Query<(Entity, &Ghost, &mut Node, &mut ImageNode), Without<Flyer>>,
-    images: Option<Res<Assets<Image>>>,
+    mut flyers: Query<
+        (
+            Entity,
+            &mut Flyer,
+            &mut Transform,
+            &mut crate::wizards::Wizard,
+        ),
+        Without<Ghost>,
+    >,
+    mut ghosts: Query<(Entity, &Ghost, &mut Transform, &Children), Without<Flyer>>,
+    mut sprites: Query<&mut Sprite>,
+    cameras: Query<Entity, With<FlyerCamera>>,
+    main: Query<
+        (&Camera, &bevy::camera::RenderTarget, Option<&Msaa>),
+        With<crate::visuals::MainCamera>,
+    >,
     bindings: Option<Res<crate::keybinding::KeyBindings>>,
     mut seed: Local<u32>,
 ) {
@@ -1540,6 +1560,7 @@ fn fly_winner(
             commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
         }
     };
+    let layer = bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER);
     if !up {
         for (entity, ..) in &flyers {
             // Closing pops it away; leaving the screen otherwise just clears it.
@@ -1551,42 +1572,72 @@ fn fly_winner(
         for (entity, ..) in &ghosts {
             commands.entity(entity).despawn();
         }
+        for camera in &cameras {
+            commands.entity(camera).despawn();
+        }
         return;
     }
+    let Some(art) = art.as_deref() else { return };
     if flyers.is_empty() {
         let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
         let wizard = towers
             .iter()
             .find(|(t, _)| Some(t.index) == winner)
             .map_or(0, |(t, skin)| skin.map_or(t.index, |s| s.wizard));
-        let picture = art.as_ref().and_then(|a| {
-            a.image(&crate::select::seat_picture(wizard, "ready"))
-                .or_else(|| a.image(&crate::select::seat_picture(0, "ready")))
-        });
-        let Some(picture) = picture else { return };
-        let Some(root) = roots.iter().find(|(_, w)| **w == Win::Root).map(|(e, _)| e) else {
+        let Some(rig) =
+            crate::wizards::spawn_free_wizard(&mut commands, art, wizard, WIN_UNIT, layer.clone())
+                .or_else(|| {
+                    crate::wizards::spawn_free_wizard(
+                        &mut commands,
+                        art,
+                        0,
+                        WIN_UNIT,
+                        layer.clone(),
+                    )
+                })
+        else {
             return;
         };
         pop(&mut commands);
-        let flyer = commands
-            .spawn((
-                ImageNode::new(picture),
-                Node {
-                    position_type: PositionType::Absolute,
+        // It cheers as it comes in (ControllableWizard.Init).
+        commands.entity(rig).queue(|mut e: EntityWorldMut| {
+            if let Some(mut w) = e.get_mut::<crate::wizards::Wizard>() {
+                w.act(crate::wizards::Clip::Cheer);
+            }
+        });
+        commands.entity(rig).insert(Flyer {
+            at: FLYER_SPAWN,
+            speed: Vec2::ZERO,
+            facing_left: true,
+            wizard,
+            nudge: None,
+        });
+        if cameras.is_empty() {
+            // Over everything the main camera drew (its UI too), into the same picture.
+            let (order, target, msaa) = main
+                .single()
+                .map(|(c, t, m)| (c.order + 1, t.clone(), m.copied()))
+                .unwrap_or((1, bevy::camera::RenderTarget::default(), None));
+            commands.spawn((
+                Camera2d,
+                Camera {
+                    order,
+                    clear_color: ClearColorConfig::None,
                     ..default()
                 },
-                ZIndex(4),
-                Flyer {
-                    at: FLYER_SPAWN,
-                    speed: Vec2::ZERO,
-                    // Its picture's own way, as the original's scale 1 starts.
-                    facing_left: true,
-                    wizard,
-                    nudge: None,
-                },
-            ))
-            .id();
-        commands.entity(root).add_child(flyer);
+                target,
+                msaa.unwrap_or_default(),
+                Projection::Orthographic(OrthographicProjection {
+                    scaling_mode: bevy::camera::ScalingMode::FixedVertical {
+                        viewport_height: SCREEN.1,
+                    },
+                    ..OrthographicProjection::default_2d()
+                }),
+                Transform::from_xyz(0.0, 0.0, 999.0),
+                layer.clone(),
+                FlyerCamera,
+            ));
+        }
         return;
     }
     // The held direction: the arrows, or any pad's d-pad or left stick.
@@ -1607,18 +1658,22 @@ fn fly_winner(
     let dir = dir.clamp_length_max(1.0);
     let dt = time.delta_secs();
     // The tricks, on the player's own keys and pad buttons (ControllableWizard._DoAction):
-    // light magic casts on itself, dark magic laughs, game info laughs evilly, turning
-    // cheers, the nudges nudge.
+    // light magic casts on itself (with its lightning), dark magic laughs, game info laughs
+    // evilly, turning cheers, the nudges nudge.
     use crate::keybinding::Action;
+    use crate::wizards::Clip;
     let key = |action: Action| {
-        let code = bindings.as_ref().map_or(action.default_key(), |b| b.key(action));
+        let code = bindings
+            .as_ref()
+            .map_or(action.default_key(), |b| b.key(action));
         keys.as_ref().is_some_and(|k| k.just_pressed(code))
     };
     let pad = |button: GamepadButton| pads.iter().any(|p| p.just_pressed(button));
     let light = key(Action::LightMagic) || pad(GamepadButton::West);
     let dark = key(Action::DarkMagic) || pad(GamepadButton::East);
     let overview = key(Action::GameInfo) || pad(GamepadButton::North);
-    let cheer = key(Action::TurnRight) || pad(GamepadButton::South) || pad(GamepadButton::RightTrigger2);
+    let cheer =
+        key(Action::TurnRight) || pad(GamepadButton::South) || pad(GamepadButton::RightTrigger2);
     let nudge = if key(Action::NudgeRight) || pad(GamepadButton::RightTrigger) {
         Some(1.0)
     } else if key(Action::NudgeLeft) || pad(GamepadButton::LeftTrigger) {
@@ -1630,15 +1685,42 @@ fn fly_winner(
         *seed = 0x2545_f491;
     }
     let mut roll = || crate::particles::roll(&mut seed);
-    for (_, mut flyer, mut node, mut picture) in &mut flyers {
-        if let Some(art) = art.as_deref() {
-            if light && let Some(sound) = art.sounds.get("sfx_cast_light") {
-                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+    for (_, mut flyer, mut transform, mut rig) in &mut flyers {
+        for (on, kind, clip) in [
+            (light, "cast_self", Clip::CastSelf),
+            (dark, "laugh", Clip::LaughHard),
+            (overview, "laugh_evil", Clip::LaughEvil),
+            (cheer, "cheer", Clip::Cheer),
+        ] {
+            if on {
+                rig.act(clip);
+                say(&mut commands, art, flyer.wizard, kind, roll());
             }
-            for (on, kind) in [(light, "cast_self"), (dark, "laugh"), (overview, "laugh_evil"), (cheer, "cheer")] {
-                if on {
-                    say(&mut commands, art, flyer.wizard, kind, roll());
-                }
+        }
+        if light {
+            // _HandleSpellCastSelf: a bolt from the wand to 18 units out the way it faces, at
+            // a random height within 15, and one of the two light cast sounds.
+            let face = if flyer.facing_left { 1.0 } else { -1.0 };
+            let wand = flyer.at + Vec2::new(FLYER_WAND.x * face, FLYER_WAND.y);
+            let to = Vec2::new(-18.0 * face, roll() * 30.0 - 15.0);
+            crate::casts::spawn_bolt(
+                &mut commands,
+                wand * WIN_UNIT,
+                to * WIN_UNIT,
+                WIN_UNIT,
+                Some(layer.clone()),
+            );
+            let name = if roll() < 0.5 {
+                "sfx_cast_light_magic_1"
+            } else {
+                "sfx_cast_light_magic_2"
+            };
+            if let Some(sound) = art
+                .sounds
+                .get(name)
+                .or_else(|| art.sounds.get("sfx_cast_light"))
+            {
+                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
             }
         }
         if let Some(way) = nudge
@@ -1646,84 +1728,69 @@ fn fly_winner(
         {
             flyer.at.x += way * NUDGE_JUMP;
             flyer.nudge = Some((0.0, way));
-            if let Some(sound) = art.as_ref().and_then(|a| a.sounds.get("sfx_nudge")) {
+            if let Some(sound) = art.sounds.get("sfx_nudge") {
                 commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
             }
-            if let Some(root) = roots.iter().find(|(_, w)| **w == Win::Root).map(|(e, _)| e) {
-                for i in 0..GHOSTS {
-                    let ghost = commands
-                        .spawn((
-                            ImageNode {
-                                flip_x: picture.flip_x,
-                                ..ImageNode::new(picture.image.clone())
-                            },
-                            Node {
-                                position_type: PositionType::Absolute,
-                                ..default()
-                            },
-                            ZIndex(3),
-                            Visibility::Hidden,
-                            Ghost(i),
-                        ))
-                        .id();
-                    commands.entity(root).add_child(ghost);
+            for i in 0..GHOSTS {
+                if let Some(ghost) = crate::wizards::spawn_free_wizard(
+                    &mut commands,
+                    art,
+                    flyer.wizard,
+                    WIN_UNIT,
+                    layer.clone(),
+                ) {
+                    commands
+                        .entity(ghost)
+                        .insert((Ghost(i), Visibility::Hidden));
                 }
             }
         }
         let target = dir * 10.0;
         let k = (dt * 3.0).min(1.0);
         flyer.speed = flyer.speed + (target - flyer.speed) * k;
-        let step = flyer.speed * dt;
-        flyer.at += step;
+        let speed = flyer.speed;
+        flyer.at += speed * dt;
         if flyer.speed.x > 0.5 {
             flyer.facing_left = false;
         } else if flyer.speed.x < -0.5 {
             flyer.facing_left = true;
         }
-        // The picture looks left; turned, it looks the way it flies.
-        if picture.flip_x != !flyer.facing_left {
-            picture.flip_x = !flyer.facing_left;
-        }
-        let shape = images
-            .as_ref()
-            .and_then(|i| i.get(&picture.image))
-            .map_or(Vec2::new(235.0, 314.0), |i| i.size_f32());
-        // A nudge squashes it to half height, growing back out-expo.
+        // A nudge squashes it to half height, growing back out-expo; its ghosts trail it.
         let mut squash = 1.0;
         if let Some((age, way)) = flyer.nudge {
             let age = age + dt;
             let k = (age / NUDGE_TIME).min(1.0);
             squash = 0.5 + 0.5 * (1.0 - 2f32.powf(-10.0 * k));
             flyer.nudge = (age < NUDGE_TIME).then_some((age, way));
-            for (entity, ghost, mut ghost_node, mut ghost_picture) in &mut ghosts {
+            for (entity, ghost, mut ghost_at, children) in &mut ghosts {
                 if age >= NUDGE_TIME {
                     commands.entity(entity).despawn();
                     continue;
                 }
                 let share = 1.0 - ghost.0 as f32 / GHOSTS as f32;
                 let at = flyer.at - Vec2::new(way * NUDGE_TRAIL * share, 0.0);
-                ghost_picture.color = Color::WHITE.with_alpha(share * 0.6 * (1.0 - k));
-                place_flyer(&mut ghost_node, at, shape, squash);
+                *ghost_at = rig_transform(at, flyer.facing_left, squash, 10.0 - share);
+                for child in children.iter() {
+                    if let Ok(mut sprite) = sprites.get_mut(child) {
+                        sprite.color = Color::WHITE.with_alpha(share * 0.6 * (1.0 - k));
+                    }
+                }
                 commands.entity(entity).insert(Visibility::Inherited);
             }
         }
-        place_flyer(&mut node, flyer.at, shape, squash);
+        *transform = rig_transform(flyer.at, flyer.facing_left, squash, 20.0);
     }
 }
 
-/// Places a flyer picture of `shape` (pixels) at `at` (units from the screen's middle),
-/// squashed to `squash` of its height from its middle.
-fn place_flyer(node: &mut Node, at: Vec2, shape: Vec2, squash: f32) {
-    let size = Vec2::new(FLYER_HEIGHT * shape.x / shape.y, FLYER_HEIGHT * squash);
-    let x = SCREEN.0 / 2.0 + at.x * WIN_UNIT - size.x / 2.0;
-    let y = SCREEN.1 / 2.0 - at.y * WIN_UNIT - size.y / 2.0;
-    node.left = Val::Percent(50.0);
-    node.margin.left = px(x - SCREEN.0 / 2.0);
-    node.top = px(y);
-    node.width = px(size.x);
-    node.height = px(size.y);
+/// The rig's place (units from the screen's middle, in pixels), facing (it looks left at
+/// scale 1, as ControllableWizard's) and squash.
+fn rig_transform(at: Vec2, facing_left: bool, squash: f32, z: f32) -> Transform {
+    Transform::from_translation((at * WIN_UNIT).extend(z)).with_scale(Vec3::new(
+        if facing_left { 1.0 } else { -1.0 },
+        squash,
+        1.0,
+    ))
 }
-
 #[cfg(test)]
 mod tests {
     use super::winner_counts;

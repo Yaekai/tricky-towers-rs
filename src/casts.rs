@@ -102,6 +102,32 @@ struct Lightning {
     to: Vec2,
     time: f32,
     segments: Vec<Entity>,
+    /// Pixels a unit where it is drawn, and the render layer (the cup winner's wizard
+    /// draws its bolt over the popup).
+    cell: f32,
+    layers: Option<bevy::camera::visibility::RenderLayers>,
+}
+
+/// A lightning bolt from `from` to `to` (pixels), drawn `cell` pixels a unit.
+pub(crate) fn spawn_bolt(
+    commands: &mut Commands,
+    from: Vec2,
+    to: Vec2,
+    cell: f32,
+    layers: Option<bevy::camera::visibility::RenderLayers>,
+) {
+    commands.spawn((
+        Lightning {
+            from,
+            to,
+            time: 0.0,
+            segments: Vec::new(),
+            cell,
+            layers,
+        },
+        Transform::default(),
+        Visibility::default(),
+    ));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -176,16 +202,7 @@ fn start_casts(
         } else if !lit.contains(&cast.caster) {
             lit.push(cast.caster);
             let to = brick_at(caster_state, caster);
-            commands.spawn((
-                Lightning {
-                    from,
-                    to,
-                    time: 0.0,
-                    segments: Vec::new(),
-                },
-                Transform::default(),
-                Visibility::default(),
-            ));
+            spawn_bolt(&mut commands, from, to, config.cell_size, None);
         }
     }
 }
@@ -824,7 +841,11 @@ fn run_lightning(
                         },
                         None => Sprite::from_color(LIGHT_FALLBACK, Vec2::ZERO),
                     };
-                    commands.spawn((sprite, Transform::default())).id()
+                    let mut piece = commands.spawn((sprite, Transform::default()));
+                    if let Some(layers) = &bolt.layers {
+                        piece.insert(layers.clone());
+                    }
+                    piece.id()
                 })
                 .collect();
             continue;
@@ -841,7 +862,7 @@ fn run_lightning(
         } else {
             (1.0 - t) / (1.0 - rise)
         };
-        let wobble = config.cells(look.lightning_wobble) * envelope;
+        let wobble = bolt.cell * look.lightning_wobble * envelope;
         let point = |i: usize| {
             let s = i as f32 / BOLT_PIECES as f32;
             let swing = (s * std::f32::consts::PI).sin() * wobble * (s * 5.0 + phase).sin();
@@ -854,7 +875,7 @@ fn run_lightning(
             };
             let (a, b) = (point(i), point(i + 1));
             let along = b - a;
-            sprite.custom_size = Some(Vec2::new(along.length() + 2.0, config.cells(0.35)));
+            sprite.custom_size = Some(Vec2::new(along.length() + 2.0, bolt.cell * 0.35));
             sprite.color.set_alpha(fade);
             *transform = Transform::from_translation(((a + b) * 0.5).extend(16.5))
                 .with_rotation(Quat::from_rotation_z(along.to_angle()));
