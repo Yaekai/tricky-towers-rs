@@ -24,6 +24,9 @@ struct SdfLetter {
     // The face's colour at the letter's bottom when its alpha is above 0 (a TextMeshPro face
     // texture running top to bottom); otherwise `color` all over.
     low: vec4<f32>,
+    // An outline drawn with its face in one pass (alpha above 0): the face's colour, cut at
+    // edge.w; edge.y and edge.z place the face's top and height in the node for `low`.
+    face: vec4<f32>,
 };
 
 @group(1) @binding(0) var<uniform> material: SdfLetter;
@@ -37,7 +40,15 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let w = max(fwidth(d) * 0.7, 0.002);
     let a = smoothstep(material.edge.x - w, material.edge.x + w, d);
     var c = material.color;
-    if material.low.a > 0.0 {
+    if material.face.a > 0.0 {
+        var f = material.face;
+        if material.low.a > 0.0 {
+            let v = clamp((in.uv.y - material.edge.y) / max(material.edge.z, 0.001), 0.0, 1.0);
+            f = mix(material.face, material.low, v);
+        }
+        let af = smoothstep(material.edge.w - w, material.edge.w + w, d);
+        c = vec4(mix(c.rgb, f.rgb, af), mix(c.a, f.a, af));
+    } else if material.low.a > 0.0 {
         c = mix(material.color, material.low, in.uv.y);
     }
     return vec4(c.rgb, c.a * a);
@@ -60,6 +71,7 @@ pub struct SdfLook {
     pub rect: Vec4,
     pub edge: Vec4,
     pub low: Vec4,
+    pub face: Vec4,
 }
 
 impl bevy::ui_render::prelude::UiMaterial for SdfLetter {
@@ -845,17 +857,24 @@ fn spawn_line(
                     }
                     let has_field = field.is_some();
                     // A letter from the field: its rectangle as shares of the atlas.
-                    let mut from_field = |rect: (f32, f32, f32, f32), color: Color, edge: f32, low: Option<Color>| {
+                    let mut from_field = |rect: (f32, f32, f32, f32),
+                                          color: Color,
+                                          edge: f32,
+                                          low: Option<Color>,
+                                          face: Option<(Color, f32, f32)>| {
                         let ((handle, size), (sdf, cache)) = field.as_mut()?;
+                        let linear = |c: Color| Vec4::from_array(c.to_linear().to_f32_array());
+                        let (face, top, tall) = face.map_or((Vec4::ZERO, 0.0, 1.0), |(c, t, h)| (linear(c), t, h));
                         let look = SdfLook {
-                            color: Vec4::from_array(color.to_linear().to_f32_array()),
+                            color: linear(color),
                             rect: Vec4::new(rect.0 / size.x, rect.1 / size.y, rect.2 / size.x, rect.3 / size.y),
-                            edge: Vec4::new(edge, 0.0, 0.0, 0.0),
-                            low: low.map_or(Vec4::ZERO, |c| Vec4::from_array(c.to_linear().to_f32_array())),
+                            edge: Vec4::new(edge, top, tall, FACE_EDGE),
+                            low: low.map_or(Vec4::ZERO, linear),
+                            face,
                         };
                         // A letter drawn before reuses its material: a new one isn't ready to draw
                         // for a frame, so a changing count showed only some of its layers.
-                        let key: Vec<u32> = [look.color, look.rect, look.edge, look.low]
+                        let key: Vec<u32> = [look.color, look.rect, look.edge, look.low, look.face]
                             .iter()
                             .flat_map(|v| v.to_array())
                             .map(f32::to_bits)
@@ -885,9 +904,22 @@ fn spawn_line(
                                 height: len((h + 2.0 * p) * k),
                                 ..default()
                             };
-                        match from_field((x - p, y - p, w + 2.0 * p, h + 2.0 * p), color, if text.outline_edge > 0.0 { text.outline_edge } else { OUTLINE_EDGE }, None) {
+                        // The face goes in the same node: two nodes rounded to pixels apart left
+                        // the outline thin on the top left and thick on the bottom right.
+                        let full = (h + 2.0 * p).max(0.001);
+                        let face = (text.color.alpha() > 0.0).then_some((text.color, p / full, h / full));
+                        match from_field(
+                            (x - p, y - p, w + 2.0 * p, h + 2.0 * p),
+                            color,
+                            if text.outline_edge > 0.0 { text.outline_edge } else { OUTLINE_EDGE },
+                            face.and(text.low),
+                            face,
+                        ) {
                             Some(material) => {
                                 cell.spawn((material, place));
+                                if face.is_some() {
+                                    return;
+                                }
                             }
                             None => {
                                 if let Some(outline) = &sheet.outline_handle {
@@ -912,7 +944,7 @@ fn spawn_line(
                         height: len(h * k),
                         ..default()
                     };
-                    match from_field((x, y, w, h), text.color, FACE_EDGE, text.low) {
+                    match from_field((x, y, w, h), text.color, FACE_EDGE, text.low, None) {
                         Some(material) => {
                             cell.spawn((material, place));
                         }

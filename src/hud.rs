@@ -570,9 +570,11 @@ const PLACE_HOLD: f32 = 0.5;
 fn place_items(
     config: Res<GameConfig>,
     view: Res<ViewSize>,
-    camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
+    // Their Transforms, not GlobalTransforms: those are last frame's here, a frame behind the
+    // camera and the bobbing wizard, which shook the hearts and labels as the camera moved.
+    camera: Query<(&Camera, &Transform), With<crate::visuals::MainCamera>>,
     towers: Query<(&Tower, &TowerState)>,
-    wizards: Query<(&Wizard, &GlobalTransform)>,
+    wizards: Query<(&Wizard, &Transform), Without<crate::visuals::MainCamera>>,
     mut items: Query<(&HudItem, &mut Node, &ComputedNode, Option<&crate::letters::MirroredBy>)>,
     twins: Query<&ComputedNode, Without<HudItem>>,
     game: Res<Match>,
@@ -580,6 +582,8 @@ fn place_items(
     let Ok((camera, eye)) = camera.single() else {
         return;
     };
+    let eye = GlobalTransform::from(*eye);
+    let eye = &eye;
     let look = &config.hud;
     let solo = towers.iter().count() == 1;
     let screen = |p: Vec2| camera.world_to_viewport(eye, p.extend(0.0)).ok();
@@ -598,7 +602,7 @@ fn place_items(
         let wizard = wizards
             .iter()
             .find(|(w, _)| !w.enemy() && w.tower() == item.tower)
-            .map(|(_, t)| t.translation().truncate())
+            .map(|(_, t)| t.translation.truncate())
             .unwrap_or_else(|| wizard_point(&config, solo, tower, state));
         let card_h = look.card_height * view.0.y;
         let card_w = card_h * look.card_aspect;

@@ -930,7 +930,13 @@ pub(crate) fn dress_bricks(
         // Vines and grass are drawn over the sprite when staged, else tint it.
         // Vines grow over the brick with an animation made for its shape, when staged.
         let vine_name = [
-            format!("vine_overlay_{}", key.trim_start_matches("brick_")),
+            // By the shape, whatever the pack: a pack's key (brick_christmas_I) found no vine
+            // animation, so its bricks got the generic T picture stretched over their box.
+            if brick.piece < config.pieces.len() {
+                format!("vine_overlay_{}", def.name)
+            } else {
+                format!("vine_overlay_mystery_{}", def.name.to_lowercase())
+            },
             "vine_overlay".into(),
         ]
         .into_iter()
