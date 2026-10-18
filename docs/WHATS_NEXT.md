@@ -80,7 +80,7 @@ indicator) and AcceptOnlineInvite need online play to show anything.
    checked against the original's timings.
 6. Concrete (Petrify) on a loaded tower and the roof's Survival hitbox, played by hand with a
    friend, since offscreen runs only prove the code paths.
-7. Puzzle: the base rise trigger and the laser's per-lost-brick drop, checked against Max's Puzzle
+7. (Laser question answered: the original's multiplayer laser layer keeps its height fixed; only the base rises per lost brick, as we do.) Puzzle: the base rise trigger, checked against Max's Puzzle
    clip frame by frame (open since 2026-10-09).
 8. The remaining `(?)` values in `src/` (about 20), read from the install where a prefab or
    clip has them: cup panel timings, `moments`, `casts` sizes.
