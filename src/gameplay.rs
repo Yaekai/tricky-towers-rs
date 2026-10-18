@@ -2186,9 +2186,10 @@ fn judge_match(
                 let trial_drop = config.trial.is_some() && state.bricks_dropped > 0;
                 // A brick touching the laser stops that player's bricks at once; the
                 // round's 3-2-1 runs, then the bricks are counted (judge_match).
+                let slack = if config.trial.is_some() { rules.trial_laser_slack } else { 0.0 };
                 if state.laser_count.is_none()
                     && !trial_drop
-                    && state.height > state.laser(&config) + 0.05
+                    && state.height > state.laser(&config) + 0.05 + slack
                 {
                     state.laser_count = Some(0.0);
                     info!(

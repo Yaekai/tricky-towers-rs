@@ -658,6 +658,10 @@ pub struct PuzzleRules {
     pub laser_heights: (f32, f32),
     /// A trial's laser (always on), measured from Max's trial 7 screenshot.
     pub trial_laser_height: f32,
+    /// How far above a trial's laser height a brick's top may go before it counts as touching
+    /// (a guess: Max's trial 9 failed with every brick under the drawn line, 0.27 over the
+    /// number).
+    pub trial_laser_slack: f32,
     pub base_rise_time: f32,
     /// The floor each round is built on, in place of a flat base.
     pub floor: PuzzleFloor,
@@ -715,6 +719,7 @@ impl Default for PuzzleRules {
             base_rise_time: 0.4,
             laser_heights: (1.2, 1.48),
             trial_laser_height: 1.02,
+            trial_laser_slack: 0.3,
             floor: PuzzleFloor::Normal,
             floor_depth: 6.0,
             easy_floor: (5, 0, 2),

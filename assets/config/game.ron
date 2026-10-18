@@ -573,6 +573,7 @@
         base_rise_time: 0.4,
         laser_heights: (1.2, 1.48),
         trial_laser_height: 1.02,
+        trial_laser_slack: 0.3,
         floor: Normal,
         floor_depth: 6.0,
         easy_floor: (5, 0, 2),
