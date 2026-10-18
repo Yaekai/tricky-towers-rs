@@ -253,7 +253,7 @@ fn fill_items(
         Option<&mut BrickBag>,
         Option<&crate::gameplay::TowerSkin>,
     )>,
-    mut items: Query<(Entity, &mut HudItem, &mut Visibility)>,
+    mut items: Query<(Entity, &mut HudItem, &mut Visibility, Has<crate::letters::MirroredBy>)>,
     count_up: Option<Res<crate::intro::IntroCount>>,
 ) {
     let order: Vec<(usize, TowerState)> = towers
@@ -264,7 +264,7 @@ fn fill_items(
     let refs: Vec<(usize, &TowerState)> = order.iter().map(|(i, s)| (*i, s)).collect();
     let places = placings(&game, &refs);
     let height = view.0.y.max(1.0);
-    for (entity, mut item, mut visibility) in &mut items {
+    for (entity, mut item, mut visibility, twin) in &mut items {
         let Ok((tower, state, bag, skin)) = towers.get_mut(item.tower) else {
             continue;
         };
@@ -297,7 +297,12 @@ fn fill_items(
             ImageNode,
             BackgroundColor,
         )>();
-        let layout = build(&mut node, &config.hud, &config, &art, &shows, height);
+        let mut layout = build(&mut node, &config.hud, &config, &art, &shows, height);
+        // The plain text stays hidden behind its letter twin: a replaced Node would show it
+        // for a frame (the count flashed in the wrong letters and under the card).
+        if twin {
+            layout.display = Display::None;
+        }
         node.insert(layout);
         visibility.set_if_neq(if shows == Shows::Nothing {
             Visibility::Hidden

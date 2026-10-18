@@ -1002,6 +1002,9 @@ fn start_match(
 
     // The puzzle laser is the same for everyone, and new each round.
     let round = game.round + 1;
+    // Every match deals its own bricks (the original seeds each match at random); the config's
+    // seed only fixes the first one, so runs stay reproducible.
+    let match_seed = config.seed ^ game.round.wrapping_mul(0x9E37_79B9_7F4A_7C15);
     let mut roll = config.seed ^ round.wrapping_mul(0x9E37_79B9_7F4A_7C15);
     let laser = config.puzzle.line_height
         + (xorshift(&mut roll) % 1001) as f32 / 1000.0 * config.puzzle.line_random;
@@ -1067,16 +1070,14 @@ fn start_match(
             },
             TowerState {
                 laser_base: laser,
-                ..TowerState::new(config, config.seed.wrapping_add(index as u64 * 7919))
+                ..TowerState::new(config, match_seed.wrapping_add(index as u64 * 7919))
             },
             // Everyone shares one brick order on Pro and in Puzzle, else each their own.
             BrickBag::new(
                 if config.same_bricks(config.mode) {
-                    config.seed
+                    match_seed
                 } else {
-                    config
-                        .seed
-                        .wrapping_add((index as u64 + 1) * 0x2545_F491_4F6C_DD1D)
+                    match_seed.wrapping_add((index as u64 + 1) * 0x2545_F491_4F6C_DD1D)
                 },
                 config.pieces.len(),
             ),
@@ -2144,6 +2145,7 @@ fn judge_match(
             *t += dt;
         }
     }
+    let survival_battle = game.mode == ModeKind::Survival && towers.iter().count() > 1;
     let mut winner = None;
     let mut building = Vec::new();
     let mut humans_building = 0;
@@ -2178,13 +2180,15 @@ fn judge_match(
                 winner = leaders.first().copied();
             }
         }
-    } else if winner.is_none() && count > 1 && building.len() == 1 {
+    } else if winner.is_none() && count > 1 && building.len() == 1 && !survival_battle {
         // Last tower standing.
         winner = Some(building[0]);
     }
     // Over when someone wins, nobody is left, or every human is out (a Puzzle round
-    // waits for its count).
-    if !counting && (winner.is_some() || building.is_empty() || (humans > 0 && humans_building == 0)) {
+    // waits for its count). A Survival battle plays on while any tower still builds: the
+    // ones left finish their bricks, and the roof and WINNER! go to whoever does.
+    let humans_out = humans > 0 && humans_building == 0 && !survival_battle;
+    if !counting && (winner.is_some() || building.is_empty() || humans_out) {
         game.phase = Phase::Over;
         game.winner = winner;
     }
