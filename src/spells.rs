@@ -101,11 +101,25 @@ pub fn tower_piece_collider(piece: &crate::config::TowerPieceShape, cell: f32) -
     Collider::compound(parts)
 }
 
-/// Extra Life's heart orb. Touch it with one of your bricks for a life.
+/// Extra Life's orb (SpawnExtraLifeEffect's FloatingSpellOrb). Touch it with one of your
+/// bricks for a life. It bobs up and down while it drifts right, and is gone once it is
+/// 8 cells right of its tower.
 #[derive(Component, Debug)]
 pub struct LifeOrb {
     pub tower: Entity,
+    /// Cells a second.
+    pub velocity: Vec2,
+    pub ascending: bool,
 }
+
+/// FloatingSpellOrb: pushed (1, 25) while rising until it climbs at 4 cells/s, then
+/// (1, 10) until it sinks at 4, on top of gravity; leaves past 8 cells right. Its trigger
+/// circle is 1.2 cells across the middle (radius).
+const ORB_PUSH_UP: Vec2 = Vec2::new(1.0, 25.0);
+const ORB_PUSH_DOWN: Vec2 = Vec2::new(1.0, 10.0);
+const ORB_TURN_SPEED: f32 = 4.0;
+const ORB_GONE_X: f32 = 8.0;
+const ORB_RADIUS: f32 = 1.2;
 
 /// One spell cast, for the HUD, visuals, sound or mods.
 #[derive(Debug, Clone)]
@@ -775,7 +789,11 @@ fn cast_on_tower(
         SpellKind::ExtraLife => {
             let y = state.height.max(magic.life_orb_floor) + magic.life_orb_lift;
             commands.spawn((
-                LifeOrb { tower: target },
+                LifeOrb {
+                    tower: target,
+                    velocity: Vec2::ZERO,
+                    ascending: true,
+                },
                 Transform::from_xyz(
                     tower.origin_x + config.cells(magic.life_orb_x),
                     config.cells(y),
@@ -1200,12 +1218,31 @@ pub(crate) fn collect_life_orbs(
     mut commands: Commands,
     config: Res<GameConfig>,
     spatial: SpatialQuery,
-    orbs: Query<(Entity, &LifeOrb, &Transform)>,
+    time: Res<Time>,
+    mut orbs: Query<(Entity, &mut LifeOrb, &mut Transform)>,
     bricks: Query<&Brick>,
+    homes: Query<&Tower>,
     mut towers: Query<&mut TowerState>,
 ) {
-    let orb = Collider::circle(config.cell_size * 0.5);
-    for (entity, life, transform) in &orbs {
+    let dt = time.delta_secs();
+    let orb = Collider::circle(config.cell_size * ORB_RADIUS);
+    for (entity, mut life, mut transform) in &mut orbs {
+        // FloatingSpellOrb.FixedUpdate: the push, gravity, and a tilt of 2 degrees per cell/s
+        // of climb.
+        let push = if life.ascending { ORB_PUSH_UP } else { ORB_PUSH_DOWN };
+        life.velocity += (push - Vec2::Y * config.gravity) * dt;
+        if life.ascending && life.velocity.y > ORB_TURN_SPEED {
+            life.ascending = false;
+        } else if !life.ascending && life.velocity.y < -ORB_TURN_SPEED {
+            life.ascending = true;
+        }
+        transform.translation += (life.velocity * config.cell_size * dt).extend(0.0);
+        transform.rotation = Quat::from_rotation_z((life.velocity.y * 2.0).to_radians());
+        let home = homes.get(life.tower).map_or(0.0, |t| t.origin_x);
+        if transform.translation.x - home > config.cells(ORB_GONE_X) {
+            commands.entity(entity).despawn();
+            continue;
+        }
         let hits = spatial.shape_intersections(
             &orb,
             transform.translation.truncate(),

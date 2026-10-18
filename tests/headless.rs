@@ -915,6 +915,29 @@ fn extra_life_orb_gives_a_life() {
 }
 
 #[test]
+fn extra_life_orb_bobs_and_drifts_right() {
+    let mut config = fast_config();
+    config.magic.enabled = true;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 0.5, |_| {});
+    cast_now(&mut app, SpellKind::ExtraLife, None);
+    let at = |app: &mut App| {
+        let world = app.world_mut();
+        world
+            .query_filtered::<&Transform, With<tricky_towers::spells::LifeOrb>>()
+            .single(world)
+            .map(|t| t.translation.truncate())
+            .ok()
+    };
+    let start = at(&mut app).expect("an orb appeared");
+    run_seconds(&mut app, 1.5, |_| {});
+    if let Some(now) = at(&mut app) {
+        assert!(now.x > start.x, "drifts right: {start} -> {now}");
+        assert!((now.y - start.y).abs() < 64.0 * 4.0, "bobs, doesn't fly off: {start} -> {now}");
+    }
+}
+
+#[test]
 fn minibase_adds_a_stone_ledge() {
     let mut config = fast_config();
     config.magic.enabled = true;

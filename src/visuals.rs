@@ -79,7 +79,7 @@ impl Plugin for VisualsPlugin {
                     update_hud,
                     update_lines,
                     show_trial_clock,
-                    update_mist,
+                    (update_mist, spin_orbs),
                 ),
             );
     }
@@ -1410,6 +1410,33 @@ fn dress_life_orbs(
     for entity in &orbs {
         let mut orb = commands.entity(entity);
         orb.insert(Visibility::default());
+        // The Orb prefab: a thick ring and two sun ray layers turning opposite ways at half
+        // size, the light spell slot and the Extra Life icon at 0.9 (SpellOrb).
+        let c = config.cell_size;
+        let parts: Vec<_> = [
+            ("cast_sunrays", 0.5 * 0.7575, 0.572, 60.0, 0.0),
+            ("cast_sunrays", 0.5, 0.472, -70.0, 0.1),
+            ("cast_circle_thick", 0.5, 1.0, 0.0, 0.2),
+            ("spell_slot_light", 0.9, 1.0, 0.0, 0.3),
+            ("spell_icon_ExtraLife", 0.9, 1.0, 0.0, 0.4),
+        ]
+        .into_iter()
+        .filter_map(|(name, size, alpha, spin, z)| {
+            let (mut sprite, anchor, mut t) = art_sprite(&art, name, c)?;
+            sprite.color = Color::WHITE.with_alpha(alpha);
+            t.scale *= size;
+            t.translation.z = z;
+            Some((sprite, anchor, t, OrbSpin(spin)))
+        })
+        .collect();
+        if !parts.is_empty() {
+            orb.with_children(|o| {
+                for part in parts {
+                    o.spawn(part);
+                }
+            });
+            continue;
+        }
         match art_sprite(&art, "life_orb", config.cell_size) {
             Some(parts) => {
                 orb.with_child(parts);
@@ -1420,6 +1447,18 @@ fn dress_life_orbs(
                     Vec2::splat(config.cell_size * 0.8),
                 ));
             }
+        }
+    }
+}
+
+/// A picture on the Extra Life orb that turns (RotationBehaviour), degrees a second.
+#[derive(Component)]
+struct OrbSpin(f32);
+
+fn spin_orbs(time: Res<Time>, mut spins: Query<(&OrbSpin, &mut Transform)>) {
+    for (spin, mut t) in &mut spins {
+        if spin.0 != 0.0 {
+            t.rotate_z((spin.0 * time.delta_secs()).to_radians());
         }
     }
 }
