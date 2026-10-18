@@ -2330,3 +2330,26 @@ fn two_large_curses_stack_to_2_5() {
         2
     );
 }
+
+#[test]
+fn every_tower_is_its_own_physics_world() {
+    use avian2d::prelude::CollisionLayers;
+    use tricky_towers::gameplay::{tower_layer, Brick};
+    let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    config.players = 1;
+    config.opponents = 1;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 3.0, |_| {});
+    let world = app.world_mut();
+    let towers: Vec<(Entity, usize)> = world.query::<(Entity, &Tower)>().iter(world).map(|(e, t)| (e, t.index)).collect();
+    let mut seen = [0usize; 2];
+    for (brick, layers) in world.query::<(&Brick, &CollisionLayers)>().iter(world) {
+        let index = towers.iter().find(|(e, _)| *e == brick.tower).unwrap().1;
+        assert_eq!(layers.memberships.0, tower_layer(index), "a brick of tower {index} is in another world");
+        assert_eq!(layers.filters.0, tower_layer(index));
+        seen[index] += 1;
+    }
+    assert!(seen[0] > 0 && seen[1] > 0, "both towers should have bricks: {seen:?}");
+    assert!(!CollisionLayers::new(tower_layer(0), tower_layer(0)).interacts_with(CollisionLayers::new(tower_layer(1), tower_layer(1))));
+}
