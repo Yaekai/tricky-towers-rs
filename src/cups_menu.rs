@@ -161,14 +161,25 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                                     top: px(p.name_top),
                                     ..default()
                                 },
-                                children![(label_with(p.name_size, "", name_look), Part::Name(i))],
+                                // As written, not in capitals (the row's PlayerName is EnzoBlack small
+                                // letters).
+                                children![(
+                                    Text::new(""),
+                                    name_look,
+                                    TextFont { font_size: FontSize::Vh(p.name_size), ..default() },
+                                    TextColor(Color::WHITE),
+                                    TextLayout::justify(Justify::Center),
+                                    Part::Name(i)
+                                )],
                             ));
                             row.spawn((
+                                // The wizard's avatar (PLAYER_OVERVIEW_AVATAR: the round game-info icon,
+                                // 49 x 45).
                                 at(
-                                    p.portrait_left - p.row_left,
-                                    (p.row_height - p.portrait_size) / 2.0,
-                                    p.portrait_size,
-                                    p.portrait_size,
+                                    p.portrait_left - p.row_left + (p.portrait_size - 49.0) / 2.0,
+                                    (p.row_height - 45.0) / 2.0,
+                                    49.0,
+                                    45.0,
                                 ),
                                 blank(),
                                 Part::Face(i),
@@ -432,10 +443,14 @@ fn show_cup_panel(
             }
             Part::Face(i) => {
                 if let Some(mut face) = image_node {
-                    let number = tower(i).map(|(t, skin)| skin.map_or(t.index, |s| s.wizard) + 1);
+                    let number = tower(i).map(|(t, skin)| skin.map_or(t.index, |s| s.wizard));
                     set_image(
                         &mut face,
-                        number.and_then(|n| image(&format!("wizard{n}_face"))),
+                        number.and_then(|w| match w {
+                            0..=3 => image(&format!("wizard_{}", w + 1)),
+                            4..=7 => image(&format!("menu_game_info_wizard_animal0{}", w - 3)),
+                            _ => image(&format!("menu_game_info_wizard_indie0{}", w - 7)),
+                        }),
                     );
                 }
             }
@@ -525,8 +540,8 @@ fn show_cup_panel(
                 if extra > 0 && !trophy { format!("+{extra}") } else { String::new() }
             }),
             Part::Name(i) => tower(i).map(|(t, _)| match t.player {
-                Some(n) => format!("PLAYER {}", n + 1),
-                None => format!("WIZARD {}", t.index + 1),
+                Some(n) => format!("Player {}", n + 1),
+                None => format!("Wizard {}", t.index + 1),
             }),
             _ => None,
         };
