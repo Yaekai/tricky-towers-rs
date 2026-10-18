@@ -298,3 +298,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-10-18 (PC): the Puzzle laser question is settled from the original's PuzzleMultiplayerLaserLayer (its height is fixed; lost bricks raise the base only), which is what we do; no change.
 - 2026-10-18 (PC): mouse on the Single Player and Online Battle lists: hover selects a button, a click takes it (single.rs single_input). Not checked in game.
 - 2026-10-18 (PC): mouse on the Trials grid: hover selects the button, a click starts the trial (trials_menu.rs trials_input). Not checked in game.
+- 2026-10-18 (PC): mouse on the Endless screen (hover selects, click plays a built mode); every menu now takes the mouse except the lobby, Keybinding list and Help. Not checked in game.

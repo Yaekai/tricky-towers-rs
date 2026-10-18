@@ -1117,6 +1117,8 @@ pub(crate) fn endless_input(
     mut config: ResMut<GameConfig>,
     mut request: ResMut<MatchRequest>,
     mut cup: ResMut<crate::cups::Cup>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Endless {
         return;
@@ -1137,7 +1139,23 @@ pub(crate) fn endless_input(
     if taps.down {
         menu.endless = ENDLESS_ORDER[(row + 1) % count];
     }
-    if !(taps.key_pick || !taps.pad_pick.is_empty()) || !ENDLESS[menu.endless].built {
+    // The mouse: the button under the cursor is selected, a click takes it.
+    let mut clicked = false;
+    if let Ok(window) = windows.single()
+        && let Some(c) = window.cursor_position()
+    {
+        let x = c.x / window.width() * 1920.0 - 960.0;
+        let y = 540.0 - c.y / window.height() * 1080.0;
+        let hit = (0..count).find(|&r| {
+            let (sx, sy) = endless_slot(ENDLESS_ORDER[r]);
+            (x - sx).abs() <= ENDLESS_BUTTON.0 / 2.0 && (y - sy).abs() <= ENDLESS_BUTTON.1 / 2.0
+        });
+        if let Some(r) = hit {
+            menu.endless = ENDLESS_ORDER[r];
+            clicked = mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left));
+        }
+    }
+    if !(clicked || taps.key_pick || !taps.pad_pick.is_empty()) || !ENDLESS[menu.endless].built {
         return;
     }
     config.mode = ENDLESS[menu.endless].mode;
