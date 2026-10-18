@@ -294,11 +294,28 @@ fn help_input(
     game: Res<Match>,
     mut screen: ResMut<MenuScreen>,
     mut help: ResMut<HelpMenu>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Help {
         return;
     }
-    let taps = read_taps(keys.as_deref(), &pads);
+    let mut taps = read_taps(keys.as_deref(), &pads);
+    // The mouse: a click on either arrow turns the page.
+    if mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left))
+        && let Ok(window) = windows.single()
+        && let Some(c) = window.cursor_position()
+    {
+        let x = c.x / window.width() * 1920.0 - 960.0;
+        let y = 540.0 - c.y / window.height() * 1080.0;
+        if y.abs() <= ARROW.1 / 2.0 + 20.0 {
+            if (x - ARROW_X).abs() <= ARROW.0 / 2.0 + 20.0 {
+                taps.right = true;
+            } else if (x + ARROW_X).abs() <= ARROW.0 / 2.0 + 20.0 {
+                taps.left = true;
+            }
+        }
+    }
     if !taps.pad_back.is_empty() {
         *screen = MenuScreen::Main;
         return;
