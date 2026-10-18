@@ -944,6 +944,7 @@ pub(crate) fn reshape_active_bricks(
     config: Res<GameConfig>,
     spatial: SpatialQuery,
     mut bricks: Query<(Entity, &mut ActiveBrick, &Brick, &Position, &Rotation)>,
+    layers: Query<&CollisionLayers>,
 ) {
     for (entity, mut control, brick, position, rotation) in &mut bricks {
         if !std::mem::take(&mut control.reshape) {
@@ -951,7 +952,10 @@ pub(crate) fn reshape_active_bricks(
         }
         let shape = crate::gameplay::steer_shape(&config, brick);
         let (_, density) = brick_body(&config, brick);
-        let filter = SpatialQueryFilter::from_excluded_entities([entity]);
+        let filter = SpatialQueryFilter::from_mask(
+            layers.get(entity).map_or(LayerMask::ALL, |l| l.memberships),
+        )
+        .with_excluded_entities([entity]);
         let mut at = position.0;
         for _ in 0..64 {
             if spatial
@@ -994,6 +998,7 @@ pub(crate) fn grow_ivy(
         (Without<ActiveBrick>, Without<FloorBlock>),
     >,
     clusters: Query<(&Children, &RigidBody), With<IvyCluster>>,
+    layers: Query<&CollisionLayers>,
 ) {
     for (entity, brick, position, rotation, body, _, in_island, pending, _) in &bricks {
         if !pending {
@@ -1014,7 +1019,10 @@ pub(crate) fn grow_ivy(
             cell,
             config.collider_scale + config.magic.ivy_reach / brick.scale,
         );
-        let filter = SpatialQueryFilter::from_excluded_entities([entity]);
+        let filter = SpatialQueryFilter::from_mask(
+            layers.get(entity).map_or(LayerMask::ALL, |l| l.memberships),
+        )
+        .with_excluded_entities([entity]);
         let mut members: Vec<Entity> = vec![entity];
         let mut old_clusters: Vec<Entity> = Vec::new();
         for other in spatial.shape_intersections(&reach, position.0, rotation.as_radians(), &filter)

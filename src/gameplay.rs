@@ -22,6 +22,8 @@ impl Plugin for GameplayPlugin {
             .init_resource::<MatchRequest>()
             .init_resource::<WindGusts>()
             .add_message::<BrickLost>()
+            .add_observer(put_in_tower_layer)
+            .add_systems(FixedPreUpdate, layer_stragglers)
             .init_resource::<crate::spells::SpellLog>()
             .init_resource::<crate::spells::EnemyCasts>()
             .add_systems(Startup, setup_world)
@@ -1244,6 +1246,11 @@ fn spawn_next_brick(
         if limit.is_some_and(|n| state.bricks_used() >= n) {
             continue;
         }
+        // A single-player run stops dealing bricks while its finish countdown runs, and deals
+        // again if the countdown aborts (AbstractSinglePlayerGameMode's brickSpawningActive).
+        if config.trial.is_some() && game.mode == ModeKind::Race && state.hold_timer > 0.0 {
+            continue;
+        }
         let respawn = state.respawn.take();
         let (mut modifier, piece) = match respawn {
             // A lost cursed brick comes back as it was.
@@ -1316,7 +1323,7 @@ fn spawn_next_brick(
                 0.0,
                 Dir2::NEG_Y,
                 &ShapeCastConfig::from_max_distance(config.cells(200.0)),
-                &SpatialQueryFilter::default(),
+                &tower_filter(tower.index),
             ) else {
                 continue;
             };
@@ -1359,7 +1366,7 @@ fn spawn_next_brick(
                 &query_shape,
                 position,
                 0.0,
-                &SpatialQueryFilter::default(),
+                &tower_filter(tower.index),
             );
             if hits.is_empty() {
                 break;
@@ -1476,7 +1483,7 @@ fn control_active_brick(
         }
         let (mut position, mut rotation) = (*position, *rotation);
         let shape = control.query_shape.clone();
-        let filter = SpatialQueryFilter::from_excluded_entities([entity]);
+        let filter = tower_filter(tower.index).with_excluded_entities([entity]);
         let fits = |pos: Vec2, rot: Rotation| {
             spatial
                 .shape_intersections(&shape, pos, rot.as_radians(), &filter)
@@ -1765,7 +1772,7 @@ fn blow_wind(
                 along,
                 config.cells(rules.wind_reach * 2.0),
                 true,
-                &SpatialQueryFilter::default(),
+                &tower_filter(tower.index),
                 &|entity| !skip.contains(entity),
             );
             if let Some(hit) = hit {
@@ -1791,6 +1798,70 @@ fn push_wind(gusts: Res<WindGusts>, mut bricks: Query<(&RigidBody, Forces), With
             && body.is_dynamic()
         {
             forces.apply_force_at_point(force, point);
+        }
+    }
+}
+
+/// Each tower is its own physics world, like the original's: everything of tower `index` (its
+/// bricks, base, floor, roof and pieces) is in this layer and only meets the same layer, so
+/// another player's falling bricks never touch it.
+pub fn tower_layer(index: usize) -> u32 {
+    1 << (index + 1)
+}
+
+/// The query filter that only sees tower `index`'s world.
+pub fn tower_filter(index: usize) -> SpatialQueryFilter {
+    SpatialQueryFilter::from_mask(tower_layer(index))
+}
+
+/// The tower layer for a collider that has none yet: a brick by its tower, anything else (base,
+/// floor, roof, pieces) by the nearest tower to where it is.
+fn layer_for(
+    towers: &Query<(Entity, &Tower)>,
+    x: f32,
+    brick: Option<&Brick>,
+) -> Option<CollisionLayers> {
+    let index = brick
+        .and_then(|b| towers.get(b.tower).ok())
+        .map(|(_, t)| t.index)
+        .or_else(|| {
+            towers
+                .iter()
+                .min_by(|a, b| (a.1.origin_x - x).abs().total_cmp(&(b.1.origin_x - x).abs()))
+                .map(|(_, t)| t.index)
+        })?;
+    let layer = tower_layer(index);
+    Some(CollisionLayers::new(layer, layer))
+}
+
+/// Puts every new collider into its tower's layer.
+fn put_in_tower_layer(
+    add: On<Add, Collider>,
+    mut commands: Commands,
+    towers: Query<(Entity, &Tower)>,
+    things: Query<(&Transform, Option<&Brick>)>,
+) {
+    let Ok((transform, brick)) = things.get(add.entity) else {
+        return;
+    };
+    if let Some(layers) = layer_for(&towers, transform.translation.x, brick) {
+        commands.entity(add.entity).try_insert(layers);
+    }
+}
+
+/// Colliders that appeared before their tower existed (the platform) join their layer here.
+fn layer_stragglers(
+    mut commands: Commands,
+    towers: Query<(Entity, &Tower)>,
+    things: Query<(Entity, &Transform, Option<&Brick>, &CollisionLayers), With<Collider>>,
+) {
+    for (entity, transform, brick, current) in &things {
+        // Still the default layer: nobody has placed it yet.
+        if current.memberships != LayerMask::DEFAULT {
+            continue;
+        }
+        if let Some(layers) = layer_for(&towers, transform.translation.x, brick) {
+            commands.entity(entity).try_insert(layers);
         }
     }
 }
