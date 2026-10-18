@@ -92,8 +92,3 @@ indicator) and AcceptOnlineInvite need online play to show anything.
 ## Not planned
 The Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.
-
-## Seen in the clip scan (2026-10-18)
-- Tiny Cup clip (end of the cup winner screen): the last frame shows the greyed match with confetti
-  still falling and no popup, where ours fades to black before Select Mode. Check frame by frame
-  whether the original fades to black or to the grey world.
