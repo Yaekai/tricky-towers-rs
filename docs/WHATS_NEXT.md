@@ -92,3 +92,10 @@ indicator) and AcceptOnlineInvite need online play to show anything.
 ## Not planned
 The Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.
+
+## Open from Max's 2026-10-18 playtest
+- Trial 9 (SP_10): a correct stack measured 2.47 against the 2.20 laser; the original's floor
+  (HousePuzzleLongI) and rule (part top > maxY - CAMERA_OFFSET) match ours, so the 0.27 is
+  unexplained. `puzzle.trial_laser_slack` (0.3) is temporary; remove it once the cause is found.
+- First-time digits can still blink once (letters::SdfCache only helps repeats): pre-make 0-9
+  for a look the first time a number is drawn.
