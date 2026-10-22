@@ -88,7 +88,7 @@ struct Seen {
     lives: Option<u32>,
     lines: u32,
     out: bool,
-    /// The tower finished (the Survival roof went on).
+    /// The winner's roof is set down (ROOF_PLACED).
     won: bool,
     casts: u64,
 }
@@ -256,7 +256,7 @@ fn spawn_wizards(
                 lives: state.lives,
                 lines: state.lines_reached,
                 out: state.status == TowerStatus::Out,
-                won: state.status == TowerStatus::Won,
+                won: roof_down(state),
                 casts: 0,
             },
             rng: config.seed ^ ((tower.index as u64 + 1) * 0x9E37_79B9),
@@ -356,6 +356,11 @@ impl Wizard {
 }
 
 /// Starts `clip` unless something more important is playing.
+/// The tower's roof has landed (or been steered away) and rests.
+fn roof_down(state: &TowerState) -> bool {
+    matches!(state.roof, crate::gameplay::RoofStage::Resting(_) | crate::gameplay::RoofStage::Done)
+}
+
 fn play(wizard: &mut Wizard, clip: Clip, then: Option<Clip>) {
     if wizard.clip == Clip::Dying {
         return;
@@ -372,7 +377,6 @@ fn react_wizards(
     config: Res<GameConfig>,
     art: Res<Art>,
     log: Res<SpellLog>,
-    game: Res<crate::gameplay::Match>,
     towers: Query<&TowerState>,
     mut wizards: Query<&mut Wizard>,
 ) {
@@ -437,9 +441,9 @@ fn react_wizards(
             if out && !wizard.seen.out {
                 play(&mut wizard, Clip::Dying, None);
             }
-            // The Survival roof going on: Action, then Cheer.
-            let won = state.status == TowerStatus::Won;
-            if won && !wizard.seen.won && game.mode.rules() == ModeKind::Survival {
+            // A roof set down, in any mode (ROOF_PLACED): Action, then Cheer.
+            let won = roof_down(state);
+            if won && !wizard.seen.won {
                 play(&mut wizard, Clip::Action, Some(Clip::Cheer));
             }
             wizard.seen = Seen {

@@ -1862,6 +1862,10 @@ pub struct MatchMoments {
     /// Camera shake per blast and for the rumble after the last one: cells
     /// sideways, cells up, seconds.
     pub blast_shake: (f32, f32, f32),
+    /// ROOF_PLACED: the camera shake (cells sideways, up, seconds) and how long the winner's
+    /// pad rumbles on both motors.
+    pub roof_shake: (f32, f32, f32),
+    pub roof_rumble: f32,
     /// The blast's particles (Game/Particles/Explosion), in cells and seconds.
     pub explosion: ExplosionLook,
     pub rumble: (f32, f32, f32),
@@ -1956,6 +1960,8 @@ impl Default for MatchMoments {
             blast_gap: (0.002, 0.007),
             blast_gap_cap: 10,
             blast_shake: (0.2, 0.26, 0.05),
+            roof_shake: (0.2, 0.26, 0.3),
+            roof_rumble: 1.5,
             explosion: ExplosionLook::default(),
             rumble: (0.1, 0.13, 2.5),
             pad_rumble: 2.0,

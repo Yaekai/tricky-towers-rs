@@ -31,6 +31,7 @@ impl Plugin for EffectsPlugin {
                 stop_rumble,
                 level_up_sounds,
                 grow_tufts,
+                shake_for_roofs,
                 unshake_camera.before(FramedCamera),
                 shake_camera.after(FramedCamera).after(show_collapse),
             ),
@@ -624,6 +625,18 @@ fn stop_rumble(mut commands: Commands, time: Res<Time>, mut rumbles: Query<(Enti
         if rumble.left <= 0.0 {
             commands.entity(entity).despawn();
         }
+    }
+}
+
+/// A roof set down shakes the camera (ROOF_PLACED's CameraShakeEffect).
+fn shake_for_roofs(
+    config: Res<GameConfig>,
+    mut roofs: MessageReader<crate::gameplay::RoofPlaced>,
+    mut shake: ResMut<CameraShake>,
+) {
+    for _ in roofs.read() {
+        let (x, y, seconds) = config.moments.roof_shake;
+        shake.kicks.push((Vec2::new(x, y) * config.cell_size, seconds));
     }
 }
 

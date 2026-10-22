@@ -22,6 +22,7 @@ impl Plugin for GameplayPlugin {
             .init_resource::<MatchRequest>()
             .init_resource::<WindGusts>()
             .add_message::<BrickLost>()
+            .add_message::<RoofPlaced>()
             .add_observer(put_in_tower_layer)
             .add_systems(FixedPreUpdate, layer_stragglers)
             .init_resource::<crate::spells::SpellLog>()
@@ -121,6 +122,14 @@ impl Default for Match {
             retry: false,
         }
     }
+}
+
+/// The winner's roof was set down on its tower (ROOF_PLACED), its bottom middle at this
+/// world point (pixels).
+#[derive(Message, Clone, Copy, Debug)]
+pub struct RoofPlaced {
+    pub tower: Entity,
+    pub at: Vec2,
 }
 
 /// A brick fell into the water and was lost, at this world point (pixels).
@@ -2454,6 +2463,7 @@ fn steer_roofs(
     mut towers: Query<(Entity, &Tower, &mut TowerState, &mut PlayerInput)>,
     mut roofs: Query<(Entity, &mut RoofPiece, &Position, &Collider)>,
     bricks: Query<(Entity, &Brick, &RigidBody), Without<RoofPiece>>,
+    mut placed: MessageWriter<RoofPlaced>,
 ) {
     let dt = time.delta_secs();
     let rules = &config.roofs;
@@ -2576,6 +2586,11 @@ fn steer_roofs(
                         at.y -= hit.distance;
                         commands.entity(roof_entity).insert(RigidBody::Static);
                         state.roof = RoofStage::Resting(0.0);
+                        let bottom = shape.aabb(at, 0.0).min.y;
+                        placed.write(RoofPlaced {
+                            tower: entity,
+                            at: Vec2::new(at.x, bottom),
+                        });
                     }
                     None => at.y -= fall,
                 }
