@@ -1194,6 +1194,12 @@ pub struct MagicRules {
     pub large_scale: f32,
     pub large_stack: f32,
     pub fast_bricks: u32,
+    /// Seconds after a dark cast that the victim's brick hangs (the dark pipeline's
+    /// DelayEffect(0.5) before PauseBrickControlEffect); it lands with the curse orb
+    /// (`casts.dark_orb_land`). A light cast lands when its lightning ends (Lightning clip,
+    /// LIGHTNING_COMPLETE at 0.4 s), the caster's brick hanging till then.
+    pub dark_cast_hold: f32,
+    pub light_cast_land: f32,
     /// A Fast brick falls at least this much faster than the drop speed, in cells/s.
     pub fast_extra_speed: f32,
     pub ice_bricks: u32,
@@ -1409,6 +1415,8 @@ impl Default for MagicRules {
             large_scale: 2.0,
             large_stack: 0.5,
             fast_bricks: 5,
+            dark_cast_hold: 0.5,
+            light_cast_land: 0.4,
             fast_extra_speed: 7.5,
             ice_bricks: 4,
             ice_friction: 0.06,

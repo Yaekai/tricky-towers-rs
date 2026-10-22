@@ -26,6 +26,7 @@ impl Plugin for GameplayPlugin {
             .add_observer(put_in_tower_layer)
             .add_systems(FixedPreUpdate, layer_stragglers)
             .init_resource::<crate::spells::SpellLog>()
+            .init_resource::<crate::spells::PendingCasts>()
             .init_resource::<crate::spells::EnemyCasts>()
             .add_systems(Startup, setup_world)
             .add_systems(
@@ -42,6 +43,7 @@ impl Plugin for GameplayPlugin {
                     crate::spells::update_spell_lines,
                     crate::spells::run_curse_waves,
                     crate::spells::cast_spells,
+                    crate::spells::land_casts,
                     (
                         crate::spells::reshape_active_bricks,
                         crate::spells::loosen_ivy,
