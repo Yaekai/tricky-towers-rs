@@ -24,3 +24,4 @@ Not tagged, decide before release:
 | Pack line | `src/debug.rs` (`PackLine`) | Spawns one static brick of each shape in a row, in one brick pack, for side-by-side pictures against a reference. |
 | Language command | `src/debug.rs` (`Language`) | Sets the menu language from a script, for pictures of the translated menus. |
 | TT_LOG_ASSETS asset lookup log | src/art.rs (Lookup, USED), src/debug.rs (Quit), src/main.rs | Remove with the debug tools |
+- Trial brick log (gameplay.rs track_towers, `DEBUG-TOOL`): remove with the trial 9 investigation.

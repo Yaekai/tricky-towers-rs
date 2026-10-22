@@ -1952,6 +1952,10 @@ fn track_towers(
             let reach = (aabb.max.x - tower.origin_x).max(tower.origin_x - aabb.min.x);
             state.half_width = state.half_width.max(reach / config.cell_size);
         }
+        // DEBUG-TOOL: a trial's bricks over the laser, for comparing with the original.
+        if config.trial.is_some() && aabb.max.y / config.cell_size > state.laser_base + 0.05 {
+            info!("trial brick over laser: piece {:?} at ({:.2}, {:.2}) top {:.2} settled {}", brick.piece, position.0.x / config.cell_size, position.0.y / config.cell_size, aabb.max.y / config.cell_size, settled);
+        }
         tops.push((brick.tower, aabb.max.y, settled));
     }
     for (tower, top, settled) in tops {
