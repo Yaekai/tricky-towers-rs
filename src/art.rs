@@ -986,6 +986,7 @@ fn play_music(
 struct Heard {
     placed: u32,
     dropped: u32,
+    lives: Option<u32>,
     lines: u32,
     casts: u64,
     countdown: u32,
@@ -1055,8 +1056,15 @@ fn play_sounds(
                 play("sfx_land");
             }
         }
+        // A lost brick: Puzzle's sand (BRICK_LOST_PUZZLE, one of four), a lost life's
+        // BRICK_LOST elsewhere (LIFE_LOST); Race only splashes.
         if you.bricks_dropped > heard.dropped {
-            play("sfx_drop_lost");
+            match game.mode.rules() {
+                ModeKind::Puzzle => play(&format!("sfx_brick_drop_sand_0{}", you.bricks_dropped % 4 + 1)),
+                ModeKind::Race => {}
+                _ if you.lives < heard.lives => play("sfx_drop_lost"),
+                _ => {}
+            }
         }
         if you.lines_reached > heard.lines {
             play("sfx_line_collect");
@@ -1103,6 +1111,7 @@ fn play_sounds(
     }
     heard.placed = you.bricks_placed;
     heard.dropped = you.bricks_dropped;
+    heard.lives = you.lives;
     heard.lines = you.lines_reached;
     heard.casts = log.1;
     heard.phase = Some(game.phase);
