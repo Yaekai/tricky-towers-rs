@@ -390,6 +390,7 @@ pub struct ArtPlugin;
 impl Plugin for ArtPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Art>()
+            .init_resource::<MatchEnd>()
             .add_systems(PreStartup, load_art)
             .add_systems(
                 Update,
@@ -399,7 +400,7 @@ impl Plugin for ArtPlugin {
                     light_bricks,
                     play_animations,
                     apply_font,
-                    play_music,
+                    (match_end_stingers, play_music).chain(),
                     play_sounds,
                     menu_cursor_sound,
                     auto_rotate_sounds,
@@ -785,6 +786,68 @@ pub(crate) struct Music(String);
 #[derive(Component)]
 struct Ambience(&'static str);
 
+/// How a match's music ends (the original's effect triggers and bask controllers): the
+/// roof coming stops the music for SFX_FINISH_TOWER (ROOF_SPAWNED); the roof set down
+/// (ROOF_PLACED), a Puzzle battle's winner, or a trial or Endless run's end plays the win
+/// stinger and the win loop 1.88 s later; a lost trial plays the lose stinger and its loop
+/// 3.3 s later (SinglePlayerBaskController).
+#[derive(Resource, Default)]
+pub(crate) struct MatchEnd {
+    round: u64,
+    finish_tower: bool,
+    /// Seconds (Time's elapsed) the stinger started, and whether it is the win one.
+    stinger: Option<(f32, bool)>,
+}
+
+fn match_end_stingers(
+    mut commands: Commands,
+    time: Res<Time>,
+    art: Res<Art>,
+    game: Res<Match>,
+    config: Res<crate::config::GameConfig>,
+    towers: Query<(&Tower, &crate::gameplay::TowerState)>,
+    mut roofs: MessageReader<crate::gameplay::RoofPlaced>,
+    mut end: ResMut<MatchEnd>,
+) {
+    if end.round != game.round {
+        *end = MatchEnd {
+            round: game.round,
+            ..default()
+        };
+    }
+    let mut play = |name: &str| {
+        if let Some(handle) = art.sounds.get(name) {
+            commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
+        }
+    };
+    let roofing = towers
+        .iter()
+        .any(|(_, s)| s.roof == crate::gameplay::RoofStage::Steering);
+    if roofing && !end.finish_tower {
+        end.finish_tower = true;
+        play("sfx_finish_tower");
+    }
+    let now = time.elapsed_secs();
+    let roofed = roofs.read().count() > 0;
+    if end.stinger.is_some() || game.phase != Phase::Over {
+        return;
+    }
+    let single = config.trial.is_some() || game.mode.is_endless();
+    let win = if roofed {
+        Some(true)
+    } else if single && !end.finish_tower {
+        Some(towers.iter().any(|(t, s)| t.is_first_player() && s.status == crate::gameplay::TowerStatus::Won))
+    } else if game.mode.rules() == ModeKind::Puzzle && game.winner.is_some() {
+        Some(true)
+    } else {
+        None
+    };
+    if let Some(win) = win {
+        play(if win { "sfx_win" } else { "sfx_lose" });
+        end.stinger = Some((now, win));
+    }
+}
+
 /// Loops the music for the menu or the current mode. A match started from Select
 /// Mode, the Endless screen or the Trials list opens with its mode's start stinger
 /// (`<MODE>_SFX_START_STINGER`, once, at the music volume).
@@ -802,6 +865,8 @@ fn play_music(
     popup: Option<Res<crate::popup::Popup>>,
     cup: Option<Res<crate::cups::Cup>>,
     mut last: Local<(u64, Option<crate::menu::MenuScreen>)>,
+    end: Res<MatchEnd>,
+    time: Res<Time>,
 ) {
     use crate::menu::MenuScreen;
     // The cup winner popup stops the ambience and rolls a drum until its trophy is in,
@@ -870,10 +935,16 @@ fn play_music(
     // A battle's music starts with play, after its intro's 3-2-1.
     // Once a battle is over, the results track plays (win or lose, for the first
     // player), when it is staged; otherwise the battle music goes on.
-    let you = towers.iter().find(|t| t.is_first_player()).map(|t| t.index);
-    let results = (game.phase == Phase::Over)
-        .then(|| results_music(game.winner, you))
-        .filter(|name| art.sounds.contains_key(*name));
+    // After the stinger, the win or lose loop; nothing between (or while the roof comes).
+    let _ = &towers;
+    let results = match end.stinger {
+        Some((since, win)) => {
+            let (name, wait) = if win { ("music_win_game_loop", 1.8818) } else { ("music_lose_game_loop", 3.3) };
+            Some((time.elapsed_secs() - since >= wait).then_some(name))
+        }
+        None if end.finish_tower && game.phase != Phase::Menu => Some(None),
+        None => None,
+    };
     let battle = match (game.phase, game.mode.look()) {
         // Joining an online game stops the music (the join handlers' MusicStopEffect).
         (Phase::Menu, _) if matches!(screen.as_deref(), Some(MenuScreen::Lobby | MenuScreen::Invite)) => None,
@@ -887,7 +958,11 @@ fn play_music(
         (_, ModeKind::Puzzle) => Some("music_puzzle"),
         (_, _) => unreachable!("Endless modes look like their battle mode"),
     };
-    let want = cup_win.or(results).or(battle);
+    let want = match results {
+        _ if cup_win.is_some() => cup_win,
+        Some(after) => after,
+        None => battle,
+    };
     if want.is_some_and(|want| playing.iter().any(|(_, m)| m.0 == want)) {
         return;
     }
@@ -1026,13 +1101,6 @@ fn play_sounds(
             play("sfx_auto_rotate_start");
         }
     }
-    if game.phase == Phase::Over && heard.phase == Some(Phase::Playing) {
-        play(if game.winner == Some(0) {
-            "sfx_win"
-        } else {
-            "sfx_lose"
-        });
-    }
     heard.placed = you.bricks_placed;
     heard.dropped = you.bricks_dropped;
     heard.lines = you.lines_reached;
@@ -1127,25 +1195,10 @@ fn auto_rotate_sounds(
     }
 }
 
-/// The results track for a finished battle: the win track when the first player's
-/// tower won, otherwise the lose track (a draw counts as a loss).
-pub(crate) fn results_music(winner: Option<usize>, you: Option<usize>) -> &'static str {
-    match (winner, you) {
-        (Some(w), Some(y)) if w == y => "music_win_game_loop",
-        _ => "music_lose_game_loop",
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_results_track_follows_the_first_players_result() {
-        assert_eq!(results_music(Some(0), Some(0)), "music_win_game_loop");
-        assert_eq!(results_music(Some(2), Some(0)), "music_lose_game_loop");
-        assert_eq!(results_music(None, Some(0)), "music_lose_game_loop", "a draw");
-    }
 
     #[test]
     fn manifest_reads_layer_fields() {
