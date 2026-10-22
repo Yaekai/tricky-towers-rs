@@ -17,7 +17,7 @@ impl Plugin for WizardsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (spawn_wizards, react_wizards, move_wizards, pose_wizards).chain(),
+            (spawn_wizards, react_wizards, move_wizards, pose_wizards, swoosh_turns).chain(),
         );
     }
 }
@@ -484,19 +484,20 @@ fn react_wizards(
 }
 
 fn move_wizards(
+    mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
     game: Res<crate::gameplay::Match>,
     towers: Query<(&Tower, &TowerState)>,
     rivals: Query<&crate::gameplay::RivalLane>,
-    mut wizards: Query<(&mut Wizard, &mut Transform, &mut Visibility)>,
+    mut wizards: Query<(Entity, &mut Wizard, &mut Transform, &mut Visibility)>,
 ) {
     let look = &config.wizards;
     // A trial's enemy wizard floats by the enemy lane (right of the player's).
     let enemy_lane = rivals.iter().next().map(|r| r.origin_x);
     let dt = time.delta_secs();
     let solo = towers.iter().count() == 1;
-    for (mut wizard, mut transform, mut visibility) in &mut wizards {
+    for (entity, mut wizard, mut transform, mut visibility) in &mut wizards {
         let Ok((tower, state)) = towers.get(wizard.tower) else {
             continue;
         };
@@ -547,6 +548,14 @@ fn move_wizards(
             let single = config.trial.is_some() || game.mode.is_endless();
             let puzzle = game.mode.rules() == ModeKind::Puzzle;
             at = bask(&mut wizard, at, state.height, dt, single, puzzle);
+            if wizard.bask.as_ref().is_some_and(|b| b.turn == 0.0) {
+                let cell = wizard.cell;
+                commands.entity(entity).with_child((
+                    Swoosh(0.0),
+                    Sprite::default(),
+                    Transform::from_xyz(0.0, SWOOSH_Y * cell, 1.0),
+                ));
+            }
             facing = wizard.bask.as_ref().map_or(1.0, |b| {
                 // A turn squeezes to 0.7 the new way, then swings out to full (out-back, 0.3 s).
                 let k = (b.turn / 0.3).min(1.0);
@@ -569,6 +578,41 @@ fn move_wizards(
         // Alone, the wizard floats on the left and turns to face the tower.
         let size = 1.0 - gone * gone;
         transform.scale = Vec3::new(if solo { -size } else { size } * facing, size, 1.0);
+    }
+}
+
+/// The swoosh drawn as a wizard turns round (its RotateSprite, 1.4 units over its middle,
+/// in front): `wizard_rotate`'s four frames once; seconds since it started.
+#[derive(Component)]
+struct Swoosh(f32);
+
+const SWOOSH_Y: f32 = 1.4;
+
+fn swoosh_turns(
+    mut commands: Commands,
+    time: Res<Time>,
+    art: Res<Art>,
+    wizards: Query<&Wizard>,
+    mut swooshes: Query<(Entity, &ChildOf, &mut Swoosh, &mut Sprite, &mut Anchor, &mut Transform)>,
+) {
+    for (entity, parent, mut swoosh, mut sprite, mut anchor, mut transform) in &mut swooshes {
+        swoosh.0 += time.delta_secs();
+        let frame = art.frame_name("wizard_rotate", swoosh.0).map(str::to_string);
+        let (Some(frame), Some(length)) = (frame, art.length("wizard_rotate")) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        if swoosh.0 >= length {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let cell = wizards.get(parent.parent()).map_or(1.0, |w| w.cell);
+        let (a, t) = part_transform(&art, &frame, &frame, cell);
+        if let Some(image) = art.image(&frame) {
+            sprite.image = image;
+        }
+        *anchor = a;
+        transform.scale = t.scale;
     }
 }
 
