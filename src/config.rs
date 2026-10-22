@@ -365,10 +365,9 @@ impl EndlessRules {
     }
 }
 
-/// Endless Survival and Endless Puzzle. Built from public descriptions of the
-/// original (three lives, as many bricks as you can; puzzle rules until you fail),
-/// so every value here is a guess `(?)` until it is read from the install
-/// (queued in docs/pc-tasks.md).
+/// Endless Survival and Endless Puzzle, read from the original (EndlessSurvival and
+/// EndlessPuzzle game modes; the curse waves from SharedAgonyLeaderboardHelper: 15 to
+/// 29 s apart, two waves a level from AbstractWorldCurseSpawner).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct EndlessPlay {
@@ -458,7 +457,8 @@ impl Default for EndlessPlay {
                         w(&[Large, Fast, NoTurn], 5),
                     ],
                 ],
-                // Lift, hold, shake and waves per level as in Survival Pro (?).
+                // Lift, hold, shake and two waves a level: the same AbstractWorldCurseSpawner
+                // as Survival Pro.
                 ..WaveRules::default()
             },
             puzzle_drop_speed: 2.0,
@@ -1908,9 +1908,9 @@ pub struct MatchMoments {
     pub explosion: ExplosionLook,
     pub rumble: (f32, f32, f32),
     /// The losing player's controller rumbles this long when the sequence starts (the
-    /// original: 2 s on the big motor after a 1.5 s wait, GameBaskController) and
-    /// again with the rumble after the blasts (?), at this strength (0 to 1).
-    pub pad_rumble: (f32, f32),
+    /// original: 2 s on the big motor after a 1.5 s wait, GameBaskController), at this
+    /// strength (0 to 1). CollapseTowerEffect itself doesn't rumble the pad.
+    pub pad_rumble: f32,
     pub pad_rumble_strength: f32,
     /// The popup opens once every loser's sequence is done, and at least this
     /// many seconds after the match ends.
@@ -2000,7 +2000,7 @@ impl Default for MatchMoments {
             blast_shake: (0.2, 0.26, 0.05),
             explosion: ExplosionLook::default(),
             rumble: (0.1, 0.13, 2.5),
-            pad_rumble: (2.0, 2.5),
+            pad_rumble: 2.0,
             pad_rumble_strength: 1.0,
             popup_after: 0.0,
             popup_slide: 0.25,

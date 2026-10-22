@@ -2,7 +2,7 @@
 //! the Endless screen, three wide buttons (Race, Survival, Puzzle) beside a
 //! leaderboard. Layout from docs/research/menus.md, in pixels of a 1920×1080
 //! screen. Endless Survival and
-//! Endless Puzzle follow public descriptions until their values are read (?).
+//! Endless Puzzle follow the original's game modes (see `config::EndlessPlay`).
 
 use std::path::PathBuf;
 
@@ -130,7 +130,7 @@ const ENDLESS: [EndlessEntry; 3] = [
         lift: 0.0,
         face: "menu_challenge_wizard2",
         face_size: (97.0, 102.0),
-        // Rules from public descriptions; values are guesses until read (?).
+        // Rules in `config::EndlessPlay`, read from the original.
         built: true,
         color: Color::srgb(0.25, 0.55, 0.85),
         mode: ModeKind::EndlessSurvival,
@@ -142,7 +142,7 @@ const ENDLESS: [EndlessEntry; 3] = [
         lift: 28.0,
         face: "menu_challenge_wizard4",
         face_size: (110.0, 108.0),
-        // Rules from public descriptions; values are guesses until read (?).
+        // Rules in `config::EndlessPlay`, read from the original.
         built: true,
         color: Color::srgb(0.55, 0.35, 0.75),
         mode: ModeKind::EndlessPuzzle,
