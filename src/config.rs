@@ -3383,7 +3383,7 @@ impl Default for GameConfig {
             roofs: Roofs::default(),
             spawn_gap: 17.0,
             kill_depth: 8.5,
-            collider_scale: 0.98,
+            collider_scale: 0.99,
             brick_friction: 0.4,
             brick_restitution: 0.0,
             brick_mass: 1.0,

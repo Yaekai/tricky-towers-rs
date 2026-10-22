@@ -102,6 +102,13 @@ Ours are separate cells at `collider_scale` 0.98. Plan: build bricks from the pr
 replay trial 9 with the brick log; remove `trial_laser_slack` if the stack then fits. Max should feel it in play before
 it reaches main.
 
+**Status 2026-10-22 (branch `pc/brick-boxes`, not merged):** bricks are now the prefabs' solid boxes
+(`brick_boxes`: cell rows joined, equal rows stacked) trimmed by the original's shrink (0.15 a side while
+steered, 0.01 once landed; `collider_scale` 0.99). `bricks_land_and_stack_on_the_platform` still passes, but two
+AI-driven headless tests fail (`the_winner_keeps_its_tower_while_the_loser_falls_apart`, `a_cup_plays_matches_until_someone_reaches_the_target`):
+the AI wizard drops 4 of 15 bricks instead of 1, so stacking with solid boxes differs from cells with seams. Needs a
+play-test by Max; trial_laser_slack kept until then.
+
 ## Open from Max's 2026-10-18 playtest
 - Trial 9 (SP_10): a correct stack measured 2.47 against the 2.20 laser; the original's floor
   (HousePuzzleLongI) and rule (part top > maxY - CAMERA_OFFSET) match ours, so the 0.27 is
