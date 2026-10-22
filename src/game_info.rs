@@ -30,17 +30,24 @@ pub struct GameInfo {
     pub open: bool,
 }
 
-/// Layout in px of a 1920×1080 screen from its centre (y up). The panel and the text
-/// sizes are from the readout; where the lines and rows sit inside it are guesses (?).
+/// Layout in px of a 1920×1080 screen from its centre (y up), from GameInfoPopup and
+/// GameInfoItem: the panel hangs 265 px under the screen's top and is 80 px a player
+/// plus 230 tall (550 for 4); the title's middle sits 7 px over its top, "Game Mode:" 69.2
+/// and the mode name 103.3 px under it; rows are 630x65, 80 px apart from 160 px under
+/// the top, with a 48 px avatar 13 px in and the text 155 px in, the name at the top
+/// and the level at the bottom, 5 px from the row's edges.
 const PANEL: (f32, f32) = (750.0, 550.0);
 const PANEL_TOP: f32 = 265.0;
-const TITLE: (f32, f32) = (215.0, 46.0);
-const MODE_LABEL: (f32, f32) = (150.0, 22.0);
-const MODE_NAME: (f32, f32) = (115.0, 32.0);
-const ROW: (f32, f32) = (650.0, 70.0);
-const FIRST_ROW: f32 = 40.0;
-const ROW_STEP: f32 = 82.0;
-const AVATAR: f32 = 64.0;
+const TITLE: (f32, f32) = (282.0, 46.0);
+const MODE_LABEL: (f32, f32) = (205.8, 22.3);
+const MODE_NAME: (f32, f32) = (171.7, 32.0);
+const ROW: (f32, f32) = (630.0, 65.0);
+const FIRST_ROW: f32 = 82.5;
+const ROW_STEP: f32 = 80.0;
+const AVATAR: f32 = 48.0;
+const AVATAR_LEFT: f32 = 13.0;
+const TEXT_LEFT: f32 = 155.0;
+const TEXT_INSET: f32 = 5.0;
 const NAME_SIZE: f32 = 26.0;
 const LEVEL_SIZE: f32 = 18.0;
 const ROWS: usize = 4;
@@ -117,18 +124,19 @@ fn spawn_game_info(mut commands: Commands, art: Option<Res<Art>>) {
                     InfoPart::Row(i),
                 ));
                 root.spawn((
-                    place((AVATAR, AVATAR), (left + 20.0 + AVATAR / 2.0, row_y)),
+                    place((AVATAR, AVATAR), (left + AVATAR_LEFT + AVATAR / 2.0, row_y)),
                     ImageNode {
                         color: Color::NONE,
                         ..default()
                     },
                     InfoPart::Avatar(i),
                 ));
-                let text_x = left + 40.0 + AVATAR;
-                let text_w = ROW.0 - 60.0 - AVATAR;
+                let text_x = left + TEXT_LEFT;
+                let text_w = ROW.0 - 175.0;
+                let edge = ROW.1 / 2.0 - TEXT_INSET;
                 for (dy, size, part) in [
-                    (12.0, NAME_SIZE, InfoPart::Name(i)),
-                    (-18.0, LEVEL_SIZE, InfoPart::Level(i)),
+                    (edge - NAME_SIZE * 0.7, NAME_SIZE, InfoPart::Name(i)),
+                    (-edge + LEVEL_SIZE * 0.7, LEVEL_SIZE, InfoPart::Level(i)),
                 ] {
                     root.spawn(Node {
                         justify_content: JustifyContent::FlexStart,

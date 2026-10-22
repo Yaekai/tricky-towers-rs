@@ -2378,7 +2378,9 @@ pub struct CupPanel {
     pub row_top: f32,
     pub row_pitch: f32,
     pub row_colour: (u8, u8, u8),
-    /// The name above a row: left edge, offset from the row's top, and letter size in Vh (?).
+    /// The name above a row: left edge, offset from the row's top, and letter size in Vh.
+    /// TournamentResultsItem's PlayerName: 25 px in from the row, 18 pt, centred in a 40 px
+    /// box whose top is 32 px over the row (so its middle is 12 px over the row's top).
     pub name_left: f32,
     pub name_top: f32,
     pub name_size: f32,
@@ -2406,7 +2408,7 @@ pub struct CupPanel {
     pub medals: Vec<String>,
     pub medal_colours: Vec<(u8, u8, u8)>,
     /// CONTINUE: its letter size in Vh, and the strip under the panel it sits in: its left
-    /// edge, width and bottom edge (?).
+    /// edge and width (?), and bottom edge (ConfirmButton: 35 px under the panel).
     pub continue_size: f32,
     pub tab_left: f32,
     pub tab_width: f32,
@@ -2461,7 +2463,7 @@ impl Default for CupPanel {
             row_pitch: 100.0,
             row_colour: (209, 216, 242),
             name_left: 783.0,
-            name_top: -19.0,
+            name_top: -23.0,
             name_size: 18.0 / 10.8,
             name_colour: (134, 144, 200),
             portrait_left: 778.0,
