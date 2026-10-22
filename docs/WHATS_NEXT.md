@@ -93,6 +93,17 @@ indicator) and AcceptOnlineInvite need online play to show anything.
 The Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.
 
+## Next up: spell casts as a pipeline (found 2026-10-22)
+Ours applies a spell the moment it is cast; the original runs each cast as an effect pipeline
+(AbstractInitSpellsCommand). A dark cast on the brick in hand waits 0.5 s, pauses that brick
+(PauseBrickControlEffect: it hangs, shaking, the pad rumbling 128/128), loops the zap, sends the
+beam up and down (BEAM_IN / BEAM_DOWN_IN complete at 0.33 s each), applies the curse, then resumes
+the brick (ResumeBrickControlEffect) and the victim's wizard startles. A light cast on the brick
+pauses it and the caster's spells, shakes it during the cast-self lightning, then applies and
+resumes. Tower spells (Bubble, Ghost, Grassy, Mist, Slow) and Minibase/Extra Life have their own
+lists. Doing this changes timing in every match (and the AI's steering), so it wants its own
+thread and a play-test. Casts' visuals in `casts.rs` already follow the clip timings.
+
 ## Next up: brick hitboxes (Max, 2026-10-22)
 Max thinks the original's brick hitboxes sit closer together. The prefabs (research/ripped, `game/bricks/Brick*.prefab`) say:
 each brick is a few box colliders (O one 2x2, I one 4x1, T/J/L a 3x1 plus a 1x1, S/Z two 2x0.98), no seams between
