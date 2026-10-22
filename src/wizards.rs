@@ -2,6 +2,7 @@
 //! animated by what happens to their tower (see docs/research/wizards.md and the
 //! wizard names in docs/art-layout.md). Without staged wizard art nothing is drawn.
 
+use bevy::math::curve::{Curve, EaseFunction};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
@@ -29,6 +30,9 @@ pub enum Clip {
     Cheer,
     CastSelf,
     Casting,
+    /// The Laugh state: the same WizardNNLaugh clip as LaughEvil (every override
+    /// controller maps both to it), with the plain laugh lines.
+    Laugh,
     LaughEvil,
     LaughHard,
     Startle,
@@ -43,7 +47,7 @@ impl Clip {
             Clip::Cheer => "cheer",
             Clip::CastSelf => "cast_self",
             Clip::Casting => "casting",
-            Clip::LaughEvil => "laugh_evil",
+            Clip::Laugh | Clip::LaughEvil => "laugh_evil",
             Clip::LaughHard => "laugh_hard",
             Clip::Startle => "startle",
             Clip::Dying => "dying",
@@ -57,6 +61,7 @@ fn voice_kind(clip: Clip) -> &'static str {
     match clip {
         Clip::Casting => "cast_other",
         Clip::Dying => "startle",
+        Clip::Laugh => "laugh",
         other => other.name(),
     }
 }
@@ -112,7 +117,39 @@ pub struct Wizard {
     enemy: bool,
     /// Pixels a unit its parts are drawn at (the cup winner's rig is bigger than a tower's).
     cell: f32,
+    /// The winner's bask, once it starts.
+    bask: Option<Bask>,
 }
+
+/// The winner's bask (WizardMovementBaskController): it sinks to its bask height over 1 s,
+/// casts (the bask controllers' CastOther), and once the cast ends flies from side to side,
+/// 6 units out, on curves bowed 5 units, turning and cheering, casting or laughing at
+/// each end before the next flight 0.7 s later. Positions in cells, as the original's units.
+#[derive(Debug, Clone)]
+struct Bask {
+    /// Seconds since the bask started, and since the current flight started.
+    time: f32,
+    leg: f32,
+    /// The current path: start, bow, end, seconds (a 1 s straight drop first).
+    from: Vec2,
+    bow: Vec2,
+    to: Vec2,
+    seconds: f32,
+    /// Seconds into `leg` before the flight moves (the 0.7 s pause after a turn).
+    delay: f32,
+    flying: bool,
+    side: f32,
+    /// Which way it faces (+1 as spawned), and seconds into its last turn.
+    facing: f32,
+    turn: f32,
+}
+
+/// The bask controllers' cast: seconds after the bask starts that CastOther goes on and
+/// off (GameBaskController 0.5 then 1.5 more, PuzzleGameBaskController 0.2 then 0.3,
+/// SinglePlayerBaskController at once then 0.5); its end starts the first flight.
+const BASK_CAST_BATTLE: (f32, f32) = (0.5, 2.0);
+const BASK_CAST_PUZZLE: (f32, f32) = (0.2, 0.5);
+const BASK_CAST_SINGLE: (f32, f32) = (0.0, 0.5);
 
 impl Wizard {
     /// The tower this wizard belongs to.
@@ -225,6 +262,7 @@ fn spawn_wizards(
             rng: config.seed ^ ((tower.index as u64 + 1) * 0x9E37_79B9),
             enemy,
             cell,
+            bask: None,
         };
         wizard.action_countdown = wizard.random(look.action_every.0, look.action_every.1);
         if enemy {
@@ -300,6 +338,7 @@ pub(crate) fn spawn_free_wizard(
         rng: 1,
         enemy: false,
         cell,
+        bask: None,
     };
     Some(
         commands
@@ -500,6 +539,20 @@ fn move_wizards(
             offset + look.bob.0 * t.sin(),
             y + look.bob.1 * (2.0 * t).sin(),
         );
+        // The winner basks once WINNER! (or FINISH) is up, its roof on.
+        let won = state.status == TowerStatus::Won
+            || (game.phase == crate::gameplay::Phase::Over && game.winner == Some(tower.index));
+        let mut facing = 1.0;
+        if !wizard.enemy && won && !crate::gameplay::roof_waiting(&game, tower, state) {
+            let single = config.trial.is_some() || game.mode.is_endless();
+            let puzzle = game.mode.rules() == ModeKind::Puzzle;
+            at = bask(&mut wizard, at, state.height, dt, single, puzzle);
+            facing = wizard.bask.as_ref().map_or(1.0, |b| {
+                // A turn squeezes to 0.7 the new way, then swings out to full (out-back, 0.3 s).
+                let k = (b.turn / 0.3).min(1.0);
+                b.facing * (0.7 + 0.3 * EaseFunction::BackOut.sample_clamped(k))
+            });
+        }
         if wizard.shake > 0.0 {
             at += Vec2::new(
                 look.shake.0 * (t * 60.0).sin(),
@@ -515,8 +568,85 @@ fn move_wizards(
         transform.translation.y = config.cells(at.y);
         // Alone, the wizard floats on the left and turns to face the tower.
         let size = 1.0 - gone * gone;
-        transform.scale = Vec3::new(if solo { -size } else { size }, size, 1.0);
+        transform.scale = Vec3::new(if solo { -size } else { size } * facing, size, 1.0);
     }
+}
+
+/// Moves a basking winner (WizardMovementBaskController) from where it floats now, `at`,
+/// over a tower `height` cells tall; returns where it is. `single` is a trial or Endless run.
+fn bask(wizard: &mut Wizard, at: Vec2, height: f32, dt: f32, single: bool, puzzle: bool) -> Vec2 {
+    let (cast_on, cast_off) = if single {
+        BASK_CAST_SINGLE
+    } else if puzzle {
+        BASK_CAST_PUZZLE
+    } else {
+        BASK_CAST_BATTLE
+    };
+    let b = wizard.bask.get_or_insert_with(|| {
+        // Down to 8 under the top (Puzzle: 4 over it), never under 5.
+        let y = if puzzle { (height + 4.0).max(5.0) } else { (height - 8.0).max(5.0) };
+        Bask {
+            time: 0.0,
+            leg: 0.0,
+            from: at,
+            bow: (at + Vec2::new(at.x, y)) * 0.5,
+            to: Vec2::new(at.x, y),
+            seconds: 1.0,
+            delay: 0.0,
+            flying: false,
+            side: if single { -1.0 } else { 1.0 },
+            facing: 1.0,
+            turn: 1.0,
+        }
+    });
+    let before = b.time;
+    b.time += dt;
+    b.leg += dt;
+    b.turn += dt;
+    let crossed = |t: f32| before < t && b.time >= t;
+    let mut act = None;
+    if crossed(cast_on) {
+        act = Some(Clip::Casting);
+    }
+    let k = ((b.leg - b.delay) / b.seconds).clamp(0.0, 1.0);
+    let e = EaseFunction::QuadraticInOut.sample_clamped(k);
+    let here = (1.0 - e) * (1.0 - e) * b.from + 2.0 * (1.0 - e) * e * b.bow + e * e * b.to;
+    let landed = b.flying && k >= 1.0;
+    if crossed(cast_off) || landed {
+        if landed {
+            // At each end it turns and cheers, casts or laughs, then flies on 0.7 s later.
+            b.facing = -b.facing;
+            b.turn = 0.0;
+        }
+        b.side = -b.side;
+        b.from = here;
+        b.leg = 0.0;
+        b.delay = if landed { 0.7 } else { 0.0 };
+        b.flying = true;
+        let roll = wizard.random(0, 9999) as f32 / 10_000.0;
+        let jitter = wizard.random(0, 9) as f32 - 5.0;
+        let seconds = 1.0 + 0.4 * (wizard.random(0, 9999) as f32 / 10_000.0);
+        let b = wizard.bask.as_mut().expect("bask set above");
+        let y = (here.y + jitter).min(height).max((height - 12.5).max(0.0));
+        b.to = Vec2::new(6.0 * b.side, y);
+        let d = (b.to - here).normalize_or_zero();
+        let side = if d.x > 0.0 { Vec2::new(d.y, -d.x) } else { Vec2::new(-d.y, d.x) };
+        b.bow = here + (b.to - here) * 0.5 + side * 5.0;
+        b.seconds = seconds;
+        if landed {
+            act = Some(if roll > 2.0 / 3.0 {
+                Clip::Cheer
+            } else if roll > 1.0 / 3.0 {
+                Clip::CastSelf
+            } else {
+                Clip::Laugh
+            });
+        }
+    }
+    if let Some(clip) = act {
+        play(wizard, clip, None);
+    }
+    here
 }
 
 /// Shows each part's frame for the current clip and moves on when it ends.

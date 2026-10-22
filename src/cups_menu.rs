@@ -1705,7 +1705,9 @@ fn fly_winner(
     for (_, mut flyer, mut transform, mut rig) in &mut flyers {
         for (on, kind, clip) in [
             (light, "cast_self", Clip::CastSelf),
-            (dark, "laugh", Clip::LaughHard),
+            // ACTIVATE_SPELL_DARK plays Laugh: the same WizardNNLaugh clip as LaughEvil
+            // (every override controller), with the plain laugh line.
+            (dark, "laugh", Clip::Laugh),
             (overview, "laugh_evil", Clip::LaughEvil),
             (cheer, "cheer", Clip::Cheer),
         ] {
