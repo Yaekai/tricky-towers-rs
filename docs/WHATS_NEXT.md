@@ -97,5 +97,8 @@ gives XP only online.
 - Trial 9 (SP_10): a correct stack measured 2.47 against the 2.20 laser; the original's floor
   (HousePuzzleLongI) and rule (part top > maxY - CAMERA_OFFSET) match ours, so the 0.27 is
   unexplained. `puzzle.trial_laser_slack` (0.3) is temporary; remove it once the cause is found.
-- First-time digits can still blink once (letters::SdfCache only helps repeats): pre-make 0-9
-  for a look the first time a number is drawn.
+  Re-read 2026-10-22: CAMERA_OFFSET is 0 outside Endless Puzzle, `Brick.top` is the collider bounds' max y,
+  floor height is only the camera's lowest point. Ours now also uses the collider's tight bounds, but
+  that moved settled tops by just 0.005, so the cause is not found. Needs Max's next log of the failing
+  stack (brick positions at the fail) to compare.
+- First-time digits blinking: fixed 2026-10-22 (the first digit drawn in a look makes 0-9 for it); check in play.

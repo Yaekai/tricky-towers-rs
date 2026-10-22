@@ -857,34 +857,53 @@ fn spawn_line(
                     }
                     let has_field = field.is_some();
                     // A letter from the field: its rectangle as shares of the atlas.
-                    let mut from_field = |rect: (f32, f32, f32, f32),
+                    let mut from_field = |glyph_rect: (f32, f32, f32, f32),
+                                          pad: f32,
                                           color: Color,
                                           edge: f32,
                                           low: Option<Color>,
-                                          face: Option<(Color, f32, f32)>| {
+                                          with_face: bool| {
                         let ((handle, size), (sdf, cache)) = field.as_mut()?;
                         let linear = |c: Color| Vec4::from_array(c.to_linear().to_f32_array());
-                        let (face, top, tall) = face.map_or((Vec4::ZERO, 0.0, 1.0), |(c, t, h)| (linear(c), t, h));
-                        let look = SdfLook {
-                            color: linear(color),
-                            rect: Vec4::new(rect.0 / size.x, rect.1 / size.y, rect.2 / size.x, rect.3 / size.y),
-                            edge: Vec4::new(edge, top, tall, FACE_EDGE),
-                            low: low.map_or(Vec4::ZERO, linear),
-                            face,
+                        let handle_hash = {
+                            use std::hash::{Hash, Hasher};
+                            let mut h = std::collections::hash_map::DefaultHasher::new();
+                            handle.id().hash(&mut h);
+                            h.finish() as u32
+                        };
+                        // The look and cache key for one glyph's rectangle in this style.
+                        let make = |(gx, gy, gw, gh): (f32, f32, f32, f32)| {
+                            let rect = (gx - pad, gy - pad, gw + 2.0 * pad, gh + 2.0 * pad);
+                            let full = rect.3.max(0.001);
+                            let face = if with_face { (linear(text.color), pad / full, gh / full) } else { (Vec4::ZERO, 0.0, 1.0) };
+                            let low = low.map_or(Vec4::ZERO, linear);
+                            let look = SdfLook {
+                                color: linear(color),
+                                rect: Vec4::new(rect.0 / size.x, rect.1 / size.y, rect.2 / size.x, rect.3 / size.y),
+                                edge: Vec4::new(edge, face.1, face.2, FACE_EDGE),
+                                low,
+                                face: face.0,
+                            };
+                            let key: Vec<u32> = [look.color, look.rect, look.edge, look.low, look.face]
+                                .iter()
+                                .flat_map(|v| v.to_array())
+                                .map(f32::to_bits)
+                                .chain([handle_hash])
+                                .collect();
+                            (key, look)
                         };
                         // A letter drawn before reuses its material: a new one isn't ready to draw
                         // for a frame, so a changing count showed only some of its layers.
-                        let key: Vec<u32> = [look.color, look.rect, look.edge, look.low, look.face]
-                            .iter()
-                            .flat_map(|v| v.to_array())
-                            .map(f32::to_bits)
-                            .chain([{
-                                use std::hash::{Hash, Hasher};
-                                let mut h = std::collections::hash_map::DefaultHasher::new();
-                                handle.id().hash(&mut h);
-                                h.finish() as u32
-                            }])
-                            .collect();
+                        let (key, look) = make(glyph_rect);
+                        if !cache.0.contains_key(&key) && ch.is_ascii_digit() {
+                            // First digit in this style: make 0-9 now so the next count doesn't blink.
+                            for d in sheet.glyphs.iter().filter(|(c, _)| c.is_ascii_digit()).map(|(_, g)| g.rect) {
+                                if d.2 > 0.0 && d.3 > 0.0 {
+                                    let (dk, dl) = make(d);
+                                    cache.0.entry(dk).or_insert_with(|| sdf.add(SdfLetter { look: dl, field: handle.clone() }));
+                                }
+                            }
+                        }
                         let material = cache
                             .0
                             .entry(key)
@@ -906,14 +925,14 @@ fn spawn_line(
                             };
                         // The face goes in the same node: two nodes rounded to pixels apart left
                         // the outline thin on the top left and thick on the bottom right.
-                        let full = (h + 2.0 * p).max(0.001);
-                        let face = (text.color.alpha() > 0.0).then_some((text.color, p / full, h / full));
+                        let face = (text.color.alpha() > 0.0).then_some(());
                         match from_field(
-                            (x - p, y - p, w + 2.0 * p, h + 2.0 * p),
+                            (x, y, w, h),
+                            p,
                             color,
                             if text.outline_edge > 0.0 { text.outline_edge } else { OUTLINE_EDGE },
                             face.and(text.low),
-                            face,
+                            face.is_some(),
                         ) {
                             Some(material) => {
                                 cell.spawn((material, place));
@@ -944,7 +963,7 @@ fn spawn_line(
                         height: len(h * k),
                         ..default()
                     };
-                    match from_field((x, y, w, h), text.color, FACE_EDGE, text.low, None) {
+                    match from_field((x, y, w, h), 0.0, text.color, FACE_EDGE, text.low, false) {
                         Some(material) => {
                             cell.spawn((material, place));
                         }
