@@ -7,8 +7,9 @@
 //!   and the big red lost cross where it left the screen, spinning and shrinking;
 //! - the WAVE N message when a Survival curse wave starts.
 //!
-//! Sizes are in cells (the original's units). The readout's speeds (60 to 150) would
-//! throw puffs dozens of cells, so they are taken as tenths of a cell a second (?).
+//! Sizes and speeds are in cells (the original's units). Most bursts start fast and
+//! are clamped (each prefab's Limit Velocity: a top speed and the share of the excess
+//! taken off every frame), so a 60 cells/s puff settles within a cell or two.
 //! Looks only.
 
 use bevy::prelude::*;
@@ -48,6 +49,8 @@ struct Particle {
     life: f32,
     size: (f32, f32),
     fade: bool,
+    /// Limit Velocity: top speed (pixels/s) and dampen per 60 Hz frame.
+    clamp: (f32, f32),
 }
 
 /// The lost cross: spins a full turn (eased in, after 0.2 s) and shrinks to 30% over
@@ -87,7 +90,11 @@ struct Burst {
     gravity: f32,
     spread: Option<f32>,
     z: f32,
+    /// Limit Velocity (cells/s, dampen); `NO_CLAMP` when the prefab has none.
+    clamp: (f32, f32),
 }
+
+const NO_CLAMP: (f32, f32) = (f32::MAX, 0.0);
 
 #[allow(clippy::too_many_arguments)]
 fn burst(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32, b: Burst) {
@@ -119,6 +126,7 @@ fn burst(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32, b
                 life: b.life,
                 size: (size, size * 0.6),
                 fade: true,
+                clamp: (b.clamp.0 * c, b.clamp.1),
             },
             sprite,
             Transform::from_translation(at.extend(b.z)),
@@ -148,6 +156,7 @@ fn spawn_poofs(
                 color: Color::WHITE,
                 count: 1,
                 speed: 0.0,
+                clamp: NO_CLAMP,
                 size: 5.0,
                 life: 0.07,
                 gravity: 0.0,
@@ -165,7 +174,8 @@ fn spawn_poofs(
                 image: "mist_puff",
                 color: Color::WHITE,
                 count: 8,
-                speed: 60.0 / 10.0,
+                speed: 60.0,
+                clamp: (0.5, 0.28),
                 size: 1.8,
                 life: 0.5,
                 gravity: 0.0,
@@ -183,7 +193,8 @@ fn spawn_poofs(
                 image: "spark_star",
                 color: Color::WHITE,
                 count: 5,
-                speed: 60.0 / 10.0,
+                speed: 60.0,
+                clamp: (0.5, 0.3),
                 size: 0.6,
                 life: 0.5,
                 gravity: 0.0,
@@ -217,6 +228,7 @@ fn landing_dust(
                 color: Color::WHITE,
                 count: 3,
                 speed: 4.0,
+                clamp: (0.5, 1.0),
                 size: 0.5,
                 life: 0.8,
                 gravity: 0.0,
@@ -270,6 +282,7 @@ fn gravel(
                     color: Color::srgb(0.22, 0.11, 0.11),
                     count: 3,
                     speed: 0.5,
+                    clamp: NO_CLAMP,
                     size: 0.5,
                     life: 1.0,
                     gravity: -10.0,
@@ -324,7 +337,8 @@ fn lost_bricks(
                     image: "mist_puff",
                     color: dust.with_alpha(0.8),
                     count: 4,
-                    speed: 80.0 / 10.0,
+                    speed: 80.0,
+                    clamp: (3.0, 0.2),
                     size: 5.0,
                     life: 3.0,
                     gravity: 0.0,
@@ -342,7 +356,8 @@ fn lost_bricks(
                     image: "spark_star",
                     color: Color::srgb(1.0, 0.45, 0.2),
                     count: 5,
-                    speed: 150.0 / 10.0,
+                    speed: 150.0,
+                    clamp: (1.0, 0.4),
                     size: 0.6,
                     life: 0.7,
                     gravity: 0.0,
@@ -362,6 +377,7 @@ fn lost_bricks(
                     color: Color::WHITE,
                     count: 1,
                     speed: 0.0,
+                    clamp: NO_CLAMP,
                     size: 4.0,
                     life: 0.15,
                     gravity: 0.0,
@@ -379,7 +395,8 @@ fn lost_bricks(
                     image: "mist_puff",
                     color: Color::WHITE,
                     count: 8,
-                    speed: 100.0 / 10.0,
+                    speed: 100.0,
+                    clamp: (0.5, 0.28),
                     size: 1.0,
                     life: 0.5,
                     gravity: 0.0,
@@ -397,7 +414,8 @@ fn lost_bricks(
                     image: "mist_puff",
                     color: Color::WHITE,
                     count: 8,
-                    speed: 50.0 / 10.0,
+                    speed: 50.0,
+                    clamp: (2.0, 0.15),
                     size: 0.8,
                     life: 2.0,
                     gravity: 2.0,
@@ -415,7 +433,8 @@ fn lost_bricks(
                     image: "mist_puff",
                     color: Color::srgba(0.94, 0.91, 1.0, 0.7),
                     count: 6,
-                    speed: 15.0 / 10.0,
+                    speed: 15.0,
+                    clamp: (2.0, 0.15),
                     size: 4.0,
                     life: 2.0,
                     gravity: 0.5,
@@ -455,6 +474,13 @@ fn move_particles(
             continue;
         }
         p.velocity.y += p.gravity * dt;
+        let speed = p.velocity.length();
+        if speed > p.clamp.0 {
+            // Unity takes `dampen` of the excess off each frame (60 Hz assumed).
+            let excess = (speed - p.clamp.0) * (1.0 - p.clamp.1).powf(dt * 60.0);
+            let k = (p.clamp.0 + excess) / speed;
+            p.velocity *= k;
+        }
         transform.translation += (p.velocity * dt).extend(0.0);
         let s = p.time / p.life;
         let size = p.size.0 + (p.size.1 - p.size.0) * s;
