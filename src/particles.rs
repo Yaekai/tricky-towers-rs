@@ -87,7 +87,10 @@ struct Burst {
     speed: f32,
     size: f32,
     life: f32,
+    /// Gravity is picked between `gravity` and `gravity_to` for each particle (a Force
+    /// module between two curves, as GRAVEL's).
     gravity: f32,
+    gravity_to: f32,
     spread: Option<f32>,
     z: f32,
     /// Limit Velocity (cells/s, dampen); `NO_CLAMP` when the prefab has none.
@@ -121,7 +124,7 @@ fn burst(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32, b
         commands.spawn((
             Particle {
                 velocity: Vec2::from_angle(angle) * speed,
-                gravity: b.gravity * c,
+                gravity: (b.gravity + (b.gravity_to - b.gravity) * roll(seed)) * c,
                 time: 0.0,
                 life: b.life,
                 size: (size, size * 0.6),
@@ -160,6 +163,7 @@ fn spawn_poofs(
                 size: 5.0,
                 life: 0.07,
                 gravity: 0.0,
+                gravity_to: 0.0,
                 spread: None,
                 z: 8.0,
             },
@@ -179,6 +183,7 @@ fn spawn_poofs(
                 size: 1.8,
                 life: 0.5,
                 gravity: 0.0,
+                gravity_to: 0.0,
                 spread: None,
                 z: 8.0,
             },
@@ -198,6 +203,7 @@ fn spawn_poofs(
                 size: 0.6,
                 life: 0.5,
                 gravity: 0.0,
+                gravity_to: 0.0,
                 spread: None,
                 z: 8.1,
             },
@@ -232,6 +238,7 @@ fn landing_dust(
                 size: 0.5,
                 life: 0.8,
                 gravity: 0.0,
+                gravity_to: 0.0,
                 spread: Some(2.6),
                 z: 7.0,
             },
@@ -240,8 +247,8 @@ fn landing_dust(
 }
 
 /// When a brick is placed, each petrified brick of that tower in view sheds a few
-/// dark-red bits across its width (GRAVEL: colour (0.22, 0.11, 0.11), size 0.5,
-/// speed 5 taken as tenths, 1 s; falling).
+/// dark-red bits across its width (GRAVEL: colour (0.22, 0.11, 0.11), size 0.5, 1 s; its
+/// start speed points at the camera, and a world Force of 10 to 20 cells/s² pulls it down).
 #[allow(clippy::type_complexity)]
 fn gravel(
     mut commands: Commands,
@@ -281,11 +288,12 @@ fn gravel(
                     image: "gravel",
                     color: Color::srgb(0.22, 0.11, 0.11),
                     count: 3,
-                    speed: 0.5,
+                    speed: 0.0,
                     clamp: NO_CLAMP,
                     size: 0.5,
                     life: 1.0,
                     gravity: -10.0,
+                    gravity_to: -20.0,
                     spread: Some(width),
                     z: 7.0,
                 },
@@ -342,6 +350,7 @@ fn lost_bricks(
                     size: 5.0,
                     life: 3.0,
                     gravity: 0.0,
+                    gravity_to: 0.0,
                     spread: None,
                     z: 9.0,
                 },
@@ -361,6 +370,7 @@ fn lost_bricks(
                     size: 0.6,
                     life: 0.7,
                     gravity: 0.0,
+                    gravity_to: 0.0,
                     spread: None,
                     z: 9.1,
                 },
@@ -381,6 +391,7 @@ fn lost_bricks(
                     size: 4.0,
                     life: 0.15,
                     gravity: 0.0,
+                    gravity_to: 0.0,
                     spread: None,
                     z: 9.2,
                 },
@@ -400,6 +411,7 @@ fn lost_bricks(
                     size: 1.0,
                     life: 0.5,
                     gravity: 0.0,
+                    gravity_to: 0.0,
                     spread: None,
                     z: 9.1,
                 },
@@ -419,6 +431,7 @@ fn lost_bricks(
                     size: 0.8,
                     life: 2.0,
                     gravity: 2.0,
+                    gravity_to: 2.0,
                     spread: Some(1.2),
                     z: 9.1,
                 },
@@ -438,6 +451,7 @@ fn lost_bricks(
                     size: 4.0,
                     life: 2.0,
                     gravity: 0.5,
+                    gravity_to: 0.5,
                     spread: Some(1.6),
                     z: 9.0,
                 },

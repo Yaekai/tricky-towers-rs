@@ -2103,15 +2103,16 @@ impl GameConfig {
 /// A brick that falls below the water line (`kill_depth`) is lost; the water
 /// nearly stops it (it keeps `1 - stop` of its speed and `1 - spin_damp` of its
 /// spin) and lifts it with `lift` cells/s² against gravity, so it floats. From the
-/// original (docs/research/controls-physics.md), except `float_seconds` (?), how
-/// long it stays before it is removed.
+/// original (docs/research/controls-physics.md). The water's lift (17) is just under
+/// gravity, so it sinks slowly and is removed `remove_depth` cells under the base line
+/// (TowerPartRemoveChecker._REMOVE_Y).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct WaterRules {
     pub stop: f32,
     pub spin_damp: f32,
     pub lift: f32,
-    pub float_seconds: f32,
+    pub remove_depth: f32,
     /// How a brick under the water looks in Race (RaceGameMode's _WaterLineColor and
     /// _WaterColor): the water line's colour for the first 0.12 cell, then the water's.
     pub brick_line: [u8; 3],
@@ -2124,7 +2125,7 @@ impl Default for WaterRules {
             stop: 0.9,
             spin_damp: 0.25,
             lift: 17.0,
-            float_seconds: 6.0,
+            remove_depth: 20.0,
             brick_line: [0xB8, 0xBA, 0xE9],
             brick_colour: [0x2A, 0x3E, 0xA9],
         }
