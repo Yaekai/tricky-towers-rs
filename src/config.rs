@@ -92,6 +92,8 @@ pub struct GameConfig {
     /// Fraction of a cell used for the physics collider of each cell. Slightly
     /// under 1.0 so neighbouring bricks do not start in contact.
     pub collider_scale: f32,
+    /// BRICK_DROP_SPEED_DEFAULT: the drop speed of a trial that names none.
+    pub drop_speed_default: f32,
     pub brick_friction: f32,
     pub brick_restitution: f32,
     /// Every brick weighs the same, whatever its size or shape.
@@ -1025,7 +1027,10 @@ pub enum CastWhen {
 
 impl TrialDef {
     /// Puts this trial's rules into the config, over the Normal difficulty's.
+    /// A trial without its own drop speed falls at the game's default (the
+    /// original's factories start from BRICK_DROP_SPEED_DEFAULT, not a difficulty).
     pub fn apply(&self, config: &mut GameConfig) {
+        let speed = self.drop_speed.unwrap_or(config.drop_speed_default);
         config.mode = self.mode;
         config.players = 1;
         config.opponents = 0;
@@ -1036,9 +1041,7 @@ impl TrialDef {
                 }
                 // A trial's clock replaces the finish line coming down.
                 config.race.finish_drop_after = f32::MAX;
-                if let Some(speed) = self.drop_speed {
-                    config.race.drop_speed = speed;
-                }
+                config.race.drop_speed = speed;
             }
             ModeKind::Survival => {
                 if let Some(bricks) = self.bricks {
@@ -1047,9 +1050,7 @@ impl TrialDef {
                 if let Some(lives) = self.lives {
                     config.survival.lives = lives;
                 }
-                if let Some(speed) = self.drop_speed {
-                    config.survival.drop_speed = speed;
-                }
+                config.survival.drop_speed = speed;
             }
             ModeKind::Puzzle => {
                 if let Some(bricks) = self.bricks {
@@ -1059,9 +1060,7 @@ impl TrialDef {
                     config.puzzle.line_height = laser;
                     config.puzzle.line_random = 0.0;
                 }
-                if let Some(speed) = self.drop_speed {
-                    config.puzzle.drop_speed = speed;
-                }
+                config.puzzle.drop_speed = speed;
                 config.puzzle.start_spell = self.start_spell;
             }
             _ => {}
@@ -3384,6 +3383,7 @@ impl Default for GameConfig {
             spawn_gap: 17.0,
             kill_depth: 8.5,
             collider_scale: 0.99,
+            drop_speed_default: 2.0,
             brick_friction: 0.4,
             brick_restitution: 0.0,
             brick_mass: 1.0,
