@@ -1033,6 +1033,7 @@ fn play_sounds(
     bindings: Option<Res<crate::keybinding::KeyBindings>>,
     towers: Query<(&Tower, &TowerState, Option<&crate::gameplay::TowerSkin>)>,
     active: Query<(), With<ActiveBrick>>,
+    bricks: Query<&crate::gameplay::Brick>,
     mut heard: Local<Heard>,
 ) {
     if art.sounds.is_empty() {
@@ -1068,14 +1069,21 @@ fn play_sounds(
     };
     if game.phase == Phase::Playing {
         if you.bricks_placed > heard.placed {
-            // A brick pack has its own landing sound (three variants); the default one is sfx_land.
-            let pack = skin.map(|s| s.pack).unwrap_or_default();
+            // BrickPlacedAudioEffect: a Large brick lands heavy, an iced one with one of four
+            // ice hits; any other plays the landing sound, plus its pack's own (one of three).
+            let placed = you.last_placed.and_then(|e| bricks.get(e).ok());
             let variant = you.bricks_placed % 3 + 1;
-            let pack_sound = format!("sfx_brick_placed_{}_{variant}", pack.key());
-            if pack != crate::config::BrickPack::Default && art.sounds.contains_key(&pack_sound) {
-                play(&pack_sound);
+            if placed.is_some_and(|b| b.scale > 1.0) {
+                play("sfx_brick_heavy");
+            } else if placed.is_some_and(|b| b.ice) {
+                play(&format!("sfx_ice_brick_hit_0{}", you.bricks_placed % 4 + 1));
             } else {
                 play("sfx_land");
+                let pack = skin.map(|s| s.pack).unwrap_or_default();
+                let pack_sound = format!("sfx_brick_placed_{}_{variant}", pack.key());
+                if pack != crate::config::BrickPack::Default {
+                    play(&pack_sound);
+                }
             }
         }
         // A lost brick: Puzzle's sand (BRICK_LOST_PUZZLE, one of four), a lost life's
