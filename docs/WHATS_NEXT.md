@@ -100,5 +100,9 @@ gives XP only online.
   Re-read 2026-10-22: CAMERA_OFFSET is 0 outside Endless Puzzle, `Brick.top` is the collider bounds' max y,
   floor height is only the camera's lowest point. Ours now also uses the collider's tight bounds, but
   that moved settled tops by just 0.005, so the cause is not found. Needs Max's next log of the failing
-  stack (brick positions at the fail) to compare.
+  stack (brick positions at the fail) to compare. Also 2026-10-22: HousePuzzleLongI's five box colliders in the
+  prefab match `FLOOR_PUZZLE_LONG_I` in game.ron exactly (tops +1, -1, -1, 0, -7), so the floor isn't it. A silent
+  search (4 turns x 8 cells per brick, no slack) found no stack of T J L I L O under 2.2 in ours, and Max's official
+  win shows the top bricks just under the laser: the difference is in brick physics (rest depth in the gaps), not
+  the rule. The `trial brick over laser` log line (DEBUG-TOOL) prints brick positions for a comparison.
 - First-time digits blinking: fixed 2026-10-22 (the first digit drawn in a look makes 0-9 for it); check in play.
