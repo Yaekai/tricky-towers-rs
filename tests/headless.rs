@@ -47,6 +47,16 @@ fn run_seconds(app: &mut App, seconds: f32, mut each_frame: impl FnMut(&mut App)
     }
 }
 
+/// Gives a tower plenty of lives, so a test about the others doesn't hang on how well the AI stacks.
+fn spare_lives(app: &mut App, index: usize) {
+    let world = app.world_mut();
+    for (t, mut s) in world.query::<(&Tower, &mut TowerState)>().iter_mut(world) {
+        if t.index == index {
+            s.lives = Some(99);
+        }
+    }
+}
+
 fn tower(app: &mut App, index: usize) -> TowerState {
     let world = app.world_mut();
     world
@@ -1656,6 +1666,7 @@ fn the_winner_keeps_its_tower_while_the_loser_falls_apart() {
     config.opponents = 1;
     config.survival.drop_speed = 3.0;
     let mut app = headless_app(config);
+    spare_lives(&mut app, 1);
     // You throw every brick away; the computer wizard is the last one standing.
     assert!(run_until(&mut app, 40.0, |app| {
         human_input(app).left_held = true;
@@ -2027,6 +2038,7 @@ fn a_cup_plays_matches_until_someone_reaches_the_target() {
         trophy: "trophy".into(),
     }];
     let mut app = headless_app(config);
+    spare_lives(&mut app, 1);
     {
         let mut cup = app.world_mut().resource_mut::<Cup>();
         cup.pick = Some(0);
@@ -2045,6 +2057,7 @@ fn a_cup_plays_matches_until_someone_reaches_the_target() {
             assert!(cup.in_progress());
             app.world_mut().resource_mut::<MatchRequest>().pending = true;
             run_seconds(&mut app, 0.1, |_| {});
+            spare_lives(&mut app, 1);
         }
     }
     let cup = app.world().resource::<Cup>().clone();

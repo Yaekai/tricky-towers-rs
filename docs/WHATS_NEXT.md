@@ -102,7 +102,7 @@ Ours are separate cells at `collider_scale` 0.98. Plan: build bricks from the pr
 replay trial 9 with the brick log; remove `trial_laser_slack` if the stack then fits. Max should feel it in play before
 it reaches main.
 
-**Status 2026-10-22 (branch `pc/brick-boxes`, not merged):** bricks are now the prefabs' solid boxes
+**Status 2026-10-22 (merged; Max: AI behaviour doesn't matter, the two AI tests now spare the AI tower's lives):** bricks are now the prefabs' solid boxes
 (`brick_boxes`: cell rows joined, equal rows stacked) trimmed by the original's shrink (0.15 a side while
 steered, 0.01 once landed; `collider_scale` 0.99). `bricks_land_and_stack_on_the_platform` still passes, but two
 AI-driven headless tests fail (`the_winner_keeps_its_tower_while_the_loser_falls_apart`, `a_cup_plays_matches_until_someone_reaches_the_target`):
