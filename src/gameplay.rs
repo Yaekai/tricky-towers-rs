@@ -866,16 +866,52 @@ fn raise_bases(
     }
 }
 
-/// Builds a brick collider from its cells. `fill` is the fraction of each cell covered.
+/// Merges a brick's cells into solid boxes as the original's prefabs have them (rows of
+/// cells joined, equal rows stacked): `(centre, width, height)` in cells.
+fn brick_boxes(cells: &[Vec2]) -> Vec<(Vec2, f32, f32)> {
+    let mut keys: Vec<(i32, i32)> = cells
+        .iter()
+        .map(|p| ((p.x * 2.0).round() as i32, (p.y * 2.0).round() as i32))
+        .collect();
+    keys.sort_by_key(|&(x, y)| (y, x));
+    // Row runs: (y, x_start, x_end) in half cells, cells 2 apart.
+    let mut runs: Vec<(i32, i32, i32)> = Vec::new();
+    for (x, y) in keys {
+        match runs.last_mut() {
+            Some(r) if r.0 == y && r.2 + 2 == x => r.2 = x,
+            _ => runs.push((y, x, x)),
+        }
+    }
+    // Stack runs with the same extent on neighbouring rows: (y_lo, y_hi, x_start, x_end).
+    let mut boxes: Vec<(i32, i32, i32, i32)> = Vec::new();
+    for (y, x0, x1) in runs {
+        match boxes.iter_mut().find(|b| b.2 == x0 && b.3 == x1 && b.1 + 2 == y) {
+            Some(b) => b.1 = y,
+            None => boxes.push((y, y, x0, x1)),
+        }
+    }
+    boxes
+        .into_iter()
+        .map(|(y0, y1, x0, x1)| {
+            let centre = Vec2::new((x0 + x1) as f32 / 4.0, (y0 + y1) as f32 / 4.0);
+            (centre, (x1 - x0) as f32 / 2.0 + 1.0, (y1 - y0) as f32 / 2.0 + 1.0)
+        })
+        .collect()
+}
+
+/// Builds a brick collider from its cells, as the original's solid boxes. `fill` is the
+/// fraction of each cell left after trimming `1 - fill` of a cell off every box's width and
+/// height (the original's shrink amount).
 pub fn brick_collider(cells: &[Vec2], cell: f32, fill: f32) -> Collider {
+    let trim = (1.0 - fill) * cell;
     Collider::compound(
-        cells
-            .iter()
-            .map(|&p| {
+        brick_boxes(cells)
+            .into_iter()
+            .map(|(c, w, h)| {
                 (
-                    p * cell,
+                    c * cell,
                     Rotation::IDENTITY,
-                    Collider::rectangle(cell * fill, cell * fill),
+                    Collider::rectangle((w * cell - trim).max(0.01), (h * cell - trim).max(0.01)),
                 )
             })
             .collect(),
@@ -887,7 +923,8 @@ pub fn brick_collider(cells: &[Vec2], cell: f32, fill: f32) -> Collider {
 pub fn brick_body(config: &GameConfig, brick: &Brick) -> (Collider, ColliderDensity) {
     let cell = config.cell_size * brick.scale;
     let fill = config.collider_scale;
-    let area = brick.cells.len() as f32 * (cell * fill).powi(2);
+    let trim = (1.0 - fill) * cell;
+    let area: f32 = brick_boxes(&brick.cells).iter().map(|&(_, w, h)| (w * cell - trim) * (h * cell - trim)).sum();
     (
         brick_collider(&brick.cells, cell, fill),
         ColliderDensity(config.brick_mass * brick.mass / area.max(f32::EPSILON)),
