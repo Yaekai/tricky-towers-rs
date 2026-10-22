@@ -91,11 +91,10 @@ fn rumble_losers(
     let seats = seated(lobby.as_deref(), players);
     let look = &config.moments;
     for event in events.read() {
-        let seconds = match event.kind {
-            CollapseKind::Begin => look.pad_rumble.0,
-            CollapseKind::Rumble(_) => look.pad_rumble.1,
-            _ => continue,
-        };
+        if !matches!(event.kind, CollapseKind::Begin) {
+            continue;
+        }
+        let seconds = look.pad_rumble;
         let Some(player) = towers
             .iter()
             .find(|t| t.index == event.tower)
@@ -271,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    fn a_losing_players_pad_rumbles_at_the_start_and_with_the_collapse() {
+    fn a_losing_players_pad_rumbles_once_at_the_start() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .insert_resource(GameConfig::default())
@@ -309,10 +308,7 @@ mod tests {
         // Player 1 is on the keyboard: nothing to rumble.
         assert!(send(&mut app, 0, CollapseKind::Begin).is_empty());
         assert_eq!(send(&mut app, 1, CollapseKind::Begin), vec![(pad, 2.0)]);
-        assert_eq!(
-            send(&mut app, 1, CollapseKind::Rumble(2.5)),
-            vec![(pad, 2.5)]
-        );
+        assert!(send(&mut app, 1, CollapseKind::Rumble(2.5)).is_empty());
         assert!(send(&mut app, 1, CollapseKind::Thud).is_empty());
     }
 }
