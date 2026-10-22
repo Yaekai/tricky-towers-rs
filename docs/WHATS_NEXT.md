@@ -93,6 +93,15 @@ indicator) and AcceptOnlineInvite need online play to show anything.
 The Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.
 
+## Next up: brick hitboxes (Max, 2026-10-22)
+Max thinks the original's brick hitboxes sit closer together. The prefabs (research/ripped, `game/bricks/Brick*.prefab`) say:
+each brick is a few box colliders (O one 2x2, I one 4x1, T/J/L a 3x1 plus a 1x1, S/Z two 2x0.98), no seams between
+cells; the movement controller shrinks them by 0.3 while steered and grows them to 0.99 of the prefab size on landing.
+Ours are separate cells at `collider_scale` 0.98. Plan: build bricks from the prefab boxes at 0.99 (`brick_collider`,
+`brick_body`), then rerun `bricks_land_and_stack_on_the_platform` (a plain 0.98 -> 0.99 change makes it drop a brick) and
+replay trial 9 with the brick log; remove `trial_laser_slack` if the stack then fits. Max should feel it in play before
+it reaches main.
+
 ## Open from Max's 2026-10-18 playtest
 - Trial 9 (SP_10): a correct stack measured 2.47 against the 2.20 laser; the original's floor
   (HousePuzzleLongI) and rule (part top > maxY - CAMERA_OFFSET) match ours, so the 0.27 is
