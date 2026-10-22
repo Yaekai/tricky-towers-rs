@@ -984,6 +984,8 @@ fn play_music(
 /// What your tower looked like last frame, to notice changes worth a sound.
 #[derive(Default)]
 struct Heard {
+    active: Option<Entity>,
+    roll: u32,
     placed: u32,
     dropped: u32,
     lives: Option<u32>,
@@ -1036,13 +1038,33 @@ fn play_sounds(
     if art.sounds.is_empty() {
         return;
     }
-    let mut play = |name: &str| {
+    let mut play_with = |name: &str, volume: f32, speed: f32| {
         if let Some(handle) = art.sounds.get(name) {
-            commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
+            commands.spawn((
+                AudioPlayer(handle.clone()),
+                PlaybackSettings::DESPAWN
+                    .with_volume(bevy::audio::Volume::Linear(volume))
+                    .with_speed(speed),
+            ));
         }
     };
     let Some((_, you, skin)) = towers.iter().find(|(t, _, _)| t.is_first_player()) else {
         return;
+    };
+    // BRICK_SPAWNED: SFX_BRICK_SPAWN at half volume for each new brick.
+    // ponytail: the original starts it 0.15 s late; played at once here.
+    if you.active.is_some() && you.active != heard.active {
+        play_with("sfx_brick_spawn", 0.5, 1.0);
+    }
+    heard.active = you.active;
+    // BrickRotatedAudioEffect turns at a random pitch, 0.8 to 1.2.
+    heard.roll = heard.roll.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+    let rotate_pitch = 0.8 + 0.4 * ((heard.roll >> 16) % 1000) as f32 / 1000.0;
+    let mut play = |name: &str| match name {
+        // BrickControl plays SFX_BRICK_MOVE at 0.15.
+        "sfx_move" => play_with(name, 0.15, 1.0),
+        "sfx_rotate" => play_with(name, 1.0, rotate_pitch),
+        _ => play_with(name, 1.0, 1.0),
     };
     if game.phase == Phase::Playing {
         if you.bricks_placed > heard.placed {
