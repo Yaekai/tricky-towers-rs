@@ -825,9 +825,9 @@ pub struct TrialDef {
     /// Survival and Puzzle: bricks to place. Survival: lives.
     pub bricks: Option<u32>,
     pub lives: Option<u32>,
-    /// Puzzle: the laser height (no random part in a trial, ?).
+    /// Puzzle: the laser height (fixed in a trial: SinglePlayerPuzzleGameMode's targetHeight).
     pub laser: Option<f32>,
-    /// Base drop speed, if not the mode's Normal one.
+    /// Base drop speed; without one, `drop_speed_default` (BRICK_DROP_SPEED_DEFAULT).
     pub drop_speed: Option<f32>,
     /// A light spell in hand at the start.
     pub start_spell: Option<SpellKind>,
