@@ -569,7 +569,8 @@ pub(crate) fn trials_input(
             return;
         }
         config.trial = Some(menu.selected);
-        // A trial's own values go over Normal's (?).
+        // A trial's own values go over Normal's; its drop speed defaults to
+        // BRICK_DROP_SPEED_DEFAULT (TrialDef::apply).
         config.difficulty = Some(Difficulty::Normal);
         // A trial is never part of a cup (a finished cup's panel showed after it).
         *cup = default();

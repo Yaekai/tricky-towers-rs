@@ -596,7 +596,7 @@ fn spawn_row(
             };
             let mut arrow = page.spawn(place(VALUE_ARROW, (x, y)));
             match image("settings_arrow") {
-                // The arrow art points right (?); the left one is flipped.
+                // The arrow art (gph_menuHorizontalListArrow) points right; the left one is flipped.
                 Some(art) => {
                     arrow.insert(ImageNode {
                         image: art,
