@@ -184,8 +184,9 @@ const SURVIVAL_MISTS: [([u8; 3], f32, f32, f32, f32); 4] = [
 /// out of a curse wave and in one (SurvivalBackground: 1, then 5).
 const MIST_WAVE: (f32, f32) = (0.05, 0.05);
 const MIST_SPEED: (f32, f32) = (1.0, 5.0);
-/// The mist edge's height in background units before its squash (?).
-const MIST_EDGE: f32 = 4.0;
+/// The mist edge's height in background units before its squash: gph_cursedLineMist is
+/// 95.9 px at 26 px a unit, and the Mist prefab's Clouds child doubles it (y scale 2).
+const MIST_EDGE: f32 = 7.38;
 
 #[derive(Component)]
 struct EclipseSun;
