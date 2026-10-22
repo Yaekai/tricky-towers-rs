@@ -1065,8 +1065,11 @@ fn play_sounds(
         // BrickControl plays SFX_BRICK_MOVE at 0.15.
         "sfx_move" => play_with(name, 0.15, 1.0),
         "sfx_rotate" => play_with(name, 1.0, rotate_pitch),
+        // A dark cast's zap (SFX_CAST_, looping at 0.8 while the beam is up).
+        "sfx_zap_enemy" => play_with(name, 1.0, 0.8),
         _ => play_with(name, 1.0, 1.0),
     };
+    let light_pick = heard.roll >> 20 & 1;
     if game.phase == Phase::Playing {
         if you.bricks_placed > heard.placed {
             // BrickPlacedAudioEffect: a Large brick lands heavy, an iced one with one of four
@@ -1129,15 +1132,27 @@ fn play_sounds(
         .rev()
         .take((log.1 - heard.casts.min(log.1)) as usize)
     {
-        play(if cast.spell.is_dark() {
-            "sfx_cast_dark"
+        use crate::config::SpellKind;
+        if cast.spell.is_dark() {
+            // WizardCastUpwardEffect's SFX_CAST_DARK_MAGIC and the zap.
+            play("sfx_cast_dark");
+            play("sfx_zap_enemy");
         } else {
-            "sfx_cast_light"
-        });
-        // The curse's own start sound (AUTO_ROTATE's AudioEffect).
-        if cast.spell == crate::config::SpellKind::AutoRotate {
-            play("sfx_auto_rotate_start");
+            // One of SFX_CAST_LIGHT_MAGIC_1 and _2 at random.
+            play(["sfx_cast_light", "sfx_cast_lightning_level_02"][light_pick as usize]);
         }
+        // Each spell's own sound (AbstractInitSpellsCommand).
+        // ponytail: played with the cast, not when the spell lands; AUTO_BUILD's loop not done.
+        let own = match cast.spell {
+            SpellKind::AutoRotate => "sfx_auto_rotate_start",
+            SpellKind::Minibase => "sfx_spawn_minibase",
+            SpellKind::ExtraLife => "sfx_spawn_life_v2",
+            SpellKind::Bubble => "sfx_bubble_pop",
+            SpellKind::Slow => "sfx_spawn_balloon",
+            SpellKind::Fast => "sfx_fast_bricks",
+            _ => "",
+        };
+        play(own);
     }
     heard.placed = you.bricks_placed;
     heard.dropped = you.bricks_dropped;
