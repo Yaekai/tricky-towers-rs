@@ -80,6 +80,7 @@ fn pad_player(seats: Option<&[crate::select::Seat]>, players: usize, slot: usize
 fn rumble_losers(
     config: Res<crate::config::GameConfig>,
     mut events: MessageReader<CollapseEvent>,
+    mut roofs: MessageReader<crate::gameplay::RoofPlaced>,
     gamepads: Query<Entity, With<Gamepad>>,
     towers: Query<&Tower>,
     lobby: Option<Res<crate::select::Lobby>>,
@@ -90,25 +91,35 @@ fn rumble_losers(
     let players = towers.iter().filter(|t| t.human).count();
     let seats = seated(lobby.as_deref(), players);
     let look = &config.moments;
-    for event in events.read() {
-        if !matches!(event.kind, CollapseKind::Begin) {
-            continue;
-        }
-        let seconds = look.pad_rumble;
-        let Some(player) = towers
-            .iter()
-            .find(|t| t.index == event.tower)
-            .and_then(|t| t.player)
-        else {
+    // (tower, seconds, both motors): a loser's 2 s on the big motor (GameBaskController),
+    // the winner's roof set down 1.5 s on both (ROOF_PLACED).
+    let mut wants: Vec<(usize, f32, bool)> = events
+        .read()
+        .filter(|e| matches!(e.kind, CollapseKind::Begin))
+        .map(|e| (e.tower, look.pad_rumble, false))
+        .collect();
+    wants.extend(
+        roofs
+            .read()
+            .filter_map(|r| towers.get(r.tower).ok())
+            .map(|t| (t.index, look.roof_rumble, true)),
+    );
+    for (index, seconds, both) in wants {
+        let Some(player) = towers.iter().find(|t| t.index == index).and_then(|t| t.player) else {
             continue;
         };
         let pad = (0..pads.len())
             .find(|&slot| pad_player(seats.as_deref(), players, slot, pads[slot]) == Some(player))
             .map(|slot| pads[slot]);
         if let Some(gamepad) = pad {
+            let strength = look.pad_rumble_strength;
             rumble.write(GamepadRumbleRequest::Add {
                 duration: std::time::Duration::from_secs_f32(seconds),
-                intensity: GamepadRumbleIntensity::strong_motor(look.pad_rumble_strength),
+                intensity: if both {
+                    GamepadRumbleIntensity { strong_motor: strength, weak_motor: strength }
+                } else {
+                    GamepadRumbleIntensity::strong_motor(strength)
+                },
                 gamepad,
             });
         }
@@ -275,6 +286,7 @@ mod tests {
         app.add_plugins(MinimalPlugins)
             .insert_resource(GameConfig::default())
             .add_message::<CollapseEvent>()
+            .add_message::<crate::gameplay::RoofPlaced>()
             .add_message::<GamepadRumbleRequest>()
             .add_systems(Update, rumble_losers);
         // Two human players: the first pad drives player 2.

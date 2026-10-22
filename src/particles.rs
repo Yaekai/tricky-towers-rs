@@ -217,11 +217,19 @@ fn landing_dust(
     config: Res<GameConfig>,
     art: Res<Art>,
     bricks: Query<(Entity, &Transform, &crate::gameplay::Brick), Added<Placed>>,
+    mut roofs: MessageReader<crate::gameplay::RoofPlaced>,
 ) {
     let c = config.cell_size;
-    for (entity, transform, brick) in &bricks {
-        let low = brick.cells.iter().fold(f32::MAX, |m, p| m.min(p.y));
-        let at = transform.translation.truncate() + Vec2::Y * (low - 0.5) * c * brick.scale;
+    // The roof set down raises the same dust (ROOF_PLACED's BrickImpactDustEffect).
+    let landings: Vec<(Entity, Vec2)> = bricks
+        .iter()
+        .map(|(entity, transform, brick)| {
+            let low = brick.cells.iter().fold(f32::MAX, |m, p| m.min(p.y));
+            (entity, transform.translation.truncate() + Vec2::Y * (low - 0.5) * c * brick.scale)
+        })
+        .chain(roofs.read().map(|r| (r.tower, r.at)))
+        .collect();
+    for (entity, at) in landings {
         let mut seed = (entity.to_bits() as u32).wrapping_mul(7919) | 1;
         burst(
             &mut commands,
@@ -257,6 +265,7 @@ fn gravel(
     view_size: Res<ViewSize>,
     camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
     placed: Query<&crate::gameplay::Brick, Added<Placed>>,
+    mut roofs: MessageReader<crate::gameplay::RoofPlaced>,
     stones: Query<(Entity, &Transform, &crate::gameplay::Brick), With<crate::spells::Stone>>,
 ) {
     let c = config.cell_size;
@@ -264,10 +273,12 @@ fn gravel(
         Ok((t, Projection::Orthographic(o))) => (t.translation.truncate(), view_size.0 * o.scale),
         _ => return,
     };
-    for brick in &placed {
+    // ROOF_PLACED sheds gravel too (its GravelEffect).
+    let towers: Vec<Entity> = placed.iter().map(|b| b.tower).chain(roofs.read().map(|r| r.tower)).collect();
+    for tower in towers {
         for (entity, transform, stone) in &stones {
             let at = transform.translation.truncate();
-            if stone.tower != brick.tower || (at.y - centre.y).abs() > size.y * 0.5 {
+            if stone.tower != tower || (at.y - centre.y).abs() > size.y * 0.5 {
                 continue;
             }
             let (lo, hi) = stone
