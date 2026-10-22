@@ -7,7 +7,7 @@ use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::collapse::{CollapseEvent, CollapseKind};
-use crate::config::GameConfig;
+use crate::config::{GameConfig, ModeKind};
 use crate::gameplay::{ActiveBrick, Brick, BrickLost};
 use crate::spells::Ghosted;
 use crate::visuals::FramedCamera;
@@ -32,6 +32,7 @@ impl Plugin for EffectsPlugin {
                 level_up_sounds,
                 grow_tufts,
                 shake_for_roofs,
+                shake_for_bricks,
                 unshake_camera.before(FramedCamera),
                 shake_camera.after(FramedCamera).after(show_collapse),
             ),
@@ -637,6 +638,44 @@ fn shake_for_roofs(
     for _ in roofs.read() {
         let (x, y, seconds) = config.moments.roof_shake;
         shake.kicks.push((Vec2::new(x, y) * config.cell_size, seconds));
+    }
+}
+
+/// The camera shakes of the original's brick triggers (InitEffectTriggersCommand), cells
+/// sideways, up, seconds: BRICK_PLACED (doubled and half as long again for a Large brick),
+/// LIFE_LOST and BRICK_LOST_RACE.
+const PLACED_SHAKE: (f32, f32, f32) = (0.1, 0.13, 0.2);
+const LOST_SHAKE: (f32, f32, f32) = (0.2, 0.26, 0.2);
+
+// ponytail: the original shakes only that player's own camera; with one camera for every
+// lane these run only when a single tower plays (trials, Endless). Per-lane cameras would
+// let battles shake too.
+fn shake_for_bricks(
+    config: Res<GameConfig>,
+    game: Res<crate::gameplay::Match>,
+    towers: Query<&crate::gameplay::TowerState>,
+    placed: Query<&Brick, Added<crate::gameplay::Placed>>,
+    mut lost: MessageReader<BrickLost>,
+    mut lives: Local<Option<u32>>,
+    mut shake: ResMut<CameraShake>,
+) {
+    let mut kick = |(x, y, seconds): (f32, f32, f32), k: f32| {
+        shake.kicks.push((Vec2::new(x, y) * k * config.cell_size, seconds * if k > 1.0 { 1.5 } else { 1.0 }));
+    };
+    let solo = towers.iter().count() == 1;
+    let lost = lost.read().count();
+    if !solo || game.phase != crate::gameplay::Phase::Playing {
+        *lives = None;
+        return;
+    }
+    for brick in &placed {
+        kick(PLACED_SHAKE, if brick.scale > 1.0 { 2.0 } else { 1.0 });
+    }
+    let now = towers.iter().next().and_then(|s| s.lives);
+    let life_lost = matches!((*lives, now), (Some(before), Some(after)) if after < before);
+    *lives = now;
+    if life_lost || (lost > 0 && game.mode.rules() == ModeKind::Race) {
+        kick(LOST_SHAKE, 1.0);
     }
 }
 
