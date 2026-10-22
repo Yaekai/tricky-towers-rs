@@ -1884,7 +1884,8 @@ fn track_towers(
             &Brick,
             &Position,
             &LinearVelocity,
-            &ColliderAabb,
+            &Collider,
+            &Rotation,
             Has<crate::spells::Bubbled>,
             Has<crate::spells::Ghosted>,
             Option<&Cursed>,
@@ -1906,11 +1907,15 @@ fn track_towers(
         state.half_width = 0.0;
         state.all_settled = true;
     }
-    for (entity, brick, position, velocity, aabb, bubbled, ghosted, cursed, spin, in_ivy) in &bricks
+    for (entity, brick, position, velocity, collider, rotation, bubbled, ghosted, cursed, spin, in_ivy) in
+        &bricks
     {
         let Ok((tower, mut state)) = towers.get_mut(brick.tower) else {
             continue;
         };
+        // Tight bounds like Unity's collider.bounds: ColliderAabb is padded by the
+        // speculative margin while a brick moves (the trial 9 laser 0.27 over).
+        let aabb = collider.aabb(position.0, *rotation);
         // A lost brick of an Ivy cluster is counted once the cluster lets go.
         if position.0.y < kill_y && !in_ivy {
             lost.write(BrickLost {
