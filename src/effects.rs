@@ -7,7 +7,7 @@ use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::collapse::{CollapseEvent, CollapseKind};
-use crate::config::{GameConfig, ModeKind};
+use crate::config::GameConfig;
 use crate::gameplay::{ActiveBrick, Brick, BrickLost};
 use crate::spells::Ghosted;
 use crate::visuals::FramedCamera;
@@ -642,8 +642,8 @@ fn shake_for_roofs(
 }
 
 /// The camera shakes of the original's brick triggers (InitEffectTriggersCommand), cells
-/// sideways, up, seconds: BRICK_PLACED (doubled and half as long again for a Large brick),
-/// LIFE_LOST and BRICK_LOST_RACE.
+/// sideways, up, seconds: BRICK_PLACED (doubled and half as long again for a Large brick)
+/// and LIFE_LOST / LIFE_LOST_PUZZLE (Race listens to no lost-brick trigger).
 const PLACED_SHAKE: (f32, f32, f32) = (0.1, 0.13, 0.2);
 const LOST_SHAKE: (f32, f32, f32) = (0.2, 0.26, 0.2);
 
@@ -656,25 +656,20 @@ fn shake_for_bricks(
     towers: Query<&crate::gameplay::TowerState>,
     placed: Query<&Brick, Added<crate::gameplay::Placed>>,
     mut lost: MessageReader<BrickLost>,
-    mut lives: Local<Option<u32>>,
     mut shake: ResMut<CameraShake>,
 ) {
     let mut kick = |(x, y, seconds): (f32, f32, f32), k: f32| {
         shake.kicks.push((Vec2::new(x, y) * k * config.cell_size, seconds * if k > 1.0 { 1.5 } else { 1.0 }));
     };
     let solo = towers.iter().count() == 1;
-    let lost = lost.read().count();
+    let life_lost = lost.read().any(|l| l.life);
     if !solo || game.phase != crate::gameplay::Phase::Playing {
-        *lives = None;
         return;
     }
     for brick in &placed {
         kick(PLACED_SHAKE, if brick.scale > 1.0 { 2.0 } else { 1.0 });
     }
-    let now = towers.iter().next().and_then(|s| s.lives);
-    let life_lost = matches!((*lives, now), (Some(before), Some(after)) if after < before);
-    *lives = now;
-    if life_lost || (lost > 0 && game.mode.rules() == ModeKind::Race) {
+    if life_lost {
         kick(LOST_SHAKE, 1.0);
     }
 }

@@ -344,49 +344,88 @@ fn lost_bricks(
                 .clamp(centre.x - half.x + 2.0 * c, centre.x + half.x - 2.0 * c),
             brick.at.y.max(centre.y - half.y + 0.3 * c),
         );
+        // Race listens to none of the lost-brick triggers: only the splash.
+        if game.mode.rules() == ModeKind::Race {
+            continue;
+        }
         if game.mode.rules() == ModeKind::Puzzle {
-            let dust = Color::srgb(1.0, 0.70, 0.44);
-            burst(
-                &mut commands,
-                &art,
-                c,
-                edge,
-                &mut seed,
-                Burst {
-                    image: "mist_puff",
-                    color: dust.with_alpha(0.8),
-                    count: 4,
-                    speed: 80.0,
-                    clamp: (3.0, 0.2),
-                    size: 5.0,
-                    life: 3.0,
-                    gravity: 0.0,
-                    gravity_to: 0.0,
-                    spread: None,
-                    z: 9.0,
-                },
-            );
-            burst(
-                &mut commands,
-                &art,
-                c,
-                edge,
-                &mut seed,
-                Burst {
-                    image: "spark_star",
-                    color: Color::srgb(1.0, 0.45, 0.2),
-                    count: 5,
-                    speed: 150.0,
-                    clamp: (1.0, 0.4),
-                    size: 0.6,
-                    life: 0.7,
-                    gravity: 0.0,
-                    gravity_to: 0.0,
-                    spread: None,
-                    z: 9.1,
-                },
-            );
+            // BRICK_LOST_PUZZLE's desert dust, and again for LIFE_LOST_PUZZLE (trials).
+            for _ in 0..1 + brick.life as u32 {
+                let dust = Color::srgb(1.0, 0.70, 0.44);
+                burst(
+                    &mut commands,
+                    &art,
+                    c,
+                    edge,
+                    &mut seed,
+                    Burst {
+                        image: "mist_puff",
+                        color: dust.with_alpha(0.8),
+                        count: 4,
+                        speed: 80.0,
+                        clamp: (3.0, 0.2),
+                        size: 5.0,
+                        life: 3.0,
+                        gravity: 0.0,
+                        gravity_to: 0.0,
+                        spread: None,
+                        z: 9.0,
+                    },
+                );
+                burst(
+                    &mut commands,
+                    &art,
+                    c,
+                    edge,
+                    &mut seed,
+                    Burst {
+                        image: "spark_star",
+                        color: Color::srgb(1.0, 0.45, 0.2),
+                        count: 5,
+                        speed: 150.0,
+                        clamp: (1.0, 0.4),
+                        size: 0.6,
+                        life: 0.7,
+                        gravity: 0.0,
+                        gravity_to: 0.0,
+                        spread: None,
+                        z: 9.1,
+                    },
+                );
+            }
         } else {
+            // BRICK_LOST: the small mist (BrickLostMistSmall) for every brick.
+            for (speed, size, gravity, color, count, spread, z) in [
+                (30.0, 0.8, 2.0, Color::WHITE, 8, 1.2, 9.1),
+                (15.0, 4.0, 0.5, Color::srgba(0.94, 0.91, 1.0, 0.7), 6, 1.6, 9.0),
+            ] {
+                burst(
+                    &mut commands,
+                    &art,
+                    c,
+                    edge,
+                    &mut seed,
+                    Burst {
+                        image: "mist_puff",
+                        color,
+                        count,
+                        speed,
+                        clamp: (2.0, 0.15),
+                        size,
+                        life: 2.0,
+                        gravity,
+                        gravity_to: gravity,
+                        spread: Some(spread),
+                        z,
+                    },
+                );
+            }
+        }
+        // LIFE_LOST: the big mist (BrickLostMist) and the lost cross.
+        if !brick.life {
+            continue;
+        }
+        if game.mode.rules() != ModeKind::Puzzle {
             burst(
                 &mut commands,
                 &art,

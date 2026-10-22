@@ -137,6 +137,8 @@ pub struct RoofPlaced {
 pub struct BrickLost {
     pub tower: usize,
     pub at: Vec2,
+    /// It cost a life (LIFE_LOST / LIFE_LOST_PUZZLE in the original), not just a brick.
+    pub life: bool,
 }
 
 /// A lost brick in the water: no longer part of any tower, sinking slowly until it
@@ -610,14 +612,19 @@ impl TowerState {
     }
 
     /// A brick fell off. In Survival it costs a life, then a moment of grace.
-    fn lose_brick(&mut self, config: &GameConfig) {
+    /// Counts a lost brick; true when it cost a life.
+    fn lose_brick(&mut self, config: &GameConfig) -> bool {
         self.bricks_dropped += 1;
         if self.invincible > 0.0 {
-            return;
+            return false;
         }
-        if let Some(lives) = self.lives.as_mut() {
-            *lives = lives.saturating_sub(1);
-            self.invincible = config.survival.invincible_seconds;
+        match self.lives.as_mut() {
+            Some(lives) => {
+                *lives = lives.saturating_sub(1);
+                self.invincible = config.survival.invincible_seconds;
+                true
+            }
+            None => false,
         }
     }
 
@@ -1757,14 +1764,15 @@ fn control_active_brick(
 
         // Steered off the side and past the kill line: it counts as dropped.
         if position.0.y < -config.cells(config.kill_depth) {
-            lost.write(BrickLost {
-                tower: tower.index,
-                at: position.0,
-            });
             let falling = Vec2::NEG_Y * config.cells(drop_speed);
             sink(&mut commands, &config, entity, falling, 0.0, true);
             state.active = None;
-            state.lose_brick(&config);
+            let life = state.lose_brick(&config);
+            lost.write(BrickLost {
+                tower: tower.index,
+                at: position.0,
+                life,
+            });
             if control.mods.comes_back() && control.comebacks < config.magic.respawn_limit {
                 state.respawn = Some(Respawn {
                     piece: brick.piece,
@@ -1962,19 +1970,21 @@ fn track_towers(
         let aabb = collider.aabb(position.0, *rotation);
         // A lost brick of an Ivy cluster is counted once the cluster lets go.
         if position.0.y < kill_y && !in_ivy {
-            lost.write(BrickLost {
-                tower: tower.index,
-                at: position.0,
-            });
             let spin = spin.map_or(0.0, |s| s.0);
             sink(&mut commands, &config, entity, velocity.0, spin, !bubbled);
             // Once the match is over (and losing towers fall apart), losses no
             // longer change the score.
-            if game.phase != Phase::Playing {
+            let playing = game.phase == Phase::Playing;
+            let life = playing && state.lose_brick(&config);
+            lost.write(BrickLost {
+                tower: tower.index,
+                at: position.0,
+                life,
+            });
+            if !playing {
                 continue;
             }
             state.tower_losses += 1;
-            state.lose_brick(&config);
             if let Some(cursed) = cursed.filter(|c| c.times < config.magic.respawn_limit) {
                 state.respawn = Some(Respawn {
                     piece: brick.piece,
