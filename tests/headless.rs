@@ -1521,15 +1521,19 @@ fn a_lost_brick_reports_where_it_hit_the_water() {
     let config = app.world().resource::<GameConfig>();
     assert!(lost.at.y <= -config.cells(config.kill_depth));
     assert!(lost.at.x < 0.0, "it went off the left side: {lost:?}");
-    // It floats in the water a while, out of play, then goes.
-    let mut sunk = app.world_mut().query::<&tricky_towers::gameplay::Sunk>();
-    assert_eq!(sunk.iter(app.world()).count(), 1);
-    let float = app.world().resource::<GameConfig>().water.float_seconds;
-    run_seconds(&mut app, float + 0.5, |app| {
+    // It sinks slowly in the water, out of play, then goes.
+    let mut sunk = app
+        .world_mut()
+        .query_filtered::<Entity, With<tricky_towers::gameplay::Sunk>>();
+    let first: Vec<Entity> = sunk.iter(app.world()).collect();
+    assert_eq!(first.len(), 1);
+    run_seconds(&mut app, 8.0, |app| {
         human_input(app).left_held = false
     });
-    let mut sunk = app.world_mut().query::<&tricky_towers::gameplay::Sunk>();
-    assert!(sunk.iter(app.world()).count() <= 1, "the first one is gone");
+    assert!(
+        app.world().get_entity(first[0]).is_err(),
+        "the first one sank past the remove depth and is gone"
+    );
 }
 
 #[test]
@@ -2366,3 +2370,4 @@ fn every_tower_is_its_own_physics_world() {
     assert!(seen[0] > 0 && seen[1] > 0, "both towers should have bricks: {seen:?}");
     assert!(!CollisionLayers::new(tower_layer(0), tower_layer(0)).interacts_with(CollisionLayers::new(tower_layer(1), tower_layer(1))));
 }
+

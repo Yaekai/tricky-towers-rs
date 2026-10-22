@@ -130,12 +130,10 @@ pub struct BrickLost {
     pub at: Vec2,
 }
 
-/// A lost brick in the water: no longer part of any tower, floating a while
-/// before it goes.
+/// A lost brick in the water: no longer part of any tower, sinking slowly until it
+/// goes.
 #[derive(Component, Debug)]
-pub struct Sunk {
-    pub time: f32,
-}
+pub struct Sunk;
 
 /// Takes a brick that hit the water out of play, as the original does: it almost
 /// stops, its spin is damped, and (unless it was in a bubble) the water lifts it.
@@ -158,7 +156,7 @@ fn sink(
             crate::spells::Ghosted,
         )>()
         .insert((
-            Sunk { time: 0.0 },
+            Sunk,
             RigidBody::Dynamic,
             LinearVelocity(velocity * (1.0 - water.stop)),
             AngularVelocity(spin * (1.0 - water.spin_damp)),
@@ -171,15 +169,15 @@ fn sink(
 }
 
 /// Lost bricks float in the water for a while, then go.
+// ponytail: Survival and Puzzle remove a part once it leaves the camera (their own
+// TowerPartRemoveCheckers); under the water that is out of view either way.
 fn drain_water(
     mut commands: Commands,
-    time: Res<Time>,
     config: Res<GameConfig>,
-    mut sunk: Query<(Entity, &mut Sunk)>,
+    sunk: Query<(Entity, &Position), With<Sunk>>,
 ) {
-    for (entity, mut brick) in &mut sunk {
-        brick.time += time.delta_secs();
-        if brick.time >= config.water.float_seconds {
+    for (entity, position) in &sunk {
+        if position.0.y < -config.cells(config.water.remove_depth) {
             commands.entity(entity).despawn();
         }
     }
