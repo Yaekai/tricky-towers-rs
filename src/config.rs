@@ -1077,48 +1077,6 @@ impl TrialDef {
     }
 }
 
-/// A few sample trials, one per mode, so the Trials screen and enemy wizard can be
-/// played and tested. All goals and schedules are guesses (?).
-pub fn sample_trials() -> Vec<TrialDef> {
-    vec![
-        TrialDef {
-            name: "Sample Race".into(),
-            mode: ModeKind::Race,
-            finish_height: Some(15.0),
-            seconds: Some(90.0),
-            enemy: vec![EnemyCast {
-                when: CastWhen::Every(25.0),
-                spells: vec![SpellKind::Large],
-            }],
-            ..default()
-        },
-        TrialDef {
-            name: "Sample Survival".into(),
-            mode: ModeKind::Survival,
-            bricks: Some(20),
-            lives: Some(3),
-            enemy: vec![
-                EnemyCast {
-                    when: CastWhen::BricksUsed(0.5),
-                    spells: vec![SpellKind::Mystery],
-                },
-                EnemyCast {
-                    when: CastWhen::At(40.0),
-                    spells: vec![SpellKind::Slow],
-                },
-            ],
-            ..default()
-        },
-        TrialDef {
-            name: "Sample Puzzle".into(),
-            mode: ModeKind::Puzzle,
-            bricks: Some(8),
-            laser: Some(5.0),
-            start_spell: Some(SpellKind::Undo),
-            ..default()
-        },
-    ]
-}
 
 /// One dark draw: one or more effects cast together.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
