@@ -890,6 +890,23 @@ struct SpellCloud {
     dark: bool,
     stage: CloudStage,
     time: f32,
+    /// Seconds since it appeared, for the pick-up blink.
+    age: f32,
+}
+
+/// WizardSpellView's blink when a spell is picked up: 0.15 s in, the icon's opacity follows
+/// cos(t x 2 pi x 5 / 1.5) / 2 + 1/2 for 1.5 s (five blinks), then stays full.
+const PICKUP_BLINK_WAIT: f32 = 0.15;
+const PICKUP_BLINK_TIME: f32 = 1.5;
+const PICKUP_BLINKS: f32 = 5.0;
+
+fn pickup_alpha(age: f32) -> f32 {
+    let t = age - PICKUP_BLINK_WAIT;
+    if t <= 0.0 || t > PICKUP_BLINK_TIME {
+        1.0
+    } else {
+        (t * std::f32::consts::TAU * PICKUP_BLINKS / PICKUP_BLINK_TIME).cos() / 2.0 + 0.5
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -1025,6 +1042,7 @@ fn spawn_cloud(
                 dark,
                 stage: CloudStage::Show,
                 time: 0.0,
+                age: 0.0,
             },
             Transform::from_scale(Vec3::ZERO),
             Visibility::default(),
@@ -1096,6 +1114,7 @@ fn animate_clouds(
     mut clouds: Query<(Entity, &mut SpellCloud, &mut Transform, Option<&Children>)>,
     mut parts: Query<&mut Visibility, Or<(With<CloudIcon>, With<ButtonHint>)>>,
     hints: Query<(), With<ButtonHint>>,
+    mut icons: Query<&mut Sprite, With<CloudIcon>>,
 ) {
     let look = &config.casts;
     let dt = time.delta_secs();
@@ -1106,6 +1125,7 @@ fn animate_clouds(
             continue;
         };
         cloud.time += dt;
+        cloud.age += dt;
         let (at, flip) = wizard_spot(&config, tower_entity, tower, state, solo, &wizards);
         let spots = look
             .cloud_spots
@@ -1159,7 +1179,13 @@ fn animate_clouds(
         // While used, the spell icon blinks and the button hint hides.
         let used = cloud.stage == CloudStage::Used;
         let blink_off = used && look.cloud_used_blinks.iter().any(|&(a, b)| t >= a && t < b);
+        let alpha = pickup_alpha(cloud.age);
         for child in children.into_iter().flatten() {
+            if let Ok(mut sprite) = icons.get_mut(*child)
+                && sprite.color.alpha() != alpha
+            {
+                sprite.color.set_alpha(alpha);
+            }
             if let Ok(mut visibility) = parts.get_mut(*child) {
                 let hidden = if hints.contains(*child) {
                     used
@@ -1523,6 +1549,15 @@ struct GrowBase(Transform);
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_picked_up_spell_blinks_five_times_then_stays() {
+        use super::pickup_alpha;
+        assert_eq!(pickup_alpha(0.1), 1.0);
+        assert!(pickup_alpha(0.15 + 0.15) < 0.01, "dark half way through the first blink");
+        assert!((pickup_alpha(0.15 + 0.3) - 1.0).abs() < 1e-3);
+        assert_eq!(pickup_alpha(2.0), 1.0);
+    }
+
     use std::time::Duration;
 
     use bevy::time::TimeUpdateStrategy;
