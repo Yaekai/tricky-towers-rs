@@ -1730,9 +1730,9 @@ fn fly_winner(
                 Some(layer.clone()),
             );
             let name = if roll() < 0.5 {
-                "sfx_cast_light_magic_1"
+                "sfx_cast_light"
             } else {
-                "sfx_cast_light_magic_2"
+                "sfx_cast_lightning_level_02"
             };
             if let Some(sound) = art
                 .sounds

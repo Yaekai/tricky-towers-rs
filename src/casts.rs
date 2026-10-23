@@ -34,6 +34,7 @@ impl Plugin for CastsPlugin {
                 animate_clouds,
                 flick_hints,
                 grow_large_bricks,
+                quiet_large_rumbles,
                 lock_bricks,
             )
                 .chain(),
@@ -1202,6 +1203,23 @@ fn animate_clouds(
     }
 }
 
+/// A Large brick's rumble, looping while that brick is in hand.
+#[derive(Component)]
+struct LargeRumble(Entity);
+
+/// Stops a Large brick's rumble once the brick has landed (or gone).
+fn quiet_large_rumbles(
+    mut commands: Commands,
+    rumbles: Query<(Entity, &LargeRumble)>,
+    held: Query<(), With<ActiveBrick>>,
+) {
+    for (sound, rumble) in &rumbles {
+        if !held.contains(rumble.0) {
+            commands.entity(sound).despawn();
+        }
+    }
+}
+
 /// Grows the brick in hand when Large makes it bigger: its cells are drawn at
 /// the new size at once, so they are scaled down to the old size and eased up.
 /// Also shakes it while No Rotate refuses a turn.
@@ -1231,8 +1249,13 @@ fn grow_large_bricks(
             if !shake.held.iter().any(|h| h.0 == entity) {
                 shake.held.push((entity, config.cells(look.large_shake)));
             }
-            if let Some(sound) = art.sounds.get("sfx_large") {
+            // LargeBrickModifier: SFX_LARGE_BRICK as it grows, and SFX_RUMBLE looping while
+            // the brick is steered (CurrentBrickAudioEffect, until it touches something).
+            if let Some(sound) = art.sounds.get("sfx_enlarge_bricks") {
                 commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+            }
+            if let Some(sound) = art.sounds.get("sfx_rumble") {
+                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::LOOP, LargeRumble(entity)));
             }
         } else if brick.scale < entry.1 - 1e-4 {
             *entry = (brick.scale, brick.scale, 1.0);
