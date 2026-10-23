@@ -349,6 +349,8 @@ pub(crate) fn run_curse_waves(
             Has<Vined>,
             Option<&crate::gameplay::Placed>,
             Has<Bubbled>,
+            Has<Zapped>,
+            Has<Ghosted>,
         ),
         Without<ActiveBrick>,
     >,
@@ -710,6 +712,8 @@ pub(crate) fn land_casts(
             Has<Vined>,
             Option<&crate::gameplay::Placed>,
             Has<Bubbled>,
+            Has<Zapped>,
+            Has<Ghosted>,
         ),
         Without<ActiveBrick>,
     >,
@@ -897,16 +901,23 @@ fn cast_on_tower(
             Has<Vined>,
             Option<&crate::gameplay::Placed>,
             Has<Bubbled>,
+            Has<Zapped>,
+            Has<Ghosted>,
         ),
         Without<ActiveBrick>,
     >,
 ) {
     let magic = &config.magic;
     let c = config.cell_size;
-    let last = state
-        .last_placed
-        .and_then(|e| placed.get(e).ok())
-        .filter(|b| b.1.tower == target);
+    // Tower.GetLastBrick: the bricks still in the tower, the one placed last first (being
+    // undone or zapped they have left it).
+    let mut latest: Vec<_> = placed
+        .iter()
+        .filter(|b| b.1.tower == target && !b.8)
+        .filter_map(|b| b.6.map(|order| (order.0, b)))
+        .collect();
+    latest.sort_by_key(|(order, _)| std::cmp::Reverse(*order));
+    let last = latest.first().map(|(_, b)| *b);
     match spell {
         SpellKind::Undo => {
             if let Some((entity, ..)) = last {
@@ -983,7 +994,8 @@ fn cast_on_tower(
         SpellKind::Slow => {
             // Over the tower's top part (GetTopTowerpartFromTowerEffect), 2 cells over
             // the tower's height.
-            let x = last.map_or(tower.origin_x, |b| b.2.0.x);
+            let top = latest.iter().map(|(_, b)| b).max_by(|a, b| a.2.0.y.total_cmp(&b.2.0.y));
+            let x = top.map_or(tower.origin_x, |b| b.2.0.x);
             commands.spawn((
                 BalloonOrb {
                     tower: target,
@@ -997,12 +1009,7 @@ fn cast_on_tower(
             // BubbleEffect on the tower's last brick not already in a bubble (GetLastBrick
             // skipping Bubble and BubbleFail): a vined or stone brick only gets a bubble
             // that pops 0.7 s later (BubbleFailModifier); a loose one floats off.
-            let pick = placed
-                .iter()
-                .filter(|b| b.1.tower == target && !b.7)
-                .filter_map(|b| b.6.map(|order| (order.0, b)))
-                .max_by_key(|(order, _)| *order)
-                .map(|(_, b)| b);
+            let pick = latest.iter().map(|(_, b)| *b).find(|b| !b.7);
             let loose = matches!(pick, Some((_, _, _, Some(RigidBody::Dynamic), false, false, ..)));
             if let Some((entity, ..)) = pick.filter(|_| !loose) {
                 commands.entity(entity).insert(BubbleFail { timer: BUBBLE_FAIL_SECONDS });
@@ -1029,8 +1036,9 @@ fn cast_on_tower(
             }
         }
         SpellKind::Ghost => {
-            // Only a loose brick can be carried off.
-            if let Some((entity, _, at, Some(RigidBody::Dynamic), false, false, ..)) = last {
+            // The last brick not ghosted, petrified or in Ivy (GetLastBrick's exclusions).
+            let pick = latest.iter().map(|(_, b)| *b).find(|b| !b.9 && !b.4 && !b.5);
+            if let Some((entity, _, at, Some(RigidBody::Dynamic), false, false, ..)) = pick {
                 let outward = if at.0.x > tower.origin_x { 1.0 } else { -1.0 };
                 let tilt = 3.0 + (state.random() % 900) as f32 / 100.0;
                 commands.entity(entity).insert((

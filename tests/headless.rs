@@ -914,6 +914,34 @@ fn undo_zaps_your_last_brick() {
 }
 
 #[test]
+fn a_second_undo_takes_the_brick_before() {
+    use tricky_towers::gameplay::Placed;
+    let mut config = fast_config();
+    config.magic.enabled = true;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 3.0, |_| {});
+    // Tower.GetLastBrick: each Undo takes the last brick still in the tower.
+    let latest = |app: &mut App| {
+        let world = app.world_mut();
+        let mut bricks: Vec<(u32, Entity)> = world
+            .query::<(Entity, &Placed)>()
+            .iter(world)
+            .map(|(e, p)| (p.0, e))
+            .collect();
+        bricks.sort();
+        bricks.into_iter().rev().map(|(_, e)| e).take(2).collect::<Vec<_>>()
+    };
+    let two = latest(&mut app);
+    assert_eq!(two.len(), 2);
+    cast_now(&mut app, SpellKind::Undo, None);
+    cast_now(&mut app, SpellKind::Undo, None);
+    run_seconds(&mut app, 1.0, |_| {});
+    for brick in two {
+        assert!(app.world().get_entity(brick).is_err(), "{brick} still there");
+    }
+}
+
+#[test]
 fn extra_life_orb_gives_a_life() {
     let mut config = fast_config();
     config.magic.enabled = true;
