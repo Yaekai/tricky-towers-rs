@@ -269,9 +269,12 @@ impl PauseMenu {
         *screen = MenuScreen::Pause;
     }
 
-    /// How far it has faded in, 0 to 1.
+    /// How far it has faded in, 0 to 1 (DOFade with DOTween's default out-quad).
     fn shown(&self, now: f32, fade: f32) -> f32 {
-        let k = |since: f32| (since / fade.max(0.001)).clamp(0.0, 1.0);
+        let k = |since: f32| {
+            let x = (since / fade.max(0.001)).clamp(0.0, 1.0);
+            1.0 - (1.0 - x) * (1.0 - x)
+        };
         match self.closing {
             Some((_, at)) => 1.0 - k(now - at),
             None => k(now - self.opened),
