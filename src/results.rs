@@ -963,7 +963,7 @@ fn show_hold_counts(
         .map(|(e, ..)| e);
     let highest = towers.iter().map(|t| t.2.height).fold(0.0f32, f32::max);
     for (entity, ..) in &towers {
-        let counted = matches!(game.mode, ModeKind::Race | ModeKind::EndlessPuzzle);
+        let counted = matches!(game.mode, ModeKind::Race | ModeKind::Survival | ModeKind::EndlessPuzzle);
         if counted && !counts.iter().any(|(_, c, ..)| c.0 == entity) {
             let color = tone_color(&art, &images, Tone::Gold);
             let count = spawn_match_text(
@@ -982,10 +982,8 @@ fn show_hold_counts(
             commands.entity(entity).despawn();
             continue;
         };
-        let holding = game.phase == Phase::Playing
-            && matches!(game.mode, ModeKind::Race | ModeKind::EndlessPuzzle)
-            && state.status == TowerStatus::Building
-            && state.hold_timer > 0.0;
+        let left = state.count_left(&config).filter(|_| game.phase == Phase::Playing);
+        let holding = left.is_some();
         let (lead, other) = config.race.countdown_above;
         let above = if leader == Some(count.0) { lead } else { other };
         let at = Vec3::new(
@@ -1000,9 +998,7 @@ fn show_hold_counts(
             node.display = Display::None;
             continue;
         };
-        let left = (config.race.hold_seconds - state.hold_timer)
-            .ceil()
-            .max(1.0);
+        let left = left.unwrap_or(0.0).ceil().max(1.0);
         let label = format!("{left:.0}");
         // The leader's countdown is gold, the others' pink.
         let tone = if leader == Some(count.0) {

@@ -682,6 +682,20 @@ impl TowerState {
         self.laser_base
     }
 
+    /// Seconds left of this tower's CountDownEffect (a race's hold, Survival's last brick
+    /// used, Endless Puzzle's laser touch) while it runs.
+    pub fn count_left(&self, config: &GameConfig) -> Option<f32> {
+        if self.hold_timer <= 0.0 || self.status != TowerStatus::Building {
+            return None;
+        }
+        let length = if config.mode == ModeKind::Survival {
+            config.survival.finish_countdown
+        } else {
+            config.race.hold_seconds
+        };
+        Some((length - self.hold_timer).max(0.0))
+    }
+
     /// Puzzle and Endless Puzzle (TowerMoveController): how far the base has risen, in
     /// cells, for the bricks that fell off.
     pub fn base_rise(&self, config: &GameConfig) -> f32 {
@@ -2364,12 +2378,11 @@ fn judge_match(
                 state.invincible = (state.invincible - dt).max(0.0);
                 if state.lives == Some(0) {
                     state.status = TowerStatus::Out;
-                } else if state.bricks_used() >= config.survival.bricks_to_place
-                    && state.active.is_none()
-                {
-                    // Out of bricks: a short countdown, then the roof goes on.
-                    state.settle_timer += dt;
-                    if state.settle_timer >= config.survival.finish_countdown {
+                } else if state.bricks_used() >= config.survival.bricks_to_place {
+                    // The last brick used (placed or lost): the 3-2-1 (CountDownEffect, as
+                    // a race's hold), then the roof goes on.
+                    state.hold_timer += dt;
+                    if state.hold_timer >= config.survival.finish_countdown {
                         state.status = TowerStatus::Won;
                     }
                 }

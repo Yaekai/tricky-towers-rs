@@ -998,13 +998,15 @@ fn play_music(
 
 /// The count of the race hold countdown nearest its end (the leader's, whose CountDownEffect
 /// is the one heard), or 0.
-fn lead_countdown(towers: &Query<(&Tower, &TowerState, Option<&crate::gameplay::TowerSkin>)>) -> u32 {
+fn lead_countdown(
+    config: &crate::config::GameConfig,
+    towers: &Query<(&Tower, &TowerState, Option<&crate::gameplay::TowerSkin>)>,
+) -> u32 {
     towers
         .iter()
-        .map(|(_, s, _)| s.hold_timer)
-        .filter(|&t| t > 0.0)
+        .filter_map(|(_, s, _)| s.count_left(config))
         .fold(None, |best: Option<f32>, t| Some(best.map_or(t, |b| b.min(t))))
-        .map_or(0, |t| t.ceil() as u32)
+        .map_or(0, |t| t.ceil().max(1.0) as u32)
 }
 
 /// The music's share of its volume: CountDownEffect turns it down to 0.6, 0.3 and 0.05 on the
@@ -1012,6 +1014,7 @@ fn lead_countdown(towers: &Query<(&Tower, &TowerState, Option<&crate::gameplay::
 /// counts, and the pause menu holds it at 0.05.
 fn duck_music(
     time: Res<Time>,
+    config: Res<crate::config::GameConfig>,
     game: Res<Match>,
     screen: Option<Res<crate::menu::MenuScreen>>,
     settings: Option<Res<crate::settings::Settings>>,
@@ -1024,7 +1027,7 @@ fn duck_music(
     let target = if paused {
         0.05
     } else if game.phase == Phase::Playing {
-        match lead_countdown(&towers) {
+        match lead_countdown(&config, &towers) {
             3 => 0.6,
             2 => 0.3,
             1 => 0.05,
@@ -1086,6 +1089,7 @@ fn menu_cursor_sound(
 fn play_sounds(
     mut commands: Commands,
     art: Res<Art>,
+    config: Res<crate::config::GameConfig>,
     game: Res<Match>,
     log: Res<SpellLog>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
@@ -1121,7 +1125,7 @@ fn play_sounds(
     heard.roll = heard.roll.wrapping_mul(1_103_515_245).wrapping_add(12_345);
     let rotate_pitch = 0.8 + 0.4 * ((heard.roll >> 16) % 1000) as f32 / 1000.0;
     // CountDownEffect: the leading tower's 3, 2, 1, each count at a higher pitch.
-    let countdown = if game.phase == Phase::Playing { lead_countdown(&towers) } else { 0 };
+    let countdown = if game.phase == Phase::Playing { lead_countdown(&config, &towers) } else { 0 };
     if countdown != heard.countdown && (1..=3).contains(&countdown) {
         play_with("sfx_countdown", 1.0, 1.0 + (3 - countdown) as f32 / 6.0);
     }
