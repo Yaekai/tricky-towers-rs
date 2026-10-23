@@ -317,7 +317,7 @@ fn run_intro(
     if plan.title_at.is_some_and(crossed) {
         sound(&mut commands, "sfx_countdown", 1.0);
     }
-    for (k, pitch) in look.count_pitch.iter().enumerate() {
+    for (k, pitch) in look.count_pitch.iter().enumerate().filter(|_| plan.count) {
         if crossed(plan.countdown_at + look.count_step * k as f32) {
             sound(&mut commands, "sfx_count_v3", *pitch);
         }
@@ -331,7 +331,8 @@ fn run_intro(
     }
     eclipse.0 = plan.eclipse_at.map(|at| now - at);
     clock.0 = Some(now);
-    if game.phase == Phase::Intro && now >= plan.countdown_at + look.count_go {
+    let go = if plan.count { look.count_go } else { 0.0 };
+    if game.phase == Phase::Intro && now >= plan.countdown_at + go {
         game.phase = Phase::Playing;
     }
     // Race: up to the finish line (less `race_room`), a hold, back down; in-out quad.
@@ -482,7 +483,7 @@ fn show_countdown(
     } else {
         look.count_go
     };
-    let on = t.is_some_and(|t| t >= 0.0 && t < end);
+    let on = intro.plan.is_some_and(|p| p.count) && t.is_some_and(|t| t >= 0.0 && t < end);
     let t = t.unwrap_or(0.0);
     let words = match (t / look.count_step.max(0.01)) as usize {
         0 => "3",

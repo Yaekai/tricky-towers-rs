@@ -726,7 +726,7 @@ impl Default for PuzzleRules {
             zap_edge: [255, 246, 176],
             line_height: 3.2,
             line_random: 4.0,
-            settle_seconds: 2.0,
+            settle_seconds: 0.3,
             drop_speed: 2.0,
             start_spell: Some(SpellKind::Ivy),
             drop_penalty: 0.5,
@@ -2732,8 +2732,10 @@ pub struct IntroPlan {
     pub eclipse_at: Option<f32>,
     /// The camera sweep's seconds up, held at the top, and down.
     pub sweep: (f32, f32, f32),
-    /// The 3-2-1 starts; play starts `count_go` later.
+    /// The 3-2-1 starts; play starts `count_go` later. Without `count` (Survival and Puzzle
+    /// trials, whose COUNTDOWN state is skipped) play starts there.
     pub countdown_at: f32,
+    pub count: bool,
 }
 
 impl IntroRules {
@@ -2775,6 +2777,7 @@ impl IntroRules {
             eclipse_at: None,
             sweep: (self.race_up, self.race_hold, self.race_down),
             countdown_at: at,
+            count: true,
         }
     }
 
@@ -2790,6 +2793,7 @@ impl IntroRules {
             eclipse_at: None,
             sweep: (self.single_race_up, self.single_race_hold, self.single_race_down),
             countdown_at: 0.0,
+            count: !matches!(mode, ModeKind::Survival | ModeKind::Puzzle),
         };
         let (wait, after) = self.single_puzzle;
         plan.countdown_at = match mode {
@@ -4093,6 +4097,11 @@ mod tests {
         assert!(close(look.plan_single(ModeKind::Survival, false, 1.0).countdown_at, 3.0333));
         assert!(close(look.plan_single(ModeKind::Puzzle, false, 1.0).countdown_at, 1.5333));
         assert_eq!(look.plan_single(ModeKind::Race, true, 1.0).countdown_at, 0.0);
+        // Survival and Puzzle trials skip the 3-2-1 (SkipStateController); the rest count.
+        assert!(!look.plan_single(ModeKind::Survival, false, 1.0).count);
+        assert!(!look.plan_single(ModeKind::Puzzle, false, 1.0).count);
+        assert!(look.plan_single(ModeKind::Race, false, 1.0).count);
+        assert!(look.plan_single(ModeKind::EndlessPuzzle, false, 1.0).count);
     }
 
     #[test]

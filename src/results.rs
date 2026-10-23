@@ -963,7 +963,10 @@ fn show_hold_counts(
         .map(|(e, ..)| e);
     let highest = towers.iter().map(|t| t.2.height).fold(0.0f32, f32::max);
     for (entity, ..) in &towers {
-        let counted = matches!(game.mode, ModeKind::Race | ModeKind::Survival | ModeKind::EndlessPuzzle);
+        let counted = matches!(
+            game.mode,
+            ModeKind::Race | ModeKind::Survival | ModeKind::Puzzle | ModeKind::EndlessPuzzle
+        );
         if counted && !counts.iter().any(|(_, c, ..)| c.0 == entity) {
             let color = tone_color(&art, &images, Tone::Gold);
             let count = spawn_match_text(

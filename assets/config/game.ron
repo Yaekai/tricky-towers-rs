@@ -567,7 +567,7 @@
         zap_edge: (255, 246, 176),
         line_height: 3.2,
         line_random: 4.0,
-        settle_seconds: 2.0,
+        settle_seconds: 0.3,
         drop_speed: 2.0,
         start_spell: Some(Ivy),
         drop_penalty: 0.5,

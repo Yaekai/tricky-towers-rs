@@ -2355,7 +2355,12 @@ fn judge_match(
         return;
     }
     let dt = time.delta_secs();
-    game.elapsed += dt;
+    // SinglePlayerGameModePlayController: a trial's or Endless run's time (a race trial's
+    // clock) stands still while a 3-2-1 runs.
+    let single = config.trial.is_some() || game.mode.is_endless();
+    if !(single && towers.iter().any(|(_, s)| s.hold_timer > 0.0)) {
+        game.elapsed += dt;
+    }
     if game.mode == ModeKind::Race && game.elapsed > config.race.finish_drop_after {
         game.finish_height = (game.finish_height - config.race.finish_drop_speed * dt).max(1.0);
     }
@@ -2479,14 +2484,22 @@ fn judge_match(
                 }
                 if trial_drop || state.laser_count.is_some() {
                     state.status = TowerStatus::Out;
+                } else if config.trial.is_some() && state.hold_timer > 0.0 {
+                    // SinglePlayerPuzzleGameModePlayController: no more bricks, the 3-2-1
+                    // (CountDownEffect), then the trial is won.
+                    state.hold_timer += dt;
+                    if state.hold_timer >= config.race.hold_seconds {
+                        state.status = TowerStatus::Won;
+                    }
                 } else if config.trial.is_some()
                     && state.bricks_used() >= rules.bricks
                     && state.active.is_none()
                     && state.all_settled
                 {
+                    // Its bricks all in and the tower still for `settle_seconds`.
                     state.settle_timer += dt;
-                    if state.settle_timer >= rules.settle_seconds {
-                        state.status = TowerStatus::Won;
+                    if state.settle_timer > rules.settle_seconds {
+                        state.hold_timer = f32::EPSILON;
                     }
                 } else {
                     state.settle_timer = 0.0;
