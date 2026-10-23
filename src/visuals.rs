@@ -1340,11 +1340,35 @@ fn dress_bubbles(
     }
 }
 
-/// Bubbles wobble a little, like the original's (±2.5% of their size).
-fn wobble_bubbles(time: Res<Time>, mut bubbles: Query<&mut Transform, With<BubbleSprite>>) {
-    let wobble = 1.0 + 0.025 * (time.elapsed_secs() * std::f32::consts::TAU).sin();
-    for mut transform in &mut bubbles {
-        transform.scale = Vec3::new(wobble, 2.0 - wobble, 1.0);
+/// A bubble as BubbleBrickModifier draws it: it wobbles (scale + (sin(20t) + 1) x 0.025 across,
+/// + (sin(10t) + 1) x 0.025 up), turns 50 degrees its brick's way over its 3 s, and from 2 s
+/// flashes, out to +0.2 and back every 1/6 s.
+fn wobble_bubbles(
+    mut bubbles: Query<(&mut Transform, &ChildOf), With<BubbleSprite>>,
+    bricks: Query<&crate::spells::Bubbled>,
+) {
+    for (mut transform, parent) in &mut bubbles {
+        let Ok(bubble) = bricks.get(parent.parent()) else {
+            continue;
+        };
+        let t = bubble.age;
+        let scale = if t < 2.0 {
+            Vec2::new(1.0 + ((t * 20.0).sin() + 1.0) * 0.025, 1.0 + ((t * 10.0).sin() + 1.0) * 0.025)
+        } else {
+            let phase = ((t - 2.0) * 6.0) % 2.0;
+            let k = if phase < 1.0 { phase } else { 2.0 - phase };
+            Vec2::splat(1.0 + 0.2 * (1.0 - (1.0 - k) * (1.0 - k)))
+        };
+        transform.scale = scale.extend(1.0);
+        // The brick under it turns too; the bubble's own turn is what is left of its 50.
+        let brick_turn = if t < 1.0 {
+            bubble.tilt * EaseFunction::ElasticOut.sample_clamped(t)
+        } else {
+            let k = ((t - 1.0) / 2.0).min(1.0);
+            bubble.tilt + 20.0 * bubble.dir() * k * k
+        };
+        let own = 50.0 * bubble.dir() * (t / 3.0).min(1.0);
+        transform.rotation = Quat::from_rotation_z((own - brick_turn).to_radians());
     }
 }
 
