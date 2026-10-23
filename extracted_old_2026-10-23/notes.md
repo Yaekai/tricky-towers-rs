@@ -1,0 +1,646 @@
+# extracted/ notes (generated, local only)
+
+Pixels per unit: Unity sprite value; a brick cell is 1 unit.
+
+- brick_I : Brick I, default pack. 268x73 px, from texture gph_brickI_default_texture.png.
+- brick_O : Brick O, default pack. 136x136 px, from texture gph_brickO_default_texture.png.
+- brick_T : Brick T, default pack. 201x136 px, from texture gph_brickT_default_texture.png.
+- brick_S : Brick S, default pack. 201x136 px, from texture gph_brickS_default_texture.png.
+- brick_Z : Brick Z, default pack. 201x136 px, from texture gph_brickZ_default_texture.png.
+- brick_J : Brick J, default pack. 202x136 px, from texture gph_brickJ_default_texture.png.
+- brick_L : Brick L, default pack. 201x136 px, from texture gph_brickL_default_texture.png.
+- mystery_block : Mystery 1, 2x4 block. 136x265 px, 65.0 px/unit, from sprite gph_brickMystery01.
+- mystery_blob : Mystery 2, blob in a 3x4 box (cells: 2x3 at x -1.5..0.5 y -2..1, 1x3 at x 0.5..1.5 y -1..2, 1x1 at x -0.5..0.5 y 1..2; plus a decorative rotor, gph_brickMystery02Rotor, drawn on top). 200x266 px, 65.0 px/unit, from sprite gph_brickMystery02.
+- mystery_table : Mystery 3, table: 4x2 slab on two 1x1 feet. 267x203 px, 65.0 px/unit, from sprite gph_brickMystery03.
+- platform_race : Race base (house standing in water); pivot = roof surface, the chimney above it is a 1x1 collider at x -1..0. 210x262 px, 26.0 px/unit, from sprite gph_house02.
+- platform_survival : Survival base (castle-like house); surface has 3 merlons: x -1..1 and x +/-2..3, top at the pivot. 190x287 px, 26.0 px/unit, from sprite gph_house01_world02.
+- platform_puzzle : Puzzle floor piece 01: a single 1-wide, 13-tall column; puzzle floors are built from 3 such pieces. 29x339 px, 26.0 px/unit, from sprite gph_house01_world03.
+- background_race_0 : Large cloud, centred on the screen bottom (original viewport y 0), drifts 0.15-0.25 u/s. 1266x497 px, 26.0 px/unit, from sprite gph_cloudLarge_var01_0.
+- background_race_1 : Large cloud 2. 1484x492 px, 26.0 px/unit, from sprite gph_cloudLarge_var02.
+- background_race_2 : Back island, bottom-centre on the water band top. 136x90 px, 26.0 px/unit, from sprite gph_backgroundBack01.
+- background_race_3 : Middle island, bottom-left corner (offset 0, -0.65). 389x204 px, 26.0 px/unit, from sprite gph_backgroundMiddle01.
+- background_race_4 : Middle island, bottom-right (offset -9.5, -0.9). 454x334 px, 26.0 px/unit, from sprite gph_backgroundMiddle02.
+- background_race_5 : Front island, bottom-left (offset 0, -2.5). 238x337 px, 26.0 px/unit, from sprite gph_backgroundFront01.
+- background_race_6 : Front island, bottom-left + 10 (offset 10, -1.2). 404x172 px, 26.0 px/unit, from sprite gph_backgroundFront02.
+- background_race_7 : Front island, bottom-right (offset 0, -2.4). 372x514 px, 26.0 px/unit, from sprite gph_backgroundFront03.
+- background_race_8 : Small cloud (original: viewport y 0.5-2, parallax 0.6). 497x210 px, 26.0 px/unit, from sprite gph_cloud_var01_0.
+- background_race_9 : Small cloud. 459x92 px, 26.0 px/unit, from sprite gph_cloud_var04_0.
+- background_race_10 : Small cloud (parallax 0.8). 371x141 px, 26.0 px/unit, from sprite gph_cloud_var07_0.
+- sky_survival : night gradient top (51,30,103), band (91,60,175), bottom (91,83,173). sky_puzzle : desert gradient top #FCDB90 to bottom #F4E6B1 (plus 4 soft overlay gradients in the original).
+- sky : Race sky gradient, top (108,152,223) to bottom (179,196,251); the middle stop is the original overlay band (125,192,239) at 65% height.
+- background_survival_0 : Moon, centre + (-14.3, 9.7); in the original it hangs on a hinge and can be knocked down. 258x251 px, 26.0 px/unit, from sprite gph_moon.
+- background_survival_1 : Back island left, centre + (-28, -7.6). 440x491 px, 26.0 px/unit, from sprite gph_backgroundIsland02.
+- background_survival_2 : Back island right, centre + (32.5, -8.8). 245x413 px, 26.0 px/unit, from sprite gph_backgroundIsland04.
+- background_survival_3 : Front island left, centre + (-13.5, -8.8). 519x457 px, 26.0 px/unit, from sprite gph_backgroundIsland01.
+- background_survival_4 : Front island right, centre + (21.6, -9.8). 480x392 px, 26.0 px/unit, from sprite gph_backgroundIsland03.
+- background_survival_20 : Survival reflected band across the sky (overlay). 4x255 px, 26.0 px/unit, from sprite gph_gradientRefelcted.
+- survival_star : Survival star (twinkles; one twirls every 2-5 s). 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_5 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_6 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_7 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_8 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_9 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_10 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_11 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_12 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_13 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_14 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_15 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_16 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_17 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_18 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_19 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_20 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_21 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_22 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_23 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_24 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_25 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_26 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_27 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_28 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_29 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_30 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_31 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_32 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_33 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_34 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_35 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_36 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_37 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_38 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_39 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_40 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_41 : Survival star. 18x18 px, 26.0 px/unit, from sprite gph_star.
+- background_survival_42 : Survival cloud. 1266x497 px, 26.0 px/unit, from sprite gph_cloudLarge_var01.
+- background_survival_43 : Survival cloud. 1484x492 px, 26.0 px/unit, from sprite gph_cloudLarge_var02_0.
+- background_survival_44 : Survival cloud. 1484x492 px, 26.0 px/unit, from sprite gph_cloudLarge_var02_0.
+- background_survival_45 : Survival cloud. 1266x497 px, 26.0 px/unit, from sprite gph_cloudLarge_var01.
+- background_survival_46 : Survival cloud. 1484x492 px, 26.0 px/unit, from sprite gph_cloudLarge_var02_0.
+- background_survival_47 : Survival cloud. 1266x497 px, 26.0 px/unit, from sprite gph_cloudLarge_var01.
+- background_survival_48 : Survival cloud. 358x141 px, 26.0 px/unit, from sprite gph_cloud_var03_0.
+- background_survival_49 : Survival cloud. 459x92 px, 26.0 px/unit, from sprite gph_cloud_var04.
+- background_survival_50 : Survival cloud. 497x210 px, 26.0 px/unit, from sprite gph_cloud_var01.
+- background_survival_51 : Survival cloud. 320x100 px, 26.0 px/unit, from sprite gph_cloud_var06.
+- background_survival_52 : Survival cloud. 181x113 px, 26.0 px/unit, from sprite gph_cloud_var05_0.
+- background_survival_53 : Survival cloud. 505x121 px, 26.0 px/unit, from sprite gph_cloud_var02.
+- background_survival_54 : Survival cloud. 181x113 px, 26.0 px/unit, from sprite gph_cloud_var05_0.
+- background_survival_55 : Survival cloud. 459x92 px, 26.0 px/unit, from sprite gph_cloud_var04.
+- background_survival_56 : Survival cloud. 358x141 px, 26.0 px/unit, from sprite gph_cloud_var03_0.
+- background_survival_57 : Survival cloud. 320x100 px, 26.0 px/unit, from sprite gph_cloud_var06.
+- background_survival_58 : Survival cloud. 497x210 px, 26.0 px/unit, from sprite gph_cloud_var01.
+- background_survival_59 : Survival cloud. 505x121 px, 26.0 px/unit, from sprite gph_cloud_var02.
+- background_survival_60 : Survival cloud. 181x113 px, 26.0 px/unit, from sprite gph_cloud_var05_0.
+- background_survival_61 : Survival cloud. 358x141 px, 26.0 px/unit, from sprite gph_cloud_var03_0.
+- background_survival_62 : Survival cloud. 505x121 px, 26.0 px/unit, from sprite gph_cloud_var02.
+- background_survival_63 : Survival cloud. 459x92 px, 26.0 px/unit, from sprite gph_cloud_var04.
+- background_survival_64 : Survival cloud. 320x100 px, 26.0 px/unit, from sprite gph_cloud_var06.
+- background_survival_65 : Survival cloud. 497x210 px, 26.0 px/unit, from sprite gph_cloud_var01.
+- background_survival_66 : Survival cloud. 371x141 px, 26.0 px/unit, from sprite gph_cloud_var07.
+- background_survival_67 : Survival cloud. 494x136 px, 26.0 px/unit, from sprite gph_cloud_var08.
+- background_survival_68 : Survival cloud. 256x113 px, 26.0 px/unit, from sprite gph_cloud_var10.
+- background_survival_69 : Survival cloud. 325x142 px, 26.0 px/unit, from sprite gph_cloud_var09_0.
+- background_survival_70 : Survival cloud. 494x136 px, 26.0 px/unit, from sprite gph_cloud_var08.
+- background_survival_71 : Survival cloud. 256x113 px, 26.0 px/unit, from sprite gph_cloud_var10.
+- background_survival_72 : Survival cloud. 325x142 px, 26.0 px/unit, from sprite gph_cloud_var09_0.
+- background_survival_73 : Survival cloud. 371x141 px, 26.0 px/unit, from sprite gph_cloud_var07.
+- background_survival_74 : Survival cloud. 325x142 px, 26.0 px/unit, from sprite gph_cloud_var09_0.
+- background_survival_75 : Survival cloud. 371x141 px, 26.0 px/unit, from sprite gph_cloud_var07.
+- background_survival_76 : Survival cloud. 256x113 px, 26.0 px/unit, from sprite gph_cloud_var10.
+- background_survival_77 : Survival cloud. 494x136 px, 26.0 px/unit, from sprite gph_cloud_var08.
+- background_puzzle_0 : Ruins back left (mask: #F4D9B0 / #F7E0BE). 358x270 px, 26.0 px/unit, from sprite gph_backgroundBackLeft.
+- background_puzzle_1 : Ruins back right (mask: #F4D9B0 / #F7E0BE). 1004x171 px, 26.0 px/unit, from sprite gph_backgroundBackRight.
+- background_puzzle_2 : Ruins middle left (mask: #E0AC92 / #D69883). 464x380 px, 26.0 px/unit, from sprite gph_backgroundMiddleLeft.
+- background_puzzle_3 : Ruins middle centre (mask: #E0AC92 / #D69883). 304x234 px, 26.0 px/unit, from sprite gph_backgroundMiddleCenter.
+- background_puzzle_4 : Ruins middle right (mask: #E0AC92 / #D69883). 595x468 px, 26.0 px/unit, from sprite gph_backgroundMiddleRight.
+- background_puzzle_5 : Ruins front left (mask: #C47464). 368x200 px, 26.0 px/unit, from sprite gph_backgroundFrontLeft.
+- background_puzzle_6 : Ruins front right (mask: #C47464). 290x319 px, 26.0 px/unit, from sprite gph_backgroundFrontRight.
+- background_puzzle_pro_0 : Pro ruins back left. 358x270 px, 26.0 px/unit, from sprite gph_backgroundBackLeft.
+- background_puzzle_pro_1 : Pro ruins back right. 1004x171 px, 26.0 px/unit, from sprite gph_backgroundBackRight.
+- background_puzzle_pro_2 : Pro ruins middle left. 464x380 px, 26.0 px/unit, from sprite gph_backgroundMiddleLeft.
+- background_puzzle_pro_3 : Pro ruins middle centre. 304x234 px, 26.0 px/unit, from sprite gph_backgroundMiddleCenter.
+- background_puzzle_pro_4 : Pro ruins middle right. 595x468 px, 26.0 px/unit, from sprite gph_backgroundMiddleRight.
+- background_puzzle_pro_5 : Pro ruins front left. 368x200 px, 26.0 px/unit, from sprite gph_backgroundFrontLeft.
+- background_puzzle_pro_6 : Pro ruins front right. 290x319 px, 26.0 px/unit, from sprite gph_backgroundFrontRight.
+- background_endless_puzzle_0 : Endless Puzzle ruins back left. 358x270 px, 26.0 px/unit, from sprite gph_backgroundBackLeft.
+- background_endless_puzzle_1 : Endless Puzzle ruins back right. 1004x171 px, 26.0 px/unit, from sprite gph_backgroundBackRight.
+- background_endless_puzzle_2 : Endless Puzzle ruins middle left. 464x380 px, 26.0 px/unit, from sprite gph_backgroundMiddleLeft.
+- background_endless_puzzle_3 : Endless Puzzle ruins middle centre. 304x234 px, 26.0 px/unit, from sprite gph_backgroundMiddleCenter.
+- background_endless_puzzle_4 : Endless Puzzle ruins middle right. 595x468 px, 26.0 px/unit, from sprite gph_backgroundMiddleRight.
+- background_endless_puzzle_5 : Endless Puzzle ruins front left. 368x200 px, 26.0 px/unit, from sprite gph_backgroundFrontLeft.
+- background_endless_puzzle_6 : Endless Puzzle ruins front right. 290x319 px, 26.0 px/unit, from sprite gph_backgroundFrontRight.
+- background_race_pro_0 : Race Pro cloud. 1609x874 px, 26.0 px/unit, from sprite gph_cloudLargePro_var01.
+- background_race_pro_1 : Race Pro cloud 2. 1609x874 px, 26.0 px/unit, from sprite gph_cloudLargePro_var01.
+- background_race_pro_2 : Back island. 136x90 px, 26.0 px/unit, from sprite gph_backgroundBack01.
+- background_race_pro_3 : Middle island left. 389x204 px, 26.0 px/unit, from sprite gph_backgroundMiddle01.
+- background_race_pro_4 : Middle island right. 454x334 px, 26.0 px/unit, from sprite gph_backgroundMiddle02.
+- background_race_pro_5 : Front island left. 238x337 px, 26.0 px/unit, from sprite gph_backgroundFront01.
+- background_race_pro_6 : Front island left + 10. 404x172 px, 26.0 px/unit, from sprite gph_backgroundFront02.
+- background_race_pro_7 : Front island right. 372x514 px, 26.0 px/unit, from sprite gph_backgroundFront03.
+- water_band : Race background water, bottom 6 screen units, top (61,82,201) to bottom (137,146,217); islands bob on it.
+- puzzle_piece_1 : Puzzle floor piece 1: column 1 wide, 13 tall; pivot = top-left, drawn 0.03 left and up of the column corner. 29x339 px, 26.0 px/unit, from sprite gph_house01_world03.
+- puzzle_piece_2 : Puzzle floor piece 2: column 2 wide, 13 tall; pivot = top-left. 55x339 px, 26.0 px/unit, from sprite gph_house02_world03.
+- puzzle_piece_3 : Puzzle floor piece 3: column 1 wide, 13 tall (other art); pivot = top-left. 29x339 px, 26.0 px/unit, from sprite gph_house03_world03.
+- puzzle_piece_base : Under-floor tile, one per 2 units down each column (centres at -1, -3, ... -11). 29x55 px, 26.0 px/unit, from sprite gph_house06_world3.
+- puzzle_piece_base_top : Top of the under-floor stack (centre 0.37 above the column top). 29x19 px, 26.0 px/unit, from sprite gph_house07_world3.
+- puzzle_pro_center : Pro floor: 1-wide, 13-tall centre column (3 of them make the 3-wide pillar). 29x339 px, 26.0 px/unit, from sprite gph_house03_world03.
+- puzzle_pro_ledge_1 : Pro floor side ledge, 1x1 (variant 1). 31x29 px, 26.0 px/unit, from sprite gph_house08_world03.
+- puzzle_pro_ledge_2 : Pro floor side ledge, 1x1 (variant 2). 29x29 px, 26.0 px/unit, from sprite gph_house09_world03.
+- puzzle_pro_ledge_3 : Pro floor side ledge, 1x1 (variant 3). 30x30 px, 26.0 px/unit, from sprite gph_house10_world03.
+- puzzle_pro_ledge_top : Pro floor topmost side ledge, 1x1. 31x30 px, 26.0 px/unit, from sprite gph_house11_world03.
+- text_gradient_gold : Vertical gradient for the gold front layer of WINNER! / countdown numbers. 64x64 px, from texture gph_gradientTextureFont02.png.
+- text_gradient_red : Vertical gradient for the red front layer of WIZARD OUT!. 64x64 px, from texture gph_gradientTextureFont.png.
+- text_gradient_bronze : Vertical gradient for the bronze front layer (draw). 64x64 px, from texture gph_gradientTextureFont04.png.
+- spotlight_winner_race : Winner light beam over the winning lane (race), stretched to screen height, 1.5 wide. 386x32 px, 32.0 px/unit, from sprite gph_spotlightWinner_World01.
+- spotlight_loser_race : Dark veil over losing lanes (race), 10 wide, alpha 0.1. 387x32 px, 32.0 px/unit, from sprite gph_spotlightLoser_World01.
+- spotlight_winner_survival : Winner light beam over the winning lane (survival), stretched to screen height, 1.5 wide. 386x32 px, 32.0 px/unit, from sprite gph_spotlightWinner_World02.
+- spotlight_loser_survival : Dark veil over losing lanes (survival), 10 wide, alpha 0.1. 387x32 px, 32.0 px/unit, from sprite gph_spotlightLoser_World02.
+- spotlight_winner_puzzle : Winner light beam over the winning lane (puzzle), stretched to screen height, 1.5 wide. 386x32 px, 32.0 px/unit, from sprite gph_spotlightWinner_World03.
+- spotlight_loser_puzzle : Dark veil over losing lanes (puzzle), 10 wide, alpha 0.1. 387x32 px, 32.0 px/unit, from sprite gph_spotlightLoser_World03.
+- winner_sunrays : Rotating sunrays behind the WINNER! text. 194x194 px, 26.0 px/unit, from sprite gph_castEffectSunrays.
+- trophy : Tiny Cup trophy (the smallest cup); the original shows a cup only in cup results, not after a single match. 111x132 px, 26.0 px/unit, from sprite gph_cupTinyLarge.
+- trophy_big : Big Cup trophy. 203x203 px, 26.0 px/unit, from sprite gph_cupBigLarge.
+- trophy_super : Super Cup trophy. 307x247 px, 26.0 px/unit, from sprite gph_cupSuperLarge.
+- trophy_online : Online Cup trophy. 298x271 px, 26.0 px/unit, from sprite gph_cupOnlineLarge.
+- Match text (countdown numbers, WINNER!, WIZARD OUT!, FINISH!, FAILED, WAVE): the Enzo letters in two layers. Back: dilated 0.2, outline 0.25 (37,13,40), face (158,23,64) gold/bronze or (160,24,101) red. Front: white face times text_gradient_<gold|red|bronze>. Both have a shadow 0.5 below in (227,33,61). Gold = winner, red = loser, bronze = draw.
+- Spotlights: 0.5 s after the win the winner beam fades in over 1 s to alpha 151/255 (race), 130/255 (survival), 1 (puzzle), centred on the winning lane bottom, 1.5 wide and screen tall. Loser veils fade to 0.1 over 1 s. Trophy (cups): pops from scale 0.4 to 1 over 0.6 s with an elastic ease. Lose message: move in 2 s, idle 2 s, move out 1 s.
+- menu_tile_local_deselected : Title tile local, grey background. 442x369 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundLocalMP_deselected.
+- menu_tile_local_selected : Title tile local, coloured background. 442x369 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundLocalMP_selected.
+- menu_tile_local_front : Title tile local, art over the picked tile (wizards / cogs). 538x272 px, 26.0 px/unit, from sprite gph_mainMenuLocalMPWizards.
+- menu_tile_local_front_deselected : Title tile local, grey art over the tile when not picked. 538x272 px, 26.0 px/unit, from sprite gph_mainMenuLocalMPWizards_deselected.
+- menu_tile_local_overlay : Title tile local, frame drawn on top when picked. 442x369 px, 26.0 px/unit, from sprite gph_mainMenuForegroundLocalMP_selected.
+- menu_tile_single_deselected : Title tile single, grey background. 435x322 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundSinglePlayer_deselected.
+- menu_tile_single_selected : Title tile single, coloured background. 435x322 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundSinglePlayer_selected.
+- menu_tile_single_front : Title tile single, art over the picked tile (wizards / cogs). 488x235 px, 26.0 px/unit, from sprite gph_mainMenuSinglePlayerWizard.
+- menu_tile_single_front_deselected : Title tile single, grey art over the tile when not picked. 488x235 px, 26.0 px/unit, from sprite gph_mainMenuSinglePlayerWizard_deselected.
+- menu_tile_single_overlay : Title tile single, frame drawn on top when picked. 435x322 px, 26.0 px/unit, from sprite gph_mainMenuForegroundSinglePlayer.
+- menu_tile_online_deselected : Title tile online, grey background. 441x370 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundOnlineMP_deselected.
+- menu_tile_online_selected : Title tile online, coloured background. 441x370 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundOnlineMP_selected.
+- menu_tile_online_front : Title tile online, art over the picked tile (wizards / cogs). 467x283 px, 26.0 px/unit, from sprite gph_mainMenuOnlineMP.
+- menu_tile_online_front_deselected : Title tile online, grey art over the tile when not picked. 467x283 px, 26.0 px/unit, from sprite gph_mainMenuOnlineMP_deselected.
+- menu_tile_online_overlay : Title tile online, frame drawn on top when picked. 441x370 px, 26.0 px/unit, from sprite gph_mainMenuForegroundOnlineMP_selected.
+- menu_tile_shop_deselected : Title tile shop, grey background. 449x141 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundDLC_deselected.
+- menu_tile_shop_selected : Title tile shop, coloured background. 449x141 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundDLC_selected.
+- menu_tile_shop_front : Title tile shop, art over the picked tile (wizards / cogs). 488x124 px, 26.0 px/unit, from sprite gph_mainMenuDLC.
+- menu_tile_shop_front_deselected : Title tile shop, grey art over the tile when not picked. 488x124 px, 26.0 px/unit, from sprite gph_mainMenuDLC_deselected.
+- menu_tile_shop_overlay : Title tile shop, frame drawn on top when picked. 449x141 px, 26.0 px/unit, from sprite gph_mainMenuForegroundDLC_selected.
+- menu_tile_help_deselected : Title tile help, grey background. 197x147 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundSettings_deselected.
+- menu_tile_help_selected : Title tile help, coloured background. 197x147 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundSettings_selected.
+- menu_tile_help_overlay : Title tile help, frame drawn on top when picked. 197x147 px, 26.0 px/unit, from sprite gph_mainMenuForegroundSettings_selected.
+- menu_tile_settings_deselected : Title tile settings, grey background. 197x147 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundSettings_deselected.
+- menu_tile_settings_selected : Title tile settings, coloured background. 197x147 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundSettings_selected.
+- menu_tile_settings_front : Title tile settings, art over the picked tile (wizards / cogs). 180x131 px, 26.0 px/unit, from sprite gph_mainMenuSettingsCogs.
+- menu_tile_settings_front_deselected : Title tile settings, grey art over the tile when not picked. 180x131 px, 26.0 px/unit, from sprite gph_mainMenuSettingsCogs.
+- menu_tile_settings_overlay : Title tile settings, frame drawn on top when picked. 197x147 px, 26.0 px/unit, from sprite gph_mainMenuForegroundSettings_selected.
+- menu_tile_quit_deselected : Title tile quit, grey background. 431x48 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundQuit_deselected.
+- menu_tile_quit_selected : Title tile quit, coloured background. 431x48 px, 26.0 px/unit, from sprite gph_mainMenuBackgroundQuit_selected.
+- menu_tile_quit_overlay : Title tile quit, frame drawn on top when picked. 431x48 px, 26.0 px/unit, from sprite gph_mainMenuForegroundQuit_selected.
+- menu_tile_header : Label bar on top of a picked tile. 457x45 px, 26.0 px/unit, from sprite gph_mainMenuItemHeader.
+- menu_corner_large : Frame corner, big tiles (69x68), drawn top-left and flipped for the others. 69x67 px, 26.0 px/unit, from sprite gph_menuSelectedCornerLarge.
+- menu_corner_small : Frame corner, small tiles (38x34). 38x34 px, 26.0 px/unit, from sprite gph_menuSelectedCornerSmall.
+- menu_sunrays_1 : Sun-ray layer 1 behind a picked tile (556x556). 542x528 px, 26.0 px/unit, from sprite gph_mainMenuSun01.
+- menu_sunrays_2 : Sun-ray layer 2 behind a picked tile (556x556). 557x558 px, 26.0 px/unit, from sprite gph_mainMenuSun02.
+- menu_sunrays_3 : Sun-ray layer 3 behind a picked tile (556x556). 518x494 px, 26.0 px/unit, from sprite gph_mainMenuSun03.
+- menu_sunrays_4 : Sun-ray layer 4 behind a picked tile (556x556). 489x487 px, 26.0 px/unit, from sprite gph_mainMenuSun04.
+- menu_sunrays_5 : Sun-ray layer 5 behind a picked tile (556x556). 557x456 px, 26.0 px/unit, from sprite gph_mainMenuSun05.
+- Title tiles (1920x1080, centres from screen centre, y up): local (-249, 225.5) 437x335; single (-246, -155.5) 435x335; online (278, 232.5) 441x335; shop (277, -62.5) 450x165; help (146, -250) 197x150; settings (396, -251) 197x150; quit (0, -406) 436x68. Front art offsets from the tile centre: local (-5, -25) 538x272, single (17, -42) 488x235, online (-21, -19) 467x283, shop (-20, -9) 483x128, settings cogs (0, 0) 181x134. Picked tile: rays 1 turn 0->180 deg and rays 2 turn 0->-90 deg every 2 s (looping); the 4 corners pulse outward and back every 1 s.
+- menu_header : Title bar of Select Players / Select Mode: 800x90 hanging from the top centre. 189x91 px, 26.0 px/unit, from sprite gph_menuHeaderBackground.
+- menu_player_select_background_deselected : Seat panel, grey (332x283; also the 332x100 brick pack panel, sliced). 137x136 px, 26.0 px/unit, from sprite gph_playerSelectBackground_deselected.
+- menu_player_select_background_selected : Seat panel behind a ready wizard, under the sun rays. 137x136 px, 26.0 px/unit, from sprite gph_playerSelectBackground_selected.
+- menu_player_select_outline : Frame over a ready seat panel (332x283). 137x136 px, 26.0 px/unit, from sprite gph_playerSelectOutline.
+- menu_player_select_nameplate : Name plate under a seat (367x78). 42x37 px, 26.0 px/unit, from sprite gph_playerSelectNameBackground.
+- menu_player_select_wizard1_sleeping : Seat 1 wizard, asleep until someone joins. 213x250 px, 26.0 px/unit, from sprite gph_playerSelectWizard01Sleeping.
+- menu_player_select_wizard1_ready : Seat 1 wizard, awake. 235x314 px, 26.0 px/unit, from sprite gph_playerSelectWizard01Ready.
+- menu_player_select_wizard2_sleeping : Seat 2 wizard, asleep until someone joins. 225x323 px, 26.0 px/unit, from sprite gph_playerSelectWizard02Sleeping.
+- menu_player_select_wizard2_ready : Seat 2 wizard, awake. 259x344 px, 26.0 px/unit, from sprite gph_mainMenuOnlineMPWizard02.
+- menu_player_select_wizard3_sleeping : Seat 3 wizard, asleep until someone joins. 237x275 px, 26.0 px/unit, from sprite gph_playerSelectWizard03Sleeping.
+- menu_player_select_wizard3_ready : Seat 3 wizard, awake. 279x300 px, 26.0 px/unit, from sprite gph_playerSelectWizard03Ready.
+- menu_player_select_wizard4_sleeping : Seat 4 wizard, asleep until someone joins. 212x267 px, 26.0 px/unit, from sprite gph_playerSelectWizard04Sleeping.
+- menu_player_select_wizard4_ready : Seat 4 wizard, awake. 253x322 px, 26.0 px/unit, from sprite gph_mainMenuLocalMPWizard04.
+- menu_arrow_small : Seat arrows left/right of a panel (38x64, at x -165 / +165). 38x64 px, 26.0 px/unit, from sprite btn_menuArrowSmall.
+- menu_arrow : Mode column arrow (94x55), above and below the picked tile. 94x55 px, 26.0 px/unit, from sprite btn_menuArrow.
+- menu_arrow_deselected : Mode column arrow when the column is not active. 93x55 px, 26.0 px/unit, from sprite btn_menuArrowDeselected.
+- menu_mode_race : Select Mode: Race tile. 487x414 px, 26.0 px/unit, from sprite gph_menuModeRace.
+- menu_mode_survival : Select Mode: Survival tile. 482x408 px, 26.0 px/unit, from sprite gph_menuModeSurvival.
+- menu_mode_puzzle : Select Mode: Puzzle tile. 506x392 px, 26.0 px/unit, from sprite gph_menuModePuzzle.
+- menu_mode_random : Select Mode: Random tile. 497x392 px, 26.0 px/unit, from sprite gph_menuModeRandom.
+- menu_mode_survivalsp : Select Mode: SurvivalSP tile. 482x403 px, 26.0 px/unit, from sprite gph_menuModeSurvivalSP.
+- menu_difficulty_background : Select Mode: difficulty tile background (461x393). 461x393 px, 26.0 px/unit, from sprite gph_difficultyItemBackground.
+- menu_difficulty_background_special : Select Mode: difficulty tile background for Pro/Special. 461x393 px, 26.0 px/unit, from sprite gph_difficultyItemBackground_special.
+- menu_difficulty_easy : Select Mode: Easy picture on the difficulty tile. 209x157 px, 26.0 px/unit, from sprite gph_difficultyEasy.
+- menu_difficulty_normal : Select Mode: Normal picture on the difficulty tile. 328x175 px, 26.0 px/unit, from sprite gph_difficultyNormal.
+- menu_difficulty_pro : Select Mode: Pro picture on the difficulty tile. 370x188 px, 26.0 px/unit, from sprite gph_difficultyPro.
+- menu_difficulty_random : Select Mode: Random picture on the difficulty tile. 365x208 px, 26.0 px/unit, from sprite gph_difficultyRandom.
+- menu_quick_match : Select Mode: cup column tile picture (online / cup flow). 139x167 px, 26.0 px/unit, from sprite gph_quickMatch.
+- menu_mode_title_background_easy : In-match mode title banner (easy), NOT a Select Mode tile. 81x80 px, 26.0 px/unit, from sprite gph_modeTitleBackground_easy.
+- menu_mode_title_side_easy : In-match mode title banner wings (easy). 191x98 px, 26.0 px/unit, from sprite gph_modeTitleBackgroundSide_easy.
+- menu_mode_title_star_easy : In-match mode title banner stars (easy). 37x35 px, 26.0 px/unit, from sprite gph_modeTitleBackgroundStar_easy.
+- menu_mode_title_background_normal : In-match mode title banner (normal), NOT a Select Mode tile. 81x80 px, 26.0 px/unit, from sprite gph_modeTitleBackground_normal.
+- menu_mode_title_side_normal : In-match mode title banner wings (normal). 191x98 px, 26.0 px/unit, from sprite gph_modeTitleBackgroundSide_normal.
+- menu_mode_title_star_normal : In-match mode title banner stars (normal). 37x35 px, 26.0 px/unit, from sprite gph_modeTitleBackgroundStar_normal.
+- menu_mode_title_background_special : In-match mode title banner (special), NOT a Select Mode tile. 80x80 px, 26.0 px/unit, from sprite gph_modeTitleBackground_special.
+- menu_mode_title_side_special : In-match mode title banner wings (special). 192x98 px, 26.0 px/unit, from sprite gph_modeTitleBackgroundSide_special.
+- menu_mode_title_star_special : In-match mode title banner stars (special). 37x35 px, 26.0 px/unit, from sprite gph_modeTitleBackgroundStar_special.
+- Select Players: 4 seat columns between 5% and 95% of the width, each 22.5% wide (432 px at 1920), centred. Per seat, from the screen centre (y up): character panel 332x283 at +115, its 318x500 wizard window centred on the same point (+115), arrows at x -165/+165 on that line, brick pack panel 332x100 at -110, name plate 367x78 at -230. Corners: menu_corner_small on both panels. Header 800x90 hanging from the top centre. Wizard sprite offsets in the panel: sleeping 1 (0,0) 213x250, 2 (0,38) 225x323, 3 (-9,14) 237x275, 4 (0,11.7) 212x267; ready 1 (0,0) 235x314, 2 (0,21) 259x344, 3 (-3,4) 279x300, 4 (7.5,7) 253x322. A ready seat = selected background + 5 sun-ray layers (masked to 327x267) + outline + wizard. Texts: "Select Players", "[continue]\nTo join", "Player {n}", "Sign In".
+- Select Mode: columns of 480x800 panels, 540 px apart, centred on x (2 columns: -270 / +270; 3 with the cup column), y 0. Column 1 modes (Race, Survival, Puzzle, then Random), column 2 difficulties (Easy, Normal, Pro, Random). Picked-tile frame 513x445 at x -5.5 with menu_corner_large corners; arrows 94x55 at 130 px outside the top and bottom edge. Tile pictures: race (-3,9) 487x411, survival (6,0) 482x393, puzzle (-7,-1) 505x392, random (0,0) 495x393; difficulty background (-5,0) 461x393 with picture easy (-3.9,35.5) 209x157, normal (-2,38) 328x175, pro (-2.5,42) 370x188 on the _special background, random (0,50) 365x208; light/dark spell icons 56x56 at (85,-190) and (145,-190). The third difficulty is keyed DIFFICULTY_PRO but its English text is "Special". The menu_mode_title_* sprites are the banner shown at the start of a match, not Select Mode art.
+- start_message_background : Bar behind "Press [continue] to start" (63 px high, sized to the text). 169x63 px, 26.0 px/unit, from sprite gph_menuStartMessageBackground.
+- logo_plain : Logo alone (818x294), for the animated start screen. 818x294 px, 26.0 px/unit, from sprite gph_logo.
+- logo_brick : Brick that drops onto the logo at 1.63 s. 129x118 px, 26.0 px/unit, from sprite gph_logoBrick.
+- logo_debris_1 : Rubble piece 1 under the logo. 37x34 px, 26.0 px/unit, from sprite gph_logoDebris01.
+- logo_debris_2 : Rubble piece 2 under the logo. 31x30 px, 26.0 px/unit, from sprite gph_logoDebris02.
+- logo_debris_3 : Rubble piece 3 under the logo. 31x28 px, 26.0 px/unit, from sprite gph_logoDebris03.
+- logo_debris_4 : Rubble piece 4 under the logo. 44x39 px, 26.0 px/unit, from sprite gph_logoDebris04.
+- logo_debris_5 : Rubble piece 5 under the logo. 39x43 px, 26.0 px/unit, from sprite gph_logoDebris05.
+- logo_debris_6 : Rubble piece 6 under the logo. 45x45 px, 26.0 px/unit, from sprite gph_logoDebris06.
+- logo_debris_7 : Rubble piece 7 under the logo. 26x27 px, 26.0 px/unit, from sprite gph_logoDebris07.
+- logo_debris_8 : Rubble piece 8 under the logo. 15x16 px, 26.0 px/unit, from sprite gph_logoDebris08.
+- logo_plants_1 : Plants growing on top of the logo, piece 1. 80x63 px, 26.0 px/unit, from sprite gph_logoPlants01.
+- logo_plants_2 : Plants growing on top of the logo, piece 2. 69x61 px, 26.0 px/unit, from sprite gph_logoPlants02.
+- logo_plants_3 : Plants growing on top of the logo, piece 3. 122x53 px, 26.0 px/unit, from sprite gph_logoPlants03.
+- logo_plants_4 : Plants growing on top of the logo, piece 4. 62x48 px, 26.0 px/unit, from sprite gph_logoPlants04.
+- Start screen: logo gph_logo is 818x294 at 26 px/unit (818x294 px at 1080p), centre 7 units (182 px) above the screen centre. Pieces relative to the logo container (units, y up): brick (-1.78, 10.11); plants 1 (-9.67, 11.71), 2 (-5.38, 11.79), 3 (3.33, 11.66), 4 (9.795, 11.206) behind the logo; debris 1 (-1.02, 0.49), 2 (0.45, 1.12), 3 (3.58, 0.13), 4 (9.36, 0.35), 5 (5.32, 1.7), 6 (-6.14, 0.16), 7 (-7.27, 1.19); small debris 8 copies at (-5.59, 1.56) x0.846, (-5.03, -0.92) x0.846, (2.82, -1.29) x0.692, (7.93, -0.46) x0.521, (8.63, 1.01) x0.658, (9.06, 1.35) x0.587, (11.36, 1.36) x0.658, (-9.03, 0.59) x0.587, (-9.77, 0.94) x0.736. MoveIn clip (2.62 s): container drops from y 22.39 to 0 by 0.38 s overshooting to -2.41, bounces (-1.26, 0.64, 1.47, 0.15) and settles at 0.81 s; at 1.63 s the brick lands: container dips to -2.24 at 1.92 s, back +0.33, -0.21, 0 at 2.48 s; logo tilts z +3.05 deg at 1.69 s, -1.87 at 1.87, +0.82, +0.32, -0.18, 0 at 2.17; debris pieces hop up about 2.3 units at 1.63 s and fall back by 2.04 s. Sounds on clip events: SWOOSH, GRASS_GROW, FALLING_BRICK, BRICK_LAND (brick nudge + menu crumble). Prompt "Press [continue] to start" ([continue] is the Enter / A key icon) in a bar 218 px below the screen centre, full width, shown once the logo is placed; it blinks on 0.5 s / off 0.5 s, and every 0.075 s after the press. Press plays game start + heavy brick + crumble, rumbles, then goes to the title tiles. Ambience: AMBIENCE_MENU.
+- sfx_splash_1 : Splash sound 1 (one of the 4 at random). 038_Water_splash_01.ogg.
+- sfx_splash_2 : Splash sound 2 (one of the 4 at random). 038_Water_splash_02.ogg.
+- sfx_splash_3 : Splash sound 3 (one of the 4 at random). 038_Water_splash_03.ogg.
+- sfx_splash_4 : Splash sound 4 (one of the 4 at random). 038_Water_splash_04.ogg.
+- Splash: a brick splashes once when its centre falls below y -8.5 (cells, the water line). The splash spawns at the brick centre minus a random 0..0.4 down and lasts up to 2 s; one of 4 splash sounds plays at random. The brick gets an impulse of -0.9 x its velocity (so it nearly stops), rotation damped by 0.25, and afterwards a constant upward force of 17 every physics step (it floats) unless it is a Bubble brick. Two layers: (1) splash_1..3 front: 5 particles at once along a 2.86-wide horizontal line (half arc), no motion, each one of the 3 pictures at random, size random 1.3..2.5 units, lifetime 1 s, size over life 0 -> 1 at 0.10 -> 0.92 at 0.42 -> 0 at 0.68, white, drawn in front (sorting order 2). (2) drops: 12 white dots (gph_whiteCircle) at once from a 1.5-radius disc, shot upward in a narrow cone (4.6 deg) at speed 10..18 units/s, gravity x2 (world gravity 18 -> 36 units/s^2), size 0.3..0.4 units, full size until 0.45 s, shrinking to 0 at 0.93 s (lifetime 5 s, size curve 1 -> 1 at 0.09 -> 0 at 0.19), sorting order 0.
+- menu_mode_endless : Endless select: Endless Race button picture (690x173). 690x173 px, 26.0 px/unit, from sprite gph_leaderboardModeRace.
+- menu_mode_endless_survival : Endless select: Endless Survival button picture (689x167). 689x167 px, 26.0 px/unit, from sprite gph_leaderboardModeSurvival.
+- menu_mode_endless_puzzle : Endless select: Endless Puzzle button picture (690x224). 690x224 px, 26.0 px/unit, from sprite gph_leaderboardModePuzzle.
+- menu_challenge_wizard2 : Wizard 2 face in the corner of an Endless button. 101x104 px, 26.0 px/unit, from sprite gph_menuChallengeItemWizard02.
+- menu_challenge_wizard3 : Wizard 3 face in the corner of an Endless button. 102x90 px, 26.0 px/unit, from sprite gph_menuChallengeItemWizard03.
+- menu_challenge_wizard4 : Wizard 4 face in the corner of an Endless button. 106x95 px, 26.0 px/unit, from sprite gph_menuChallengeItemWizard04.
+- menu_button_background : Single Player list button (550x78; also Settings rows). 111x78 px, 26.0 px/unit, from sprite gph_settingsMenuItemBackground.
+- menu_button_cup_background : Band across a Single Player button (Endless / Cup), stretched to the button width, 54 high. 60x57 px, 26.0 px/unit, from sprite gph_cupOnlineButtonBackground.
+- menu_leaderboard_panel : Endless leaderboard panel (800x800), 9-sliced top 51 / bottom 37. 837x91 px, 26.0 px/unit, from sprite gph_popupBackgroundPanel.
+- menu_leaderboard_row : Endless leaderboard row, 9-sliced left 6 / right 7. 20x42 px, 26.0 px/unit, from sprite gph_leaderboardEntryBackground.
+- menu_leaderboard_medal_1 : Endless leaderboard rank 1 medal (44x52). 44x52 px, 26.0 px/unit, from sprite gph_leaderboardMedalGold.
+- menu_leaderboard_medal_2 : Endless leaderboard rank 2 medal (40x49). 40x49 px, 26.0 px/unit, from sprite gph_leaderboardMedalSilver.
+- menu_leaderboard_medal_3 : Endless leaderboard rank 3 medal (44x52). 44x54 px, 26.0 px/unit, from sprite gph_leaderboardMedalBronze.
+- menu_personal_best_star : Star beside YOUR BEST (43x43; the outer pair at 0.75, turned 10 degrees). 43x43 px, 26.0 px/unit, from sprite gph_personalBestStar.
+- menu_key_space : Menu hint glyph keySpace. 70x51 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_keySpace.
+- menu_key_esc : Menu hint glyph keyEsc. 55x51 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_keyEsc.
+- menu_key_c : Menu hint glyph keyC. 55x51 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_keyC.
+- menu_key_tab : Menu hint glyph keyTab. 70x51 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_keyTab.
+- menu_pad_a : Menu hint glyph a. 55x52 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_a.
+- menu_pad_b : Menu hint glyph b. 55x52 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_b.
+- menu_pad_y : Menu hint glyph y. 55x52 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_y.
+- menu_pad_cross : Menu hint glyph buttonCross. 55x51 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_buttonCross.
+- menu_pad_circle : Menu hint glyph buttonCircle. 55x51 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_buttonCircle.
+- menu_pad_triangle : Menu hint glyph buttonTriangle. 55x51 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_buttonTriangle.
+- menu_key_left : Left arrow key cap beside WEEKLY (55x51). 55x51 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_keyLeft.
+- menu_key_right : Right arrow key cap beside WEEKLY (55x51). 55x51 px, 26.0 px/unit, from sprite ..\Resources\fonts\SpriteSymbols_keyRight.
+- Single Player screen (title "Single Player"): no mode tiles. The seat (one wizard panel 332x283, arrows at x -200/+200, brick pack panel 332x100 at -225 below it) sits 200 px above the centre; under it a list of 550x78 buttons (menu_button_background, corners menu_corner_small 10 px outside) starting 175 px below the centre: "Trials" at 0, then "Endless" 100 px lower (Endless button has the menu_button_cup_background band). Endless opens the "Endless" screen: buttons 690 wide (Race 690x173, Survival 689x167, Puzzle 690x224 with the picture 28 px up) in a container centred at (135, 375) from the screen centre, each with a challenge wizard face (Race wizard 3, Survival wizard 2, Puzzle wizard 4; 110x108 at (33, 6) from the bottom-left), and an 800x800 leaderboard panel (gph_popupBackgroundPanel) at (0, -30). So Endless Race is shown with menu_mode_endless (gph_leaderboardModeRace).
+- popup_background : Game Completed panel, 9-sliced (borders left 0, bottom 6, right 0, top 198), spills off the bottom-right corner. 539x222 px, 26.0 px/unit, from sprite gph_popupBackground.
+- menu_item_selected : Bar behind the picked popup / pause item, 9-sliced (left 16, right 5); width follows the label. 80x28 px, 26.0 px/unit, from sprite gph_menuItemSelectedBackground.
+- Game Completed popup (WinGamePopup): not centred. It sits in the bottom-right corner: content 610 wide x (60 per item + 70) high, anchored to the bottom-right, slides up from below in 0.25 s (ease out quad). The popup_background panel reaches 120 px past the right edge and 100 px below the bottom. Items are right-aligned labels (465x30, 40 px in from the right), 60 px apart, with menu_item_selected (24 high, 30 px in from the right) behind the picked one. Local multiplayer items: "Next match" (only when more than one mode was picked), "Rematch", "Select Mode", "Main menu". There is no "1st Place" title in it. Pause: full screen dark (0.016, 0.012, 0.035, 0.90) with a panel (0.031, 0.020, 0.094, 0.85); "Game Paused" title 480 px in from the left at +260, items "Resume", "Retry", "Quit" below it at +120, each on a 30-high row with menu_item_selected (28 high) behind the picked one.
+- cast_beam : Dark cast beam column: stretched x60 tall going up from the wizard, x300 going down onto the victim. 87x14 px, 26.0 px/unit, from sprite gph_castEffectBackground.
+- cast_beam_blob : Blob riding the beam (2 of them, sorting 11). 107x107 px, 26.0 px/unit, from sprite gph_castEffectBlob.
+- cast_beam_blob_small : Small blob riding the beam (x1.2, sorting 12). 61x62 px, 26.0 px/unit, from sprite gph_castEffectBlobSmall.
+- cast_sunrays : Rays at the beam foot (3 layers, one at x0.8), and at both ends of a lightning. 194x194 px, 26.0 px/unit, from sprite gph_castEffectSunrays.
+- cast_circle_thick : Thick ring at the beam foot / lightning ends. 115x115 px, 26.0 px/unit, from sprite gph_castEffectCircleOutlineThick.
+- cast_circle_thin : Thin ring at the beam foot / lightning ends. 149x149 px, 26.0 px/unit, from sprite gph_castEffectCircleOutlineThin.
+- cast_circle_gradient : Glow disc at the beam foot / lightning ends. 149x149 px, 26.0 px/unit, from sprite gph_castEffectCircleInnerGradient.
+- cast_spark : Spark (BeamSpark). 29x45 px, 26.0 px/unit, from sprite gph_castEffectAnimals02.
+- cast_lane_beam : Lane wave down the victim's lane, Race/Puzzle look. 383x32 px, 26.0 px/unit, from sprite gph_castBeamLane_World01.
+- cast_lane_beam_survival : Lane wave, Survival look (drawn 4.55 units right of the lane centre). 386x32 px, 26.0 px/unit, from sprite gph_castBeamLane_World02.
+- cast_lightning : Light cast lightning strip texture, repeated along the bolt (0.02 texture repeats per unit). 1024x64 px, from texture gph_lightning.png.
+- spell_cloud : Spell bubble next to the wizard holding the spell icon (drawn x1.31). 139x140 px, 52.0 px/unit, from sprite gph_spellBackground_black.
+- spell_cloud_button_light_up : Keyboard J hint on the light spell bubble (up). 33x31 px, 26.0 px/unit, from sprite gph_KBJButtonLarge_up.
+- spell_cloud_button_light_down : Keyboard J hint on the light spell bubble (down). 33x26 px, 26.0 px/unit, from sprite gph_KBJButtonLarge_down.
+- spell_cloud_button_dark_up : Keyboard K hint on the dark spell bubble (up). 33x31 px, 26.0 px/unit, from sprite gph_KBKButtonLarge_up.
+- spell_cloud_button_dark_down : Keyboard K hint on the dark spell bubble (down). 33x26 px, 26.0 px/unit, from sprite gph_KBKButtonLarge_down.
+- spell_cloud_pad_light_up : Pad hint on the light spell bubble (up). 30x27 px, 26.0 px/unit, from sprite gph_xButton_up.
+- spell_cloud_pad_light_down : Pad hint on the light spell bubble (down). 30x23 px, 26.0 px/unit, from sprite gph_xButton_down.
+- spell_cloud_pad_dark_up : Pad hint on the dark spell bubble (up). 29x28 px, 26.0 px/unit, from sprite gph_XboxBButton_up.
+- spell_cloud_pad_dark_down : Pad hint on the dark spell bubble (down). 29x23 px, 26.0 px/unit, from sprite gph_XboxBButton_down.
+- spell_cloud_ps_light_up : PlayStation hint on the light spell bubble (up). 29x28 px, 26.0 px/unit, from sprite gph_PSSquareButton_up.
+- spell_cloud_ps_light_down : PlayStation hint on the light spell bubble (down). 29x24 px, 26.0 px/unit, from sprite gph_PSSquareButton_down.
+- spell_cloud_ps_dark_up : PlayStation hint on the dark spell bubble (up). 29x28 px, 26.0 px/unit, from sprite gph_PSCircleButton_up.
+- spell_cloud_ps_dark_down : PlayStation hint on the dark spell bubble (down). 29x24 px, 26.0 px/unit, from sprite gph_PSCircleButton_down.
+- Cast beams: a dark cast is a beam up from the caster (BeamIn 0.33 s, gives up after 1 s), then a beam down onto the victim's brick (BeamDownIn 0.63 s, timeout 1 s), then the lane wave over the victim's lane (BeamLaneIn 1 s, BeamLaneOut 0.17 s; the overlay is placed at the background camera's centre and stretched to its full height). Each beam is: cast_beam stretched (x60 up, x300 down) with two white strokes 0.1 wide at x -0.88 / +0.88 (20 tall), blobs riding it, and at its foot 3 sunray layers (Sunrays clip 2.5 s, looping), thick/thin rings and a glow disc. When it ends it squeezes to 1% width in 0.03 s. Explosion clip 0.46 s. Light cast: a lightning strip from the wizard to the brick (Lightning clip 0.4 s) with rays, rings and glow at both ends; the strip is a mesh wobbling as a sine (amplitude grows towards the middle), texture cast_lightning repeating every 50 units.
+- Spell clouds: each wizard carries two bubbles, light (near the head, about (0.6, 4.8) from the wizard) and dark (about (2.9, 3.5)), each spell_cloud x1.31 with the spell icon inside and a button hint below it. Clips: Show 0.83 s, Floating 3 s loop, Used 1.22 s (bubble, hint and icon animate out), Hide 0.38 s. Positions per wizard: 1 light (0.58, 4.8) dark (2.87, 3.53); 2 light (0.38, 5.37) dark (2.67, 4.1); 3 light (0.75, 5) dark (3.04, 3.73).
+- pacer_line : Endless Race pacer line tile (1x2 units, 77 tiles side by side 1 unit apart); the line is its top edge. 26x53 px, 26.0 px/unit, from sprite gph_pacerRaceEndless.
+- pacer_layer : Tint drawn under the pacer line (EndlessRacePaceLayer). 40x40 px, 40.0 px/unit, from sprite gph_endless_race_pace_layer.
+- background_endless_0 : Endless back island (same place as Race). 140x96 px, 26.0 px/unit, from sprite gph_backgroundBack01_endless.
+- background_endless_1 : Endless middle island left. 395x210 px, 26.0 px/unit, from sprite gph_backgroundMiddle01_endless.
+- background_endless_2 : Endless middle island right. 460x340 px, 26.0 px/unit, from sprite gph_backgroundMiddle02_endless.
+- background_endless_3 : Endless front island left. 244x343 px, 26.0 px/unit, from sprite gph_backgroundFront01_endless.
+- background_endless_4 : Endless front island centre-left. 410x178 px, 26.0 px/unit, from sprite gph_backgroundFront02_endless.
+- background_endless_5 : Endless front island right. 378x520 px, 26.0 px/unit, from sprite gph_backgroundFront03_endless.
+- Endless Race: pacer starts at height -5 (slides in from -15 over 1 s), speed 0.2 u/s. Each spell line picked up is a checkpoint: lines sit at the target height, first 10, then +10 each (+11, +12... once past 150). At a checkpoint the pacer stops, eases 2 units down over 1 s, waits 2 s, then speed += step (step starts 0.05, grows 0.01 per checkpoint up to 0.1; speed max 1.5). Game over when the pacer reaches the tower top. Score = ceil(10 x tower height). Light spells only, picked from Ivy, Undo, Ivy, Undo, Petrify. No lives: lost bricks are just gone.
+- font_main : the original's Enzo letters, from its distance-field atlas turned into plain white letters (fonts/main.png, 1024x1024) with 199 glyph metrics (fonts/main.ron). The original also draws an outline and gradient on titles.
+- logo : Game logo with brick, plants and debris (818x420). 818x420 px, 26.0 px/unit, from sprite gph_logo_0.
+- menu_background : 1920x1080 composite of the original title backdrop (it reuses the Race scene: sky, water band, islands, clouds at their measured screen positions, 26 px per unit).
+- wizard_1 : Wizard 1 portrait (game-info icon; full-body parts are in the wizards atlas). 49x45 px, 26.0 px/unit, from sprite icn_gameInfoWizard01.
+- wizard_2 : Wizard 2 portrait (game-info icon; full-body parts are in the wizards atlas). 55x45 px, 26.0 px/unit, from sprite icn_gameInfoWizard02.
+- wizard_3 : Wizard 3 portrait (game-info icon; full-body parts are in the wizards atlas). 52x45 px, 26.0 px/unit, from sprite icn_gameInfoWizard03.
+- wizard_4 : Wizard 4 portrait (game-info icon; full-body parts are in the wizards atlas). 49x56 px, 26.0 px/unit, from sprite icn_gameInfoWizard04.
+- life_orb : Heart (used for the Extra Life orb and HUD hearts). 29x29 px, 26.0 px/unit, from sprite gph_heart_filled.
+- heart : HUD heart. 29x29 px, 26.0 px/unit, from sprite gph_heart_filled.
+- drop_guide : Drop guide (stretched to the brick width and view height, tinted). 40x40 px, 40.0 px/unit, from sprite gph_brick_guide.
+- spell_line : One 1-unit piece of the spell line (16 per line, tinted with 9 rainbow colours). 32x32 px, 26.0 px/unit, from sprite gph_spellPickup.
+- finish_line : Finish line tile, repeated every 1.2 cells (the original names it "End"). 32x38 px, 26.0 px/unit, from sprite gph_finishLineEnd.
+- laser : Puzzle laser beam (1024x32 texture, repeat sideways); pillar art: gph_laserPillarTile / gph_laserPillarTop. 1024x32 px, from texture gph_laseron.png.
+- spell_orb_light : Light magic icon (the original line has no end orbs; icon used instead). 56x56 px, 26.0 px/unit, from sprite icn_lightSpell.
+- spell_orb_dark : Dark magic icon. 56x56 px, 26.0 px/unit, from sprite icn_darkSpell.
+- minibase : Minibase ledge, right-hand version (left: gph_towerPiece01L_var01). 121x111 px, 26.0 px/unit, from sprite gph_towerPiece01R_var01.
+- balloon : Slow spell balloon. 137x169 px, 65.0 px/unit, from sprite gph_balloon_var01.
+- bubble : Bubble (size 3; size 2 and 4 variants exist). 274x301 px, 65.0 px/unit, from sprite gph_bubble3_var1.
+- water : Race foreground water tile (1x2 units, repeat sideways); pivot at the top edge. 26x53 px, 26.0 px/unit, from sprite gph_foregroundWater.
+- mist : Mist puff. 104x96 px, 26.0 px/unit, from sprite gph_cursedLineMist.
+- grass_overlay : Grass tuft for Grassy (4 variants). 79x73 px, 65.0 px/unit, from sprite gph_grassLarge_var01.
+- brick_I_stone : Petrified brick I. 265x72 px, 65.0 px/unit, from sprite gph_brickI_petrified01.
+- brick_I_ice : Ice brick I. 260x65 px, 65.0 px/unit, from sprite gph_brickI_ice.
+- brick_O_stone : Petrified brick O. 136x136 px, 65.0 px/unit, from sprite gph_brickO_petrified01.
+- brick_O_ice : Ice brick O. 130x130 px, 65.0 px/unit, from sprite gph_brickO_ice.
+- brick_T_stone : Petrified brick T. 198x132 px, 65.0 px/unit, from sprite gph_brickT_petrified01.
+- brick_T_ice : Ice brick T. 195x131 px, 65.0 px/unit, from sprite gph_brickT_ice.
+- brick_S_stone : Petrified brick S. 198x135 px, 65.0 px/unit, from sprite gph_brickS_petrified01.
+- brick_S_ice : Ice brick S. 195x130 px, 65.0 px/unit, from sprite gph_brickS_ice.
+- brick_Z_stone : Petrified brick Z. 198x135 px, 65.0 px/unit, from sprite gph_brickZ_petrified01.
+- brick_Z_ice : Ice brick Z. 195x130 px, 65.0 px/unit, from sprite gph_brickZ_ice.
+- brick_J_stone : Petrified brick J. 200x137 px, 65.0 px/unit, from sprite gph_brickJ_petrified01.
+- brick_J_ice : Ice brick J. 196x130 px, 65.0 px/unit, from sprite gph_brickJ_ice.
+- brick_L_stone : Petrified brick L. 200x137 px, 65.0 px/unit, from sprite gph_brickL_petrified01.
+- brick_L_ice : Ice brick L. 195x130 px, 65.0 px/unit, from sprite gph_brickL_ice.
+- mystery_block_stone : Petrified Mystery block. 134x264 px, 65.0 px/unit, from sprite gph_brickMystery01_petrified.
+- mystery_block_ice : Ice Mystery block. 136x267 px, 65.0 px/unit, from sprite gph_brickMystery01_ice.
+- mystery_blob_stone : Petrified Mystery blob. 199x263 px, 65.0 px/unit, from sprite gph_brickMystery02_petrified.
+- mystery_blob_ice : Ice Mystery blob. 200x266 px, 65.0 px/unit, from sprite gph_brickMystery02_ice.
+- mystery_table_stone : Petrified Mystery table. 267x201 px, 65.0 px/unit, from sprite gph_brickMystery03_petrified.
+- mystery_table_ice : Ice Mystery table. 267x203 px, 65.0 px/unit, from sprite gph_brickMystery03_ice.
+- spell_icon_Ivy : Spell icon Ivy. 122x116 px, 52.0 px/unit, from sprite icn_spellIvy.
+- spell_icon_Petrify : Spell icon Petrify. 89x96 px, 52.0 px/unit, from sprite icn_spellPetrify.
+- spell_icon_Undo : Spell icon Undo. 69x104 px, 52.0 px/unit, from sprite icn_spellUndo.
+- spell_icon_ExtraLife : Spell icon ExtraLife. 94x93 px, 52.0 px/unit, from sprite icn_spellExtraLife.
+- spell_icon_Minibase : Spell icon Minibase. 103x116 px, 52.0 px/unit, from sprite icn_spellTowerpiece.
+- spell_icon_AutoBuild : Spell icon AutoBuild. 111x104 px, 52.0 px/unit, from sprite icn_spellAutoBuild.
+- spell_icon_Large : Spell icon Large. 104x107 px, 52.0 px/unit, from sprite icn_spellLarge.
+- spell_icon_Fast : Spell icon Fast. 65x104 px, 52.0 px/unit, from sprite icn_spellFastBrick.
+- spell_icon_NoRotate : Spell icon NoRotate. 126x126 px, 52.0 px/unit, from sprite icn_spellRotatedBrick.
+- spell_icon_AutoRotate : Spell icon AutoRotate. 99x84 px, 52.0 px/unit, from sprite icn_spellAutoRotate.
+- spell_icon_Ice : Spell icon Ice. 101x107 px, 52.0 px/unit, from sprite icn_spellIceBrick.
+- spell_icon_Mist : Spell icon Mist. 126x120 px, 52.0 px/unit, from sprite icn_spellMist.
+- spell_icon_Slow : Spell icon Slow. 93x115 px, 52.0 px/unit, from sprite icn_spellSlowDown.
+- spell_icon_Mystery : Spell icon Mystery. 84x99 px, 52.0 px/unit, from sprite icn_spellMystery.
+- spell_icon_Bubble : Spell icon Bubble. 103x80 px, 52.0 px/unit, from sprite icn_spellBubble.
+- spell_icon_Grassy : Spell icon Grassy. 122x85 px, 52.0 px/unit, from sprite icn_spellGrass.
+- spell_icon_Ghost : Spell icon Ghost. 104x91 px, 52.0 px/unit, from sprite icn_spellGhosts.
+- spell_slot_light : Light spell slot background. 140x140 px, 52.0 px/unit, from sprite gph_spellBackground_white.
+- spell_slot_dark : Dark spell slot background. 139x140 px, 52.0 px/unit, from sprite gph_spellBackground_black.
+- text_ar : the original's UI text for language ar (key -> translation).
+- text_ch : the original's UI text for language ch (key -> translation).
+- text_de : the original's UI text for language de (key -> translation).
+- text_en : the original's UI text for language en (key -> translation).
+- text_es : the original's UI text for language es (key -> translation).
+- text_fl : the original's UI text for language fl (key -> translation).
+- text_fr : the original's UI text for language fr (key -> translation).
+- text_it : the original's UI text for language it (key -> translation).
+- text_jp : the original's UI text for language jp (key -> translation).
+- text_ko : the original's UI text for language ko (key -> translation).
+- text_nl : the original's UI text for language nl (key -> translation).
+- text_no : the original's UI text for language no (key -> translation).
+- text_pl : the original's UI text for language pl (key -> translation).
+- text_pt : the original's UI text for language pt (key -> translation).
+- text_ro : the original's UI text for language ro (key -> translation).
+- text_ru : the original's UI text for language ru (key -> translation).
+- text_sv : the original's UI text for language sv (key -> translation).
+- text_tr : the original's UI text for language tr (key -> translation).
+- text_tw : the original's UI text for language tw (key -> translation).
+- credits_content : the Credits roll, JSON groups of titles and names (title texts are language keys).
+- puzzle_pro_sun : Puzzle Pro: eclipsed sun, 9 units above the screen centre. 408x408 px, 26.0 px/unit, from sprite gph_eclipsedSun.
+- puzzle_pro_corona : Puzzle Pro: corona ray around the eclipsed sun (several copies, stretched). 683x97 px, 26.0 px/unit, from sprite gph_corona.
+- puzzle_sand : Puzzle: sand strip along the bottom of the background. 26x46 px, from texture gph_pinkSand.png.
+- puzzle_sand_front : Puzzle: front sand strip, in front of the front ruins. 26x48 px, from texture gph_foregroundSand.png.
+- sandstorm_front_1 : Puzzle: front sandstorm layer 1 (scrolling, tinted). 512x32 px, from texture gph_sand.png.
+- sandstorm_front_2 : Puzzle: front sandstorm layer 2. 512x32 px, from texture gph_sand02.png.
+- sandstorm_back_1 : Puzzle: back sandstorm layer 1. 512x32 px, from texture gph_sand03.png.
+- sandstorm_back_2 : Puzzle: back sandstorm layer 2. 512x32 px, from texture gph_sand04.png.
+- brick_impact_dust : Dust puff where a brick hits (3 per hit). 27x24 px, from texture gph_brickImpact.png.
+- gravel : Gravel bits. 16x128 px, from texture gph_gravel.png.
+- mist_puff : Soft round puff: lost-brick mist and desert dust. 63x63 px, from texture gph_gradientRadialSoft.png.
+- spark_star : Small star spark (spawn poof, desert sparks). 32x32 px, from texture gph_castEffectStar.png.
+- lost_cross : Big red cross where a brick was lost (spins and shrinks, 0.8 s). 65x65 px, 26.0 px/unit, from sprite anim_largeCross_65x65_0.
+- wave_cloud_1 : WAVE N message: cloud piece 1. 350x56 px, 26.0 px/unit, from sprite gph_cloudMessage01.
+- wave_cloud_2 : WAVE N message: cloud piece 2. 177x42 px, 26.0 px/unit, from sprite gph_cloudMessage02.
+- wave_cloud_3 : WAVE N message: cloud piece 3. 303x102 px, 26.0 px/unit, from sprite gph_cloudMessage03.
+- wave_cloud_4 : WAVE N message: cloud piece 4. 303x94 px, 26.0 px/unit, from sprite gph_cloudMessage04.
+- confetti_1 : Confetti sheet 1 (32x96 frames), cup winner popup. 96x32 px, from texture anim_confetti01_32x96.png.
+- confetti_2 : Confetti sheet 2 (32x96 frames), cup winner popup. 96x32 px, from texture anim_confetti02_32x96.png.
+- finish_line_end : Cap at each end of the finish line: as is on the left, turned 180 on the right. 40x38 px, 26.0 px/unit, from sprite gph_finishLinetile.
+- hourglass : Hourglass beside the time left on a Race trial finish line. 38x49 px, 26.0 px/unit, from sprite icn_time.
+- key_background : Keyboard key cap behind the J/K hint on the spell bubbles. 48x43 px, from texture gph_KBKeyBackground.png.
+- pad_x_up : Pad X button hint (up). 30x27 px, from texture gph_xButton_up.png.
+- pad_x_down : Pad X button hint (pressed). 30x23 px, from texture gph_xButton_down.png.
+- sfx_chain_1 : Chain sound 1 (SFX_CHAIN_1): the trials tier unlock. 041_Spell_chain_01.ogg.
+- sfx_chain_2 : Chain sound 2 (SFX_CHAIN_2): the trials tier unlock. 041_Spell_chain_02.ogg.
+- sfx_chain_3 : Chain sound 3 (SFX_CHAIN_3): the trials tier unlock. 041_Spell_chain_03.ogg.
+- sfx_chain_4 : Chain sound 4 (SFX_CHAIN_4): the trials tier unlock. 041_Spell_chain_04.ogg.
+- popup_text_background : Game Info player row background. 168x48 px, 26.0 px/unit, from sprite gph_popupTextBackground02.
+- roof_race : Race roof (ROOF_01), drawn at the roof body origin. 114x184 px, 26.0 px/unit, from sprite gph_roof01.
+- roof_survival : Survival roof (ROOF_02), drawn 7.13 below the roof body origin. 109x120 px, 26.0 px/unit, from sprite gph_roof02.
+- rival_brick_I : Rival tower stone brick I. 266x71 px, 65.0 px/unit, from sprite gph_brickI_stone.
+- desert_stone_I : Petrified desert brick I set into a puzzle trial floor. 266x72 px, 65.0 px/unit, from sprite gph_brickI_petrified_desert.
+- rival_brick_O : Rival tower stone brick O. 136x136 px, 65.0 px/unit, from sprite gph_brickO_stone.
+- desert_stone_O : Petrified desert brick O set into a puzzle trial floor. 136x136 px, 65.0 px/unit, from sprite gph_brickO_petrified_desert.
+- rival_brick_T : Rival tower stone brick T. 201x136 px, 65.0 px/unit, from sprite gph_brickT_stone.
+- desert_stone_T : Petrified desert brick T set into a puzzle trial floor. 198x132 px, 65.0 px/unit, from sprite gph_brickT_petrified_desert.
+- rival_brick_S : Rival tower stone brick S. 201x136 px, 65.0 px/unit, from sprite gph_brickS_stone.
+- desert_stone_S : Petrified desert brick S set into a puzzle trial floor. 198x135 px, 65.0 px/unit, from sprite gph_brickS_petrified_desert.
+- rival_brick_Z : Rival tower stone brick Z. 201x136 px, 65.0 px/unit, from sprite gph_brickZ_stone.
+- desert_stone_Z : Petrified desert brick Z set into a puzzle trial floor. 198x135 px, 65.0 px/unit, from sprite gph_brickZ_petrified_desert.
+- rival_brick_J : Rival tower stone brick J. 202x136 px, 65.0 px/unit, from sprite gph_brickJ_stone.
+- desert_stone_J : Petrified desert brick J set into a puzzle trial floor. 200x137 px, 65.0 px/unit, from sprite gph_brickJ_petrified_desert.
+- rival_brick_L : Rival tower stone brick L. 201x136 px, 65.0 px/unit, from sprite gph_brickL_stone.
+- desert_stone_L : Petrified desert brick L set into a puzzle trial floor. 200x137 px, 65.0 px/unit, from sprite gph_brickL_petrified_desert.
+- rival_minibase_L : Rival tower minibase ledge (L). 115x111 px, 26.0 px/unit, from sprite gph_towerPiece01L_var01.
+- rival_minibase_R : Rival tower minibase ledge (R). 121x111 px, 26.0 px/unit, from sprite gph_towerPiece01R_var01.
+- floor_block_4 : Puzzle trial floor block (house 04). 54x81 px, 26.0 px/unit, from sprite gph_house04_world03.
+- floor_block_5 : Puzzle trial floor block (house 05). 29x28 px, 26.0 px/unit, from sprite gph_house05_world03.
+- nudge_sign_left : Nudge tutorial sign (left). 95x149 px, 26.0 px/unit, from sprite gph_nudgeSignLeft.
+- nudge_sign_right : Nudge tutorial sign (right). 98x148 px, 26.0 px/unit, from sprite gph_nudgeSignRight.
+- grass_tuft_1 : Grass tuft 1 (on Endless Puzzle blocks, tinted #9DA247). 48x60 px, 65.0 px/unit, from sprite gph_grass_var01.
+- grass_tuft_2 : Grass tuft 2 (on Endless Puzzle blocks, tinted #9DA247). 53x40 px, 65.0 px/unit, from sprite gph_grass_var02.
+- grass_tuft_3 : Grass tuft 3 (on Endless Puzzle blocks, tinted #9DA247). 50x50 px, 65.0 px/unit, from sprite gph_grass_var03.
+- grass_tuft_4 : Grass tuft 4 (on Endless Puzzle blocks, tinted #9DA247). 48x35 px, 65.0 px/unit, from sprite gph_grass_var04.
+- grass_tuft_5 : Grass tuft 5 (on Endless Puzzle blocks, tinted #9DA247). 60x45 px, 65.0 px/unit, from sprite gph_grass_var05.
+- grass_tuft_6 : Grass tuft 6 (on Endless Puzzle blocks, tinted #9DA247). 50x23 px, 65.0 px/unit, from sprite gph_grass_var06.
+- grass_tuft_7 : Grass tuft 7 (on Endless Puzzle blocks, tinted #9DA247). 50x38 px, 65.0 px/unit, from sprite gph_grass_var07.
+- page_dot_off : Page dot, other pages (20x20). 16x16 px, 26.0 px/unit, from sprite gph_menuPagination_inactive.
+- stats_icon_easy : Stats popup column icon (Easy). 26x25 px, from texture icn_statsPopupEasy.png.
+- stats_icon_normal : Stats popup column icon (Normal). 41x27 px, from texture icn_statsPopupNormal.png.
+- stats_icon_special : Stats popup column icon (Special). 52x31 px, from texture icn_statsPopupSpecial.png.
+- stats_icon_total : Stats popup column icon (Total). 18x20 px, from texture icn_statsPopupTotal.png.
+- player_left_cross : Game Info: player left. 37x37 px, from texture icn_gameInfoPlayerLeft.png.
+- modal_tile : Dark tiled overlay behind popups. 80x80 px, 26.0 px/unit, from sprite gph_modalTile.
+- brick_candy_I : Brick I, candy pack. 268x73 px, from texture gph_brickI_candy_texture.png.
+- brick_candy_O : Brick O, candy pack. 136x136 px, from texture gph_brickO_candy_texture.png.
+- brick_candy_T : Brick T, candy pack. 201x136 px, from texture gph_brickT_candy_texture.png.
+- brick_candy_S : Brick S, candy pack. 201x136 px, from texture gph_brickS_candy_texture.png.
+- brick_candy_Z : Brick Z, candy pack. 201x136 px, from texture gph_brickZ_candy_texture.png.
+- brick_candy_J : Brick J, candy pack. 202x136 px, from texture gph_brickJ_candy_texture.png.
+- brick_candy_L : Brick L, candy pack. 201x136 px, from texture gph_brickL_candy_texture.png.
+- brick_christmas_I : Brick I, christmas pack. 268x73 px, from texture gph_brickI_christmas_texture.png.
+- brick_christmas_O : Brick O, christmas pack. 136x136 px, from texture gph_brickO_christmas_texture.png.
+- brick_christmas_T : Brick T, christmas pack. 201x136 px, from texture gph_brickT_christmas_texture.png.
+- brick_christmas_S : Brick S, christmas pack. 201x136 px, from texture gph_brickS_christmas_texture.png.
+- brick_christmas_Z : Brick Z, christmas pack. 201x136 px, from texture gph_brickZ_christmas_texture.png.
+- brick_christmas_J : Brick J, christmas pack. 202x136 px, from texture gph_brickJ_christmas_texture.png.
+- brick_christmas_L : Brick L, christmas pack. 201x136 px, from texture gph_brickL_christmas_texture.png.
+- brick_diamond_I : Brick I, diamond pack. 268x73 px, from texture gph_brickI_diamond_texture.png.
+- brick_diamond_O : Brick O, diamond pack. 136x136 px, from texture gph_brickO_diamond_texture.png.
+- brick_diamond_T : Brick T, diamond pack. 201x136 px, from texture gph_brickT_diamond_texture.png.
+- brick_diamond_S : Brick S, diamond pack. 201x136 px, from texture gph_brickS_diamond_texture.png.
+- brick_diamond_Z : Brick Z, diamond pack. 201x136 px, from texture gph_brickZ_diamond_texture.png.
+- brick_diamond_J : Brick J, diamond pack. 202x136 px, from texture gph_brickJ_diamond_texture.png.
+- brick_diamond_L : Brick L, diamond pack. 202x136 px, from texture gph_brickL_diamond_texture.png.
+- brick_spring_I : Brick I, spring pack. 268x73 px, from texture gph_brickI_easter_texture.png.
+- brick_spring_O : Brick O, spring pack. 136x136 px, from texture gph_brickO_easter_texture.png.
+- brick_spring_T : Brick T, spring pack. 201x136 px, from texture gph_brickT_easter_texture.png.
+- brick_spring_S : Brick S, spring pack. 201x136 px, from texture gph_brickS_easter_texture.png.
+- brick_spring_Z : Brick Z, spring pack. 201x136 px, from texture gph_brickZ_easter_texture.png.
+- brick_spring_J : Brick J, spring pack. 202x136 px, from texture gph_brickJ_easter_texture.png.
+- brick_spring_L : Brick L, spring pack. 201x136 px, from texture gph_brickL_easter_texture.png.
+- brick_halloween_I : Brick I, halloween pack. 268x73 px, from texture gph_brickI_halloween_texture.png.
+- brick_halloween_O : Brick O, halloween pack. 136x136 px, from texture gph_brickO_halloween_texture.png.
+- brick_halloween_T : Brick T, halloween pack. 201x136 px, from texture gph_brickT_halloween_texture.png.
+- brick_halloween_S : Brick S, halloween pack. 201x136 px, from texture gph_brickS_halloween_texture.png.
+- brick_halloween_Z : Brick Z, halloween pack. 201x136 px, from texture gph_brickZ_halloween_texture.png.
+- brick_halloween_J : Brick J, halloween pack. 202x136 px, from texture gph_brickJ_halloween_texture.png.
+- brick_halloween_L : Brick L, halloween pack. 201x136 px, from texture gph_brickL_halloween_texture.png.
+- brick_christmas_lights_I : Christmas pack: blinking lights layer for brick I. 268x146 px, from texture gph_brickI_christmas_lightsTexture03.png.
+- brick_christmas_lights_O : Christmas pack: blinking lights layer for brick O. 136x272 px, from texture gph_brickO_christmas_lightsTexture03.png.
+- brick_christmas_lights_T : Christmas pack: blinking lights layer for brick T. 201x272 px, from texture gph_brickT_christmas_lightsTexture03.png.
+- brick_christmas_lights_S : Christmas pack: blinking lights layer for brick S. 201x272 px, from texture gph_brickS_christmas_lightsTexture03.png.
+- brick_christmas_lights_Z : Christmas pack: blinking lights layer for brick Z. 201x272 px, from texture gph_brickZ_christmas_lightsTexture03.png.
+- brick_christmas_lights_J : Christmas pack: blinking lights layer for brick J. 202x272 px, from texture gph_brickJ_christmas_lightsTexture03.png.
+- brick_christmas_lights_L : Christmas pack: blinking lights layer for brick L. 201x272 px, from texture gph_brickL_christmas_lightsTexture03.png.
+- brick_pack_icon_default : Select Players: brick pack icon (default). 252x100 px, from texture icn_brickPack_default.png.
+- brick_pack_icon_candy : Select Players: brick pack icon (candy). 249x100 px, from texture icn_brickPack_candy.png.
+- brick_pack_icon_christmas : Select Players: brick pack icon (christmas). 256x102 px, from texture icn_brickPack_christmas.png.
+- brick_pack_icon_diamond : Select Players: brick pack icon (diamond). 250x101 px, from texture icn_brickPack_diamond.png.
+- brick_pack_icon_easter : Select Players: brick pack icon (easter). 259x101 px, from texture icn_brickPack_easter.png.
+- brick_pack_icon_galaxy : Select Players: brick pack icon (galaxy). 226x101 px, from texture icn_brickPack_galaxy.png.
+- brick_pack_icon_halloween : Select Players: brick pack icon (halloween). 242x95 px, from texture icn_brickPack_halloween.png.
+- brick_pack_icon_hologram : Select Players: brick pack icon (hologram). 262x101 px, from texture icn_brickPack_hologram.png.
+- next_brick_candy_I : Next brick card icon, candy pack. 74x22 px, from texture icn_nextBrickCandy_I.png.
+- next_brick_candy_O : Next brick card icon, candy pack. 38x38 px, from texture icn_nextBrickCandy_O.png.
+- next_brick_candy_T : Next brick card icon, candy pack. 58x40 px, from texture icn_nextBrickCandy_T.png.
+- next_brick_candy_S : Next brick card icon, candy pack. 57x38 px, from texture icn_nextBrickCandy_S.png.
+- next_brick_candy_Z : Next brick card icon, candy pack. 57x39 px, from texture icn_nextBrickCandy_Z.png.
+- next_brick_candy_J : Next brick card icon, candy pack. 57x39 px, from texture icn_nextBrickCandy_J.png.
+- next_brick_candy_L : Next brick card icon, candy pack. 56x40 px, from texture icn_nextBrickCandy_L.png.
+- next_brick_christmas_I : Next brick card icon, christmas pack. 76x21 px, from texture icn_nextBrickChristmas_I.png.
+- next_brick_christmas_O : Next brick card icon, christmas pack. 39x40 px, from texture icn_nextBrickChristmas_O.png.
+- next_brick_christmas_T : Next brick card icon, christmas pack. 57x40 px, from texture icn_nextBrickChristmas_T.png.
+- next_brick_christmas_S : Next brick card icon, christmas pack. 57x40 px, from texture icn_nextBrickChristmas_S.png.
+- next_brick_christmas_Z : Next brick card icon, christmas pack. 57x38 px, from texture icn_nextBrickChristmas_Z.png.
+- next_brick_christmas_J : Next brick card icon, christmas pack. 58x40 px, from texture icn_nextBrickChristmas_J.png.
+- next_brick_christmas_L : Next brick card icon, christmas pack. 57x40 px, from texture icn_nextBrickChristmas_L.png.
+- next_brick_diamond_I : Next brick card icon, diamond pack. 74x22 px, from texture icn_nextBrickDiamond_I.png.
+- next_brick_diamond_O : Next brick card icon, diamond pack. 39x39 px, from texture icn_nextBrickDiamond_O.png.
+- next_brick_diamond_T : Next brick card icon, diamond pack. 56x39 px, from texture icn_nextBrickDiamond_T.png.
+- next_brick_diamond_S : Next brick card icon, diamond pack. 57x39 px, from texture icn_nextBrickDiamond_S.png.
+- next_brick_diamond_Z : Next brick card icon, diamond pack. 57x39 px, from texture icn_nextBrickDiamond_Z.png.
+- next_brick_diamond_J : Next brick card icon, diamond pack. 57x39 px, from texture icn_nextBrickDiamond_J.png.
+- next_brick_diamond_L : Next brick card icon, diamond pack. 57x39 px, from texture icn_nextBrickDiamond_L.png.
+- next_brick_spring_I : Next brick card icon, spring pack. 75x22 px, from texture icn_nextBrickEaster_I.png.
+- next_brick_spring_O : Next brick card icon, spring pack. 39x39 px, from texture icn_nextBrickEaster_O.png.
+- next_brick_spring_T : Next brick card icon, spring pack. 57x39 px, from texture icn_nextBrickEaster_T.png.
+- next_brick_spring_S : Next brick card icon, spring pack. 55x39 px, from texture icn_nextBrickEaster_S.png.
+- next_brick_spring_Z : Next brick card icon, spring pack. 56x39 px, from texture icn_nextBrickEaster_Z.png.
+- next_brick_spring_J : Next brick card icon, spring pack. 56x38 px, from texture icn_nextBrickEaster_J.png.
+- next_brick_spring_L : Next brick card icon, spring pack. 57x39 px, from texture icn_nextBrickEaster_L.png.
+- next_brick_galaxy_I : Next brick card icon, galaxy pack. 75x22 px, from texture icn_nextBrickGalaxy_I.png.
+- next_brick_galaxy_O : Next brick card icon, galaxy pack. 39x39 px, from texture icn_nextBrickGalaxy_O.png.
+- next_brick_galaxy_T : Next brick card icon, galaxy pack. 57x39 px, from texture icn_nextBrickGalaxy_T.png.
+- next_brick_galaxy_S : Next brick card icon, galaxy pack. 57x39 px, from texture icn_nextBrickGalaxy_S.png.
+- next_brick_galaxy_Z : Next brick card icon, galaxy pack. 58x39 px, from texture icn_nextBrickGalaxy_Z.png.
+- next_brick_galaxy_J : Next brick card icon, galaxy pack. 57x39 px, from texture icn_nextBrickGalaxy_J.png.
+- next_brick_galaxy_L : Next brick card icon, galaxy pack. 57x39 px, from texture icn_nextBrickGalaxy_L.png.
+- next_brick_halloween_I : Next brick card icon, halloween pack. 73x24 px, from texture icn_nextBrickHalloween_I.png.
+- next_brick_halloween_O : Next brick card icon, halloween pack. 38x39 px, from texture icn_nextBrickHalloween_O.png.
+- next_brick_halloween_T : Next brick card icon, halloween pack. 55x43 px, from texture icn_nextBrickHalloween_T.png.
+- next_brick_halloween_S : Next brick card icon, halloween pack. 56x38 px, from texture icn_nextBrickHalloween_S.png.
+- next_brick_halloween_Z : Next brick card icon, halloween pack. 55x40 px, from texture icn_nextBrickHalloween_Z.png.
+- next_brick_halloween_J : Next brick card icon, halloween pack. 55x39 px, from texture icn_nextBrickHalloween_J.png.
+- next_brick_halloween_L : Next brick card icon, halloween pack. 55x43 px, from texture icn_nextBrickHalloween_L.png.
+- next_brick_hologram_I : Next brick card icon, hologram pack. 77x23 px, from texture icn_nextBrickHologram_I.png.
+- next_brick_hologram_O : Next brick card icon, hologram pack. 40x40 px, from texture icn_nextBrickHologram_O.png.
+- next_brick_hologram_T : Next brick card icon, hologram pack. 59x41 px, from texture icn_nextBrickHologram_T.png.
+- next_brick_hologram_S : Next brick card icon, hologram pack. 59x40 px, from texture icn_nextBrickHologram_S.png.
+- next_brick_hologram_Z : Next brick card icon, hologram pack. 59x40 px, from texture icn_nextBrickHologram_Z.png.
+- next_brick_hologram_J : Next brick card icon, hologram pack. 59x40 px, from texture icn_nextBrickHologram_J.png.
+- next_brick_hologram_L : Next brick card icon, hologram pack. 59x40 px, from texture icn_nextBrickHologram_L.png.
+- brick_galaxy_background : Galaxy pack: scrolling starfield drawn inside every brick. 512x512 px, from texture gph_galaxy_background.png.
+- brick_galaxy_star : Galaxy pack: twinkling star (one twirls every 2..6 s). 18x18 px, from texture gph_star.png.
+- brick_christmas_snow_1 : Christmas pack: snow cap on brick edges. 65x56 px, from texture gph_snow_var01.png.
+- brick_christmas_snow_2 : Christmas pack: snow cap on brick edges. 63x43 px, from texture gph_snow_var02.png.
+- brick_christmas_snow_3 : Christmas pack: snow cap on brick edges. 63x57 px, from texture gph_snow_var03.png.
+- brick_halloween_bat01 : Halloween pack: front decoration. 106x56 px, 65.0 px/unit, from sprite gph_brick_halloween_decorations_Bat01.
+- brick_halloween_spider01 : Halloween pack: front decoration. 78x70 px, 65.0 px/unit, from sprite gph_brick_halloween_decorations_Spider01.
+- brick_halloween_pumpkin01 : Halloween pack: front decoration. 63x71 px, 65.0 px/unit, from sprite gph_brick_halloween_decorations_Pumpkin01.
+- brick_halloween_spiderweb : Halloween pack: front decoration. 68x80 px, 65.0 px/unit, from sprite gph_brick_halloween_decorations_Spiderweb.
+- settings_slider_empty : Settings volume slider, empty bar (190x40). 19x40 px, 26.0 px/unit, from sprite gph_settingsVolumeSliderEmpty.
+- settings_slider_fill : Settings volume slider, filled bar (190x40), cut to the value. 19x40 px, 26.0 px/unit, from sprite gph_settingsVolumeSlider.
+- settings_arrow : Settings left/right value arrow (25x31; flip for the left one). 25x31 px, 26.0 px/unit, from sprite gph_menuHorizontalListArrow.
+- settings_checkbox : Settings toggle box (43x43). 43x43 px, 26.0 px/unit, from sprite gph_settingsMenuItemCheckbox.
+- settings_tick : Settings toggle on (61x49). 61x49 px, 26.0 px/unit, from sprite icn_settingsMenuCheck.
+- settings_cross : Settings toggle off (49x49). 49x49 px, 26.0 px/unit, from sprite icn_settingsMenuCross.
+- settings_icon_credits : Settings row icon: credits. 63x71 px, 26.0 px/unit, from sprite icn_settingsMenuCredits.
+- settings_icon_explanations : Settings row icon: explanations. 43x73 px, 26.0 px/unit, from sprite icn_settingsExplanations.
+- settings_icon_fullscreen : Settings row icon: fullscreen. 94x73 px, 26.0 px/unit, from sprite icn_settingsMenuFullscreen.
+- settings_icon_keybinding : Settings row icon: keybinding. 103x72 px, 26.0 px/unit, from sprite icn_settingsMenuKeybinding.
+- settings_icon_language : Settings row icon: language. 97x81 px, 26.0 px/unit, from sprite icn_languageSelect.
+- settings_icon_music : Settings row icon: music. 80x74 px, 26.0 px/unit, from sprite icn_settingsMenuMusic.
+- settings_icon_quality : Settings row icon: quality. 71x70 px, 26.0 px/unit, from sprite icn_settingsMenuQuality.
+- settings_icon_resolution : Settings row icon: resolution. 100x100 px, 26.0 px/unit, from sprite icn_settingsMenuResolution.
+- settings_icon_sfx : Settings row icon: sfx. 99x76 px, 26.0 px/unit, from sprite icn_settingsMenuSFX.
+- settings_icon_stats : Settings row icon: stats. 107x77 px, 26.0 px/unit, from sprite icn_settingsMenuStats.
+- settings_icon_vsync : Settings row icon: vsync. 70x74 px, 26.0 px/unit, from sprite icn_settingsMenuVSync.
+- trial_button_race : Trials: Race trial button (405x101). 401x101 px, 26.0 px/unit, from sprite gph_menuItemChallengeRace.
+- trial_button_survival : Trials: Survival trial button (399x90). 401x87 px, 26.0 px/unit, from sprite gph_menuItemChallengeSurvival.
+- trial_button_puzzle : Trials: Puzzle trial button (423x101). 423x101 px, 26.0 px/unit, from sprite gph_menuItemChallengePuzzle.
+- trial_locked_background : Trials: locked tier panel (783x215). 111x78 px, 26.0 px/unit, from sprite gph_lockedChallengeBackground.
+- trial_lock : Trials: padlock on the chain (68x63). 68x63 px, 65.0 px/unit, from sprite gph_lock.
+- trial_chain_link : Trials: chain link (48x35). 48x35 px, 65.0 px/unit, from sprite gph_chainLink.
+- trial_chain_link_short : Trials: short chain link (24x17). 24x17 px, 65.0 px/unit, from sprite gph_chainLinkShort.
+- trial_chain_link_end : Trials: chain end link (48x35). 55x35 px, 65.0 px/unit, from sprite gph_chainLinkEnd.
+- medal_large : Trial medal (70x96). 70x96 px, 26.0 px/unit, from sprite gph_menuMedalLarge.
+- menu_info_background : Trials: medal count panel, top right (382x183). 228x83 px, 26.0 px/unit, from sprite gph_menuInfoBackground.
+- race_pro_cloud : Race Pro cloud (drifts 0.15..0.25, parallax 0.2). 1609x874 px, 26.0 px/unit, from sprite gph_cloudLargePro_var01.
+- water_pro : Race Pro foreground water strip (stretched 80x wide). 26x53 px, 26.0 px/unit, from sprite gph_foregroundWaterPro.
+- rain_drop : Race Pro rain streak (stretched billboard). 64x64 px, from texture gph_rainDrop.png.
+- lightning_thick : Race Pro lightning bolt strip. 1024x64 px, from texture gph_lightningEffectThick.png.
+- sfx_explosion : A brick blowing up as a losing tower falls apart (pitch 0.95..1.05). 11_explosion_01.ogg.
+- sfx_rumble : Rumble loop during the 2.5 s shake after the blasts. 026_Rumble.ogg.
+- sfx_brick_heavy : Heavy brick landing, once at the end of a collapse. 007_Brick_land_heavy.ogg.
+- explosion_flash : Explosion flash: 1 particle, size 4, 0.15 s. 127x127 px, from texture gph_whiteCircleFaded_Large.png.
+- explosion_puff : Explosion puffs: 8 particles, size 1, speed 100, 0.5 s, shrinking. 128x128 px, from texture gph_whiteCircle_Large.png.
+- explosion_debris : Explosion debris: 6 particles, size 0.5, speed 20, gravity 1, 3 s. 45x42 px, from texture gph_debris.png.
+- music_menu : Menu music. 044_Music_menu.ogg.
+- music_race : Race music. 000_Track_01_single_speed.ogg.
+- music_survival : Survival music. 004_Survival.ogg.
+- music_puzzle : Puzzle music. 002_Puzzle_v2.ogg.
+- sfx_land : Brick lands. 007_Brick_land.ogg.
+- sfx_move : Brick moves a step. 056_Move_brick_v2.ogg.
+- sfx_nudge : Nudge. 059_Nudge_brick_v2.ogg.
+- sfx_rotate : Rotate. 028_Rotate_brick.ogg.
+- sfx_drop_lost : Brick lost. 057_Lose_brick_v3.ogg.
+- sfx_line_collect : Spell line collected. 006_Pickup_spell.ogg.
+- sfx_cast_light : Light magic cast. 013_Cast_lightning_level_01.ogg.
+- sfx_cast_dark : Dark magic cast. 064_Cast_dark_magic.ogg.
+- sfx_countdown : Countdown tick. 093_Countdown.ogg.
+- sfx_win : Win. 046_Win_game_stinger.ogg.
+- sfx_lose : Lose. 045_Lose_game_stinger.ogg.
+
+## Race sky and water (no image; draw as gradients)
+- Sky gradient colours (RGB): (108,152,223), (179,196,251), (125,192,239).
+- Survival sky: top (51,30,103), glow band (91,60,175), bottom (91,83,173); during curse waves it fades to top (26,13,58), band (144,52,110), bottom (147,64,157). Survival clouds tinted (89,80,169).
+- Puzzle ruins (bg_puzzle_* / background_puzzle_*) are two-colour MASK sprites: the original shader replaces red with colour 1 and yellow with colour 2 (outline fades to transparent). Back: #F4D9B0 / #F7E0BE. Middle: #E0AC92 / #D69883. Front: #C47464 / #C47464. Sandstorm tint ARGB #9B8679A0.
+- Background water: bottom 6 screen units, top (61,82,201) to bottom (137,146,217); islands bob gently.
+
+## Also available in research\ripped, not staged
+- Wizard sprites (atlas SpriteAtlasTexture-wizards), cast effects, other brick packs, ambience and wizard speech audio.
+- Race Pro / endless / survival / desert background layers.

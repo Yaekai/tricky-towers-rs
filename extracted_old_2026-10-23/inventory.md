@@ -1,0 +1,2737 @@
+# Art and sound inventory (generated locally from your own install, do not commit)
+
+Every sprite, texture, font and sound found in the original, grouped by what it is for. Each line: source name, size, and the logical name it is staged under in manifest.ron. Everything is now staged; names under `all/` are suggestions following the art-layout patterns. Pixels per unit: bricks 65, world/backgrounds/HUD 26.
+
+Totals: 1051 sprites, 512 textures (351 of them are sprite atlases), 409 sounds, 178 animation clips with sprite frames, 36 sprite-sheet animations.
+
+## Menus and title
+- btn_menuArrow: 94x55 px -> menu_arrow
+- btn_menuArrowDeselected: 93x55 px -> menu_arrow_deselected
+- btn_menuArrowSmall: 38x64 px -> menu_arrow_small
+- gph_aButtonLarge_down: 73x58 px -> menu_a_button_large_down
+- gph_aButtonLarge_up: 73x68 px -> menu_a_button_large_up
+- gph_analogStick: 63x62 px -> menu_analog_stick
+- gph_analogStickXbox: 63x62 px -> menu_analog_stick_xbox
+- gph_bumperButtonLeft: 83x42 px -> menu_bumper_button_left
+- gph_bumperButtonLeft_0: 83x42 px -> menu_bumper_button_left_0
+- gph_bumperButtonRight: 82x42 px -> menu_bumper_button_right
+- gph_bumperButtonRight_0: 82x42 px -> menu_bumper_button_right_0
+- gph_bumperButtonXboxLeft: 80x37 px -> menu_bumper_button_xbox_left
+- gph_bumperButtonXboxRight: 80x37 px -> menu_bumper_button_xbox_right
+- gph_cupBigLarge: 203x203 px -> trophy_big
+- gph_cupBigMedium: 64x82 px -> menu_cup_big_medium
+- gph_cupBigSmall: 53x53 px -> menu_cup_big_small
+- gph_cupModeTopBarDecoBig: 87x67 px -> menu_cup_mode_top_bar_deco_big
+- gph_cupModeTopBarDecoSuper: 181x113 px -> menu_cup_mode_top_bar_deco_super
+- gph_cupModeWinnerPopupNameBackground: 302x125 px -> menu_cup_mode_winner_popup_name_background
+- gph_cupModeWinnerPopupTrophyBackground: 525x206 px -> menu_cup_mode_winner_popup_trophy_background
+- gph_cupOnlineButtonBackground: 60x57 px -> menu_button_cup_background
+- gph_cupOnlineLarge: 298x271 px -> trophy_online
+- gph_cupOnlineMedium: 91x108 px -> menu_cup_online_medium
+- gph_cupOnlineSmall: 73x70 px -> menu_cup_online_small
+- gph_cupSuperLarge: 307x247 px -> trophy_super
+- gph_cupSuperMedium: 75x99 px -> menu_cup_super_medium
+- gph_cupSuperSmall: 73x64 px -> menu_cup_super_small
+- gph_cupTinyLarge: 111x132 px -> trophy
+- gph_cupTinyMedium: 45x53 px -> menu_cup_tiny_medium
+- gph_cupTinySmall: 29x35 px -> menu_cup_tiny_small
+- gph_demoMessage: 280x152 px -> menu_demo_message
+- gph_difficultyEasy: 209x157 px -> menu_difficulty_easy
+- gph_difficultyItemBackground: 461x393 px -> menu_difficulty_background
+- gph_difficultyItemBackground_special: 461x393 px -> menu_difficulty_background_special
+- gph_difficultyNormal: 328x175 px -> menu_difficulty_normal
+- gph_difficultyPro: 370x188 px -> menu_difficulty_pro
+- gph_difficultyRandom: 365x208 px -> menu_difficulty_random
+- gph_dpad: 62x62 px -> menu_dpad
+- gph_dpadXbox: 62x62 px -> menu_dpad_xbox
+- gph_explanationPopupLabelArrow: 13x22 px -> menu_explanation_popup_label_arrow
+- gph_KBJButtonLarge_down: 33x26 px -> spell_cloud_button_light_down
+- gph_KBJButtonLarge_up: 33x31 px -> spell_cloud_button_light_up
+- gph_KBKButtonLarge_down: 33x26 px -> spell_cloud_button_dark_down
+- gph_KBKButtonLarge_up: 33x31 px -> spell_cloud_button_dark_up
+- gph_KBKeyBackground: 48x43 px -> menu_kbkey_background
+- gph_keyboardArrows: 83x46 px -> menu_keyboard_arrows
+- gph_leaderboardEntryBackground: 20x42 px -> menu_leaderboard_row
+- gph_leaderboardMedalBronze: 44x54 px -> menu_leaderboard_medal_3
+- gph_leaderboardMedalGold: 44x52 px -> menu_leaderboard_medal_1
+- gph_leaderboardMedalSilver: 40x49 px -> menu_leaderboard_medal_2
+- gph_leaderboardModePuzzle: 690x224 px -> menu_mode_endless_puzzle
+- gph_leaderboardModeRace: 690x173 px -> menu_mode_endless
+- gph_leaderboardModeSurvival: 689x167 px -> menu_mode_endless_survival
+- gph_lockedChallengeBackground: 111x78 px -> trial_locked_background
+- gph_logo: 818x294 px -> logo_plain
+- gph_logo_0: 818x420 px -> logo
+- gph_logo_armello: 164x100 px -> menu_logo_armello
+- gph_logo_awesomenauts: 525x112 px -> menu_logo_awesomenauts
+- gph_logo_lethal_league: 637x459 px -> menu_logo_lethal_league
+- gph_logo_nuclear_throne: 504x181 px -> menu_logo_nuclear_throne
+- gph_logo_octodad: 518x140 px -> menu_logo_octodad
+- gph_logo_towerfall: 397x176 px -> menu_logo_towerfall
+- gph_logoBrick: 129x118 px -> logo_brick
+- gph_logoDebris01: 37x34 px -> logo_debris_1
+- gph_logoDebris02: 31x30 px -> logo_debris_2
+- gph_logoDebris03: 31x28 px -> logo_debris_3
+- gph_logoDebris04: 44x39 px -> logo_debris_4
+- gph_logoDebris05: 39x43 px -> logo_debris_5
+- gph_logoDebris06: 45x45 px -> logo_debris_6
+- gph_logoDebris07: 26x27 px -> logo_debris_7
+- gph_logoDebris08: 15x16 px -> logo_debris_8
+- gph_logoPlants01: 80x63 px -> logo_plants_1
+- gph_logoPlants02: 69x61 px -> logo_plants_2
+- gph_logoPlants03: 122x53 px -> logo_plants_3
+- gph_logoPlants04: 62x48 px -> logo_plants_4
+- gph_madeWithUnityLogo: 317x71 px -> menu_made_with_unity_logo
+- gph_mainMenuBackgroundDLC_deselected: 449x141 px -> menu_tile_shop_deselected
+- gph_mainMenuBackgroundDLC_selected: 449x141 px -> menu_tile_shop_selected
+- gph_mainMenuBackgroundLocalMP_deselected: 442x369 px -> menu_tile_local_deselected
+- gph_mainMenuBackgroundLocalMP_selected: 442x369 px -> menu_tile_local_selected
+- gph_mainMenuBackgroundOnlineMP_deselected: 441x370 px -> menu_tile_online_deselected
+- gph_mainMenuBackgroundOnlineMP_selected: 441x370 px -> menu_tile_online_selected
+- gph_mainMenuBackgroundQuit_deselected: 431x48 px -> menu_tile_quit_deselected
+- gph_mainMenuBackgroundQuit_selected: 431x48 px -> menu_tile_quit_selected
+- gph_mainMenuBackgroundSettings_deselected: 197x147 px -> menu_tile_settings_deselected
+- gph_mainMenuBackgroundSettings_selected: 197x147 px -> menu_tile_settings_selected
+- gph_mainMenuBackgroundSinglePlayer_deselected: 435x322 px -> menu_tile_single_deselected
+- gph_mainMenuBackgroundSinglePlayer_selected: 435x322 px -> menu_tile_single_selected
+- gph_mainMenuDLC: 488x124 px -> menu_tile_shop_front
+- gph_mainMenuDLC_deselected: 488x124 px -> menu_tile_shop_front_deselected
+- gph_mainMenuForegroundDLC_selected: 449x141 px -> menu_tile_shop_overlay
+- gph_mainMenuForegroundLocalMP_selected: 442x369 px -> menu_tile_local_overlay
+- gph_mainMenuForegroundOnlineMP_selected: 441x370 px -> menu_tile_online_overlay
+- gph_mainMenuForegroundQuit_selected: 431x48 px -> menu_tile_quit_overlay
+- gph_mainMenuForegroundSettings_selected: 197x147 px -> menu_tile_settings_overlay
+- gph_mainMenuForegroundSinglePlayer: 435x322 px -> menu_tile_single_overlay
+- gph_mainMenuItemHeader: 457x45 px -> menu_tile_header
+- gph_mainMenuLocalMPWizard04: 253x322 px -> menu_player_select_wizard4_ready
+- gph_mainMenuLocalMPWizards: 538x272 px -> menu_tile_local_front
+- gph_mainMenuLocalMPWizards_deselected: 538x272 px -> menu_tile_local_front_deselected
+- gph_mainMenuOnlineMP: 467x283 px -> menu_tile_online_front
+- gph_mainMenuOnlineMP_deselected: 467x283 px -> menu_tile_online_front_deselected
+- gph_mainMenuOnlineMPWizard02: 259x344 px -> menu_player_select_wizard2_ready
+- gph_mainMenuSettingsCogs: 180x131 px -> menu_tile_settings_front_deselected
+- gph_mainMenuSinglePlayerWizard: 488x235 px -> menu_tile_single_front
+- gph_mainMenuSinglePlayerWizard_deselected: 488x235 px -> menu_tile_single_front_deselected
+- gph_mainMenuSun01: 542x528 px -> menu_sunrays_1
+- gph_mainMenuSun02: 557x558 px -> menu_sunrays_2
+- gph_mainMenuSun03: 518x494 px -> menu_sunrays_3
+- gph_mainMenuSun04: 489x487 px -> menu_sunrays_4
+- gph_mainMenuSun05: 557x456 px -> menu_sunrays_5
+- gph_menuChallengeItemWizard02: 101x104 px -> menu_challenge_wizard2
+- gph_menuChallengeItemWizard03: 102x90 px -> menu_challenge_wizard3
+- gph_menuChallengeItemWizard04: 106x95 px -> menu_challenge_wizard4
+- gph_menuExplanationModeRaceSP: 497x416 px -> menu_explanation_mode_race_sp
+- gph_menuHeaderBackground: 189x91 px -> menu_header
+- gph_menuHorizontalListArrow: 25x31 px -> settings_arrow
+- gph_menuInfoBackground: 228x83 px -> menu_info_background
+- gph_menuItemChallengePuzzle: 423x101 px -> trial_button_puzzle
+- gph_menuItemChallengeRace: 401x101 px -> trial_button_race
+- gph_menuItemChallengeSurvival: 401x87 px -> trial_button_survival
+- gph_menuItemSelectedBackground: 80x28 px -> menu_item_selected
+- gph_menuMedalLarge: 70x96 px -> medal_large
+- gph_menuModePuzzle: 506x392 px -> menu_mode_puzzle
+- gph_menuModeRace: 487x414 px -> menu_mode_race
+- gph_menuModeRandom: 497x392 px -> menu_mode_random
+- gph_menuModeSurvival: 482x408 px -> menu_mode_survival
+- gph_menuModeSurvivalSP: 482x403 px -> menu_mode_survivalsp
+- gph_menuPagination_active: 20x20 px -> menu_pagination_active
+- gph_menuPagination_inactive: 16x16 px -> page_dot_off
+- gph_menuSelectedCornerLarge: 69x67 px -> menu_corner_large
+- gph_menuSelectedCornerSmall: 38x34 px -> menu_corner_small
+- gph_menuStartMessageBackground: 169x63 px -> start_message_background
+- gph_modalTile: 80x80 px -> modal_tile
+- gph_modeTitleBackground_easy: 81x80 px -> menu_mode_title_background_easy
+- gph_modeTitleBackground_normal: 81x80 px -> menu_mode_title_background_normal
+- gph_modeTitleBackground_special: 80x80 px -> menu_mode_title_background_special
+- gph_modeTitleBackgroundSide_easy: 191x98 px -> menu_mode_title_side_easy
+- gph_modeTitleBackgroundSide_normal: 191x98 px -> menu_mode_title_side_normal
+- gph_modeTitleBackgroundSide_special: 192x98 px -> menu_mode_title_side_special
+- gph_modeTitleBackgroundStar_easy: 37x35 px -> menu_mode_title_star_easy
+- gph_modeTitleBackgroundStar_normal: 37x35 px -> menu_mode_title_star_normal
+- gph_modeTitleBackgroundStar_special: 37x35 px -> menu_mode_title_star_special
+- gph_nudgeSignLeft_xbox: 95x149 px -> menu_nudge_sign_left_xbox
+- gph_nudgeSignRight_xbox: 98x148 px -> menu_nudge_sign_right_xbox
+- gph_onlineScoreMedalBronze: 53x66 px -> menu_online_score_medal_bronze
+- gph_onlineScoreMedalGold: 52x62 px -> menu_online_score_medal_gold
+- gph_onlineScoreMedalLast: 43x43 px -> menu_online_score_medal_last
+- gph_onlineScoreMedalSilver: 51x64 px -> menu_online_score_medal_silver
+- gph_personalBestStar: 43x43 px -> menu_personal_best_star
+- gph_playerSelectBackground_deselected: 137x136 px -> menu_player_select_background_deselected
+- gph_playerSelectBackground_selected: 137x136 px -> menu_player_select_background_selected
+- gph_playerSelectNameBackground: 42x37 px -> menu_player_select_nameplate
+- gph_playerSelectOutline: 137x136 px -> menu_player_select_outline
+- gph_playerSelectWizard01Ready: 235x314 px -> menu_player_select_wizard1_ready
+- gph_playerSelectWizard01Sleeping: 213x250 px -> menu_player_select_wizard1_sleeping
+- gph_playerSelectWizard02Sleeping: 225x323 px -> menu_player_select_wizard2_sleeping
+- gph_playerSelectWizard03Ready: 279x300 px -> menu_player_select_wizard3_ready
+- gph_playerSelectWizard03Sleeping: 237x275 px -> menu_player_select_wizard3_sleeping
+- gph_playerSelectWizard04Sleeping: 212x267 px -> menu_player_select_wizard4_sleeping
+- gph_playerSelectWizardAnimal01Ready: 306x281 px -> menu_player_select_wizard_animal01_ready
+- gph_playerSelectWizardAnimal01Sleeping: 258x246 px -> menu_player_select_wizard_animal01_sleeping
+- gph_playerSelectWizardAnimal02Ready: 258x347 px -> menu_player_select_wizard_animal02_ready
+- gph_playerSelectWizardAnimal02Sleeping: 271x244 px -> menu_player_select_wizard_animal02_sleeping
+- gph_playerSelectWizardAnimal03Ready: 282x330 px -> menu_player_select_wizard_animal03_ready
+- gph_playerSelectWizardAnimal03Sleeping: 288x245 px -> menu_player_select_wizard_animal03_sleeping
+- gph_playerSelectWizardAnimal04Ready: 282x290 px -> menu_player_select_wizard_animal04_ready
+- gph_playerSelectWizardAnimal04Sleeping: 269x264 px -> menu_player_select_wizard_animal04_sleeping
+- gph_playerSelectWizardIndie01Ready: 231x291 px -> menu_player_select_wizard_indie01_ready
+- gph_playerSelectWizardIndie01Sleeping: 234x258 px -> menu_player_select_wizard_indie01_sleeping
+- gph_playerSelectWizardIndie02Ready: 305x385 px -> menu_player_select_wizard_indie02_ready
+- gph_playerSelectWizardIndie02Sleeping: 299x263 px -> menu_player_select_wizard_indie02_sleeping
+- gph_playerSelectWizardIndie03Ready: 257x341 px -> menu_player_select_wizard_indie03_ready
+- gph_playerSelectWizardIndie03Sleeping: 241x251 px -> menu_player_select_wizard_indie03_sleeping
+- gph_playerSelectWizardIndie04Ready: 256x302 px -> menu_player_select_wizard_indie04_ready
+- gph_playerSelectWizardIndie04Sleeping: 290x268 px -> menu_player_select_wizard_indie04_sleeping
+- gph_playerSelectWizardIndie05Ready: 233x302 px -> menu_player_select_wizard_indie05_ready
+- gph_playerSelectWizardIndie05Sleeping: 215x263 px -> menu_player_select_wizard_indie05_sleeping
+- gph_playerSelectWizardIndie06Ready: 233x280 px -> menu_player_select_wizard_indie06_ready
+- gph_playerSelectWizardIndie06Sleeping: 215x253 px -> menu_player_select_wizard_indie06_sleeping
+- gph_popupBackground: 539x222 px -> popup_background
+- gph_popupBackground_0: 488x97 px -> menu_popup_background_0
+- gph_popupBackgroundPanel: 837x91 px -> menu_leaderboard_panel
+- gph_popupTextBackground01: 184x51 px -> menu_popup_text_background01
+- gph_popupTextBackground02: 168x48 px -> popup_text_background
+- gph_PSCircleButton_down: 29x24 px -> spell_cloud_ps_dark_down
+- gph_PSCircleButton_up: 29x28 px -> spell_cloud_ps_dark_up
+- gph_PSSquareButton_down: 29x24 px -> spell_cloud_ps_light_down
+- gph_PSsquareButton_up: 29x28 px -> spell_cloud_ps_light_up
+- gph_PSsquareButtonLarge_up: 77x72 px -> menu_pssquare_button_large_up
+- gph_PSxButtonLarge_down: 78x62 px -> menu_psx_button_large_down
+- gph_PSxButtonLarge_up: 78x72 px -> menu_psx_button_large_up
+- gph_quickMatch: 139x167 px -> menu_quick_match
+- gph_rankBarBackground: 40x41 px -> menu_rank_bar_background
+- gph_rankBarFill_dark_red: 32x33 px -> menu_rank_bar_fill_dark_red
+- gph_rankBarFill_green: 32x33 px -> menu_rank_bar_fill_green
+- gph_rankBarFill_purple: 32x33 px -> menu_rank_bar_fill_purple
+- gph_rankBarOutline: 8x32 px -> menu_rank_bar_outline
+- gph_rankGlyph01: 34x33 px -> menu_rank_glyph01
+- gph_rankGlyph02: 37x32 px -> menu_rank_glyph02
+- gph_rankGlyph03: 34x33 px -> menu_rank_glyph03
+- gph_rankGlyph04: 30x30 px -> menu_rank_glyph04
+- gph_rankGlyph05: 32x34 px -> menu_rank_glyph05
+- gph_rankGlyph06: 35x34 px -> menu_rank_glyph06
+- gph_rankPanelBackground: 119x151 px -> menu_rank_panel_background
+- gph_settingsMenuItemBackground: 111x78 px -> menu_button_background
+- gph_settingsMenuItemCheckbox: 43x43 px -> settings_checkbox
+- gph_settingsVolumeSlider: 19x40 px -> settings_slider_fill
+- gph_settingsVolumeSliderEmpty: 19x40 px -> settings_slider_empty
+- gph_weirdbeardLogo: 601x434 px -> menu_weirdbeard_logo
+- gph_XboxBButton_down: 29x23 px -> spell_cloud_pad_dark_down
+- gph_XboxBButton_up: 29x28 px -> spell_cloud_pad_dark_up
+- gph_xButton_down: 30x23 px -> spell_cloud_pad_light_down
+- gph_xButton_up: 30x27 px -> spell_cloud_pad_light_up
+- gph_xButtonLarge_down: 74x58 px -> menu_x_button_large_down
+- gph_xButtonLarge_up: 74x68 px -> menu_x_button_large_up
+- icn_gameInfoPlayerLeft: 37x37 px -> menu_game_info_player_left
+- icn_gameInfoWizard01: 49x45 px -> wizard_1
+- icn_gameInfoWizard02: 55x45 px -> wizard_2
+- icn_gameInfoWizard03: 52x45 px -> wizard_3
+- icn_gameInfoWizard04: 49x56 px -> wizard_4
+- icn_gameInfoWizardAnimal01: 78x47 px -> menu_game_info_wizard_animal01
+- icn_gameInfoWizardAnimal02: 65x62 px -> menu_game_info_wizard_animal02
+- icn_gameInfoWizardAnimal03: 58x53 px -> menu_game_info_wizard_animal03
+- icn_gameInfoWizardAnimal04: 63x59 px -> menu_game_info_wizard_animal04
+- icn_gameInfoWizardIndie01: 56x75 px -> menu_game_info_wizard_indie01
+- icn_gameInfoWizardIndie02: 53x74 px -> menu_game_info_wizard_indie02
+- icn_gameInfoWizardIndie03: 70x51 px -> menu_game_info_wizard_indie03
+- icn_gameInfoWizardIndie04: 50x68 px -> menu_game_info_wizard_indie04
+- icn_gameInfoWizardIndie05: 64x71 px -> menu_game_info_wizard_indie05
+- icn_gameInfoWizardIndie06: 59x54 px -> menu_game_info_wizard_indie06
+- icn_hostDropped: 68x65 px -> menu_host_dropped
+- icn_languageAR: 62x48 px -> menu_language_ar
+- icn_languageCH: 62x48 px -> menu_language_ch
+- icn_languageDE: 62x48 px -> menu_language_de
+- icn_languageEN: 62x48 px -> menu_language_en
+- icn_languageES: 62x48 px -> menu_language_es
+- icn_languageFI: 62x48 px -> menu_language_fi
+- icn_languageFR: 62x48 px -> menu_language_fr
+- icn_languageIT: 62x48 px -> menu_language_it
+- icn_languageJP: 62x48 px -> menu_language_jp
+- icn_languageKO: 62x48 px -> menu_language_ko
+- icn_languageNL: 62x48 px -> menu_language_nl
+- icn_languageNO: 62x48 px -> menu_language_no
+- icn_languagePO: 62x48 px -> menu_language_po
+- icn_languagePT: 62x48 px -> menu_language_pt
+- icn_languageRO: 62x48 px -> menu_language_ro
+- icn_languageRU: 62x48 px -> menu_language_ru
+- icn_languageSE: 62x48 px -> menu_language_se
+- icn_languageSelect: 97x81 px -> settings_icon_language
+- icn_languageTU: 62x48 px -> menu_language_tu
+- icn_languageTW: 62x48 px -> menu_language_tw
+- icn_settingsExplanations: 43x73 px -> settings_icon_explanations
+- icn_settingsMenuCheck: 61x49 px -> settings_tick
+- icn_settingsMenuControllerSFX: 95x99 px -> menu_settings_menu_controller_sfx
+- icn_settingsMenuCredits: 63x71 px -> settings_icon_credits
+- icn_settingsMenuCross: 49x49 px -> settings_cross
+- icn_settingsMenuFullscreen: 94x73 px -> settings_icon_fullscreen
+- icn_settingsMenuKeybinding: 103x72 px -> settings_icon_keybinding
+- icn_settingsMenuMusic: 80x74 px -> settings_icon_music
+- icn_settingsMenuQuality: 71x70 px -> settings_icon_quality
+- icn_settingsMenuResolution: 100x100 px -> settings_icon_resolution
+- icn_settingsMenuSFX: 99x76 px -> settings_icon_sfx
+- icn_settingsMenuStats: 107x77 px -> settings_icon_stats
+- icn_settingsMenuVSync: 70x74 px -> settings_icon_vsync
+- icn_statsPopupEasy: 26x25 px -> menu_stats_popup_easy
+- icn_statsPopupNormal: 41x27 px -> menu_stats_popup_normal
+- icn_statsPopupSpecial: 52x31 px -> menu_stats_popup_special
+- icn_statsPopupTotal: 18x20 px -> menu_stats_popup_total
+- icn_time: 38x49 px -> hourglass
+- icn_unavailble: 50x50 px -> menu_unavailble
+
+## HUD (player panels, hearts, spell slots, icons)
+- gph_heart_filled: 29x29 px -> heart
+- gph_nextBrickBackground: 126x101 px -> hud_next_brick_background
+- gph_nudgeSignLeft: 95x149 px -> nudge_sign_left
+- gph_nudgeSignLeft_PC: 95x149 px -> hud_nudge_sign_left_pc
+- gph_nudgeSignRight: 98x148 px -> nudge_sign_right
+- gph_nudgeSignRight_PC: 98x148 px -> hud_nudge_sign_right_pc
+- gph_spellBackground_black: 139x140 px -> spell_slot_dark
+- gph_spellBackground_super: 147x148 px -> hud_spell_background_super
+- gph_spellBackground_superDuper: 147x148 px -> hud_spell_background_super_duper
+- gph_spellBackground_white: 140x140 px -> spell_slot_light
+- icn_darkSpell: 56x56 px -> spell_orb_dark
+- icn_lightSpell: 56x56 px -> spell_orb_light
+- icn_nextBrick_J: 55x38 px -> hud_next_brick_j
+- icn_nextBrick_T: 55x38 px -> hud_next_brick_t
+- icn_spellAutoBuild: 111x104 px -> spell_icon_AutoBuild
+- icn_spellAutoRotate: 99x84 px -> spell_icon_AutoRotate
+- icn_spellBubble: 103x80 px -> spell_icon_Bubble
+- icn_spellExtraLife: 94x93 px -> spell_icon_ExtraLife
+- icn_spellFastBrick: 65x104 px -> spell_icon_Fast
+- icn_spellGrass: 122x85 px -> spell_icon_Grassy
+- icn_spellIceBrick: 101x107 px -> spell_icon_Ice
+- icn_spellIvy: 122x116 px -> spell_icon_Ivy
+- icn_spellLarge: 104x107 px -> spell_icon_Large
+- icn_spellMist: 126x120 px -> spell_icon_Mist
+- icn_spellMystery: 84x99 px -> spell_icon_Mystery
+- icn_spellPetrify: 89x96 px -> spell_icon_Petrify
+- icn_spellRotatedBrick: 126x126 px -> spell_icon_NoRotate
+- icn_spellSlowDown: 93x115 px -> spell_icon_Slow
+- icn_spellSuper: 99x106 px -> hud_spell_super
+- icn_spellSuperDuper: 94x109 px -> hud_spell_super_duper
+- icn_spellTowerpiece: 103x116 px -> spell_icon_Minibase
+- icn_spellUndo: 69x104 px -> spell_icon_Undo
+
+## Wizards (body parts, faces, capes, poses)
+- anim_wizard01CapeDown_33x29_0: 82x45 px -> wizard01_cape_down_33x29_0
+- anim_wizard01CapeDown_33x29_1: 78x42 px -> wizard01_cape_down_33x29_1
+- anim_wizard01CapeDown_33x29_2: 72x48 px -> wizard01_cape_down_33x29_2
+- anim_wizard01CapeDown_33x29_3: 60x52 px -> wizard01_cape_down_33x29_3
+- anim_wizard01CapeDown_33x29_4: 49x58 px -> wizard01_cape_down_33x29_4
+- anim_wizard01CapeDown_33x29_5: 47x64 px -> wizard01_cape_down_33x29_5
+- anim_wizard01CapeDown_83x73_0: 82x45 px -> wizard01_cape_down_83x73_0
+- anim_wizard01CapeDown_83x73_1: 78x42 px -> wizard01_cape_down_83x73_1
+- anim_wizard01CapeDown_83x73_2: 72x48 px -> wizard01_cape_down_83x73_2
+- anim_wizard01CapeDown_83x73_3: 60x52 px -> wizard01_cape_down_83x73_3
+- anim_wizard01CapeDown_83x73_4: 49x58 px -> wizard01_cape_down_83x73_4
+- anim_wizard01CapeDown_83x73_5: 47x64 px -> wizard01_cape_down_83x73_5
+- anim_wizard01CapeUp_33x34_0: 44x66 px -> wizard4_cape
+- anim_wizard01CapeUp_33x34_1: 47x75 px -> wizard01_cape_up_33x34_1
+- anim_wizard01CapeUp_33x34_2: 54x69 px -> wizard01_cape_up_33x34_2
+- anim_wizard01CapeUp_33x34_3: 76x55 px -> wizard01_cape_up_33x34_3
+- anim_wizard01CapeUp_33x34_4: 81x46 px -> wizard01_cape_up_33x34_4
+- anim_wizard01CapeUp_82x84_0: 44x66 px -> wizard01_cape_up_82x84_0
+- anim_wizard01CapeUp_82x84_1: 47x75 px -> wizard01_cape_up_82x84_1
+- anim_wizard01CapeUp_82x84_2: 54x69 px -> wizard01_cape_up_82x84_2
+- anim_wizard01CapeUp_82x84_3: 76x55 px -> wizard01_cape_up_82x84_3
+- anim_wizard01CapeUp_82x84_4: 81x46 px -> wizard01_cape_up_82x84_4
+- anim_wizard01CapeWave_37x24_0: 84x42 px -> wizard4_img_wizard01_cape_wave_37x24_0
+- anim_wizard01CapeWave_37x24_1: 89x42 px -> wizard4_img_wizard01_cape_wave_37x24_1
+- anim_wizard01CapeWave_37x24_10: 84x52 px -> wizard4_img_wizard01_cape_wave_37x24_10
+- anim_wizard01CapeWave_37x24_11: 87x54 px -> wizard4_img_wizard01_cape_wave_37x24_11
+- anim_wizard01CapeWave_37x24_2: 89x42 px -> wizard4_img_wizard01_cape_wave_37x24_2
+- anim_wizard01CapeWave_37x24_3: 93x38 px -> wizard4_img_wizard01_cape_wave_37x24_3
+- anim_wizard01CapeWave_37x24_4: 92x40 px -> wizard4_img_wizard01_cape_wave_37x24_4
+- anim_wizard01CapeWave_37x24_5: 82x45 px -> wizard4_img_wizard01_cape_wave_37x24_5
+- anim_wizard01CapeWave_37x24_6: 82x46 px -> wizard4_img_wizard01_cape_wave_37x24_6
+- anim_wizard01CapeWave_37x24_7: 82x53 px -> wizard4_img_wizard01_cape_wave_37x24_7
+- anim_wizard01CapeWave_37x24_8: 88x53 px -> wizard4_img_wizard01_cape_wave_37x24_8
+- anim_wizard01CapeWave_37x24_9: 86x59 px -> wizard4_img_wizard01_cape_wave_37x24_9
+- anim_wizard01CapeWave_93x60_0: 82x42 px -> wizard11_img_wizard01_cape_wave_93x60_0
+- anim_wizard01CapeWave_93x60_0_0: 84x42 px -> wizard1_img_wizard01_cape_wave_93x60_0_0
+- anim_wizard01CapeWave_93x60_1: 88x43 px -> wizard11_img_wizard01_cape_wave_93x60_1
+- anim_wizard01CapeWave_93x60_1_0: 89x42 px -> wizard1_img_wizard01_cape_wave_93x60_1_0
+- anim_wizard01CapeWave_93x60_10: 81x52 px -> wizard11_img_wizard01_cape_wave_93x60_10
+- anim_wizard01CapeWave_93x60_10_0: 84x52 px -> wizard1_img_wizard01_cape_wave_93x60_10_0
+- anim_wizard01CapeWave_93x60_11: 84x52 px -> wizard11_img_wizard01_cape_wave_93x60_11
+- anim_wizard01CapeWave_93x60_11_0: 87x54 px -> wizard1_img_wizard01_cape_wave_93x60_11_0
+- anim_wizard01CapeWave_93x60_2: 88x42 px -> wizard11_img_wizard01_cape_wave_93x60_2
+- anim_wizard01CapeWave_93x60_2_0: 89x42 px -> wizard1_img_wizard01_cape_wave_93x60_2_0
+- anim_wizard01CapeWave_93x60_3: 93x38 px -> wizard11_img_wizard01_cape_wave_93x60_3
+- anim_wizard01CapeWave_93x60_3_0: 93x38 px -> wizard1_img_wizard01_cape_wave_93x60_3_0
+- anim_wizard01CapeWave_93x60_4: 91x39 px -> wizard11_img_wizard01_cape_wave_93x60_4
+- anim_wizard01CapeWave_93x60_4_0: 92x40 px -> wizard1_img_wizard01_cape_wave_93x60_4_0
+- anim_wizard01CapeWave_93x60_5: 80x45 px -> wizard11_img_wizard01_cape_wave_93x60_5
+- anim_wizard01CapeWave_93x60_5_0: 82x45 px -> wizard1_img_wizard01_cape_wave_93x60_5_0
+- anim_wizard01CapeWave_93x60_6: 80x45 px -> wizard11_img_wizard01_cape_wave_93x60_6
+- anim_wizard01CapeWave_93x60_6_0: 82x46 px -> wizard1_img_wizard01_cape_wave_93x60_6_0
+- anim_wizard01CapeWave_93x60_7: 80x51 px -> wizard11_img_wizard01_cape_wave_93x60_7
+- anim_wizard01CapeWave_93x60_7_0: 82x53 px -> wizard1_img_wizard01_cape_wave_93x60_7_0
+- anim_wizard01CapeWave_93x60_8: 85x53 px -> wizard11_img_wizard01_cape_wave_93x60_8
+- anim_wizard01CapeWave_93x60_8_0: 88x53 px -> wizard1_img_wizard01_cape_wave_93x60_8_0
+- anim_wizard01CapeWave_93x60_9: 83x58 px -> wizard11_img_wizard01_cape_wave_93x60_9
+- anim_wizard01CapeWave_93x60_9_0: 86x59 px -> wizard1_img_wizard01_cape_wave_93x60_9_0
+- anim_wizard02CapeDown_83x73_0: 82x45 px -> wizard2_cape
+- anim_wizard02CapeDown_83x73_1: 78x42 px -> wizard02_cape_down_83x73_1
+- anim_wizard02CapeDown_83x73_2: 72x48 px -> wizard02_cape_down_83x73_2
+- anim_wizard02CapeDown_83x73_3: 60x52 px -> wizard02_cape_down_83x73_3
+- anim_wizard02CapeDown_83x73_4: 49x58 px -> wizard02_cape_down_83x73_4
+- anim_wizard02CapeDown_83x73_5: 47x62 px -> wizard02_cape_down_83x73_5
+- anim_wizard02CapeUp_82x84_0: 44x66 px -> wizard02_cape_up_82x84_0
+- anim_wizard02CapeUp_82x84_1: 47x77 px -> wizard02_cape_up_82x84_1
+- anim_wizard02CapeUp_82x84_2: 54x67 px -> wizard02_cape_up_82x84_2
+- anim_wizard02CapeUp_82x84_3: 76x55 px -> wizard02_cape_up_82x84_3
+- anim_wizard02CapeUp_82x84_4: 82x46 px -> wizard02_cape_up_82x84_4
+- anim_wizard02CapeWave_93x60_0: 87x45 px -> wizard2_img_wizard02_cape_wave_93x60_0
+- anim_wizard02CapeWave_93x60_1: 89x42 px -> wizard2_img_wizard02_cape_wave_93x60_1
+- anim_wizard02CapeWave_93x60_10: 84x52 px -> wizard2_img_wizard02_cape_wave_93x60_10
+- anim_wizard02CapeWave_93x60_11: 84x54 px -> wizard2_img_wizard02_cape_wave_93x60_11
+- anim_wizard02CapeWave_93x60_2: 89x42 px -> wizard2_img_wizard02_cape_wave_93x60_2
+- anim_wizard02CapeWave_93x60_3: 93x41 px -> wizard2_img_wizard02_cape_wave_93x60_3
+- anim_wizard02CapeWave_93x60_4: 92x40 px -> wizard2_img_wizard02_cape_wave_93x60_4
+- anim_wizard02CapeWave_93x60_5: 82x47 px -> wizard2_img_wizard02_cape_wave_93x60_5
+- anim_wizard02CapeWave_93x60_6: 82x46 px -> wizard2_img_wizard02_cape_wave_93x60_6
+- anim_wizard02CapeWave_93x60_7: 82x53 px -> wizard2_img_wizard02_cape_wave_93x60_7
+- anim_wizard02CapeWave_93x60_8: 88x53 px -> wizard2_img_wizard02_cape_wave_93x60_8
+- anim_wizard02CapeWave_93x60_9: 83x59 px -> wizard2_img_wizard02_cape_wave_93x60_9
+- anim_wizard03CapeDown_83x73_0: 82x45 px -> wizard03_cape_down_83x73_0
+- anim_wizard03CapeDown_83x73_1: 78x42 px -> wizard03_cape_down_83x73_1
+- anim_wizard03CapeDown_83x73_2: 72x48 px -> wizard03_cape_down_83x73_2
+- anim_wizard03CapeDown_83x73_3: 60x52 px -> wizard03_cape_down_83x73_3
+- anim_wizard03CapeDown_83x73_4: 49x58 px -> wizard03_cape_down_83x73_4
+- anim_wizard03CapeDown_83x73_5: 47x62 px -> wizard03_cape_down_83x73_5
+- anim_wizard03CapeUp_82x84_0: 44x66 px -> wizard3_cape
+- anim_wizard03CapeUp_82x84_1: 47x77 px -> wizard03_cape_up_82x84_1
+- anim_wizard03CapeUp_82x84_2: 54x67 px -> wizard03_cape_up_82x84_2
+- anim_wizard03CapeUp_82x84_3: 76x55 px -> wizard03_cape_up_82x84_3
+- anim_wizard03CapeUp_82x84_4: 82x46 px -> wizard03_cape_up_82x84_4
+- anim_wizard03CapeWave_93x60_0: 87x45 px -> wizard3_img_wizard03_cape_wave_93x60_0
+- anim_wizard03CapeWave_93x60_1: 89x42 px -> wizard3_img_wizard03_cape_wave_93x60_1
+- anim_wizard03CapeWave_93x60_10: 84x52 px -> wizard3_img_wizard03_cape_wave_93x60_10
+- anim_wizard03CapeWave_93x60_11: 84x54 px -> wizard3_img_wizard03_cape_wave_93x60_11
+- anim_wizard03CapeWave_93x60_2: 89x42 px -> wizard3_img_wizard03_cape_wave_93x60_2
+- anim_wizard03CapeWave_93x60_3: 93x41 px -> wizard3_img_wizard03_cape_wave_93x60_3
+- anim_wizard03CapeWave_93x60_4: 92x40 px -> wizard3_img_wizard03_cape_wave_93x60_4
+- anim_wizard03CapeWave_93x60_5: 82x47 px -> wizard3_img_wizard03_cape_wave_93x60_5
+- anim_wizard03CapeWave_93x60_6: 82x46 px -> wizard3_img_wizard03_cape_wave_93x60_6
+- anim_wizard03CapeWave_93x60_7: 82x53 px -> wizard3_img_wizard03_cape_wave_93x60_7
+- anim_wizard03CapeWave_93x60_8: 88x53 px -> wizard3_img_wizard03_cape_wave_93x60_8
+- anim_wizard03CapeWave_93x60_9: 83x59 px -> wizard3_img_wizard03_cape_wave_93x60_9
+- gph_wizard_01_rotate_0: 90x30 px -> wizard_01_rotate_0
+- gph_wizard_01_rotate_1: 87x25 px -> wizard_01_rotate_1
+- gph_wizard_01_rotate_2: 90x29 px -> wizard_01_rotate_2
+- gph_wizard_01_rotate_3: 34x22 px -> wizard_01_rotate_3
+- gph_wizard01ArmBack: 34x119 px -> wizard1_img_arm_back
+- gph_wizard01ArmBack_action: 116x46 px -> wizard1_img_arm_back_action
+- gph_wizard01ArmFront: 24x36 px -> wizard1_img_arm_front
+- gph_wizard01ArmFront_cheer: 32x36 px -> wizard1_img_arm_front_cheer
+- gph_Wizard01body: 96x116 px -> wizard1_img_body
+- gph_Wizard01body_action: 99x110 px -> wizard1_img_body_action
+- gph_Wizard01body_cheer: 90x121 px -> wizard1_img_body_cheer
+- gph_Wizard01body_preAction: 98x114 px -> wizard1_img_body_pre_action
+- gph_wizard01Cloud: 171x94 px -> wizard14_cloud
+- gph_wizard01CloudFront: 112x38 px -> wizard11_cloud_front
+- gph_wizard01CloudFront_0: 112x38 px -> wizard14_cloud_front
+- gph_wizard01Face_action: 58x56 px -> wizard1_img_face_action
+- gph_wizard01Face_cheer01: 60x62 px -> wizard1_img_face_cheer01
+- gph_wizard01Face_cheer02: 60x62 px -> wizard1_img_face_cheer02
+- gph_wizard01Face_idle01: 64x56 px -> wizard1_face
+- gph_wizard01Face_idle02: 64x56 px -> wizard1_img_face_idle02
+- gph_wizard01Face_laugh: 64x46 px -> wizard1_img_face_laugh
+- gph_wizard01Face_preAction: 64x46 px -> wizard1_img_face_pre_action
+- gph_wizard01Face_preCast: 58x56 px -> wizard1_img_face_pre_cast
+- gph_wizard01Face_startle01: 64x56 px -> wizard1_img_face_startle01
+- gph_wizard01Face_startle02: 64x56 px -> wizard1_img_face_startle02
+- gph_wizard01Hat: 38x60 px -> wizard1_hat
+- gph_wizard02ArmBack: 71x156 px -> wizard2_img_arm_back
+- gph_wizard02ArmBack_action: 152x63 px -> wizard2_img_arm_back_action
+- gph_wizard02ArmFront: 40x36 px -> wizard2_img_arm_front
+- gph_wizard02ArmFront_cheer: 38x40 px -> wizard2_img_arm_front_cheer
+- gph_Wizard02body: 84x114 px -> wizard2_img_body
+- gph_Wizard02body_action: 96x116 px -> wizard2_img_body_action
+- gph_Wizard02body_cheer: 86x125 px -> wizard2_img_body_cheer
+- gph_Wizard02body_preAction: 98x119 px -> wizard2_img_body_pre_action
+- gph_wizard02Cloud: 171x94 px -> wizard2_cloud
+- gph_wizard02CloudFront: 109x38 px -> wizard2_cloud_front
+- gph_wizard02Face_action: 64x56 px -> wizard2_img_face_action
+- gph_wizard02Face_cheer01: 66x64 px -> wizard2_img_face_cheer01
+- gph_wizard02Face_cheer02: 66x64 px -> wizard2_img_face_cheer02
+- gph_wizard02Face_idle01: 72x56 px -> wizard2_face
+- gph_wizard02Face_idle02: 72x56 px -> wizard2_img_face_idle02
+- gph_wizard02Face_laugh: 66x53 px -> wizard2_img_face_laugh
+- gph_wizard02Face_preAction: 64x52 px -> wizard2_img_face_pre_action
+- gph_wizard02Face_preCast: 64x56 px -> wizard2_img_face_pre_cast
+- gph_wizard02Face_startle01: 74x58 px -> wizard2_img_face_startle01
+- gph_wizard02Face_startle02: 74x58 px -> wizard2_img_face_startle02
+- gph_wizard02Hat: 108x132 px -> wizard2_img_hat
+- gph_wizard02Hat_action: 104x126 px -> wizard2_img_hat_action
+- gph_wizard02Hat_preAction: 132x134 px -> wizard2_img_hat_pre_action
+- gph_wizard02HatBack: 108x42 px -> wizard2_sprite_back
+- gph_wizard03ArmBack: 60x70 px -> wizard3_img_arm_back
+- gph_wizard03ArmBack_action: 82x38 px -> wizard3_img_arm_back_action
+- gph_wizard03ArmFront: 30x40 px -> wizard3_img_arm_front
+- gph_wizard03ArmFront_cheer: 32x36 px -> wizard3_img_arm_front_cheer
+- gph_Wizard03body: 90x116 px -> wizard3_img_body
+- gph_Wizard03Body_action: 101x113 px -> wizard3_img_body_action
+- gph_Wizard03body_cheer: 88x116 px -> wizard3_img_body_cheer
+- gph_Wizard03body_preAction: 102x115 px -> wizard3_img_body_pre_action
+- gph_wizard03Face_action: 74x46 px -> wizard3_img_face_action
+- gph_wizard03Face_cheer01: 75x41 px -> wizard3_img_face_cheer01
+- gph_wizard03Face_cheer02: 75x41 px -> wizard3_img_face_cheer02
+- gph_wizard03Face_idle01: 73x42 px -> wizard3_img_face_idle01
+- gph_wizard03Face_idle02: 74x42 px -> wizard3_img_face_idle02
+- gph_wizard03Face_laugh: 66x61 px -> wizard3_img_face_laugh
+- gph_wizard03Face_preAction: 66x62 px -> wizard3_img_face_pre_action
+- gph_wizard03Face_preCast: 74x46 px -> wizard03_face_pre_cast
+- gph_wizard03Face_startle01: 76x43 px -> wizard3_img_face_startle01
+- gph_wizard03Face_startle02: 76x43 px -> wizard3_img_face_startle02
+- gph_wizard03FaceBack: 64x52 px -> wizard3_img_face_back
+- gph_wizard03FaceBack_action: 62x56 px -> wizard3_img_face_back_action
+- gph_wizard03FaceBack_cheer: 64x56 px -> wizard3_img_face_back_cheer
+- gph_wizard03FaceBack_laugh: 62x54 px -> wizard3_img_face_back_laugh
+- gph_wizard03FaceBack_preAction: 62x54 px -> wizard3_img_face_back_pre_action
+- gph_wizard03Hat: 126x102 px -> wizard3_img_hat
+- gph_wizard03HatBack: 122x36 px -> wizard3_sprite_back
+- gph_Wizard04ArmBack: 42x120 px -> wizard4_img_arm_back
+- gph_wizard04ArmBack_action: 118x43 px -> wizard4_img_arm_back_action
+- gph_Wizard04ArmFront: 28x42 px -> wizard4_img_arm_front
+- gph_wizard04ArmFront_cheer: 32x35 px -> wizard4_img_arm_front_cheer
+- gph_Wizard04Body: 96x118 px -> wizard4_img_body
+- gph_Wizard04body_action: 98x114 px -> wizard4_img_body_action
+- gph_Wizard04body_cheer: 92x124 px -> wizard4_img_body_cheer
+- gph_Wizard04body_preAction: 98x114 px -> wizard4_img_body_pre_action
+- gph_wizard04Face_action: 72x72 px -> wizard4_img_face_action
+- gph_wizard04Face_cheer01: 74x72 px -> wizard4_img_face_cheer01
+- gph_wizard04Face_cheer02: 74x72 px -> wizard4_img_face_cheer02
+- gph_Wizard04Face_idle01: 64x78 px -> wizard4_face
+- gph_Wizard04Face_idle02: 64x78 px -> wizard4_img_face_idle02
+- gph_wizard04Face_laugh: 64x74 px -> wizard4_img_face_laugh
+- gph_wizard04Face_preAction: 64x74 px -> wizard4_img_face_pre_action
+- gph_wizard04Face_preCast: 70x66 px -> wizard4_img_face_pre_cast
+- gph_wizard04Face_startle01: 64x80 px -> wizard4_img_face_startle01
+- gph_wizard04Face_startle02: 64x80 px -> wizard4_img_face_startle02
+- gph_Wizard04Hat: 49x53 px -> wizard4_hat
+- gph_wizardAnimal01ArmBack: 77x57 px -> wizard5_img_arm_back
+- gph_wizardAnimal01ArmBack_action: 85x56 px -> wizard5_img_arm_back_action
+- gph_wizardAnimal01ArmFront: 35x54 px -> wizard5_img_arm_front
+- gph_wizardAnimal01ArmFront_cheer: 45x46 px -> wizard5_img_arm_front_cheer
+- gph_WizardAnimal01body: 90x123 px -> wizard5_img_body
+- gph_WizardAnimal01body_action: 98x110 px -> wizard5_img_body_action
+- gph_WizardAnimal01body_cheer: 88x121 px -> wizard5_img_body_cheer
+- gph_WizardAnimal01body_preAction: 97x115 px -> wizard5_img_body_pre_action
+- gph_wizardAnimal01Face_action: 60x58 px -> wizard5_img_face_action
+- gph_wizardAnimal01Face_cheer01: 64x62 px -> wizard5_img_face_cheer01
+- gph_wizardAnimal01Face_cheer02: 64x62 px -> wizard5_img_face_cheer02
+- gph_wizardAnimal01Face_idle01: 65x57 px -> wizard5_face
+- gph_wizardAnimal01Face_idle02: 65x57 px -> wizard5_img_face_idle02
+- gph_wizardAnimal01Face_laugh: 64x49 px -> wizard5_img_face_laugh
+- gph_wizardAnimal01Face_preAction: 63x54 px -> wizard5_img_face_pre_action
+- gph_wizardAnimal01Face_preCast: 58x56 px -> wizard5_img_face_pre_cast
+- gph_wizardAnimal01Face_startle01: 66x58 px -> wizard5_img_face_startle01
+- gph_wizardAnimal01Face_startle02: 66x58 px -> wizard5_img_face_startle02
+- gph_wizardAnimal01Hat: 142x64 px -> wizard5_img_hat
+- gph_wizardAnimal01HatCheer: 130x69 px -> wizard5_img_hat_cheer
+- gph_wizardAnimal01Tail: 88x40 px -> wizard5_tail
+- gph_wizardAnimal02ArmBack: 96x107 px -> wizard6_img_arm_back
+- gph_wizardAnimal02ArmBack_action: 126x61 px -> wizard6_img_arm_back_action
+- gph_wizardAnimal02ArmFront: 42x49 px -> wizard6_img_arm_front
+- gph_wizardAnimal02ArmFront_cheer: 62x63 px -> wizard6_img_arm_front_cheer
+- gph_WizardAnimal02body: 92x124 px -> wizard6_img_body
+- gph_WizardAnimal02body_action: 93x110 px -> wizard6_img_body_action
+- gph_WizardAnimal02body_cheer: 88x118 px -> wizard6_img_body_cheer
+- gph_WizardAnimal02body_preAction: 96x115 px -> wizard6_img_body_pre_action
+- gph_wizardAnimal02Face_action: 58x56 px -> wizard6_img_face_action
+- gph_wizardAnimal02Face_cheer01: 60x63 px -> wizard6_img_face_cheer01
+- gph_wizardAnimal02Face_cheer02: 60x63 px -> wizard6_img_face_cheer02
+- gph_wizardAnimal02Face_idle01: 65x57 px -> wizard6_face
+- gph_wizardAnimal02Face_idle02: 65x57 px -> wizard6_img_face_idle02
+- gph_wizardAnimal02Face_laugh: 63x47 px -> wizard6_img_face_laugh
+- gph_wizardAnimal02Face_preAction: 63x47 px -> wizard6_img_face_pre_action
+- gph_wizardAnimal02Face_preCast: 58x56 px -> wizard6_img_face_pre_cast
+- gph_wizardAnimal02Face_startle01: 65x58 px -> wizard6_img_face_startle01
+- gph_wizardAnimal02Face_startle02: 65x58 px -> wizard6_img_face_startle02
+- gph_wizardAnimal02Hat: 113x106 px -> wizard6_img_hat
+- gph_wizardAnimal02HatBack: 101x77 px -> wizard6_sprite_back
+- gph_wizardAnimal02Tail: 89x73 px -> wizard6_tail
+- gph_wizardAnimal03ArmBack: 64x129 px -> wizard7_img_arm_back
+- gph_wizardAnimal03ArmBack_action: 132x49 px -> wizard7_img_arm_back_action
+- gph_wizardAnimal03ArmFront: 24x43 px -> wizard7_img_arm_front
+- gph_wizardAnimal03ArmFront_cheer: 33x43 px -> wizard7_img_arm_front_cheer
+- gph_WizardAnimal03body: 96x123 px -> wizard7_img_body
+- gph_WizardAnimal03body_action: 94x110 px -> wizard7_img_body_action
+- gph_WizardAnimal03body_cheer: 90x120 px -> wizard7_img_body_cheer
+- gph_WizardAnimal03body_preAction: 97x115 px -> wizard7_img_body_pre_action
+- gph_wizardAnimal03Face_action: 60x61 px -> wizard7_img_face_action
+- gph_wizardAnimal03Face_cheer01: 64x64 px -> wizard7_img_face_cheer01
+- gph_wizardAnimal03Face_cheer02: 64x64 px -> wizard7_img_face_cheer02
+- gph_wizardAnimal03Face_idle01: 63x56 px -> wizard7_face
+- gph_wizardAnimal03Face_idle02: 63x56 px -> wizard7_img_face_idle02
+- gph_wizardAnimal03Face_laugh: 65x47 px -> wizard7_img_face_laugh
+- gph_wizardAnimal03Face_preAction: 65x50 px -> wizard7_img_face_pre_action
+- gph_wizardAnimal03Face_preCast: 59x57 px -> wizard7_img_face_pre_cast
+- gph_wizardAnimal03Face_startle01: 65x57 px -> wizard7_img_face_startle01
+- gph_wizardAnimal03Face_startle02: 65x57 px -> wizard7_img_face_startle02
+- gph_wizardAnimal03Hat: 105x56 px -> wizard7_img_hat
+- gph_wizardAnimal03Tail: 98x85 px -> wizard7_tail
+- gph_wizardAnimal04ArmBack: 74x100 px -> wizard8_img_arm_back
+- gph_wizardAnimal04ArmBack_action: 109x46 px -> wizard8_img_arm_back_action
+- gph_wizardAnimal04ArmFront: 34x42 px -> wizard8_img_arm_front
+- gph_wizardAnimal04ArmFront_cheer: 38x50 px -> wizard8_img_arm_front_cheer
+- gph_WizardAnimal04body: 99x117 px -> wizard8_img_body
+- gph_WizardAnimal04body_action: 101x110 px -> wizard8_img_body_action
+- gph_WizardAnimal04body_cheer: 90x120 px -> wizard8_img_body_cheer
+- gph_WizardAnimal04body_preAction: 98x115 px -> wizard8_img_body_pre_action
+- gph_wizardAnimal04Face_action: 60x61 px -> wizard8_img_face_action
+- gph_wizardAnimal04Face_cheer01: 60x62 px -> wizard8_img_face_cheer01
+- gph_wizardAnimal04Face_cheer02: 60x62 px -> wizard8_img_face_cheer02
+- gph_wizardAnimal04Face_idle01: 63x57 px -> wizard8_face
+- gph_wizardAnimal04Face_idle02: 63x57 px -> wizard8_img_face_idle02
+- gph_wizardAnimal04Face_laugh: 65x50 px -> wizard8_img_face_laugh
+- gph_wizardAnimal04Face_preAction: 65x53 px -> wizard8_img_face_pre_action
+- gph_wizardAnimal04Face_preCast: 59x57 px -> wizard8_img_face_pre_cast
+- gph_wizardAnimal04Face_startle01: 65x60 px -> wizard8_img_face_startle01
+- gph_wizardAnimal04Face_startle02: 65x60 px -> wizard8_img_face_startle02
+- gph_wizardAnimal04Hat: 116x96 px -> wizard8_hat
+- gph_wizardAnimal04Tail: 105x37 px -> wizard8_tail
+- gph_wizardIndie01ArmBack: 69x128 px -> wizard9_img_arm_back
+- gph_wizardIndie01ArmBack_action: 116x113 px -> wizard9_img_arm_back_action
+- gph_wizardIndie01ArmFront: 38x51 px -> wizard9_img_arm_front
+- gph_wizardIndie01ArmFront_cast: 76x62 px -> wizard9_img_arm_front_cast
+- gph_wizardIndie01ArmFront_cheer: 61x96 px -> wizard9_img_arm_front_cheer
+- gph_wizardIndie01body: 85x83 px -> wizard9_img_body
+- gph_wizardIndie01body_action: 90x83 px -> wizard9_img_body_action
+- gph_wizardIndie01body_cheer: 86x81 px -> wizard9_img_body_cheer
+- gph_wizardIndie01body_preAction: 91x88 px -> wizard9_img_body_pre_action
+- gph_wizardIndie01Face_action: 87x127 px -> wizard9_img_face_action
+- gph_wizardIndie01Face_cast02: 113x126 px -> wizard9_img_face_cast02
+- gph_wizardIndie01Face_cheer01: 91x126 px -> wizard9_img_face_cheer01
+- gph_wizardIndie01Face_cheer02: 91x126 px -> wizard9_img_face_cheer02
+- gph_wizardIndie01Face_idle01: 91x129 px -> wizard9_img_face_idle01
+- gph_wizardIndie01Face_idle02: 92x129 px -> wizard9_img_face_idle02
+- gph_wizardIndie01Face_laugh: 112x116 px -> wizard9_img_face_laugh
+- gph_wizardIndie01Face_preAction: 111x121 px -> wizard9_img_face_pre_action
+- gph_wizardIndie01Face_preCast: 94x120 px -> wizard9_img_face_pre_cast
+- gph_wizardIndie01Face_startle01: 91x126 px -> wizard9_img_face_startle01
+- gph_wizardIndie01Face_startle02: 91x126 px -> wizard9_img_face_startle02
+- gph_wizardIndie02ArmBack: 158x146 px -> wizard10_img_arm_back
+- gph_wizardIndie02ArmBack_preAction: 147x120 px -> wizard10_img_arm_back_pre_action
+- gph_wizardIndie02ArmFront: 99x156 px -> wizard10_img_arm_front
+- gph_wizardIndie02ArmFront_cheer: 93x183 px -> wizard10_img_arm_front_cheer
+- gph_wizardIndie02body: 149x164 px -> wizard10_body
+- gph_wizardIndie02Face_idle01: 77x83 px -> wizard10_img_face_idle01
+- gph_wizardIndie02Face_idle02: 75x83 px -> wizard10_img_face_idle02
+- gph_wizardIndie02Face_laugh: 77x83 px -> wizard10_img_face_laugh
+- gph_wizardIndie02Face_laugh02: 76x83 px -> wizard10_img_face_laugh02
+- gph_wizardIndie02Face_startle01: 78x83 px -> wizard10_img_face_startle01
+- gph_wizardIndie02Face_startle02: 76x83 px -> wizard10_img_face_startle02
+- gph_wizardIndie02Jaw_idle: 68x32 px -> wizard10_jaw
+- gph_wizardIndie03ArmBack: 77x77 px -> wizard11_img_arm_back
+- gph_wizardIndie03ArmBack_action: 93x66 px -> wizard11_img_arm_back_action
+- gph_wizardIndie03ArmFront: 34x45 px -> wizard11_img_arm_front
+- gph_wizardIndie03ArmFront_cheer: 51x58 px -> wizard11_img_arm_front_cheer
+- gph_wizardIndie03body: 110x100 px -> wizard11_img_body
+- gph_wizardIndie03body_action: 114x103 px -> wizard11_img_body_action
+- gph_wizardIndie03body_cheer: 104x111 px -> wizard11_img_body_cheer
+- gph_wizardIndie03body_preAction: 108x109 px -> wizard11_img_body_pre_action
+- gph_wizardIndie03Face_action: 135x113 px -> wizard11_img_face_action
+- gph_wizardIndie03Face_cast: 158x115 px -> wizard11_img_face_cast
+- gph_wizardIndie03Face_cheer01: 135x113 px -> wizard11_img_face_cheer01
+- gph_wizardIndie03Face_cheer02: 135x113 px -> wizard11_img_face_cheer02
+- gph_wizardIndie03Face_idle01: 147x109 px -> wizard11_img_face_idle01
+- gph_wizardIndie03Face_idle02: 147x109 px -> wizard11_img_face_idle02
+- gph_wizardIndie03Face_laugh: 153x111 px -> wizard11_img_face_laugh
+- gph_wizardIndie03Face_preAction: 153x111 px -> wizard11_img_face_pre_action
+- gph_wizardIndie03Face_preCast: 136x113 px -> wizard11_img_face_pre_cast
+- gph_wizardIndie03Face_startle01: 146x106 px -> wizard11_img_face_startle01
+- gph_wizardIndie03Face_startle02: 146x106 px -> wizard11_img_face_startle02
+- gph_wizardIndie04ArmBack: 74x132 px -> wizard12_img_arm_back
+- gph_wizardIndie04ArmBack_action: 135x87 px -> wizard12_img_arm_back_action
+- gph_wizardIndie04ArmFront: 70x57 px -> wizard12_img_arm_front
+- gph_wizardIndie04ArmFront_cheer: 64x67 px -> wizard12_img_arm_front_cheer
+- gph_wizardIndie04body: 87x101 px -> wizard12_img_body
+- gph_wizardIndie04body_cheer: 88x100 px -> wizard12_img_body_cheer
+- gph_wizardIndie04body_preAction: 87x97 px -> wizard12_img_body_pre_action
+- gph_wizardIndie04Face_action: 111x116 px -> wizard12_img_face_action
+- gph_wizardIndie04Face_cheer01: 91x123 px -> wizard12_img_face_cheer01
+- gph_wizardIndie04Face_cheer02: 91x123 px -> wizard12_img_face_cheer02
+- gph_wizardIndie04Face_idle01: 107x109 px -> wizard12_face
+- gph_wizardIndie04Face_idle02: 107x109 px -> wizard12_img_face_idle02
+- gph_wizardIndie04Face_laugh: 95x95 px -> wizard12_img_face_laugh
+- gph_wizardIndie04Face_preAction: 95x95 px -> wizard12_img_face_pre_action
+- gph_wizardIndie04Face_preCast: 110x115 px -> wizard12_img_face_pre_cast
+- gph_wizardIndie04Face_startle01: 104x108 px -> wizard12_img_face_startle01
+- gph_wizardIndie04Face_startle02: 104x108 px -> wizard12_img_face_startle02
+- gph_wizardIndie04Tail: 107x74 px -> wizard12_tail
+- gph_wizardIndie05ArmBack: 122x54 px -> wizard13_img_arm_back
+- gph_wizardIndie05ArmFront: 72x42 px -> wizard13_img_arm_front
+- gph_wizardIndie05ArmFront_cast: 59x38 px -> wizard13_img_arm_front_cast
+- gph_wizardIndie05ArmFront_cheer: 57x52 px -> wizard13_img_arm_front_cheer
+- gph_wizardIndie05body: 145x170 px -> wizard13_img_body
+- gph_wizardIndie05body_action: 145x161 px -> wizard13_img_body_action
+- gph_wizardIndie05body_cheer: 140x169 px -> wizard13_img_body_cheer
+- gph_wizardIndie05body_preAction: 137x177 px -> wizard13_img_body_pre_action
+- gph_wizardIndie05Face_cheer01: 90x75 px -> wizard13_img_face_cheer01
+- gph_wizardIndie05Face_cheer02: 90x75 px -> wizard13_img_face_cheer02
+- gph_wizardIndie05Face_idle01: 88x65 px -> wizard13_face
+- gph_wizardIndie05Face_idle02: 88x65 px -> wizard13_img_face_idle02
+- gph_wizardIndie05Face_laugh: 93x89 px -> wizard13_img_face_laugh
+- gph_wizardIndie05Face_preAction: 89x87 px -> wizard13_img_face_pre_action
+- gph_wizardIndie05Face_startle01: 88x71 px -> wizard13_img_face_startle01
+- gph_wizardIndie05Face_startle02: 88x71 px -> wizard13_img_face_startle02
+- gph_wizardIndie06ArmBack: 43x53 px -> wizard14_img_arm_back
+- gph_wizardIndie06ArmBack_action: 83x56 px -> wizard14_img_arm_back_action
+- gph_wizardIndie06ArmBack_preAction: 50x80 px -> wizard14_img_arm_back_pre_action
+- gph_wizardIndie06ArmFront: 54x61 px -> wizard14_img_arm_front
+- gph_wizardIndie06ArmFront_cheer: 51x96 px -> wizard14_img_arm_front_cheer
+- gph_wizardIndie06body: 94x110 px -> wizard14_img_body
+- gph_wizardIndie06body_cheer: 96x107 px -> wizard14_img_body_cheer
+- gph_wizardIndie06body_preAction: 98x116 px -> wizard14_img_body_pre_action
+- gph_wizardIndie06Face_action: 105x104 px -> wizard14_img_face_action
+- gph_wizardIndie06Face_cheer01: 104x104 px -> wizard14_img_face_cheer01
+- gph_wizardIndie06Face_cheer02: 104x104 px -> wizard14_img_face_cheer02
+- gph_wizardIndie06Face_idle01: 112x93 px -> wizard14_face
+- gph_wizardIndie06Face_idle02: 112x93 px -> wizard14_img_face_idle02
+- gph_wizardIndie06Face_preAction: 112x94 px -> wizard14_img_face_pre_action
+- gph_wizardIndie06Face_preCast: 105x103 px -> wizard14_img_face_pre_cast
+- gph_wizardIndie06Face_startle01: 110x101 px -> wizard14_img_face_startle01
+- gph_wizardIndie06Face_startle02: 110x101 px -> wizard14_img_face_startle02
+
+## Bricks (all packs, stone/ice versions, Mystery, minibase pieces)
+- anim_ivy_mystery01_0: 160x249 px -> brick_ivy_mystery01_0
+- anim_ivy_mystery01_1: 160x267 px -> brick_ivy_mystery01_1
+- anim_ivy_mystery01_2: 160x250 px -> brick_ivy_mystery01_2
+- anim_ivy_mystery01_3: 160x276 px -> brick_ivy_mystery01_3
+- anim_ivy_mystery01_4: 160x287 px -> brick_ivy_mystery01_4
+- anim_ivy_mystery02_0: 222x285 px -> brick_ivy_mystery02_0
+- anim_ivy_mystery02_1: 222x285 px -> brick_ivy_mystery02_1
+- anim_ivy_mystery02_2: 222x285 px -> brick_ivy_mystery02_2
+- anim_ivy_mystery02_3: 222x285 px -> brick_ivy_mystery02_3
+- anim_ivy_mystery02_4: 222x290 px -> brick_ivy_mystery02_4
+- anim_ivy_mystery03_0: 230x175 px -> brick_ivy_mystery03_0
+- anim_ivy_mystery03_1: 287x196 px -> brick_ivy_mystery03_1
+- anim_ivy_mystery03_2: 287x197 px -> brick_ivy_mystery03_2
+- anim_ivy_mystery03_3: 292x214 px -> brick_ivy_mystery03_3
+- anim_ivy_mystery03_4: 292x225 px -> brick_ivy_mystery03_4
+- anim_mysteryBrick03_keys_0: 254x22 px -> brick_mystery_brick03_keys_0
+- anim_mysteryBrick03_keys_1: 254x22 px -> brick_mystery_brick03_keys_1
+- anim_mysteryBrick03_keys_2: 254x22 px -> brick_mystery_brick03_keys_2
+- anim_mysteryBrick03_keys_3: 254x22 px -> brick_mystery_brick03_keys_3
+- gph_brick_easter_decorations_egg01: 49x54 px -> brick_easter_decorations_egg01
+- gph_brick_easter_decorations_egg02: 51x57 px -> brick_easter_decorations_egg02
+- gph_brick_easter_decorations_egg03: 51x57 px -> brick_easter_decorations_egg03
+- gph_brick_easter_decorations_egg04: 51x57 px -> brick_easter_decorations_egg04
+- gph_brick_easter_decorations_egg05: 51x57 px -> brick_easter_decorations_egg05
+- gph_brick_easter_decorations_egg06: 51x57 px -> brick_easter_decorations_egg06
+- gph_brick_easter_decorations_egg07: 51x57 px -> brick_easter_decorations_egg07
+- gph_brick_easter_decorations_egg08: 51x57 px -> brick_easter_decorations_egg08
+- gph_brick_easter_decorations_flower01: 65x63 px -> brick_easter_decorations_flower01
+- gph_brick_easter_decorations_flower02: 54x53 px -> brick_easter_decorations_flower02
+- gph_brick_easter_decorations_flower03: 54x53 px -> brick_easter_decorations_flower03
+- gph_brick_easter_decorations_flower04: 59x57 px -> brick_easter_decorations_flower04
+- gph_brick_easter_decorations_flower05: 63x61 px -> brick_easter_decorations_flower05
+- gph_brick_easter_decorations_flower06: 63x61 px -> brick_easter_decorations_flower06
+- gph_brick_easter_decorations_flower07: 59x57 px -> brick_easter_decorations_flower07
+- gph_brick_easter_decorations_flower08: 59x57 px -> brick_easter_decorations_flower08
+- gph_brick_guide: 40x40 px -> drop_guide
+- gph_brick_halloween_decorations_Bat01: 106x56 px -> brick_halloween_bat01
+- gph_brick_halloween_decorations_Pumpkin01: 63x71 px -> brick_halloween_pumpkin01
+- gph_brick_halloween_decorations_Spider01: 78x70 px -> brick_halloween_spider01
+- gph_brick_halloween_decorations_Spiderweb: 68x80 px -> brick_halloween_spiderweb
+- gph_brickI_candy_normalMap: 268x73 px -> brick_i_candy_normal_map
+- gph_brickI_default_normalMap: 268x73 px -> brick_i_default_normal_map
+- gph_brickI_diamond_normalMap: 268x73 px -> brick_i_diamond_normal_map
+- gph_brickI_general_normalMap: 268x73 px -> brick_i_general_normal_map
+- gph_brickI_ice: 260x65 px -> brick_I_ice
+- gph_brickI_petrified_desert: 266x72 px -> desert_stone_I
+- gph_brickI_petrified_ice: 266x72 px -> brick_i_petrified_ice
+- gph_brickI_petrified01: 265x72 px -> brick_I_stone
+- gph_brickI_stone: 266x71 px -> rival_brick_I
+- gph_brickJ_candy_normalMap: 202x136 px -> brick_j_candy_normal_map
+- gph_brickJ_default_normalMap: 202x136 px -> brick_j_default_normal_map
+- gph_brickJ_diamond_normalMap: 202x136 px -> brick_j_diamond_normal_map
+- gph_brickJ_general_normalMap: 202x136 px -> brick_j_general_normal_map
+- gph_brickJ_ice: 196x130 px -> brick_J_ice
+- gph_brickJ_petrified_desert: 200x137 px -> desert_stone_J
+- gph_brickJ_petrified_ice: 200x137 px -> brick_j_petrified_ice
+- gph_brickJ_petrified01: 200x137 px -> brick_J_stone
+- gph_brickJ_stone: 202x136 px -> rival_brick_J
+- gph_brickL_candy_normalMap: 201x136 px -> brick_l_candy_normal_map
+- gph_brickL_default_normalMap: 201x136 px -> brick_l_default_normal_map
+- gph_brickL_diamond_normalMap: 202x136 px -> brick_l_diamond_normal_map
+- gph_brickL_general_normalMap: 201x136 px -> brick_l_general_normal_map
+- gph_brickL_ice: 195x130 px -> brick_L_ice
+- gph_brickL_petrified_desert: 200x137 px -> desert_stone_L
+- gph_brickL_petrified_Ice: 200x137 px -> brick_l_petrified_ice
+- gph_brickL_petrified01: 200x137 px -> brick_L_stone
+- gph_brickL_stone: 201x136 px -> rival_brick_L
+- gph_brickMystery01: 136x265 px -> mystery_block
+- gph_brickMystery01_ice: 136x267 px -> mystery_block_ice
+- gph_brickMystery01_petrified: 134x264 px -> mystery_block_stone
+- gph_brickMystery01_petrified_ice: 134x264 px -> brick_mystery01_petrified_ice
+- gph_brickMystery02: 200x266 px -> mystery_blob
+- gph_brickMystery02_ice: 200x266 px -> mystery_blob_ice
+- gph_brickMystery02_petrified: 199x263 px -> mystery_blob_stone
+- gph_brickMystery02_petrified_ice: 199x263 px -> brick_mystery02_petrified_ice
+- gph_brickMystery02Rotor: 171x171 px -> brick_mystery02_rotor
+- gph_brickMystery02Rotor_ice: 171x171 px -> brick_mystery02_rotor_ice
+- gph_brickMystery02Rotor_petrified: 171x171 px -> brick_mystery02_rotor_petrified
+- gph_brickMystery02Rotor_petrified_ice: 171x171 px -> brick_mystery02_rotor_petrified_ice
+- gph_brickMystery02Rotor_white: 171x171 px -> brick_mystery02_rotor_white
+- gph_brickMystery03: 267x203 px -> mystery_table
+- gph_brickMystery03_ice: 267x203 px -> mystery_table_ice
+- gph_brickMystery03_petrified: 267x201 px -> mystery_table_stone
+- gph_brickMystery03_petrified_ice: 267x201 px -> brick_mystery03_petrified_ice
+- gph_brickO_candy_normalMap: 136x136 px -> brick_o_candy_normal_map
+- gph_brickO_default_normalMap: 136x136 px -> brick_o_default_normal_map
+- gph_brickO_diamond_normalMap: 136x136 px -> brick_o_diamond_normal_map
+- gph_brickO_general_normalMap: 136x136 px -> brick_o_general_normal_map
+- gph_brickO_ice: 130x130 px -> brick_O_ice
+- gph_brickO_petrified_desert: 136x136 px -> desert_stone_O
+- gph_brickO_petrified_Ice: 136x136 px -> brick_o_petrified_ice
+- gph_brickO_petrified01: 136x136 px -> brick_O_stone
+- gph_brickO_stone: 136x136 px -> rival_brick_O
+- gph_brickS_candy_normalMap: 201x136 px -> brick_s_candy_normal_map
+- gph_brickS_default_normalMap: 201x136 px -> brick_s_default_normal_map
+- gph_brickS_diamond_normalMap: 201x136 px -> brick_s_diamond_normal_map
+- gph_brickS_general_normalMap: 201x136 px -> brick_s_general_normal_map
+- gph_brickS_ice: 195x130 px -> brick_S_ice
+- gph_brickS_petrified_desert: 198x135 px -> desert_stone_S
+- gph_brickS_petrified_ice: 198x135 px -> brick_s_petrified_ice
+- gph_brickS_petrified01: 198x135 px -> brick_S_stone
+- gph_brickS_stone: 201x136 px -> rival_brick_S
+- gph_brickT_candy_normalMap: 201x136 px -> brick_t_candy_normal_map
+- gph_brickT_default_normalMap: 201x136 px -> brick_t_default_normal_map
+- gph_brickT_diamond_normalMap: 201x136 px -> brick_t_diamond_normal_map
+- gph_brickT_general_normalMap: 201x136 px -> brick_t_general_normal_map
+- gph_brickT_ice: 195x131 px -> brick_T_ice
+- gph_brickT_petrified_desert: 198x132 px -> desert_stone_T
+- gph_brickT_petrified_Ice: 198x132 px -> brick_t_petrified_ice
+- gph_brickT_petrified01: 198x132 px -> brick_T_stone
+- gph_brickT_stone: 201x136 px -> rival_brick_T
+- gph_brickZ_candy_normalMap: 201x136 px -> brick_z_candy_normal_map
+- gph_brickZ_default_normalMap: 201x136 px -> brick_z_default_normal_map
+- gph_brickZ_diamond_normalMap: 201x136 px -> brick_z_diamond_normal_map
+- gph_brickZ_general_normalMap: 201x136 px -> brick_z_general_normal_map
+- gph_brickZ_ice: 195x130 px -> brick_Z_ice
+- gph_brickZ_petrified_desert: 198x135 px -> desert_stone_Z
+- gph_brickZ_petrified_ice: 198x135 px -> brick_z_petrified_ice
+- gph_brickZ_petrified01: 198x135 px -> brick_Z_stone
+- gph_brickZ_stone: 201x136 px -> rival_brick_Z
+- gph_towerPiece01L_var01: 115x111 px -> rival_minibase_L
+- gph_towerPiece01R_var01: 121x111 px -> rival_minibase_R
+- gph_towerPiece02L: 106x111 px -> brick_tower_piece02_l
+- gph_towerPiece02R: 111x110 px -> brick_tower_piece02_r
+- icn_brickPack_candy: 249x100 px -> brick_pack_candy
+- icn_brickPack_christmas: 256x102 px -> brick_pack_christmas
+- icn_brickPack_default: 252x100 px -> brick_pack_default
+- icn_brickPack_diamond: 250x101 px -> brick_pack_diamond
+- icn_brickPack_easter: 259x101 px -> brick_pack_easter
+- icn_brickPack_galaxy: 226x101 px -> brick_pack_galaxy
+- icn_brickPack_halloween: 242x95 px -> brick_pack_halloween
+- icn_brickPack_hologram: 262x101 px -> brick_pack_hologram
+
+## Spell effects (ivy, petrify, ice, bubble, balloon, ghosts, mist, laser, casting)
+- anim_ivy_I_0: 204x97 px -> fx_ivy_i_0
+- anim_ivy_I_1: 219x100 px -> fx_ivy_i_1
+- anim_ivy_I_2: 231x100 px -> fx_ivy_i_2
+- anim_ivy_I_3: 235x100 px -> fx_ivy_i_3
+- anim_ivy_I_4: 242x100 px -> fx_ivy_i_4
+- anim_ivy_J_0: 101x120 px -> fx_ivy_j_0
+- anim_ivy_J_1: 117x131 px -> fx_ivy_j_1
+- anim_ivy_J_2: 181x133 px -> fx_ivy_j_2
+- anim_ivy_J_3: 211x133 px -> fx_ivy_j_3
+- anim_ivy_J_4: 217x136 px -> fx_ivy_j_4
+- anim_ivy_L_0: 146x120 px -> fx_ivy_l_0
+- anim_ivy_L_1: 118x131 px -> fx_ivy_l_1
+- anim_ivy_L_2: 181x133 px -> fx_ivy_l_2
+- anim_ivy_L_3: 211x133 px -> fx_ivy_l_3
+- anim_ivy_L_4: 217x136 px -> fx_ivy_l_4
+- anim_ivy_O_0: 132x152 px -> fx_ivy_o_0
+- anim_ivy_O_1: 132x152 px -> fx_ivy_o_1
+- anim_ivy_O_2: 132x152 px -> fx_ivy_o_2
+- anim_ivy_O_3: 146x152 px -> fx_ivy_o_3
+- anim_ivy_O_4: 157x155 px -> fx_ivy_o_4
+- anim_ivy_S_0: 119x113 px -> fx_ivy_s_0
+- anim_ivy_S_1: 177x89 px -> fx_ivy_s_1
+- anim_ivy_S_2: 188x120 px -> fx_ivy_s_2
+- anim_ivy_S_3: 188x138 px -> fx_ivy_s_3
+- anim_ivy_S_4: 206x160 px -> fx_ivy_s_4
+- anim_ivy_T_0: 128x118 px -> fx_ivy_t_0
+- anim_ivy_T_1: 175x123 px -> fx_ivy_t_1
+- anim_ivy_T_2: 194x138 px -> fx_ivy_t_2
+- anim_ivy_T_3: 196x148 px -> fx_ivy_t_3
+- anim_ivy_T_4: 215x155 px -> fx_ivy_t_4
+- anim_ivy_Z_0: 119x113 px -> fx_ivy_z_0
+- anim_ivy_Z_1: 177x89 px -> fx_ivy_z_1
+- anim_ivy_Z_2: 188x120 px -> fx_ivy_z_2
+- anim_ivy_Z_3: 188x138 px -> fx_ivy_z_3
+- anim_ivy_Z_4: 205x160 px -> fx_ivy_z_4
+- gph_balloon_var01: 137x169 px -> balloon
+- gph_bubble2_var1: 243x268 px -> fx_bubble2_var1
+- gph_bubble2_var2: 243x251 px -> fx_bubble2_var2
+- gph_bubble2_var3: 243x251 px -> fx_bubble2_var3
+- gph_bubble3_var1: 274x301 px -> bubble
+- gph_bubble3_var2: 274x281 px -> fx_bubble3_var2
+- gph_bubble3_var3: 274x281 px -> fx_bubble3_var3
+- gph_bubble4_var1: 318x348 px -> fx_bubble4_var1
+- gph_bubble4_var2: 318x324 px -> fx_bubble4_var2
+- gph_bubble4_var3: 318x324 px -> fx_bubble4_var3
+- gph_castBeamLane_World01: 383x32 px -> cast_lane_beam
+- gph_castBeamLane_World02: 386x32 px -> cast_lane_beam_survival
+- gph_castEffect02Background: 48x14 px -> fx_cast_effect02_background
+- gph_castEffect03Background: 48x14 px -> fx_cast_effect03_background
+- gph_castEffect04Background: 48x14 px -> fx_cast_effect04_background
+- gph_castEffect2Base: 46x46 px -> fx_cast_effect2_base
+- gph_castEffect2Blob01: 164x164 px -> fx_cast_effect2_blob01
+- gph_castEffect2Blob02: 159x159 px -> fx_cast_effect2_blob02
+- gph_castEffect2Blob03: 89x89 px -> fx_cast_effect2_blob03
+- gph_castEffect2Blob04: 85x85 px -> fx_cast_effect2_blob04
+- gph_castEffect2Blob05: 145x145 px -> fx_cast_effect2_blob05
+- gph_castEffect3Blob01: 164x164 px -> fx_cast_effect3_blob01
+- gph_castEffect3Blob02: 144x144 px -> fx_cast_effect3_blob02
+- gph_castEffect3Blob03: 79x79 px -> fx_cast_effect3_blob03
+- gph_castEffect3Blob04: 82x82 px -> fx_cast_effect3_blob04
+- gph_castEffect4Blob01: 70x58 px -> fx_cast_effect4_blob01
+- gph_castEffect4Blob02: 99x79 px -> fx_cast_effect4_blob02
+- gph_castEffect4Blob03: 113x101 px -> fx_cast_effect4_blob03
+- gph_castEffectAnimals01: 116x124 px -> fx_cast_effect_animals01
+- gph_castEffectAnimals02: 29x45 px -> cast_spark
+- gph_castEffectBackground: 87x14 px -> cast_beam
+- gph_castEffectBlob: 107x107 px -> cast_beam_blob
+- gph_castEffectBlobSmall: 61x62 px -> cast_beam_blob_small
+- gph_castEffectCircleInnerGradient: 149x149 px -> cast_circle_gradient
+- gph_castEffectCircleOutlineThick: 115x115 px -> cast_circle_thick
+- gph_castEffectCircleOutlineThin: 149x149 px -> cast_circle_thin
+- gph_castEffectSunrays: 194x194 px -> cast_sunrays
+- gph_chainLink: 48x35 px -> trial_chain_link
+- gph_chainLinkEnd: 55x35 px -> trial_chain_link_end
+- gph_chainLinkShort: 24x17 px -> trial_chain_link_short
+- gph_cursedLineMist: 104x96 px -> mist
+- gph_eclipsedSun: 408x408 px -> puzzle_pro_sun
+- gph_gradientReflected: 26x255 px -> fx_gradient_reflected
+- gph_grass_var01: 48x60 px -> grass_tuft_1
+- gph_grass_var02: 53x40 px -> grass_tuft_2
+- gph_grass_var03: 50x50 px -> grass_tuft_3
+- gph_grass_var04: 48x35 px -> grass_tuft_4
+- gph_grass_var05: 60x45 px -> grass_tuft_5
+- gph_grass_var06: 50x23 px -> grass_tuft_6
+- gph_grass_var07: 50x38 px -> grass_tuft_7
+- gph_grassEaster_var01: 41x48 px -> fx_grass_easter_var01
+- gph_grassEaster_var02: 40x61 px -> fx_grass_easter_var02
+- gph_grassEaster_var03: 40x46 px -> fx_grass_easter_var03
+- gph_grassLarge_var01: 79x73 px -> grass_overlay
+- gph_grassLarge_var02: 84x86 px -> fx_grass_large_var02
+- gph_grassLarge_var03: 78x71 px -> fx_grass_large_var03
+- gph_grassLarge_var04: 70x54 px -> fx_grass_large_var04
+- gph_house01_grass: 115x16 px -> fx_house01_grass
+- gph_laserball: 124x124 px -> fx_laserball
+- gph_laserPillarTile: 67x89 px -> fx_laser_pillar_tile
+- gph_laserPillarTop: 100x124 px -> fx_laser_pillar_top
+- gph_lock: 68x63 px -> trial_lock
+- gph_moss_var01: 65x58 px -> fx_moss_var01
+- gph_moss_var02: 48x30 px -> fx_moss_var02
+- gph_moss_var03: 58x40 px -> fx_moss_var03
+- gph_mossDesert_var01: 65x58 px -> fx_moss_desert_var01
+- gph_mossDesert_var02: 48x30 px -> fx_moss_desert_var02
+- gph_mossDesert_var03: 58x40 px -> fx_moss_desert_var03
+- gph_mossLarge_var_01: 65x60 px -> fx_moss_large_var_01
+- gph_mossLarge_var_02: 66x48 px -> fx_moss_large_var_02
+- gph_mossLarge_var_03: 68x49 px -> fx_moss_large_var_03
+- gph_mossLarge_var_04: 66x49 px -> fx_moss_large_var_04
+- gph_mossLarge_var_05: 67x62 px -> fx_moss_large_var_05
+- gph_mossLarge_var_06: 66x61 px -> fx_moss_large_var_06
+- gph_skull01_head: 56x64 px -> fx_skull01_head
+- gph_skull01_jaw: 23x11 px -> fx_skull01_jaw
+- gph_skull02_head: 40x41 px -> fx_skull02_head
+- gph_spellPickup: 32x32 px -> spell_line
+- icn_spellGhosts: 104x91 px -> spell_icon_Ghost
+
+## Backgrounds (per mode)
+
+### race
+- gph_backgroundBack01: 136x90 px -> background_race_pro_2
+- gph_backgroundBack01_endless: 140x96 px -> background_endless_0
+- gph_backgroundFront01: 238x337 px -> background_race_pro_5
+- gph_backgroundFront01_endless: 244x343 px -> background_endless_3
+- gph_backgroundFront02: 404x172 px -> background_race_pro_6
+- gph_backgroundFront02_endless: 410x178 px -> background_endless_4
+- gph_backgroundFront03: 372x514 px -> background_race_pro_7
+- gph_backgroundFront03_endless: 378x520 px -> background_endless_5
+- gph_backgroundMiddle01: 389x204 px -> background_race_pro_3
+- gph_backgroundMiddle01_endless: 395x210 px -> background_endless_1
+- gph_backgroundMiddle02: 454x334 px -> background_race_pro_4
+- gph_backgroundMiddle02_endless: 460x340 px -> background_endless_2
+- gph_cactusLeft: 23x31 px -> bg_race_cactus_left
+- gph_cactusRight: 21x24 px -> bg_race_cactus_right
+- gph_checkpointFlag: 44x36 px -> bg_race_checkpoint_flag
+- gph_checkpointFlagPole: 52x81 px -> bg_race_checkpoint_flag_pole
+- gph_cloud_var01: 497x210 px -> background_survival_65
+- gph_cloud_var01_0: 497x210 px -> background_race_8
+- gph_cloud_var02: 505x121 px -> background_survival_62
+- gph_cloud_var02_0: 505x121 px -> bg_race_cloud_var02_0
+- gph_cloud_var03: 358x141 px -> bg_race_cloud_var03
+- gph_cloud_var03_0: 358x141 px -> background_survival_61
+- gph_cloud_var04: 459x92 px -> background_survival_63
+- gph_cloud_var04_0: 459x92 px -> background_race_9
+- gph_cloud_var05: 181x113 px -> bg_race_cloud_var05
+- gph_cloud_var05_0: 181x113 px -> background_survival_60
+- gph_cloud_var06: 320x100 px -> background_survival_64
+- gph_cloud_var06_0: 320x100 px -> bg_race_cloud_var06_0
+- gph_cloud_var07: 371x141 px -> background_survival_75
+- gph_cloud_var07_0: 371x141 px -> background_race_10
+- gph_cloud_var08: 494x136 px -> background_survival_77
+- gph_cloud_var08_0: 494x136 px -> bg_race_cloud_var08_0
+- gph_cloud_var09: 325x142 px -> bg_race_cloud_var09
+- gph_cloud_var09_0: 325x142 px -> background_survival_74
+- gph_cloud_var10: 256x113 px -> background_survival_76
+- gph_cloud_var10_0: 256x113 px -> bg_race_cloud_var10_0
+- gph_cloudLarge_var01: 1266x497 px -> background_survival_47
+- gph_cloudLarge_var01_0: 1266x497 px -> background_race_0
+- gph_cloudLarge_var02: 1484x492 px -> background_race_1
+- gph_cloudLarge_var02_0: 1484x492 px -> background_survival_46
+- gph_cloudLargePro_var01: 1609x874 px -> race_pro_cloud
+- gph_cloudMessage01: 350x56 px -> wave_cloud_1
+- gph_cloudMessage02: 177x42 px -> wave_cloud_2
+- gph_cloudMessage03: 303x102 px -> wave_cloud_3
+- gph_cloudMessage04: 303x94 px -> wave_cloud_4
+- gph_corona: 683x97 px -> puzzle_pro_corona
+- gph_endless_race_pace_layer: 40x40 px -> pacer_layer
+- gph_finishLine: 26x53 px -> bg_race_finish_line
+- gph_finishLineEnd: 32x38 px -> finish_line
+- gph_finishLinetile: 40x38 px -> finish_line_end
+- gph_foregroundWater: 26x53 px -> water
+- gph_foregroundWaterEndless: 26x53 px -> bg_race_foreground_water_endless
+- gph_foregroundWaterPro: 26x53 px -> water_pro
+- gph_galaxy_background: 512x512 px -> bg_race_galaxy_background
+- gph_gradientRefelcted: 4x255 px -> background_survival_20
+- gph_house01Reflection: 192x52 px -> bg_race_house01_reflection
+- gph_house01Reflection_dark: 192x52 px -> bg_race_house01_reflection_dark
+- gph_house01Reflection_endless: 192x52 px -> bg_race_house01_reflection_endless
+- gph_house02: 210x262 px -> platform_race
+- gph_house06_world3: 29x55 px -> puzzle_piece_base
+- gph_house07_world3: 29x19 px -> puzzle_piece_base_top
+- gph_pacerRaceEndless: 26x53 px -> pacer_line
+- gph_skyGradientColored: 26x534 px -> bg_race_sky_gradient_colored
+- gph_snow_var01: 65x56 px -> bg_race_snow_var01
+- gph_snow_var02: 63x43 px -> bg_race_snow_var02
+- gph_snow_var03: 63x57 px -> bg_race_snow_var03
+- gph_sun: 746x413 px -> bg_race_sun
+- gph_waterline01: 106x8 px -> bg_race_waterline01
+- gph_waterline02: 20x7 px -> bg_race_waterline02
+- gph_waterline03: 70x8 px -> bg_race_waterline03
+- gph_waterline04: 105x5 px -> bg_race_waterline04
+- gph_wave: 64x21 px -> bg_race_wave
+
+### survival
+- gph_backgroundIsland01: 519x457 px -> background_survival_3
+- gph_backgroundIsland02: 440x491 px -> background_survival_1
+- gph_backgroundIsland03: 480x392 px -> background_survival_4
+- gph_backgroundIsland04: 245x413 px -> background_survival_2
+- gph_house01_world02: 190x287 px -> platform_survival
+- gph_moon: 258x251 px -> background_survival_0
+
+### puzzle
+- gph_backgroundBackLeft: 358x270 px -> background_endless_puzzle_0
+- gph_backgroundBackLeftHead: 49x49 px -> bg_puzzle_background_back_left_head
+- gph_backgroundBackRight: 1004x171 px -> background_endless_puzzle_1
+- gph_backgroundFrontLeft: 368x200 px -> background_endless_puzzle_5
+- gph_backgroundFrontRight: 290x319 px -> background_endless_puzzle_6
+- gph_backgroundMiddleCenter: 304x234 px -> background_endless_puzzle_3
+- gph_backgroundMiddleCenterHead: 82x81 px -> bg_puzzle_background_middle_center_head
+- gph_backgroundMiddleLeft: 464x380 px -> background_endless_puzzle_2
+- gph_backgroundMiddleLeftHead: 229x272 px -> bg_puzzle_background_middle_left_head
+- gph_backgroundMiddleRight: 595x468 px -> background_endless_puzzle_4
+- gph_backgroundMiddleRightHead01: 244x241 px -> bg_puzzle_background_middle_right_head01
+- gph_backgroundMiddleRightHead02: 41x37 px -> bg_puzzle_background_middle_right_head02
+- gph_backgroundMiddleRightHead03: 45x34 px -> bg_puzzle_background_middle_right_head03
+- gph_backgroundSandStorm: 520x141 px -> bg_puzzle_background_sand_storm
+- gph_foregroundSand: 26x48 px -> bg_puzzle_foreground_sand
+- gph_house01_world03: 29x339 px -> puzzle_piece_1
+- gph_house02_world03: 55x339 px -> puzzle_piece_2
+- gph_house03_world03: 29x339 px -> puzzle_pro_center
+- gph_house04_world03: 54x81 px -> floor_block_4
+- gph_house05_world03: 29x28 px -> floor_block_5
+- gph_house08_world03: 31x29 px -> puzzle_pro_ledge_1
+- gph_house09_world03: 29x29 px -> puzzle_pro_ledge_2
+- gph_house10_world03: 30x30 px -> puzzle_pro_ledge_3
+- gph_house11_world03: 31x30 px -> puzzle_pro_ledge_top
+- gph_pinkSand: 26x46 px -> bg_puzzle_pink_sand
+
+## Match moments (countdown, win, lose, trophies, spotlights)
+- gph_roof01: 114x184 px -> roof_race
+- gph_roof02: 109x120 px -> roof_survival
+- gph_spotlightLoser_World01: 387x32 px -> spotlight_loser_race
+- gph_spotlightLoser_World02: 387x32 px -> spotlight_loser_survival
+- gph_spotlightLoser_World03: 387x32 px -> spotlight_loser_puzzle
+- gph_spotlightWinner_World01: 386x32 px -> spotlight_winner_race
+- gph_spotlightWinner_World02: 386x32 px -> spotlight_winner_survival
+- gph_spotlightWinner_World03: 386x32 px -> spotlight_winner_puzzle
+- gph_star: 18x18 px -> background_survival_41
+- gph_starOutline: 18x18 px -> match_star_outline
+
+## Particles and sprite-sheet effects
+- anim_largeCross_65x65_0: 65x65 px -> lost_cross
+- anim_largeCross_65x65_1: 65x65 px -> particle_large_cross_65x65_1
+
+## Other
+- gph_cross: 25x24 px -> misc_cross
+- gph_cursedLineSolid: 1600x40 px -> misc_cursed_line_solid
+- gph_dot: 13x13 px -> misc_dot
+- gph_string_pixel: 1x1 px -> misc_string_pixel
+- gph_white: 40x40 px -> misc_white
+
+## Whole textures (brick packs, normal maps, gradients, noise; atlases are listed for reference)
+- anim_confetti01_32x96: 96x32 px -> confetti_1
+- anim_confetti02_32x96: 96x32 px -> confetti_2
+- anim_waterSplash64x196: 64x192 px -> bg_race_water_splash64x196
+- btn_menuArrow: 94x55 px -> (atlas: its sprites are listed above)
+- btn_menuArrowDeselected: 93x55 px -> (atlas: its sprites are listed above)
+- btn_menuArrowSmall: 38x64 px -> (atlas: its sprites are listed above)
+- gph_aButtonLarge_down: 73x58 px -> (atlas: its sprites are listed above)
+- gph_aButtonLarge_up: 73x68 px -> (atlas: its sprites are listed above)
+- gph_analogStick: 63x62 px -> (atlas: its sprites are listed above)
+- gph_analogStickXbox: 63x62 px -> (atlas: its sprites are listed above)
+- gph_backgroundBack01: 136x90 px -> (atlas: its sprites are listed above)
+- gph_backgroundBack01_endless: 140x96 px -> (atlas: its sprites are listed above)
+- gph_backgroundFront01: 238x337 px -> (atlas: its sprites are listed above)
+- gph_backgroundFront01_endless: 244x343 px -> (atlas: its sprites are listed above)
+- gph_backgroundFront02: 416x307 px -> (atlas: its sprites are listed above)
+- gph_backgroundFront02_endless: 416x310 px -> (atlas: its sprites are listed above)
+- gph_backgroundFront03: 372x514 px -> (atlas: its sprites are listed above)
+- gph_backgroundFront03_endless: 378x520 px -> (atlas: its sprites are listed above)
+- gph_backgroundMiddle01: 389x204 px -> (atlas: its sprites are listed above)
+- gph_backgroundMiddle01_endless: 395x210 px -> (atlas: its sprites are listed above)
+- gph_backgroundMiddle02: 454x334 px -> (atlas: its sprites are listed above)
+- gph_backgroundMiddle02_endless: 460x340 px -> (atlas: its sprites are listed above)
+- gph_backgroundMiddleRightHead01: 244x241 px -> (atlas: its sprites are listed above)
+- gph_BallNoise: 256x256 px -> fx_ball_noise
+- gph_brick_guide: 40x40 px -> (atlas: its sprites are listed above)
+- gph_brickI_candy_normalMap: 268x73 px -> (atlas: its sprites are listed above)
+- gph_brickI_candy_texture: 268x73 px -> brick_candy_I
+- gph_brickI_christmas_lightsTexture03: 268x146 px -> brick_christmas_lights_I
+- gph_brickI_christmas_texture: 268x73 px -> brick_christmas_I
+- gph_brickI_default_normalMap: 268x73 px -> (atlas: its sprites are listed above)
+- gph_brickI_default_texture: 268x73 px -> brick_I
+- gph_brickI_diamond_normalMap: 268x73 px -> (atlas: its sprites are listed above)
+- gph_brickI_diamond_texture: 268x73 px -> brick_diamond_I
+- gph_brickI_easter_texture: 268x73 px -> brick_spring_I
+- gph_brickI_general_normalMap: 268x73 px -> (atlas: its sprites are listed above)
+- gph_brickI_halloween_texture: 268x73 px -> brick_halloween_I
+- gph_brickImpact: 27x24 px -> brick_impact_dust
+- gph_brickJ_candy_normalMap: 202x136 px -> (atlas: its sprites are listed above)
+- gph_brickJ_candy_texture: 202x136 px -> brick_candy_J
+- gph_brickJ_christmas_lightsTexture03: 202x272 px -> brick_christmas_lights_J
+- gph_brickJ_christmas_texture: 202x136 px -> brick_christmas_J
+- gph_brickJ_default_normalMap: 202x136 px -> (atlas: its sprites are listed above)
+- gph_brickJ_default_texture: 202x136 px -> brick_J
+- gph_brickJ_diamond_normalMap: 202x136 px -> (atlas: its sprites are listed above)
+- gph_brickJ_diamond_texture: 202x136 px -> brick_diamond_J
+- gph_brickJ_easter_texture: 202x136 px -> brick_spring_J
+- gph_brickJ_general_normalMap: 202x136 px -> (atlas: its sprites are listed above)
+- gph_brickJ_halloween_texture: 202x136 px -> brick_halloween_J
+- gph_brickJ_stone: 202x136 px -> brick_j_stone_2
+- gph_brickL_candy_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickL_candy_texture: 201x136 px -> brick_candy_L
+- gph_brickL_christmas_lightsTexture03: 201x272 px -> brick_christmas_lights_L
+- gph_brickL_christmas_texture: 201x136 px -> brick_christmas_L
+- gph_brickL_default_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickL_default_texture: 201x136 px -> brick_L
+- gph_brickL_diamond_normalMap: 202x136 px -> (atlas: its sprites are listed above)
+- gph_brickL_diamond_texture: 202x136 px -> brick_diamond_L
+- gph_brickL_easter_texture: 201x136 px -> brick_spring_L
+- gph_brickL_general_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickL_halloween_texture: 201x136 px -> brick_halloween_L
+- gph_brickO_candy_normalMap: 136x136 px -> (atlas: its sprites are listed above)
+- gph_brickO_candy_texture: 136x136 px -> brick_candy_O
+- gph_brickO_christmas_lightsTexture03: 136x272 px -> brick_christmas_lights_O
+- gph_brickO_christmas_texture: 136x136 px -> brick_christmas_O
+- gph_brickO_default_normalMap: 136x136 px -> (atlas: its sprites are listed above)
+- gph_brickO_default_texture: 136x136 px -> brick_O
+- gph_brickO_diamond_normalMap: 136x136 px -> (atlas: its sprites are listed above)
+- gph_brickO_diamond_texture: 136x136 px -> brick_diamond_O
+- gph_brickO_easter_texture: 136x136 px -> brick_spring_O
+- gph_brickO_general_normalMap: 136x136 px -> (atlas: its sprites are listed above)
+- gph_brickO_halloween_texture: 136x136 px -> brick_halloween_O
+- gph_brickS_candy_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickS_candy_texture: 201x136 px -> brick_candy_S
+- gph_brickS_christmas_lightsTexture03: 201x272 px -> brick_christmas_lights_S
+- gph_brickS_christmas_texture: 201x136 px -> brick_christmas_S
+- gph_brickS_default_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickS_default_texture: 201x136 px -> brick_S
+- gph_brickS_diamond_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickS_diamond_texture: 201x136 px -> brick_diamond_S
+- gph_brickS_easter_texture: 201x136 px -> brick_spring_S
+- gph_brickS_general_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickS_halloween_texture: 201x136 px -> brick_halloween_S
+- gph_brickT_candy_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickT_candy_texture: 201x136 px -> brick_candy_T
+- gph_brickT_christmas_lightsTexture03: 201x272 px -> brick_christmas_lights_T
+- gph_brickT_christmas_texture: 201x136 px -> brick_christmas_T
+- gph_brickT_default_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickT_default_texture: 201x136 px -> brick_T
+- gph_brickT_diamond_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickT_diamond_texture: 201x136 px -> brick_diamond_T
+- gph_brickT_easter_texture: 201x136 px -> brick_spring_T
+- gph_brickT_general_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickT_halloween_texture: 201x136 px -> brick_halloween_T
+- gph_brickZ_candy_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickZ_candy_texture: 201x136 px -> brick_candy_Z
+- gph_brickZ_christmas_lightsTexture03: 201x272 px -> brick_christmas_lights_Z
+- gph_brickZ_christmas_texture: 201x136 px -> brick_christmas_Z
+- gph_brickZ_default_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickZ_default_texture: 201x136 px -> brick_Z
+- gph_brickZ_diamond_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickZ_diamond_texture: 201x136 px -> brick_diamond_Z
+- gph_brickZ_easter_texture: 201x136 px -> brick_spring_Z
+- gph_brickZ_general_normalMap: 201x136 px -> (atlas: its sprites are listed above)
+- gph_brickZ_halloween_texture: 201x136 px -> brick_halloween_Z
+- gph_bumperButtonLeft: 83x42 px -> (atlas: its sprites are listed above)
+- gph_bumperButtonLeft_0: 83x42 px -> (atlas: its sprites are listed above)
+- gph_bumperButtonRight: 82x42 px -> (atlas: its sprites are listed above)
+- gph_bumperButtonRight_0: 82x42 px -> (atlas: its sprites are listed above)
+- gph_bumperButtonXboxLeft: 80x37 px -> (atlas: its sprites are listed above)
+- gph_bumperButtonXboxRight: 80x37 px -> (atlas: its sprites are listed above)
+- gph_castBeamLane_World01: 383x32 px -> (atlas: its sprites are listed above)
+- gph_castBeamLane_World02: 386x32 px -> (atlas: its sprites are listed above)
+- gph_castEffect02Background: 48x14 px -> (atlas: its sprites are listed above)
+- gph_castEffect2Sine: 46x33 px -> fx_cast_effect2_sine
+- gph_castEffect3Blob04: 82x82 px -> fx_cast_effect3_blob04_2
+- gph_castEffect3Sine: 51x35 px -> fx_cast_effect3_sine
+- gph_castEffect4Sine: 39x39 px -> fx_cast_effect4_sine
+- gph_castEffectAnimals01: 116x124 px -> (atlas: its sprites are listed above)
+- gph_castEffectAnimals02: 29x45 px -> (atlas: its sprites are listed above)
+- gph_castEffectAnimalsBackground: 128x64 px -> fx_cast_effect_animals_background
+- gph_castEffectAnimalsCenterBackground: 64x64 px -> fx_cast_effect_animals_center_background
+- gph_castEffectCircleOutlineThin: 149x149 px -> fx_cast_effect_circle_outline_thin
+- gph_castEffectGradientReflected: 128x16 px -> fx_cast_effect_gradient_reflected
+- gph_castEffectSine: 46x33 px -> fx_cast_effect_sine
+- gph_castEffectStar: 32x32 px -> spark_star
+- gph_checkpointFlag: 44x36 px -> (atlas: its sprites are listed above)
+- gph_cloudLargeRaceEndless_01: 1024x256 px -> bg_race_cloud_large_race_endless_01
+- gph_cloudLargeRaceEndless_02: 1024x256 px -> bg_race_cloud_large_race_endless_02
+- gph_cloudLargeRaceEndless_mask01: 1024x256 px -> bg_race_cloud_large_race_endless_mask01
+- gph_cloudLargeRaceEndless_mask02: 1024x256 px -> bg_race_cloud_large_race_endless_mask02
+- gph_cupBigLarge: 203x203 px -> (atlas: its sprites are listed above)
+- gph_cupBigMedium: 64x82 px -> (atlas: its sprites are listed above)
+- gph_cupBigSmall: 53x53 px -> (atlas: its sprites are listed above)
+- gph_cupModeTopBarDecoBig: 87x67 px -> (atlas: its sprites are listed above)
+- gph_cupModeTopBarDecoSuper: 181x113 px -> (atlas: its sprites are listed above)
+- gph_cupModeWinnerPopupNameBackground: 302x125 px -> (atlas: its sprites are listed above)
+- gph_cupModeWinnerPopupTrophyBackground: 525x206 px -> (atlas: its sprites are listed above)
+- gph_cupOnlineButtonBackground: 60x57 px -> (atlas: its sprites are listed above)
+- gph_cupOnlineLarge: 298x271 px -> (atlas: its sprites are listed above)
+- gph_cupOnlineMedium: 91x108 px -> (atlas: its sprites are listed above)
+- gph_cupOnlineSmall: 73x70 px -> (atlas: its sprites are listed above)
+- gph_cupSuperLarge: 307x247 px -> (atlas: its sprites are listed above)
+- gph_cupSuperMedium: 75x99 px -> (atlas: its sprites are listed above)
+- gph_cupSuperSmall: 73x64 px -> (atlas: its sprites are listed above)
+- gph_cupTinyLarge: 111x132 px -> (atlas: its sprites are listed above)
+- gph_cupTinyMedium: 45x53 px -> (atlas: its sprites are listed above)
+- gph_cupTinySmall: 29x35 px -> (atlas: its sprites are listed above)
+- gph_cursedBrickRespawnEffect: 32x32 px -> brick_cursed_brick_respawn_effect
+- gph_cursedLineMist: 104x104 px -> (atlas: its sprites are listed above)
+- gph_cursedLineSolid: 1600x40 px -> (atlas: its sprites are listed above)
+- gph_debris: 45x42 px -> explosion_debris
+- gph_debrisDesert: 36x34 px -> fx_debris_desert
+- gph_demoMessage: 280x152 px -> (atlas: its sprites are listed above)
+- gph_difficultyEasy: 209x157 px -> (atlas: its sprites are listed above)
+- gph_difficultyItemBackground: 461x393 px -> (atlas: its sprites are listed above)
+- gph_difficultyItemBackground_special: 461x393 px -> (atlas: its sprites are listed above)
+- gph_difficultyNormal: 328x175 px -> (atlas: its sprites are listed above)
+- gph_difficultyPro: 370x188 px -> (atlas: its sprites are listed above)
+- gph_difficultyRandom: 365x208 px -> (atlas: its sprites are listed above)
+- gph_dpad: 62x62 px -> (atlas: its sprites are listed above)
+- gph_dpadXbox: 62x62 px -> (atlas: its sprites are listed above)
+- gph_eclipse_gradient: 32x1 px -> fx_eclipse_gradient
+- gph_endless_race_pace_layer: 40x40 px -> (atlas: its sprites are listed above)
+- gph_explanationPopupLabelArrow: 13x22 px -> (atlas: its sprites are listed above)
+- gph_finishLine: 26x53 px -> (atlas: its sprites are listed above)
+- gph_finishLineEnd: 32x38 px -> (atlas: its sprites are listed above)
+- gph_finishLinetile: 40x38 px -> (atlas: its sprites are listed above)
+- gph_foregroundSand: 26x48 px -> puzzle_sand_front
+- gph_foregroundWater: 26x53 px -> (atlas: its sprites are listed above)
+- gph_foregroundWaterEndless: 26x53 px -> (atlas: its sprites are listed above)
+- gph_foregroundWaterPro: 26x53 px -> (atlas: its sprites are listed above)
+- gph_galaxy_background: 512x512 px -> brick_galaxy_background
+- gph_gradientRadialSoft: 63x63 px -> mist_puff
+- gph_gradientReflectedSoft: 63x63 px -> fx_gradient_reflected_soft
+- gph_gradientTextureFont: 64x64 px -> text_gradient_red
+- gph_gradientTextureFont02: 64x64 px -> text_gradient_gold
+- gph_gradientTextureFont04: 64x64 px -> text_gradient_bronze
+- gph_gradientTextureFont05: 64x64 px -> menu_gradient_texture_font05
+- gph_gravel: 16x128 px -> gravel
+- gph_KBKeyBackground: 48x43 px -> key_background
+- gph_keyboardArrows: 83x46 px -> (atlas: its sprites are listed above)
+- gph_laserOff: 1024x32 px -> fx_laser_off
+- gph_laseron: 1024x32 px -> laser
+- gph_leaderboardEntryBackground: 20x42 px -> (atlas: its sprites are listed above)
+- gph_leaderboardMedalBronze: 44x54 px -> (atlas: its sprites are listed above)
+- gph_leaderboardMedalGold: 44x52 px -> (atlas: its sprites are listed above)
+- gph_leaderboardMedalSilver: 40x49 px -> (atlas: its sprites are listed above)
+- gph_leaderboardModePuzzle: 690x224 px -> (atlas: its sprites are listed above)
+- gph_leaderboardModeRace: 690x173 px -> (atlas: its sprites are listed above)
+- gph_leaderboardModeSurvival: 689x167 px -> (atlas: its sprites are listed above)
+- gph_lightning: 1024x64 px -> cast_lightning
+- gph_lightningEffectThick: 1024x64 px -> lightning_thick
+- gph_lockedChallengeBackground: 111x78 px -> (atlas: its sprites are listed above)
+- gph_logo: 818x294 px -> (atlas: its sprites are listed above)
+- gph_logo_0: 818x420 px -> (atlas: its sprites are listed above)
+- gph_logo_armello: 164x100 px -> (atlas: its sprites are listed above)
+- gph_logo_awesomenauts: 528x176 px -> (atlas: its sprites are listed above)
+- gph_logo_lethal_league: 640x464 px -> (atlas: its sprites are listed above)
+- gph_logo_nuclear_throne: 520x196 px -> (atlas: its sprites are listed above)
+- gph_logo_octodad: 532x140 px -> (atlas: its sprites are listed above)
+- gph_logo_towerfall: 400x176 px -> (atlas: its sprites are listed above)
+- gph_logoBrick: 129x118 px -> (atlas: its sprites are listed above)
+- gph_logoDebris01: 37x34 px -> (atlas: its sprites are listed above)
+- gph_logoDebris02: 31x30 px -> (atlas: its sprites are listed above)
+- gph_logoDebris03: 31x28 px -> (atlas: its sprites are listed above)
+- gph_logoDebris04: 44x39 px -> (atlas: its sprites are listed above)
+- gph_logoDebris05: 39x43 px -> (atlas: its sprites are listed above)
+- gph_logoDebris06: 45x45 px -> (atlas: its sprites are listed above)
+- gph_logoDebris07: 26x27 px -> (atlas: its sprites are listed above)
+- gph_logoDebris08: 15x16 px -> (atlas: its sprites are listed above)
+- gph_logoPlants01: 80x63 px -> (atlas: its sprites are listed above)
+- gph_logoPlants02: 69x61 px -> (atlas: its sprites are listed above)
+- gph_logoPlants03: 122x53 px -> (atlas: its sprites are listed above)
+- gph_logoPlants04: 62x48 px -> (atlas: its sprites are listed above)
+- gph_madeWithUnityLogo: 317x71 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundDLC_deselected: 449x141 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundDLC_selected: 449x141 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundLocalMP_deselected: 442x369 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundLocalMP_selected: 442x369 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundOnlineMP_deselected: 441x370 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundOnlineMP_selected: 441x370 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundQuit_deselected: 431x48 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundQuit_selected: 431x48 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundSettings_deselected: 197x147 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundSettings_selected: 197x147 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundSinglePlayer_deselected: 435x322 px -> (atlas: its sprites are listed above)
+- gph_mainMenuBackgroundSinglePlayer_selected: 435x322 px -> (atlas: its sprites are listed above)
+- gph_mainMenuDLC: 488x124 px -> (atlas: its sprites are listed above)
+- gph_mainMenuDLC_deselected: 488x124 px -> (atlas: its sprites are listed above)
+- gph_mainMenuForegroundDLC_selected: 449x141 px -> (atlas: its sprites are listed above)
+- gph_mainMenuForegroundLocalMP_selected: 442x369 px -> (atlas: its sprites are listed above)
+- gph_mainMenuForegroundOnlineMP_selected: 441x370 px -> (atlas: its sprites are listed above)
+- gph_mainMenuForegroundQuit_selected: 431x48 px -> (atlas: its sprites are listed above)
+- gph_mainMenuForegroundSettings_selected: 197x147 px -> (atlas: its sprites are listed above)
+- gph_mainMenuForegroundSinglePlayer: 435x322 px -> (atlas: its sprites are listed above)
+- gph_mainMenuItemHeader: 457x45 px -> (atlas: its sprites are listed above)
+- gph_mainMenuLocalMPWizard04: 253x322 px -> (atlas: its sprites are listed above)
+- gph_mainMenuLocalMPWizards: 538x272 px -> (atlas: its sprites are listed above)
+- gph_mainMenuLocalMPWizards_deselected: 538x272 px -> (atlas: its sprites are listed above)
+- gph_mainMenuOnlineMP: 467x283 px -> (atlas: its sprites are listed above)
+- gph_mainMenuOnlineMP_deselected: 467x283 px -> (atlas: its sprites are listed above)
+- gph_mainMenuOnlineMPWizard02: 259x344 px -> (atlas: its sprites are listed above)
+- gph_mainMenuSettingsCogs: 180x131 px -> (atlas: its sprites are listed above)
+- gph_mainMenuSinglePlayerWizard: 488x235 px -> (atlas: its sprites are listed above)
+- gph_mainMenuSinglePlayerWizard_deselected: 488x235 px -> (atlas: its sprites are listed above)
+- gph_mainMenuSun01: 556x556 px -> (atlas: its sprites are listed above)
+- gph_mainMenuSun02: 557x558 px -> (atlas: its sprites are listed above)
+- gph_mainMenuSun03: 556x556 px -> (atlas: its sprites are listed above)
+- gph_mainMenuSun04: 556x556 px -> (atlas: its sprites are listed above)
+- gph_mainMenuSun05: 557x556 px -> (atlas: its sprites are listed above)
+- gph_menuChallengeItemWizard02: 110x108 px -> (atlas: its sprites are listed above)
+- gph_menuChallengeItemWizard03: 110x108 px -> (atlas: its sprites are listed above)
+- gph_menuChallengeItemWizard04: 110x108 px -> (atlas: its sprites are listed above)
+- gph_menuExplanationModeRaceSP: 497x416 px -> (atlas: its sprites are listed above)
+- gph_menuHeaderBackground: 189x91 px -> (atlas: its sprites are listed above)
+- gph_menuHorizontalListArrow: 25x31 px -> (atlas: its sprites are listed above)
+- gph_menuInfoBackground: 228x83 px -> (atlas: its sprites are listed above)
+- gph_menuItemChallengePuzzle: 423x101 px -> (atlas: its sprites are listed above)
+- gph_menuItemChallengeRace: 401x101 px -> (atlas: its sprites are listed above)
+- gph_menuItemChallengeSurvival: 401x87 px -> (atlas: its sprites are listed above)
+- gph_menuItemSelectedBackground: 80x28 px -> (atlas: its sprites are listed above)
+- gph_menuMedalLarge: 70x96 px -> (atlas: its sprites are listed above)
+- gph_menuModePuzzle: 506x392 px -> (atlas: its sprites are listed above)
+- gph_menuModeRace: 487x414 px -> (atlas: its sprites are listed above)
+- gph_menuModeRandom: 497x392 px -> (atlas: its sprites are listed above)
+- gph_menuModeSurvival: 482x408 px -> (atlas: its sprites are listed above)
+- gph_menuModeSurvivalSP: 482x403 px -> (atlas: its sprites are listed above)
+- gph_menuPagination_active: 20x20 px -> (atlas: its sprites are listed above)
+- gph_menuPagination_inactive: 16x16 px -> (atlas: its sprites are listed above)
+- gph_menuSelectedCornerLarge: 69x67 px -> (atlas: its sprites are listed above)
+- gph_menuSelectedCornerSmall: 38x34 px -> (atlas: its sprites are listed above)
+- gph_menuStartMessageBackground: 169x63 px -> (atlas: its sprites are listed above)
+- gph_modalTile: 80x80 px -> (atlas: its sprites are listed above)
+- gph_modeTitleBackground_easy: 81x80 px -> (atlas: its sprites are listed above)
+- gph_modeTitleBackground_normal: 81x80 px -> (atlas: its sprites are listed above)
+- gph_modeTitleBackground_special: 80x80 px -> (atlas: its sprites are listed above)
+- gph_modeTitleBackgroundSide_easy: 191x98 px -> (atlas: its sprites are listed above)
+- gph_modeTitleBackgroundSide_normal: 191x98 px -> (atlas: its sprites are listed above)
+- gph_modeTitleBackgroundSide_special: 192x98 px -> (atlas: its sprites are listed above)
+- gph_modeTitleBackgroundStar_easy: 37x35 px -> (atlas: its sprites are listed above)
+- gph_modeTitleBackgroundStar_normal: 37x35 px -> (atlas: its sprites are listed above)
+- gph_modeTitleBackgroundStar_special: 37x35 px -> (atlas: its sprites are listed above)
+- gph_noise: 128x128 px -> fx_noise
+- gph_onlineScoreMedalBronze: 53x66 px -> (atlas: its sprites are listed above)
+- gph_onlineScoreMedalGold: 52x62 px -> (atlas: its sprites are listed above)
+- gph_onlineScoreMedalLast: 48x48 px -> (atlas: its sprites are listed above)
+- gph_onlineScoreMedalSilver: 51x64 px -> (atlas: its sprites are listed above)
+- gph_pacerRaceEndless: 26x53 px -> (atlas: its sprites are listed above)
+- gph_personalBestStar: 43x43 px -> (atlas: its sprites are listed above)
+- gph_pinkSand: 26x46 px -> puzzle_sand
+- gph_playerSelectBackground_deselected: 137x136 px -> (atlas: its sprites are listed above)
+- gph_playerSelectBackground_selected: 137x136 px -> (atlas: its sprites are listed above)
+- gph_playerSelectNameBackground: 42x37 px -> (atlas: its sprites are listed above)
+- gph_playerSelectOutline: 137x136 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizard01Ready: 235x314 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizard01Sleeping: 213x250 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizard02Sleeping: 225x323 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizard03Ready: 279x300 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizard03Sleeping: 237x275 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizard04Sleeping: 212x267 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardAnimal01Ready: 306x281 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardAnimal01Sleeping: 258x246 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardAnimal02Ready: 258x347 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardAnimal02Sleeping: 271x244 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardAnimal03Ready: 282x330 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardAnimal03Sleeping: 288x245 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardAnimal04Ready: 282x290 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardAnimal04Sleeping: 269x264 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie01Ready: 231x291 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie01Sleeping: 234x258 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie02Ready: 305x385 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie02Sleeping: 299x263 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie03Ready: 257x341 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie03Sleeping: 241x251 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie04Ready: 256x302 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie04Sleeping: 290x268 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie05Ready: 233x302 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie05Sleeping: 215x263 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie06Ready: 233x280 px -> (atlas: its sprites are listed above)
+- gph_playerSelectWizardIndie06Sleeping: 215x253 px -> (atlas: its sprites are listed above)
+- gph_popupBackground: 539x222 px -> (atlas: its sprites are listed above)
+- gph_popupBackground_0: 488x97 px -> (atlas: its sprites are listed above)
+- gph_popupBackgroundPanel: 837x91 px -> (atlas: its sprites are listed above)
+- gph_popupTextBackground01: 184x51 px -> (atlas: its sprites are listed above)
+- gph_popupTextBackground02: 168x48 px -> (atlas: its sprites are listed above)
+- gph_PSsquareButtonLarge_up: 79x74 px -> (atlas: its sprites are listed above)
+- gph_PSxButtonLarge_down: 80x64 px -> (atlas: its sprites are listed above)
+- gph_PSxButtonLarge_up: 80x74 px -> (atlas: its sprites are listed above)
+- gph_quickMatch: 139x167 px -> (atlas: its sprites are listed above)
+- gph_rainDrop: 64x64 px -> rain_drop
+- gph_random_noise: 64x64 px -> fx_random_noise
+- gph_rankBarBackground: 40x41 px -> (atlas: its sprites are listed above)
+- gph_rankBarFill_dark_red: 32x33 px -> (atlas: its sprites are listed above)
+- gph_rankBarFill_green: 32x33 px -> (atlas: its sprites are listed above)
+- gph_rankBarFill_purple: 32x33 px -> (atlas: its sprites are listed above)
+- gph_rankBarOutline: 8x32 px -> (atlas: its sprites are listed above)
+- gph_rankGlyph01: 34x33 px -> (atlas: its sprites are listed above)
+- gph_rankGlyph02: 37x32 px -> (atlas: its sprites are listed above)
+- gph_rankGlyph03: 34x33 px -> (atlas: its sprites are listed above)
+- gph_rankGlyph04: 30x30 px -> (atlas: its sprites are listed above)
+- gph_rankGlyph05: 32x34 px -> (atlas: its sprites are listed above)
+- gph_rankGlyph06: 35x34 px -> (atlas: its sprites are listed above)
+- gph_rankPanelBackground: 119x151 px -> (atlas: its sprites are listed above)
+- gph_sand: 512x32 px -> sandstorm_front_1
+- gph_sand02: 512x32 px -> sandstorm_front_2
+- gph_sand03: 512x32 px -> sandstorm_back_1
+- gph_sand03_endless: 512x32 px -> bg_puzzle_sand03_endless
+- gph_sand04: 512x32 px -> sandstorm_back_2
+- gph_sand04_endless: 512x32 px -> bg_puzzle_sand04_endless
+- gph_settingsMenuItemBackground: 111x78 px -> (atlas: its sprites are listed above)
+- gph_settingsMenuItemCheckbox: 43x43 px -> (atlas: its sprites are listed above)
+- gph_settingsVolumeSlider: 19x40 px -> (atlas: its sprites are listed above)
+- gph_settingsVolumeSliderEmpty: 19x40 px -> (atlas: its sprites are listed above)
+- gph_snow_var01: 65x56 px -> brick_christmas_snow_1
+- gph_snow_var02: 63x43 px -> brick_christmas_snow_2
+- gph_snow_var03: 63x57 px -> brick_christmas_snow_3
+- gph_spotlightWinner_World01: 386x32 px -> match_spotlight_winner_world01
+- gph_spotlightWinner_World02: 386x32 px -> match_spotlight_winner_world02
+- gph_spotlightWinner_World03: 386x32 px -> match_spotlight_winner_world03
+- gph_star: 18x18 px -> brick_galaxy_star
+- gph_starOutline: 18x18 px -> (atlas: its sprites are listed above)
+- gph_string_pixel: 1x1 px -> (atlas: its sprites are listed above)
+- gph_waterline04: 105x5 px -> (atlas: its sprites are listed above)
+- gph_weirdbeardLogo: 601x434 px -> (atlas: its sprites are listed above)
+- gph_white: 40x40 px -> (atlas: its sprites are listed above)
+- gph_whiteCircle: 32x32 px -> fx_white_circle
+- gph_whiteCircle_Large: 128x128 px -> explosion_puff
+- gph_whiteCircleFaded_Large: 127x127 px -> explosion_flash
+- gph_wizardIndie05body_action: 145x161 px -> (atlas: its sprites are listed above)
+- gph_wizardIndie06ArmBack_action: 83x56 px -> (atlas: its sprites are listed above)
+- gph_wizardIndie06ArmBack_preAction: 50x80 px -> (atlas: its sprites are listed above)
+- gph_wizardIndie06Face_action: 105x104 px -> (atlas: its sprites are listed above)
+- gph_wizardIndie06Face_preCast: 105x103 px -> (atlas: its sprites are listed above)
+- gph_xButton_down: 30x23 px -> pad_x_down
+- gph_xButton_up: 30x27 px -> pad_x_up
+- gph_xButtonLarge_down: 74x58 px -> (atlas: its sprites are listed above)
+- gph_xButtonLarge_up: 74x68 px -> (atlas: its sprites are listed above)
+- icn_brickPack_candy: 249x100 px -> brick_pack_icon_candy
+- icn_brickPack_christmas: 256x102 px -> brick_pack_icon_christmas
+- icn_brickPack_default: 252x100 px -> brick_pack_icon_default
+- icn_brickPack_diamond: 250x101 px -> brick_pack_icon_diamond
+- icn_brickPack_easter: 259x101 px -> brick_pack_icon_easter
+- icn_brickPack_galaxy: 226x101 px -> brick_pack_icon_galaxy
+- icn_brickPack_halloween: 242x95 px -> brick_pack_icon_halloween
+- icn_brickPack_hologram: 262x101 px -> brick_pack_icon_hologram
+- icn_darkSpell: 56x56 px -> (atlas: its sprites are listed above)
+- icn_gameInfoPlayerLeft: 37x37 px -> player_left_cross
+- icn_gameInfoWizard01: 49x45 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizard02: 55x45 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizard03: 52x45 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizard04: 49x56 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizardAnimal01: 78x47 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizardAnimal02: 65x62 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizardAnimal03: 58x53 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizardAnimal04: 63x59 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizardIndie01: 56x75 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizardIndie02: 53x74 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizardIndie03: 70x51 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizardIndie04: 50x68 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizardIndie05: 64x71 px -> (atlas: its sprites are listed above)
+- icn_gameInfoWizardIndie06: 59x54 px -> (atlas: its sprites are listed above)
+- icn_hostDropped: 68x65 px -> (atlas: its sprites are listed above)
+- icn_languageAR: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageCH: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageDE: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageEN: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageES: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageFI: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageFR: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageIT: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageJP: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageKO: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageNL: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageNO: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languagePO: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languagePT: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageRO: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageRU: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageSE: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageSelect: 97x81 px -> (atlas: its sprites are listed above)
+- icn_languageTU: 62x48 px -> (atlas: its sprites are listed above)
+- icn_languageTW: 62x48 px -> (atlas: its sprites are listed above)
+- icn_lightSpell: 56x56 px -> (atlas: its sprites are listed above)
+- icn_nextBrick_I: 73x21 px -> hud_next_brick_i
+- icn_nextBrick_J: 55x38 px -> hud_next_brick_j_2
+- icn_nextBrick_L: 55x38 px -> hud_next_brick_l
+- icn_nextBrick_O: 38x38 px -> hud_next_brick_o
+- icn_nextBrick_S: 55x38 px -> hud_next_brick_s
+- icn_nextBrick_T: 55x38 px -> hud_next_brick_t_2
+- icn_nextBrick_Z: 55x38 px -> hud_next_brick_z
+- icn_nextBrickCandy_I: 74x22 px -> next_brick_candy_I
+- icn_nextBrickCandy_J: 57x39 px -> next_brick_candy_J
+- icn_nextBrickCandy_L: 56x40 px -> next_brick_candy_L
+- icn_nextBrickCandy_O: 38x38 px -> next_brick_candy_O
+- icn_nextBrickCandy_S: 57x38 px -> next_brick_candy_S
+- icn_nextBrickCandy_T: 58x40 px -> next_brick_candy_T
+- icn_nextBrickCandy_Z: 57x39 px -> next_brick_candy_Z
+- icn_nextBrickChristmas_I: 76x21 px -> next_brick_christmas_I
+- icn_nextBrickChristmas_J: 58x40 px -> next_brick_christmas_J
+- icn_nextBrickChristmas_L: 57x40 px -> next_brick_christmas_L
+- icn_nextBrickChristmas_O: 39x40 px -> next_brick_christmas_O
+- icn_nextBrickChristmas_S: 57x40 px -> next_brick_christmas_S
+- icn_nextBrickChristmas_T: 57x40 px -> next_brick_christmas_T
+- icn_nextBrickChristmas_Z: 57x38 px -> next_brick_christmas_Z
+- icn_nextBrickDiamond_I: 74x22 px -> next_brick_diamond_I
+- icn_nextBrickDiamond_J: 57x39 px -> next_brick_diamond_J
+- icn_nextBrickDiamond_L: 57x39 px -> next_brick_diamond_L
+- icn_nextBrickDiamond_O: 39x39 px -> next_brick_diamond_O
+- icn_nextBrickDiamond_S: 57x39 px -> next_brick_diamond_S
+- icn_nextBrickDiamond_T: 56x39 px -> next_brick_diamond_T
+- icn_nextBrickDiamond_Z: 57x39 px -> next_brick_diamond_Z
+- icn_nextBrickEaster_I: 75x22 px -> next_brick_spring_I
+- icn_nextBrickEaster_J: 56x38 px -> next_brick_spring_J
+- icn_nextBrickEaster_L: 57x39 px -> next_brick_spring_L
+- icn_nextBrickEaster_O: 39x39 px -> next_brick_spring_O
+- icn_nextBrickEaster_S: 55x39 px -> next_brick_spring_S
+- icn_nextBrickEaster_T: 57x39 px -> next_brick_spring_T
+- icn_nextBrickEaster_Z: 56x39 px -> next_brick_spring_Z
+- icn_nextBrickGalaxy_I: 75x22 px -> next_brick_galaxy_I
+- icn_nextBrickGalaxy_J: 57x39 px -> next_brick_galaxy_J
+- icn_nextBrickGalaxy_L: 57x39 px -> next_brick_galaxy_L
+- icn_nextBrickGalaxy_O: 39x39 px -> next_brick_galaxy_O
+- icn_nextBrickGalaxy_S: 57x39 px -> next_brick_galaxy_S
+- icn_nextBrickGalaxy_T: 57x39 px -> next_brick_galaxy_T
+- icn_nextBrickGalaxy_Z: 58x39 px -> next_brick_galaxy_Z
+- icn_nextBrickHalloween_I: 73x24 px -> next_brick_halloween_I
+- icn_nextBrickHalloween_J: 55x39 px -> next_brick_halloween_J
+- icn_nextBrickHalloween_L: 55x43 px -> next_brick_halloween_L
+- icn_nextBrickHalloween_O: 38x39 px -> next_brick_halloween_O
+- icn_nextBrickHalloween_S: 56x38 px -> next_brick_halloween_S
+- icn_nextBrickHalloween_T: 55x43 px -> next_brick_halloween_T
+- icn_nextBrickHalloween_Z: 55x40 px -> next_brick_halloween_Z
+- icn_nextBrickHologram_I: 77x23 px -> next_brick_hologram_I
+- icn_nextBrickHologram_J: 59x40 px -> next_brick_hologram_J
+- icn_nextBrickHologram_L: 59x40 px -> next_brick_hologram_L
+- icn_nextBrickHologram_O: 40x40 px -> next_brick_hologram_O
+- icn_nextBrickHologram_S: 59x40 px -> next_brick_hologram_S
+- icn_nextBrickHologram_T: 59x41 px -> next_brick_hologram_T
+- icn_nextBrickHologram_Z: 59x40 px -> next_brick_hologram_Z
+- icn_settingsExplanations: 43x73 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuCheck: 61x49 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuControllerSFX: 95x99 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuCredits: 63x71 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuCross: 49x49 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuFullscreen: 94x73 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuKeybinding: 103x72 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuMusic: 80x74 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuQuality: 71x70 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuResolution: 100x100 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuSFX: 99x76 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuStats: 107x77 px -> (atlas: its sprites are listed above)
+- icn_settingsMenuVSync: 70x74 px -> (atlas: its sprites are listed above)
+- icn_statsPopupEasy: 26x25 px -> stats_icon_easy
+- icn_statsPopupNormal: 41x27 px -> stats_icon_normal
+- icn_statsPopupSpecial: 52x31 px -> stats_icon_special
+- icn_statsPopupTotal: 18x20 px -> stats_icon_total
+- icn_unavailble: 50x50 px -> (atlas: its sprites are listed above)
+- SpriteAtlasTexture-bricks-1024x2048-fmt4: 1024x2048 px -> (atlas: its sprites are listed above)
+- SpriteAtlasTexture-bricks-2048x2048-fmt4: 2048x2048 px -> (atlas: its sprites are listed above)
+- SpriteAtlasTexture-particles-1024x512-fmt4: 1024x512 px -> (atlas: its sprites are listed above)
+- SpriteAtlasTexture-UI (Group 0)-512x1024-fmt4: 512x1024 px -> (atlas: its sprites are listed above)
+- SpriteAtlasTexture-UI (Group 1)-128x256-fmt4: 128x256 px -> (atlas: its sprites are listed above)
+- SpriteAtlasTexture-wizards-2048x2048-fmt4: 2048x2048 px -> (atlas: its sprites are listed above)
+- SpriteAtlasTexture-worldPuzzle (Group 0)-256x512-fmt4: 256x512 px -> (atlas: its sprites are listed above)
+- SpriteAtlasTexture-worldPuzzle (Group 1)-2048x2048-fmt4: 2048x2048 px -> (atlas: its sprites are listed above)
+- SpriteAtlasTexture-worldRace-2048x2048-fmt4: 2048x2048 px -> (atlas: its sprites are listed above)
+- SpriteAtlasTexture-worldSurvival-2048x2048-fmt4: 2048x2048 px -> (atlas: its sprites are listed above)
+
+## Fonts (TextMeshPro signed-distance-field atlases)
+- EnzoBlack SDF Atlas: 1024x1024 px -> font_enzo_black
+- HansSansBold SDF Atlas: 2048x2048 px -> font_hans_sans_bold
+- HansSansKR SDF Atlas: 1024x1024 px -> font_hans_sans_kr
+- meiryoBoldSDF Atlas: 1024x1024 px -> font_meiryo_bold_sdf_atlas_2
+- Myriad SDF Atlas: 1024x512 px -> font_myriad
+
+## Animations (Unity clips that swap sprites; frames in order with their time)
+- **Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_Wizard01body (wizard1_img_body) @ 0s, gph_Wizard01body_preAction (wizard1_img_body_pre_action) @ 0.2s, gph_Wizard01body_action (wizard1_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 0s, gph_wizard01Face_preAction (wizard1_img_face_pre_action) @ 0.2s, gph_wizard01Face_action (wizard1_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizard01ArmBack (wizard1_img_arm_back) @ 0s, gph_wizard01ArmBack_action (wizard1_img_arm_back_action) @ 0.433s
+- **Blinking** (clip sample rate 8)
+  - track ``, 2 frames, ~8 fps: anim_largeCross_65x65_0 (lost_cross) @ 0s, anim_largeCross_65x65_1 (particle_large_cross_65x65_1) @ 0.125s
+- **ButtonPressDarkPC** (clip sample rate 5)
+  - track ``, 2 frames, ~5 fps: gph_KBKButtonLarge_down (spell_cloud_button_dark_down) @ 0s, gph_KBKButtonLarge_up (spell_cloud_button_dark_up) @ 0.2s
+- **ButtonPressDarkPlaystation** (clip sample rate 5)
+  - track ``, 2 frames, ~5 fps: gph_PSCircleButton_down (spell_cloud_ps_dark_down) @ 0s, gph_PSCircleButton_up (spell_cloud_ps_dark_up) @ 0.2s
+- **ButtonPressDarkXBox** (clip sample rate 5)
+  - track ``, 2 frames, ~5 fps: gph_XboxBButton_down (spell_cloud_pad_dark_down) @ 0s, gph_XboxBButton_up (spell_cloud_pad_dark_up) @ 0.2s
+- **ButtonPressLightPC** (clip sample rate 5)
+  - track ``, 2 frames, ~5 fps: gph_KBJButtonLarge_down (spell_cloud_button_light_down) @ 0s, gph_KBJButtonLarge_up (spell_cloud_button_light_up) @ 0.2s
+- **ButtonPressLightPlaystation** (clip sample rate 5)
+  - track ``, 2 frames, ~5 fps: gph_PSSquareButton_down (spell_cloud_ps_light_down) @ 0s, gph_PSsquareButton_up (spell_cloud_ps_light_up) @ 0.2s
+- **ButtonPressLightXBox** (clip sample rate 5)
+  - track ``, 2 frames, ~5 fps: gph_xButton_down (spell_cloud_pad_light_down) @ 0s, gph_xButton_up (spell_cloud_pad_light_up) @ 0.2s
+- **CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 3 frames, ~3.7 fps: gph_wizard01ArmBack (wizard1_img_arm_back) @ 0s, gph_wizard01ArmBack (wizard1_img_arm_back) @ 0.167s, gph_wizard01ArmBack (wizard1_img_arm_back) @ 0.433s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_Wizard01body_preAction (wizard1_img_body_pre_action) @ 0s, gph_Wizard01body_action (wizard1_img_body_action) @ 0.067s, gph_Wizard01body (wizard1_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizard01Face_preAction (wizard1_img_face_pre_action) @ 0s, gph_wizard01Face_preCast (wizard1_img_face_pre_cast) @ 0.067s, gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 0.433s
+- **Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 2 frames, ~0.5 fps: gph_Wizard01body_preAction (wizard1_img_body_pre_action) @ 0s, gph_Wizard01body_preAction (wizard1_img_body_pre_action) @ 2s
+  - track `Face/Sprite`, 2 frames, ~0.5 fps: gph_wizard01Face_preAction (wizard1_img_face_pre_action) @ 0s, gph_wizard01Face_preAction (wizard1_img_face_pre_action) @ 2s
+  - track `ArmBack/Sprite`, 2 frames, ~0.5 fps: gph_wizard01ArmBack_action (wizard1_img_arm_back_action) @ 0s, gph_wizard01ArmBack_action (wizard1_img_arm_back_action) @ 2s
+- **CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_Wizard01body (wizard1_img_body) @ 0s, gph_Wizard01body_preAction (wizard1_img_body_pre_action) @ 0.2s, gph_Wizard01body_action (wizard1_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 0s, gph_wizard01Face_preAction (wizard1_img_face_pre_action) @ 0.2s, gph_wizard01Face_action (wizard1_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizard01ArmBack (wizard1_img_arm_back) @ 0s, gph_wizard01ArmBack_action (wizard1_img_arm_back_action) @ 0.433s
+- **CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_Wizard01body (wizard1_img_body) @ 0s, gph_Wizard01body_action (wizard1_img_body_action) @ 0.2s, gph_Wizard01body_action (wizard1_img_body_action) @ 0.367s, gph_Wizard01body_preAction (wizard1_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 0s, gph_wizard01Face_preCast (wizard1_img_face_pre_cast) @ 0.2s, gph_wizard01Face_preCast (wizard1_img_face_pre_cast) @ 0.367s, gph_wizard01Face_preAction (wizard1_img_face_pre_action) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_wizard01ArmBack (wizard1_img_arm_back) @ 0s, gph_wizard01ArmBack (wizard1_img_arm_back) @ 0.367s, gph_wizard01ArmBack_action (wizard1_img_arm_back_action) @ 0.533s
+- **Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~1.2 fps: gph_Wizard01body (wizard1_img_body) @ 0s, gph_Wizard01body_cheer (wizard1_img_body_cheer) @ 0.167s, gph_Wizard01body_cheer (wizard1_img_body_cheer) @ 1s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 0s, gph_wizard01Face_cheer01 (wizard1_img_face_cheer01) @ 0.167s, gph_wizard01Face_cheer02 (wizard1_img_face_cheer02) @ 0.567s, gph_wizard01Face_cheer01 (wizard1_img_face_cheer01) @ 0.667s, gph_wizard01Face_cheer02 (wizard1_img_face_cheer02) @ 0.767s, gph_wizard01Face_cheer01 (wizard1_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 3 frames, ~1.2 fps: gph_wizard01ArmFront (wizard1_img_arm_front) @ 0s, gph_wizard01ArmFront_cheer (wizard1_img_arm_front_cheer) @ 0.167s, gph_wizard01ArmFront_cheer (wizard1_img_arm_front_cheer) @ 1s
+- **IvyI** (clip sample rate 25)
+  - track ``, 5 frames, ~25 fps: anim_ivy_I_0 (fx_ivy_i_0) @ 0s, anim_ivy_I_1 (fx_ivy_i_1) @ 0.04s, anim_ivy_I_2 (fx_ivy_i_2) @ 0.08s, anim_ivy_I_3 (fx_ivy_i_3) @ 0.12s, anim_ivy_I_4 (fx_ivy_i_4) @ 0.16s
+- **IvyJ** (clip sample rate 25)
+  - track ``, 5 frames, ~25 fps: anim_ivy_J_0 (fx_ivy_j_0) @ 0s, anim_ivy_J_1 (fx_ivy_j_1) @ 0.04s, anim_ivy_J_2 (fx_ivy_j_2) @ 0.08s, anim_ivy_J_3 (fx_ivy_j_3) @ 0.12s, anim_ivy_J_4 (fx_ivy_j_4) @ 0.16s
+- **IvyL** (clip sample rate 60)
+  - track ``, 5 frames, ~60 fps: anim_ivy_L_0 (fx_ivy_l_0) @ 0s, anim_ivy_L_1 (fx_ivy_l_1) @ 0.017s, anim_ivy_L_2 (fx_ivy_l_2) @ 0.033s, anim_ivy_L_3 (fx_ivy_l_3) @ 0.05s, anim_ivy_L_4 (fx_ivy_l_4) @ 0.067s
+- **IvyMysteryBrick01** (clip sample rate 25)
+  - track ``, 5 frames, ~25 fps: anim_ivy_mystery01_0 (brick_ivy_mystery01_0) @ 0s, anim_ivy_mystery01_1 (brick_ivy_mystery01_1) @ 0.04s, anim_ivy_mystery01_2 (brick_ivy_mystery01_2) @ 0.08s, anim_ivy_mystery01_3 (brick_ivy_mystery01_3) @ 0.12s, anim_ivy_mystery01_4 (brick_ivy_mystery01_4) @ 0.16s
+- **IvyMysteryBrick02** (clip sample rate 25)
+  - track ``, 5 frames, ~25 fps: anim_ivy_mystery02_0 (brick_ivy_mystery02_0) @ 0s, anim_ivy_mystery02_1 (brick_ivy_mystery02_1) @ 0.04s, anim_ivy_mystery02_2 (brick_ivy_mystery02_2) @ 0.08s, anim_ivy_mystery02_3 (brick_ivy_mystery02_3) @ 0.12s, anim_ivy_mystery02_4 (brick_ivy_mystery02_4) @ 0.16s
+- **IvyMysteryBrick03** (clip sample rate 25)
+  - track ``, 5 frames, ~25 fps: anim_ivy_mystery03_0 (brick_ivy_mystery03_0) @ 0s, anim_ivy_mystery03_1 (brick_ivy_mystery03_1) @ 0.04s, anim_ivy_mystery03_2 (brick_ivy_mystery03_2) @ 0.08s, anim_ivy_mystery03_3 (brick_ivy_mystery03_3) @ 0.12s, anim_ivy_mystery03_4 (brick_ivy_mystery03_4) @ 0.16s
+- **IvyO** (clip sample rate 25)
+  - track ``, 5 frames, ~25 fps: anim_ivy_O_0 (fx_ivy_o_0) @ 0s, anim_ivy_O_1 (fx_ivy_o_1) @ 0.04s, anim_ivy_O_2 (fx_ivy_o_2) @ 0.08s, anim_ivy_O_3 (fx_ivy_o_3) @ 0.12s, anim_ivy_O_4 (fx_ivy_o_4) @ 0.16s
+- **IvyS** (clip sample rate 25)
+  - track ``, 5 frames, ~25 fps: anim_ivy_S_0 (fx_ivy_s_0) @ 0s, anim_ivy_S_1 (fx_ivy_s_1) @ 0.04s, anim_ivy_S_2 (fx_ivy_s_2) @ 0.08s, anim_ivy_S_3 (fx_ivy_s_3) @ 0.12s, anim_ivy_S_4 (fx_ivy_s_4) @ 0.16s
+- **IvyT** (clip sample rate 25)
+  - track ``, 5 frames, ~25 fps: anim_ivy_T_0 (fx_ivy_t_0) @ 0s, anim_ivy_T_1 (fx_ivy_t_1) @ 0.04s, anim_ivy_T_2 (fx_ivy_t_2) @ 0.08s, anim_ivy_T_3 (fx_ivy_t_3) @ 0.12s, anim_ivy_T_4 (fx_ivy_t_4) @ 0.16s
+- **IvyZ** (clip sample rate 25)
+  - track ``, 5 frames, ~25 fps: anim_ivy_Z_0 (fx_ivy_z_0) @ 0s, anim_ivy_Z_1 (fx_ivy_z_1) @ 0.04s, anim_ivy_Z_2 (fx_ivy_z_2) @ 0.08s, anim_ivy_Z_3 (fx_ivy_z_3) @ 0.12s, anim_ivy_Z_4 (fx_ivy_z_4) @ 0.16s
+- **MysteryBrick03Default** (clip sample rate 4)
+  - track `Keys`, 4 frames, ~4 fps: anim_mysteryBrick03_keys_0 (brick_mystery_brick03_keys_0) @ 0s, anim_mysteryBrick03_keys_1 (brick_mystery_brick03_keys_1) @ 0.25s, anim_mysteryBrick03_keys_2 (brick_mystery_brick03_keys_2) @ 0.5s, anim_mysteryBrick03_keys_3 (brick_mystery_brick03_keys_3) @ 0.75s
+- **PressButtonA** (clip sample rate 5)
+  - track `Sprite`, 2 frames, ~5 fps: gph_aButtonLarge_up (menu_a_button_large_up) @ 0s, gph_aButtonLarge_down (menu_a_button_large_down) @ 0.2s
+- **PressButtonPSSquare** (clip sample rate 5)
+  - track ``, 2 frames, ~5 fps: gph_PSsquareButton_up (spell_cloud_ps_light_up) @ 0s, gph_PSSquareButton_down (spell_cloud_ps_light_down) @ 0.2s
+- **PressButtonPSX** (clip sample rate 5)
+  - track `Sprite`, 2 frames, ~5 fps: gph_PSxButtonLarge_up (menu_psx_button_large_up) @ 0s, gph_PSxButtonLarge_down (menu_psx_button_large_down) @ 0.2s
+- **PressButtonX** (clip sample rate 5)
+  - track `Sprite`, 2 frames, ~5 fps: gph_xButtonLarge_up (menu_x_button_large_up) @ 0s, gph_xButtonLarge_down (menu_x_button_large_down) @ 0.2s
+- **Rotate** (clip sample rate 18)
+  - track ``, 4 frames, ~18 fps: gph_wizard_01_rotate_0 (wizard_01_rotate_0) @ 0s, gph_wizard_01_rotate_1 (wizard_01_rotate_1) @ 0.056s, gph_wizard_01_rotate_2 (wizard_01_rotate_2) @ 0.111s, gph_wizard_01_rotate_3 (wizard_01_rotate_3) @ 0.167s
+- **Wizard01CapeDown** (clip sample rate 15)
+  - track ``, 6 frames, ~15 fps: anim_wizard01CapeDown_83x73_0 (wizard01_cape_down_83x73_0) @ 0s, anim_wizard01CapeDown_83x73_1 (wizard01_cape_down_83x73_1) @ 0.067s, anim_wizard01CapeDown_83x73_2 (wizard01_cape_down_83x73_2) @ 0.133s, anim_wizard01CapeDown_83x73_3 (wizard01_cape_down_83x73_3) @ 0.2s, anim_wizard01CapeDown_83x73_4 (wizard01_cape_down_83x73_4) @ 0.267s, anim_wizard01CapeDown_83x73_5 (wizard01_cape_down_83x73_5) @ 0.333s
+- **Wizard01CapeUp** (clip sample rate 15)
+  - track ``, 5 frames, ~15 fps: anim_wizard01CapeUp_82x84_0 (wizard01_cape_up_82x84_0) @ 0s, anim_wizard01CapeUp_82x84_1 (wizard01_cape_up_82x84_1) @ 0.067s, anim_wizard01CapeUp_82x84_2 (wizard01_cape_up_82x84_2) @ 0.133s, anim_wizard01CapeUp_82x84_3 (wizard01_cape_up_82x84_3) @ 0.2s, anim_wizard01CapeUp_82x84_4 (wizard01_cape_up_82x84_4) @ 0.267s
+- **Wizard01CapeWave** (clip sample rate 30)
+  - track ``, 12 frames, ~30 fps: anim_wizard01CapeWave_93x60_0_0 (wizard1_img_wizard01_cape_wave_93x60_0_0) @ 0s, anim_wizard01CapeWave_93x60_1_0 (wizard1_img_wizard01_cape_wave_93x60_1_0) @ 0.033s, anim_wizard01CapeWave_93x60_2_0 (wizard1_img_wizard01_cape_wave_93x60_2_0) @ 0.067s, anim_wizard01CapeWave_93x60_3_0 (wizard1_img_wizard01_cape_wave_93x60_3_0) @ 0.1s, anim_wizard01CapeWave_93x60_4_0 (wizard1_img_wizard01_cape_wave_93x60_4_0) @ 0.133s, anim_wizard01CapeWave_93x60_5_0 (wizard1_img_wizard01_cape_wave_93x60_5_0) @ 0.167s, anim_wizard01CapeWave_93x60_6_0 (wizard1_img_wizard01_cape_wave_93x60_6_0) @ 0.2s, anim_wizard01CapeWave_93x60_7_0 (wizard1_img_wizard01_cape_wave_93x60_7_0) @ 0.233s, anim_wizard01CapeWave_93x60_8_0 (wizard1_img_wizard01_cape_wave_93x60_8_0) @ 0.267s, anim_wizard01CapeWave_93x60_9_0 (wizard1_img_wizard01_cape_wave_93x60_9_0) @ 0.3s, anim_wizard01CapeWave_93x60_10_0 (wizard1_img_wizard01_cape_wave_93x60_10_0) @ 0.333s, anim_wizard01CapeWave_93x60_11_0 (wizard1_img_wizard01_cape_wave_93x60_11_0) @ 0.367s
+- **Wizard01Dying** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizard01ArmBack (wizard1_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_Wizard01body (wizard1_img_body) @ 0s, gph_Wizard01body_action (wizard1_img_body_action) @ 0.1s, gph_Wizard01body (wizard1_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 0s, gph_wizard01Face_preCast (wizard1_img_face_pre_cast) @ 0.1s, gph_wizard01Face_startle01 (wizard1_img_face_startle01) @ 0.317s, gph_wizard01Face_startle02 (wizard1_img_face_startle02) @ 0.567s, gph_wizard01Face_startle01 (wizard1_img_face_startle01) @ 0.683s, gph_wizard01Face_startle02 (wizard1_img_face_startle02) @ 0.75s, gph_wizard01Face_startle01 (wizard1_img_face_startle01) @ 0.817s
+- **Wizard01Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~1.1 fps: gph_wizard01ArmBack (wizard1_img_arm_back) @ 0s, gph_wizard01ArmBack (wizard1_img_arm_back) @ 0.917s
+  - track `Body/Sprite`, 3 frames, ~1.4 fps: gph_Wizard01body (wizard1_img_body) @ 0s, gph_Wizard01body_action (wizard1_img_body_action) @ 0.183s, gph_Wizard01body (wizard1_img_body) @ 0.917s
+  - track `Face/Sprite`, 4 frames, ~1.4 fps: gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 0s, gph_wizard01Face_startle01 (wizard1_img_face_startle01) @ 0.033s, gph_wizard01Face_cheer02 (wizard1_img_face_cheer02) @ 0.183s, gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 0.917s
+- **Wizard01LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.6 fps: gph_wizard01ArmBack (wizard1_img_arm_back) @ 0s, gph_wizard01ArmBack (wizard1_img_arm_back) @ 1.75s
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_Wizard01body (wizard1_img_body) @ 0s, gph_Wizard01body_action (wizard1_img_body_action) @ 0.383s, gph_Wizard01body_preAction (wizard1_img_body_pre_action) @ 1.05s, gph_Wizard01body (wizard1_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 0s, gph_wizard01Face_startle01 (wizard1_img_face_startle01) @ 0.15s, gph_wizard01Face_cheer02 (wizard1_img_face_cheer02) @ 0.383s, gph_wizard01Face_laugh (wizard1_img_face_laugh) @ 1.05s, gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 1.75s
+- **Wizard01Startle** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizard01ArmBack (wizard1_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_Wizard01body (wizard1_img_body) @ 0s, gph_Wizard01body_action (wizard1_img_body_action) @ 0.1s, gph_Wizard01body (wizard1_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizard01Face_idle02 (wizard1_img_face_idle02) @ 0s, gph_wizard01Face_preCast (wizard1_img_face_pre_cast) @ 0.1s, gph_wizard01Face_startle01 (wizard1_img_face_startle01) @ 0.317s, gph_wizard01Face_startle02 (wizard1_img_face_startle02) @ 0.567s, gph_wizard01Face_startle01 (wizard1_img_face_startle01) @ 0.683s, gph_wizard01Face_startle02 (wizard1_img_face_startle02) @ 0.75s, gph_wizard01Face_startle01 (wizard1_img_face_startle01) @ 0.817s
+- **Wizard02Action** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~2.1 fps: gph_Wizard02body (wizard2_img_body) @ 0s, gph_Wizard02body_preAction (wizard2_img_body_pre_action) @ 0.2s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.433s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.9s
+  - track `Face/Sprite`, 4 frames, ~2 fps: gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 0s, gph_wizard02Face_preAction (wizard2_img_face_pre_action) @ 0.2s, gph_wizard02Face_action (wizard2_img_face_action) @ 0.433s, gph_wizard02Face_action (wizard2_img_face_action) @ 0.933s
+  - track `ArmBack/Sprite`, 3 frames, ~2.1 fps: gph_wizard02ArmBack (wizard2_img_arm_back) @ 0s, gph_wizard02ArmBack_action (wizard2_img_arm_back_action) @ 0.433s, gph_wizard02ArmBack_action (wizard2_img_arm_back_action) @ 0.9s
+  - track `Hat/Sprite`, 4 frames, ~2 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 0.2s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.433s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.933s
+- **Wizard02CapeDown** (clip sample rate 15)
+  - track ``, 6 frames, ~15 fps: anim_wizard02CapeDown_83x73_0 (wizard2_cape) @ 0s, anim_wizard02CapeDown_83x73_1 (wizard02_cape_down_83x73_1) @ 0.067s, anim_wizard02CapeDown_83x73_2 (wizard02_cape_down_83x73_2) @ 0.133s, anim_wizard02CapeDown_83x73_3 (wizard02_cape_down_83x73_3) @ 0.2s, anim_wizard02CapeDown_83x73_4 (wizard02_cape_down_83x73_4) @ 0.267s, anim_wizard02CapeDown_83x73_5 (wizard02_cape_down_83x73_5) @ 0.333s
+- **Wizard02CapeIdle** (clip sample rate 30)
+  - track ``, 1 frames, ~- fps: anim_wizard02CapeUp_82x84_0 (wizard02_cape_up_82x84_0) @ 0s
+- **Wizard02CapeUp** (clip sample rate 15)
+  - track ``, 5 frames, ~15 fps: anim_wizard02CapeUp_82x84_0 (wizard02_cape_up_82x84_0) @ 0s, anim_wizard02CapeUp_82x84_1 (wizard02_cape_up_82x84_1) @ 0.067s, anim_wizard02CapeUp_82x84_2 (wizard02_cape_up_82x84_2) @ 0.133s, anim_wizard02CapeUp_82x84_3 (wizard02_cape_up_82x84_3) @ 0.2s, anim_wizard02CapeUp_82x84_4 (wizard02_cape_up_82x84_4) @ 0.267s
+- **Wizard02CapeWave** (clip sample rate 30)
+  - track ``, 12 frames, ~30 fps: anim_wizard02CapeWave_93x60_0 (wizard2_img_wizard02_cape_wave_93x60_0) @ 0s, anim_wizard02CapeWave_93x60_1 (wizard2_img_wizard02_cape_wave_93x60_1) @ 0.033s, anim_wizard02CapeWave_93x60_2 (wizard2_img_wizard02_cape_wave_93x60_2) @ 0.067s, anim_wizard02CapeWave_93x60_3 (wizard2_img_wizard02_cape_wave_93x60_3) @ 0.1s, anim_wizard02CapeWave_93x60_4 (wizard2_img_wizard02_cape_wave_93x60_4) @ 0.133s, anim_wizard02CapeWave_93x60_5 (wizard2_img_wizard02_cape_wave_93x60_5) @ 0.167s, anim_wizard02CapeWave_93x60_6 (wizard2_img_wizard02_cape_wave_93x60_6) @ 0.2s, anim_wizard02CapeWave_93x60_7 (wizard2_img_wizard02_cape_wave_93x60_7) @ 0.233s, anim_wizard02CapeWave_93x60_8 (wizard2_img_wizard02_cape_wave_93x60_8) @ 0.267s, anim_wizard02CapeWave_93x60_9 (wizard2_img_wizard02_cape_wave_93x60_9) @ 0.3s, anim_wizard02CapeWave_93x60_10 (wizard2_img_wizard02_cape_wave_93x60_10) @ 0.333s, anim_wizard02CapeWave_93x60_11 (wizard2_img_wizard02_cape_wave_93x60_11) @ 0.367s
+- **Wizard02CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 3 frames, ~3.7 fps: gph_wizard02ArmBack (wizard2_img_arm_back) @ 0s, gph_wizard02ArmBack (wizard2_img_arm_back) @ 0.167s, gph_wizard02ArmBack (wizard2_img_arm_back) @ 0.433s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_Wizard02body_preAction (wizard2_img_body_pre_action) @ 0s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.067s, gph_Wizard02body (wizard2_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizard02Face_preAction (wizard2_img_face_pre_action) @ 0s, gph_wizard02Face_preCast (wizard2_img_face_pre_cast) @ 0.067s, gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 0.433s
+  - track `Hat/Sprite`, 3 frames, ~2.7 fps: gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.067s, gph_wizard02Hat (wizard2_img_hat) @ 0.433s
+- **Wizard02Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~0.5 fps: gph_Wizard02body_preAction (wizard2_img_body_pre_action) @ 0s, gph_Wizard02body_preAction (wizard2_img_body_pre_action) @ 2s, gph_Wizard02body_preAction (wizard2_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizard02Face_preAction (wizard2_img_face_pre_action) @ 0s, gph_wizard02Face_preAction (wizard2_img_face_pre_action) @ 2s, gph_wizard02Face_preAction (wizard2_img_face_pre_action) @ 4s
+  - track `ArmBack/Sprite`, 3 frames, ~0.5 fps: gph_wizard02ArmBack_action (wizard2_img_arm_back_action) @ 0s, gph_wizard02ArmBack_action (wizard2_img_arm_back_action) @ 2s, gph_wizard02ArmBack_action (wizard2_img_arm_back_action) @ 4s
+  - track `Hat/Sprite`, 3 frames, ~0.5 fps: gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 0s, gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 2s, gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 4s
+- **Wizard02CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~2.1 fps: gph_Wizard02body (wizard2_img_body) @ 0s, gph_Wizard02body_preAction (wizard2_img_body_pre_action) @ 0.2s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.433s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.9s
+  - track `Face/Sprite`, 4 frames, ~2 fps: gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 0s, gph_wizard02Face_preAction (wizard2_img_face_pre_action) @ 0.2s, gph_wizard02Face_action (wizard2_img_face_action) @ 0.433s, gph_wizard02Face_action (wizard2_img_face_action) @ 0.933s
+  - track `ArmBack/Sprite`, 3 frames, ~2.1 fps: gph_wizard02ArmBack (wizard2_img_arm_back) @ 0s, gph_wizard02ArmBack_action (wizard2_img_arm_back_action) @ 0.433s, gph_wizard02ArmBack_action (wizard2_img_arm_back_action) @ 0.9s
+  - track `Hat/Sprite`, 4 frames, ~2 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 0.2s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.433s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.933s
+- **Wizard02CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_Wizard02body (wizard2_img_body) @ 0s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.2s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.367s, gph_Wizard02body_preAction (wizard2_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 0s, gph_wizard02Face_preCast (wizard2_img_face_pre_cast) @ 0.2s, gph_wizard02Face_preCast (wizard2_img_face_pre_cast) @ 0.367s, gph_wizard02Face_preAction (wizard2_img_face_pre_action) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_wizard02ArmBack (wizard2_img_arm_back) @ 0s, gph_wizard02ArmBack (wizard2_img_arm_back) @ 0.367s, gph_wizard02ArmBack_action (wizard2_img_arm_back_action) @ 0.533s
+  - track `Hat/Sprite`, 3 frames, ~3 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.2s, gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 0.533s
+- **Wizard02Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~1.2 fps: gph_Wizard02body (wizard2_img_body) @ 0s, gph_Wizard02body_cheer (wizard2_img_body_cheer) @ 0.167s, gph_Wizard02body_cheer (wizard2_img_body_cheer) @ 1s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 0s, gph_wizard02Face_cheer01 (wizard2_img_face_cheer01) @ 0.167s, gph_wizard02Face_cheer02 (wizard2_img_face_cheer02) @ 0.567s, gph_wizard02Face_cheer01 (wizard2_img_face_cheer01) @ 0.667s, gph_wizard02Face_cheer02 (wizard2_img_face_cheer02) @ 0.767s, gph_wizard02Face_cheer01 (wizard2_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 3 frames, ~1.2 fps: gph_wizard02ArmFront (wizard2_img_arm_front) @ 0s, gph_wizard02ArmFront_cheer (wizard2_img_arm_front_cheer) @ 0.167s, gph_wizard02ArmFront_cheer (wizard2_img_arm_front_cheer) @ 1s
+- **Wizard02Dying** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.9 fps: gph_wizard02ArmBack (wizard2_img_arm_back) @ 0s, gph_wizard02ArmBack (wizard2_img_arm_back) @ 1.15s
+  - track `Body/Sprite`, 4 frames, ~1.3 fps: gph_Wizard02body (wizard2_img_body) @ 0s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.2s, gph_Wizard02body (wizard2_img_body) @ 0.4s, gph_Wizard02body (wizard2_img_body) @ 1.15s
+  - track `Face/Sprite`, 8 frames, ~5 fps: gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 0s, gph_wizard02Face_preCast (wizard2_img_face_pre_cast) @ 0.2s, gph_wizard02Face_startle01 (wizard2_img_face_startle01) @ 0.4s, gph_wizard02Face_startle02 (wizard2_img_face_startle02) @ 0.65s, gph_wizard02Face_startle01 (wizard2_img_face_startle01) @ 0.767s, gph_wizard02Face_startle02 (wizard2_img_face_startle02) @ 0.833s, gph_wizard02Face_startle01 (wizard2_img_face_startle01) @ 0.9s, gph_wizard02Face_startle01 (wizard2_img_face_startle01) @ 1.15s
+  - track `Hat/Sprite`, 4 frames, ~1.3 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.2s, gph_wizard02Hat (wizard2_img_hat) @ 0.4s, gph_wizard02Hat (wizard2_img_hat) @ 1.15s
+- **Wizard02Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~1.1 fps: gph_wizard02ArmBack (wizard2_img_arm_back) @ 0s, gph_wizard02ArmBack (wizard2_img_arm_back) @ 0.917s
+  - track `Body/Sprite`, 3 frames, ~1.4 fps: gph_Wizard02body (wizard2_img_body) @ 0s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.183s, gph_Wizard02body (wizard2_img_body) @ 0.917s
+  - track `Face/Sprite`, 4 frames, ~1.4 fps: gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 0s, gph_wizard02Face_startle01 (wizard2_img_face_startle01) @ 0.033s, gph_wizard02Face_cheer01 (wizard2_img_face_cheer01) @ 0.183s, gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 0.917s
+  - track `Hat/Sprite`, 3 frames, ~1.4 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.183s, gph_wizard02Hat (wizard2_img_hat) @ 0.917s
+- **Wizard02LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.6 fps: gph_wizard02ArmBack (wizard2_img_arm_back) @ 0s, gph_wizard02ArmBack (wizard2_img_arm_back) @ 1.75s
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_Wizard02body (wizard2_img_body) @ 0s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.383s, gph_Wizard02body_preAction (wizard2_img_body_pre_action) @ 1.05s, gph_Wizard02body (wizard2_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 0s, gph_wizard02Face_startle01 (wizard2_img_face_startle01) @ 0.15s, gph_wizard02Face_cheer01 (wizard2_img_face_cheer01) @ 0.383s, gph_wizard02Face_laugh (wizard2_img_face_laugh) @ 1.05s, gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 1.75s
+  - track `Hat/Sprite`, 4 frames, ~1.4 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.383s, gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 1.05s, gph_wizard02Hat (wizard2_img_hat) @ 1.75s
+- **Wizard02Startle** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.9 fps: gph_wizard02ArmBack (wizard2_img_arm_back) @ 0s, gph_wizard02ArmBack (wizard2_img_arm_back) @ 1.15s
+  - track `Body/Sprite`, 4 frames, ~1.3 fps: gph_Wizard02body (wizard2_img_body) @ 0s, gph_Wizard02body_action (wizard2_img_body_action) @ 0.2s, gph_Wizard02body (wizard2_img_body) @ 0.4s, gph_Wizard02body (wizard2_img_body) @ 1.15s
+  - track `Face/Sprite`, 8 frames, ~5 fps: gph_wizard02Face_idle02 (wizard2_img_face_idle02) @ 0s, gph_wizard02Face_preCast (wizard2_img_face_pre_cast) @ 0.2s, gph_wizard02Face_startle01 (wizard2_img_face_startle01) @ 0.4s, gph_wizard02Face_startle02 (wizard2_img_face_startle02) @ 0.65s, gph_wizard02Face_startle01 (wizard2_img_face_startle01) @ 0.767s, gph_wizard02Face_startle02 (wizard2_img_face_startle02) @ 0.833s, gph_wizard02Face_startle01 (wizard2_img_face_startle01) @ 0.9s, gph_wizard02Face_startle01 (wizard2_img_face_startle01) @ 1.15s
+  - track `Hat/Sprite`, 4 frames, ~1.3 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.2s, gph_wizard02Hat (wizard2_img_hat) @ 0.4s, gph_wizard02Hat (wizard2_img_hat) @ 1.15s
+- **Wizard03Action** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~2.1 fps: gph_Wizard03body (wizard3_img_body) @ 0s, gph_Wizard03body_preAction (wizard3_img_body_pre_action) @ 0.2s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.433s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.9s
+  - track `Face/Sprite`, 4 frames, ~2 fps: gph_wizard03Face_idle01 (wizard3_img_face_idle01) @ 0s, gph_wizard03Face_preAction (wizard3_img_face_pre_action) @ 0.2s, gph_wizard03Face_action (wizard3_img_face_action) @ 0.433s, gph_wizard03Face_action (wizard3_img_face_action) @ 0.933s
+  - track `ArmBack/Sprite`, 3 frames, ~2.1 fps: gph_wizard03ArmBack (wizard3_img_arm_back) @ 0s, gph_wizard03ArmBack_action (wizard3_img_arm_back_action) @ 0.433s, gph_wizard03ArmBack_action (wizard3_img_arm_back_action) @ 0.9s
+  - track `Face/SpriteBack`, 4 frames, ~2 fps: gph_wizard03FaceBack (wizard3_img_face_back) @ 0s, gph_wizard03FaceBack_preAction (wizard3_img_face_back_pre_action) @ 0.2s, gph_wizard03FaceBack_action (wizard3_img_face_back_action) @ 0.433s, gph_wizard03FaceBack_action (wizard3_img_face_back_action) @ 0.933s
+- **Wizard03CapeDown** (clip sample rate 15)
+  - track ``, 6 frames, ~15 fps: anim_wizard03CapeDown_83x73_0 (wizard03_cape_down_83x73_0) @ 0s, anim_wizard03CapeDown_83x73_1 (wizard03_cape_down_83x73_1) @ 0.067s, anim_wizard03CapeDown_83x73_2 (wizard03_cape_down_83x73_2) @ 0.133s, anim_wizard03CapeDown_83x73_3 (wizard03_cape_down_83x73_3) @ 0.2s, anim_wizard03CapeDown_83x73_4 (wizard03_cape_down_83x73_4) @ 0.267s, anim_wizard03CapeDown_83x73_5 (wizard03_cape_down_83x73_5) @ 0.333s
+- **Wizard03CapeIdle** (clip sample rate 30)
+  - track ``, 1 frames, ~- fps: anim_wizard03CapeDown_83x73_5 (wizard03_cape_down_83x73_5) @ 0s
+- **Wizard03CapeUp** (clip sample rate 15)
+  - track ``, 5 frames, ~15 fps: anim_wizard03CapeUp_82x84_0 (wizard3_cape) @ 0s, anim_wizard03CapeUp_82x84_1 (wizard03_cape_up_82x84_1) @ 0.067s, anim_wizard03CapeUp_82x84_2 (wizard03_cape_up_82x84_2) @ 0.133s, anim_wizard03CapeUp_82x84_3 (wizard03_cape_up_82x84_3) @ 0.2s, anim_wizard03CapeUp_82x84_4 (wizard03_cape_up_82x84_4) @ 0.267s
+- **Wizard03CapeWave** (clip sample rate 30)
+  - track ``, 12 frames, ~30 fps: anim_wizard03CapeWave_93x60_0 (wizard3_img_wizard03_cape_wave_93x60_0) @ 0s, anim_wizard03CapeWave_93x60_1 (wizard3_img_wizard03_cape_wave_93x60_1) @ 0.033s, anim_wizard03CapeWave_93x60_2 (wizard3_img_wizard03_cape_wave_93x60_2) @ 0.067s, anim_wizard03CapeWave_93x60_3 (wizard3_img_wizard03_cape_wave_93x60_3) @ 0.1s, anim_wizard03CapeWave_93x60_4 (wizard3_img_wizard03_cape_wave_93x60_4) @ 0.133s, anim_wizard03CapeWave_93x60_5 (wizard3_img_wizard03_cape_wave_93x60_5) @ 0.167s, anim_wizard03CapeWave_93x60_6 (wizard3_img_wizard03_cape_wave_93x60_6) @ 0.2s, anim_wizard03CapeWave_93x60_7 (wizard3_img_wizard03_cape_wave_93x60_7) @ 0.233s, anim_wizard03CapeWave_93x60_8 (wizard3_img_wizard03_cape_wave_93x60_8) @ 0.267s, anim_wizard03CapeWave_93x60_9 (wizard3_img_wizard03_cape_wave_93x60_9) @ 0.3s, anim_wizard03CapeWave_93x60_10 (wizard3_img_wizard03_cape_wave_93x60_10) @ 0.333s, anim_wizard03CapeWave_93x60_11 (wizard3_img_wizard03_cape_wave_93x60_11) @ 0.367s
+- **Wizard03CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizard03ArmBack (wizard3_img_arm_back) @ 0s, gph_wizard03ArmBack (wizard3_img_arm_back) @ 0.433s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_Wizard03body_preAction (wizard3_img_body_pre_action) @ 0s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.067s, gph_Wizard03body (wizard3_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizard03Face_preAction (wizard3_img_face_pre_action) @ 0s, gph_wizard03Face_preCast (wizard03_face_pre_cast) @ 0.067s, gph_wizard03Face_idle02 (wizard3_img_face_idle02) @ 0.433s
+- **Wizard03Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~0.5 fps: gph_Wizard03body_preAction (wizard3_img_body_pre_action) @ 0s, gph_Wizard03body_preAction (wizard3_img_body_pre_action) @ 2s, gph_Wizard03body_preAction (wizard3_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizard03Face_preAction (wizard3_img_face_pre_action) @ 0s, gph_wizard03Face_preAction (wizard3_img_face_pre_action) @ 2s, gph_wizard03Face_preAction (wizard3_img_face_pre_action) @ 4s
+  - track `ArmBack/Sprite`, 3 frames, ~0.5 fps: gph_wizard03ArmBack_action (wizard3_img_arm_back_action) @ 0s, gph_wizard03ArmBack_action (wizard3_img_arm_back_action) @ 2s, gph_wizard03ArmBack_action (wizard3_img_arm_back_action) @ 4s
+  - track `Face/SpriteBack`, 3 frames, ~0.5 fps: gph_wizard03FaceBack_preAction (wizard3_img_face_back_pre_action) @ 0s, gph_wizard03FaceBack_preAction (wizard3_img_face_back_pre_action) @ 2s, gph_wizard03FaceBack_preAction (wizard3_img_face_back_pre_action) @ 4s
+- **Wizard03CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~2.1 fps: gph_Wizard03body (wizard3_img_body) @ 0s, gph_Wizard03body_preAction (wizard3_img_body_pre_action) @ 0.2s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.433s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.9s
+  - track `Face/Sprite`, 4 frames, ~2 fps: gph_wizard03Face_idle01 (wizard3_img_face_idle01) @ 0s, gph_wizard03Face_preAction (wizard3_img_face_pre_action) @ 0.2s, gph_wizard03Face_action (wizard3_img_face_action) @ 0.433s, gph_wizard03Face_action (wizard3_img_face_action) @ 0.933s
+  - track `ArmBack/Sprite`, 3 frames, ~2.1 fps: gph_wizard03ArmBack (wizard3_img_arm_back) @ 0s, gph_wizard03ArmBack_action (wizard3_img_arm_back_action) @ 0.433s, gph_wizard03ArmBack_action (wizard3_img_arm_back_action) @ 0.9s
+  - track `Face/SpriteBack`, 4 frames, ~2 fps: gph_wizard03FaceBack (wizard3_img_face_back) @ 0s, gph_wizard03FaceBack_preAction (wizard3_img_face_back_pre_action) @ 0.2s, gph_wizard03FaceBack_action (wizard3_img_face_back_action) @ 0.433s, gph_wizard03FaceBack_action (wizard3_img_face_back_action) @ 0.933s
+- **Wizard03CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_Wizard03body (wizard3_img_body) @ 0s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.2s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.367s, gph_Wizard03body_preAction (wizard3_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_wizard03Face_idle02 (wizard3_img_face_idle02) @ 0s, gph_wizard03Face_preCast (wizard03_face_pre_cast) @ 0.2s, gph_wizard03Face_preCast (wizard03_face_pre_cast) @ 0.367s, gph_wizard03Face_preAction (wizard3_img_face_pre_action) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_wizard03ArmBack (wizard3_img_arm_back) @ 0s, gph_wizard03ArmBack (wizard3_img_arm_back) @ 0.367s, gph_wizard03ArmBack_action (wizard3_img_arm_back_action) @ 0.533s
+  - track `Face/SpriteBack`, 4 frames, ~5 fps: gph_wizard03FaceBack (wizard3_img_face_back) @ 0s, gph_wizard03FaceBack_action (wizard3_img_face_back_action) @ 0.2s, gph_wizard03FaceBack_action (wizard3_img_face_back_action) @ 0.367s, gph_wizard03FaceBack_preAction (wizard3_img_face_back_pre_action) @ 0.533s
+- **Wizard03Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~1.2 fps: gph_Wizard03body (wizard3_img_body) @ 0s, gph_Wizard03body_cheer (wizard3_img_body_cheer) @ 0.167s, gph_Wizard03body_cheer (wizard3_img_body_cheer) @ 1.033s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizard03Face_idle02 (wizard3_img_face_idle02) @ 0s, gph_wizard03Face_cheer01 (wizard3_img_face_cheer01) @ 0.167s, gph_wizard03Face_cheer02 (wizard3_img_face_cheer02) @ 0.567s, gph_wizard03Face_cheer01 (wizard3_img_face_cheer01) @ 0.667s, gph_wizard03Face_cheer02 (wizard3_img_face_cheer02) @ 0.767s, gph_wizard03Face_cheer01 (wizard3_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 3 frames, ~1.2 fps: gph_wizard03ArmFront (wizard3_img_arm_front) @ 0s, gph_wizard03ArmFront_cheer (wizard3_img_arm_front_cheer) @ 0.167s, gph_wizard03ArmFront_cheer (wizard3_img_arm_front_cheer) @ 1.033s
+  - track `Face/SpriteBack`, 3 frames, ~1.2 fps: gph_wizard03FaceBack (wizard3_img_face_back) @ 0s, gph_wizard03FaceBack_cheer (wizard3_img_face_back_cheer) @ 0.167s, gph_wizard03FaceBack_cheer (wizard3_img_face_back_cheer) @ 1.033s
+- **Wizard03Dying** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.9 fps: gph_wizard03ArmBack (wizard3_img_arm_back) @ 0s, gph_wizard03ArmBack (wizard3_img_arm_back) @ 1.15s
+  - track `Body/Sprite`, 4 frames, ~1.3 fps: gph_Wizard03body (wizard3_img_body) @ 0s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.2s, gph_Wizard03body (wizard3_img_body) @ 0.4s, gph_Wizard03body (wizard3_img_body) @ 1.15s
+  - track `Face/Sprite`, 8 frames, ~5 fps: gph_wizard03Face_idle02 (wizard3_img_face_idle02) @ 0s, gph_wizard03Face_idle02 (wizard3_img_face_idle02) @ 0.2s, gph_wizard03Face_startle01 (wizard3_img_face_startle01) @ 0.4s, gph_wizard03Face_startle02 (wizard3_img_face_startle02) @ 0.65s, gph_wizard03Face_startle01 (wizard3_img_face_startle01) @ 0.767s, gph_wizard03Face_startle02 (wizard3_img_face_startle02) @ 0.833s, gph_wizard03Face_startle01 (wizard3_img_face_startle01) @ 0.9s, gph_wizard03Face_startle01 (wizard3_img_face_startle01) @ 1.15s
+  - track `Hat/Sprite`, 4 frames, ~1.3 fps: gph_wizard03Hat (wizard3_img_hat) @ 0s, gph_wizard03Hat (wizard3_img_hat) @ 0.2s, gph_wizard03Hat (wizard3_img_hat) @ 0.4s, gph_wizard03Hat (wizard3_img_hat) @ 1.15s
+- **Wizard03Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~1.1 fps: gph_wizard03ArmBack (wizard3_img_arm_back) @ 0s, gph_wizard03ArmBack (wizard3_img_arm_back) @ 0.917s
+  - track `Body/Sprite`, 3 frames, ~1.4 fps: gph_Wizard03body (wizard3_img_body) @ 0s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.183s, gph_Wizard03body (wizard3_img_body) @ 0.917s
+  - track `Face/Sprite`, 4 frames, ~1.4 fps: gph_wizard03Face_idle01 (wizard3_img_face_idle01) @ 0s, gph_wizard03Face_startle01 (wizard3_img_face_startle01) @ 0.033s, gph_wizard03Face_cheer02 (wizard3_img_face_cheer02) @ 0.183s, gph_wizard03Face_idle01 (wizard3_img_face_idle01) @ 0.917s
+  - track `Hat/Sprite`, 3 frames, ~1.4 fps: gph_wizard03Hat (wizard3_img_hat) @ 0s, gph_wizard03Hat (wizard3_img_hat) @ 0.183s, gph_wizard03Hat (wizard3_img_hat) @ 0.917s
+- **Wizard03LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.6 fps: gph_wizard03ArmBack (wizard3_img_arm_back) @ 0s, gph_wizard03ArmBack (wizard3_img_arm_back) @ 1.75s
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_Wizard03body (wizard3_img_body) @ 0s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.383s, gph_Wizard03body_preAction (wizard3_img_body_pre_action) @ 1.05s, gph_Wizard03body (wizard3_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizard03Face_idle01 (wizard3_img_face_idle01) @ 0s, gph_wizard03Face_startle01 (wizard3_img_face_startle01) @ 0.15s, gph_wizard03Face_cheer02 (wizard3_img_face_cheer02) @ 0.383s, gph_wizard03Face_laugh (wizard3_img_face_laugh) @ 1.05s, gph_wizard03Face_idle01 (wizard3_img_face_idle01) @ 1.75s
+  - track `Hat/Sprite`, 4 frames, ~1.4 fps: gph_wizard03Hat (wizard3_img_hat) @ 0s, gph_wizard03Hat (wizard3_img_hat) @ 0.383s, gph_wizard03Hat (wizard3_img_hat) @ 1.05s, gph_wizard03Hat (wizard3_img_hat) @ 1.75s
+  - track `Face/SpriteBack`, 3 frames, ~1 fps: gph_wizard03FaceBack (wizard3_img_face_back) @ 0s, gph_wizard03FaceBack_laugh (wizard3_img_face_back_laugh) @ 1.05s, gph_wizard03FaceBack (wizard3_img_face_back) @ 1.75s
+- **Wizard03Startle** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.9 fps: gph_wizard03ArmBack (wizard3_img_arm_back) @ 0s, gph_wizard03ArmBack (wizard3_img_arm_back) @ 1.15s
+  - track `Body/Sprite`, 4 frames, ~1.3 fps: gph_Wizard03body (wizard3_img_body) @ 0s, gph_Wizard03Body_action (wizard3_img_body_action) @ 0.2s, gph_Wizard03body (wizard3_img_body) @ 0.4s, gph_Wizard03body (wizard3_img_body) @ 1.15s
+  - track `Face/Sprite`, 8 frames, ~5 fps: gph_wizard03Face_idle02 (wizard3_img_face_idle02) @ 0s, gph_wizard03Face_idle02 (wizard3_img_face_idle02) @ 0.2s, gph_wizard03Face_startle01 (wizard3_img_face_startle01) @ 0.4s, gph_wizard03Face_startle02 (wizard3_img_face_startle02) @ 0.65s, gph_wizard03Face_startle01 (wizard3_img_face_startle01) @ 0.767s, gph_wizard03Face_startle02 (wizard3_img_face_startle02) @ 0.833s, gph_wizard03Face_startle01 (wizard3_img_face_startle01) @ 0.9s, gph_wizard03Face_startle01 (wizard3_img_face_startle01) @ 1.15s
+  - track `Hat/Sprite`, 4 frames, ~1.3 fps: gph_wizard03Hat (wizard3_img_hat) @ 0s, gph_wizard03Hat (wizard3_img_hat) @ 0.2s, gph_wizard03Hat (wizard3_img_hat) @ 0.4s, gph_wizard03Hat (wizard3_img_hat) @ 1.15s
+- **Wizard04Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_Wizard04Body (wizard4_img_body) @ 0s, gph_Wizard04body_preAction (wizard4_img_body_pre_action) @ 0.2s, gph_Wizard04body_action (wizard4_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 4 frames, ~2.1 fps: gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0s, gph_wizard04Face_preAction (wizard4_img_face_pre_action) @ 0.2s, gph_wizard04Face_action (wizard4_img_face_action) @ 0.433s, gph_wizard04Face_action (wizard4_img_face_action) @ 0.9s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_Wizard04ArmBack (wizard4_img_arm_back) @ 0s, gph_wizard04ArmBack_action (wizard4_img_arm_back_action) @ 0.433s
+- **Wizard04CapeDown** (clip sample rate 15)
+  - track ``, 6 frames, ~15 fps: anim_wizard01CapeDown_33x29_0 (wizard01_cape_down_33x29_0) @ 0s, anim_wizard01CapeDown_33x29_1 (wizard01_cape_down_33x29_1) @ 0.067s, anim_wizard01CapeDown_33x29_2 (wizard01_cape_down_33x29_2) @ 0.133s, anim_wizard01CapeDown_33x29_3 (wizard01_cape_down_33x29_3) @ 0.2s, anim_wizard01CapeDown_33x29_4 (wizard01_cape_down_33x29_4) @ 0.267s, anim_wizard01CapeDown_33x29_5 (wizard01_cape_down_33x29_5) @ 0.333s
+- **Wizard04CapeIdle** (clip sample rate 30)
+  - track ``, 1 frames, ~- fps: anim_wizard01CapeDown_33x29_5 (wizard01_cape_down_33x29_5) @ 0s
+- **Wizard04CapeUp** (clip sample rate 15)
+  - track ``, 5 frames, ~15 fps: anim_wizard01CapeUp_33x34_0 (wizard4_cape) @ 0s, anim_wizard01CapeUp_33x34_1 (wizard01_cape_up_33x34_1) @ 0.067s, anim_wizard01CapeUp_33x34_2 (wizard01_cape_up_33x34_2) @ 0.133s, anim_wizard01CapeUp_33x34_3 (wizard01_cape_up_33x34_3) @ 0.2s, anim_wizard01CapeUp_33x34_4 (wizard01_cape_up_33x34_4) @ 0.267s
+- **Wizard04CapeWave** (clip sample rate 30)
+  - track ``, 12 frames, ~30 fps: anim_wizard01CapeWave_37x24_0 (wizard4_img_wizard01_cape_wave_37x24_0) @ 0s, anim_wizard01CapeWave_37x24_1 (wizard4_img_wizard01_cape_wave_37x24_1) @ 0.033s, anim_wizard01CapeWave_37x24_2 (wizard4_img_wizard01_cape_wave_37x24_2) @ 0.067s, anim_wizard01CapeWave_37x24_3 (wizard4_img_wizard01_cape_wave_37x24_3) @ 0.1s, anim_wizard01CapeWave_37x24_4 (wizard4_img_wizard01_cape_wave_37x24_4) @ 0.133s, anim_wizard01CapeWave_37x24_5 (wizard4_img_wizard01_cape_wave_37x24_5) @ 0.167s, anim_wizard01CapeWave_37x24_6 (wizard4_img_wizard01_cape_wave_37x24_6) @ 0.2s, anim_wizard01CapeWave_37x24_7 (wizard4_img_wizard01_cape_wave_37x24_7) @ 0.233s, anim_wizard01CapeWave_37x24_8 (wizard4_img_wizard01_cape_wave_37x24_8) @ 0.267s, anim_wizard01CapeWave_37x24_9 (wizard4_img_wizard01_cape_wave_37x24_9) @ 0.3s, anim_wizard01CapeWave_37x24_10 (wizard4_img_wizard01_cape_wave_37x24_10) @ 0.333s, anim_wizard01CapeWave_37x24_11 (wizard4_img_wizard01_cape_wave_37x24_11) @ 0.367s
+- **Wizard04CastEnd** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~2.7 fps: gph_Wizard04body_preAction (wizard4_img_body_pre_action) @ 0s, gph_Wizard04body_preAction (wizard4_img_body_pre_action) @ 0.233s, gph_Wizard04body_action (wizard4_img_body_action) @ 0.3s, gph_Wizard04Body (wizard4_img_body) @ 0.667s
+  - track `Face/Sprite`, 5 frames, ~3.8 fps: gph_wizard04Face_preAction (wizard4_img_face_pre_action) @ 0s, gph_wizard04Face_preAction (wizard4_img_face_pre_action) @ 0.233s, gph_wizard04Face_preCast (wizard4_img_face_pre_cast) @ 0.3s, gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0.667s, gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0.933s
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_Wizard04ArmBack (wizard4_img_arm_back) @ 0s
+- **Wizard04Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 1 frames, ~- fps: gph_Wizard04body_preAction (wizard4_img_body_pre_action) @ 0s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizard04Face_preAction (wizard4_img_face_pre_action) @ 0s, gph_wizard04Face_preAction (wizard4_img_face_pre_action) @ 2s, gph_wizard04Face_preAction (wizard4_img_face_pre_action) @ 4s
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizard04ArmBack_action (wizard4_img_arm_back_action) @ 0s
+- **Wizard04CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_Wizard04Body (wizard4_img_body) @ 0s, gph_Wizard04body_preAction (wizard4_img_body_pre_action) @ 0.2s, gph_Wizard04body_action (wizard4_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 4 frames, ~2.1 fps: gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0s, gph_wizard04Face_preAction (wizard4_img_face_pre_action) @ 0.2s, gph_wizard04Face_action (wizard4_img_face_action) @ 0.433s, gph_wizard04Face_action (wizard4_img_face_action) @ 0.9s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_Wizard04ArmBack (wizard4_img_arm_back) @ 0s, gph_wizard04ArmBack_action (wizard4_img_arm_back_action) @ 0.433s
+- **Wizard04CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_Wizard04Body (wizard4_img_body) @ 0s, gph_Wizard04body_action (wizard4_img_body_action) @ 0.2s, gph_Wizard04body_action (wizard4_img_body_action) @ 0.367s, gph_Wizard04body_preAction (wizard4_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0s, gph_wizard04Face_preCast (wizard4_img_face_pre_cast) @ 0.2s, gph_wizard04Face_preCast (wizard4_img_face_pre_cast) @ 0.367s, gph_wizard04Face_preAction (wizard4_img_face_pre_action) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_Wizard04ArmBack (wizard4_img_arm_back) @ 0s, gph_Wizard04ArmBack (wizard4_img_arm_back) @ 0.367s, gph_wizard04ArmBack_action (wizard4_img_arm_back_action) @ 0.533s
+- **Wizard04Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 2 frames, ~6 fps: gph_Wizard04Body (wizard4_img_body) @ 0s, gph_Wizard04body_cheer (wizard4_img_body_cheer) @ 0.167s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0s, gph_wizard04Face_cheer01 (wizard4_img_face_cheer01) @ 0.167s, gph_wizard04Face_cheer02 (wizard4_img_face_cheer02) @ 0.567s, gph_wizard04Face_cheer01 (wizard4_img_face_cheer01) @ 0.667s, gph_wizard04Face_cheer02 (wizard4_img_face_cheer02) @ 0.767s, gph_wizard04Face_cheer01 (wizard4_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 2 frames, ~6 fps: gph_Wizard04ArmFront (wizard4_img_arm_front) @ 0s, gph_wizard04ArmFront_cheer (wizard4_img_arm_front_cheer) @ 0.167s
+- **Wizard04Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~1.1 fps: gph_Wizard04ArmBack (wizard4_img_arm_back) @ 0s, gph_Wizard04ArmBack (wizard4_img_arm_back) @ 0.917s
+  - track `Body/Sprite`, 3 frames, ~1.4 fps: gph_Wizard04Body (wizard4_img_body) @ 0s, gph_Wizard04body_action (wizard4_img_body_action) @ 0.183s, gph_Wizard04Body (wizard4_img_body) @ 0.917s
+  - track `Face/Sprite`, 4 frames, ~1.4 fps: gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0s, gph_wizard04Face_startle02 (wizard4_img_face_startle02) @ 0.033s, gph_wizard04Face_cheer02 (wizard4_img_face_cheer02) @ 0.183s, gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0.917s
+- **Wizard04LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.6 fps: gph_Wizard04ArmBack (wizard4_img_arm_back) @ 0s, gph_Wizard04ArmBack (wizard4_img_arm_back) @ 1.75s
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_Wizard04Body (wizard4_img_body) @ 0s, gph_Wizard04body_action (wizard4_img_body_action) @ 0.383s, gph_Wizard04body_preAction (wizard4_img_body_pre_action) @ 1.05s, gph_Wizard04Body (wizard4_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0s, gph_wizard04Face_startle02 (wizard4_img_face_startle02) @ 0.15s, gph_wizard04Face_cheer02 (wizard4_img_face_cheer02) @ 0.383s, gph_wizard04Face_laugh (wizard4_img_face_laugh) @ 1.05s, gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 1.75s
+- **Wizard04SDying** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_Wizard04ArmBack (wizard4_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_Wizard04Body (wizard4_img_body) @ 0s, gph_Wizard04body_action (wizard4_img_body_action) @ 0.1s, gph_Wizard04Body (wizard4_img_body) @ 0.317s
+  - track `Face/Sprite`, 8 frames, ~4.6 fps: gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0s, gph_wizard04Face_preCast (wizard4_img_face_pre_cast) @ 0.1s, gph_wizard04Face_startle01 (wizard4_img_face_startle01) @ 0.317s, gph_wizard04Face_startle02 (wizard4_img_face_startle02) @ 0.567s, gph_wizard04Face_startle01 (wizard4_img_face_startle01) @ 0.683s, gph_wizard04Face_startle02 (wizard4_img_face_startle02) @ 0.75s, gph_wizard04Face_startle01 (wizard4_img_face_startle01) @ 0.817s, gph_wizard04Face_startle01 (wizard4_img_face_startle01) @ 1.067s
+- **Wizard04Startle** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_Wizard04ArmBack (wizard4_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_Wizard04Body (wizard4_img_body) @ 0s, gph_Wizard04body_action (wizard4_img_body_action) @ 0.1s, gph_Wizard04Body (wizard4_img_body) @ 0.317s
+  - track `Face/Sprite`, 8 frames, ~4.6 fps: gph_Wizard04Face_idle02 (wizard4_img_face_idle02) @ 0s, gph_wizard04Face_preCast (wizard4_img_face_pre_cast) @ 0.1s, gph_wizard04Face_startle01 (wizard4_img_face_startle01) @ 0.317s, gph_wizard04Face_startle02 (wizard4_img_face_startle02) @ 0.567s, gph_wizard04Face_startle01 (wizard4_img_face_startle01) @ 0.683s, gph_wizard04Face_startle02 (wizard4_img_face_startle02) @ 0.75s, gph_wizard04Face_startle01 (wizard4_img_face_startle01) @ 0.817s, gph_wizard04Face_startle01 (wizard4_img_face_startle01) @ 1.067s
+- **WizardAnimal01Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_WizardAnimal01body (wizard5_img_body) @ 0s, gph_WizardAnimal01body_preAction (wizard5_img_body_pre_action) @ 0.2s, gph_WizardAnimal01body_action (wizard5_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 0s, gph_wizardAnimal01Face_preAction (wizard5_img_face_pre_action) @ 0.2s, gph_wizardAnimal01Face_action (wizard5_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 0s, gph_wizardAnimal01ArmBack_action (wizard5_img_arm_back_action) @ 0.433s
+  - track `Hat/Sprite`, 3 frames, ~4.3 fps: gph_wizardAnimal01Hat (wizard5_img_hat) @ 0s, gph_wizardAnimal01HatCheer (wizard5_img_hat_cheer) @ 0.2s, gph_wizardAnimal01Hat (wizard5_img_hat) @ 0.433s
+- **WizardAnimal01CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 3 frames, ~3.7 fps: gph_wizardAnimal01ArmBack_action (wizard5_img_arm_back_action) @ 0s, gph_wizardAnimal01ArmBack_action (wizard5_img_arm_back_action) @ 0.167s, gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 0.433s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_WizardAnimal01body_preAction (wizard5_img_body_pre_action) @ 0s, gph_WizardAnimal01body_action (wizard5_img_body_action) @ 0.067s, gph_WizardAnimal01body (wizard5_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizardAnimal01Face_preAction (wizard5_img_face_pre_action) @ 0s, gph_wizardAnimal01Face_preCast (wizard5_img_face_pre_cast) @ 0.067s, gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 0.433s
+  - track `Hat/Sprite`, 2 frames, ~15 fps: gph_wizardAnimal01HatCheer (wizard5_img_hat_cheer) @ 0s, gph_wizardAnimal01Hat (wizard5_img_hat) @ 0.067s
+- **WizardAnimal01Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~0.5 fps: gph_WizardAnimal01body_preAction (wizard5_img_body_pre_action) @ 0s, gph_WizardAnimal01body_preAction (wizard5_img_body_pre_action) @ 2s, gph_WizardAnimal01body_preAction (wizard5_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal01Face_preAction (wizard5_img_face_pre_action) @ 0s, gph_wizardAnimal01Face_preAction (wizard5_img_face_pre_action) @ 2s, gph_wizardAnimal01Face_preAction (wizard5_img_face_pre_action) @ 4s
+  - track `ArmBack/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal01ArmBack_action (wizard5_img_arm_back_action) @ 0s, gph_wizardAnimal01ArmBack_action (wizard5_img_arm_back_action) @ 2s, gph_wizardAnimal01ArmBack_action (wizard5_img_arm_back_action) @ 4s
+  - track `Hat/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal01HatCheer (wizard5_img_hat_cheer) @ 0s, gph_wizardAnimal01HatCheer (wizard5_img_hat_cheer) @ 2s, gph_wizardAnimal01HatCheer (wizard5_img_hat_cheer) @ 4s
+- **WizardAnimal01CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_WizardAnimal01body (wizard5_img_body) @ 0s, gph_WizardAnimal01body_preAction (wizard5_img_body_pre_action) @ 0.2s, gph_WizardAnimal01body_action (wizard5_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 0s, gph_wizardAnimal01Face_preAction (wizard5_img_face_pre_action) @ 0.2s, gph_wizardAnimal01Face_action (wizard5_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 0s, gph_wizardAnimal01ArmBack_action (wizard5_img_arm_back_action) @ 0.433s
+  - track `Hat/Sprite`, 3 frames, ~4.3 fps: gph_wizardAnimal01Hat (wizard5_img_hat) @ 0s, gph_wizardAnimal01HatCheer (wizard5_img_hat_cheer) @ 0.2s, gph_wizardAnimal01Hat (wizard5_img_hat) @ 0.433s
+- **WizardAnimal01CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_WizardAnimal01body (wizard5_img_body) @ 0s, gph_WizardAnimal01body_action (wizard5_img_body_action) @ 0.2s, gph_WizardAnimal01body_action (wizard5_img_body_action) @ 0.367s, gph_WizardAnimal01body_preAction (wizard5_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 0s, gph_wizardAnimal01Face_preCast (wizard5_img_face_pre_cast) @ 0.2s, gph_wizardAnimal01Face_preCast (wizard5_img_face_pre_cast) @ 0.367s, gph_wizardAnimal01Face_preAction (wizard5_img_face_pre_action) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 0s, gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 0.367s, gph_wizardAnimal01ArmBack_action (wizard5_img_arm_back_action) @ 0.533s
+  - track `Hat/Sprite`, 2 frames, ~1.9 fps: gph_wizardAnimal01Hat (wizard5_img_hat) @ 0s, gph_wizardAnimal01HatCheer (wizard5_img_hat_cheer) @ 0.533s
+- **WizardAnimal01Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~1.2 fps: gph_WizardAnimal01body (wizard5_img_body) @ 0s, gph_WizardAnimal01body_cheer (wizard5_img_body_cheer) @ 0.167s, gph_WizardAnimal01body_cheer (wizard5_img_body_cheer) @ 1s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 0s, gph_wizardAnimal01Face_cheer01 (wizard5_img_face_cheer01) @ 0.167s, gph_wizardAnimal01Face_cheer02 (wizard5_img_face_cheer02) @ 0.567s, gph_wizardAnimal01Face_cheer01 (wizard5_img_face_cheer01) @ 0.667s, gph_wizardAnimal01Face_cheer02 (wizard5_img_face_cheer02) @ 0.767s, gph_wizardAnimal01Face_cheer01 (wizard5_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 3 frames, ~1.2 fps: gph_wizardAnimal01ArmFront (wizard5_img_arm_front) @ 0s, gph_wizardAnimal01ArmFront_cheer (wizard5_img_arm_front_cheer) @ 0.167s, gph_wizardAnimal01ArmFront_cheer (wizard5_img_arm_front_cheer) @ 1s
+  - track `Hat/Sprite`, 3 frames, ~1.2 fps: gph_wizardAnimal01Hat (wizard5_img_hat) @ 0s, gph_wizardAnimal01HatCheer (wizard5_img_hat_cheer) @ 0.167s, gph_wizardAnimal01HatCheer (wizard5_img_hat_cheer) @ 1s
+- **WizardAnimal01Dying** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_WizardAnimal01body (wizard5_img_body) @ 0s, gph_WizardAnimal01body_action (wizard5_img_body_action) @ 0.1s, gph_WizardAnimal01body (wizard5_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 0s, gph_wizardAnimal01Face_preCast (wizard5_img_face_pre_cast) @ 0.1s, gph_wizardAnimal01Face_startle01 (wizard5_img_face_startle01) @ 0.317s, gph_wizardAnimal01Face_startle02 (wizard5_img_face_startle02) @ 0.567s, gph_wizardAnimal01Face_startle01 (wizard5_img_face_startle01) @ 0.683s, gph_wizardAnimal01Face_startle02 (wizard5_img_face_startle02) @ 0.75s, gph_wizardAnimal01Face_startle01 (wizard5_img_face_startle01) @ 0.817s
+- **WizardAnimal01Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~1.1 fps: gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 0s, gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 0.917s
+  - track `Body/Sprite`, 3 frames, ~1.4 fps: gph_WizardAnimal01body (wizard5_img_body) @ 0s, gph_WizardAnimal01body_action (wizard5_img_body_action) @ 0.183s, gph_WizardAnimal01body (wizard5_img_body) @ 0.917s
+  - track `Face/Sprite`, 4 frames, ~1.4 fps: gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 0s, gph_wizardAnimal01Face_startle01 (wizard5_img_face_startle01) @ 0.033s, gph_wizardAnimal01Face_cheer02 (wizard5_img_face_cheer02) @ 0.183s, gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 0.917s
+- **WizardAnimal01LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.6 fps: gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 0s, gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 1.75s
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_WizardAnimal01body (wizard5_img_body) @ 0s, gph_WizardAnimal01body_action (wizard5_img_body_action) @ 0.383s, gph_WizardAnimal01body_preAction (wizard5_img_body_pre_action) @ 1.05s, gph_WizardAnimal01body (wizard5_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 0s, gph_wizardAnimal01Face_startle01 (wizard5_img_face_startle01) @ 0.15s, gph_wizardAnimal01Face_cheer02 (wizard5_img_face_cheer02) @ 0.383s, gph_wizardAnimal01Face_laugh (wizard5_img_face_laugh) @ 1.05s, gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 1.75s
+  - track `Hat/Sprite`, 3 frames, ~1 fps: gph_wizardAnimal01Hat (wizard5_img_hat) @ 0s, gph_wizardAnimal01HatCheer (wizard5_img_hat_cheer) @ 1.05s, gph_wizardAnimal01Hat (wizard5_img_hat) @ 1.75s
+- **WizardAnimal01Startle** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardAnimal01ArmBack (wizard5_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_WizardAnimal01body (wizard5_img_body) @ 0s, gph_WizardAnimal01body_action (wizard5_img_body_action) @ 0.1s, gph_WizardAnimal01body (wizard5_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardAnimal01Face_idle02 (wizard5_img_face_idle02) @ 0s, gph_wizardAnimal01Face_preCast (wizard5_img_face_pre_cast) @ 0.1s, gph_wizardAnimal01Face_startle01 (wizard5_img_face_startle01) @ 0.317s, gph_wizardAnimal01Face_startle02 (wizard5_img_face_startle02) @ 0.567s, gph_wizardAnimal01Face_startle01 (wizard5_img_face_startle01) @ 0.683s, gph_wizardAnimal01Face_startle02 (wizard5_img_face_startle02) @ 0.75s, gph_wizardAnimal01Face_startle01 (wizard5_img_face_startle01) @ 0.817s
+- **WizardAnimal02Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_WizardAnimal02body (wizard6_img_body) @ 0s, gph_WizardAnimal02body_preAction (wizard6_img_body_pre_action) @ 0.2s, gph_WizardAnimal02body_action (wizard6_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 0s, gph_wizardAnimal02Face_preAction (wizard6_img_face_pre_action) @ 0.2s, gph_wizardAnimal02Face_action (wizard6_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 0s, gph_wizardAnimal02ArmBack_action (wizard6_img_arm_back_action) @ 0.433s
+  - track `Hat/Sprite`, 1 frames, ~- fps: gph_wizardAnimal02Hat (wizard6_img_hat) @ 0s
+- **WizardAnimal02CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 3 frames, ~3.7 fps: gph_wizardAnimal02ArmBack_action (wizard6_img_arm_back_action) @ 0s, gph_wizardAnimal02ArmBack_action (wizard6_img_arm_back_action) @ 0.167s, gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 0.433s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_WizardAnimal02body_preAction (wizard6_img_body_pre_action) @ 0s, gph_WizardAnimal02body_action (wizard6_img_body_action) @ 0.067s, gph_WizardAnimal02body (wizard6_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizardAnimal02Face_preAction (wizard6_img_face_pre_action) @ 0s, gph_wizardAnimal02Face_preCast (wizard6_img_face_pre_cast) @ 0.067s, gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 0.433s
+  - track `Hat/Sprite`, 2 frames, ~15 fps: gph_wizardAnimal02Hat (wizard6_img_hat) @ 0s, gph_wizardAnimal02Hat (wizard6_img_hat) @ 0.067s
+- **WizardAnimal02Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~0.5 fps: gph_WizardAnimal02body_preAction (wizard6_img_body_pre_action) @ 0s, gph_WizardAnimal02body_preAction (wizard6_img_body_pre_action) @ 2s, gph_WizardAnimal02body_preAction (wizard6_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal02Face_preAction (wizard6_img_face_pre_action) @ 0s, gph_wizardAnimal02Face_preAction (wizard6_img_face_pre_action) @ 2s, gph_wizardAnimal02Face_preAction (wizard6_img_face_pre_action) @ 4s
+  - track `ArmBack/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal02ArmBack_action (wizard6_img_arm_back_action) @ 0s, gph_wizardAnimal02ArmBack_action (wizard6_img_arm_back_action) @ 2s, gph_wizardAnimal02ArmBack_action (wizard6_img_arm_back_action) @ 4s
+  - track `Hat/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal02Hat (wizard6_img_hat) @ 0s, gph_wizardAnimal02Hat (wizard6_img_hat) @ 2s, gph_wizardAnimal02Hat (wizard6_img_hat) @ 4s
+- **WizardAnimal02CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_WizardAnimal02body (wizard6_img_body) @ 0s, gph_WizardAnimal02body_preAction (wizard6_img_body_pre_action) @ 0.2s, gph_WizardAnimal02body_action (wizard6_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 0s, gph_wizardAnimal02Face_preAction (wizard6_img_face_pre_action) @ 0.2s, gph_wizardAnimal02Face_action (wizard6_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 0s, gph_wizardAnimal02ArmBack_action (wizard6_img_arm_back_action) @ 0.433s
+  - track `Hat/Sprite`, 1 frames, ~- fps: gph_wizardAnimal02Hat (wizard6_img_hat) @ 0s
+- **WizardAnimal02CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_WizardAnimal02body (wizard6_img_body) @ 0s, gph_WizardAnimal02body_action (wizard6_img_body_action) @ 0.2s, gph_WizardAnimal02body_action (wizard6_img_body_action) @ 0.367s, gph_WizardAnimal02body_preAction (wizard6_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 0s, gph_wizardAnimal02Face_preCast (wizard6_img_face_pre_cast) @ 0.2s, gph_wizardAnimal02Face_preCast (wizard6_img_face_pre_cast) @ 0.367s, gph_wizardAnimal02Face_preAction (wizard6_img_face_pre_action) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 0s, gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 0.367s, gph_wizardAnimal02ArmBack_action (wizard6_img_arm_back_action) @ 0.533s
+  - track `Hat/Sprite`, 2 frames, ~1.9 fps: gph_wizardAnimal02Hat (wizard6_img_hat) @ 0s, gph_wizardAnimal02Hat (wizard6_img_hat) @ 0.533s
+- **WizardAnimal02Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~1.2 fps: gph_WizardAnimal02body (wizard6_img_body) @ 0s, gph_WizardAnimal02body_cheer (wizard6_img_body_cheer) @ 0.167s, gph_WizardAnimal02body_cheer (wizard6_img_body_cheer) @ 1s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 0s, gph_wizardAnimal02Face_cheer01 (wizard6_img_face_cheer01) @ 0.167s, gph_wizardAnimal02Face_cheer02 (wizard6_img_face_cheer02) @ 0.567s, gph_wizardAnimal02Face_cheer01 (wizard6_img_face_cheer01) @ 0.667s, gph_wizardAnimal02Face_cheer02 (wizard6_img_face_cheer02) @ 0.767s, gph_wizardAnimal02Face_cheer01 (wizard6_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 3 frames, ~1.2 fps: gph_wizardAnimal02ArmFront (wizard6_img_arm_front) @ 0s, gph_wizardAnimal02ArmFront_cheer (wizard6_img_arm_front_cheer) @ 0.167s, gph_wizardAnimal02ArmFront_cheer (wizard6_img_arm_front_cheer) @ 1s
+  - track `Hat/Sprite`, 3 frames, ~1.2 fps: gph_wizardAnimal02Hat (wizard6_img_hat) @ 0s, gph_wizardAnimal02Hat (wizard6_img_hat) @ 0.167s, gph_wizardAnimal02Hat (wizard6_img_hat) @ 1s
+- **WizardAnimal02Dying** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_WizardAnimal02body (wizard6_img_body) @ 0s, gph_WizardAnimal02body_action (wizard6_img_body_action) @ 0.1s, gph_WizardAnimal02body (wizard6_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 0s, gph_wizardAnimal02Face_preCast (wizard6_img_face_pre_cast) @ 0.1s, gph_wizardAnimal02Face_startle01 (wizard6_img_face_startle01) @ 0.317s, gph_wizardAnimal02Face_startle02 (wizard6_img_face_startle02) @ 0.567s, gph_wizardAnimal02Face_startle01 (wizard6_img_face_startle01) @ 0.683s, gph_wizardAnimal02Face_startle02 (wizard6_img_face_startle02) @ 0.75s, gph_wizardAnimal02Face_startle01 (wizard6_img_face_startle01) @ 0.817s
+- **WizardAnimal02Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~1.1 fps: gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 0s, gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 0.917s
+  - track `Body/Sprite`, 3 frames, ~1.4 fps: gph_WizardAnimal02body (wizard6_img_body) @ 0s, gph_WizardAnimal02body_action (wizard6_img_body_action) @ 0.183s, gph_WizardAnimal02body (wizard6_img_body) @ 0.917s
+  - track `Face/Sprite`, 4 frames, ~1.4 fps: gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 0s, gph_wizardAnimal02Face_startle01 (wizard6_img_face_startle01) @ 0.033s, gph_wizardAnimal02Face_cheer02 (wizard6_img_face_cheer02) @ 0.183s, gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 0.917s
+- **WizardAnimal02LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.6 fps: gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 0s, gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 1.75s
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_WizardAnimal02body (wizard6_img_body) @ 0s, gph_WizardAnimal02body_action (wizard6_img_body_action) @ 0.383s, gph_WizardAnimal02body_preAction (wizard6_img_body_pre_action) @ 1.05s, gph_WizardAnimal02body (wizard6_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 0s, gph_wizardAnimal02Face_startle01 (wizard6_img_face_startle01) @ 0.15s, gph_wizardAnimal02Face_cheer02 (wizard6_img_face_cheer02) @ 0.383s, gph_wizardAnimal02Face_laugh (wizard6_img_face_laugh) @ 1.05s, gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 1.75s
+- **WizardAnimal02Startle** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardAnimal02ArmBack (wizard6_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_WizardAnimal02body (wizard6_img_body) @ 0s, gph_WizardAnimal02body_action (wizard6_img_body_action) @ 0.1s, gph_WizardAnimal02body (wizard6_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardAnimal02Face_idle02 (wizard6_img_face_idle02) @ 0s, gph_wizardAnimal02Face_preCast (wizard6_img_face_pre_cast) @ 0.1s, gph_wizardAnimal02Face_startle01 (wizard6_img_face_startle01) @ 0.317s, gph_wizardAnimal02Face_startle02 (wizard6_img_face_startle02) @ 0.567s, gph_wizardAnimal02Face_startle01 (wizard6_img_face_startle01) @ 0.683s, gph_wizardAnimal02Face_startle02 (wizard6_img_face_startle02) @ 0.75s, gph_wizardAnimal02Face_startle01 (wizard6_img_face_startle01) @ 0.817s
+- **WizardAnimal03Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_WizardAnimal03body (wizard7_img_body) @ 0s, gph_WizardAnimal03body_preAction (wizard7_img_body_pre_action) @ 0.2s, gph_WizardAnimal03body_action (wizard7_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 0s, gph_wizardAnimal03Face_preAction (wizard7_img_face_pre_action) @ 0.2s, gph_wizardAnimal03Face_action (wizard7_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0s, gph_wizardAnimal03ArmBack_action (wizard7_img_arm_back_action) @ 0.433s
+  - track `Hat/Sprite`, 1 frames, ~- fps: gph_wizardAnimal03Hat (wizard7_img_hat) @ 0s
+- **WizardAnimal03CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 3 frames, ~3.7 fps: gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0s, gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0.167s, gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0.433s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_WizardAnimal03body_preAction (wizard7_img_body_pre_action) @ 0s, gph_WizardAnimal03body_action (wizard7_img_body_action) @ 0.067s, gph_WizardAnimal03body (wizard7_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizardAnimal03Face_preAction (wizard7_img_face_pre_action) @ 0s, gph_wizardAnimal03Face_preCast (wizard7_img_face_pre_cast) @ 0.067s, gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 0.433s
+  - track `Hat/Sprite`, 2 frames, ~2.3 fps: gph_wizardAnimal03Hat (wizard7_img_hat) @ 0s, gph_wizardAnimal03Hat (wizard7_img_hat) @ 0.433s
+- **WizardAnimal03Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~0.5 fps: gph_WizardAnimal03body_preAction (wizard7_img_body_pre_action) @ 0s, gph_WizardAnimal03body_preAction (wizard7_img_body_pre_action) @ 2s, gph_WizardAnimal03body_preAction (wizard7_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal03Face_preAction (wizard7_img_face_pre_action) @ 0s, gph_wizardAnimal03Face_preAction (wizard7_img_face_pre_action) @ 2s, gph_wizardAnimal03Face_preAction (wizard7_img_face_pre_action) @ 4s
+  - track `ArmBack/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal03ArmBack_action (wizard7_img_arm_back_action) @ 0s, gph_wizardAnimal03ArmBack_action (wizard7_img_arm_back_action) @ 2s, gph_wizardAnimal03ArmBack_action (wizard7_img_arm_back_action) @ 4s
+  - track `Hat/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal03Hat (wizard7_img_hat) @ 0s, gph_wizardAnimal03Hat (wizard7_img_hat) @ 2s, gph_wizardAnimal03Hat (wizard7_img_hat) @ 4s
+- **WizardAnimal03CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_WizardAnimal03body (wizard7_img_body) @ 0s, gph_WizardAnimal03body_preAction (wizard7_img_body_pre_action) @ 0.2s, gph_WizardAnimal03body_action (wizard7_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 0s, gph_wizardAnimal03Face_preAction (wizard7_img_face_pre_action) @ 0.2s, gph_wizardAnimal03Face_action (wizard7_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0s, gph_wizardAnimal03ArmBack_action (wizard7_img_arm_back_action) @ 0.433s
+  - track `Hat/Sprite`, 1 frames, ~- fps: gph_wizardAnimal03Hat (wizard7_img_hat) @ 0s
+- **WizardAnimal03CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_WizardAnimal03body (wizard7_img_body) @ 0s, gph_WizardAnimal03body_action (wizard7_img_body_action) @ 0.2s, gph_WizardAnimal03body_action (wizard7_img_body_action) @ 0.367s, gph_WizardAnimal03body_preAction (wizard7_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 0s, gph_wizardAnimal03Face_preCast (wizard7_img_face_pre_cast) @ 0.2s, gph_wizardAnimal03Face_preCast (wizard7_img_face_pre_cast) @ 0.367s, gph_wizardAnimal03Face_preAction (wizard7_img_face_pre_action) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0s, gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0.367s, gph_wizardAnimal03ArmBack_action (wizard7_img_arm_back_action) @ 0.533s
+  - track `Hat/Sprite`, 1 frames, ~- fps: gph_wizardAnimal03Hat (wizard7_img_hat) @ 0s
+- **WizardAnimal03Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~1.2 fps: gph_WizardAnimal03body (wizard7_img_body) @ 0s, gph_WizardAnimal03body_cheer (wizard7_img_body_cheer) @ 0.167s, gph_WizardAnimal03body_cheer (wizard7_img_body_cheer) @ 1s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 0s, gph_wizardAnimal03Face_cheer01 (wizard7_img_face_cheer01) @ 0.167s, gph_wizardAnimal03Face_cheer02 (wizard7_img_face_cheer02) @ 0.567s, gph_wizardAnimal03Face_cheer01 (wizard7_img_face_cheer01) @ 0.667s, gph_wizardAnimal03Face_cheer02 (wizard7_img_face_cheer02) @ 0.767s, gph_wizardAnimal03Face_cheer01 (wizard7_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 3 frames, ~1.2 fps: gph_wizardAnimal03ArmFront (wizard7_img_arm_front) @ 0s, gph_wizardAnimal03ArmFront_cheer (wizard7_img_arm_front_cheer) @ 0.167s, gph_wizardAnimal03ArmFront_cheer (wizard7_img_arm_front_cheer) @ 1s
+- **WizardAnimal03Dying** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_WizardAnimal03body (wizard7_img_body) @ 0s, gph_WizardAnimal03body_action (wizard7_img_body_action) @ 0.1s, gph_WizardAnimal03body (wizard7_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 0s, gph_wizardAnimal03Face_preCast (wizard7_img_face_pre_cast) @ 0.1s, gph_wizardAnimal03Face_startle01 (wizard7_img_face_startle01) @ 0.317s, gph_wizardAnimal03Face_startle02 (wizard7_img_face_startle02) @ 0.567s, gph_wizardAnimal03Face_startle01 (wizard7_img_face_startle01) @ 0.683s, gph_wizardAnimal03Face_startle02 (wizard7_img_face_startle02) @ 0.75s, gph_wizardAnimal03Face_startle01 (wizard7_img_face_startle01) @ 0.817s
+- **WizardAnimal03Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~1.1 fps: gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0s, gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0.917s
+  - track `Body/Sprite`, 3 frames, ~1.4 fps: gph_WizardAnimal03body (wizard7_img_body) @ 0s, gph_WizardAnimal03body_action (wizard7_img_body_action) @ 0.183s, gph_WizardAnimal03body (wizard7_img_body) @ 0.917s
+  - track `Face/Sprite`, 4 frames, ~1.4 fps: gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 0s, gph_wizardAnimal03Face_startle01 (wizard7_img_face_startle01) @ 0.033s, gph_wizardAnimal03Face_cheer02 (wizard7_img_face_cheer02) @ 0.183s, gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 0.917s
+- **WizardAnimal03LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.6 fps: gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0s, gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 1.75s
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_WizardAnimal03body (wizard7_img_body) @ 0s, gph_WizardAnimal03body_action (wizard7_img_body_action) @ 0.383s, gph_WizardAnimal03body_preAction (wizard7_img_body_pre_action) @ 1.05s, gph_WizardAnimal03body (wizard7_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 0s, gph_wizardAnimal03Face_startle01 (wizard7_img_face_startle01) @ 0.15s, gph_wizardAnimal03Face_cheer02 (wizard7_img_face_cheer02) @ 0.383s, gph_wizardAnimal03Face_laugh (wizard7_img_face_laugh) @ 1.05s, gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 1.75s
+- **WizardAnimal03Startle** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardAnimal03ArmBack (wizard7_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_WizardAnimal03body (wizard7_img_body) @ 0s, gph_WizardAnimal03body_action (wizard7_img_body_action) @ 0.1s, gph_WizardAnimal03body (wizard7_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardAnimal03Face_idle02 (wizard7_img_face_idle02) @ 0s, gph_wizardAnimal03Face_preCast (wizard7_img_face_pre_cast) @ 0.1s, gph_wizardAnimal03Face_startle01 (wizard7_img_face_startle01) @ 0.317s, gph_wizardAnimal03Face_startle02 (wizard7_img_face_startle02) @ 0.567s, gph_wizardAnimal03Face_startle01 (wizard7_img_face_startle01) @ 0.683s, gph_wizardAnimal03Face_startle02 (wizard7_img_face_startle02) @ 0.75s, gph_wizardAnimal03Face_startle01 (wizard7_img_face_startle01) @ 0.817s
+- **WizardAnimal04Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_WizardAnimal04body (wizard8_img_body) @ 0s, gph_WizardAnimal04body_preAction (wizard8_img_body_pre_action) @ 0.2s, gph_WizardAnimal04body_action (wizard8_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 0s, gph_wizardAnimal04Face_preAction (wizard8_img_face_pre_action) @ 0.2s, gph_wizardAnimal04Face_action (wizard8_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 0s, gph_wizardAnimal04ArmBack_action (wizard8_img_arm_back_action) @ 0.433s
+- **WizardAnimal04CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 3 frames, ~3.7 fps: gph_wizardAnimal04ArmBack_action (wizard8_img_arm_back_action) @ 0s, gph_wizardAnimal04ArmBack_action (wizard8_img_arm_back_action) @ 0.167s, gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 0.433s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_WizardAnimal04body_preAction (wizard8_img_body_pre_action) @ 0s, gph_WizardAnimal04body_action (wizard8_img_body_action) @ 0.067s, gph_WizardAnimal04body (wizard8_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizardAnimal04Face_preAction (wizard8_img_face_pre_action) @ 0s, gph_wizardAnimal04Face_preCast (wizard8_img_face_pre_cast) @ 0.067s, gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 0.433s
+- **WizardAnimal04Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~0.5 fps: gph_WizardAnimal04body_preAction (wizard8_img_body_pre_action) @ 0s, gph_WizardAnimal04body_preAction (wizard8_img_body_pre_action) @ 2s, gph_WizardAnimal04body_preAction (wizard8_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal04Face_preAction (wizard8_img_face_pre_action) @ 0s, gph_wizardAnimal04Face_preAction (wizard8_img_face_pre_action) @ 2s, gph_wizardAnimal04Face_preAction (wizard8_img_face_pre_action) @ 4s
+  - track `ArmBack/Sprite`, 3 frames, ~0.5 fps: gph_wizardAnimal04ArmBack_action (wizard8_img_arm_back_action) @ 0s, gph_wizardAnimal04ArmBack_action (wizard8_img_arm_back_action) @ 2s, gph_wizardAnimal04ArmBack_action (wizard8_img_arm_back_action) @ 4s
+- **WizardAnimal04CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_WizardAnimal04body (wizard8_img_body) @ 0s, gph_WizardAnimal04body_preAction (wizard8_img_body_pre_action) @ 0.2s, gph_WizardAnimal04body_action (wizard8_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 0s, gph_wizardAnimal04Face_preAction (wizard8_img_face_pre_action) @ 0.2s, gph_wizardAnimal04Face_action (wizard8_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 0s, gph_wizardAnimal04ArmBack_action (wizard8_img_arm_back_action) @ 0.433s
+- **WizardAnimal04CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_WizardAnimal04body (wizard8_img_body) @ 0s, gph_WizardAnimal04body_action (wizard8_img_body_action) @ 0.2s, gph_WizardAnimal04body_action (wizard8_img_body_action) @ 0.367s, gph_WizardAnimal04body_preAction (wizard8_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 0s, gph_wizardAnimal04Face_preCast (wizard8_img_face_pre_cast) @ 0.2s, gph_wizardAnimal04Face_preCast (wizard8_img_face_pre_cast) @ 0.367s, gph_wizardAnimal04Face_preAction (wizard8_img_face_pre_action) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 0s, gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 0.367s, gph_wizardAnimal04ArmBack_action (wizard8_img_arm_back_action) @ 0.533s
+- **WizardAnimal04Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~1.2 fps: gph_WizardAnimal04body (wizard8_img_body) @ 0s, gph_WizardAnimal04body_cheer (wizard8_img_body_cheer) @ 0.167s, gph_WizardAnimal04body_cheer (wizard8_img_body_cheer) @ 1s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 0s, gph_wizardAnimal04Face_cheer01 (wizard8_img_face_cheer01) @ 0.167s, gph_wizardAnimal04Face_cheer02 (wizard8_img_face_cheer02) @ 0.567s, gph_wizardAnimal04Face_cheer01 (wizard8_img_face_cheer01) @ 0.667s, gph_wizardAnimal04Face_cheer02 (wizard8_img_face_cheer02) @ 0.767s, gph_wizardAnimal04Face_cheer01 (wizard8_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 3 frames, ~1.2 fps: gph_wizardAnimal04ArmFront (wizard8_img_arm_front) @ 0s, gph_wizardAnimal04ArmFront_cheer (wizard8_img_arm_front_cheer) @ 0.167s, gph_wizardAnimal04ArmFront_cheer (wizard8_img_arm_front_cheer) @ 1s
+- **WizardAnimal04Dying** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_WizardAnimal04body (wizard8_img_body) @ 0s, gph_WizardAnimal04body_action (wizard8_img_body_action) @ 0.1s, gph_WizardAnimal04body (wizard8_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 0s, gph_wizardAnimal04Face_preCast (wizard8_img_face_pre_cast) @ 0.1s, gph_wizardAnimal04Face_startle01 (wizard8_img_face_startle01) @ 0.317s, gph_wizardAnimal04Face_startle02 (wizard8_img_face_startle02) @ 0.567s, gph_wizardAnimal04Face_startle01 (wizard8_img_face_startle01) @ 0.683s, gph_wizardAnimal04Face_startle02 (wizard8_img_face_startle02) @ 0.75s, gph_wizardAnimal04Face_startle01 (wizard8_img_face_startle01) @ 0.817s
+- **WizardAnimal04Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~1.1 fps: gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 0s, gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 0.917s
+  - track `Body/Sprite`, 3 frames, ~1.4 fps: gph_WizardAnimal04body (wizard8_img_body) @ 0s, gph_WizardAnimal04body_action (wizard8_img_body_action) @ 0.183s, gph_WizardAnimal04body (wizard8_img_body) @ 0.917s
+  - track `Face/Sprite`, 4 frames, ~1.4 fps: gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 0s, gph_wizardAnimal04Face_startle01 (wizard8_img_face_startle01) @ 0.033s, gph_wizardAnimal04Face_cheer02 (wizard8_img_face_cheer02) @ 0.183s, gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 0.917s
+- **WizardAnimal04LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~0.6 fps: gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 0s, gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 1.75s
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_WizardAnimal04body (wizard8_img_body) @ 0s, gph_WizardAnimal04body_action (wizard8_img_body_action) @ 0.383s, gph_WizardAnimal04body_preAction (wizard8_img_body_pre_action) @ 1.05s, gph_WizardAnimal04body (wizard8_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 0s, gph_wizardAnimal04Face_startle01 (wizard8_img_face_startle01) @ 0.15s, gph_wizardAnimal04Face_cheer02 (wizard8_img_face_cheer02) @ 0.383s, gph_wizardAnimal04Face_laugh (wizard8_img_face_laugh) @ 1.05s, gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 1.75s
+- **WizardAnimal04Startle** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardAnimal04ArmBack (wizard8_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_WizardAnimal04body (wizard8_img_body) @ 0s, gph_WizardAnimal04body_action (wizard8_img_body_action) @ 0.1s, gph_WizardAnimal04body (wizard8_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardAnimal04Face_idle02 (wizard8_img_face_idle02) @ 0s, gph_wizardAnimal04Face_preCast (wizard8_img_face_pre_cast) @ 0.1s, gph_wizardAnimal04Face_startle01 (wizard8_img_face_startle01) @ 0.317s, gph_wizardAnimal04Face_startle02 (wizard8_img_face_startle02) @ 0.567s, gph_wizardAnimal04Face_startle01 (wizard8_img_face_startle01) @ 0.683s, gph_wizardAnimal04Face_startle02 (wizard8_img_face_startle02) @ 0.75s, gph_wizardAnimal04Face_startle01 (wizard8_img_face_startle01) @ 0.817s
+- **WizardIndie01Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie01body (wizard9_img_body) @ 0s, gph_wizardIndie01body_preAction (wizard9_img_body_pre_action) @ 0.2s, gph_wizardIndie01body_action (wizard9_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie01Face_idle02 (wizard9_img_face_idle02) @ 0s, gph_wizardIndie01Face_preAction (wizard9_img_face_pre_action) @ 0.2s, gph_wizardIndie01Face_action (wizard9_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardIndie01ArmBack (wizard9_img_arm_back) @ 0s, gph_wizardIndie01ArmBack_action (wizard9_img_arm_back_action) @ 0.433s
+- **WizardIndie01CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie01ArmBack (wizard9_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie01body_preAction (wizard9_img_body_pre_action) @ 0s, gph_wizardIndie01body_action (wizard9_img_body_action) @ 0.067s, gph_wizardIndie01body (wizard9_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie01Face_cast02 (wizard9_img_face_cast02) @ 0s, gph_wizardIndie01Face_preCast (wizard9_img_face_pre_cast) @ 0.067s, gph_wizardIndie01Face_idle02 (wizard9_img_face_idle02) @ 0.433s
+  - track `Hat/Sprite`, 3 frames, ~2.7 fps: gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.067s, gph_wizard02Hat (wizard2_img_hat) @ 0.433s
+  - track `ArmFront/Sprite`, 2 frames, ~15 fps: gph_wizardIndie01ArmFront_cast (wizard9_img_arm_front_cast) @ 0s, gph_wizardIndie01ArmFront (wizard9_img_arm_front) @ 0.067s
+- **WizardIndie01Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie01body_preAction (wizard9_img_body_pre_action) @ 0s, gph_wizardIndie01body_preAction (wizard9_img_body_pre_action) @ 2s, gph_wizardIndie01body_preAction (wizard9_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie01Face_cast02 (wizard9_img_face_cast02) @ 0s, gph_wizardIndie01Face_cast02 (wizard9_img_face_cast02) @ 2s, gph_wizardIndie01Face_cast02 (wizard9_img_face_cast02) @ 4s
+  - track `ArmBack/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie01ArmBack_action (wizard9_img_arm_back_action) @ 0s, gph_wizardIndie01ArmBack_action (wizard9_img_arm_back_action) @ 2s, gph_wizardIndie01ArmBack_action (wizard9_img_arm_back_action) @ 3.967s
+  - track `Hat/Sprite`, 3 frames, ~0.5 fps: gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 0s, gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 2s, gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 4s
+  - track `ArmFront/Sprite`, 1 frames, ~- fps: gph_wizardIndie01ArmFront_cast (wizard9_img_arm_front_cast) @ 0s
+- **WizardIndie01CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie01body (wizard9_img_body) @ 0s, gph_wizardIndie01body_preAction (wizard9_img_body_pre_action) @ 0.2s, gph_wizardIndie01body_action (wizard9_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie01Face_idle02 (wizard9_img_face_idle02) @ 0s, gph_wizardIndie01Face_preAction (wizard9_img_face_pre_action) @ 0.2s, gph_wizardIndie01Face_action (wizard9_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardIndie01ArmBack (wizard9_img_arm_back) @ 0s, gph_wizardIndie01ArmBack_action (wizard9_img_arm_back_action) @ 0.433s
+- **WizardIndie01CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_wizardIndie01body (wizard9_img_body) @ 0s, gph_wizardIndie01body_action (wizard9_img_body_action) @ 0.2s, gph_wizardIndie01body_action (wizard9_img_body_action) @ 0.367s, gph_wizardIndie01body_preAction (wizard9_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_wizardIndie01Face_idle02 (wizard9_img_face_idle02) @ 0s, gph_wizardIndie01Face_preCast (wizard9_img_face_pre_cast) @ 0.2s, gph_wizardIndie01Face_preCast (wizard9_img_face_pre_cast) @ 0.367s, gph_wizardIndie01Face_cast02 (wizard9_img_face_cast02) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie01ArmBack (wizard9_img_arm_back) @ 0s, gph_wizardIndie01ArmBack (wizard9_img_arm_back) @ 0.367s, gph_wizardIndie01ArmBack_action (wizard9_img_arm_back_action) @ 0.533s
+  - track `Hat/Sprite`, 3 frames, ~3 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.2s, gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 0.533s
+  - track `ArmFront/Sprite`, 2 frames, ~1.9 fps: gph_wizardIndie01ArmFront (wizard9_img_arm_front) @ 0s, gph_wizardIndie01ArmFront_cast (wizard9_img_arm_front_cast) @ 0.533s
+- **WizardIndie01Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 2 frames, ~6 fps: gph_wizardIndie01body (wizard9_img_body) @ 0s, gph_wizardIndie01body_cheer (wizard9_img_body_cheer) @ 0.167s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizardIndie01Face_idle01 (wizard9_img_face_idle01) @ 0s, gph_wizardIndie01Face_cheer01 (wizard9_img_face_cheer01) @ 0.167s, gph_wizardIndie01Face_cheer02 (wizard9_img_face_cheer02) @ 0.567s, gph_wizardIndie01Face_cheer01 (wizard9_img_face_cheer01) @ 0.667s, gph_wizardIndie01Face_cheer02 (wizard9_img_face_cheer02) @ 0.767s, gph_wizardIndie01Face_cheer01 (wizard9_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 2 frames, ~6 fps: gph_wizardIndie01ArmFront (wizard9_img_arm_front) @ 0s, gph_wizardIndie01ArmFront_cheer (wizard9_img_arm_front_cheer) @ 0.167s
+- **WizardIndie01Dying** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie01ArmBack (wizard9_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~5 fps: gph_wizardIndie01body (wizard9_img_body) @ 0s, gph_wizardIndie01body_action (wizard9_img_body_action) @ 0.2s, gph_wizardIndie01body (wizard9_img_body) @ 0.4s
+  - track `Face/Sprite`, 7 frames, ~5 fps: gph_wizardIndie01Face_idle02 (wizard9_img_face_idle02) @ 0s, gph_wizardIndie01Face_preCast (wizard9_img_face_pre_cast) @ 0.2s, gph_wizardIndie01Face_startle01 (wizard9_img_face_startle01) @ 0.4s, gph_wizardIndie01Face_startle02 (wizard9_img_face_startle02) @ 0.65s, gph_wizardIndie01Face_startle01 (wizard9_img_face_startle01) @ 0.767s, gph_wizardIndie01Face_startle02 (wizard9_img_face_startle02) @ 0.833s, gph_wizardIndie01Face_startle01 (wizard9_img_face_startle01) @ 0.9s
+  - track `Hat/Sprite`, 4 frames, ~1.3 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.2s, gph_wizard02Hat (wizard2_img_hat) @ 0.4s, gph_wizard02Hat (wizard2_img_hat) @ 1.15s
+- **WizardIndie01Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 2 frames, ~1 fps: gph_wizardIndie01ArmBack (wizard9_img_arm_back) @ 0s, gph_wizardIndie01ArmBack (wizard9_img_arm_back) @ 0.967s
+  - track `Body/Sprite`, 3 frames, ~1.7 fps: gph_wizardIndie01body (wizard9_img_body) @ 0s, gph_wizardIndie01body_action (wizard9_img_body_action) @ 0.383s, gph_wizardIndie01body_action (wizard9_img_body_action) @ 0.967s
+  - track `Face/Sprite`, 4 frames, ~1.7 fps: gph_wizardIndie01Face_idle02 (wizard9_img_face_idle02) @ 0s, gph_wizardIndie01Face_startle01 (wizard9_img_face_startle01) @ 0.15s, gph_wizardIndie01Face_cheer01 (wizard9_img_face_cheer01) @ 0.383s, gph_wizardIndie01Face_cheer01 (wizard9_img_face_cheer01) @ 0.967s
+  - track `Hat/Sprite`, 3 frames, ~1.7 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.383s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.967s
+- **WizardIndie01LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie01ArmBack (wizard9_img_arm_back) @ 0s
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_wizardIndie01body (wizard9_img_body) @ 0s, gph_wizardIndie01body_action (wizard9_img_body_action) @ 0.383s, gph_wizardIndie01body_preAction (wizard9_img_body_pre_action) @ 1.033s, gph_wizardIndie01body (wizard9_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizardIndie01Face_idle02 (wizard9_img_face_idle02) @ 0s, gph_wizardIndie01Face_startle01 (wizard9_img_face_startle01) @ 0.15s, gph_wizardIndie01Face_cheer01 (wizard9_img_face_cheer01) @ 0.383s, gph_wizardIndie01Face_laugh (wizard9_img_face_laugh) @ 1.033s, gph_wizardIndie01Face_idle02 (wizard9_img_face_idle02) @ 1.75s
+  - track `Hat/Sprite`, 4 frames, ~1.4 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.383s, gph_wizard02Hat_preAction (wizard2_img_hat_pre_action) @ 1.05s, gph_wizard02Hat (wizard2_img_hat) @ 1.75s
+- **WizardIndie01Startle** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie01ArmBack (wizard9_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~5 fps: gph_wizardIndie01body (wizard9_img_body) @ 0s, gph_wizardIndie01body_action (wizard9_img_body_action) @ 0.2s, gph_wizardIndie01body (wizard9_img_body) @ 0.4s
+  - track `Face/Sprite`, 7 frames, ~5 fps: gph_wizardIndie01Face_idle02 (wizard9_img_face_idle02) @ 0s, gph_wizardIndie01Face_preCast (wizard9_img_face_pre_cast) @ 0.2s, gph_wizardIndie01Face_startle01 (wizard9_img_face_startle01) @ 0.4s, gph_wizardIndie01Face_startle02 (wizard9_img_face_startle02) @ 0.65s, gph_wizardIndie01Face_startle01 (wizard9_img_face_startle01) @ 0.767s, gph_wizardIndie01Face_startle02 (wizard9_img_face_startle02) @ 0.833s, gph_wizardIndie01Face_startle01 (wizard9_img_face_startle01) @ 0.9s
+  - track `Hat/Sprite`, 4 frames, ~1.3 fps: gph_wizard02Hat (wizard2_img_hat) @ 0s, gph_wizard02Hat_action (wizard2_img_hat_action) @ 0.2s, gph_wizard02Hat (wizard2_img_hat) @ 0.4s, gph_wizard02Hat (wizard2_img_hat) @ 1.15s
+- **WizardIndie02Action** (clip sample rate 30)
+  - track `Face/Sprite`, 2 frames, ~5 fps: gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0s, gph_wizardIndie02Face_idle01 (wizard10_img_face_idle01) @ 0.2s
+  - track `ArmBack/Sprite`, 3 frames, ~6 fps: gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0s, gph_wizardIndie02ArmBack_preAction (wizard10_img_arm_back_pre_action) @ 0.133s, gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0.3s
+- **WizardIndie02CastEnd** (clip sample rate 30)
+  - track `Face/Sprite`, 3 frames, ~5 fps: gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0s, gph_wizardIndie02Face_startle02 (wizard10_img_face_startle02) @ 0.067s, gph_wizardIndie02Face_idle01 (wizard10_img_face_idle01) @ 0.267s
+  - track `ArmBack/Sprite`, 3 frames, ~1.6 fps: gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0s, gph_wizardIndie02ArmBack_preAction (wizard10_img_arm_back_pre_action) @ 0.067s, gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0.7s
+- **WizardIndie02CastSelf** (clip sample rate 30)
+  - track `Face/Sprite`, 5 frames, ~3.7 fps: gph_wizardIndie02Face_idle01 (wizard10_img_face_idle01) @ 0s, gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0.267s, gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0.4s, gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0.8s, gph_wizardIndie02Face_idle01 (wizard10_img_face_idle01) @ 0.9s
+- **WizardIndie02CastStart** (clip sample rate 30)
+  - track `Face/Sprite`, 2 frames, ~1.9 fps: gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0s, gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~3 fps: gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0s, gph_wizardIndie02ArmBack_preAction (wizard10_img_arm_back_pre_action) @ 0.2s, gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0.533s
+- **WizardIndie02Cheer** (clip sample rate 30)
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizardIndie02Face_idle01 (wizard10_img_face_idle01) @ 0s, gph_wizardIndie02Face_laugh (wizard10_img_face_laugh) @ 0.167s, gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0.567s, gph_wizardIndie02Face_laugh (wizard10_img_face_laugh) @ 0.667s, gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0.767s, gph_wizardIndie02Face_idle01 (wizard10_img_face_idle01) @ 0.867s
+  - track `ArmFront/Sprite`, 4 frames, ~1.3 fps: gph_wizardIndie02ArmFront (wizard10_img_arm_front) @ 0s, gph_wizardIndie02ArmFront_cheer (wizard10_img_arm_front_cheer) @ 0.167s, gph_wizardIndie02ArmFront_cheer (wizard10_img_arm_front_cheer) @ 0.933s, gph_wizardIndie02ArmFront (wizard10_img_arm_front) @ 1.033s
+  - track `ArmBack/Sprite`, 2 frames, ~6 fps: gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0s, gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0.167s
+- **WizardIndie02Dying** (clip sample rate 60)
+  - track `Face/Sprite`, 6 frames, ~8.6 fps: gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0s, gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0.4s, gph_wizardIndie02Face_startle02 (wizard10_img_face_startle02) @ 0.65s, gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0.767s, gph_wizardIndie02Face_startle02 (wizard10_img_face_startle02) @ 0.833s, gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0.9s
+  - track `ArmBack/Sprite`, 2 frames, ~2.5 fps: gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0s, gph_wizardIndie02ArmBack_preAction (wizard10_img_arm_back_pre_action) @ 0.4s
+- **WizardIndie02Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0s
+  - track `Face/Sprite`, 4 frames, ~1.9 fps: gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0s, gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0.15s, gph_wizardIndie02Face_laugh (wizard10_img_face_laugh) @ 0.383s, gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0.917s
+- **WizardIndie02LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 3 frames, ~1 fps: gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0s, gph_wizardIndie02ArmBack_preAction (wizard10_img_arm_back_pre_action) @ 1.05s, gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 1.75s
+  - track `Face/Sprite`, 6 frames, ~4.3 fps: gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0s, gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0.15s, gph_wizardIndie02Face_laugh (wizard10_img_face_laugh) @ 0.383s, gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0.917s, gph_wizardIndie02Face_laugh02 (wizard10_img_face_laugh02) @ 1.05s, gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 1.75s
+- **WizardIndie02Startle** (clip sample rate 60)
+  - track `Face/Sprite`, 6 frames, ~8.6 fps: gph_wizardIndie02Face_idle02 (wizard10_img_face_idle02) @ 0s, gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0.4s, gph_wizardIndie02Face_startle02 (wizard10_img_face_startle02) @ 0.65s, gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0.767s, gph_wizardIndie02Face_startle02 (wizard10_img_face_startle02) @ 0.833s, gph_wizardIndie02Face_startle01 (wizard10_img_face_startle01) @ 0.9s
+  - track `ArmBack/Sprite`, 3 frames, ~1.6 fps: gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 0s, gph_wizardIndie02ArmBack_preAction (wizard10_img_arm_back_pre_action) @ 0.4s, gph_wizardIndie02ArmBack (wizard10_img_arm_back) @ 1.033s
+- **WizardIndie03Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie03body (wizard11_img_body) @ 0s, gph_wizardIndie03body_preAction (wizard11_img_body_pre_action) @ 0.2s, gph_wizardIndie03body_action (wizard11_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie03Face_idle02 (wizard11_img_face_idle02) @ 0s, gph_wizardIndie03Face_preAction (wizard11_img_face_pre_action) @ 0.2s, gph_wizardIndie03Face_action (wizard11_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardIndie03ArmBack (wizard11_img_arm_back) @ 0s, gph_wizardIndie03ArmBack_action (wizard11_img_arm_back_action) @ 0.433s
+- **WizardIndie03CapeWave** (clip sample rate 30)
+  - track ``, 12 frames, ~30 fps: anim_wizard01CapeWave_93x60_0 (wizard11_img_wizard01_cape_wave_93x60_0) @ 0s, anim_wizard01CapeWave_93x60_1 (wizard11_img_wizard01_cape_wave_93x60_1) @ 0.033s, anim_wizard01CapeWave_93x60_2 (wizard11_img_wizard01_cape_wave_93x60_2) @ 0.067s, anim_wizard01CapeWave_93x60_3 (wizard11_img_wizard01_cape_wave_93x60_3) @ 0.1s, anim_wizard01CapeWave_93x60_4 (wizard11_img_wizard01_cape_wave_93x60_4) @ 0.133s, anim_wizard01CapeWave_93x60_5 (wizard11_img_wizard01_cape_wave_93x60_5) @ 0.167s, anim_wizard01CapeWave_93x60_6 (wizard11_img_wizard01_cape_wave_93x60_6) @ 0.2s, anim_wizard01CapeWave_93x60_7 (wizard11_img_wizard01_cape_wave_93x60_7) @ 0.233s, anim_wizard01CapeWave_93x60_8 (wizard11_img_wizard01_cape_wave_93x60_8) @ 0.267s, anim_wizard01CapeWave_93x60_9 (wizard11_img_wizard01_cape_wave_93x60_9) @ 0.3s, anim_wizard01CapeWave_93x60_10 (wizard11_img_wizard01_cape_wave_93x60_10) @ 0.333s, anim_wizard01CapeWave_93x60_11 (wizard11_img_wizard01_cape_wave_93x60_11) @ 0.367s
+- **WizardIndie03CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardIndie03ArmBack_action (wizard11_img_arm_back_action) @ 0s, gph_wizardIndie03ArmBack (wizard11_img_arm_back) @ 0.433s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie03body_preAction (wizard11_img_body_pre_action) @ 0s, gph_wizardIndie03body_action (wizard11_img_body_action) @ 0.067s, gph_wizardIndie03body (wizard11_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie03Face_cast (wizard11_img_face_cast) @ 0s, gph_wizardIndie03Face_preCast (wizard11_img_face_pre_cast) @ 0.067s, gph_wizardIndie03Face_idle02 (wizard11_img_face_idle02) @ 0.433s
+- **WizardIndie03Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie03body_preAction (wizard11_img_body_pre_action) @ 0s, gph_wizardIndie03body_preAction (wizard11_img_body_pre_action) @ 2s, gph_wizardIndie03body_preAction (wizard11_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie03Face_cast (wizard11_img_face_cast) @ 0s, gph_wizardIndie03Face_cast (wizard11_img_face_cast) @ 2s, gph_wizardIndie03Face_cast (wizard11_img_face_cast) @ 4s
+  - track `ArmBack/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie03ArmBack_action (wizard11_img_arm_back_action) @ 0s, gph_wizardIndie03ArmBack_action (wizard11_img_arm_back_action) @ 2s, gph_wizardIndie03ArmBack_action (wizard11_img_arm_back_action) @ 4s
+- **WizardIndie03CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie03body (wizard11_img_body) @ 0s, gph_wizardIndie03body_preAction (wizard11_img_body_pre_action) @ 0.2s, gph_wizardIndie03body_action (wizard11_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie03Face_idle02 (wizard11_img_face_idle02) @ 0s, gph_wizardIndie03Face_preAction (wizard11_img_face_pre_action) @ 0.2s, gph_wizardIndie03Face_action (wizard11_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardIndie03ArmBack (wizard11_img_arm_back) @ 0s, gph_wizardIndie03ArmBack_action (wizard11_img_arm_back_action) @ 0.433s
+- **WizardIndie03CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_wizardIndie03body (wizard11_img_body) @ 0s, gph_wizardIndie03body_action (wizard11_img_body_action) @ 0.2s, gph_wizardIndie03body_action (wizard11_img_body_action) @ 0.367s, gph_wizardIndie03body_preAction (wizard11_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_wizardIndie03Face_idle02 (wizard11_img_face_idle02) @ 0s, gph_wizardIndie03Face_preCast (wizard11_img_face_pre_cast) @ 0.2s, gph_wizardIndie03Face_preCast (wizard11_img_face_pre_cast) @ 0.367s, gph_wizardIndie03Face_cast (wizard11_img_face_cast) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie03ArmBack (wizard11_img_arm_back) @ 0s, gph_wizardIndie03ArmBack (wizard11_img_arm_back) @ 0.367s, gph_wizardIndie03ArmBack_action (wizard11_img_arm_back_action) @ 0.533s
+- **WizardIndie03Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 2 frames, ~6 fps: gph_wizardIndie03body (wizard11_img_body) @ 0s, gph_wizardIndie03body_cheer (wizard11_img_body_cheer) @ 0.167s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizardIndie03Face_idle01 (wizard11_img_face_idle01) @ 0s, gph_wizardIndie03Face_cheer01 (wizard11_img_face_cheer01) @ 0.167s, gph_wizardIndie03Face_cheer02 (wizard11_img_face_cheer02) @ 0.567s, gph_wizardIndie03Face_cheer01 (wizard11_img_face_cheer01) @ 0.667s, gph_wizardIndie03Face_cheer02 (wizard11_img_face_cheer02) @ 0.767s, gph_wizardIndie03Face_cheer01 (wizard11_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 2 frames, ~6 fps: gph_wizardIndie03ArmFront (wizard11_img_arm_front) @ 0s, gph_wizardIndie03ArmFront_cheer (wizard11_img_arm_front_cheer) @ 0.167s
+- **WizardIndie03Dying** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie03ArmBack (wizard11_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~5 fps: gph_wizardIndie03body (wizard11_img_body) @ 0s, gph_wizardIndie03body_action (wizard11_img_body_action) @ 0.2s, gph_wizardIndie03body (wizard11_img_body) @ 0.4s
+  - track `Face/Sprite`, 7 frames, ~5 fps: gph_wizardIndie03Face_idle02 (wizard11_img_face_idle02) @ 0s, gph_wizardIndie03Face_preCast (wizard11_img_face_pre_cast) @ 0.2s, gph_wizardIndie03Face_startle01 (wizard11_img_face_startle01) @ 0.4s, gph_wizardIndie03Face_startle02 (wizard11_img_face_startle02) @ 0.65s, gph_wizardIndie03Face_startle01 (wizard11_img_face_startle01) @ 0.767s, gph_wizardIndie03Face_startle02 (wizard11_img_face_startle02) @ 0.833s, gph_wizardIndie03Face_startle01 (wizard11_img_face_startle01) @ 0.9s
+- **WizardIndie03Laugh** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie03ArmBack (wizard11_img_arm_back) @ 0s
+  - track `Body/Sprite`, 2 frames, ~2.6 fps: gph_wizardIndie03body (wizard11_img_body) @ 0s, gph_wizardIndie03body_action (wizard11_img_body_action) @ 0.383s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie03Face_idle02 (wizard11_img_face_idle02) @ 0s, gph_wizardIndie03Face_startle01 (wizard11_img_face_startle01) @ 0.15s, gph_wizardIndie03Face_cheer01 (wizard11_img_face_cheer01) @ 0.383s
+- **WizardIndie03LaughHard** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie03ArmBack (wizard11_img_arm_back) @ 0s
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_wizardIndie03body (wizard11_img_body) @ 0s, gph_wizardIndie03body_action (wizard11_img_body_action) @ 0.383s, gph_wizardIndie03body_preAction (wizard11_img_body_pre_action) @ 1.05s, gph_wizardIndie03body (wizard11_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizardIndie03Face_idle02 (wizard11_img_face_idle02) @ 0s, gph_wizardIndie03Face_startle01 (wizard11_img_face_startle01) @ 0.15s, gph_wizardIndie03Face_cheer01 (wizard11_img_face_cheer01) @ 0.383s, gph_wizardIndie03Face_laugh (wizard11_img_face_laugh) @ 1.05s, gph_wizardIndie03Face_idle02 (wizard11_img_face_idle02) @ 1.75s
+- **WizardIndie03Startle** (clip sample rate 60)
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie03ArmBack (wizard11_img_arm_back) @ 0s
+  - track `Body/Sprite`, 3 frames, ~5 fps: gph_wizardIndie03body (wizard11_img_body) @ 0s, gph_wizardIndie03body_action (wizard11_img_body_action) @ 0.2s, gph_wizardIndie03body (wizard11_img_body) @ 0.4s
+  - track `Face/Sprite`, 7 frames, ~5 fps: gph_wizardIndie03Face_idle02 (wizard11_img_face_idle02) @ 0s, gph_wizardIndie03Face_preCast (wizard11_img_face_pre_cast) @ 0.2s, gph_wizardIndie03Face_startle01 (wizard11_img_face_startle01) @ 0.4s, gph_wizardIndie03Face_startle02 (wizard11_img_face_startle02) @ 0.65s, gph_wizardIndie03Face_startle01 (wizard11_img_face_startle01) @ 0.767s, gph_wizardIndie03Face_startle02 (wizard11_img_face_startle02) @ 0.833s, gph_wizardIndie03Face_startle01 (wizard11_img_face_startle01) @ 0.9s
+- **WizardIndie04Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie04body (wizard12_img_body) @ 0s, gph_wizardIndie04body_preAction (wizard12_img_body_pre_action) @ 0.2s, gph_wizardIndie04body_cheer (wizard12_img_body_cheer) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie04Face_idle02 (wizard12_img_face_idle02) @ 0s, gph_wizardIndie04Face_preAction (wizard12_img_face_pre_action) @ 0.2s, gph_wizardIndie04Face_action (wizard12_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardIndie04ArmBack (wizard12_img_arm_back) @ 0s, gph_wizardIndie04ArmBack_action (wizard12_img_arm_back_action) @ 0.433s
+- **WizardIndie04CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 3 frames, ~3.7 fps: gph_wizardIndie04ArmBack_action (wizard12_img_arm_back_action) @ 0s, gph_wizardIndie04ArmBack_action (wizard12_img_arm_back_action) @ 0.167s, gph_wizardIndie04ArmBack (wizard12_img_arm_back) @ 0.433s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie04body_preAction (wizard12_img_body_pre_action) @ 0s, gph_wizardIndie04body_cheer (wizard12_img_body_cheer) @ 0.067s, gph_wizardIndie04body (wizard12_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie04Face_preAction (wizard12_img_face_pre_action) @ 0s, gph_wizardIndie04Face_preCast (wizard12_img_face_pre_cast) @ 0.067s, gph_wizardIndie04Face_idle01 (wizard12_face) @ 0.433s
+- **WizardIndie04Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie04body_preAction (wizard12_img_body_pre_action) @ 0s, gph_wizardIndie04body_preAction (wizard12_img_body_pre_action) @ 2s, gph_wizardIndie04body_preAction (wizard12_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie04Face_preAction (wizard12_img_face_pre_action) @ 0s, gph_wizardIndie04Face_preAction (wizard12_img_face_pre_action) @ 2s, gph_wizardIndie04Face_preAction (wizard12_img_face_pre_action) @ 4s
+  - track `ArmBack/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie04ArmBack_action (wizard12_img_arm_back_action) @ 0s, gph_wizardIndie04ArmBack_action (wizard12_img_arm_back_action) @ 2s, gph_wizardIndie04ArmBack_action (wizard12_img_arm_back_action) @ 4s
+- **WizardIndie04CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie04body (wizard12_img_body) @ 0s, gph_wizardIndie04body_preAction (wizard12_img_body_pre_action) @ 0.2s, gph_wizardIndie04body_cheer (wizard12_img_body_cheer) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie04Face_idle02 (wizard12_img_face_idle02) @ 0s, gph_wizardIndie04Face_preAction (wizard12_img_face_pre_action) @ 0.2s, gph_wizardIndie04Face_action (wizard12_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 2 frames, ~2.3 fps: gph_wizardIndie04ArmBack (wizard12_img_arm_back) @ 0s, gph_wizardIndie04ArmBack_action (wizard12_img_arm_back_action) @ 0.433s
+- **WizardIndie04CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 4 frames, ~5 fps: gph_wizardIndie04body (wizard12_img_body) @ 0s, gph_wizardIndie04body_cheer (wizard12_img_body_cheer) @ 0.2s, gph_wizardIndie04body_cheer (wizard12_img_body_cheer) @ 0.367s, gph_wizardIndie04body_preAction (wizard12_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 4 frames, ~5 fps: gph_wizardIndie04Face_idle01 (wizard12_face) @ 0s, gph_wizardIndie04Face_preCast (wizard12_img_face_pre_cast) @ 0.2s, gph_wizardIndie04Face_preCast (wizard12_img_face_pre_cast) @ 0.367s, gph_wizardIndie04Face_preAction (wizard12_img_face_pre_action) @ 0.533s
+  - track `ArmBack/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie04ArmBack (wizard12_img_arm_back) @ 0s, gph_wizardIndie04ArmBack (wizard12_img_arm_back) @ 0.367s, gph_wizardIndie04ArmBack_action (wizard12_img_arm_back_action) @ 0.533s
+- **WizardIndie04Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 2 frames, ~6 fps: gph_wizardIndie04body (wizard12_img_body) @ 0s, gph_wizardIndie04body_cheer (wizard12_img_body_cheer) @ 0.167s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizardIndie04Face_idle02 (wizard12_img_face_idle02) @ 0s, gph_wizardIndie04Face_cheer01 (wizard12_img_face_cheer01) @ 0.167s, gph_wizardIndie04Face_cheer02 (wizard12_img_face_cheer02) @ 0.567s, gph_wizardIndie04Face_cheer01 (wizard12_img_face_cheer01) @ 0.667s, gph_wizardIndie04Face_cheer02 (wizard12_img_face_cheer02) @ 0.767s, gph_wizardIndie04Face_cheer01 (wizard12_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 2 frames, ~6 fps: gph_wizardIndie04ArmFront (wizard12_img_arm_front) @ 0s, gph_wizardIndie04ArmFront_cheer (wizard12_img_arm_front_cheer) @ 0.167s
+- **WizardIndie04Dying** (clip sample rate 60)
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_wizardIndie04body (wizard12_img_body) @ 0s, gph_wizardIndie04body_cheer (wizard12_img_body_cheer) @ 0.1s, gph_wizardIndie04body (wizard12_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardIndie04Face_idle02 (wizard12_img_face_idle02) @ 0s, gph_wizardIndie04Face_preCast (wizard12_img_face_pre_cast) @ 0.1s, gph_wizardIndie04Face_startle01 (wizard12_img_face_startle01) @ 0.317s, gph_wizardIndie04Face_startle02 (wizard12_img_face_startle02) @ 0.567s, gph_wizardIndie04Face_startle01 (wizard12_img_face_startle01) @ 0.683s, gph_wizardIndie04Face_startle02 (wizard12_img_face_startle02) @ 0.75s, gph_wizardIndie04Face_startle01 (wizard12_img_face_startle01) @ 0.817s
+- **WizardIndie04Laugh** (clip sample rate 60)
+  - track `Body/Sprite`, 2 frames, ~2.6 fps: gph_wizardIndie04body (wizard12_img_body) @ 0s, gph_wizardIndie04body_cheer (wizard12_img_body_cheer) @ 0.383s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie04Face_idle02 (wizard12_img_face_idle02) @ 0s, gph_wizardIndie04Face_startle01 (wizard12_img_face_startle01) @ 0.15s, gph_wizardIndie04Face_cheer02 (wizard12_img_face_cheer02) @ 0.383s
+- **WizardIndie04LaughHard** (clip sample rate 60)
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_wizardIndie04body (wizard12_img_body) @ 0s, gph_wizardIndie04body_cheer (wizard12_img_body_cheer) @ 0.383s, gph_wizardIndie04body_preAction (wizard12_img_body_pre_action) @ 1.05s, gph_wizardIndie04body (wizard12_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizardIndie04Face_idle02 (wizard12_img_face_idle02) @ 0s, gph_wizardIndie04Face_startle01 (wizard12_img_face_startle01) @ 0.15s, gph_wizardIndie04Face_cheer02 (wizard12_img_face_cheer02) @ 0.383s, gph_wizardIndie04Face_laugh (wizard12_img_face_laugh) @ 1.05s, gph_wizardIndie04Face_idle02 (wizard12_img_face_idle02) @ 1.75s
+- **WizardIndie04Startle** (clip sample rate 60)
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_wizardIndie04body (wizard12_img_body) @ 0s, gph_wizardIndie04body_cheer (wizard12_img_body_cheer) @ 0.1s, gph_wizardIndie04body (wizard12_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardIndie04Face_idle02 (wizard12_img_face_idle02) @ 0s, gph_wizardIndie04Face_preCast (wizard12_img_face_pre_cast) @ 0.1s, gph_wizardIndie04Face_startle01 (wizard12_img_face_startle01) @ 0.317s, gph_wizardIndie04Face_startle02 (wizard12_img_face_startle02) @ 0.567s, gph_wizardIndie04Face_startle01 (wizard12_img_face_startle01) @ 0.683s, gph_wizardIndie04Face_startle02 (wizard12_img_face_startle02) @ 0.75s, gph_wizardIndie04Face_startle01 (wizard12_img_face_startle01) @ 0.817s
+- **WizardIndie05Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie05body (wizard13_img_body) @ 0s, gph_wizardIndie05body_preAction (wizard13_img_body_pre_action) @ 0.2s, gph_wizardIndie05body_action (wizard13_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 2 frames, ~5 fps: gph_wizardIndie05Face_idle02 (wizard13_img_face_idle02) @ 0s, gph_wizardIndie05Face_preAction (wizard13_img_face_pre_action) @ 0.2s
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie05ArmBack (wizard13_img_arm_back) @ 0s
+- **WizardIndie05CastEnd** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie05body_preAction (wizard13_img_body_pre_action) @ 0s, gph_wizardIndie05body_action (wizard13_img_body_action) @ 0.067s, gph_wizardIndie05body (wizard13_img_body) @ 0.433s
+  - track `Face/Sprite`, 2 frames, ~2.3 fps: gph_wizardIndie05Face_preAction (wizard13_img_face_pre_action) @ 0s, gph_wizardIndie05Face_idle01 (wizard13_face) @ 0.433s
+  - track `ArmFront/Sprite`, 2 frames, ~2.3 fps: gph_wizardIndie05ArmFront_cast (wizard13_img_arm_front_cast) @ 0s, gph_wizardIndie05ArmFront (wizard13_img_arm_front) @ 0.433s
+- **WizardIndie05Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 2 frames, ~0.3 fps: gph_wizardIndie05body_preAction (wizard13_img_body_pre_action) @ 0s, gph_wizardIndie05body_preAction (wizard13_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 2 frames, ~0.3 fps: gph_wizardIndie05Face_preAction (wizard13_img_face_pre_action) @ 0s, gph_wizardIndie05Face_preAction (wizard13_img_face_pre_action) @ 4s
+  - track `ArmFront/Sprite`, 1 frames, ~- fps: gph_wizardIndie05ArmFront_cast (wizard13_img_arm_front_cast) @ 0s
+- **WizardIndie05CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie05body (wizard13_img_body) @ 0s, gph_wizardIndie05body_preAction (wizard13_img_body_pre_action) @ 0.2s, gph_wizardIndie05body_action (wizard13_img_body_action) @ 0.433s
+  - track `Face/Sprite`, 2 frames, ~5 fps: gph_wizardIndie05Face_idle02 (wizard13_img_face_idle02) @ 0s, gph_wizardIndie05Face_preAction (wizard13_img_face_pre_action) @ 0.2s
+  - track `ArmBack/Sprite`, 1 frames, ~- fps: gph_wizardIndie05ArmBack (wizard13_img_arm_back) @ 0s
+- **WizardIndie05CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~3 fps: gph_wizardIndie05body (wizard13_img_body) @ 0s, gph_wizardIndie05body_action (wizard13_img_body_action) @ 0.2s, gph_wizardIndie05body_preAction (wizard13_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 2 frames, ~5 fps: gph_wizardIndie05Face_idle01 (wizard13_face) @ 0s, gph_wizardIndie05Face_preAction (wizard13_img_face_pre_action) @ 0.2s
+  - track `ArmFront/Sprite`, 2 frames, ~1.9 fps: gph_wizardIndie05ArmFront (wizard13_img_arm_front) @ 0s, gph_wizardIndie05ArmFront_cast (wizard13_img_arm_front_cast) @ 0.533s
+- **WizardIndie05Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 2 frames, ~6 fps: gph_wizardIndie05body (wizard13_img_body) @ 0s, gph_wizardIndie05body_cheer (wizard13_img_body_cheer) @ 0.167s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizardIndie05Face_idle02 (wizard13_img_face_idle02) @ 0s, gph_wizardIndie05Face_cheer01 (wizard13_img_face_cheer01) @ 0.167s, gph_wizardIndie05Face_cheer02 (wizard13_img_face_cheer02) @ 0.567s, gph_wizardIndie05Face_cheer01 (wizard13_img_face_cheer01) @ 0.667s, gph_wizardIndie05Face_cheer02 (wizard13_img_face_cheer02) @ 0.767s, gph_wizardIndie05Face_cheer01 (wizard13_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 2 frames, ~6 fps: gph_wizardIndie05ArmFront (wizard13_img_arm_front) @ 0s, gph_wizardIndie05ArmFront_cheer (wizard13_img_arm_front_cheer) @ 0.167s
+- **WizardIndie05Dying** (clip sample rate 60)
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_wizardIndie05body (wizard13_img_body) @ 0s, gph_wizardIndie05body_action (wizard13_img_body_action) @ 0.1s, gph_wizardIndie05body (wizard13_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardIndie05Face_idle02 (wizard13_img_face_idle02) @ 0s, gph_wizardIndie05Face_preAction (wizard13_img_face_pre_action) @ 0.1s, gph_wizardIndie05Face_startle01 (wizard13_img_face_startle01) @ 0.317s, gph_wizardIndie05Face_startle02 (wizard13_img_face_startle02) @ 0.567s, gph_wizardIndie05Face_startle01 (wizard13_img_face_startle01) @ 0.683s, gph_wizardIndie05Face_startle02 (wizard13_img_face_startle02) @ 0.75s, gph_wizardIndie05Face_startle01 (wizard13_img_face_startle01) @ 0.817s
+- **WizardIndie05Laugh** (clip sample rate 60)
+  - track `Body/Sprite`, 3 frames, ~1.8 fps: gph_wizardIndie05body (wizard13_img_body) @ 0s, gph_wizardIndie05body_action (wizard13_img_body_action) @ 0.383s, gph_wizardIndie05body_action (wizard13_img_body_action) @ 0.95s
+  - track `Face/Sprite`, 4 frames, ~1.8 fps: gph_wizardIndie05Face_idle02 (wizard13_img_face_idle02) @ 0s, gph_wizardIndie05Face_startle01 (wizard13_img_face_startle01) @ 0.15s, gph_wizardIndie05Face_cheer02 (wizard13_img_face_cheer02) @ 0.383s, gph_wizardIndie05Face_cheer02 (wizard13_img_face_cheer02) @ 0.95s
+- **WizardIndie05LaughHard** (clip sample rate 60)
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_wizardIndie05body (wizard13_img_body) @ 0s, gph_wizardIndie05body_action (wizard13_img_body_action) @ 0.383s, gph_wizardIndie05body_preAction (wizard13_img_body_pre_action) @ 1.05s, gph_wizardIndie05body (wizard13_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizardIndie05Face_idle02 (wizard13_img_face_idle02) @ 0s, gph_wizardIndie05Face_startle01 (wizard13_img_face_startle01) @ 0.15s, gph_wizardIndie05Face_cheer02 (wizard13_img_face_cheer02) @ 0.383s, gph_wizardIndie05Face_laugh (wizard13_img_face_laugh) @ 1.05s, gph_wizardIndie05Face_idle02 (wizard13_img_face_idle02) @ 1.75s
+- **WizardIndie05Startle** (clip sample rate 60)
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_wizardIndie05body (wizard13_img_body) @ 0s, gph_wizardIndie05body_action (wizard13_img_body_action) @ 0.1s, gph_wizardIndie05body (wizard13_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardIndie05Face_idle02 (wizard13_img_face_idle02) @ 0s, gph_wizardIndie05Face_preAction (wizard13_img_face_pre_action) @ 0.1s, gph_wizardIndie05Face_startle01 (wizard13_img_face_startle01) @ 0.317s, gph_wizardIndie05Face_startle02 (wizard13_img_face_startle02) @ 0.567s, gph_wizardIndie05Face_startle01 (wizard13_img_face_startle01) @ 0.683s, gph_wizardIndie05Face_startle02 (wizard13_img_face_startle02) @ 0.75s, gph_wizardIndie05Face_startle01 (wizard13_img_face_startle01) @ 0.817s
+- **WizardIndie06Action** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie06body (wizard14_img_body) @ 0s, gph_wizardIndie06body_preAction (wizard14_img_body_pre_action) @ 0.2s, gph_wizardIndie06body_cheer (wizard14_img_body_cheer) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie06Face_idle02 (wizard14_img_face_idle02) @ 0s, gph_wizardIndie06Face_preAction (wizard14_img_face_pre_action) @ 0.2s, gph_wizardIndie06Face_action (wizard14_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie06ArmBack (wizard14_img_arm_back) @ 0s, gph_wizardIndie06ArmBack_preAction (wizard14_img_arm_back_pre_action) @ 0.2s, gph_wizardIndie06ArmBack_action (wizard14_img_arm_back_action) @ 0.433s
+- **WizardIndie06CastEnd** (clip sample rate 30)
+  - track `ArmBack/Sprite`, 2 frames, ~15 fps: gph_wizardIndie06ArmBack_action (wizard14_img_arm_back_action) @ 0s, gph_wizardIndie06ArmBack (wizard14_img_arm_back) @ 0.067s
+  - track `Body/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie06body_preAction (wizard14_img_body_pre_action) @ 0s, gph_wizardIndie06body_cheer (wizard14_img_body_cheer) @ 0.067s, gph_wizardIndie06body (wizard14_img_body) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~2.7 fps: gph_wizardIndie06Face_preAction (wizard14_img_face_pre_action) @ 0s, gph_wizardIndie06Face_preCast (wizard14_img_face_pre_cast) @ 0.067s, gph_wizardIndie06Face_idle01 (wizard14_face) @ 0.433s
+- **WizardIndie06Casting** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie06body_preAction (wizard14_img_body_pre_action) @ 0s, gph_wizardIndie06body_preAction (wizard14_img_body_pre_action) @ 2s, gph_wizardIndie06body_preAction (wizard14_img_body_pre_action) @ 4s
+  - track `Face/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie06Face_preAction (wizard14_img_face_pre_action) @ 0s, gph_wizardIndie06Face_preAction (wizard14_img_face_pre_action) @ 2s, gph_wizardIndie06Face_preAction (wizard14_img_face_pre_action) @ 4s
+  - track `ArmBack/Sprite`, 3 frames, ~0.5 fps: gph_wizardIndie06ArmBack_action (wizard14_img_arm_back_action) @ 0s, gph_wizardIndie06ArmBack_action (wizard14_img_arm_back_action) @ 2s, gph_wizardIndie06ArmBack_action (wizard14_img_arm_back_action) @ 4s
+- **WizardIndie06CastSelf** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie06body (wizard14_img_body) @ 0s, gph_wizardIndie06body_preAction (wizard14_img_body_pre_action) @ 0.2s, gph_wizardIndie06body_cheer (wizard14_img_body_cheer) @ 0.433s
+  - track `Face/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie06Face_idle02 (wizard14_img_face_idle02) @ 0s, gph_wizardIndie06Face_preAction (wizard14_img_face_pre_action) @ 0.2s, gph_wizardIndie06Face_action (wizard14_img_face_action) @ 0.433s
+  - track `ArmBack/Sprite`, 3 frames, ~4.3 fps: gph_wizardIndie06ArmBack (wizard14_img_arm_back) @ 0s, gph_wizardIndie06ArmBack_preAction (wizard14_img_arm_back_pre_action) @ 0.2s, gph_wizardIndie06ArmBack_action (wizard14_img_arm_back_action) @ 0.433s
+- **WizardIndie06CastStart** (clip sample rate 30)
+  - track `Body/Sprite`, 3 frames, ~3 fps: gph_wizardIndie06body (wizard14_img_body) @ 0s, gph_wizardIndie06body_cheer (wizard14_img_body_cheer) @ 0.2s, gph_wizardIndie06body_preAction (wizard14_img_body_pre_action) @ 0.533s
+  - track `Face/Sprite`, 3 frames, ~3 fps: gph_wizardIndie06Face_idle02 (wizard14_img_face_idle02) @ 0s, gph_wizardIndie06Face_preCast (wizard14_img_face_pre_cast) @ 0.2s, gph_wizardIndie06Face_preAction (wizard14_img_face_pre_action) @ 0.533s
+  - track `ArmBack/Sprite`, 2 frames, ~1.9 fps: gph_wizardIndie06ArmBack (wizard14_img_arm_back) @ 0s, gph_wizardIndie06ArmBack_action (wizard14_img_arm_back_action) @ 0.533s
+- **WizardIndie06Cheer** (clip sample rate 30)
+  - track `Body/Sprite`, 2 frames, ~6 fps: gph_wizardIndie06body (wizard14_img_body) @ 0s, gph_wizardIndie06body_cheer (wizard14_img_body_cheer) @ 0.167s
+  - track `Face/Sprite`, 6 frames, ~10 fps: gph_wizardIndie06Face_idle02 (wizard14_img_face_idle02) @ 0s, gph_wizardIndie06Face_cheer01 (wizard14_img_face_cheer01) @ 0.167s, gph_wizardIndie06Face_cheer02 (wizard14_img_face_cheer02) @ 0.567s, gph_wizardIndie06Face_cheer01 (wizard14_img_face_cheer01) @ 0.667s, gph_wizardIndie06Face_cheer02 (wizard14_img_face_cheer02) @ 0.767s, gph_wizardIndie06Face_cheer01 (wizard14_img_face_cheer01) @ 0.833s
+  - track `ArmFront/Sprite`, 2 frames, ~6 fps: gph_wizardIndie06ArmFront (wizard14_img_arm_front) @ 0s, gph_wizardIndie06ArmFront_cheer (wizard14_img_arm_front_cheer) @ 0.167s
+- **WizardIndie06Dying** (clip sample rate 60)
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_wizardIndie06body (wizard14_img_body) @ 0s, gph_wizardIndie06body_cheer (wizard14_img_body_cheer) @ 0.1s, gph_wizardIndie06body (wizard14_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardIndie06Face_idle02 (wizard14_img_face_idle02) @ 0s, gph_wizardIndie06Face_preCast (wizard14_img_face_pre_cast) @ 0.1s, gph_wizardIndie06Face_startle01 (wizard14_img_face_startle01) @ 0.317s, gph_wizardIndie06Face_startle02 (wizard14_img_face_startle02) @ 0.567s, gph_wizardIndie06Face_startle01 (wizard14_img_face_startle01) @ 0.683s, gph_wizardIndie06Face_startle02 (wizard14_img_face_startle02) @ 0.75s, gph_wizardIndie06Face_startle01 (wizard14_img_face_startle01) @ 0.817s
+- **WizardIndie06Laugh** (clip sample rate 60)
+  - track `Body/Sprite`, 3 frames, ~1.8 fps: gph_wizardIndie06body (wizard14_img_body) @ 0s, gph_wizardIndie06body_cheer (wizard14_img_body_cheer) @ 0.383s, gph_wizardIndie06body_cheer (wizard14_img_body_cheer) @ 0.95s
+  - track `Face/Sprite`, 4 frames, ~1.8 fps: gph_wizardIndie06Face_idle02 (wizard14_img_face_idle02) @ 0s, gph_wizardIndie06Face_startle01 (wizard14_img_face_startle01) @ 0.15s, gph_wizardIndie06Face_cheer02 (wizard14_img_face_cheer02) @ 0.383s, gph_wizardIndie06Face_cheer02 (wizard14_img_face_cheer02) @ 0.95s
+- **WizardIndie06LaughHard** (clip sample rate 60)
+  - track `Body/Sprite`, 4 frames, ~1.4 fps: gph_wizardIndie06body (wizard14_img_body) @ 0s, gph_wizardIndie06body_cheer (wizard14_img_body_cheer) @ 0.383s, gph_wizardIndie06body_preAction (wizard14_img_body_pre_action) @ 1.05s, gph_wizardIndie06body (wizard14_img_body) @ 1.75s
+  - track `Face/Sprite`, 5 frames, ~1.5 fps: gph_wizardIndie06Face_idle02 (wizard14_img_face_idle02) @ 0s, gph_wizardIndie06Face_startle01 (wizard14_img_face_startle01) @ 0.15s, gph_wizardIndie06Face_cheer02 (wizard14_img_face_cheer02) @ 0.383s, gph_wizardIndie06Face_preAction (wizard14_img_face_pre_action) @ 1.05s, gph_wizardIndie06Face_idle02 (wizard14_img_face_idle02) @ 1.75s
+- **WizardIndie06Startle** (clip sample rate 60)
+  - track `Body/Sprite`, 3 frames, ~4.6 fps: gph_wizardIndie06body (wizard14_img_body) @ 0s, gph_wizardIndie06body_cheer (wizard14_img_body_cheer) @ 0.1s, gph_wizardIndie06body (wizard14_img_body) @ 0.317s
+  - track `Face/Sprite`, 7 frames, ~8.6 fps: gph_wizardIndie06Face_idle02 (wizard14_img_face_idle02) @ 0s, gph_wizardIndie06Face_preCast (wizard14_img_face_pre_cast) @ 0.1s, gph_wizardIndie06Face_startle01 (wizard14_img_face_startle01) @ 0.317s, gph_wizardIndie06Face_startle02 (wizard14_img_face_startle02) @ 0.567s, gph_wizardIndie06Face_startle01 (wizard14_img_face_startle01) @ 0.683s, gph_wizardIndie06Face_startle02 (wizard14_img_face_startle02) @ 0.75s, gph_wizardIndie06Face_startle01 (wizard14_img_face_startle01) @ 0.817s
+
+## Sprite-sheet animations (frames in order; play rate set by their clip or particle system)
+- anim_ivy_I (5 frames): fx_ivy_i_0, fx_ivy_i_1, fx_ivy_i_2, fx_ivy_i_3, fx_ivy_i_4
+- anim_ivy_J (5 frames): fx_ivy_j_0, fx_ivy_j_1, fx_ivy_j_2, fx_ivy_j_3, fx_ivy_j_4
+- anim_ivy_L (5 frames): fx_ivy_l_0, fx_ivy_l_1, fx_ivy_l_2, fx_ivy_l_3, fx_ivy_l_4
+- anim_ivy_mystery01 (5 frames): brick_ivy_mystery01_0, brick_ivy_mystery01_1, brick_ivy_mystery01_2, brick_ivy_mystery01_3, brick_ivy_mystery01_4
+- anim_ivy_mystery02 (5 frames): brick_ivy_mystery02_0, brick_ivy_mystery02_1, brick_ivy_mystery02_2, brick_ivy_mystery02_3, brick_ivy_mystery02_4
+- anim_ivy_mystery03 (5 frames): brick_ivy_mystery03_0, brick_ivy_mystery03_1, brick_ivy_mystery03_2, brick_ivy_mystery03_3, brick_ivy_mystery03_4
+- anim_ivy_O (5 frames): fx_ivy_o_0, fx_ivy_o_1, fx_ivy_o_2, fx_ivy_o_3, fx_ivy_o_4
+- anim_ivy_S (5 frames): fx_ivy_s_0, fx_ivy_s_1, fx_ivy_s_2, fx_ivy_s_3, fx_ivy_s_4
+- anim_ivy_T (5 frames): fx_ivy_t_0, fx_ivy_t_1, fx_ivy_t_2, fx_ivy_t_3, fx_ivy_t_4
+- anim_ivy_Z (5 frames): fx_ivy_z_0, fx_ivy_z_1, fx_ivy_z_2, fx_ivy_z_3, fx_ivy_z_4
+- anim_largeCross_65x65 (2 frames): lost_cross, particle_large_cross_65x65_1
+- anim_mysteryBrick03_keys (4 frames): brick_mystery_brick03_keys_0, brick_mystery_brick03_keys_1, brick_mystery_brick03_keys_2, brick_mystery_brick03_keys_3
+- anim_wizard01CapeDown_33x29 (6 frames): wizard01_cape_down_33x29_0, wizard01_cape_down_33x29_1, wizard01_cape_down_33x29_2, wizard01_cape_down_33x29_3, wizard01_cape_down_33x29_4, wizard01_cape_down_33x29_5
+- anim_wizard01CapeDown_83x73 (6 frames): wizard01_cape_down_83x73_0, wizard01_cape_down_83x73_1, wizard01_cape_down_83x73_2, wizard01_cape_down_83x73_3, wizard01_cape_down_83x73_4, wizard01_cape_down_83x73_5
+- anim_wizard01CapeUp_33x34 (5 frames): wizard4_cape, wizard01_cape_up_33x34_1, wizard01_cape_up_33x34_2, wizard01_cape_up_33x34_3, wizard01_cape_up_33x34_4
+- anim_wizard01CapeUp_82x84 (5 frames): wizard01_cape_up_82x84_0, wizard01_cape_up_82x84_1, wizard01_cape_up_82x84_2, wizard01_cape_up_82x84_3, wizard01_cape_up_82x84_4
+- anim_wizard01CapeWave_37x24 (12 frames): wizard4_img_wizard01_cape_wave_37x24_0, wizard4_img_wizard01_cape_wave_37x24_1, wizard4_img_wizard01_cape_wave_37x24_2, wizard4_img_wizard01_cape_wave_37x24_3, wizard4_img_wizard01_cape_wave_37x24_4, wizard4_img_wizard01_cape_wave_37x24_5, wizard4_img_wizard01_cape_wave_37x24_6, wizard4_img_wizard01_cape_wave_37x24_7, wizard4_img_wizard01_cape_wave_37x24_8, wizard4_img_wizard01_cape_wave_37x24_9, wizard4_img_wizard01_cape_wave_37x24_10, wizard4_img_wizard01_cape_wave_37x24_11
+- anim_wizard01CapeWave_93x60 (12 frames): wizard11_img_wizard01_cape_wave_93x60_0, wizard11_img_wizard01_cape_wave_93x60_1, wizard11_img_wizard01_cape_wave_93x60_2, wizard11_img_wizard01_cape_wave_93x60_3, wizard11_img_wizard01_cape_wave_93x60_4, wizard11_img_wizard01_cape_wave_93x60_5, wizard11_img_wizard01_cape_wave_93x60_6, wizard11_img_wizard01_cape_wave_93x60_7, wizard11_img_wizard01_cape_wave_93x60_8, wizard11_img_wizard01_cape_wave_93x60_9, wizard11_img_wizard01_cape_wave_93x60_10, wizard11_img_wizard01_cape_wave_93x60_11
+- anim_wizard01CapeWave_93x60_0 (1 frames): wizard1_img_wizard01_cape_wave_93x60_0_0
+- anim_wizard01CapeWave_93x60_1 (1 frames): wizard1_img_wizard01_cape_wave_93x60_1_0
+- anim_wizard01CapeWave_93x60_10 (1 frames): wizard1_img_wizard01_cape_wave_93x60_10_0
+- anim_wizard01CapeWave_93x60_11 (1 frames): wizard1_img_wizard01_cape_wave_93x60_11_0
+- anim_wizard01CapeWave_93x60_2 (1 frames): wizard1_img_wizard01_cape_wave_93x60_2_0
+- anim_wizard01CapeWave_93x60_3 (1 frames): wizard1_img_wizard01_cape_wave_93x60_3_0
+- anim_wizard01CapeWave_93x60_4 (1 frames): wizard1_img_wizard01_cape_wave_93x60_4_0
+- anim_wizard01CapeWave_93x60_5 (1 frames): wizard1_img_wizard01_cape_wave_93x60_5_0
+- anim_wizard01CapeWave_93x60_6 (1 frames): wizard1_img_wizard01_cape_wave_93x60_6_0
+- anim_wizard01CapeWave_93x60_7 (1 frames): wizard1_img_wizard01_cape_wave_93x60_7_0
+- anim_wizard01CapeWave_93x60_8 (1 frames): wizard1_img_wizard01_cape_wave_93x60_8_0
+- anim_wizard01CapeWave_93x60_9 (1 frames): wizard1_img_wizard01_cape_wave_93x60_9_0
+- anim_wizard02CapeDown_83x73 (6 frames): wizard2_cape, wizard02_cape_down_83x73_1, wizard02_cape_down_83x73_2, wizard02_cape_down_83x73_3, wizard02_cape_down_83x73_4, wizard02_cape_down_83x73_5
+- anim_wizard02CapeUp_82x84 (5 frames): wizard02_cape_up_82x84_0, wizard02_cape_up_82x84_1, wizard02_cape_up_82x84_2, wizard02_cape_up_82x84_3, wizard02_cape_up_82x84_4
+- anim_wizard02CapeWave_93x60 (12 frames): wizard2_img_wizard02_cape_wave_93x60_0, wizard2_img_wizard02_cape_wave_93x60_1, wizard2_img_wizard02_cape_wave_93x60_2, wizard2_img_wizard02_cape_wave_93x60_3, wizard2_img_wizard02_cape_wave_93x60_4, wizard2_img_wizard02_cape_wave_93x60_5, wizard2_img_wizard02_cape_wave_93x60_6, wizard2_img_wizard02_cape_wave_93x60_7, wizard2_img_wizard02_cape_wave_93x60_8, wizard2_img_wizard02_cape_wave_93x60_9, wizard2_img_wizard02_cape_wave_93x60_10, wizard2_img_wizard02_cape_wave_93x60_11
+- anim_wizard03CapeDown_83x73 (6 frames): wizard03_cape_down_83x73_0, wizard03_cape_down_83x73_1, wizard03_cape_down_83x73_2, wizard03_cape_down_83x73_3, wizard03_cape_down_83x73_4, wizard03_cape_down_83x73_5
+- anim_wizard03CapeUp_82x84 (5 frames): wizard3_cape, wizard03_cape_up_82x84_1, wizard03_cape_up_82x84_2, wizard03_cape_up_82x84_3, wizard03_cape_up_82x84_4
+- anim_wizard03CapeWave_93x60 (12 frames): wizard3_img_wizard03_cape_wave_93x60_0, wizard3_img_wizard03_cape_wave_93x60_1, wizard3_img_wizard03_cape_wave_93x60_2, wizard3_img_wizard03_cape_wave_93x60_3, wizard3_img_wizard03_cape_wave_93x60_4, wizard3_img_wizard03_cape_wave_93x60_5, wizard3_img_wizard03_cape_wave_93x60_6, wizard3_img_wizard03_cape_wave_93x60_7, wizard3_img_wizard03_cape_wave_93x60_8, wizard3_img_wizard03_cape_wave_93x60_9, wizard3_img_wizard03_cape_wave_93x60_10, wizard3_img_wizard03_cape_wave_93x60_11
+
+## Audio
+
+### ambience
+- 060_Ambience_wind.ogg (2745 KB) -> sfx_amb_ambience_wind
+- 061_Ambience_spooky.ogg (2622 KB) -> sfx_amb_ambience_spooky
+- 062_Ambience_stars_01.ogg (13 KB) -> sfx_amb_ambience_stars_01
+- 062_Ambience_stars_02.ogg (13 KB) -> sfx_amb_ambience_stars_02
+- 062_Ambience_stars_03.ogg (12 KB) -> sfx_amb_ambience_stars_03
+- 062_Ambience_stars_04.ogg (10 KB) -> sfx_amb_ambience_stars_04
+- 063_Ambience_water.ogg (3606 KB) -> sfx_amb_ambience_water
+- 091_Ambience_breeze.ogg (1618 KB) -> sfx_amb_ambience_breeze
+- 092_Ambience_menu.ogg (1677 KB) -> sfx_amb_ambience_menu
+- 099_Ambience_storm_v4.ogg (3267 KB) -> sfx_amb_ambience_storm_v4
+- 099_Ambience_thunderstrikes_01.ogg (203 KB) -> sfx_amb_ambience_thunderstrikes_01
+- 099_Ambience_thunderstrikes_02.ogg (236 KB) -> sfx_amb_ambience_thunderstrikes_02
+- 099_Ambience_thunderstrikes_03.ogg (241 KB) -> sfx_amb_ambience_thunderstrikes_03
+
+### gameplay sfx
+- 004_Brick_spawn.ogg (31 KB) -> sfx_brick_spawn
+- 006_Pickup_spell.ogg (32 KB) -> sfx_line_collect
+- 007_Brick_land.ogg (19 KB) -> sfx_land
+- 007_Brick_land_heavy.ogg (50 KB) -> sfx_brick_heavy
+- 011_Swoosh.ogg (14 KB) -> sfx_swoosh
+- 013_Cast_lightning_level_01.ogg (44 KB) -> sfx_cast_light
+- 013_Cast_lightning_level_02.ogg (61 KB) -> sfx_cast_lightning_level_02
+- 016_Finish_tower.ogg (157 KB) -> sfx_finish_tower
+- 017_Drum_roll.ogg (85 KB) -> sfx_drum_roll
+- 018_Roof_placed.ogg (104 KB) -> sfx_roof_placed
+- 026_Rumble.ogg (86 KB) -> sfx_rumble
+- 028_Rotate_brick.ogg (10 KB) -> sfx_rotate
+- 033_Start_game.ogg (81 KB) -> sfx_start_game
+- 037_Zap_enemy.ogg (17 KB) -> sfx_zap_enemy
+- 038_Water_splash_01.ogg (14 KB) -> sfx_splash_1
+- 038_Water_splash_02.ogg (17 KB) -> sfx_splash_2
+- 038_Water_splash_03.ogg (22 KB) -> sfx_splash_3
+- 038_Water_splash_04.ogg (22 KB) -> sfx_splash_4
+- 039_Bubble_pop.ogg (6 KB) -> sfx_bubble_pop
+- 040_Spell_ivy_01.ogg (18 KB) -> sfx_spell_ivy_01
+- 040_Spell_ivy_02.ogg (17 KB) -> sfx_spell_ivy_02
+- 040_Spell_ivy_03.ogg (19 KB) -> sfx_spell_ivy_03
+- 040_Spell_ivy_04.ogg (18 KB) -> sfx_spell_ivy_04
+- 041_Spell_chain_01.ogg (16 KB) -> sfx_chain_1
+- 041_Spell_chain_02.ogg (14 KB) -> sfx_chain_2
+- 041_Spell_chain_03.ogg (16 KB) -> sfx_chain_3
+- 041_Spell_chain_04.ogg (16 KB) -> sfx_chain_4
+- 042_Skeleton_attack_01.ogg (13 KB) -> sfx_skeleton_attack_01
+- 042_Skeleton_attack_02.ogg (13 KB) -> sfx_skeleton_attack_02
+- 042_Skeleton_attack_03.ogg (14 KB) -> sfx_skeleton_attack_03
+- 042_Skeleton_attack_04.ogg (13 KB) -> sfx_skeleton_attack_04
+- 043_Skeleton_bite_01.ogg (9 KB) -> sfx_skeleton_bite_01
+- 043_Skeleton_bite_02.ogg (8 KB) -> sfx_skeleton_bite_02
+- 049_Start_game_v2.ogg (69 KB) -> sfx_start_game_v2
+- 054_Count.ogg (17 KB) -> sfx_count
+- 054_Count_v3.ogg (27 KB) -> sfx_count_v3
+- 056_Move_brick_v2.ogg (4 KB) -> sfx_move
+- 057_Lose_brick_v3.ogg (8 KB) -> sfx_drop_lost
+- 058_Falling_brick_01.ogg (15 KB) -> sfx_falling_brick_01
+- 058_Falling_brick_02.ogg (15 KB) -> sfx_falling_brick_02
+- 058_Falling_brick_03.ogg (16 KB) -> sfx_falling_brick_03
+- 058_Falling_brick_04.ogg (16 KB) -> sfx_falling_brick_04
+- 059_Nudge_brick_v2.ogg (9 KB) -> sfx_nudge
+- 064_Cast_dark_magic.ogg (95 KB) -> sfx_cast_dark
+- 065_Grass_grow_01.ogg (18 KB) -> sfx_grass_grow_01
+- 065_Grass_grow_02.ogg (23 KB) -> sfx_grass_grow_02
+- 065_Grass_grow_03.ogg (21 KB) -> sfx_grass_grow_03
+- 065_Grass_grow_04.ogg (21 KB) -> sfx_grass_grow_04
+- 066_Enlarge_bricks.ogg (24 KB) -> sfx_enlarge_bricks
+- 067_Petrify_brick_01.ogg (15 KB) -> sfx_petrify_brick_01
+- 067_Petrify_brick_02.ogg (12 KB) -> sfx_petrify_brick_02
+- 067_Petrify_brick_03.ogg (14 KB) -> sfx_petrify_brick_03
+- 067_Petrify_brick_04.ogg (14 KB) -> sfx_petrify_brick_04
+- 067_Petrify_brick_05.ogg (14 KB) -> sfx_petrify_brick_05
+- 068_Grow_bubble.ogg (6 KB) -> sfx_grow_bubble
+- 069_Mystery_brick.ogg (72 KB) -> sfx_mystery_brick
+- 070_Piano_brick_01.ogg (14 KB) -> sfx_piano_brick_01
+- 070_Piano_brick_02.ogg (14 KB) -> sfx_piano_brick_02
+- 070_Piano_brick_03.ogg (13 KB) -> sfx_piano_brick_03
+- 070_Piano_brick_04.ogg (14 KB) -> sfx_piano_brick_04
+- 070_Piano_brick_05.ogg (14 KB) -> sfx_piano_brick_05
+- 070_Piano_brick_06.ogg (13 KB) -> sfx_piano_brick_06
+- 070_Piano_brick_07.ogg (13 KB) -> sfx_piano_brick_07
+- 070_Piano_brick_08.ogg (13 KB) -> sfx_piano_brick_08
+- 070_Piano_brick_09.ogg (14 KB) -> sfx_piano_brick_09
+- 070_Piano_brick_10.ogg (13 KB) -> sfx_piano_brick_10
+- 070_Piano_brick_11.ogg (13 KB) -> sfx_piano_brick_11
+- 070_Piano_brick_12.ogg (13 KB) -> sfx_piano_brick_12
+- 070_Piano_brick_13.ogg (13 KB) -> sfx_piano_brick_13
+- 070_Piano_brick_14.ogg (13 KB) -> sfx_piano_brick_14
+- 070_Piano_brick_15.ogg (13 KB) -> sfx_piano_brick_15
+- 070_Piano_brick_16.ogg (13 KB) -> sfx_piano_brick_16
+- 070_Piano_brick_17.ogg (13 KB) -> sfx_piano_brick_17
+- 070_Piano_brick_18.ogg (13 KB) -> sfx_piano_brick_18
+- 070_Piano_brick_19.ogg (13 KB) -> sfx_piano_brick_19
+- 070_Piano_brick_20.ogg (13 KB) -> sfx_piano_brick_20
+- 070_Piano_brick_21.ogg (13 KB) -> sfx_piano_brick_21
+- 070_Piano_brick_22.ogg (13 KB) -> sfx_piano_brick_22
+- 070_Piano_brick_23.ogg (13 KB) -> sfx_piano_brick_23
+- 071_Piano_brick_land_01.ogg (72 KB) -> sfx_piano_brick_land_01
+- 071_Piano_brick_land_02.ogg (88 KB) -> sfx_piano_brick_land_02
+- 071_Piano_brick_land_03.ogg (75 KB) -> sfx_piano_brick_land_03
+- 072_Spawn_minibase.ogg (31 KB) -> sfx_spawn_minibase
+- 073_Auto_rotate_01.ogg (6 KB) -> sfx_auto_rotate_01
+- 073_Auto_rotate_02.ogg (6 KB) -> sfx_auto_rotate_02
+- 073_Auto_rotate_03.ogg (6 KB) -> sfx_auto_rotate_03
+- 073_Auto_rotate_start.ogg (60 KB) -> sfx_auto_rotate_start
+- 074_Auto_build_loop.ogg (126 KB) -> sfx_auto_build_loop
+- 075_Autobrick_hit_01.ogg (14 KB) -> sfx_autobrick_hit_01
+- 075_Autobrick_hit_02.ogg (15 KB) -> sfx_autobrick_hit_02
+- 075_Autobrick_hit_03.ogg (15 KB) -> sfx_autobrick_hit_03
+- 075_Autobrick_hit_04.ogg (14 KB) -> sfx_autobrick_hit_04
+- 075_Autobrick_hit_05.ogg (14 KB) -> sfx_autobrick_hit_05
+- 076_Spawn_balloon.ogg (15 KB) -> sfx_spawn_balloon
+- 077_Hit_balloon_01.ogg (28 KB) -> sfx_hit_balloon_01
+- 077_Hit_balloon_02.ogg (26 KB) -> sfx_hit_balloon_02
+- 078_Spawn_icebrick.ogg (112 KB) -> sfx_spawn_icebrick
+- 079_Ice_brick_hit_01.ogg (13 KB) -> sfx_ice_brick_hit_01
+- 079_Ice_brick_hit_02.ogg (11 KB) -> sfx_ice_brick_hit_02
+- 079_Ice_brick_hit_03.ogg (11 KB) -> sfx_ice_brick_hit_03
+- 079_Ice_brick_hit_04.ogg (12 KB) -> sfx_ice_brick_hit_04
+- 080_Spawn_life_v2.ogg (36 KB) -> sfx_spawn_life_v2
+- 081_Pickup_life_v2.ogg (36 KB) -> sfx_pickup_life_v2
+- 082_Fast_bricks.ogg (69 KB) -> sfx_fast_bricks
+- 083_Drop_fastbricks.ogg (150 KB) -> sfx_drop_fastbricks
+- 084_Spawn_fog.ogg (182 KB) -> sfx_spawn_fog
+- 087_Last_heart_v2.ogg (56 KB) -> sfx_last_heart_v2
+- 089_Wizard_lose_v2.ogg (10 KB) -> sfx_wizard_lose_v2
+- 090_Brick_drop_sand_01.ogg (11 KB) -> sfx_brick_drop_sand_01
+- 090_Brick_drop_sand_02.ogg (12 KB) -> sfx_brick_drop_sand_02
+- 090_Brick_drop_sand_03.ogg (11 KB) -> sfx_brick_drop_sand_03
+- 090_Brick_drop_sand_04.ogg (11 KB) -> sfx_brick_drop_sand_04
+- 093_Countdown.ogg (6 KB) -> sfx_countdown
+- 094_Dark_magic_intense.ogg (90 KB) -> sfx_dark_magic_intense
+- 095_Spawn_laser.ogg (12 KB) -> sfx_spawn_laser
+- 105_Spawn_block_puzzle_01.ogg (14 KB) -> sfx_spawn_block_puzzle_01
+- 105_Spawn_block_puzzle_02.ogg (13 KB) -> sfx_spawn_block_puzzle_02
+- 105_Spawn_block_puzzle_03.ogg (15 KB) -> sfx_spawn_block_puzzle_03
+- 106_Laser_move_01.ogg (9 KB) -> sfx_laser_move_01
+- 106_Laser_move_02.ogg (9 KB) -> sfx_laser_move_02
+- 106_Laser_move_03.ogg (10 KB) -> sfx_laser_move_03
+- 11_explosion_01.ogg (14 KB) -> sfx_explosion
+- 201_Bricks_christmas_01.ogg (10 KB) -> sfx_bricks_christmas_01
+- 201_Bricks_christmas_02.ogg (10 KB) -> sfx_bricks_christmas_02
+- 201_Bricks_christmas_03.ogg (10 KB) -> sfx_bricks_christmas_03
+- 202_Bricks_holo_01.ogg (14 KB) -> sfx_bricks_holo_01
+- 202_Bricks_holo_02.ogg (13 KB) -> sfx_bricks_holo_02
+- 202_Bricks_holo_03.ogg (13 KB) -> sfx_bricks_holo_03
+- 203_Bricks_diamond_01.ogg (12 KB) -> sfx_bricks_diamond_01
+- 203_Bricks_diamond_02.ogg (12 KB) -> sfx_bricks_diamond_02
+- 203_Bricks_diamond_03.ogg (11 KB) -> sfx_bricks_diamond_03
+- 204_Bricks_candy_01.ogg (11 KB) -> sfx_bricks_candy_01
+- 204_Bricks_candy_02.ogg (10 KB) -> sfx_bricks_candy_02
+- 204_Bricks_candy_03.ogg (11 KB) -> sfx_bricks_candy_03
+- 205_Bricks_galaxy_01.ogg (14 KB) -> sfx_bricks_galaxy_01
+- 205_Bricks_galaxy_02.ogg (16 KB) -> sfx_bricks_galaxy_02
+- 205_Bricks_galaxy_03.ogg (17 KB) -> sfx_bricks_galaxy_03
+- 206_Bricks_spring_01.ogg (12 KB) -> sfx_bricks_spring_01
+- 206_Bricks_spring_02.ogg (12 KB) -> sfx_bricks_spring_02
+- 206_Bricks_spring_03.ogg (12 KB) -> sfx_bricks_spring_03
+- 503_eclipse.ogg (84 KB) -> sfx_eclipse
+
+### menu and results
+- 003_Coin_01.ogg (30 KB) -> sfx_coin_01
+- 003_Coin_02.ogg (29 KB) -> sfx_coin_02
+- 003_Coin_03.ogg (28 KB) -> sfx_coin_03
+- 032_Score_tail.ogg (74 KB) -> sfx_score_tail
+- 048_Menu_crumble.ogg (183 KB) -> sfx_menu_crumble
+- 051_Select_item_01.ogg (26 KB) -> sfx_select_item_01
+- 051_Select_item_02.ogg (25 KB) -> sfx_select_item_02
+- 051_Select_item_03.ogg (17 KB) -> sfx_select_item_03
+- 051_Select_item_04.ogg (22 KB) -> sfx_select_item_04
+- 053_Medal_earned_bronze.ogg (93 KB) -> sfx_medal_earned_bronze
+- 053_Medal_earned_gold.ogg (90 KB) -> sfx_medal_earned_gold
+- 053_Medal_earned_silver.ogg (93 KB) -> sfx_medal_earned_silver
+- 096_Menu_confirm.ogg (34 KB) -> sfx_menu_confirm
+- 097_Menu_back.ogg (18 KB) -> sfx_menu_back
+- 100_Gong_v2.ogg (311 KB) -> sfx_gong_v2
+- 101_XP_Count_1000.ogg (117 KB) -> sfx_xp_count_1000
+- 101_XP_Count_250.ogg (105 KB) -> sfx_xp_count_250
+- 101_XP_Count_500.ogg (116 KB) -> sfx_xp_count_500
+- 101_XP_Count_min250.ogg (106 KB) -> sfx_xp_count_min250
+- 102_4th_place_01.ogg (47 KB) -> sfx_4th_place_01
+- 102_4th_place_02.ogg (57 KB) -> sfx_4th_place_02
+- 102_4th_place_03.ogg (26 KB) -> sfx_4th_place_03
+- 102_4th_place_04.ogg (28 KB) -> sfx_4th_place_04
+- 102_4th_place_05.ogg (27 KB) -> sfx_4th_place_05
+- 102_4th_place_06.ogg (36 KB) -> sfx_4th_place_06
+- 103_Trophy.ogg (218 KB) -> sfx_trophy
+- 104_Fireworks_01.ogg (18 KB) -> sfx_fireworks_01
+- 104_Fireworks_02.ogg (21 KB) -> sfx_fireworks_02
+- 104_Fireworks_03.ogg (17 KB) -> sfx_fireworks_03
+- 500_count_up_long.ogg (38 KB) -> sfx_count_up_long
+- 500_count_up_short.ogg (22 KB) -> sfx_count_up_short
+- 502_exp_gained.ogg (36 KB) -> sfx_exp_gained
+
+### music
+- 000_Track_01_Race_stinger.ogg (149 KB) -> music_track_01_race_stinger
+- 000_Track_01_single_speed.ogg (3161 KB) -> music_race
+- 002_Puzzle_v2.ogg (3022 KB) -> music_puzzle
+- 002_Track_03_Puzzle_stinger.ogg (202 KB) -> music_track_03_puzzle_stinger
+- 004_Survival.ogg (3183 KB) -> music_survival
+- 004_Track_02_Spooky_Stinger.ogg (161 KB) -> music_track_02_spooky_stinger
+- 044_Menu.ogg (1937 KB) -> music_menu_2
+- 044_Music_menu.ogg (2055 KB) -> music_menu
+- 045_Lose_game_loop.ogg (718 KB) -> music_lose_game_loop
+- 045_Lose_game_stinger.ogg (264 KB) -> sfx_lose
+- 046_Win_game_loop.ogg (791 KB) -> music_win_game_loop
+- 046_Win_game_stinger.ogg (170 KB) -> sfx_win
+- 056_Racepro_v3.ogg (2848 KB) -> music_racepro_v3
+
+### voice pack: armello
+- 227_Thane_cast_01.ogg (8 KB) -> sfx_voice_armello_thane_cast_01
+- 227_Thane_cast_02.ogg (8 KB) -> sfx_voice_armello_thane_cast_02
+- 227_Thane_cast_03.ogg (8 KB) -> sfx_voice_armello_thane_cast_03
+- 228_Thane_cheer_01.ogg (7 KB) -> sfx_voice_armello_thane_cheer_01
+- 228_Thane_cheer_02.ogg (10 KB) -> sfx_voice_armello_thane_cheer_02
+- 228_Thane_cheer_03.ogg (7 KB) -> sfx_voice_armello_thane_cheer_03
+- 229_Thane_laugh_01.ogg (15 KB) -> sfx_voice_armello_thane_laugh_01
+- 229_Thane_laugh_02.ogg (14 KB) -> sfx_voice_armello_thane_laugh_02
+- 229_Thane_laugh_03.ogg (17 KB) -> sfx_voice_armello_thane_laugh_03
+- 230_Thane_laugh_evil_01.ogg (15 KB) -> sfx_voice_armello_thane_laugh_evil_01
+- 230_Thane_laugh_evil_02.ogg (15 KB) -> sfx_voice_armello_thane_laugh_evil_02
+- 230_Thane_laugh_evil_03.ogg (14 KB) -> sfx_voice_armello_thane_laugh_evil_03
+- 231_Thane_sad_01.ogg (8 KB) -> sfx_voice_armello_thane_sad_01
+- 231_Thane_sad_02.ogg (7 KB) -> sfx_voice_armello_thane_sad_02
+- 231_Thane_sad_03.ogg (6 KB) -> sfx_voice_armello_thane_sad_03
+
+### voice pack: awesomenauts
+- 222_Clunk_cast_01.ogg (11 KB) -> sfx_voice_awesomenauts_clunk_cast_01
+- 222_Clunk_cast_02.ogg (11 KB) -> sfx_voice_awesomenauts_clunk_cast_02
+- 222_Clunk_cast_03.ogg (12 KB) -> sfx_voice_awesomenauts_clunk_cast_03
+- 223_Clunk_cheer_01.ogg (12 KB) -> sfx_voice_awesomenauts_clunk_cheer_01
+- 223_Clunk_cheer_02.ogg (11 KB) -> sfx_voice_awesomenauts_clunk_cheer_02
+- 223_Clunk_cheer_03.ogg (12 KB) -> sfx_voice_awesomenauts_clunk_cheer_03
+- 224_Clunk_laugh_01.ogg (14 KB) -> sfx_voice_awesomenauts_clunk_laugh_01
+- 224_Clunk_laugh_02.ogg (14 KB) -> sfx_voice_awesomenauts_clunk_laugh_02
+- 224_Clunk_laugh_03.ogg (14 KB) -> sfx_voice_awesomenauts_clunk_laugh_03
+- 225_Clunk_laugh_evil_01.ogg (17 KB) -> sfx_voice_awesomenauts_clunk_laugh_evil_01
+- 225_Clunk_laugh_evil_02.ogg (19 KB) -> sfx_voice_awesomenauts_clunk_laugh_evil_02
+- 225_Clunk_laugh_evil_03.ogg (19 KB) -> sfx_voice_awesomenauts_clunk_laugh_evil_03
+- 225_Clunk_sad_01.ogg (13 KB) -> sfx_voice_awesomenauts_clunk_sad_01
+- 225_Clunk_sad_02.ogg (13 KB) -> sfx_voice_awesomenauts_clunk_sad_02
+- 225_Clunk_sad_03.ogg (12 KB) -> sfx_voice_awesomenauts_clunk_sad_03
+
+### voice pack: fish
+- cast_fish_1.ogg (18 KB) -> sfx_voice_fish_cast_fish_1
+- cast_fish_2.ogg (17 KB) -> sfx_voice_fish_cast_fish_2
+- cast_fish_3.ogg (16 KB) -> sfx_voice_fish_cast_fish_3
+- cast_fish_4.ogg (17 KB) -> sfx_voice_fish_cast_fish_4
+- cast_fish_5.ogg (16 KB) -> sfx_voice_fish_cast_fish_5
+- cheer_fish_1.ogg (12 KB) -> sfx_voice_fish_cheer_fish_1
+- cheer_fish_2.ogg (17 KB) -> sfx_voice_fish_cheer_fish_2
+- cheer_fish_3.ogg (11 KB) -> sfx_voice_fish_cheer_fish_3
+- cheer_fish_4.ogg (11 KB) -> sfx_voice_fish_cheer_fish_4
+- cheer_fish_5.ogg (11 KB) -> sfx_voice_fish_cheer_fish_5
+- laugh_evil_fish_1.ogg (17 KB) -> sfx_voice_fish_laugh_evil_fish_1
+- laugh_evil_fish_2.ogg (20 KB) -> sfx_voice_fish_laugh_evil_fish_2
+- laugh_evil_fish_3.ogg (20 KB) -> sfx_voice_fish_laugh_evil_fish_3
+- laugh_evil_fish_4.ogg (20 KB) -> sfx_voice_fish_laugh_evil_fish_4
+- laugh_evil_fish_5.ogg (20 KB) -> sfx_voice_fish_laugh_evil_fish_5
+- laugh_fish_1.ogg (15 KB) -> sfx_voice_fish_laugh_fish_1
+- laugh_fish_2.ogg (20 KB) -> sfx_voice_fish_laugh_fish_2
+- laugh_fish_3.ogg (12 KB) -> sfx_voice_fish_laugh_fish_3
+- laugh_fish_4.ogg (16 KB) -> sfx_voice_fish_laugh_fish_4
+- sad_fish_1.ogg (14 KB) -> sfx_voice_fish_sad_fish_1
+- sad_fish_2.ogg (12 KB) -> sfx_voice_fish_sad_fish_2
+- sad_fish_3.ogg (16 KB) -> sfx_voice_fish_sad_fish_3
+- sad_fish_4.ogg (14 KB) -> sfx_voice_fish_sad_fish_4
+
+### voice pack: lethalleague
+- cast_lethal_league_1.ogg (50 KB) -> sfx_voice_lethalleague_cast_lethal_league_1
+- cast_lethal_league_2.ogg (68 KB) -> sfx_voice_lethalleague_cast_lethal_league_2
+- cast_lethal_league_3.ogg (45 KB) -> sfx_voice_lethalleague_cast_lethal_league_3
+- cast_lethal_league_4.ogg (22 KB) -> sfx_voice_lethalleague_cast_lethal_league_4
+- cast_lethal_league_5.ogg (33 KB) -> sfx_voice_lethalleague_cast_lethal_league_5
+- cast_lethal_league_6.ogg (30 KB) -> sfx_voice_lethalleague_cast_lethal_league_6
+- cheer_lethal_league_1.ogg (21 KB) -> sfx_voice_lethalleague_cheer_lethal_league_1
+- cheer_lethal_league_2.ogg (26 KB) -> sfx_voice_lethalleague_cheer_lethal_league_2
+- cheer_lethal_league_3.ogg (24 KB) -> sfx_voice_lethalleague_cheer_lethal_league_3
+- laugh_evil_lethal_league_1.ogg (82 KB) -> sfx_voice_lethalleague_laugh_evil_lethal_league_1
+- laugh_evil_lethal_league_2.ogg (67 KB) -> sfx_voice_lethalleague_laugh_evil_lethal_league_2
+- laugh_lethal_league_1.ogg (50 KB) -> sfx_voice_lethalleague_laugh_lethal_league_1
+- laugh_lethal_league_2.ogg (32 KB) -> sfx_voice_lethalleague_laugh_lethal_league_2
+- laugh_lethal_league_3.ogg (38 KB) -> sfx_voice_lethalleague_laugh_lethal_league_3
+- laugh_lethal_league_4.ogg (33 KB) -> sfx_voice_lethalleague_laugh_lethal_league_4
+- sad_lethal_league_1.ogg (60 KB) -> sfx_voice_lethalleague_sad_lethal_league_1
+- sad_lethal_league_2.ogg (37 KB) -> sfx_voice_lethalleague_sad_lethal_league_2
+
+### voice pack: nuclearthrone
+- 207_Fish_cast_01.ogg (15 KB) -> sfx_voice_nuclearthrone_fish_cast_01
+- 207_Fish_cast_02.ogg (14 KB) -> sfx_voice_nuclearthrone_fish_cast_02
+- 207_Fish_cast_03.ogg (15 KB) -> sfx_voice_nuclearthrone_fish_cast_03
+- 208_Fish_cheer_01.ogg (17 KB) -> sfx_voice_nuclearthrone_fish_cheer_01
+- 208_Fish_cheer_02.ogg (18 KB) -> sfx_voice_nuclearthrone_fish_cheer_02
+- 208_Fish_cheer_03.ogg (19 KB) -> sfx_voice_nuclearthrone_fish_cheer_03
+- 209_Fish_laugh_01.ogg (16 KB) -> sfx_voice_nuclearthrone_fish_laugh_01
+- 209_Fish_laugh_02.ogg (17 KB) -> sfx_voice_nuclearthrone_fish_laugh_02
+- 209_Fish_laugh_03.ogg (15 KB) -> sfx_voice_nuclearthrone_fish_laugh_03
+- 209_Fish_laugh_evil_01.ogg (23 KB) -> sfx_voice_nuclearthrone_fish_laugh_evil_01
+- 209_Fish_laugh_evil_02.ogg (23 KB) -> sfx_voice_nuclearthrone_fish_laugh_evil_02
+- 209_Fish_laugh_evil_03.ogg (23 KB) -> sfx_voice_nuclearthrone_fish_laugh_evil_03
+- 211_Fish_sad_01.ogg (13 KB) -> sfx_voice_nuclearthrone_fish_sad_01
+- 211_Fish_sad_02.ogg (14 KB) -> sfx_voice_nuclearthrone_fish_sad_02
+- 211_Fish_sad_03.ogg (15 KB) -> sfx_voice_nuclearthrone_fish_sad_03
+
+### voice pack: octodad
+- 212_Octo_cast_01.ogg (14 KB) -> sfx_voice_octodad_octo_cast_01
+- 212_Octo_cast_02.ogg (14 KB) -> sfx_voice_octodad_octo_cast_02
+- 212_Octo_cast_03.ogg (16 KB) -> sfx_voice_octodad_octo_cast_03
+- 213_Octo_cheer_01.ogg (18 KB) -> sfx_voice_octodad_octo_cheer_01
+- 213_Octo_cheer_02.ogg (18 KB) -> sfx_voice_octodad_octo_cheer_02
+- 213_Octo_cheer_03.ogg (20 KB) -> sfx_voice_octodad_octo_cheer_03
+- 214_Octo_laugh_01.ogg (16 KB) -> sfx_voice_octodad_octo_laugh_01
+- 214_Octo_laugh_02.ogg (17 KB) -> sfx_voice_octodad_octo_laugh_02
+- 214_Octo_laugh_03.ogg (17 KB) -> sfx_voice_octodad_octo_laugh_03
+- 215_Octo_laugh_evil_01.ogg (23 KB) -> sfx_voice_octodad_octo_laugh_evil_01
+- 215_Octo_laugh_evil_02.ogg (21 KB) -> sfx_voice_octodad_octo_laugh_evil_02
+- 215_Octo_laugh_evil_03.ogg (21 KB) -> sfx_voice_octodad_octo_laugh_evil_03
+- 216_Octo_sad_01.ogg (12 KB) -> sfx_voice_octodad_octo_sad_01
+- 216_Octo_sad_02.ogg (15 KB) -> sfx_voice_octodad_octo_sad_02
+- 216_Octo_sad_03.ogg (14 KB) -> sfx_voice_octodad_octo_sad_03
+
+### voice pack: platypus
+- cast_platypus_1.ogg (20 KB) -> sfx_voice_platypus_cast_platypus_1
+- cast_platypus_2.ogg (18 KB) -> sfx_voice_platypus_cast_platypus_2
+- cast_platypus_3.ogg (19 KB) -> sfx_voice_platypus_cast_platypus_3
+- cast_platypus_4.ogg (17 KB) -> sfx_voice_platypus_cast_platypus_4
+- cast_platypus_5.ogg (16 KB) -> sfx_voice_platypus_cast_platypus_5
+- cheer_platypus_1.ogg (13 KB) -> sfx_voice_platypus_cheer_platypus_1
+- cheer_platypus_2.ogg (14 KB) -> sfx_voice_platypus_cheer_platypus_2
+- cheer_platypus_3.ogg (14 KB) -> sfx_voice_platypus_cheer_platypus_3
+- cheer_platypus_4.ogg (12 KB) -> sfx_voice_platypus_cheer_platypus_4
+- cheer_platypus_5.ogg (14 KB) -> sfx_voice_platypus_cheer_platypus_5
+- laugh_evil_platypus_1.ogg (20 KB) -> sfx_voice_platypus_laugh_evil_platypus_1
+- laugh_evil_platypus_2.ogg (19 KB) -> sfx_voice_platypus_laugh_evil_platypus_2
+- laugh_evil_platypus_3.ogg (17 KB) -> sfx_voice_platypus_laugh_evil_platypus_3
+- laugh_evil_platypus_4.ogg (18 KB) -> sfx_voice_platypus_laugh_evil_platypus_4
+- laugh_platypus_1.ogg (16 KB) -> sfx_voice_platypus_laugh_platypus_1
+- laugh_platypus_2.ogg (15 KB) -> sfx_voice_platypus_laugh_platypus_2
+- laugh_platypus_3.ogg (16 KB) -> sfx_voice_platypus_laugh_platypus_3
+- laugh_platypus_4.ogg (15 KB) -> sfx_voice_platypus_laugh_platypus_4
+- sad_platypus_1.ogg (14 KB) -> sfx_voice_platypus_sad_platypus_1
+- sad_platypus_2.ogg (16 KB) -> sfx_voice_platypus_sad_platypus_2
+- sad_platypus_3.ogg (12 KB) -> sfx_voice_platypus_sad_platypus_3
+
+### voice pack: tanuki
+- cast_tanuki_1.ogg (16 KB) -> sfx_voice_tanuki_cast_tanuki_1
+- cast_tanuki_2.ogg (17 KB) -> sfx_voice_tanuki_cast_tanuki_2
+- cast_tanuki_3.ogg (16 KB) -> sfx_voice_tanuki_cast_tanuki_3
+- cast_tanuki_4.ogg (11 KB) -> sfx_voice_tanuki_cast_tanuki_4
+- cheer_tanuki_1.ogg (11 KB) -> sfx_voice_tanuki_cheer_tanuki_1
+- cheer_tanuki_2.ogg (13 KB) -> sfx_voice_tanuki_cheer_tanuki_2
+- cheer_tanuki_3.ogg (12 KB) -> sfx_voice_tanuki_cheer_tanuki_3
+- cheer_tanuki_4.ogg (14 KB) -> sfx_voice_tanuki_cheer_tanuki_4
+- cheer_tanuki_5.ogg (10 KB) -> sfx_voice_tanuki_cheer_tanuki_5
+- laugh_evil_tanuki_1.ogg (14 KB) -> sfx_voice_tanuki_laugh_evil_tanuki_1
+- laugh_evil_tanuki_2.ogg (16 KB) -> sfx_voice_tanuki_laugh_evil_tanuki_2
+- laugh_evil_tanuki_3.ogg (12 KB) -> sfx_voice_tanuki_laugh_evil_tanuki_3
+- laugh_evil_tanuki_4.ogg (11 KB) -> sfx_voice_tanuki_laugh_evil_tanuki_4
+- laugh_evil_tanuki_5.ogg (11 KB) -> sfx_voice_tanuki_laugh_evil_tanuki_5
+- laugh_tanuki_1.ogg (17 KB) -> sfx_voice_tanuki_laugh_tanuki_1
+- laugh_tanuki_2.ogg (16 KB) -> sfx_voice_tanuki_laugh_tanuki_2
+- laugh_tanuki_3.ogg (17 KB) -> sfx_voice_tanuki_laugh_tanuki_3
+- sad_tanuki_1.ogg (10 KB) -> sfx_voice_tanuki_sad_tanuki_1
+- sad_tanuki_2.ogg (11 KB) -> sfx_voice_tanuki_sad_tanuki_2
+- sad_tanuki_3.ogg (10 KB) -> sfx_voice_tanuki_sad_tanuki_3
+
+### voice pack: toucan
+- cast_toucan_1.ogg (13 KB) -> sfx_voice_toucan_cast_toucan_1
+- cast_toucan_2.ogg (10 KB) -> sfx_voice_toucan_cast_toucan_2
+- cast_toucan_3.ogg (15 KB) -> sfx_voice_toucan_cast_toucan_3
+- cast_toucan_4.ogg (15 KB) -> sfx_voice_toucan_cast_toucan_4
+- cast_toucan_5.ogg (14 KB) -> sfx_voice_toucan_cast_toucan_5
+- cheer_toucan_1.ogg (13 KB) -> sfx_voice_toucan_cheer_toucan_1
+- cheer_toucan_2.ogg (12 KB) -> sfx_voice_toucan_cheer_toucan_2
+- cheer_toucan_3.ogg (11 KB) -> sfx_voice_toucan_cheer_toucan_3
+- cheer_toucan_4.ogg (16 KB) -> sfx_voice_toucan_cheer_toucan_4
+- laugh_evil_toucan_1.ogg (20 KB) -> sfx_voice_toucan_laugh_evil_toucan_1
+- laugh_evil_toucan_2.ogg (15 KB) -> sfx_voice_toucan_laugh_evil_toucan_2
+- laugh_evil_toucan_3.ogg (16 KB) -> sfx_voice_toucan_laugh_evil_toucan_3
+- laugh_evil_toucan_4.ogg (16 KB) -> sfx_voice_toucan_laugh_evil_toucan_4
+- laugh_evil_toucan_5.ogg (12 KB) -> sfx_voice_toucan_laugh_evil_toucan_5
+- laugh_toucan_1.ogg (14 KB) -> sfx_voice_toucan_laugh_toucan_1
+- laugh_toucan_2.ogg (16 KB) -> sfx_voice_toucan_laugh_toucan_2
+- laugh_toucan_3.ogg (15 KB) -> sfx_voice_toucan_laugh_toucan_3
+- sad_toucan_1.ogg (10 KB) -> sfx_voice_toucan_sad_toucan_1
+- sad_toucan_2.ogg (13 KB) -> sfx_voice_toucan_sad_toucan_2
+- sad_toucan_3.ogg (17 KB) -> sfx_voice_toucan_sad_toucan_3
+- sad_toucan_4.ogg (16 KB) -> sfx_voice_toucan_sad_toucan_4
+
+### voice pack: towerfall
+- 217_Last_cast_01.ogg (8 KB) -> sfx_voice_towerfall_last_cast_01
+- 217_Last_cast_02.ogg (7 KB) -> sfx_voice_towerfall_last_cast_02
+- 217_Last_cast_03.ogg (8 KB) -> sfx_voice_towerfall_last_cast_03
+- 218_Last_cheer_01.ogg (13 KB) -> sfx_voice_towerfall_last_cheer_01
+- 218_Last_cheer_02.ogg (12 KB) -> sfx_voice_towerfall_last_cheer_02
+- 218_Last_cheer_03.ogg (10 KB) -> sfx_voice_towerfall_last_cheer_03
+- 219_Last_laugh_01.ogg (9 KB) -> sfx_voice_towerfall_last_laugh_01
+- 219_Last_laugh_02.ogg (9 KB) -> sfx_voice_towerfall_last_laugh_02
+- 219_Last_laugh_03.ogg (11 KB) -> sfx_voice_towerfall_last_laugh_03
+- 220_Last_laugh_evil_01.ogg (11 KB) -> sfx_voice_towerfall_last_laugh_evil_01
+- 220_Last_laugh_evil_02.ogg (13 KB) -> sfx_voice_towerfall_last_laugh_evil_02
+- 220_Last_laugh_evil_03.ogg (14 KB) -> sfx_voice_towerfall_last_laugh_evil_03
+- 221_Last_sad_01.ogg (6 KB) -> sfx_voice_towerfall_last_sad_01
+- 221_Last_sad_02.ogg (7 KB) -> sfx_voice_towerfall_last_sad_02
+- 221_Last_sad_03.ogg (7 KB) -> sfx_voice_towerfall_last_sad_03
+
+### wizard speech
+- cast_02.ogg (37 KB) -> sfx_voice_speech_cast_02
+- cast_03.ogg (42 KB) -> sfx_voice_speech_cast_03
+- cast_04.ogg (40 KB) -> sfx_voice_speech_cast_04
+- cast_06.ogg (48 KB) -> sfx_voice_speech_cast_06
+- cast_08.ogg (45 KB) -> sfx_voice_speech_cast_08
+- laugh_evil_short01.ogg (12 KB) -> sfx_voice_speech_laugh_evil_short01
+- laugh_evil_short02.ogg (14 KB) -> sfx_voice_speech_laugh_evil_short02
+- laugh_evil_short03.ogg (11 KB) -> sfx_voice_speech_laugh_evil_short03
+- laugh_evil_short04.ogg (10 KB) -> sfx_voice_speech_laugh_evil_short04
+- laugh_evil_short05.ogg (15 KB) -> sfx_voice_speech_laugh_evil_short05
+- laugh_evil_short07.ogg (14 KB) -> sfx_voice_speech_laugh_evil_short07
+- laugh_evil_short08.ogg (16 KB) -> sfx_voice_speech_laugh_evil_short08
+- laugh_happy_short01.ogg (12 KB) -> sfx_voice_speech_laugh_happy_short01
+- laugh_happy_short02.ogg (19 KB) -> sfx_voice_speech_laugh_happy_short02
+- laugh_happy_short03.ogg (14 KB) -> sfx_voice_speech_laugh_happy_short03
+- laugh_happy_short04.ogg (15 KB) -> sfx_voice_speech_laugh_happy_short04
+- laugh_happy_short05.ogg (13 KB) -> sfx_voice_speech_laugh_happy_short05
+- laugh_happy_short06.ogg (14 KB) -> sfx_voice_speech_laugh_happy_short06
+- laugh_happy_short07.ogg (13 KB) -> sfx_voice_speech_laugh_happy_short07
+- laugh_happy_short08.ogg (14 KB) -> sfx_voice_speech_laugh_happy_short08
+- laugh_long_01.ogg (22 KB) -> sfx_voice_speech_laugh_long_01
+- laugh_long_02.ogg (24 KB) -> sfx_voice_speech_laugh_long_02
+- laugh_long_03.ogg (30 KB) -> sfx_voice_speech_laugh_long_03
+- sad_01.ogg (40 KB) -> sfx_voice_speech_sad_01
+- sad_02.ogg (25 KB) -> sfx_voice_speech_sad_02
+- sad_05.ogg (25 KB) -> sfx_voice_speech_sad_05
+- wizard_cast_1.ogg (32 KB) -> sfx_voice_speech_wizard_cast_1
+- wizard_cast_2.ogg (20 KB) -> sfx_voice_speech_wizard_cast_2
+- wizard_cast_3.ogg (43 KB) -> sfx_voice_speech_wizard_cast_3
+- yay_02.ogg (38 KB) -> sfx_voice_speech_yay_02
+- yay_05.ogg (52 KB) -> sfx_voice_speech_yay_05
+- yay_07.ogg (31 KB) -> sfx_voice_speech_yay_07
+- yay_09.ogg (29 KB) -> sfx_voice_speech_yay_09
