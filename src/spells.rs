@@ -58,6 +58,17 @@ pub struct Bubbled {
     pub age: f32,
     /// What it touched when the bubble formed; anything new pops it.
     touching: Option<Vec<Entity>>,
+    /// BubbleBrickModifier's turn: a random 3 to 12 degrees one way (signed), out-elastic over
+    /// 1 s, then 20 more that way over 2 s (in-quad); the angle it started at (radians).
+    pub tilt: f32,
+    start: Option<f32>,
+}
+
+impl Bubbled {
+    /// Which way the bubble turns (+1 anticlockwise).
+    pub fn dir(&self) -> f32 {
+        self.tilt.signum()
+    }
 }
 
 /// A brick carried off by Ghost; it doesn't count toward the tower's height.
@@ -989,7 +1000,7 @@ fn cast_on_tower(
                 commands.entity(entity).insert(BubbleFail { timer: BUBBLE_FAIL_SECONDS });
             }
             if let Some((entity, ..)) = pick.filter(|_| loose) {
-                let tilt = (3.0 + (state.random() % 900) as f32 / 100.0).to_radians();
+                let tilt = 3.0 + (state.random() % 900) as f32 / 100.0;
                 let sign = if state.random().is_multiple_of(2) {
                     1.0
                 } else {
@@ -999,11 +1010,12 @@ fn cast_on_tower(
                     Bubbled {
                         age: 0.0,
                         touching: None,
+                        tilt: tilt * sign,
+                        start: None,
                     },
                     GravityScale(1.0),
                     SleepingDisabled,
                     CollidingEntities::default(),
-                    AngularVelocity(tilt * sign),
                 ));
                 commands.queue_silenced(WakeBody(entity));
             }
@@ -1320,6 +1332,8 @@ pub(crate) fn float_bubbles(
         &mut Bubbled,
         &mut GravityScale,
         Option<&CollidingEntities>,
+        &mut Rotation,
+        &mut AngularVelocity,
     )>,
     mut fails: Query<(Entity, &mut BubbleFail)>,
 ) {
@@ -1331,8 +1345,19 @@ pub(crate) fn float_bubbles(
     }
     let magic = &config.magic;
     let (start, eased, rest) = magic.bubble_lift;
-    for (entity, mut bubble, mut gravity, colliding) in &mut bubbles {
+    for (entity, mut bubble, mut gravity, colliding, mut rotation, mut spin) in &mut bubbles {
         bubble.age += time.delta_secs();
+        // The turn is set outright, as the original's tween sets the brick's rotation.
+        let from = *bubble.start.get_or_insert(rotation.as_radians());
+        let t = bubble.age;
+        let turn = if t < 1.0 {
+            bubble.tilt * EaseFunction::ElasticOut.sample_clamped(t)
+        } else {
+            let k = ((t - 1.0) / 2.0).min(1.0);
+            bubble.tilt + 20.0 * bubble.dir() * k * k
+        };
+        *rotation = Rotation::radians(from + turn.to_radians());
+        spin.0 = 0.0;
         let now: Vec<Entity> = colliding
             .map(|c| c.iter().copied().collect())
             .unwrap_or_default();
