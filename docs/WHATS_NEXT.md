@@ -93,6 +93,14 @@ indicator) and AcceptOnlineInvite need online play to show anything.
 The Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.
 
+## Next up: single-player intro and Endless Race end (2026-10-23)
+Trials and Endless runs now have the original's intro timings and 3-2-1. Still missing: the
+wizard's part of a trial intro (WizardFlipEffect, CastOther until its SPELL_CAST, LaughHard
+after) and the enemy panel showing in Survival and Puzzle trials; and Endless Race's end
+(EndlessRaceGameModePlayController._StartEndAnimation): when the pacer catches the tower the
+bricks stop, the tower freezes, the pacer rises to 5 over the tower (0.8 s out-sine), waits
+0.2 s, drops to 1 under the camera bottom (0.8 s in-expo), and only then the roof comes.
+
 ## Next up: spell casts as a pipeline (found 2026-10-22)
 Ours applies a spell the moment it is cast; the original runs each cast as an effect pipeline
 (AbstractInitSpellsCommand). A dark cast on the brick in hand waits 0.5 s, pauses that brick

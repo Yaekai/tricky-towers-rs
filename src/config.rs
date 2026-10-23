@@ -313,8 +313,8 @@ pub struct EndlessRules {
     pub line_gap: f32,
     /// ...and above this height each gap is one cell longer than the last.
     pub line_gap_grows_after: f32,
-    /// At a checkpoint the pacer eases down this many cells over `ease_seconds`, then
-    /// waits `wait_seconds` before rising again.
+    /// At a checkpoint the pacer stops and eases down this many cells over `ease_seconds`;
+    /// it rises again `wait_seconds` after the checkpoint.
     pub ease_drop: f32,
     pub ease_seconds: f32,
     pub wait_seconds: f32,
@@ -2535,6 +2535,23 @@ pub struct IntroRules {
     pub puzzle_after: f32,
     pub laser_sweep: f32,
     pub laser_fade: f32,
+    /// Trials and Endless runs have no mode title (AbstractSinglePlayerGameMode); a trial's
+    /// intro waits for the wizard's spell as it starts casting (CastStart's SPELL_CAST).
+    pub single_cast: f32,
+    /// A Race trial (SinglePlayerRaceGameModeIntroController): 0.2 s, the wizard turns,
+    /// 0.2 s, its cast; the camera up (waited for); 0.3 s, the finish line in, 0.8 s; the
+    /// camera down (waited for); 0.3 s, it turns back and laughs, 0.2 s.
+    pub single_race_wait: f32,
+    pub single_race_up: f32,
+    pub single_race_hold: f32,
+    pub single_race_down: f32,
+    pub single_race_after: f32,
+    /// A Survival trial: after the cast and the enemy's panel, a wait, then one after the
+    /// wizard laughs.
+    pub single_survival: (f32, f32),
+    /// A Puzzle trial and Endless Puzzle: a wait, the laser in, a wait; Endless Puzzle's
+    /// eclipse then comes on (with its sound) and the second wait comes again.
+    pub single_puzzle: (f32, f32),
     /// The 3-2-1: a number every `count_step`, play starts at `count_go`, and Race's
     /// word stays up until `count_end`. Its centre, letter size (Vh), scale curve, and
     /// each number's sound pitch.
@@ -2594,6 +2611,14 @@ impl Default for IntroRules {
             puzzle_after: 0.5,
             laser_sweep: 0.3,
             laser_fade: 0.5,
+            single_cast: 0.5333,
+            single_race_wait: 0.4,
+            single_race_up: 1.5,
+            single_race_hold: 1.1,
+            single_race_down: 0.5513,
+            single_race_after: 0.5,
+            single_survival: (2.0, 0.5),
+            single_puzzle: (0.5, 0.5),
             count_step: 0.75,
             count_go: 2.25,
             count_end: 3.0,
@@ -2681,6 +2706,10 @@ pub struct IntroPlan {
     pub count_up: Option<(f32, f32)>,
     /// Puzzle's laser starts coming in (without it the laser is simply there).
     pub laser_at: Option<f32>,
+    /// Endless Puzzle's eclipse starts coming on (without it it's simply there).
+    pub eclipse_at: Option<f32>,
+    /// The camera sweep's seconds up, held at the top, and down.
+    pub sweep: (f32, f32, f32),
     /// The 3-2-1 starts; play starts `count_go` later.
     pub countdown_at: f32,
 }
@@ -2721,8 +2750,54 @@ impl IntroRules {
             sweep_at,
             count_up,
             laser_at,
+            eclipse_at: None,
+            sweep: (self.race_up, self.race_hold, self.race_down),
             countdown_at: at,
         }
+    }
+
+    /// A trial's or an Endless run's intro (`mode` as played). Retry skips a trial's and
+    /// Endless Puzzle's; Endless Race waits `pacer_slide` for its pacer to slide in, and
+    /// Endless Survival goes straight to the 3-2-1.
+    pub fn plan_single(&self, mode: ModeKind, retry: bool, pacer_slide: f32) -> IntroPlan {
+        let mut plan = IntroPlan {
+            title_at: None,
+            sweep_at: None,
+            count_up: None,
+            laser_at: None,
+            eclipse_at: None,
+            sweep: (self.single_race_up, self.single_race_hold, self.single_race_down),
+            countdown_at: 0.0,
+        };
+        let (wait, after) = self.single_puzzle;
+        plan.countdown_at = match mode {
+            ModeKind::Endless => pacer_slide,
+            ModeKind::EndlessSurvival => 0.0,
+            ModeKind::EndlessPuzzle if retry => {
+                plan.eclipse_at = Some(f32::NEG_INFINITY);
+                0.0
+            }
+            ModeKind::EndlessPuzzle => {
+                plan.laser_at = Some(wait);
+                plan.eclipse_at = Some(wait + after);
+                wait + after + after
+            }
+            _ if retry => 0.0,
+            ModeKind::Race => {
+                let up = self.single_race_wait + self.single_cast;
+                plan.sweep_at = Some(up);
+                up + self.single_race_up
+                    + self.single_race_hold
+                    + self.single_race_down
+                    + self.single_race_after
+            }
+            ModeKind::Survival => self.single_cast + self.single_survival.0 + self.single_survival.1,
+            _ => {
+                plan.laser_at = Some(self.single_cast + wait);
+                self.single_cast + wait + after
+            }
+        };
+        plan
     }
 }
 
@@ -3974,6 +4049,29 @@ impl Default for RaceScene {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn single_player_intros_wait_as_their_controllers() {
+        let look = IntroRules::default();
+        let close = |a: f32, b: f32| (a - b).abs() < 1e-3;
+        // Endless Race: the pacer's 1 s slide; Endless Survival: straight to the 3-2-1.
+        assert!(close(look.plan_single(ModeKind::Endless, false, 1.0).countdown_at, 1.0));
+        assert_eq!(look.plan_single(ModeKind::EndlessSurvival, false, 1.0).countdown_at, 0.0);
+        // Endless Puzzle: 0.5 s, laser, 0.5 s, eclipse, 0.5 s; a Retry skips it.
+        let puzzle = look.plan_single(ModeKind::EndlessPuzzle, false, 1.0);
+        assert_eq!((puzzle.laser_at, puzzle.eclipse_at), (Some(0.5), Some(1.0)));
+        assert!(close(puzzle.countdown_at, 1.5));
+        assert_eq!(look.plan_single(ModeKind::EndlessPuzzle, true, 1.0).countdown_at, 0.0);
+        // A Race trial: turn and cast (0.93 s), camera up 1.5 s, 1.1 s, down 0.55 s, 0.5 s.
+        let race = look.plan_single(ModeKind::Race, false, 1.0);
+        assert!(close(race.sweep_at.unwrap(), 0.9333));
+        assert!(close(race.countdown_at, 0.9333 + 1.5 + 1.1 + 0.5513 + 0.5));
+        assert_eq!(race.title_at, None);
+        // Survival and Puzzle trials; a trial's Retry goes straight to the 3-2-1.
+        assert!(close(look.plan_single(ModeKind::Survival, false, 1.0).countdown_at, 3.0333));
+        assert!(close(look.plan_single(ModeKind::Puzzle, false, 1.0).countdown_at, 1.5333));
+        assert_eq!(look.plan_single(ModeKind::Race, true, 1.0).countdown_at, 0.0);
+    }
 
     #[test]
     fn packs_without_their_own_textures_start_from_the_base_skin() {

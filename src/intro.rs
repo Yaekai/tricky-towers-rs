@@ -24,6 +24,7 @@ impl Plugin for IntroPlugin {
             .init_resource::<CameraLift>()
             .init_resource::<IntroCount>()
             .init_resource::<LaserIn>()
+            .init_resource::<EclipseIn>()
             .add_systems(Startup, spawn_intro)
             .add_systems(Update, (run_intro, show_title, show_countdown).chain());
     }
@@ -41,6 +42,11 @@ pub struct IntroCount(pub Option<u32>);
 /// shows the laser as it is.
 #[derive(Resource, Default)]
 pub struct LaserIn(pub Option<f32>);
+
+/// Seconds since Endless Puzzle's eclipse started coming on (below 0 while it waits,
+/// infinite when a Retry skips it); `None` without an intro.
+#[derive(Resource, Default)]
+pub struct EclipseIn(pub Option<f32>);
 
 #[derive(Resource, Default)]
 struct Intro {
@@ -254,6 +260,7 @@ fn run_intro(
     mut lift: ResMut<CameraLift>,
     mut count: ResMut<IntroCount>,
     mut laser: ResMut<LaserIn>,
+    mut eclipse: ResMut<EclipseIn>,
 ) {
     let look = &config.intro;
     if game.round != intro.round {
@@ -264,15 +271,23 @@ fn run_intro(
             let mode = game.mode.rules();
             intro.overtime = cup.overtime(&config.cups);
             let title = cup.size.is_none() || cup.show_title || intro.overtime;
-            intro.plan = Some(look.plan(mode, title, game.retry, config.survival.bricks_to_place));
+            let single = config.trial.is_some() || game.mode.is_endless();
+            intro.plan = Some(if single {
+                look.plan_single(game.mode, game.retry, config.endless.intro_seconds)
+            } else {
+                look.plan(mode, title, game.retry, config.survival.bricks_to_place)
+            });
             intro.difficulty = difficulty_index(config.difficulty.unwrap_or(Difficulty::Normal));
-            intro.race = mode == ModeKind::Race;
+            // RaceGameModeCountDownController (Race battles and trials, Endless Race) ends
+            // on the RACE word.
+            intro.race = matches!(game.mode, ModeKind::Race | ModeKind::Endless);
         }
     }
     let Some(plan) = intro.plan else {
         lift.0 = 0.0;
         count.0 = None;
         laser.0 = None;
+        eclipse.0 = None;
         return;
     };
     let before = intro.clock;
@@ -306,6 +321,7 @@ fn run_intro(
     if plan.laser_at.is_some_and(crossed) {
         sound(&mut commands, "sfx_spawn_laser", 1.0);
     }
+    eclipse.0 = plan.eclipse_at.map(|at| now - at);
     if game.phase == Phase::Intro && now >= plan.countdown_at + look.count_go {
         game.phase = Phase::Playing;
     }
@@ -321,11 +337,11 @@ fn run_intro(
                 1.0 - (-2.0 * x + 2.0).powi(2) / 2.0
             }
         };
-        let down_at = look.race_up + look.race_hold;
-        if t < down_at {
-            height * quad(t / look.race_up.max(0.01))
+        let (up, hold, down) = plan.sweep;
+        if t < up + hold {
+            height * quad(t / up.max(0.01))
         } else {
-            height * (1.0 - quad((t - down_at) / look.race_down.max(0.01)))
+            height * (1.0 - quad((t - up - hold) / down.max(0.01)))
         }
     });
     // Survival: 0 until the count-up, then up to the bricks to place.

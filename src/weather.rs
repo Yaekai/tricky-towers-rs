@@ -78,6 +78,7 @@ fn wave_mist_edges(
 /// ease out-expo over the eclipse's 2 s (SunEndlessLayer.Eclipse).
 fn run_endless_sun(
     game: Res<Match>,
+    intro: Option<Res<crate::intro::EclipseIn>>,
     view_size: Res<ViewSize>,
     camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
     mut quads: Query<(&MeshMaterial2d<crate::scene_material::EndlessSun>, &mut Transform), (With<EndlessSunQuad>, Without<crate::visuals::MainCamera>)>,
@@ -85,7 +86,7 @@ fn run_endless_sun(
 ) {
     let (_, size) = view(&camera, view_size.0);
     let unit = size.y / 41.54;
-    let t = crate::visuals::eclipse_progress(&game);
+    let t = crate::visuals::eclipse_progress(&game, intro.as_deref());
     let amount = if t >= 1.0 { 1.0 } else { 1.0 - 2f32.powf(-10.0 * t) };
     for (material, mut transform) in &mut quads {
         transform.translation.x = 0.0;

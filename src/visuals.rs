@@ -103,22 +103,30 @@ pub(crate) fn glow_copy(source: &Image, strength: f32) -> Option<Image> {
     Some(out)
 }
 
-/// An Endless Puzzle eclipse layer and its full colour: it fades in over 2 s from
-/// 1.5 s into the match (EndlessPuzzleGameModeIntroController: 0.5 s, the laser
-/// moving in, 0.5 s, the eclipse sound, EclipseEffect; the start is ?).
+/// An Endless Puzzle eclipse layer and its full colour: it fades in over 2 s when the
+/// intro's EclipseEffect starts (EndlessPuzzleGameModeIntroController: 0.5 s, the laser
+/// moving in, 0.5 s, the eclipse sound and EclipseEffect, 0.5 s, the 3-2-1).
 #[derive(Component)]
 pub(crate) struct EclipseFade(pub(crate) Color);
 
-const ECLIPSE_START: f32 = 1.5;
+/// Without an intro (headless runs) it starts this far into play.
+const ECLIPSE_START: f32 = 1.0;
 const ECLIPSE_TIME: f32 = 2.0;
 
-/// How far Endless Puzzle's eclipse is, 0 to 1: done behind the menus, else over its 2 s
-/// in the intro.
-pub(crate) fn eclipse_progress(game: &Match) -> f32 {
+/// Seconds since Endless Puzzle's eclipse started coming on: from the intro, or into
+/// play without one.
+fn eclipse_since(game: &Match, intro: Option<&crate::intro::EclipseIn>) -> f32 {
+    intro
+        .and_then(|e| e.0)
+        .unwrap_or(game.elapsed - ECLIPSE_START)
+}
+
+/// How far Endless Puzzle's eclipse is, 0 to 1: done behind the menus, else over its 2 s.
+pub(crate) fn eclipse_progress(game: &Match, intro: Option<&crate::intro::EclipseIn>) -> f32 {
     if game.phase == Phase::Menu {
         1.0
     } else {
-        ((game.elapsed - ECLIPSE_START) / ECLIPSE_TIME).clamp(0.0, 1.0)
+        (eclipse_since(game, intro) / ECLIPSE_TIME).clamp(0.0, 1.0)
     }
 }
 
@@ -126,11 +134,14 @@ fn fade_eclipse(
     mut commands: Commands,
     game: Res<Match>,
     art: Res<Art>,
+    intro: Option<Res<crate::intro::EclipseIn>>,
     mut layers: Query<(&EclipseFade, &mut Sprite)>,
     mut played: Local<u64>,
 ) {
-    let t = eclipse_progress(&game);
-    if game.phase == Phase::Playing && game.elapsed >= ECLIPSE_START && *played != game.round {
+    let t = eclipse_progress(&game, intro.as_deref());
+    // The sound goes with EclipseEffect; a Retry's instant eclipse has none.
+    let since = eclipse_since(&game, intro.as_deref());
+    if game.phase != Phase::Menu && (0.0..ECLIPSE_TIME).contains(&since) && *played != game.round {
         *played = game.round;
         if let Some(sound) = art.sounds.get("sfx_eclipse") {
             commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));

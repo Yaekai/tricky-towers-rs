@@ -1281,9 +1281,8 @@ fn start_match(
 
     log.0.clear();
     // Battles open with their intro (mode title, 3-2-1) in the full game.
-    let battle = config.trial.is_none() && !config.mode.is_endless();
     *game = Match {
-        phase: if intro.is_some() && battle {
+        phase: if intro.is_some() {
             Phase::Intro
         } else {
             Phase::Playing
@@ -2183,24 +2182,35 @@ fn zap_over_laser(
     }
 }
 
-fn smoothstep(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
+fn in_out_sine(t: f32) -> f32 {
+    (1.0 - (std::f32::consts::PI * t.clamp(0.0, 1.0)).cos()) / 2.0
 }
 
-/// Moves Endless Race's pacer line: it slides in, then rises; after a checkpoint it
-/// eases down a little and waits first.
-pub fn advance_pacer(rules: &crate::config::EndlessRules, state: &mut TowerState, dt: f32) {
-    state.pacer_clock += dt;
+/// EndlessRaceGameModeIntroController: the pacer slides in from `intro_from` to its start
+/// over `intro_seconds` (in-out sine); the intro runs it before the 3-2-1.
+pub fn slide_pacer(rules: &crate::config::EndlessRules, state: &mut TowerState, dt: f32) {
+    state.pacer_clock = (state.pacer_clock + dt).min(rules.intro_seconds);
+    let t = in_out_sine(state.pacer_clock / rules.intro_seconds.max(f32::EPSILON));
+    state.pacer = rules.intro_from + (rules.start_height - rules.intro_from) * t;
+}
+
+/// Moves Endless Race's pacer line (EndlessRaceGameModePlayController): it slides in if
+/// no intro did, then rises; at a checkpoint it stops, eases down over the first part of
+/// its wait (in-out sine), and rises again when the wait is over.
+pub fn advance_pacer(rules: &crate::config::EndlessRules, state: &mut TowerState, mut dt: f32) {
     if state.pacer_clock < rules.intro_seconds {
-        let t = smoothstep(state.pacer_clock / rules.intro_seconds);
-        state.pacer = rules.intro_from + (rules.start_height - rules.intro_from) * t;
-        return;
+        let left = rules.intro_seconds - state.pacer_clock;
+        slide_pacer(rules, state, dt);
+        if dt <= left {
+            return;
+        }
+        dt -= left;
     }
+    state.pacer_clock += dt;
     if state.pacer_pause > 0.0 {
         state.pacer_pause = (state.pacer_pause - dt).max(0.0);
-        let since = rules.ease_seconds + rules.wait_seconds - state.pacer_pause;
-        let t = smoothstep(since / rules.ease_seconds.max(f32::EPSILON));
+        let since = rules.wait_seconds - state.pacer_pause;
+        let t = in_out_sine(since / rules.ease_seconds.max(f32::EPSILON));
         state.pacer = state.pacer_from - rules.ease_drop * t;
         return;
     }
@@ -2214,7 +2224,7 @@ pub fn advance_pacer(rules: &crate::config::EndlessRules, state: &mut TowerState
 pub fn pacer_checkpoint(rules: &crate::config::EndlessRules, state: &mut TowerState) {
     state.pacer_stages += 1;
     state.pacer_from = state.pacer;
-    state.pacer_pause = rules.ease_seconds + rules.wait_seconds;
+    state.pacer_pause = rules.wait_seconds.max(rules.ease_seconds);
     state.pacer_speed = (state.pacer_speed + state.pacer_step).min(rules.max_speed);
     state.pacer_step = (state.pacer_step + rules.step_growth).min(rules.max_step);
 }
@@ -2225,6 +2235,11 @@ fn judge_match(
     mut game: ResMut<Match>,
     mut towers: Query<(&Tower, &mut TowerState)>,
 ) {
+    if game.phase == Phase::Intro && game.mode == ModeKind::Endless {
+        for (_, mut state) in &mut towers {
+            slide_pacer(&config.endless, &mut state, time.delta_secs());
+        }
+    }
     if game.phase != Phase::Playing {
         return;
     }

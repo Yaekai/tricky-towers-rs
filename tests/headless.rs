@@ -1427,12 +1427,14 @@ fn endless_pacer_stops_eases_down_and_speeds_up_at_checkpoints() {
     advance_pacer(&rules, &mut state, 1.0);
     assert!((state.pacer + 4.8).abs() < 0.05, "{}", state.pacer);
 
-    // A checkpoint: 2 cells down over 1 s, a 2 s wait, then 0.05 faster.
+    // A checkpoint: 2 cells down over 1 s, still until 2 s after it, then 0.05 faster.
     let at = state.pacer;
     pacer_checkpoint(&rules, &mut state);
-    advance_pacer(&rules, &mut state, 1.0);
+    advance_pacer(&rules, &mut state, 0.5);
+    assert!((state.pacer - (at - 1.0)).abs() < 1e-4, "half way: {}", state.pacer);
+    advance_pacer(&rules, &mut state, 0.5);
     assert!((state.pacer - (at - 2.0)).abs() < 1e-4, "{}", state.pacer);
-    advance_pacer(&rules, &mut state, 2.0);
+    advance_pacer(&rules, &mut state, 1.0);
     assert!(
         (state.pacer - (at - 2.0)).abs() < 1e-4,
         "moved while waiting"
