@@ -1219,6 +1219,11 @@ pub struct MagicRules {
     pub life_orb_lift: f32,
     pub life_orb_floor: f32,
     pub auto_build_bricks: u32,
+    /// Auto Build drops each brick over the tower's top (AutoBuildBrickModifier): at a random
+    /// x across the parts reaching within `auto_build_top` cells of the tower's height (and
+    /// the base), no further than `auto_build_range` cells from the lane centre.
+    pub auto_build_top: f32,
+    pub auto_build_range: f32,
     /// Times a cursed or Mystery brick that is lost comes back where it fell.
     pub respawn_limit: u32,
     /// A placed brick lost within this many seconds still comes back (BrickDroppedChecker's
@@ -1453,6 +1458,8 @@ impl Default for MagicRules {
             life_orb_lift: 3.0,
             life_orb_floor: 10.0,
             auto_build_bricks: 5,
+            auto_build_top: 3.0,
+            auto_build_range: 6.0,
             respawn_limit: 3,
             respawn_window: 2.5,
             large_scale: 2.0,

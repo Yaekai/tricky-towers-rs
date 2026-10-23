@@ -585,6 +585,9 @@ pub struct TowerState {
     pub pacer_clock: f32,
     /// Endless Race once the pacer has caught the tower: its end sweep, before the roof.
     pub pacer_end: Option<PacerEnd>,
+    /// How far left and right of the lane centre the tower's top `auto_build_top` cells reach
+    /// (Tower.GetTowerRect), in cells; `None` with nothing there.
+    pub top_span: Option<(f32, f32)>,
     /// How far the widest settled brick reaches from the lane centre, in cells.
     pub half_width: f32,
     /// The tallest this tower has been, in cells (Endless Race's score).
@@ -655,6 +658,7 @@ impl TowerState {
             pacer_from: 0.0,
             pacer_clock: 0.0,
             pacer_end: None,
+            top_span: None,
             best_height: 0.0,
             half_width: 0.0,
             mystery_bag: Vec::new(),
@@ -1463,9 +1467,15 @@ fn spawn_next_brick(
         let friction = Friction::new(modifier.friction.unwrap_or(config.brick_friction));
 
         if modifier.auto_build {
-            // Auto Build: straight down onto a random spot over the tower, as stone.
-            let half = config.cells(config.base_half_width(game.mode));
-            let x = tower.origin_x + ((state.random() % 1000) as f32 / 1000.0 * 2.0 - 1.0) * half;
+            // Auto Build: straight down onto a random spot over the tower's top, as stone.
+            // ponytail: it drops at once rather than at the original's 60 cells/s.
+            let (range, limit) = (config.magic.auto_build_range, config.lane_half_width);
+            let (lo, hi) = state.top_span.map_or((0.0, 0.0), |(lo, hi)| {
+                let (lo, hi) = (lo.max(-range), hi.min(range));
+                (lo.clamp(-limit, limit), hi.max(lo).clamp(-limit, limit))
+            });
+            let k = (state.random() % 1000) as f32 / 1000.0;
+            let x = tower.origin_x + config.cells(lo + (hi - lo) * k);
             let from = Vec2::new(x, config.cells(state.stack_top + config.spawn_gap));
             let Some(hit) = spatial.cast_shape(
                 &query_shape,
@@ -1495,7 +1505,7 @@ fn spawn_next_brick(
             state.bricks_placed += 1;
             state.last_placed = Some(entity);
             state.placed_count += 1;
-            commands.entity(entity).insert(Placed(state.placed_count));
+            commands.entity(entity).insert((Placed(state.placed_count), AutoBuilt));
             continue;
         }
 
@@ -2075,7 +2085,7 @@ fn track_towers(
     mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
-    mut towers: Query<(&Tower, &mut TowerState)>,
+    mut towers: Query<(Entity, &Tower, &mut TowerState)>,
     bricks: Query<
         (
             Entity,
@@ -2097,7 +2107,7 @@ fn track_towers(
     let kill_y = -config.cells(config.kill_depth);
     let view = {
         let (mut low, mut high, mut n) = (f32::MAX, f32::MIN, 0);
-        for (_, s) in towers.iter() {
+        for (_, _, s) in towers.iter() {
             (low, high, n) = (low.min(s.stack_top), high.max(s.stack_top), n + 1);
         }
         tower_view(&config, &game, low, high, n)
@@ -2106,8 +2116,10 @@ fn track_towers(
 
     let settled_speed = config.cells(0.5);
     let mut tops: Vec<(Entity, f32, bool)> = Vec::new();
+    // Each counted part's tower, left and right edge (from the lane centre) and top, in cells.
+    let mut spans: Vec<(Entity, f32, f32, f32)> = Vec::new();
 
-    for (_, mut state) in &mut towers {
+    for (_, _, mut state) in &mut towers {
         state.height = 0.0;
         state.stack_top = 0.0;
         state.half_width = 0.0;
@@ -2116,7 +2128,7 @@ fn track_towers(
     for (entity, brick, position, velocity, collider, rotation, bubbled, ghosted, cursed, spin, in_ivy) in
         &bricks
     {
-        let Ok((tower, mut state)) = towers.get_mut(brick.tower) else {
+        let Ok((_, tower, mut state)) = towers.get_mut(brick.tower) else {
             continue;
         };
         // Tight bounds like Unity's collider.bounds: ColliderAabb is padded by the
@@ -2186,15 +2198,35 @@ fn track_towers(
             info!("trial brick over laser: piece {:?} at ({:.2}, {:.2}) top {:.2} settled {}", brick.piece, position.0.x / config.cell_size, position.0.y / config.cell_size, aabb.max.y / config.cell_size, settled);
         }
         tops.push((brick.tower, aabb.max.y, settled));
+        let c = config.cell_size;
+        spans.push((
+            brick.tower,
+            (aabb.min.x - tower.origin_x) / c,
+            (aabb.max.x - tower.origin_x) / c,
+            aabb.max.y / c,
+        ));
     }
     for (tower, top, settled) in tops {
-        if let Ok((_, mut state)) = towers.get_mut(tower) {
+        if let Ok((_, _, mut state)) = towers.get_mut(tower) {
             // Like the original, the height is the top of any placed brick,
             // settled or not.
             state.stack_top = state.stack_top.max(top / config.cell_size);
             state.height = state.stack_top;
             state.all_settled &= settled;
         }
+    }
+    // The top of each tower: its parts within `auto_build_top` of its height, the base too.
+    let near = config.magic.auto_build_top;
+    let base = config.base_half_width(config.mode);
+    for (entity, _, mut state) in &mut towers {
+        let floor = state.height - near;
+        let base_span = (0.0 > floor).then_some((-base, base));
+        state.top_span = spans
+            .iter()
+            .filter(|s| s.0 == entity && s.3 > floor)
+            .map(|s| (s.1, s.2))
+            .chain(base_span)
+            .reduce(|a, b| (a.0.min(b.0), a.1.max(b.1)));
     }
 }
 
@@ -2333,6 +2365,10 @@ pub fn advance_pacer(rules: &crate::config::EndlessRules, state: &mut TowerState
     }
     state.pacer += state.pacer_speed * dt;
 }
+
+/// A brick Auto Build put down (its landing sounds are the auto-build hits).
+#[derive(Component)]
+pub struct AutoBuilt;
 
 /// Endless Race's end (EndlessRaceGameModePlayController._StartEndAnimation): once the pacer
 /// catches the tower no bricks come and the tower stands still, while the pacer rises to

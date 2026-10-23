@@ -404,6 +404,7 @@ impl Plugin for ArtPlugin {
                     play_sounds,
                     menu_cursor_sound,
                     auto_rotate_sounds,
+                    auto_build_loop,
                     stone_and_ice_sounds,
                     ice_hit_sounds,
                 ),
@@ -1097,6 +1098,7 @@ fn play_sounds(
     towers: Query<(&Tower, &TowerState, Option<&crate::gameplay::TowerSkin>)>,
     active: Query<(), With<ActiveBrick>>,
     bricks: Query<&crate::gameplay::Brick>,
+    auto_built: Query<(), With<crate::gameplay::AutoBuilt>>,
     mut heard: Local<Heard>,
 ) {
     if art.sounds.is_empty() {
@@ -1160,7 +1162,9 @@ fn play_sounds(
             // ice hits; any other plays the landing sound, plus its pack's own (one of three).
             let placed = you.last_placed.and_then(|e| bricks.get(e).ok());
             let variant = you.bricks_placed % 3 + 1;
-            if placed.is_some_and(|b| piano(&config, b)) {
+            if you.last_placed.is_some_and(|e| auto_built.contains(e)) {
+                play(&format!("sfx_autobrick_hit_0{}", you.bricks_placed % 5 + 1));
+            } else if placed.is_some_and(|b| piano(&config, b)) {
                 play(&format!("sfx_piano_brick_land_0{variant}"));
             } else if placed.is_some_and(|b| b.scale > 1.0) {
                 play("sfx_brick_heavy");
@@ -1229,7 +1233,8 @@ fn play_sounds(
             play(["sfx_cast_light", "sfx_cast_lightning_level_02"][light_pick as usize]);
         }
         // Each spell's own sound (AbstractInitSpellsCommand).
-        // ponytail: played with the cast, not when the spell lands; AUTO_BUILD's loop not done.
+        // ponytail: played with the cast, not when the spell lands (AUTO_BUILD's loop:
+        // auto_build_loop).
         let own = match cast.spell {
             SpellKind::AutoRotate => "sfx_auto_rotate_start",
             SpellKind::Minibase => "sfx_spawn_minibase",
@@ -1323,6 +1328,36 @@ fn ice_hit_sounds(
         if let Some(sound) = art.sounds.get(&name) {
             commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
         }
+    }
+}
+
+/// Auto Build's SFX_AUTO_BUILD loops while the first player's bricks still have Auto Build to
+/// come (AbstractInitSpellsCommand's DependentLoopingAudioEffect on the repeating modifier).
+fn auto_build_loop(
+    mut commands: Commands,
+    art: Res<Art>,
+    game: Res<Match>,
+    towers: Query<(&Tower, &TowerState)>,
+    mut playing: Local<Option<Entity>>,
+) {
+    let building = game.phase == Phase::Playing
+        && towers
+            .iter()
+            .find(|(t, _)| t.is_first_player())
+            .is_some_and(|(_, s)| s.next_mods.iter().any(|m| m.auto_build));
+    match (building, *playing) {
+        (true, None) => {
+            if let Some(handle) = art.sounds.get("sfx_auto_build_loop") {
+                *playing = Some(commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::LOOP)).id());
+            }
+        }
+        (false, Some(entity)) => {
+            if let Ok(mut e) = commands.get_entity(entity) {
+                e.despawn();
+            }
+            *playing = None;
+        }
+        _ => {}
     }
 }
 
