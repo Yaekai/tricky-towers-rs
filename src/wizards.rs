@@ -119,6 +119,11 @@ pub struct Wizard {
     cell: f32,
     /// The winner's bask, once it starts.
     bask: Option<Bask>,
+    /// Which way it faces outside the bask (+1 as spawned), seconds since its last turn,
+    /// and how far into a trial's intro it has played its moves.
+    facing: f32,
+    turned: f32,
+    intro_seen: f32,
 }
 
 /// The winner's bask (WizardMovementBaskController): it sinks to its bask height over 1 s,
@@ -263,6 +268,9 @@ fn spawn_wizards(
             enemy,
             cell,
             bask: None,
+            facing: 1.0,
+            turned: 1.0,
+            intro_seen: -1.0,
         };
         wizard.action_countdown = wizard.random(look.action_every.0, look.action_every.1);
         if enemy {
@@ -339,6 +347,9 @@ pub(crate) fn spawn_free_wizard(
         enemy: false,
         cell,
         bask: None,
+        facing: 1.0,
+        turned: 1.0,
+        intro_seen: -1.0,
     };
     Some(
         commands
@@ -361,6 +372,42 @@ fn roof_down(state: &TowerState) -> bool {
     matches!(state.roof, crate::gameplay::RoofStage::Resting(_) | crate::gameplay::RoofStage::Done)
 }
 
+/// A trial's intro moves for its wizard, in seconds from the intro's start: turning round,
+/// casting (CastOther) and laughing (LaughHard), as SinglePlayerRaceGameModeIntroController
+/// and its Survival and Puzzle siblings run them before the 3-2-1.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum IntroMove {
+    Turn,
+    Cast,
+    Laugh,
+}
+
+fn trial_intro_moves(look: &crate::config::IntroRules, mode: ModeKind) -> Vec<(f32, IntroMove)> {
+    let cast = look.single_cast;
+    match mode {
+        ModeKind::Race => {
+            let wait = look.single_race_wait;
+            // The cast ends as the camera is back down; 0.3 s later it turns back and laughs.
+            let end = wait + cast + look.single_race_up + look.single_race_hold + look.single_race_down;
+            let back = end + (look.single_race_after - 0.2).max(0.0);
+            vec![
+                (wait / 2.0, IntroMove::Turn),
+                (wait, IntroMove::Cast),
+                (back, IntroMove::Turn),
+                (back, IntroMove::Laugh),
+            ]
+        }
+        ModeKind::Survival => vec![
+            (0.0, IntroMove::Cast),
+            (cast + look.single_survival.0, IntroMove::Laugh),
+        ],
+        _ => vec![
+            (0.0, IntroMove::Cast),
+            (cast + look.single_puzzle.0, IntroMove::Laugh),
+        ],
+    }
+}
+
 fn play(wizard: &mut Wizard, clip: Clip, then: Option<Clip>) {
     if wizard.clip == Clip::Dying {
         return;
@@ -379,9 +426,16 @@ fn react_wizards(
     log: Res<SpellLog>,
     towers: Query<&TowerState>,
     mut wizards: Query<&mut Wizard>,
+    game: Res<crate::gameplay::Match>,
+    intro: Option<Res<crate::intro::IntroClock>>,
 ) {
     let look: &WizardLook = &config.wizards;
     let dt = time.delta_secs();
+    // A trial's first try opens with its wizard's moves (a Retry skips them).
+    let intro_moves = intro
+        .and_then(|c| c.0)
+        .filter(|_| config.trial.is_some() && !game.retry)
+        .map(|now| (now, trial_intro_moves(&config.intro, game.mode.rules())));
     for mut wizard in &mut wizards {
         let Ok(state) = towers.get(wizard.tower) else {
             continue;
@@ -389,6 +443,25 @@ fn react_wizards(
         let before = wizard.clip;
         let started = wizard.clip_time;
         wizard.laugh_cooldown -= dt;
+        wizard.turned += dt;
+        if let Some((now, moves)) = intro_moves.as_ref().filter(|_| !wizard.enemy) {
+            if *now < wizard.intro_seen {
+                wizard.intro_seen = -1.0;
+            }
+            for &(at, step) in moves {
+                if wizard.intro_seen < at && at <= *now {
+                    match step {
+                        IntroMove::Turn => {
+                            wizard.facing = -wizard.facing;
+                            wizard.turned = 0.0;
+                        }
+                        IntroMove::Cast => play(&mut wizard, Clip::Casting, None),
+                        IntroMove::Laugh => play(&mut wizard, Clip::LaughHard, None),
+                    }
+                }
+            }
+            wizard.intro_seen = *now;
+        }
         if wizard.enemy {
             let failed = state.status == TowerStatus::Out;
             if failed && wizard.clip == Clip::Idle && wizard.laugh_cooldown <= 0.0 {
@@ -547,7 +620,17 @@ fn move_wizards(
         // The winner basks once WINNER! (or FINISH) is up, its roof on.
         let won = state.status == TowerStatus::Won
             || (game.phase == crate::gameplay::Phase::Over && game.winner == Some(tower.index));
-        let mut facing = 1.0;
+        // Turned round by a trial's intro: it squeezes to 0.7 the new way, then swings out.
+        let turn_k = (wizard.turned / 0.3).min(1.0);
+        let mut facing = wizard.facing * (0.7 + 0.3 * EaseFunction::BackOut.sample_clamped(turn_k));
+        if wizard.turned == 0.0 {
+            let cell = wizard.cell;
+            commands.entity(entity).with_child((
+                Swoosh(0.0),
+                Sprite::default(),
+                Transform::from_xyz(0.0, SWOOSH_Y * cell, 1.0),
+            ));
+        }
         if !wizard.enemy && won && !crate::gameplay::roof_waiting(&game, tower, state) {
             let single = config.trial.is_some() || game.mode.is_endless();
             let puzzle = game.mode.rules() == ModeKind::Puzzle;
@@ -616,10 +699,15 @@ fn orbit_bricks(
     game: Res<crate::gameplay::Match>,
     towers: Query<(&TowerState, &crate::gameplay::BrickBag, Option<&crate::gameplay::TowerSkin>)>,
     images: Option<Res<Assets<Image>>>,
+    intro: Option<Res<crate::intro::IntroClock>>,
     mut wizards: Query<(Entity, &Wizard, Option<&mut Orbit>)>,
     mut bricks: Query<(Entity, &ChildOf, &mut OrbitBrick, &mut Transform, &mut Visibility)>,
 ) {
     let trial = config.trial.is_some() && config.mode.rules() == ModeKind::Survival;
+    // SurvivalWizardHUD shows once a trial's intro has the wizard's spell out
+    // (EnemyWizardHUDShowEffect), at once on a Retry.
+    let shown = game.retry
+        || intro.and_then(|c| c.0).is_none_or(|t| t >= config.intro.single_cast);
     let dt = time.delta_secs();
     for (entity, wizard, orbit) in &mut wizards {
         if wizard.enemy || wizard.tower == Entity::PLACEHOLDER {
@@ -631,7 +719,7 @@ fn orbit_bricks(
         let spawned = state.bricks_used() + state.active.is_some() as u32;
         let left = config.survival.bricks_to_place.saturating_sub(spawned);
         let Some(mut orbit) = orbit else {
-            if !trial || game.phase == crate::gameplay::Phase::Menu || left == 0 {
+            if !trial || !shown || game.phase == crate::gameplay::Phase::Menu || left == 0 {
                 continue;
             }
             // The coming bricks in the order they will be dealt, the next one last.
@@ -909,6 +997,21 @@ fn pose_wizards(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_race_trial_wizard_turns_casts_and_laughs_before_the_countdown() {
+        let look = crate::config::IntroRules::default();
+        let moves = trial_intro_moves(&look, ModeKind::Race);
+        let countdown = look.plan_single(ModeKind::Race, false, 1.0).countdown_at;
+        assert_eq!(moves[0], (0.2, IntroMove::Turn));
+        assert_eq!(moves[1], (0.4, IntroMove::Cast));
+        // Back round and laughing 0.2 s before the 3-2-1.
+        assert!((moves[3].0 - (countdown - 0.2)).abs() < 1e-4);
+        assert_eq!((moves[2].1, moves[3].1), (IntroMove::Turn, IntroMove::Laugh));
+        // Survival laughs after the cast's 2 s, Puzzle after its 0.5 s.
+        assert!((trial_intro_moves(&look, ModeKind::Survival)[1].0 - 2.5333).abs() < 1e-3);
+        assert!((trial_intro_moves(&look, ModeKind::Puzzle)[1].0 - 1.0333).abs() < 1e-3);
+    }
 
     #[test]
     fn voice_lines_follow_the_original_speech_table() {

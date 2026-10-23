@@ -365,6 +365,8 @@ fn bob_column(
     art: Res<Art>,
     config: Res<GameConfig>,
     view: Option<Res<crate::visuals::ViewSize>>,
+    intro: Option<Res<crate::intro::IntroClock>>,
+    game: Res<crate::gameplay::Match>,
     mut images: ResMut<Assets<Image>>,
     camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<PuzzleColumn>)>,
     mut columns: Query<
@@ -396,7 +398,10 @@ fn bob_column(
         _ => 1.0,
     };
     let view = view.map_or(Vec2::new(1280.0, 720.0), |v| v.0) * zoom;
-    let dt = time.delta_secs();
+    // PuzzleWizardHUD shows once a trial's intro has the wizard's spell out
+    // (EnemyWizardHUDShowEffect), at once on a Retry.
+    let waiting = !game.retry && intro.and_then(|c| c.0).is_some_and(|t| t < config.intro.single_cast);
+    let dt = if waiting { 0.0 } else { time.delta_secs() };
     // Every column hangs from the lowest view bottom and they share one clock.
     let mut clock = None;
     for (mut column, mut at) in &mut columns {
@@ -405,6 +410,9 @@ fn bob_column(
             .x
             .unwrap_or(camera.translation.x + (COLUMN_SCREEN_X - 0.5) * view.x);
         at.translation.y = column.floor;
+        if game.retry && column.time < 1.0 {
+            column.time = 1.0;
+        }
         let before = column.time;
         column.time += dt;
         clock = Some((before, column.time, at.translation.y));

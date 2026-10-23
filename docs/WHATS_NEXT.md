@@ -94,10 +94,9 @@ The Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.
 
 ## Next up: single-player intro and Endless Race end (2026-10-23)
-Trials and Endless runs now have the original's intro timings and 3-2-1. Still missing: the
-wizard's part of a trial intro (WizardFlipEffect, CastOther until its SPELL_CAST, LaughHard
-after) and the enemy panel showing in Survival and Puzzle trials. Endless Race's end sweep
-is done (`gameplay::PacerEnd`).
+Trials and Endless runs have the original's intro (timings, the wizard's moves, the HUD
+showing at its spell) and 3-2-1, and Endless Race its end sweep (`gameplay::PacerEnd`).
+Check in play: the Race trial's camera sweep and the wizard's turn look like the original's.
 
 ## Next up: spell casts as a pipeline (found 2026-10-22)
 Ours applies a spell the moment it is cast; the original runs each cast as an effect pipeline

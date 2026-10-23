@@ -25,6 +25,7 @@ impl Plugin for IntroPlugin {
             .init_resource::<IntroCount>()
             .init_resource::<LaserIn>()
             .init_resource::<EclipseIn>()
+            .init_resource::<IntroClock>()
             .add_systems(Startup, spawn_intro)
             .add_systems(Update, (run_intro, show_title, show_countdown).chain());
     }
@@ -42,6 +43,11 @@ pub struct IntroCount(pub Option<u32>);
 /// shows the laser as it is.
 #[derive(Resource, Default)]
 pub struct LaserIn(pub Option<f32>);
+
+/// Seconds into the current match's intro (it keeps counting through the 3-2-1 and on),
+/// `None` without one.
+#[derive(Resource, Default)]
+pub struct IntroClock(pub Option<f32>);
 
 /// Seconds since Endless Puzzle's eclipse started coming on (below 0 while it waits,
 /// infinite when a Retry skips it); `None` without an intro.
@@ -261,6 +267,7 @@ fn run_intro(
     mut count: ResMut<IntroCount>,
     mut laser: ResMut<LaserIn>,
     mut eclipse: ResMut<EclipseIn>,
+    mut clock: ResMut<IntroClock>,
 ) {
     let look = &config.intro;
     if game.round != intro.round {
@@ -288,6 +295,7 @@ fn run_intro(
         count.0 = None;
         laser.0 = None;
         eclipse.0 = None;
+        clock.0 = None;
         return;
     };
     let before = intro.clock;
@@ -322,6 +330,7 @@ fn run_intro(
         sound(&mut commands, "sfx_spawn_laser", 1.0);
     }
     eclipse.0 = plan.eclipse_at.map(|at| now - at);
+    clock.0 = Some(now);
     if game.phase == Phase::Intro && now >= plan.countdown_at + look.count_go {
         game.phase = Phase::Playing;
     }
