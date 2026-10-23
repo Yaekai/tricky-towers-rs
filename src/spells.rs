@@ -570,27 +570,38 @@ pub const ENEMY_WIZARD: usize = usize::MAX;
 pub struct EnemyCasts(pub Vec<Curse>);
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
+/// A cast on its way (AbstractInitSpellsCommand's pipelines): the spells land on the target
+/// `land` seconds after the cast; from `hold` seconds the target's brick in hand hangs where it
+/// is, shaking (PauseBrickControlEffect + ShakeModifier), until they land.
+#[derive(Debug, Clone)]
+pub(crate) struct PendingCast {
+    time: f32,
+    hold: f32,
+    land: f32,
+    held: bool,
+    target: Entity,
+    spells: Vec<SpellKind>,
+    bricks: Option<u32>,
+}
+
+/// Casts on their way to their targets.
+#[derive(Resource, Debug, Default)]
+pub struct PendingCasts(pub(crate) Vec<PendingCast>);
+
+impl PendingCasts {
+    /// No cast is on its way.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 pub(crate) fn cast_spells(
-    mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
     mut log: ResMut<SpellLog>,
     mut enemy: ResMut<EnemyCasts>,
+    mut pending: ResMut<PendingCasts>,
     mut towers: Query<(Entity, &Tower, &mut TowerState, &mut PlayerInput)>,
-    mut active: Query<(&mut ActiveBrick, &mut Brick)>,
-    placed: Query<
-        (
-            Entity,
-            &Brick,
-            &Position,
-            Option<&RigidBody>,
-            Has<Stone>,
-            Has<Vined>,
-            Option<&crate::gameplay::Placed>,
-            Has<Bubbled>,
-        ),
-        Without<ActiveBrick>,
-    >,
 ) {
     let mut casts = Vec::new();
     for (entity, tower, mut state, mut input) in &mut towers {
@@ -617,6 +628,7 @@ pub(crate) fn cast_spells(
 
     let magic = &config.magic;
     for (caster, caster_index, cast) in casts {
+        let dark = matches!(cast, Cast::Dark(_));
         let (spells, targets, bricks): (Vec<SpellKind>, Vec<(Entity, usize)>, Option<u32>) =
             match cast {
                 Cast::Light(spell) => (vec![spell], vec![(caster, caster_index)], None),
@@ -630,44 +642,15 @@ pub(crate) fn cast_spells(
                     curse.bricks,
                 ),
             };
+        // A dark cast hangs the victim's brick 0.5 s in and lands when the curse orb does; a
+        // light one hangs the caster's brick through its 0.4 s lightning.
+        let (hold, land) = if dark {
+            (magic.dark_cast_hold, config.casts.dark_orb_land)
+        } else {
+            (0.0, magic.light_cast_land)
+        };
         for (target, target_index) in targets {
-            let Ok((_, tower, mut state, _)) = towers.get_mut(target) else {
-                continue;
-            };
             for &spell in &spells {
-                let count = bricks.unwrap_or(match spell {
-                    SpellKind::Fast => magic.fast_bricks,
-                    SpellKind::Ice => magic.ice_bricks,
-                    SpellKind::AutoBuild => magic.auto_build_bricks,
-                    _ => 1,
-                });
-                if let Some(effect) = brick_effect(spell, magic) {
-                    if spell == SpellKind::AutoBuild {
-                        // The coming bricks, not the one in hand.
-                        for i in 0..count as usize {
-                            state.queue_mod(i, &effect);
-                        }
-                    } else {
-                        curse_bricks(
-                            &mut commands,
-                            &config,
-                            &mut state,
-                            &mut active,
-                            &effect,
-                            count,
-                        );
-                    }
-                } else {
-                    cast_on_tower(
-                        &mut commands,
-                        &config,
-                        spell,
-                        target,
-                        tower,
-                        &mut state,
-                        &placed,
-                    );
-                }
                 log.0.push(SpellCast {
                     spell,
                     caster: caster_index,
@@ -675,10 +658,136 @@ pub(crate) fn cast_spells(
                 });
                 log.1 += 1;
             }
+            pending.0.push(PendingCast {
+                time: 0.0,
+                hold,
+                land,
+                held: false,
+                target,
+                spells: spells.clone(),
+                bricks,
+            });
         }
     }
     let excess = log.0.len().saturating_sub(5);
     log.0.drain(..excess);
+}
+
+/// Lands the casts on their way: hangs the target's brick in hand, then applies the spells.
+#[allow(clippy::type_complexity)]
+pub(crate) fn land_casts(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    mut pending: ResMut<PendingCasts>,
+    mut towers: Query<(Entity, &Tower, &mut TowerState)>,
+    mut active: Query<(&mut ActiveBrick, &mut Brick)>,
+    positions: Query<&Position, With<ActiveBrick>>,
+    placed: Query<
+        (
+            Entity,
+            &Brick,
+            &Position,
+            Option<&RigidBody>,
+            Has<Stone>,
+            Has<Vined>,
+            Option<&crate::gameplay::Placed>,
+            Has<Bubbled>,
+        ),
+        Without<ActiveBrick>,
+    >,
+) {
+    if game.phase != Phase::Playing {
+        pending.0.clear();
+        return;
+    }
+    let dt = time.delta_secs();
+    let magic = &config.magic;
+    let mut due = Vec::new();
+    pending.0.retain_mut(|cast| {
+        cast.time += dt;
+        if !cast.held && cast.time >= cast.hold {
+            cast.held = true;
+            let hang = (cast.land - cast.time).max(0.0);
+            if let Ok((_, _, state)) = towers.get(cast.target)
+                && let Some((mut control, _)) = state.active.and_then(|e| active.get_mut(e).ok())
+            {
+                control.hold = control.hold.max(hang);
+                control.hold_shake = control.hold_shake.max(hang);
+            }
+        }
+        if cast.time >= cast.land {
+            due.push(cast.clone());
+            return false;
+        }
+        true
+    });
+    for cast in due {
+        let target = cast.target;
+        let Ok((_, tower, mut state)) = towers.get_mut(target) else {
+            continue;
+        };
+        if state.status != TowerStatus::Building {
+            continue;
+        }
+        // Spells whose pre-cast effects carry the brick in hand back up to 16 over the
+        // tower (MoveBrickUpEffect): every curse on it, Slow and Ghost (the default dark
+        // pre-cast), Mystery and the compounds, and Minibase; not Bubble, Mist or Grassy,
+        // nor the other light spells.
+        let lifts = cast.spells.iter().any(|s| {
+            matches!(
+                s,
+                SpellKind::Large
+                    | SpellKind::Fast
+                    | SpellKind::NoRotate
+                    | SpellKind::AutoRotate
+                    | SpellKind::Ice
+                    | SpellKind::Mystery
+                    | SpellKind::Slow
+                    | SpellKind::Ghost
+                    | SpellKind::Minibase
+            )
+        });
+        if lifts
+            && let Some(brick) = state.active
+            && let Ok((mut control, _)) = active.get_mut(brick)
+        {
+            let to = config.cells(state.stack_top + magic.move_up_over);
+            if let Some(at) = positions.get(brick).ok().map(|p| p.0.y).filter(|y| *y < to) {
+                let secs = ((to - at) / config.cell_size).sqrt() / 5.0;
+                control.rise = Some((at, to, 0.0, secs));
+                commands.entity(brick).insert(ColliderDisabled);
+            }
+        }
+        for &spell in &cast.spells {
+            let count = cast.bricks.unwrap_or(match spell {
+                SpellKind::Fast => magic.fast_bricks,
+                SpellKind::Ice => magic.ice_bricks,
+                SpellKind::AutoBuild => magic.auto_build_bricks,
+                _ => 1,
+            });
+            if let Some(effect) = brick_effect(spell, magic) {
+                if spell == SpellKind::AutoBuild {
+                    // The coming bricks, not the one in hand.
+                    for i in 0..count as usize {
+                        state.queue_mod(i, &effect);
+                    }
+                } else {
+                    curse_bricks(
+                        &mut commands,
+                        &config,
+                        &mut state,
+                        &mut active,
+                        &effect,
+                        count,
+                    );
+                }
+            } else {
+                cast_on_tower(&mut commands, &config, spell, target, tower, &mut state, &placed);
+            }
+        }
+    }
 }
 
 /// What a spell does to a brick, for spells that change bricks.

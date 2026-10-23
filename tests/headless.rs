@@ -94,6 +94,10 @@ fn fast_config() -> GameConfig {
     config.puzzle.drop_speed = 8.0;
     config.puzzle.line_random = 0.0;
     config.magic.enabled = false;
+    // Spells land at once here; the cast pipeline's timing is left to play.
+    config.magic.dark_cast_hold = 0.0;
+    config.casts.dark_orb_land = 0.0;
+    config.magic.light_cast_land = 0.0;
     config
 }
 
@@ -841,6 +845,7 @@ fn curses_hit_every_opponent() {
         if tower(&mut app, 0).dark_spell.is_some() {
             human_input(&mut app).cast_dark_pressed = true;
             run_seconds(&mut app, 0.05, |_| {});
+            wait_for_casts(&mut app);
             break;
         }
         app.update();
@@ -872,8 +877,18 @@ fn cast_now(app: &mut App, light: SpellKind, dark: Option<SpellKind>) {
     } else {
         input.cast_light_pressed = true;
     }
-    // Let one fixed step run.
+    // Let one fixed step run, then the cast land (a dark one with its curse orb).
     run_seconds(app, 0.03, |_| {});
+    wait_for_casts(app);
+}
+
+/// Runs until every cast on its way has landed.
+fn wait_for_casts(app: &mut App) {
+    run_until(app, 3.0, |app| {
+        app.world()
+            .resource::<tricky_towers::spells::PendingCasts>()
+            .is_empty()
+    });
 }
 
 #[test]
@@ -2371,3 +2386,27 @@ fn every_tower_is_its_own_physics_world() {
     assert!(!CollisionLayers::new(tower_layer(0), tower_layer(0)).interacts_with(CollisionLayers::new(tower_layer(1), tower_layer(1))));
 }
 
+
+#[test]
+fn a_curse_carries_the_brick_in_hand_back_up_but_mist_does_not() {
+    for (curse, lifts) in [(SpellKind::NoRotate, true), (SpellKind::Mist, false)] {
+        let mut config = fast_config();
+        config.mode = ModeKind::Race;
+        config.opponents = 1;
+        config.magic.enabled = true;
+        let mut app = headless_app(config);
+        run_seconds(&mut app, 1.5, |_| {});
+        let theirs = tower(&mut app, 1).active.expect("wizard 1 has a brick");
+        let y = |app: &App| app.world().get::<avian2d::prelude::Position>(theirs).map(|p| p.0.y);
+        let before = y(&app).unwrap();
+        cast_now(&mut app, SpellKind::Ivy, Some(curse));
+        run_seconds(&mut app, 1.0, |_| {});
+        let top = tower(&mut app, 1).stack_top;
+        let after = y(&app).unwrap_or(f32::MIN);
+        if lifts {
+            assert!(after >= (top + 15.0) * 32.0, "{curse:?}: {before} -> {after}");
+        } else {
+            assert!(after <= before, "{curse:?} lifted: {before} -> {after}");
+        }
+    }
+}
