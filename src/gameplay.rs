@@ -479,6 +479,8 @@ pub struct TowerState {
     pub last_placed: Option<Entity>,
     /// When (match seconds) the last brick was placed, for BrickDroppedChecker's 2.5 s.
     pub last_placed_at: f32,
+    /// Nothing was within a cell under it when it was placed (BrickPlacedStruct.placedMidAir).
+    pub last_placed_mid_air: bool,
     /// Seconds of Mist left over this tower.
     pub mist_timer: f32,
     /// Seconds before a dropped brick can cost another life.
@@ -574,6 +576,7 @@ impl TowerState {
             last_light: None,
             last_placed: None,
             last_placed_at: 0.0,
+            last_placed_mid_air: false,
             mist_timer: 0.0,
             invincible: 0.0,
             out_at: None,
@@ -1802,6 +1805,7 @@ fn control_active_brick(
             state.bricks_placed += 1;
             state.last_placed = Some(entity);
             state.last_placed_at = game.elapsed;
+            state.last_placed_mid_air = cast(position.0, rotation, Dir2::NEG_Y, c).is_none();
             state.placed_count += 1;
             commands.entity(entity).insert(Placed(state.placed_count));
             continue;
@@ -2037,10 +2041,12 @@ fn track_towers(
             state.tower_losses += 1;
             // BrickDroppedChecker (Race only): the brick placed last, lost within 2.5 s of
             // being placed, takes the place of the one in hand at once.
-            // ponytail: Race Pro checks "placed mid-air" (nothing 1 cell under it) instead of
-            // the time alone.
+            // Race Pro's checker is forgiving: only a brick placed mid-air (nothing a cell
+            // under it) comes back; the others take any brick lost in time.
+            let pro = config.difficulty == Some(crate::config::Difficulty::Pro);
             let just_placed = state.last_placed == Some(entity)
-                && game.elapsed - state.last_placed_at <= config.magic.respawn_window;
+                && game.elapsed - state.last_placed_at <= config.magic.respawn_window
+                && (!pro || state.last_placed_mid_air);
             if game.mode.rules() == ModeKind::Race
                 && just_placed
                 && let Some(cursed) = cursed.filter(|c| c.times < config.magic.respawn_limit)
