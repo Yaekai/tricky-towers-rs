@@ -62,7 +62,6 @@ impl Plugin for VisualsPlugin {
                 (
                     dress_bricks,
                     dress_floor.after(dress_bricks),
-                    flicker_effects,
                     dress_bubbles,
                     dress_life_orbs,
                     track_view_size.before(fit_backgrounds).before(frame_towers),
@@ -1431,20 +1430,6 @@ fn dissolve_zapped(
                 && let Some(mut look) = zaps.get_mut(&material.0)
             {
                 look.look.params.x = cutoff;
-            }
-        }
-    }
-}
-
-/// A bubbled brick is drawn pale.
-fn flicker_effects(
-    bubbled: Query<&Children, With<Bubbled>>,
-    mut sprites: Query<&mut Sprite, With<CellSprite>>,
-) {
-    for children in &bubbled {
-        for &child in children {
-            if let Ok(mut sprite) = sprites.get_mut(child) {
-                sprite.color = sprite.color.with_alpha(0.6);
             }
         }
     }
