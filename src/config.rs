@@ -2945,6 +2945,77 @@ impl XpRules {
     }
 }
 
+/// The Animal and Indie wizards' beams, from their prefabs and the BeamAnimalIn /
+/// BeamAnimalDownIn clips. Lengths in cells (units), times in seconds, colours 0-1 RGB.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct SkinBeamLook {
+    /// The two scrolling columns (RayBack, RayBackCenter): width and length once grown, how
+    /// many times the picture repeats per cell of length, and how many repeats a second they
+    /// scroll (BeamBackgroundBehaviour's speed).
+    pub widths: (f32, f32),
+    pub length: f32,
+    pub repeat_per_cell: f32,
+    pub scroll: (f32, f32),
+    /// The three stars at the foot: scale and degrees a second (RotationBehaviour), front to back.
+    pub stars: [(f32, f32); 3],
+    /// Sparks (BeamSparkBehaviour): a new one every this many seconds (random between), its
+    /// width scale and its height scale (random between), out and back in 0.1 s each.
+    pub spark_every: (f32, f32),
+    pub spark_width: f32,
+    pub spark_height: (f32, f32),
+    pub spark_time: f32,
+    /// Star particles from a 1-cell circle: a second, speed, the Limit Velocity (cells/s,
+    /// dampen per 60 Hz frame), life, size.
+    pub particles: (f32, f32, f32, f32, f32, f32),
+    /// Down beams' glow under the brick (CircleGradient): its opacity and scale keys over
+    /// (start, mid, end) seconds.
+    pub circle: ((f32, f32, f32), (f32, f32, f32), (f32, f32, f32)),
+    /// Per skin wizard, from wizard 5: column colours (back, centre), spark colour and the
+    /// three stars' colours (front to back).
+    pub colours: Vec<SkinBeamColours>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+pub struct SkinBeamColours {
+    pub back: [f32; 3],
+    pub centre: [f32; 3],
+    pub spark: [f32; 3],
+    pub stars: [[f32; 3]; 3],
+}
+
+impl Default for SkinBeamLook {
+    fn default() -> Self {
+        let c = |back, centre, spark, stars| SkinBeamColours { back, centre, spark, stars };
+        let cream = [1.0, 0.988, 0.875];
+        Self {
+            widths: (3.4, 1.765),
+            length: 100.0,
+            repeat_per_cell: 1.0,
+            scroll: (7.0, 12.0),
+            stars: [(0.4, 120.0), (0.7, -150.0), (1.0, 80.0)],
+            spark_every: (0.0, 0.07),
+            spark_width: 0.5,
+            spark_height: (0.5, 1.5),
+            spark_time: 0.1,
+            particles: (10.0, 33.8, 1.0, 0.79, 1.5, 0.5),
+            circle: ((0.333, 0.5, 0.667), (0.157, 0.157, 0.0), (0.8, 1.4, 2.0)),
+            colours: vec![
+                c([1.0, 0.961, 0.353], [1.0, 0.847, 0.231], cream, [[1.0, 0.961, 0.694], [1.0, 0.780, 0.443], [1.0, 0.953, 0.180]]),
+                c([1.0, 0.353, 0.506], [0.973, 0.235, 0.408], [1.0, 0.984, 0.824], [[1.0, 0.588, 0.773], [1.0, 0.333, 0.569], [1.0, 0.173, 0.388]]),
+                c([0.380, 0.973, 0.365], [0.788, 0.996, 0.631], [0.992, 0.953, 0.788], [[0.710, 0.965, 0.380], [0.161, 0.780, 0.322], [0.380, 0.973, 0.365]]),
+                c([0.404, 0.973, 0.925], [0.741, 1.0, 0.992], [0.875, 0.973, 1.0], [[0.741, 1.0, 0.992], [0.337, 0.694, 1.0], [0.404, 0.973, 0.925]]),
+                c([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.0, 0.0, 0.0]]),
+                c([0.831, 0.184, 0.173], [0.957, 0.314, 0.361], cream, [[0.957, 0.314, 0.361], [1.0, 0.875, 0.380], [0.831, 0.184, 0.173]]),
+                c([0.161, 0.635, 1.0], [0.271, 0.949, 0.992], cream, [[0.271, 0.949, 0.992], [0.255, 0.369, 0.859], [0.161, 0.635, 1.0]]),
+                c([0.380, 0.176, 0.8], [0.792, 0.678, 0.976], cream, [[0.792, 0.678, 0.976], [0.553, 0.333, 1.0], [0.380, 0.176, 0.8]]),
+                c([0.435, 0.925, 0.075], [1.0, 0.945, 0.310], cream, [[1.0, 0.957, 0.478], [1.0, 0.851, 0.337], [0.435, 0.925, 0.075]]),
+                c([0.992, 0.702, 0.0], [1.0, 0.875, 0.380], cream, [[1.0, 0.714, 0.263], [1.0, 0.875, 0.380], [0.992, 0.702, 0.0]]),
+            ],
+        }
+    }
+}
+
 /// How casting looks, from the PC's readout of the original (tools/extract notes,
 /// "Cast beams" and "Spell clouds"). Lengths in cells, times in seconds; `(?)` marks
 /// guesses.
@@ -2985,6 +3056,9 @@ pub struct CastLook {
     /// VerticalLines, SineRight, SineLeft and Droplets), for the up and the down beam.
     pub beam_streams_up: Vec<BeamStream>,
     pub beam_streams_down: Vec<BeamStream>,
+    /// The Animal and Indie wizards' beams (BeamAnimal01-04 / BeamIndie01-06 and their Down
+    /// twins), used from wizard 5 on.
+    pub skin_beam: SkinBeamLook,
     /// Light cast: the lightning from the wizard to the brick lasts this long, and
     /// its wobble peaks at this many cells (a sixth of the way in; clip `Lightning`).
     pub lightning: f32,
@@ -3165,6 +3239,7 @@ impl Default for CastLook {
                     tints: ((255, 255, 255), (255, 255, 255)),
                 },
             ],
+            skin_beam: SkinBeamLook::default(),
             lightning: 0.4,
             lightning_wobble: 2.0,
             cloud_show: 0.83,

@@ -21,6 +21,7 @@ Not tagged, decide before release:
 - The next-brick preview (`src/visuals.rs`): not yet confirmed in the original (queued for the PC).
 | Galaxy frame switch | `src/packs.rs` (`GalaxyDebug`), `src/debug.rs` (`GalaxyFrame`) | Pauses the Galaxy starfield's scroll, for a still picture of one piece. |
 | Start with a brick pack | `src/debug.rs` (`Start`, `pack`) | Every tower uses one brick pack in a scripted match, so Galaxy and the others can be pictured without Select Players. |
+| Start with chosen wizards | `src/debug.rs` (`Start`, `wizards`) | Each tower's wizard in a scripted match, so the Animal and Indie wizards' beams can be pictured without Select Players. |
 | Pack line | `src/debug.rs` (`PackLine`) | Spawns one static brick of each shape in a row, in one brick pack, for side-by-side pictures against a reference. |
 | Language command | `src/debug.rs` (`Language`) | Sets the menu language from a script, for pictures of the translated menus. |
 | TT_LOG_ASSETS asset lookup log | src/art.rs (Lookup, USED), src/debug.rs (Quit), src/main.rs | Remove with the debug tools |

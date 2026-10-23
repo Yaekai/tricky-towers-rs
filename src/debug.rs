@@ -80,6 +80,9 @@ pub enum DebugCommand {
         /// DEBUG-TOOL: every tower uses this brick pack (as if picked on Select Players).
         #[serde(default)]
         pack: Option<crate::config::BrickPack>,
+        /// DEBUG-TOOL: each tower's wizard (0 is wizard 1), as if picked on Select Players.
+        #[serde(default)]
+        wizards: Option<Vec<usize>>,
     },
     /// DEBUG-TOOL: one static brick of each shape (up to 7), in a row, in `pack`, for side
     /// by side comparison with a reference picture. No physics; spawns in place.
@@ -237,11 +240,20 @@ fn apply_debug_commands(
                 trial,
                 cup,
                 pack,
+                wizards,
             } => {
                 config.mode = mode;
                 config.trial = trial;
                 if let Some(pack) = pack {
                     config.skins = (0..crate::gameplay::MAX_TOWERS).map(|i| (i, pack)).collect();
+                }
+                if let Some(wizards) = wizards {
+                    let packs: Vec<_> = config.skins.iter().map(|s| s.1).collect();
+                    config.skins = wizards
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &w)| (w, packs.get(i).copied().unwrap_or_default()))
+                        .collect();
                 }
                 if difficulty.is_some() {
                     config.difficulty = difficulty;

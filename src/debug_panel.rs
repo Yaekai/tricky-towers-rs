@@ -120,6 +120,7 @@ fn draw_panel(
                         trial: None,
                         cup: None,
                         pack: None,
+                        wizards: None,
                     });
                 }
             }

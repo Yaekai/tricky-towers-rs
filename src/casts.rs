@@ -25,6 +25,7 @@ impl Plugin for CastsPlugin {
             (
                 start_casts,
                 run_beams,
+                run_skin_beams,
                 run_impacts,
                 stream_beams,
                 run_streams,
@@ -240,15 +241,36 @@ fn spawn_beam(
     lane_x: f32,
     wizard: usize,
 ) -> Entity {
-    let image = beam_image(art, kind, config.mode, wizard);
+    let skin = (kind != BeamKind::Lane && wizard >= 4)
+        .then(|| wizard - 4)
+        .filter(|&i| i < config.casts.skin_beam.colours.len());
+    let image = beam_image(art, kind, config.mode, wizard).filter(|_| skin.is_none());
     let sprite = match image {
         Some(image) => Sprite {
             image,
             custom_size: Some(Vec2::ZERO),
             ..default()
         },
+        None if skin.is_some() => Sprite::from_color(Color::NONE, Vec2::ZERO),
         None => Sprite::from_color(DARK_FALLBACK, Vec2::ZERO),
     };
+    if let Some(look) = skin {
+        let seed = (foot.x.to_bits() ^ foot.y.to_bits().rotate_left(7)) | 1;
+        return commands
+            .spawn((
+                Beam {
+                    owed: Vec::new(),
+                    kind,
+                    foot,
+                    lane_x,
+                    time: 0.0,
+                },
+                SkinBeam { look, built: false, spark_in: 0.0, owed: 0.0, seed },
+                sprite,
+                Transform::from_translation(foot.extend(16.0)),
+            ))
+            .id();
+    }
     let mut beam = commands.spawn((
         Beam {
             owed: Vec::new(),
@@ -556,15 +578,18 @@ fn run_beams(
     config: Res<GameConfig>,
     art: Res<Art>,
     camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<Beam>)>,
-    mut beams: Query<(
-        Entity,
-        &mut Beam,
-        &mut Sprite,
-        &mut Transform,
-        &mut Visibility,
-        Option<&mut DelayedBy>,
-        Option<&Children>,
-    )>,
+    mut beams: Query<
+        (
+            Entity,
+            &mut Beam,
+            &mut Sprite,
+            &mut Transform,
+            &mut Visibility,
+            Option<&mut DelayedBy>,
+            Option<&Children>,
+        ),
+        Without<SkinBeam>,
+    >,
     mut feet: Query<
         (&BeamBlob, &mut Transform),
         (Without<Beam>, Without<crate::visuals::MainCamera>),
@@ -732,6 +757,324 @@ fn run_beams(
                 }
             }
         }
+    }
+}
+
+/// An Animal or Indie wizard's beam (BeamAnimal0N / BeamIndie0N and their Down twins): two
+/// scrolling columns, three spinning stars, sparks and star particles at its foot, and a
+/// fading glow under a Down beam's brick. Index into `skin_beam.colours`.
+#[derive(Component)]
+struct SkinBeam {
+    look: usize,
+    built: bool,
+    /// Seconds to the next spark; star particles owed.
+    spark_in: f32,
+    owed: f32,
+    seed: u32,
+}
+
+/// The parts of a skin beam, children of its `Beam`.
+#[derive(Component, Clone, Copy, PartialEq)]
+enum SkinPart {
+    /// 0 the back column, 1 the centre one.
+    Column(usize),
+    /// A star (front to back) and its base scale.
+    Star(usize, f32),
+    Circle(f32),
+}
+
+/// A spark: seconds since it started and the height it stretches to.
+#[derive(Component)]
+struct SkinSpark {
+    time: f32,
+    height: f32,
+    base: f32,
+}
+
+/// A star particle: velocity (pixels/s), seconds lived, spin (radians/s).
+#[derive(Component)]
+struct SkinParticle {
+    velocity: Vec2,
+    time: f32,
+    spin: f32,
+}
+
+fn skin_roll(seed: &mut u32) -> f32 {
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 17;
+    *seed ^= *seed << 5;
+    (*seed % 10_000) as f32 / 10_000.0
+}
+
+/// Piecewise-linear value of `keys` (time, value) at `t`.
+fn keyed_lerp(keys: &[(f32, f32)], t: f32) -> f32 {
+    let mut last = keys[0];
+    if t <= last.0 {
+        return last.1;
+    }
+    for &key in &keys[1..] {
+        if t <= key.0 {
+            let k = (t - last.0) / (key.0 - last.0).max(1e-4);
+            return last.1 + (key.1 - last.1) * k;
+        }
+        last = key;
+    }
+    last.1
+}
+
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn run_skin_beams(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    mut beams: Query<(Entity, &mut Beam, &mut SkinBeam, &mut Visibility, Option<&mut DelayedBy>)>,
+    mut parts: Query<
+        (
+            &SkinPart,
+            &ChildOf,
+            &mut Transform,
+            Option<&mut Sprite>,
+            Option<&MeshMaterial2d<crate::scene_material::ScrollBeam>>,
+        ),
+        Without<Beam>,
+    >,
+    mut sparks: Query<(Entity, &mut SkinSpark, &mut Transform), (Without<Beam>, Without<SkinPart>)>,
+    mut stars: Query<
+        (Entity, &mut SkinParticle, &mut Transform),
+        (Without<Beam>, Without<SkinPart>, Without<SkinSpark>),
+    >,
+    looks: Option<ResMut<Assets<crate::scene_material::ScrollBeam>>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+) {
+    let look = &config.casts.skin_beam;
+    let dt = time.delta_secs();
+    let c = config.cell_size;
+    let mut looks = looks;
+    for (entity, mut beam, mut skin, mut visibility, delay) in &mut beams {
+        if let Some(mut delay) = delay {
+            delay.0 -= dt;
+            if delay.0 > 0.0 {
+                continue;
+            }
+            commands.entity(entity).remove::<DelayedBy>();
+            *visibility = Visibility::Inherited;
+        }
+        let colours = &look.colours[skin.look];
+        let down = beam.kind == BeamKind::Down;
+        if !skin.built {
+            skin.built = true;
+            let tint = |rgb: [f32; 3]| Vec4::new(rgb[0], rgb[1], rgb[2], 1.0);
+            commands.entity(entity).with_children(|beam| {
+                for (i, (name, rgb)) in [
+                    ("fx_cast_effect_animals_background", colours.back),
+                    ("fx_cast_effect_animals_center_background", colours.centre),
+                ]
+                .into_iter()
+                .enumerate()
+                {
+                    if let (Some(image), Some(looks), Some(meshes)) =
+                        (art.image(name), looks.as_mut(), meshes.as_mut())
+                    {
+                        beam.spawn((
+                            SkinPart::Column(i),
+                            Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
+                            MeshMaterial2d(looks.add(crate::scene_material::ScrollBeam {
+                                tint: tint(rgb),
+                                scroll: Vec4::new(look.length * look.repeat_per_cell, 0.0, 0.0, 0.0),
+                                picture: image,
+                            })),
+                            Transform::from_xyz(0.0, 0.0, 0.01 * i as f32).with_scale(Vec3::ZERO),
+                        ));
+                    }
+                }
+                // Draw order (sorting order 5, 3, 0): front star over the sparks, the middle one
+                // over the centre column, the back one with the back column.
+                for (i, z) in [0.05, 0.03, 0.005].into_iter().enumerate() {
+                    if let Some((mut sprite, anchor, transform)) =
+                        crate::visuals::art_sprite(&art, "fx_cast_effect_animals01", c)
+                    {
+                        let rgb = colours.stars[i];
+                        sprite.color = Color::srgb(rgb[0], rgb[1], rgb[2]);
+                        beam.spawn((
+                            SkinPart::Star(i, transform.scale.x),
+                            sprite,
+                            anchor,
+                            Transform::from_xyz(0.0, 0.0, z).with_scale(Vec3::ZERO),
+                        ));
+                    }
+                }
+                if down
+                    && let Some((mut sprite, anchor, transform)) =
+                        crate::visuals::art_sprite(&art, "cast_circle_gradient", c)
+                {
+                    let rgb = colours.stars[0];
+                    sprite.color = Color::srgba(rgb[0], rgb[1], rgb[2], 0.0);
+                    beam.spawn((
+                        SkinPart::Circle(transform.scale.x),
+                        sprite,
+                        anchor,
+                        Transform::from_xyz(0.0, 0.0, -0.001).with_scale(Vec3::ZERO),
+                    ));
+                }
+            });
+        }
+        beam.time += dt;
+        let t = beam.time;
+        let last = if down { config.casts.beam_down.1 } else { config.casts.beam_up.1 };
+        // The original destroys the beam outright when its cast is done.
+        if t >= last {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        // BeamAnimalIn / BeamAnimalDownIn: the beam's width and length scale, the stars'
+        // scale, and when the sparks and particles start.
+        let (sx, sy, star, sparks_at, particles_at) = if down {
+            (
+                keyed_lerp(&[(0.0, 0.1), (1.0 / 6.0, 0.1), (1.0 / 3.0, 0.5)], t),
+                keyed_lerp(&[(0.0, 0.0), (1.0 / 6.0, 0.5)], t),
+                keyed_lerp(&[(1.0 / 6.0, 0.0), (1.0 / 3.0, 1.0)], t),
+                0.2333,
+                1.0 / 3.0,
+            )
+        } else {
+            (
+                keyed_lerp(&[(0.0, 0.0), (1.0 / 6.0, 0.1), (1.0 / 3.0, 0.5)], t),
+                keyed_lerp(&[(0.0, 0.0), (1.0 / 6.0, 0.5)], t),
+                keyed_lerp(&[(0.0, 0.0), (1.0 / 6.0, 1.0)], t),
+                1.0 / 6.0,
+                1.0 / 6.0,
+            )
+        };
+        let height = look.length * sy / 0.5;
+        let centre = if down { look.length - height * 0.5 } else { height * 0.5 };
+        for (part, parent, mut transform, sprite, material) in &mut parts {
+            if parent.parent() != entity {
+                continue;
+            }
+            match *part {
+                SkinPart::Column(i) => {
+                    let width = if i == 0 { look.widths.0 } else { look.widths.1 } * sx / 0.5;
+                    transform.translation.y = c * centre;
+                    transform.scale = Vec3::new(c * width, c * height, 1.0);
+                    // BeamBackgroundBehaviour: the picture scrolls up at its speed.
+                    let speed = if i == 0 { look.scroll.0 } else { look.scroll.1 };
+                    if let (Some(material), Some(looks)) = (material, looks.as_mut())
+                        && let Some(mut beam_look) = looks.get_mut(&material.0)
+                    {
+                        beam_look.scroll.y = -speed * t;
+                    }
+                }
+                SkinPart::Star(i, base) => {
+                    let (scale, spin) = look.stars[i];
+                    transform.scale = Vec3::splat(base * scale * star);
+                    transform.rotate_z(spin.to_radians() * dt);
+                }
+                SkinPart::Circle(base) => {
+                    let (times, alphas, scales) = look.circle;
+                    let keys = |v: (f32, f32, f32)| [(times.0, v.0), (times.1, v.1), (times.2, v.2)];
+                    let on = t >= times.0;
+                    transform.scale = Vec3::splat(if on { base * keyed_lerp(&keys(scales), t) } else { 0.0 });
+                    if let Some(mut sprite) = sprite {
+                        sprite.color.set_alpha(if on { keyed_lerp(&keys(alphas), t) } else { 0.0 });
+                    }
+                }
+            }
+        }
+        let mut seed = skin.seed;
+        // Sparks: one every 0 to 0.07 s, turned any way, out and back in 0.1 s each.
+        if t >= sparks_at {
+            skin.spark_in -= dt;
+            while skin.spark_in <= 0.0 {
+                let (lo, hi) = look.spark_every;
+                skin.spark_in += lo + (hi - lo) * skin_roll(&mut seed) + 0.001;
+                if let Some((mut sprite, anchor, transform)) =
+                    crate::visuals::art_sprite(&art, "cast_spark", c)
+                {
+                    let rgb = colours.spark;
+                    sprite.color = Color::srgb(rgb[0], rgb[1], rgb[2]);
+                    let (lo, hi) = look.spark_height;
+                    let spark = commands
+                        .spawn((
+                            SkinSpark {
+                                time: 0.0,
+                                height: lo + (hi - lo) * skin_roll(&mut seed),
+                                base: transform.scale.x,
+                            },
+                            sprite,
+                            anchor,
+                            Transform::from_xyz(0.0, 0.0, 0.04)
+                                .with_rotation(Quat::from_rotation_z(skin_roll(&mut seed) * std::f32::consts::TAU))
+                                .with_scale(Vec3::ZERO),
+                        ))
+                        .id();
+                    commands.entity(entity).add_child(spark);
+                }
+            }
+        }
+        // Star particles from a 1-cell circle, thrown out and slowed to a drift.
+        if t >= particles_at {
+            let (rate, speed, _, _, _, size) = look.particles;
+            skin.owed += rate * dt;
+            while skin.owed >= 1.0 {
+                skin.owed -= 1.0;
+                let angle = skin_roll(&mut seed) * std::f32::consts::TAU;
+                let r = skin_roll(&mut seed).sqrt();
+                let way = Vec2::from_angle(angle);
+                let cream = Color::srgb(1.0, 0.988, 0.875);
+                let tint = Color::WHITE.mix(&cream, skin_roll(&mut seed));
+                let sprite = match art.image("spark_star") {
+                    Some(image) => Sprite { image, color: tint, custom_size: Some(Vec2::splat(size * c)), ..default() },
+                    None => Sprite::from_color(tint, Vec2::splat(size * c)),
+                };
+                let star = commands
+                    .spawn((
+                        SkinParticle {
+                            velocity: way * speed * c,
+                            time: 0.0,
+                            spin: skin_roll(&mut seed) * std::f32::consts::TAU,
+                        },
+                        sprite,
+                        Transform::from_translation((way * r * c).extend(0.06)),
+                    ))
+                    .id();
+                commands.entity(entity).add_child(star);
+            }
+        }
+        skin.seed = seed;
+    }
+    let (spark_scale_x, spark_time) = (look.spark_width, look.spark_time);
+    for (spark, mut state, mut transform) in &mut sparks {
+        state.time += dt;
+        let k = state.time / spark_time.max(1e-4);
+        if k >= 2.0 {
+            commands.entity(spark).despawn();
+            continue;
+        }
+        // Out-sine up, in-sine back.
+        let y = if k < 1.0 {
+            (k * std::f32::consts::FRAC_PI_2).sin()
+        } else {
+            1.0 - (1.0 - ((k - 1.0) * std::f32::consts::FRAC_PI_2).cos())
+        };
+        transform.scale = Vec3::new(state.base * spark_scale_x, state.base * state.height * y, 1.0);
+    }
+    let (_, _, limit, dampen, life, _) = look.particles;
+    for (star, mut state, mut transform) in &mut stars {
+        state.time += dt;
+        if state.time >= life {
+            commands.entity(star).despawn();
+            continue;
+        }
+        // Limit Velocity: the speed over `limit` loses `dampen` of the excess each 60 Hz frame.
+        let speed = state.velocity.length();
+        let cap = limit * c;
+        if speed > cap {
+            let keep = (1.0 - dampen).powf(dt * 60.0);
+            state.velocity *= (cap + (speed - cap) * keep) / speed;
+        }
+        transform.translation += (state.velocity * dt).extend(0.0);
+        transform.rotate_z(state.spin * dt);
     }
 }
 

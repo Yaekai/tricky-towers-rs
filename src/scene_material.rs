@@ -499,6 +499,47 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
+const SCROLL_SHADER: Handle<Shader> = uuid_handle!("8d1e47b2-6a3c-4f90-b5e1-2c7a9d0f3e64");
+
+const SCROLL_WGSL: &str = r#"// Custom/BeamAnimalBackground, the Animal and Indie wizards' beam columns: the picture
+// repeated `scroll.x` times up the quad, shifted by `scroll.y` (Unity's v runs up), times the tint.
+#import bevy_sprite::mesh2d_vertex_output::VertexOutput
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> tint: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var<uniform> scroll: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var picture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var picture_sampler: sampler;
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let v = (1.0 - mesh.uv.y) * scroll.x + scroll.y;
+    return textureSample(picture, picture_sampler, vec2(mesh.uv.x, 1.0 - fract(v))) * tint;
+}
+"#;
+
+/// A beam column that scrolls its picture (BeamBackgroundBehaviour on BeamAnimalBackground):
+/// tint, and (repeats up the quad, offset).
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct ScrollBeam {
+    #[uniform(0)]
+    pub tint: Vec4,
+    #[uniform(1)]
+    pub scroll: Vec4,
+    #[texture(2)]
+    #[sampler(3)]
+    pub picture: Handle<Image>,
+}
+
+impl Material2d for ScrollBeam {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(SCROLL_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
 /// A picture added onto the screen (Particles/Additive): its tint (alpha fades it).
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 pub struct AdditiveSprite {
@@ -566,11 +607,16 @@ impl Plugin for SceneMaterialPlugin {
             Material2dPlugin::<PerspectiveClouds>::default(),
             Material2dPlugin::<EndlessSun>::default(),
             Material2dPlugin::<AdditiveSprite>::default(),
+            Material2dPlugin::<ScrollBeam>::default(),
         ));
         let _ = app
             .world_mut()
             .resource_mut::<Assets<Shader>>()
             .insert(ADDITIVE_SHADER.id(), Shader::from_wgsl(ADDITIVE_WGSL, "additive_sprite.wgsl"));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(SCROLL_SHADER.id(), Shader::from_wgsl(SCROLL_WGSL, "scroll_beam.wgsl"));
         let _ = app
             .world_mut()
             .resource_mut::<Assets<Shader>>()
