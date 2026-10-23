@@ -17,7 +17,7 @@ impl Plugin for WizardsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (spawn_wizards, react_wizards, move_wizards, pose_wizards, swoosh_turns).chain(),
+            (spawn_wizards, react_wizards, move_wizards, pose_wizards, swoosh_turns, orbit_bricks).chain(),
         );
     }
 }
@@ -582,6 +582,153 @@ fn move_wizards(
         // Alone, the wizard floats on the left and turns to face the tower.
         let size = 1.0 - gone * gone;
         transform.scale = Vec3::new(if solo { -size } else { size } * facing, size, 1.0);
+    }
+}
+
+/// A Survival trial's bricks still to come, circling the wizard (SurvivalWizardHUD's
+/// WizardBricksView): each the brick it will be, in order, the next one last.
+#[derive(Component)]
+struct OrbitBrick {
+    angle: f32,
+    speed: f32,
+    /// Which of the three tilted rings it is on, and its place in the whole row.
+    ring: usize,
+    index: usize,
+}
+
+/// The ring's state on a wizard: seconds since it was made, how many have popped in, the
+/// speed's share (0 to 1 over 2 s once all are in) and how many bricks are left to show.
+#[derive(Component)]
+struct Orbit {
+    time: f32,
+    shown: usize,
+    speed: f32,
+    since_sound: f32,
+    left: u32,
+}
+
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn orbit_bricks(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    game: Res<crate::gameplay::Match>,
+    towers: Query<(&TowerState, &crate::gameplay::BrickBag, Option<&crate::gameplay::TowerSkin>)>,
+    images: Option<Res<Assets<Image>>>,
+    mut wizards: Query<(Entity, &Wizard, Option<&mut Orbit>)>,
+    mut bricks: Query<(Entity, &ChildOf, &mut OrbitBrick, &mut Transform, &mut Visibility)>,
+) {
+    let trial = config.trial.is_some() && config.mode.rules() == ModeKind::Survival;
+    let dt = time.delta_secs();
+    for (entity, wizard, orbit) in &mut wizards {
+        if wizard.enemy || wizard.tower == Entity::PLACEHOLDER {
+            continue;
+        }
+        let Ok((state, bag, skin)) = towers.get(wizard.tower) else {
+            continue;
+        };
+        let spawned = state.bricks_used() + state.active.is_some() as u32;
+        let left = config.survival.bricks_to_place.saturating_sub(spawned);
+        let Some(mut orbit) = orbit else {
+            if !trial || game.phase == crate::gameplay::Phase::Menu || left == 0 {
+                continue;
+            }
+            // The coming bricks in the order they will be dealt, the next one last.
+            let mut bag = bag.clone();
+            let pack = skin.map(|s| s.pack).unwrap_or_default();
+            let cell = wizard.cell;
+            commands.entity(entity).insert(Orbit { time: 0.0, shown: 0, speed: 0.0, since_sound: 0.0, left });
+            let count = left as usize;
+            let mut seed = (entity.to_bits() as u32) | 1;
+            for i in 0..count {
+                let piece = bag.draw();
+                let def = crate::gameplay::piece_def(&config, piece);
+                let key = pack.brick_art(&def.name);
+                let Some(image) = art.image(&key) else { continue };
+                // The picture at its own size (as dress_bricks draws a brick).
+                let size = art
+                    .entries
+                    .get(&key)
+                    .and_then(|e| e.bevel.clone())
+                    .and_then(|b| {
+                        let ppu = art.entries.get(&b)?.pixels_per_unit?;
+                        Some(images.as_ref()?.get(&art.image(&b)?)?.size_f32() / ppu.max(1.0) * cell)
+                    });
+                let index = count - 1 - i;
+                commands.entity(entity).with_child((
+                    OrbitBrick {
+                        angle: index as f32 / count as f32 * std::f32::consts::TAU,
+                        speed: -1.0 - 0.5 * crate::particles::roll(&mut seed),
+                        ring: index % 3,
+                        index,
+                    },
+                    Sprite { image, custom_size: size, ..default() },
+                    Transform::default(),
+                    Visibility::Hidden,
+                ));
+            }
+            continue;
+        };
+        // Pop in over 2 s, one after another, with a rising bubble pop every 0.075 s.
+        orbit.time += dt;
+        orbit.since_sound += dt;
+        let count = bricks.iter().filter(|(_, p, ..)| p.parent() == entity).count();
+        let share = orbit.time / 2.0;
+        let shown = (((count as f32) * share).round() as usize).min(count);
+        if shown > orbit.shown && orbit.since_sound > 0.075 {
+            orbit.since_sound = 0.0;
+            if let Some(sound) = art.sounds.get("sfx_bubble_pop") {
+                commands.spawn((
+                    AudioPlayer(sound.clone()),
+                    PlaybackSettings::DESPAWN.with_speed(1.0 + share.min(1.0) * 1.5),
+                ));
+            }
+        }
+        orbit.shown = shown;
+        if shown >= count {
+            // DOTween's default out-quad, 0 to 1 over 2 s.
+            let k = ((orbit.time - 2.0) / 2.0).clamp(0.0, 1.0);
+            orbit.speed = 1.0 - (1.0 - k) * (1.0 - k);
+        }
+        // A brick dealt takes the next one off the ring.
+        let gone = orbit.left.saturating_sub(left);
+        orbit.left = left;
+        let mut next: Vec<(usize, Entity)> = bricks
+            .iter()
+            .filter(|(_, p, ..)| p.parent() == entity)
+            .map(|(e, _, b, ..)| (b.index, e))
+            .collect();
+        // The next brick is the last one in the row.
+        next.sort_by(|a, b| b.cmp(a));
+        for &(_, brick) in next.iter().take(gone as usize) {
+            commands.entity(brick).despawn();
+        }
+        let unit = wizard.cell;
+        let speed = orbit.speed;
+        let clock = time.elapsed_secs();
+        for (_, parent, mut brick, mut transform, mut visibility) in &mut bricks {
+            if parent.parent() != entity {
+                continue;
+            }
+            visibility.set_if_neq(if brick.index < shown {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            });
+            brick.angle += speed * dt * brick.speed;
+            let a = brick.angle;
+            // Three rings turned 75, 90 and 105 degrees, the outer two 0.1 higher.
+            let ring = brick.ring as f32 - 1.0;
+            let tilt = (90.0 + ring * 15.0f32).to_radians();
+            let local = Vec2::new(a.cos() * 2.0, a.sin() * 9.0);
+            let at = Vec2::from_angle(tilt).rotate(local) + Vec2::new(0.0, ring.abs() * 0.1);
+            let depth = (a - std::f32::consts::FRAC_PI_2).sin();
+            transform.translation = (at * unit).extend(if depth > 0.0 { 1.0 } else { -1.0 });
+            transform.scale = Vec3::splat(0.7 + depth * 0.1).with_z(1.0);
+            transform.rotation =
+                Quat::from_rotation_z((brick.index as f32 * 1337.0 + clock * 30.0).to_radians());
+        }
     }
 }
 
