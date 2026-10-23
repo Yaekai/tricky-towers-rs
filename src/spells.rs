@@ -683,6 +683,7 @@ pub(crate) fn land_casts(
     mut pending: ResMut<PendingCasts>,
     mut towers: Query<(Entity, &Tower, &mut TowerState)>,
     mut active: Query<(&mut ActiveBrick, &mut Brick)>,
+    positions: Query<&Position, With<ActiveBrick>>,
     placed: Query<
         (
             Entity,
@@ -729,6 +730,35 @@ pub(crate) fn land_casts(
         };
         if state.status != TowerStatus::Building {
             continue;
+        }
+        // Spells whose pre-cast effects carry the brick in hand back up to 16 over the
+        // tower (MoveBrickUpEffect): every curse on it, Slow and Ghost (the default dark
+        // pre-cast), Mystery and the compounds, and Minibase; not Bubble, Mist or Grassy,
+        // nor the other light spells.
+        let lifts = cast.spells.iter().any(|s| {
+            matches!(
+                s,
+                SpellKind::Large
+                    | SpellKind::Fast
+                    | SpellKind::NoRotate
+                    | SpellKind::AutoRotate
+                    | SpellKind::Ice
+                    | SpellKind::Mystery
+                    | SpellKind::Slow
+                    | SpellKind::Ghost
+                    | SpellKind::Minibase
+            )
+        });
+        if lifts
+            && let Some(brick) = state.active
+            && let Ok((mut control, _)) = active.get_mut(brick)
+        {
+            let to = config.cells(state.stack_top + magic.move_up_over);
+            if let Some(at) = positions.get(brick).ok().map(|p| p.0.y).filter(|y| *y < to) {
+                let secs = ((to - at) / config.cell_size).sqrt() / 5.0;
+                control.rise = Some((at, to, 0.0, secs));
+                commands.entity(brick).insert(ColliderDisabled);
+            }
         }
         for &spell in &cast.spells {
             let count = cast.bricks.unwrap_or(match spell {

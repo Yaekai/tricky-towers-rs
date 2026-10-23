@@ -1638,6 +1638,8 @@
         fast_bricks: 5,
         dark_cast_hold: 0.5,
         light_cast_land: 0.4,
+        move_up_over: 16.0,
+        move_up_settle: 0.3,
         fast_extra_speed: 7.5,
         ice_bricks: 4,
         ice_friction: 0.06,

@@ -792,6 +792,9 @@ pub struct ActiveBrick {
     /// `hold_shake` is above 0.
     pub hold: f32,
     pub hold_shake: f32,
+    /// Carried back up by a spell (MoveBrickUpEffect): from and to height (pixels),
+    /// seconds so far and in all; it passes through everything on the way.
+    pub rise: Option<(f32, f32, f32, f32)>,
 }
 
 impl ActiveBrick {
@@ -812,6 +815,7 @@ impl ActiveBrick {
             picture_shake: 0.0,
             hold: 0.0,
             hold_shake: 0.0,
+            rise: None,
         }
     }
 }
@@ -1525,6 +1529,20 @@ fn control_active_brick(
             commands
                 .entity(entity)
                 .insert((Position(at), LinearVelocity::ZERO));
+            continue;
+        }
+        // Carried back up by a spell (Brick.MoveUp: in-quad over sqrt(distance) / 5 s), then
+        // it hangs 0.3 s before its colliders come back (the default post-cast effects).
+        if let Some((from, to, t, secs)) = control.rise {
+            let t = t + dt;
+            let k = (t / secs.max(0.01)).min(1.0);
+            let at = Vec2::new(position.0.x, from + (to - from) * k * k);
+            control.rise = (k < 1.0).then_some((from, to, t, secs));
+            if k >= 1.0 {
+                control.hold = control.hold.max(config.magic.move_up_settle);
+                commands.entity(entity).remove::<ColliderDisabled>();
+            }
+            commands.entity(entity).insert((Position(at), LinearVelocity::ZERO));
             continue;
         }
         // Caught by Slow's balloon: it hangs still a moment, shaking at first.
