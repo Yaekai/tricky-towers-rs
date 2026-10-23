@@ -861,6 +861,7 @@ pub(crate) fn dress_bricks(
     skins: Query<&crate::gameplay::TowerSkin>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut lit_bricks: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
+    images: Option<Res<Assets<Image>>>,
 ) {
     for (entity, brick, landed_stone, vined, grass, placed, active, vine_waits, ivy) in &bricks {
         // Joined bricks show their vines once their turn in the spread comes (show_vines);
@@ -959,7 +960,22 @@ pub(crate) fn dress_bricks(
             Some(image) => {
                 let min = brick.cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
                 let max = brick.cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
-                let size = (max - min + Vec2::ONE) * cell;
+                // The brick's picture at its own size (pixels over pixels a unit): the
+                // original's art reaches a little past the cells, so neighbours' outlines meet.
+                let native = |name: &str| -> Option<Vec2> {
+                    let ppu = art.entries.get(name)?.pixels_per_unit?;
+                    let size = images.as_ref()?.get(&art.image(name)?)?.size_f32();
+                    Some(size / ppu.max(1.0) * cell)
+                };
+                let size = whole
+                    .then(|| {
+                        native(&key).or_else(|| {
+                            let bevel = art.entries.get(&key)?.bevel.clone()?;
+                            native(&bevel)
+                        })
+                    })
+                    .flatten()
+                    .unwrap_or((max - min + Vec2::ONE) * cell);
                 let center = (min + max) * 0.5 * cell;
                 // Later bricks sit in front of earlier ones: equal depths draw in
                 // no fixed order, which looked like bricks on different layers.
