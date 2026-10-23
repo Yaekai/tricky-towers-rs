@@ -583,6 +583,7 @@ Add-Texture 'gravel' 'gph_gravel.png' 'effects\gravel.png' 'Gravel bits'
 Add-Texture 'mist_puff' 'gph_gradientRadialSoft.png' 'effects\mist_puff.png' 'Soft round puff: lost-brick mist and desert dust'
 Add-Texture 'spark_star' 'gph_castEffectStar.png' 'effects\spark_star.png' 'Small star spark (spawn poof, desert sparks)'
 Add-Sprite 'lost_cross' 'anim_largeCross_65x65_0' 'hud\lost_cross.png' 'Big red cross where a brick was lost (spins and shrinks, 0.8 s)'
+Add-Texture 'respawn_trail' 'gph_cursedBrickRespawnEffect.png' 'fx\respawn_trail.png' 'Strip texture of the trail to a cursed brick dealt again (CurseRespawnMat)'
 foreach ($i in 1..4) { Add-Sprite "wave_cloud_$i" "gph_cloudMessage0$i" "hud\wave_cloud_$i.png" "WAVE N message: cloud piece $i" }
 Add-Texture 'confetti_1' 'anim_confetti01_32x96.png' 'effects\confetti_1.png' 'Confetti sheet 1 (32x96 frames), cup winner popup'
 Add-Texture 'confetti_2' 'anim_confetti02_32x96.png' 'effects\confetti_2.png' 'Confetti sheet 2 (32x96 frames), cup winner popup'
