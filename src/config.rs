@@ -70,7 +70,7 @@ pub struct GameConfig {
     pub casts: CastLook,
     /// Experience per match and the wizard levels it buys.
     pub xp: XpRules,
-    /// Local cups (guesses until read).
+    /// Local cups (from the PC readout: targets 6/12/18, overtime on a tie at the top).
     pub cups: CupRules,
     /// The standings panel between cup matches, measured from the Tiny Cup screen.
     pub cup_panel: CupPanel,
@@ -133,7 +133,7 @@ pub struct GameConfig {
     pub puzzle: PuzzleRules,
     #[serde(default)]
     pub endless: EndlessRules,
-    /// Endless Survival and Endless Puzzle (guesses until read).
+    /// Endless Survival and Endless Puzzle (read from their game modes and play controllers).
     pub endless_play: EndlessPlay,
     /// The Trials, in order.
     pub trials: Vec<TrialDef>,
@@ -173,10 +173,10 @@ pub enum ModeKind {
     /// Build as high as you can before a rising line catches the top of your tower.
     Endless,
     /// Survival with no brick limit: place as many bricks as you can before the
-    /// lives run out (public rules; details in [`EndlessPlay`] are guesses).
+    /// lives run out (details in [`EndlessPlay`]).
     EndlessSurvival,
-    /// Puzzle that goes on: keep placing bricks under a laser that rises, until a
-    /// brick crosses it (public rules; details in [`EndlessPlay`] are guesses).
+    /// Puzzle that goes on: keep placing bricks under a laser that rises level by level,
+    /// until a brick crosses it; lost bricks lift the tower (details in [`EndlessPlay`]).
     EndlessPuzzle,
 }
 
