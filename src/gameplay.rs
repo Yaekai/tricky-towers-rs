@@ -346,7 +346,6 @@ pub struct Respawn {
     pub piece: usize,
     pub mods: BrickMod,
     pub times: u32,
-    pub x: f32,
 }
 
 /// On a placed brick that carries a curse: what it would come back as if lost.
@@ -467,6 +466,8 @@ pub struct TowerState {
     pub last_light: Option<SpellKind>,
     /// The brick placed most recently (for Undo, Bubble and Grassy).
     pub last_placed: Option<Entity>,
+    /// When (match seconds) the last brick was placed, for BrickDroppedChecker's 2.5 s.
+    pub last_placed_at: f32,
     /// Seconds of Mist left over this tower.
     pub mist_timer: f32,
     /// Seconds before a dropped brick can cost another life.
@@ -561,6 +562,7 @@ impl TowerState {
             lines_reached: 0,
             last_light: None,
             last_placed: None,
+            last_placed_at: 0.0,
             mist_timer: 0.0,
             invincible: 0.0,
             out_at: None,
@@ -1419,11 +1421,8 @@ fn spawn_next_brick(
             ModeKind::Puzzle => state.stack_top.max(state.laser(&config)),
             _ => state.stack_top,
         };
-        // A returning brick comes back above where it was lost, within the lane.
-        let x = respawn.map_or(tower.origin_x, |back| {
-            let reach = config.cells(config.lane_reach(state.half_width));
-            back.x.clamp(tower.origin_x - reach, tower.origin_x + reach)
-        });
+        // A returning brick is dealt where every brick is (LocalGamePlayController._SpawnBrick).
+        let x = tower.origin_x;
         let mut position = Vec2::new(x, config.cells(floor + config.spawn_gap));
         // Bricks flying around can still be in the way; spawn above them.
         for _ in 0..32 {
@@ -1787,6 +1786,7 @@ fn control_active_brick(
             state.active = None;
             state.bricks_placed += 1;
             state.last_placed = Some(entity);
+            state.last_placed_at = game.elapsed;
             state.placed_count += 1;
             commands.entity(entity).insert(Placed(state.placed_count));
             continue;
@@ -1803,12 +1803,16 @@ fn control_active_brick(
                 at: position.0,
                 life,
             });
-            if control.mods.comes_back() && control.comebacks < config.magic.respawn_limit {
+            // BrickDroppedChecker (Race only): a cursed or Mystery brick dropped while steered
+            // is dealt again as the next brick.
+            if game.mode.rules() == ModeKind::Race
+                && control.mods.comes_back()
+                && control.comebacks < config.magic.respawn_limit
+            {
                 state.respawn = Some(Respawn {
                     piece: brick.piece,
                     mods: control.mods,
                     times: control.comebacks + 1,
-                    x: position.0.x,
                 });
             }
             continue;
@@ -2015,13 +2019,24 @@ fn track_towers(
                 continue;
             }
             state.tower_losses += 1;
-            if let Some(cursed) = cursed.filter(|c| c.times < config.magic.respawn_limit) {
+            // BrickDroppedChecker (Race only): the brick placed last, lost within 2.5 s of
+            // being placed, takes the place of the one in hand at once.
+            // ponytail: Race Pro checks "placed mid-air" (nothing 1 cell under it) instead of
+            // the time alone.
+            let just_placed = state.last_placed == Some(entity)
+                && game.elapsed - state.last_placed_at <= config.magic.respawn_window;
+            if game.mode.rules() == ModeKind::Race
+                && just_placed
+                && let Some(cursed) = cursed.filter(|c| c.times < config.magic.respawn_limit)
+            {
                 state.respawn = Some(Respawn {
                     piece: brick.piece,
                     mods: cursed.mods,
                     times: cursed.times + 1,
-                    x: position.0.x,
                 });
+                if let Some(current) = state.active.take() {
+                    commands.entity(current).despawn();
+                }
             }
             continue;
         }

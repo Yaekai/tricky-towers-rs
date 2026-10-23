@@ -1633,6 +1633,7 @@
         life_orb_floor: 10.0,
         auto_build_bricks: 5,
         respawn_limit: 3,
+        respawn_window: 2.5,
         large_scale: 2.0,
         large_stack: 0.5,
         fast_bricks: 5,
