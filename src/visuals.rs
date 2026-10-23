@@ -809,7 +809,6 @@ fn show_edge_delays(
     mut commands: Commands,
     time: Res<Time>,
     art: Res<Art>,
-    settings: Option<Res<crate::settings::Settings>>,
     mut delays: Query<(Entity, &EdgeDelay, &mut Visibility, Option<&EdgeSound>)>,
 ) {
     let now = time.elapsed_secs();
@@ -817,11 +816,7 @@ fn show_edge_delays(
         if now >= delay.show_at && *visibility == Visibility::Hidden {
             visibility.set_if_neq(Visibility::Inherited);
             if let Some(handle) = sound.and_then(|s| art.sounds.get(s.0)) {
-                let volume = settings.as_deref().map_or(1.0, |s| s.volume);
-                commands.spawn((
-                    AudioPlayer(handle.clone()),
-                    PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
-                ));
+                commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
                 commands.entity(entity).remove::<EdgeSound>();
             }
         }

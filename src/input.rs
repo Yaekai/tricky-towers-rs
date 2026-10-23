@@ -127,8 +127,12 @@ fn rumble_losers(
 }
 
 /// LargeBrickControllerRumbleEffect: once a Large brick has grown, its player's pad rumbles
-/// on the big motor while it is steered, and 0.2 s more after it first touches down.
+/// on the big motor while it is steered, and 0.2 s more after it first touches down. The
+/// pause menu stills every pad (RumbleManager.Pause).
+#[allow(clippy::too_many_arguments)]
 fn rumble_large_bricks(
+    game: Res<crate::gameplay::Match>,
+    mut stilled: Local<bool>,
     config: Res<crate::config::GameConfig>,
     gamepads: Query<Entity, With<Gamepad>>,
     towers: Query<(&Tower, &crate::gameplay::TowerState)>,
@@ -139,6 +143,19 @@ fn rumble_large_bricks(
 ) {
     let mut pads: Vec<Entity> = gamepads.iter().collect();
     if pads.is_empty() {
+        return;
+    }
+    if game.phase == crate::gameplay::Phase::Menu {
+        if !*stilled {
+            *stilled = true;
+            for &gamepad in &pads {
+                rumble.write(GamepadRumbleRequest::Stop { gamepad });
+            }
+        }
+        return;
+    }
+    *stilled = false;
+    if game.phase != crate::gameplay::Phase::Playing {
         return;
     }
     pads.sort();

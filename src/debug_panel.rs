@@ -65,9 +65,17 @@ const SPELLS: [SpellKind; 17] = [
     SpellKind::Ghost,
 ];
 
-fn toggle_panel(keys: Option<Res<ButtonInput<KeyCode>>>, mut state: ResMut<PanelState>) {
+fn toggle_panel(
+    keys: Option<Res<ButtonInput<KeyCode>>>,
+    mut state: ResMut<PanelState>,
+    mut cursors: Query<&mut bevy::window::CursorOptions>,
+) {
     if keys.is_some_and(|k| k.just_pressed(KeyCode::F1)) {
         state.open = !state.open;
+        // The pointer hides in play; the panel needs it.
+        for mut cursor in &mut cursors {
+            cursor.visible |= state.open;
+        }
     }
 }
 

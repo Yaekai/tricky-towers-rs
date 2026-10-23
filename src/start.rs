@@ -226,7 +226,6 @@ pub(crate) fn start_input(
     gamepads: Query<&Gamepad>,
     game: Res<Match>,
     art: Option<Res<Art>>,
-    settings: Option<Res<crate::settings::Settings>>,
     mut screen: ResMut<MenuScreen>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Start {
@@ -241,13 +240,9 @@ pub(crate) fn start_input(
     if key || pad {
         // StartStateController plays the start sounds with the logo's rumble.
         // ponytail: goes on at once; the Rumble clip before the title isn't played.
-        let volume = settings.as_deref().map_or(1.0, |s| s.volume);
         for name in ["sfx_start_game_v2", "sfx_brick_heavy", "sfx_menu_crumble"] {
             if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
-                commands.spawn((
-                    AudioPlayer(handle.clone()),
-                    PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
-                ));
+                commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
             }
         }
         *screen = MenuScreen::Main;
@@ -264,7 +259,6 @@ pub(crate) fn show_start_screen(
     art: Option<Res<Art>>,
     images: Option<Res<Assets<Image>>>,
     mut clock: ResMut<StartClock>,
-    settings: Option<Res<crate::settings::Settings>>,
     pads: Query<&Gamepad>,
     mut prompt_parts: Query<
         (&PromptPart, &mut Node, Option<&mut ImageNode>),
@@ -347,12 +341,7 @@ pub(crate) fn show_start_screen(
         *heard += 1;
         for name in names {
             if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
-                // The sound-effects volume from Settings, as every effect plays at.
-                let volume = settings.as_deref().map_or(1.0, |s| s.volume);
-                commands.spawn((
-                    AudioPlayer(handle.clone()),
-                    PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
-                ));
+                commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
             }
         }
     }

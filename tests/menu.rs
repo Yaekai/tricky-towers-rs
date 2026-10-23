@@ -212,25 +212,41 @@ fn escape_pauses_and_the_pause_menu_resumes_retries_or_quits() {
     let screen = |app: &App| *app.world().resource::<MenuScreen>();
     let phase = |app: &App| app.world().resource::<Match>().phase;
 
+    // PauseMenu fades in for 0.3 s before it takes input, and out for 0.3 s before the
+    // option taken happens.
+    let fade = |app: &mut App| {
+        for _ in 0..24 {
+            app.update();
+        }
+    };
     tap(&mut app, KeyCode::Escape);
     assert_eq!(
         (phase(&app), screen(&app)),
         (Phase::Menu, MenuScreen::Pause)
     );
     tap(&mut app, KeyCode::Enter);
+    assert_eq!(phase(&app), Phase::Menu, "no input while it fades in");
+    fade(&mut app);
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(phase(&app), Phase::Menu, "the match waits for the fade out");
+    fade(&mut app);
     assert_eq!(phase(&app), Phase::Playing, "Resume");
 
     tap(&mut app, KeyCode::Escape);
+    fade(&mut app);
     let round = app.world().resource::<Match>().round;
     tap(&mut app, KeyCode::ArrowDown);
     tap(&mut app, KeyCode::Enter);
+    fade(&mut app);
     let game = app.world().resource::<Match>();
     assert_eq!(game.phase, Phase::Playing, "Retry");
     assert_ne!(game.round, round, "Retry starts a new round");
 
     tap(&mut app, KeyCode::Escape);
+    fade(&mut app);
     tap(&mut app, KeyCode::ArrowUp);
     tap(&mut app, KeyCode::Enter);
+    fade(&mut app);
     assert_eq!(
         (phase(&app), screen(&app)),
         (Phase::Menu, MenuScreen::Main),

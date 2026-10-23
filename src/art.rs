@@ -784,7 +784,12 @@ pub(crate) struct Music(String);
 /// A looping ambience (the original's AMBIENT channel): the menu's, or the mode's
 /// for the whole match.
 #[derive(Component)]
-struct Ambience(&'static str);
+pub(crate) struct Ambience(&'static str);
+
+/// A stinger on the music channel (MusicPlayEffect with no type): the music volume, not
+/// paused with the sound effects.
+#[derive(Component)]
+pub(crate) struct Stinger;
 
 /// How a match's music ends (the original's effect triggers and bask controllers): the
 /// roof coming stops the music for SFX_FINISH_TOWER (ROOF_SPAWNED); the roof set down
@@ -808,6 +813,7 @@ fn match_end_stingers(
     towers: Query<(&Tower, &crate::gameplay::TowerState)>,
     mut roofs: MessageReader<crate::gameplay::RoofPlaced>,
     mut end: ResMut<MatchEnd>,
+    settings: Option<Res<crate::settings::Settings>>,
 ) {
     if end.round != game.round {
         *end = MatchEnd {
@@ -843,7 +849,15 @@ fn match_end_stingers(
         None
     };
     if let Some(win) = win {
-        play(if win { "sfx_win" } else { "sfx_lose" });
+        // STINGER_WIN / STINGER_LOSE are MusicPlayEffects: the music volume.
+        if let Some(handle) = art.sounds.get(if win { "sfx_win" } else { "sfx_lose" }) {
+            let volume = settings.as_ref().map_or(1.0, |s| s.music);
+            commands.spawn((
+                Stinger,
+                AudioPlayer(handle.clone()),
+                PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+            ));
+        }
         end.stinger = Some((now, win));
     }
 }
@@ -892,6 +906,7 @@ fn play_music(
         };
         if from_select && let Some(handle) = art.sounds.get(stinger) {
             commands.spawn((
+                Stinger,
                 AudioPlayer(handle.clone()),
                 PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
             ));
@@ -1050,7 +1065,6 @@ fn menu_cursor_sound(
     mut commands: Commands,
     art: Res<Art>,
     game: Res<Match>,
-    settings: Option<Res<crate::settings::Settings>>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
     mut roll: Local<usize>,
@@ -1064,11 +1078,7 @@ fn menu_cursor_sound(
     }
     *roll = (*roll * 7 + 3) % 4;
     if let Some(handle) = art.sounds.get(&format!("sfx_menu_select_0{}", *roll + 1)) {
-        let volume = settings.as_ref().map_or(1.0, |s| s.volume);
-        commands.spawn((
-            AudioPlayer(handle.clone()),
-            PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
-        ));
+        commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
     }
 }
 

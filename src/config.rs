@@ -3190,6 +3190,9 @@ pub struct MenuLook {
     /// The corners are this many pixels (of a 1080-high screen) out at the start of
     /// each loop of this many seconds and at rest halfway through.
     pub corner_pulse: (f32, f32),
+    /// Seconds the pause menu fades in (before it takes input) and out (before Resume,
+    /// Retry or Quit happen): PauseMenu's DOFade.
+    pub pause_fade: f32,
 }
 
 impl Default for MenuLook {
@@ -3197,6 +3200,7 @@ impl Default for MenuLook {
         Self {
             ray_turns: vec![(180.0, 2.0), (-90.0, 2.0)],
             corner_pulse: (5.0, 1.0),
+            pause_fade: 0.3,
         }
     }
 }

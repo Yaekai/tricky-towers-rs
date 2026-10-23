@@ -44,7 +44,13 @@ impl Plugin for SettingsPlugin {
             .add_systems(Startup, crate::keybinding::spawn_keybinding_popup)
             .add_systems(Update, crate::keybinding::show_keybinding_popup)
             .add_systems(Startup, spawn_settings_screen)
-            .add_systems(Update, (apply_settings, set_effect_volume, read_screen_modes));
+            .add_systems(Update, (apply_settings, read_screen_modes, pause_sfx))
+            // Before the audio output (which runs after transform propagation) picks
+            // new sounds up.
+            .add_systems(
+                PostUpdate,
+                sfx_rules.before(bevy::transform::TransformSystems::Propagate),
+            );
     }
 }
 
@@ -974,6 +980,7 @@ pub(crate) fn show_settings_screen(
 fn apply_settings(
     settings: Res<Settings>,
     mut music: Query<&mut AudioSink, With<Music>>,
+    mut ambience: Query<&mut AudioSink, (With<crate::art::Ambience>, Without<Music>)>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if !settings.is_changed() {
@@ -981,6 +988,9 @@ fn apply_settings(
     }
     for mut sink in &mut music {
         sink.set_volume(Volume::Linear(settings.music));
+    }
+    for mut sink in &mut ambience {
+        sink.set_volume(Volume::Linear(settings.volume));
     }
     let mode = if settings.fullscreen {
         WindowMode::BorderlessFullscreen(MonitorSelection::Current)
@@ -1033,20 +1043,120 @@ fn read_screen_modes(
     settings.screen_modes = modes;
 }
 
-/// Every new sound effect plays at the sound-effects volume (music has its own,
-/// set where it starts). Runs before the audio output picks the sounds up.
-fn set_effect_volume(
+/// Sounds that don't start again while one is playing (InitAudioResourcesCommand's
+/// ConcurrentAudioRules: SFX_GRAS_GROW_1..4 and SFX_SPAWN_MIST).
+const ONE_AT_A_TIME: [&str; 5] = [
+    "sfx_grass_grow_01",
+    "sfx_grass_grow_02",
+    "sfx_grass_grow_03",
+    "sfx_grass_grow_04",
+    "sfx_spawn_mist",
+];
+
+/// AudioManager.PlaySfx for every new sound effect: a sound asked for twice in a frame
+/// plays once, the `ONE_AT_A_TIME` sounds wait for their last one to end, and effects and
+/// the ambience play at the sound-effects volume times their own (SettingsStateController
+/// gives the ambience the effects' volume). Music and stingers set the music volume
+/// where they start.
+#[allow(clippy::type_complexity)]
+fn sfx_rules(
+    mut commands: Commands,
     settings: Res<Settings>,
-    mut sounds: Query<&mut PlaybackSettings, (Added<AudioPlayer>, Without<Music>)>,
+    art: Option<Res<crate::art::Art>>,
+    mut sounds: Query<
+        (Entity, Ref<AudioPlayer>, &mut PlaybackSettings),
+        (Without<Music>, Without<crate::art::Stinger>),
+    >,
 ) {
-    for mut playback in &mut sounds {
-        playback.volume = Volume::Linear(settings.volume);
+    if !sounds.iter().any(|(_, p, _)| p.is_added()) {
+        return;
+    }
+    let held: Vec<AssetId<AudioSource>> = art
+        .iter()
+        .flat_map(|a| ONE_AT_A_TIME.iter().filter_map(|n| a.sounds.get(n)).map(|h| h.id()))
+        .collect();
+    let playing: Vec<AssetId<AudioSource>> = sounds
+        .iter()
+        .filter(|(_, p, _)| !p.is_added())
+        .map(|(_, p, _)| p.0.id())
+        .collect();
+    let mut this_frame = Vec::new();
+    for (entity, player, mut playback) in &mut sounds {
+        if !player.is_added() {
+            continue;
+        }
+        let id = player.0.id();
+        if this_frame.contains(&id) || (held.contains(&id) && playing.contains(&id)) {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        this_frame.push(id);
+        playback.volume = Volume::Linear(playback.volume.to_linear() * settings.volume);
+    }
+}
+
+/// PauseMenu pauses every sound effect while it is up and lets them go on as it closes
+/// (AudioManager.PauseAllSfx / ResumeAllSfx); the music, its stingers and the ambience
+/// play on.
+#[allow(clippy::type_complexity)]
+fn pause_sfx(
+    game: Res<crate::gameplay::Match>,
+    screen: Res<crate::menu::MenuScreen>,
+    pause: Res<crate::menu::PauseMenu>,
+    sinks: Query<
+        (Entity, &AudioSink),
+        (Without<Music>, Without<crate::art::Stinger>, Without<crate::art::Ambience>),
+    >,
+    mut held: Local<Option<Vec<Entity>>>,
+) {
+    let paused = game.phase == crate::gameplay::Phase::Menu
+        && *screen == crate::menu::MenuScreen::Pause
+        && pause.closing.is_none();
+    if paused && held.is_none() {
+        let mut list = Vec::new();
+        for (entity, sink) in &sinks {
+            if !sink.is_paused() {
+                sink.pause();
+                list.push(entity);
+            }
+        }
+        *held = Some(list);
+    } else if !paused && let Some(list) = held.take() {
+        for entity in list {
+            if let Ok((_, sink)) = sinks.get(entity) {
+                sink.play();
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_sound_asked_for_twice_in_a_frame_plays_once_at_the_effects_volume() {
+        let mut app = App::new();
+        app.insert_resource(Settings { volume: 0.5, ..default() })
+            .add_systems(Update, sfx_rules);
+        let sound = || {
+            (
+                AudioPlayer(Handle::<AudioSource>::default()),
+                PlaybackSettings::DESPAWN.with_volume(Volume::Linear(0.8)),
+            )
+        };
+        app.world_mut().spawn(sound());
+        app.world_mut().spawn(sound());
+        app.update();
+        let world = app.world_mut();
+        let left: Vec<f32> = world
+            .query::<&PlaybackSettings>()
+            .iter(world)
+            .map(|p| p.volume.to_linear())
+            .collect();
+        assert_eq!(left.len(), 1);
+        assert!((left[0] - 0.4).abs() < 1e-4, "{left:?}");
+    }
 
     #[test]
     fn steps_stay_in_range_and_toggle() {

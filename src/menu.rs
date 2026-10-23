@@ -37,7 +37,7 @@ impl Plugin for MenuPlugin {
         .init_resource::<Leaderboard>()
         .init_resource::<crate::visuals::MenuLook>()
         .init_resource::<crate::trials_menu::TrialsMenu>()
-        .add_systems(Update, black_transitions)
+        .add_systems(Update, (black_transitions, show_cursor))
         .add_systems(
             Startup,
             (
@@ -96,23 +96,21 @@ fn menu_escape(
     mut stats: ResMut<crate::stats::StatsMenu>,
     mut credits: ResMut<crate::credits::CreditsMenu>,
     mut single: ResMut<SingleMenu>,
+    time: Res<Time>,
+    config: Res<GameConfig>,
 ) {
     let Some(keys) = keys else { return };
     if !keys.just_pressed(KeyCode::Escape) {
         return;
     }
+    let now = time.elapsed_secs();
     match (game.phase, *screen) {
         // Pause the match.
-        (Phase::Playing | Phase::Intro, _) => {
-            pause.resume_to = Some(game.phase);
-            pause.selected = 0;
-            game.phase = Phase::Menu;
-            *screen = MenuScreen::Pause;
-        }
-        // Back to the match we paused.
+        (Phase::Playing | Phase::Intro, _) => pause.open(&mut game, &mut screen, now),
+        // Back to the match we paused, once the menu has faded in and out.
         (Phase::Menu, MenuScreen::Pause) => {
-            if let Some(phase) = pause.resume_to.take() {
-                game.phase = phase;
+            if pause.closing.is_none() && pause.shown(now, config.menu.pause_fade) >= 1.0 {
+                pause.closing = Some(("Resume", now));
             }
         }
         // Leave a finished match, or step back a screen.
@@ -254,6 +252,31 @@ fn black_transitions(
 pub struct PauseMenu {
     pub selected: usize,
     pub resume_to: Option<Phase>,
+    /// When (Time's elapsed seconds) it opened: it takes input once it has faded in.
+    pub opened: f32,
+    /// The option taken and when, while the menu fades out before it happens.
+    pub closing: Option<(&'static str, f32)>,
+}
+
+impl PauseMenu {
+    /// Pauses the match (PauseMenu.Enable): the first option picked, fading in.
+    fn open(&mut self, game: &mut Match, screen: &mut MenuScreen, now: f32) {
+        self.resume_to = Some(game.phase);
+        self.selected = 0;
+        self.opened = now;
+        self.closing = None;
+        game.phase = Phase::Menu;
+        *screen = MenuScreen::Pause;
+    }
+
+    /// How far it has faded in, 0 to 1.
+    fn shown(&self, now: f32, fade: f32) -> f32 {
+        let k = |since: f32| (since / fade.max(0.001)).clamp(0.0, 1.0);
+        match self.closing {
+            Some((_, at)) => 1.0 - k(now - at),
+            None => k(now - self.opened),
+        }
+    }
 }
 
 /// The original's pause options, top to bottom.
@@ -643,20 +666,48 @@ fn pause_input(
     mut request: ResMut<MatchRequest>,
     cup: Option<Res<crate::cups::Cup>>,
     mut last_cursor: Local<Option<Vec2>>,
+    time: Res<Time>,
+    config: Res<GameConfig>,
 ) {
+    let now = time.elapsed_secs();
     // Start on any pad pauses, as Esc does.
     if matches!(game.phase, Phase::Playing | Phase::Intro)
         && gamepads
             .iter()
             .any(|pad| pad.just_pressed(GamepadButton::Start))
     {
-        pause.resume_to = Some(game.phase);
-        pause.selected = 0;
-        game.phase = Phase::Menu;
-        *screen = MenuScreen::Pause;
+        pause.open(&mut game, &mut screen, now);
         return;
     }
     if game.phase != Phase::Menu || *screen != MenuScreen::Pause {
+        return;
+    }
+    // The option taken happens once the menu has faded out (PauseMenu._Disable).
+    if let Some((option, _)) = pause.closing {
+        if pause.shown(now, config.menu.pause_fade) > 0.0 {
+            return;
+        }
+        pause.closing = None;
+        match option {
+            "Resume" => {
+                if let Some(phase) = pause.resume_to.take() {
+                    game.phase = phase;
+                }
+            }
+            "Retry" => {
+                pause.resume_to = None;
+                request.pending = true;
+                request.retry = true;
+            }
+            _ => {
+                pause.resume_to = None;
+                *screen = MenuScreen::Main;
+            }
+        }
+        return;
+    }
+    // It takes input once it has faded in.
+    if pause.shown(now, config.menu.pause_fade) < 1.0 {
         return;
     }
     let options = pause_options(cup.as_deref());
@@ -704,24 +755,8 @@ fn pause_input(
     if down {
         pause.selected = (pause.selected + 1) % count;
     }
-    if !pick {
-        return;
-    }
-    match options[pause.selected.min(count - 1)] {
-        "Resume" => {
-            if let Some(phase) = pause.resume_to.take() {
-                game.phase = phase;
-            }
-        }
-        "Retry" => {
-            pause.resume_to = None;
-            request.pending = true;
-            request.retry = true;
-        }
-        _ => {
-            pause.resume_to = None;
-            *screen = MenuScreen::Main;
-        }
+    if pick {
+        pause.closing = Some((options[pause.selected.min(count - 1)], now));
     }
 }
 
@@ -730,8 +765,10 @@ fn show_pause_menu(
     game: Res<Match>,
     screen: Res<MenuScreen>,
     pause: Res<PauseMenu>,
-    mut root: Query<&mut Visibility, With<PauseRoot>>,
-    mut bars: Query<(&PauseBar, Option<&mut ImageNode>, &mut BackgroundColor)>,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut root: Query<(&mut Visibility, &mut BackgroundColor), With<PauseRoot>>,
+    mut bars: Query<(&PauseBar, Option<&mut ImageNode>, &mut BackgroundColor), Without<PauseRoot>>,
     mut words: Query<(
         &PauseWords,
         &mut TextColor,
@@ -789,19 +826,28 @@ fn show_pause_menu(
     }
     let shown = game.phase == Phase::Menu && *screen == MenuScreen::Pause;
     // Behind the pause the world turns grey (PausePopup's BlackWhite background); the cup
-    // standings set it too, so only a change of the pause writes it.
+    // standings set it too, so only a change of the pause writes it. It clears as the
+    // menu fades out.
+    let greyed = shown && pause.closing.is_none();
     if let Some(mut grey) = grey
-        && shown != *was_shown
+        && greyed != *was_shown
     {
-        grey.0 = if shown { 1.0 } else { 0.0 };
+        grey.0 = if greyed { 1.0 } else { 0.0 };
     }
-    *was_shown = shown;
-    for mut v in &mut root {
+    *was_shown = greyed;
+    // The popup fades in and out over `pause_fade` (its CanvasGroup's DOFade).
+    // ponytail: only the dark panel fades; the words and the controls panel would need a
+    // group alpha through the letter materials, so they show and go at once.
+    let alpha = 0.95 * pause.shown(time.elapsed_secs(), config.menu.pause_fade);
+    for (mut v, mut colour) in &mut root {
         v.set_if_neq(if shown {
             Visibility::Inherited
         } else {
             Visibility::Hidden
         });
+        if (colour.0.alpha() - alpha).abs() > 1e-3 {
+            colour.0.set_alpha(alpha);
+        }
     }
     for (bar, image, mut colour) in &mut bars {
         let picked = bar.0 == pause.selected;
@@ -823,6 +869,25 @@ fn show_pause_menu(
                 }
             }
         }
+    }
+}
+
+/// The mouse pointer shows in the menus and over popups and hides in play
+/// (GameStateController, BasePopup, PauseMenu). Only a change is written, so a debug tool
+/// can show it meanwhile.
+fn show_cursor(
+    game: Res<Match>,
+    popup: Option<Res<crate::popup::Popup>>,
+    mut cursors: Query<&mut bevy::window::CursorOptions, With<PrimaryWindow>>,
+    mut was: Local<Option<bool>>,
+) {
+    let visible = game.phase == Phase::Menu || popup.is_some_and(|p| p.shown);
+    if *was == Some(visible) {
+        return;
+    }
+    *was = Some(visible);
+    for mut cursor in &mut cursors {
+        cursor.visible = visible;
     }
 }
 
