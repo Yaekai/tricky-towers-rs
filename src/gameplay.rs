@@ -1513,18 +1513,23 @@ fn control_active_brick(
 ) {
     let dt = time.delta_secs();
     let c = config.cell_size;
-    // The drop speed rises with the tallest tower and with each player out.
+    // DropSpeedController: the drop speed rises with the tallest tower still playing (its
+    // dead-player share is never fed in the original); a Puzzle battle keeps one pace
+    // (PuzzleGameModeFactory: no tower height), and Endless Race tops out.
     let (highest, out) = towers.iter().fold((0.0f32, 0u32), |(h, o), (_, s, _)| {
-        (h.max(s.height), o + (s.status == TowerStatus::Out) as u32)
+        let playing = s.status == TowerStatus::Building;
+        (if playing { h.max(s.height) } else { h }, o + (s.status == TowerStatus::Out) as u32)
     });
-    // Puzzle keeps one pace the whole game (Max): only Race and Survival speed up.
-    let steady = game.mode.rules() == ModeKind::Puzzle;
-    let drop_speed = config.drop_speed()
+    let steady = game.mode == ModeKind::Puzzle && config.trial.is_none();
+    let mut drop_speed = config.drop_speed()
         + if steady {
             0.0
         } else {
             highest * config.fall_speed_per_height + out as f32 * config.fall_speed_per_out
         };
+    if game.mode == ModeKind::Endless {
+        drop_speed = drop_speed.min(config.endless.max_drop_speed);
+    }
 
     for (tower, mut state, mut input) in &mut towers {
         let left_pressed = std::mem::take(&mut input.left_pressed);

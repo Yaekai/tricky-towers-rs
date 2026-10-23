@@ -944,6 +944,7 @@ fn show_hold_counts(
         &ComputedNode,
         &Children,
         &mut Visibility,
+        Option<&mut UiTransform>,
     )>,
     mut labels: Query<&mut Text, With<MatchLabel>>,
     mut faces: Query<&mut TextColor, With<MatchLabel>>,
@@ -953,10 +954,14 @@ fn show_hold_counts(
     let Ok((camera, eye)) = camera.single() else {
         return;
     };
+    // CountDownEffect: the first count started is rank 1 (big, gold, its sound heard), the
+    // others rank 2, and all stand over the highest tower (UpdatePosition).
     let leader = towers
         .iter()
-        .max_by(|a, b| a.2.height.total_cmp(&b.2.height))
+        .filter(|t| t.2.hold_timer > 0.0)
+        .max_by(|a, b| a.2.hold_timer.total_cmp(&b.2.hold_timer))
         .map(|(e, ..)| e);
+    let highest = towers.iter().map(|t| t.2.height).fold(0.0f32, f32::max);
     for (entity, ..) in &towers {
         let counted = matches!(game.mode, ModeKind::Race | ModeKind::EndlessPuzzle);
         if counted && !counts.iter().any(|(_, c, ..)| c.0 == entity) {
@@ -972,7 +977,7 @@ fn show_hold_counts(
             commands.entity(count).insert(HoldCount(entity));
         }
     }
-    for (entity, count, mut node, computed, children, mut visibility) in &mut counts {
+    for (entity, count, mut node, computed, children, mut visibility, transform) in &mut counts {
         let Ok((_, tower, state)) = towers.get(count.0) else {
             commands.entity(entity).despawn();
             continue;
@@ -983,15 +988,9 @@ fn show_hold_counts(
             && state.hold_timer > 0.0;
         let (lead, other) = config.race.countdown_above;
         let above = if leader == Some(count.0) { lead } else { other };
-        // Endless Puzzle's CountDownEffect stands over the tower, a race's over its line.
-        let from = if game.mode == ModeKind::EndlessPuzzle {
-            state.height
-        } else {
-            game.finish_height
-        };
         let at = Vec3::new(
             tower.origin_x,
-            config.cells(from + above) + config.cell_size * 0.5,
+            config.cells(highest + above) + config.cell_size * 0.5,
             0.0,
         );
         let Some(at) = holding
@@ -1034,6 +1033,13 @@ fn show_hold_counts(
             }
         }
         node.display = Display::Grid;
+        // Rank 2 counts are 36 against rank 1's 52.
+        let scale = if leader == Some(count.0) { 1.0 } else { config.race.countdown_small };
+        if let Some(mut transform) = transform
+            && transform.scale != Vec2::splat(scale)
+        {
+            transform.scale = Vec2::splat(scale);
+        }
         centre_on(&mut node, computed, at, view.0, 1.0);
         if computed.size().x > 0.0 {
             visibility.set_if_neq(Visibility::Inherited);

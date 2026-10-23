@@ -25,7 +25,8 @@ pub struct GameConfig {
     pub gravity: f32,
     /// Drop speed added per cell of the tallest tower in the match.
     pub fall_speed_per_height: f32,
-    /// Drop speed added for each player who is out.
+    /// Drop speed added for each player who is out (DropSpeedController's dead-player
+    /// count, which the original never feeds: 0).
     pub fall_speed_per_out: f32,
     /// Holding "down" speeds the brick up by this much per second...
     pub drop_acceleration: f32,
@@ -252,10 +253,12 @@ pub struct RaceRules {
     /// Wind (Pro): its strength swings between these two on a sine cycle. It blows one
     /// way, picked at random, for the whole match. Left out, there is no wind.
     pub wind: Option<(f32, f32)>,
-    /// The hold countdown (3, 2, 1) shows this far above the finish line for the
-    /// leading tower, and for the others.
+    /// The hold countdown (3, 2, 1) shows this far above the highest tower for the count
+    /// that started first, and for the others, drawn `countdown_small` times as big.
     #[serde(default = "default_countdown_above")]
     pub countdown_above: (f32, f32),
+    #[serde(default = "default_countdown_small")]
+    pub countdown_small: f32,
     /// Seconds for one swing of the wind's strength.
     pub wind_period: f32,
     /// Force per point of strength on the first brick each wind row hits.
@@ -281,6 +284,7 @@ impl Default for RaceRules {
             dark_magic: true,
             wind: None,
             countdown_above: default_countdown_above(),
+            countdown_small: default_countdown_small(),
             wind_period: 5.0,
             wind_force: 0.8,
             wind_rows: 10,
@@ -328,6 +332,8 @@ pub struct EndlessRules {
     pub end_over: f32,
     pub end_under: f32,
     pub end_times: (f32, f32, f32),
+    /// The drop speed's ceiling (InitEndlessRaceModeCommand's maxSpeed).
+    pub max_drop_speed: f32,
 }
 
 impl Default for EndlessRules {
@@ -351,6 +357,7 @@ impl Default for EndlessRules {
             end_over: 5.0,
             end_under: 1.0,
             end_times: (0.8, 0.2, 0.8),
+            max_drop_speed: 15.0,
         }
     }
 }
@@ -700,6 +707,11 @@ fn default_puzzle_lane_scale() -> f32 {
 
 fn default_countdown_above() -> (f32, f32) {
     (10.0, 7.0)
+}
+
+fn default_countdown_small() -> f32 {
+    // Rank 2's letters are 36 against rank 1's 52.
+    0.6923
 }
 
 fn default_puzzle_lane_margin() -> f32 {
@@ -3429,7 +3441,7 @@ impl Default for GameConfig {
             ice_hit_speed: 0.5,
             gravity: 18.0,
             fall_speed_per_height: 0.1,
-            fall_speed_per_out: 2.0,
+            fall_speed_per_out: 0.0,
             drop_acceleration: 60.0,
             drop_max_speed: 60.0,
             drop_deceleration: 100.0,
