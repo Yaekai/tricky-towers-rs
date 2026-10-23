@@ -1160,7 +1160,9 @@ fn play_sounds(
             // ice hits; any other plays the landing sound, plus its pack's own (one of three).
             let placed = you.last_placed.and_then(|e| bricks.get(e).ok());
             let variant = you.bricks_placed % 3 + 1;
-            if placed.is_some_and(|b| b.scale > 1.0) {
+            if placed.is_some_and(|b| piano(&config, b)) {
+                play(&format!("sfx_piano_brick_land_0{variant}"));
+            } else if placed.is_some_and(|b| b.scale > 1.0) {
                 play("sfx_brick_heavy");
             } else if placed.is_some_and(|b| b.ice) {
                 play(&format!("sfx_ice_brick_hit_0{}", you.bricks_placed % 4 + 1));
@@ -1201,7 +1203,13 @@ fn play_sounds(
                 play("sfx_move");
             }
             if any(&[Action::TurnRight, Action::TurnLeft]) {
-                play("sfx_rotate");
+                // BrickRotatedAudioEffect: the piano plays one of its 23 notes instead.
+                let held = you.active.and_then(|e| bricks.get(e).ok());
+                if held.is_some_and(|b| piano(&config, b)) {
+                    play(&format!("sfx_piano_brick_{:02}", (heard.roll >> 8) % 23 + 1));
+                } else {
+                    play("sfx_rotate");
+                }
             }
         }
     }
@@ -1269,8 +1277,15 @@ fn stone_and_ice_sounds(
     }
 }
 
-/// Ice bricks knock on everything they hit (IceBrickModifier's CollisionSoundBehaviour): one
-/// of SFX_BRICK_PLACED_ICE_1..4 (staged as sfx_ice_brick_hit_01..04) on each new contact
+/// The piano Mystery brick (BRICK_MYSTERY_03), the third Mystery shape.
+fn piano(config: &crate::config::GameConfig, brick: &crate::gameplay::Brick) -> bool {
+    brick.piece == config.pieces.len() + 2
+}
+
+/// Ice bricks and the piano knock on everything they hit (CollisionSoundBehaviour, from
+/// IceBrickModifier and CollisionAudioEffect): one of SFX_BRICK_PLACED_ICE_1..4 (staged as
+/// sfx_ice_brick_hit_01..04), or one of the piano's first 21 notes (sfx_piano_brick_NN), on
+/// each new contact
 /// faster than `ice_hit_speed` cells a second.
 fn ice_hit_sounds(
     mut commands: Commands,
@@ -1283,21 +1298,29 @@ fn ice_hit_sounds(
     mut roll: Local<u32>,
 ) {
     for (entity, brick) in &iced {
-        if brick.ice {
+        if brick.ice || piano(&config, brick) {
             commands.entity(entity).try_insert(avian2d::prelude::CollisionEventsEnabled);
         }
     }
     let speed = |body: Option<Entity>| body.and_then(|b| velocities.get(b).ok()).map_or(Vec2::ZERO, |v| v.0);
     for start in starts.read() {
-        let ice = [start.body1, start.body2]
-            .iter()
-            .flatten()
-            .any(|b| bricks.get(*b).is_ok_and(|brick| brick.ice));
-        if !ice || (speed(start.body1) - speed(start.body2)).length() <= config.cells(config.ice_hit_speed) {
+        let knocker = |test: &dyn Fn(&crate::gameplay::Brick) -> bool| {
+            [start.body1, start.body2]
+                .iter()
+                .flatten()
+                .any(|b| bricks.get(*b).is_ok_and(test))
+        };
+        let (ice, keys) = (knocker(&|b| b.ice), knocker(&|b| piano(&config, b)));
+        if !(ice || keys) || (speed(start.body1) - speed(start.body2)).length() <= config.cells(config.ice_hit_speed) {
             continue;
         }
-        *roll = (*roll * 7 + 3) % 4;
-        if let Some(sound) = art.sounds.get(&format!("sfx_ice_brick_hit_0{}", *roll + 1)) {
+        *roll = (*roll * 7 + 3) % 21;
+        let name = if ice {
+            format!("sfx_ice_brick_hit_0{}", *roll % 4 + 1)
+        } else {
+            format!("sfx_piano_brick_{:02}", *roll + 1)
+        };
+        if let Some(sound) = art.sounds.get(&name) {
             commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
         }
     }
