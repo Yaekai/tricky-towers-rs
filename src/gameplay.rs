@@ -24,6 +24,7 @@ impl Plugin for GameplayPlugin {
             .add_message::<BrickLost>()
             .add_message::<RoofPlaced>()
             .add_message::<BrickNudged>()
+            .add_message::<BrickRespawned>()
             .add_observer(put_in_tower_layer)
             .add_systems(FixedPreUpdate, layer_stragglers)
             .init_resource::<crate::spells::SpellLog>()
@@ -346,6 +347,16 @@ pub struct Respawn {
     pub piece: usize,
     pub mods: BrickMod,
     pub times: u32,
+    /// Where it was lost (pixels), for the trail to the brick dealt again.
+    pub from: Vec2,
+}
+
+/// A lost cursed brick was dealt again (BrickDroppedChecker's RespawnTrailController): the
+/// new brick and where the old one was lost (pixels).
+#[derive(Message, Clone, Copy, Debug)]
+pub struct BrickRespawned {
+    pub brick: Entity,
+    pub from: Vec2,
 }
 
 /// On a placed brick that carries a curse: what it would come back as if lost.
@@ -1291,6 +1302,7 @@ fn spawn_next_brick(
     game: Res<Match>,
     spatial: SpatialQuery,
     mut towers: Query<(Entity, &Tower, &mut TowerState, &mut BrickBag)>,
+    mut respawned: MessageWriter<BrickRespawned>,
 ) {
     if game.phase != Phase::Playing {
         return;
@@ -1458,6 +1470,9 @@ fn spawn_next_brick(
             ))
             .id();
         state.active = Some(entity);
+        if let Some(back) = respawn {
+            respawned.write(BrickRespawned { brick: entity, from: back.from });
+        }
     }
 }
 
@@ -1813,6 +1828,7 @@ fn control_active_brick(
                     piece: brick.piece,
                     mods: control.mods,
                     times: control.comebacks + 1,
+                    from: position.0,
                 });
             }
             continue;
@@ -2033,6 +2049,7 @@ fn track_towers(
                     piece: brick.piece,
                     mods: cursed.mods,
                     times: cursed.times + 1,
+                    from: position.0,
                 });
                 if let Some(current) = state.active.take() {
                     commands.entity(current).despawn();

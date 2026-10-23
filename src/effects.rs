@@ -35,6 +35,7 @@ impl Plugin for EffectsPlugin {
                 shake_for_bricks,
                 fast_trails,
                 nudge_trails,
+                respawn_trails,
                 unshake_camera.before(FramedCamera),
                 shake_camera.after(FramedCamera).after(show_collapse),
             ),
@@ -861,6 +862,97 @@ fn nudge_trails(
     }
 }
 
+/// RespawnTrailController / RespawnTrailBehaviour: three strips 0.5 units tall from where a
+/// cursed brick was lost to the brick dealt again in its place, waving by cos(x x curve)
+/// (curves 0, 0.3, -0.2), textured at 0.02 a unit; over 0.5 s they draw back towards the new
+/// brick, each part shown at 0.8 opacity while it is within the time left.
+const TRAIL_CURVES: [f32; 3] = [0.0, 0.3, -0.2];
+const RESPAWN_TRAIL_TIME: f32 = 0.5;
+
+#[derive(Component)]
+struct RespawnTrail {
+    brick: Entity,
+    from: Vec2,
+    time: f32,
+    curve: f32,
+}
+
+fn trail_mesh(length: f32, curve: f32, left: f32) -> Mesh {
+    use bevy::asset::RenderAssetUsages;
+    use bevy::mesh::{Indices, PrimitiveTopology};
+    let parts = length.ceil().max(1.0) as u32;
+    let step = length / parts as f32;
+    let (mut at, mut uv, mut colour, mut index) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    for i in 0..=parts {
+        let x = i as f32 * step;
+        let y = (x * curve).cos();
+        let shown = ((parts - i) as f32 / parts as f32) < left / RESPAWN_TRAIL_TIME;
+        let a = if shown { 0.8 } else { 0.0 };
+        for (dy, v) in [(-0.25, 0.0), (0.25, 1.0)] {
+            at.push([x, y + dy, 0.0]);
+            uv.push([i as f32 / parts as f32 * length * 0.02, v]);
+            colour.push([1.0, 1.0, 1.0, a]);
+        }
+    }
+    for k in 0..parts {
+        let n = k * 2;
+        index.extend([n, n + 2, n + 1, n + 1, n + 2, n + 3]);
+    }
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, at)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uv)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colour)
+        .with_inserted_indices(Indices::U32(index))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn respawn_trails(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    mut respawned: MessageReader<crate::gameplay::BrickRespawned>,
+    bricks: Query<&GlobalTransform>,
+    mut trails: Query<(Entity, &mut RespawnTrail, &mut Transform, &Mesh2d)>,
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials: Option<ResMut<Assets<ColorMaterial>>>,
+) {
+    let (Some(mut meshes), Some(mut materials)) = (meshes, materials) else {
+        return;
+    };
+    let unit = config.cell_size;
+    for back in respawned.read() {
+        let Some(image) = art.image("respawn_trail") else { continue };
+        let material = materials.add(ColorMaterial { texture: Some(image), ..default() });
+        for curve in TRAIL_CURVES {
+            commands.spawn((
+                RespawnTrail { brick: back.brick, from: back.from, time: RESPAWN_TRAIL_TIME, curve },
+                Mesh2d(meshes.add(trail_mesh(1.0, curve, RESPAWN_TRAIL_TIME))),
+                MeshMaterial2d(material.clone()),
+                Transform::from_translation(back.from.extend(8.0)).with_scale(Vec3::splat(unit)),
+            ));
+        }
+    }
+    for (entity, mut trail, mut transform, mesh) in &mut trails {
+        trail.time -= time.delta_secs();
+        let Ok(to) = bricks.get(trail.brick) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        if trail.time <= 0.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let along = to.translation().truncate() - trail.from;
+        let length = along.length() / unit;
+        transform.translation = trail.from.extend(8.0);
+        transform.rotation = Quat::from_rotation_z(along.y.atan2(along.x));
+        if let Some(mut m) = meshes.get_mut(&mesh.0) {
+            *m = trail_mesh(length, trail.curve, trail.time);
+        }
+    }
+}
+
 /// Takes last frame's shake off the camera before it is framed again.
 fn unshake_camera(shake: Res<CameraShake>, mut camera: Query<&mut Transform, With<crate::visuals::MainCamera>>) {
     if let Ok(mut transform) = camera.single_mut() {
@@ -994,6 +1086,21 @@ fn rand_seed() -> u64 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_respawn_trail_draws_back_towards_the_new_brick() {
+        use bevy::mesh::VertexAttributeValues;
+        let alphas = |left: f32| -> Vec<f32> {
+            let mesh = super::trail_mesh(4.0, 0.3, left);
+            match mesh.attribute(bevy::prelude::Mesh::ATTRIBUTE_COLOR) {
+                Some(VertexAttributeValues::Float32x4(c)) => c.iter().step_by(2).map(|c| c[3]).collect(),
+                _ => panic!("no colours"),
+            }
+        };
+        // Four parts: five columns, from the lost spot to the brick.
+        assert_eq!(alphas(0.5), vec![0.0, 0.8, 0.8, 0.8, 0.8]);
+        assert_eq!(alphas(0.25), vec![0.0, 0.0, 0.0, 0.8, 0.8]);
+    }
+
     use super::skull_names;
 
     #[test]
