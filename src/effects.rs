@@ -33,6 +33,7 @@ impl Plugin for EffectsPlugin {
                 grow_tufts,
                 shake_for_roofs,
                 shake_for_bricks,
+                fast_trails,
                 unshake_camera.before(FramedCamera),
                 shake_camera.after(FramedCamera).after(show_collapse),
             ),
@@ -671,6 +672,88 @@ fn shake_for_bricks(
     }
     if life_lost {
         kick(LOST_SHAKE, 1.0);
+    }
+}
+
+/// Fast's trail (TrailModifier, TrailEffect): while a Fast brick is steered, every 0.025 s a
+/// copy of its picture is left behind it, from 0.3746 opacity to none over 0.25 s.
+const TRAIL_EVERY: f32 = 0.025;
+const TRAIL_ALPHA: f32 = 0.3746;
+const TRAIL_FADE: f32 = 0.25;
+
+#[derive(Component)]
+struct TrailCopy {
+    time: f32,
+    lit: Option<Handle<crate::brick_material::LitBrick>>,
+}
+
+#[allow(clippy::type_complexity)]
+fn fast_trails(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut since: Local<f32>,
+    bricks: Query<(&ActiveBrick, &Children)>,
+    parts: Query<(&GlobalTransform, &Sprite, Option<&Children>), (With<crate::visuals::CellSprite>, Without<TrailCopy>)>,
+    quads: Query<(&GlobalTransform, &Mesh2d, &MeshMaterial2d<crate::brick_material::LitBrick>)>,
+    mut copies: Query<(Entity, &mut TrailCopy, Option<&mut Sprite>)>,
+    mut lits: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut copy, sprite) in &mut copies {
+        copy.time += dt;
+        let alpha = TRAIL_ALPHA * (1.0 - copy.time / TRAIL_FADE).max(0.0);
+        if let Some(mut sprite) = sprite {
+            sprite.color.set_alpha(alpha);
+        }
+        if let (Some(handle), Some(lits)) = (&copy.lit, lits.as_deref_mut())
+            && let Some(mut m) = lits.get_mut(handle)
+        {
+            m.look.tint.w = alpha;
+        }
+        if copy.time >= TRAIL_FADE {
+            if let (Some(handle), Some(lits)) = (&copy.lit, lits.as_deref_mut()) {
+                lits.remove(handle);
+            }
+            commands.entity(entity).despawn();
+        }
+    }
+    *since += dt;
+    if *since < TRAIL_EVERY {
+        return;
+    }
+    *since = 0.0;
+    for (control, children) in &bricks {
+        if control.mods.fast <= 0.0 {
+            continue;
+        }
+        let behind = |at: &GlobalTransform| {
+            let mut place = at.compute_transform();
+            place.translation.z -= 0.5;
+            place
+        };
+        for &child in children {
+            let Ok((at, sprite, kids)) = parts.get(child) else {
+                continue;
+            };
+            // A plain brick is the sprite itself; a lit one is a quad under an empty sprite.
+            if sprite.custom_size != Some(Vec2::ZERO) {
+                let mut sprite = sprite.clone();
+                sprite.color.set_alpha(TRAIL_ALPHA);
+                commands.spawn((TrailCopy { time: 0.0, lit: None }, sprite, behind(at)));
+            }
+            for (at, mesh, material) in kids.into_iter().flatten().filter_map(|k| quads.get(*k).ok()) {
+                let Some(lits) = lits.as_deref_mut() else { continue };
+                let Some(mut look) = lits.get(&material.0).cloned() else { continue };
+                look.look.tint.w = TRAIL_ALPHA;
+                let handle = lits.add(look);
+                commands.spawn((
+                    TrailCopy { time: 0.0, lit: Some(handle.clone()) },
+                    mesh.clone(),
+                    MeshMaterial2d(handle),
+                    behind(at),
+                ));
+            }
+        }
     }
 }
 
