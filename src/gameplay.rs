@@ -885,6 +885,9 @@ pub struct ActiveBrick {
     /// `hold_shake` is above 0.
     pub hold: f32,
     pub hold_shake: f32,
+    /// Seconds the victim's pad still rumbles while a dark cast hangs its brick
+    /// (DependantControllerRumbleEffect 128/128, until the shake comes off).
+    pub hold_rumble: f32,
     /// Carried back up by a spell (MoveBrickUpEffect): from and to height (pixels),
     /// seconds so far and in all; it passes through everything on the way.
     pub rise: Option<(f32, f32, f32, f32)>,
@@ -908,6 +911,7 @@ impl ActiveBrick {
             picture_shake: 0.0,
             hold: 0.0,
             hold_shake: 0.0,
+            hold_rumble: 0.0,
             rise: None,
         }
     }
@@ -1642,6 +1646,7 @@ fn control_active_brick(
         if control.hold > 0.0 {
             control.hold = (control.hold - dt).max(0.0);
             control.hold_shake = (control.hold_shake - dt).max(0.0);
+            control.hold_rumble = (control.hold_rumble - dt).max(0.0);
             control.picture_shake = if control.hold_shake > 0.0 {
                 config.cells(config.magic.no_rotate_jump) / brick.scale.max(1.0)
             } else {

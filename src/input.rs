@@ -137,6 +137,7 @@ fn rumble_large_bricks(
     gamepads: Query<Entity, With<Gamepad>>,
     towers: Query<(&Tower, &crate::gameplay::TowerState)>,
     bricks: Query<&crate::gameplay::Brick>,
+    held: Query<&crate::gameplay::ActiveBrick>,
     placed: Query<&crate::gameplay::Brick, Added<crate::gameplay::Placed>>,
     lobby: Option<Res<crate::select::Lobby>>,
     mut rumble: MessageWriter<GamepadRumbleRequest>,
@@ -162,29 +163,34 @@ fn rumble_large_bricks(
     let players = towers.iter().filter(|(t, _)| t.human).count();
     let seats = seated(lobby.as_deref(), players);
     let strength = config.moments.pad_rumble_strength;
-    let mut buzz = |tower: &Tower, seconds: f32| {
+    let mut buzz = |tower: &Tower, seconds: f32, intensity: GamepadRumbleIntensity| {
         let Some(player) = tower.player else { return };
         if let Some(slot) = (0..pads.len())
             .find(|&slot| pad_player(seats.as_deref(), players, slot, pads[slot]) == Some(player))
         {
             rumble.write(GamepadRumbleRequest::Add {
                 duration: std::time::Duration::from_secs_f32(seconds),
-                intensity: GamepadRumbleIntensity::strong_motor(strength),
+                intensity,
                 gamepad: pads[slot],
             });
         }
     };
+    let big = GamepadRumbleIntensity::strong_motor(strength);
     for (tower, state) in &towers {
         // Steered and grown: a short buzz each frame keeps it going.
         if state.active.and_then(|e| bricks.get(e).ok()).is_some_and(|b| b.scale > 1.0) {
-            buzz(tower, 0.05);
+            buzz(tower, 0.05, big);
+        }
+        // A dark cast hanging the brick: both motors at half (DependantControllerRumbleEffect).
+        if state.active.and_then(|e| held.get(e).ok()).is_some_and(|c| c.hold_rumble > 0.0) {
+            buzz(tower, 0.05, GamepadRumbleIntensity { strong_motor: 0.5, weak_motor: 0.5 });
         }
     }
     for brick in &placed {
         if brick.scale > 1.0
             && let Ok((tower, _)) = towers.get(brick.tower)
         {
-            buzz(tower, 0.2);
+            buzz(tower, 0.2, big);
         }
     }
 }

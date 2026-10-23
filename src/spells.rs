@@ -731,6 +731,9 @@ pub(crate) fn land_casts(
             {
                 control.hold = control.hold.max(hang);
                 control.hold_shake = control.hold_shake.max(hang);
+                if cast.spells.iter().any(|s| s.is_dark()) {
+                    control.hold_rumble = control.hold_rumble.max(hang);
+                }
             }
         }
         if cast.time >= cast.land {
