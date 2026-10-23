@@ -37,9 +37,11 @@ impl Plugin for MenuPlugin {
         .init_resource::<Leaderboard>()
         .init_resource::<crate::visuals::MenuLook>()
         .init_resource::<crate::trials_menu::TrialsMenu>()
+        .add_systems(Update, black_transitions)
         .add_systems(
             Startup,
             (
+                spawn_black_screen,
                 spawn_start_screen,
                 spawn_main_menu,
                 spawn_select_screens,
@@ -189,6 +191,62 @@ pub enum MenuScreen {
     Lobby,
     /// "Accepting Invite..." (AcceptOnlineInvite, online_lobby.rs).
     Invite,
+}
+
+/// The black screen of a change of screen (TransitionEffect): every menu screen and the
+/// match load behind it; it clears in 0.077 s (DOFade, out-quad). Popups (pause, the
+/// explanations, help) don't.
+// ponytail: the original also fades to black over 0.077 s before the change; ours changes at
+// once, so only the clearing shows.
+#[derive(Component)]
+struct BlackScreen(f32);
+
+const TRANSITION_TIME: f32 = 0.076831;
+
+fn spawn_black_screen(mut commands: Commands) {
+    commands.spawn((
+        BlackScreen(TRANSITION_TIME),
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::BLACK.with_alpha(0.0)),
+        GlobalZIndex(10_000),
+        Pickable::IGNORE,
+    ));
+}
+
+fn black_transitions(
+    time: Res<Time>,
+    screen: Res<MenuScreen>,
+    game: Res<Match>,
+    mut last: Local<Option<(MenuScreen, bool)>>,
+    mut black: Query<(&mut BlackScreen, &mut BackgroundColor)>,
+) {
+    let popup = |s: MenuScreen| matches!(s, MenuScreen::Pause | MenuScreen::Explain | MenuScreen::Help);
+    let in_match = game.phase != Phase::Menu;
+    let now = (*screen, in_match);
+    let changed = match *last {
+        Some((was, was_match)) => {
+            (was_match != in_match && !popup(was) && !popup(*screen))
+                || (!in_match && was != *screen && !popup(was) && !popup(*screen))
+        }
+        None => false,
+    };
+    *last = Some(now);
+    for (mut fade, mut color) in &mut black {
+        if changed {
+            fade.0 = 0.0;
+        }
+        fade.0 += time.delta_secs();
+        let k = (fade.0 / TRANSITION_TIME).min(1.0);
+        let alpha = 1.0 - (1.0 - (1.0 - k) * (1.0 - k));
+        if color.0.alpha() != alpha {
+            color.0.set_alpha(alpha);
+        }
+    }
 }
 
 /// The pause menu's highlighted option and the phase Resume goes back to.
