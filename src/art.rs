@@ -400,7 +400,7 @@ impl Plugin for ArtPlugin {
                     light_bricks,
                     play_animations,
                     apply_font,
-                    (match_end_stingers, play_music).chain(),
+                    (match_end_stingers, play_music, duck_music).chain(),
                     play_sounds,
                     menu_cursor_sound,
                     auto_rotate_sounds,
@@ -981,6 +981,55 @@ fn play_music(
     }
 }
 
+/// The count of the race hold countdown nearest its end (the leader's, whose CountDownEffect
+/// is the one heard), or 0.
+fn lead_countdown(towers: &Query<(&Tower, &TowerState, Option<&crate::gameplay::TowerSkin>)>) -> u32 {
+    towers
+        .iter()
+        .map(|(_, s, _)| s.hold_timer)
+        .filter(|&t| t > 0.0)
+        .fold(None, |best: Option<f32>, t| Some(best.map_or(t, |b| b.min(t))))
+        .map_or(0, |t| t.ceil() as u32)
+}
+
+/// The music's share of its volume: CountDownEffect turns it down to 0.6, 0.3 and 0.05 on the
+/// 3, 2 and 1 (in 0.15 s), GameModePlayController brings it back over 0.5 s once no tower
+/// counts, and the pause menu holds it at 0.05.
+fn duck_music(
+    time: Res<Time>,
+    game: Res<Match>,
+    screen: Option<Res<crate::menu::MenuScreen>>,
+    settings: Option<Res<crate::settings::Settings>>,
+    towers: Query<(&Tower, &TowerState, Option<&crate::gameplay::TowerSkin>)>,
+    mut sinks: Query<&mut bevy::audio::AudioSink, With<Music>>,
+    mut share: Local<Option<f32>>,
+) {
+    use bevy::audio::AudioSinkPlayback;
+    let paused = screen.as_deref() == Some(&crate::menu::MenuScreen::Pause);
+    let target = if paused {
+        0.05
+    } else if game.phase == Phase::Playing {
+        match lead_countdown(&towers) {
+            3 => 0.6,
+            2 => 0.3,
+            1 => 0.05,
+            _ => 1.0,
+        }
+    } else {
+        1.0
+    };
+    let now = share.get_or_insert(1.0);
+    let rate = if target < *now { 1.0 / 0.15 } else { 1.0 / 0.5 };
+    let step = rate * time.delta_secs();
+    *now = if target < *now { (*now - step).max(target) } else { (*now + step).min(target) };
+    let volume = settings.as_ref().map_or(1.0, |s| s.music) * *now;
+    for mut sink in &mut sinks {
+        if (sink.volume().to_linear() - volume).abs() > 1e-3 {
+            sink.set_volume(bevy::audio::Volume::Linear(volume));
+        }
+    }
+}
+
 /// What your tower looked like last frame, to notice changes worth a sound.
 #[derive(Default)]
 struct Heard {
@@ -1061,6 +1110,12 @@ fn play_sounds(
     // BrickRotatedAudioEffect turns at a random pitch, 0.8 to 1.2.
     heard.roll = heard.roll.wrapping_mul(1_103_515_245).wrapping_add(12_345);
     let rotate_pitch = 0.8 + 0.4 * ((heard.roll >> 16) % 1000) as f32 / 1000.0;
+    // CountDownEffect: the leading tower's 3, 2, 1, each count at a higher pitch.
+    let countdown = if game.phase == Phase::Playing { lead_countdown(&towers) } else { 0 };
+    if countdown != heard.countdown && (1..=3).contains(&countdown) {
+        play_with("sfx_countdown", 1.0, 1.0 + (3 - countdown) as f32 / 6.0);
+    }
+    heard.countdown = countdown;
     let mut play = |name: &str| match name {
         // BrickControl plays SFX_BRICK_MOVE at 0.15.
         "sfx_move" => play_with(name, 0.15, 1.0),
@@ -1102,11 +1157,6 @@ fn play_sounds(
         if you.lines_reached > heard.lines {
             play("sfx_line_collect");
         }
-        let countdown = you.hold_timer.ceil() as u32;
-        if countdown > heard.countdown {
-            play("sfx_countdown");
-        }
-        heard.countdown = countdown;
         let steering = you.active.is_some_and(|e| active.contains(e));
         if let Some(keys) = keys.filter(|_| steering) {
             use crate::keybinding::Action;
