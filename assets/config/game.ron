@@ -1664,8 +1664,9 @@
         mist_height: 5.0,
         grassy_radius: 5.0,
         ghost_seconds: 4.0,
-        ghost_lift: 3.0,
-        ghost_carry: 3.0,
+        ghost_delay: 1.5,
+        ghost_lift: (21.5, 18.0),
+        ghost_push: 2.0,
     ),
     ai: (
         think_delay: 0.4,

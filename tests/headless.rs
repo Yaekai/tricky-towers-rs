@@ -1119,7 +1119,8 @@ fn ghost_carries_off_the_last_brick() {
     config.mode = ModeKind::Race;
     config.opponents = 1;
     config.magic.enabled = true;
-    config.magic.ghost_seconds = 1.0;
+    config.magic.ghost_seconds = 2.0;
+    config.magic.ghost_delay = 0.1;
     let mut app = headless_app(config);
     run_seconds(&mut app, 2.5, |_| {});
     let last = tower(&mut app, 1)
@@ -1139,12 +1140,12 @@ fn ghost_carries_off_the_last_brick() {
             .get::<tricky_towers::spells::Ghosted>(last)
             .is_some()
     );
-    run_seconds(&mut app, 0.9, |_| {});
+    run_seconds(&mut app, 1.8, |_| {});
     assert!(
         (x(&app) - before).abs() > 32.0,
         "the brick was not carried sideways"
     );
-    run_seconds(&mut app, 0.3, |_| {});
+    run_seconds(&mut app, 0.4, |_| {});
     assert!(
         app.world()
             .get::<tricky_towers::spells::Ghosted>(last)

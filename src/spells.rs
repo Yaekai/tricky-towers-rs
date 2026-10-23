@@ -74,9 +74,14 @@ impl Bubbled {
 /// A brick carried off by Ghost; it doesn't count toward the tower's height.
 #[derive(Component, Debug)]
 pub struct Ghosted {
-    pub timer: f32,
-    /// Where the skulls carry it to.
-    pub to: Vec2,
+    /// Seconds since the skulls came for it.
+    pub time: f32,
+    /// Which way it is pushed (away from the lane's middle), and its random turn (3 to 12
+    /// degrees, always anticlockwise, then 20 more), from the angle it had when it rose.
+    outward: f32,
+    tilt: f32,
+    start: Option<f32>,
+    touching: Option<Vec<Entity>>,
 }
 
 /// A brick covered in grass (looks only): it starts to grow `delay` seconds after the cast,
@@ -1023,21 +1028,20 @@ fn cast_on_tower(
         SpellKind::Ghost => {
             // Only a loose brick can be carried off.
             if let Some((entity, _, at, Some(RigidBody::Dynamic), false, false, ..)) = last {
-                let outward = if at.0.x >= tower.origin_x { 1.0 } else { -1.0 };
-                let to = at.0
-                    + Vec2::new(
-                        outward * config.cells(magic.ghost_carry),
-                        config.cells(magic.ghost_lift),
-                    );
+                let outward = if at.0.x > tower.origin_x { 1.0 } else { -1.0 };
+                let tilt = 3.0 + (state.random() % 900) as f32 / 100.0;
                 commands.entity(entity).insert((
                     Ghosted {
-                        timer: magic.ghost_seconds,
-                        to,
+                        time: 0.0,
+                        outward,
+                        tilt,
+                        start: None,
+                        touching: None,
                     },
-                    RigidBody::Kinematic,
-                    LinearVelocity::ZERO,
-                    AngularVelocity::ZERO,
+                    SleepingDisabled,
+                    CollidingEntities::default(),
                 ));
+                commands.queue_silenced(WakeBody(entity));
                 state.last_placed = None;
             }
         }
@@ -1380,24 +1384,52 @@ pub(crate) fn float_bubbles(
 }
 
 /// Carries Ghost's brick to its spot, then lets it fall.
+#[allow(clippy::type_complexity)]
 pub(crate) fn carry_ghosts(
     mut commands: Commands,
     time: Res<Time>,
-    mut ghosts: Query<(Entity, &mut Ghosted, &Position, &mut LinearVelocity)>,
+    config: Res<GameConfig>,
+    mut ghosts: Query<(
+        Entity,
+        &mut Ghosted,
+        &Brick,
+        &mut LinearVelocity,
+        &mut Rotation,
+        &mut AngularVelocity,
+        Option<&CollidingEntities>,
+    )>,
 ) {
     let dt = time.delta_secs();
-    for (entity, mut ghost, position, mut velocity) in &mut ghosts {
-        ghost.timer -= dt;
-        if ghost.timer <= 0.0 {
-            commands
-                .entity(entity)
-                .remove::<Ghosted>()
-                .insert(RigidBody::Dynamic);
-            velocity.0 = Vec2::ZERO;
+    let magic = &config.magic;
+    for (entity, mut ghost, brick, mut velocity, mut rotation, mut spin, colliding) in &mut ghosts {
+        ghost.time += dt;
+        let t = ghost.time - magic.ghost_delay;
+        if t < 0.0 {
             continue;
         }
-        // Ease toward the spot over the first second or so.
-        velocity.0 = (ghost.to - position.0) * 2.0;
+        // Floating: anything it newly touches makes the skulls let go, as does the time.
+        let now: Vec<Entity> = colliding.map(|c| c.iter().copied().collect()).unwrap_or_default();
+        let touching = ghost.touching.get_or_insert_with(|| now.clone());
+        let hit = now.iter().any(|e| !touching.contains(e));
+        if ghost.time >= magic.ghost_seconds || hit {
+            commands.entity(entity).remove::<(Ghosted, SleepingDisabled)>();
+            continue;
+        }
+        let (high, low) = magic.ghost_lift;
+        let lift = (high + (low - high) * t.min(1.0)) * brick.scale;
+        velocity.0 += Vec2::new(ghost.outward * magic.ghost_push * brick.scale, lift)
+            * config.cell_size
+            * dt;
+        // The same turn as a bubble's, always anticlockwise.
+        let from = *ghost.start.get_or_insert(rotation.as_radians());
+        let turn = if t < 1.0 {
+            ghost.tilt * EaseFunction::ElasticOut.sample_clamped(t)
+        } else {
+            let k = ((t - 1.0) / 2.0).min(1.0);
+            ghost.tilt + 20.0 * k * k
+        };
+        *rotation = Rotation::radians(from + turn.to_radians());
+        spin.0 = 0.0;
     }
 }
 

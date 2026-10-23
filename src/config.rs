@@ -1239,10 +1239,14 @@ pub struct MagicRules {
     pub grassy_radius: f32,
     /// Grassy's grass starts this much later per cell away from the cast brick.
     pub grassy_delay_per_cell: f32,
-    /// Ghost: seconds the brick is held, and how far up and outward it is carried.
+    /// Ghost (GhostsBrickModifier): seconds until the skulls let go, and until they have
+    /// flown in and start to carry it; then the lift (cells/s² against gravity, from the first
+    /// value to the second over a second, as Bubble's) and the outward push, both times the
+    /// brick's scale. It is dropped early if it touches the tower's top brick or the one in hand.
     pub ghost_seconds: f32,
-    pub ghost_lift: f32,
-    pub ghost_carry: f32,
+    pub ghost_delay: f32,
+    pub ghost_lift: (f32, f32),
+    pub ghost_push: f32,
 }
 
 impl Default for MagicRules {
@@ -1444,8 +1448,9 @@ impl Default for MagicRules {
             grassy_radius: 5.0,
             grassy_delay_per_cell: 0.1,
             ghost_seconds: 4.0,
-            ghost_lift: 3.0,
-            ghost_carry: 3.0,
+            ghost_delay: 1.5,
+            ghost_lift: (21.5, 18.0),
+            ghost_push: 2.0,
         }
     }
 }
