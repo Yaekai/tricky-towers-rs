@@ -108,6 +108,11 @@ pauses it and the caster's spells, shakes it during the cast-self lightning, the
 resumes. Tower spells (Bubble, Ghost, Grassy, Mist, Slow) and Minibase/Extra Life have their own
 lists. Doing this changes timing in every match (and the AI's steering), so it wants its own
 thread and a play-test. Casts' visuals in `casts.rs` already follow the clip timings.
+Done since (2026-10-22/23, #140 and after): casts land late (a dark cast hangs the victim's brick
+0.5 s in and lands with the curse orb, a light one hangs the caster's brick through its
+lightning), the brick in hand is carried back up (MoveBrickUpEffect) for the spells that do it,
+and Large's rumble. Left: a per-spell check of the remaining pre/post effects against
+AbstractInitSpellsCommand.
 
 ## Next up: brick hitboxes (Max, 2026-10-22)
 Max thinks the original's brick hitboxes sit closer together. The prefabs (research/ripped, `game/bricks/Brick*.prefab`) say:
