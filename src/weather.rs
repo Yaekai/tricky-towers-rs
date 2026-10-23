@@ -22,6 +22,7 @@ pub struct WeatherPlugin;
 impl Plugin for WeatherPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WeatherState>()
+            .init_resource::<ForegroundMist>()
             .init_resource::<Flash>()
             .init_resource::<WaveMix>()
             .add_systems(
@@ -31,6 +32,7 @@ impl Plugin for WeatherPlugin {
                     show_weather_in_menus,
                     rain,
                     lightning,
+                    sink_front_mist,
                     fit_weather,
                     run_endless_sun,
                     wave_mist_edges,
@@ -55,13 +57,14 @@ fn wave_mist_edges(
     camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
     mut edges: Query<(&SurvivalMist, &MeshMaterial2d<crate::scene_material::FlagWave>, &mut Transform), Without<crate::visuals::MainCamera>>,
     mut waves: Option<ResMut<Assets<crate::scene_material::FlagWave>>>,
+    front: Res<ForegroundMist>,
 ) {
     let _ = &config;
     let (_, size) = view(&camera, view_size.0);
     let unit = size.y / 41.54;
     let speed = MIST_SPEED.0 + (MIST_SPEED.1 - MIST_SPEED.0) * mix.0;
     for (mist, material, mut transform) in &mut edges {
-        let top = -size.y * 0.5 + size.y * mist.top;
+        let top = -size.y * 0.5 + size.y * mist.top(&front);
         let h = MIST_EDGE * mist.squash * unit;
         transform.scale = Vec3::new(size.x, h, 1.0);
         transform.translation.x = 0.0;
@@ -169,6 +172,13 @@ struct SurvivalMist {
     squash: f32,
 }
 
+impl SurvivalMist {
+    /// Its top as a share of the view: the front mist follows `ForegroundMist`.
+    fn top(&self, front: &ForegroundMist) -> f32 {
+        if self.top == FRONT_MIST { front.0 } else { self.top }
+    }
+}
+
 /// The bands: colour, top (14%, 19%, 24% of the view), edge squash, depth (in front
 /// of the front islands, between the islands, behind them), and the edge wave's sideways
 /// offset (MistLayer's xOffset).
@@ -177,10 +187,53 @@ const SURVIVAL_MISTS: [([u8; 3], f32, f32, f32, f32); 4] = [
     ([207, 163, 222], 0.19, 0.6, -897.5, 0.5),
     ([151, 125, 216], 0.24, 0.4, -899.55, 0.3),
     // MistForeground: its own camera over the towers, the bottom 10% of its view (0.08 of
-    // ours matches Max's Survival clip, as ours draws its edge a little higher).
-    // ponytail: it doesn't sink to 8 cells under the lowest tower when that is lower.
-    ([227, 214, 246], 0.08, 1.0, 450.0, 0.0),
+    // ours matches Max's Survival clip, as ours draws its edge a little higher); it sinks
+    // to 8 cells under the lowest tower when that is lower (`ForegroundMist`).
+    ([227, 214, 246], FRONT_MIST, 1.0, 450.0, 0.0),
 ];
+/// The front mist's usual top, as a share of the view (MistForeground's 10%, drawn as 8%).
+const FRONT_MIST: f32 = 0.08;
+/// MistForeground: its top sinks to this many cells under the lowest tower still playing,
+/// easing there at this rate a second (Mathf.Lerp by 1.5 x dt).
+const FRONT_MIST_UNDER: f32 = 8.0;
+const FRONT_MIST_EASE: f32 = 1.5;
+
+/// The front mist's top now, as a share of the view.
+#[derive(Resource)]
+struct ForegroundMist(f32);
+
+impl Default for ForegroundMist {
+    fn default() -> Self {
+        Self(FRONT_MIST)
+    }
+}
+
+/// MistForeground.Update: the front mist's top is 10% of the view, or 8 cells under the
+/// lowest tower if that is lower but still on screen, eased towards it.
+fn sink_front_mist(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    view_size: Res<ViewSize>,
+    camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
+    towers: Query<&crate::gameplay::TowerState>,
+    mut mist: ResMut<ForegroundMist>,
+) {
+    let (eye, size) = view(&camera, view_size.0);
+    let bottom = eye.y - size.y * 0.5;
+    let playing = towers.iter().filter(|s| s.status == crate::gameplay::TowerStatus::Building);
+    let lowest = playing.map(|s| s.height).reduce(f32::min).or_else(|| towers.iter().map(|s| s.height).reduce(f32::min));
+    let mut target = FRONT_MIST;
+    if let Some(lowest) = lowest {
+        let line = config.cells(lowest - FRONT_MIST_UNDER);
+        // Its own 10% stands for our 8%, so the tower line scales the same way.
+        let share = (line - bottom) / size.y.max(1.0) * (FRONT_MIST / 0.1);
+        if line > bottom && share < FRONT_MIST {
+            target = share;
+        }
+    }
+    let k = (FRONT_MIST_EASE * time.delta_secs()).min(1.0);
+    mist.0 += (target - mist.0) * k;
+}
 /// The mist edge's wave (MistWave, Custom/FlagWave): amplitude, offset up, and its speed
 /// out of a curse wave and in one (SurvivalBackground: 1, then 5).
 const MIST_WAVE: (f32, f32) = (0.05, 0.05);
@@ -679,6 +732,7 @@ fn fit_weather(
         Query<(&SurvivalMist, &mut Sprite, &mut Transform), Without<crate::visuals::MainCamera>>,
     )>,
     climb: Option<Res<crate::visuals::ViewClimb>>,
+    front: Res<ForegroundMist>,
 ) {
     let weather = &config.weather;
     let (_, size) = view(&camera, view_size.0);
@@ -710,13 +764,14 @@ fn fit_weather(
         transform.translation.x = (layer.copy as f32 - shift) * size.x;
     }
     for (mist, mut sprite, mut transform) in &mut parts.p4() {
-        let top = -size.y * 0.5 + size.y * mist.top;
+        let share = mist.top(&front);
+        let top = -size.y * 0.5 + size.y * share;
         if mist.edge {
             let h = MIST_EDGE * mist.squash * unit;
             sprite.custom_size = Some(Vec2::new(size.x, h));
             transform.translation.y = top + h * 0.25;
         } else {
-            let h = size.y * mist.top;
+            let h = size.y * share;
             sprite.custom_size = Some(Vec2::new(size.x, h));
             transform.translation.y = top - h * 0.5;
         }
