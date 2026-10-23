@@ -1224,6 +1224,8 @@ pub struct MagicRules {
     /// the base), no further than `auto_build_range` cells from the lane centre.
     pub auto_build_top: f32,
     pub auto_build_range: f32,
+    /// Auto Build's bricks fall at this speed, cells/s.
+    pub auto_build_speed: f32,
     /// Times a cursed or Mystery brick that is lost comes back where it fell.
     pub respawn_limit: u32,
     /// A placed brick lost within this many seconds still comes back (BrickDroppedChecker's
@@ -1460,6 +1462,7 @@ impl Default for MagicRules {
             auto_build_bricks: 5,
             auto_build_top: 3.0,
             auto_build_range: 6.0,
+            auto_build_speed: 60.0,
             respawn_limit: 3,
             respawn_window: 2.5,
             large_scale: 2.0,

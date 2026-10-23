@@ -999,7 +999,8 @@ fn auto_build_places_stone_bricks_by_itself() {
     run_seconds(&mut app, 0.2, |_| {});
     cast_now(&mut app, SpellKind::AutoBuild, None);
     wait_for_next_brick(&mut app);
-    run_seconds(&mut app, 0.5, |_| {});
+    // Each falls at 60 cells/s from its spawn gap.
+    run_seconds(&mut app, 1.5, |_| {});
     let state = tower(&mut app, 0);
     assert!(state.bricks_placed >= 6, "{state:?}");
     assert_eq!(count::<With<Stone>>(&mut app), 5);

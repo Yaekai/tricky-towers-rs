@@ -1463,50 +1463,22 @@ fn spawn_next_brick(
             ice: modifier.friction.is_some(),
         };
         let query_shape = steer_shape(&config, &brick);
-        let (body, density) = brick_body(&config, &brick);
+        let (_, density) = brick_body(&config, &brick);
         let friction = Friction::new(modifier.friction.unwrap_or(config.brick_friction));
 
-        if modifier.auto_build {
-            // Auto Build: straight down onto a random spot over the tower's top, as stone.
-            // ponytail: it drops at once rather than at the original's 60 cells/s.
+        // Auto Build (AutoBuildBrickModifier): over a random spot across the tower's top, as
+        // stone, falling at `auto_build_speed`.
+        let auto_x = modifier.auto_build.then(|| {
             let (range, limit) = (config.magic.auto_build_range, config.lane_half_width);
             let (lo, hi) = state.top_span.map_or((0.0, 0.0), |(lo, hi)| {
                 let (lo, hi) = (lo.max(-range), hi.min(range));
                 (lo.clamp(-limit, limit), hi.max(lo).clamp(-limit, limit))
             });
             let k = (state.random() % 1000) as f32 / 1000.0;
-            let x = tower.origin_x + config.cells(lo + (hi - lo) * k);
-            let from = Vec2::new(x, config.cells(state.stack_top + config.spawn_gap));
-            let Some(hit) = spatial.cast_shape(
-                &query_shape,
-                from,
-                0.0,
-                Dir2::NEG_Y,
-                &ShapeCastConfig::from_max_distance(config.cells(200.0)),
-                &tower_filter(tower.index),
-            ) else {
-                continue;
-            };
-            let position = from - Vec2::Y * hit.distance;
-            let entity = commands
-                .spawn((
-                    brick,
-                    RigidBody::Static,
-                    crate::spells::Stone,
-                    body,
-                    density,
-                    friction,
-                    Restitution::new(config.brick_restitution),
-                    Transform::from_translation(position.extend(0.0)),
-                    Position(position),
-                    Rotation::IDENTITY,
-                ))
-                .id();
-            state.bricks_placed += 1;
-            state.last_placed = Some(entity);
-            state.placed_count += 1;
-            commands.entity(entity).insert((Placed(state.placed_count), AutoBuilt));
-            continue;
+            tower.origin_x + config.cells(lo + (hi - lo) * k)
+        });
+        if modifier.auto_build {
+            modifier.petrify = true;
         }
 
         let floor = match game.mode.rules() {
@@ -1515,7 +1487,7 @@ fn spawn_next_brick(
             _ => state.stack_top,
         };
         // A returning brick is dealt where every brick is (LocalGamePlayController._SpawnBrick).
-        let x = tower.origin_x;
+        let x = auto_x.unwrap_or(tower.origin_x);
         let mut position = Vec2::new(x, config.cells(floor + config.spawn_gap));
         // Bricks flying around can still be in the way; spawn above them.
         for _ in 0..32 {
@@ -1850,6 +1822,10 @@ fn control_active_brick(
         if control.mods.fast > 0.0 && !control.mods.slow {
             control.speed = control.speed.max(base + control.mods.fast);
         }
+        // Auto Build's bricks fall at one speed (its BrickControl min, max and drop speeds).
+        if control.mods.auto_build {
+            control.speed = magic.auto_build_speed;
+        }
         if !placed {
             let distance = config.cells(control.speed) * dt;
             match cast(position.0, rotation, Dir2::NEG_Y, distance) {
@@ -1903,6 +1879,9 @@ fn control_active_brick(
             state.last_placed_mid_air = cast(position.0, rotation, Dir2::NEG_Y, c).is_none();
             state.placed_count += 1;
             commands.entity(entity).insert(Placed(state.placed_count));
+            if control.mods.auto_build {
+                commands.entity(entity).insert(AutoBuilt);
+            }
             continue;
         }
 
