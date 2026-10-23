@@ -23,6 +23,7 @@ impl Plugin for GameplayPlugin {
             .init_resource::<WindGusts>()
             .add_message::<BrickLost>()
             .add_message::<RoofPlaced>()
+            .add_message::<BrickNudged>()
             .add_observer(put_in_tower_layer)
             .add_systems(FixedPreUpdate, layer_stragglers)
             .init_resource::<crate::spells::SpellLog>()
@@ -132,6 +133,13 @@ impl Default for Match {
 pub struct RoofPlaced {
     pub tower: Entity,
     pub at: Vec2,
+}
+
+/// The brick in hand was nudged one way (+1 right, -1 left), for its look (BrickNudgeModifier).
+#[derive(Message, Clone, Copy, Debug)]
+pub struct BrickNudged {
+    pub brick: Entity,
+    pub dir: f32,
 }
 
 /// A brick fell into the water and was lost, at this world point (pixels).
@@ -1476,6 +1484,7 @@ fn control_active_brick(
     mut bricks: Query<(&mut ActiveBrick, &Brick, &Position, &Rotation)>,
     mut velocities: Query<(&RigidBody, &mut LinearVelocity), Without<ActiveBrick>>,
     mut lost: MessageWriter<BrickLost>,
+    mut nudged: MessageWriter<BrickNudged>,
 ) {
     let dt = time.delta_secs();
     let c = config.cell_size;
@@ -1645,6 +1654,7 @@ fn control_active_brick(
             let want = config.cells(config.nudge_distance);
             let along = if nudge > 0 { Dir2::X } else { Dir2::NEG_X };
             if in_lane(position.0.x + sign * want) {
+                nudged.write(BrickNudged { brick: entity, dir: sign });
                 match cast(position.0, rotation, along, want) {
                     None => position.0.x += sign * want,
                     Some(hit) => {

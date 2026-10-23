@@ -34,6 +34,7 @@ impl Plugin for EffectsPlugin {
                 shake_for_roofs,
                 shake_for_bricks,
                 fast_trails,
+                nudge_trails,
                 unshake_camera.before(FramedCamera),
                 shake_camera.after(FramedCamera).after(show_collapse),
             ),
@@ -685,6 +686,17 @@ const TRAIL_FADE: f32 = 0.25;
 struct TrailCopy {
     time: f32,
     lit: Option<Handle<crate::brick_material::LitBrick>>,
+    /// Starting opacity and seconds to fade (Fast's 0.3746 over 0.25 s unless set).
+    alpha: f32,
+    fade: f32,
+    /// A nudge's copies keep level with their brick: it and its height last frame.
+    follow: Option<(Entity, f32)>,
+}
+
+impl TrailCopy {
+    fn new(lit: Option<Handle<crate::brick_material::LitBrick>>) -> Self {
+        Self { time: 0.0, lit, alpha: TRAIL_ALPHA, fade: TRAIL_FADE, follow: None }
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -695,13 +707,20 @@ fn fast_trails(
     bricks: Query<(&ActiveBrick, &Children)>,
     parts: Query<(&GlobalTransform, &Sprite, Option<&Children>), (With<crate::visuals::CellSprite>, Without<TrailCopy>)>,
     quads: Query<(&GlobalTransform, &Mesh2d, &MeshMaterial2d<crate::brick_material::LitBrick>)>,
-    mut copies: Query<(Entity, &mut TrailCopy, Option<&mut Sprite>)>,
+    mut copies: Query<(Entity, &mut TrailCopy, Option<&mut Sprite>, &mut Transform)>,
+    followed: Query<&GlobalTransform, (With<ActiveBrick>, Without<TrailCopy>)>,
     mut lits: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
 ) {
     let dt = time.delta_secs();
-    for (entity, mut copy, sprite) in &mut copies {
+    for (entity, mut copy, sprite, mut transform) in &mut copies {
         copy.time += dt;
-        let alpha = TRAIL_ALPHA * (1.0 - copy.time / TRAIL_FADE).max(0.0);
+        if let Some((brick, last)) = copy.follow
+            && let Ok(at) = followed.get(brick)
+        {
+            transform.translation.y += at.translation().y - last;
+            copy.follow = Some((brick, at.translation().y));
+        }
+        let alpha = copy.alpha * (1.0 - copy.time / copy.fade).max(0.0);
         if let Some(mut sprite) = sprite {
             sprite.color.set_alpha(alpha);
         }
@@ -710,7 +729,7 @@ fn fast_trails(
         {
             m.look.tint.w = alpha;
         }
-        if copy.time >= TRAIL_FADE {
+        if copy.time >= copy.fade {
             if let (Some(handle), Some(lits)) = (&copy.lit, lits.as_deref_mut()) {
                 lits.remove(handle);
             }
@@ -739,7 +758,7 @@ fn fast_trails(
             if sprite.custom_size != Some(Vec2::ZERO) {
                 let mut sprite = sprite.clone();
                 sprite.color.set_alpha(TRAIL_ALPHA);
-                commands.spawn((TrailCopy { time: 0.0, lit: None }, sprite, behind(at)));
+                commands.spawn((TrailCopy::new(None), sprite, behind(at)));
             }
             for (at, mesh, material) in kids.into_iter().flatten().filter_map(|k| quads.get(*k).ok()) {
                 let Some(lits) = lits.as_deref_mut() else { continue };
@@ -747,13 +766,97 @@ fn fast_trails(
                 look.look.tint.w = TRAIL_ALPHA;
                 let handle = lits.add(look);
                 commands.spawn((
-                    TrailCopy { time: 0.0, lit: Some(handle.clone()) },
+                    TrailCopy::new(Some(handle.clone())),
                     mesh.clone(),
                     MeshMaterial2d(handle),
                     behind(at),
                 ));
             }
         }
+    }
+}
+
+/// A nudge's look (BrickNudgeModifier): 8 copies of the brick strung 1.7 units back the way
+/// it came, the nearest at 0.6 opacity and each further one fainter, fading over 0.3 s and
+/// keeping level with the brick; the brick's picture tips 25 degrees and swings back in 0.1 s.
+const NUDGE_COPIES: usize = 8;
+const NUDGE_LENGTH: f32 = 1.7;
+const NUDGE_ALPHA: f32 = 0.6;
+const NUDGE_FADE: f32 = 0.3;
+const NUDGE_TIP: f32 = 25.0;
+const NUDGE_TIP_TIME: f32 = 0.1;
+
+/// The brick's picture tipping after a nudge: degrees (signed) and seconds so far.
+#[derive(Component)]
+struct NudgeTip(f32, f32);
+
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn nudge_trails(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut nudges: MessageReader<crate::gameplay::BrickNudged>,
+    bricks: Query<(&GlobalTransform, &Children)>,
+    parts: Query<(&GlobalTransform, &Sprite, Option<&Children>), (With<crate::visuals::CellSprite>, Without<TrailCopy>)>,
+    quads: Query<(&GlobalTransform, &Mesh2d, &MeshMaterial2d<crate::brick_material::LitBrick>)>,
+    mut tips: Query<(Entity, &mut NudgeTip, &Children)>,
+    mut pictures: Query<&mut Transform, With<crate::visuals::CellSprite>>,
+    mut lits: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
+) {
+    for (entity, mut tip, children) in &mut tips {
+        tip.1 += time.delta_secs();
+        let k = (1.0 - tip.1 / NUDGE_TIP_TIME).max(0.0);
+        for &child in children {
+            if let Ok(mut transform) = pictures.get_mut(child) {
+                transform.rotation = Quat::from_rotation_z((tip.0 * k).to_radians());
+            }
+        }
+        if k <= 0.0 {
+            commands.entity(entity).remove::<NudgeTip>();
+        }
+    }
+    for nudge in nudges.read() {
+        let Ok((brick_at, children)) = bricks.get(nudge.brick) else {
+            continue;
+        };
+        let back = Vec3::X * -nudge.dir * NUDGE_LENGTH * config.cell_size;
+        let y = brick_at.translation().y;
+        for i in 0..NUDGE_COPIES {
+            let shift = back * i as f32 / NUDGE_COPIES as f32;
+            let alpha = (1.0 - i as f32 / NUDGE_COPIES as f32) * NUDGE_ALPHA;
+            let copy = |lit| TrailCopy {
+                time: 0.0,
+                lit,
+                alpha,
+                fade: NUDGE_FADE,
+                follow: Some((nudge.brick, y)),
+            };
+            let place = |at: &GlobalTransform| {
+                let mut t = at.compute_transform();
+                t.translation += shift;
+                t.translation.z -= 0.5 + 0.01 * i as f32;
+                t
+            };
+            for &child in children {
+                let Ok((at, sprite, kids)) = parts.get(child) else {
+                    continue;
+                };
+                if sprite.custom_size != Some(Vec2::ZERO) {
+                    let mut sprite = sprite.clone();
+                    sprite.color.set_alpha(alpha);
+                    commands.spawn((copy(None), sprite, place(at)));
+                }
+                for (at, mesh, material) in kids.into_iter().flatten().filter_map(|k| quads.get(*k).ok()) {
+                    let Some(lits) = lits.as_deref_mut() else { continue };
+                    let Some(mut look) = lits.get(&material.0).cloned() else { continue };
+                    look.look.tint.w = alpha;
+                    let handle = lits.add(look);
+                    commands.spawn((copy(Some(handle.clone())), mesh.clone(), MeshMaterial2d(handle), place(at)));
+                }
+            }
+        }
+        // It tips against the way it went (the original turns a rightward nudge -25 degrees).
+        commands.entity(nudge.brick).insert(NudgeTip(-nudge.dir * NUDGE_TIP, 0.0));
     }
 }
 
