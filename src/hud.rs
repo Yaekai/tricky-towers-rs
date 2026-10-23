@@ -21,6 +21,7 @@ pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<HeartSpots>();
         app.add_systems(Startup, spawn_scores).add_systems(Update, show_scores);
         app.add_systems(
             Update,
@@ -31,6 +32,7 @@ impl Plugin for HudPlugin {
                 pop_ranks,
                 pop_hearts,
                 blink_last_heart,
+                find_hearts,
                 drop_roofs,
                 fade_losers,
             )
@@ -764,6 +766,33 @@ enum ScorePart {
 
 /// A box on the 1920 x 1080 screen from its top-left corner: `centred` boxes keep their
 /// place from the screen's middle, the others from its right edge.
+/// Where each tower's hearts are in the world this frame, by tower index and heart (0 first),
+/// for the lost cross flying to the heart it empties (BlinkingCrossEffect).
+#[derive(Resource, Default)]
+pub(crate) struct HeartSpots(pub(crate) HashMap<(usize, u32), Vec2>);
+
+fn find_hearts(
+    mut spots: ResMut<HeartSpots>,
+    towers: Query<&Tower>,
+    items: Query<&HudItem>,
+    slots: Query<(&HeartSlot, &ChildOf, &UiGlobalTransform, &ComputedNode)>,
+    camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
+) {
+    spots.0.clear();
+    let Ok((camera, eye)) = camera.single() else {
+        return;
+    };
+    for (slot, parent, at, node) in &slots {
+        let Some(index) = items.get(parent.parent()).ok().and_then(|i| towers.get(i.tower).ok()).map(|t| t.index) else {
+            continue;
+        };
+        let screen = at.translation * node.inverse_scale_factor();
+        if let Ok(world) = camera.viewport_to_world_2d(eye, screen) {
+            spots.0.insert((index, slot.0), world);
+        }
+    }
+}
+
 /// A heart's place under the wizard (WizardHealthView's hearts, first one 0).
 #[derive(Component)]
 struct HeartSlot(u32);
