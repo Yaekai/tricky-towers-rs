@@ -322,6 +322,12 @@ pub struct EndlessRules {
     pub score_per_cell: f32,
     /// Base drop speed, in cells/s (the original's Endless Race: 4).
     pub drop_speed: f32,
+    /// The end sweep once the pacer catches the tower: it rises to this many cells over the
+    /// tower, then drops to this many under the camera's bottom; seconds rising, waiting
+    /// and dropping.
+    pub end_over: f32,
+    pub end_under: f32,
+    pub end_times: (f32, f32, f32),
 }
 
 impl Default for EndlessRules {
@@ -342,6 +348,9 @@ impl Default for EndlessRules {
             wait_seconds: 2.0,
             score_per_cell: 10.0,
             drop_speed: 4.0,
+            end_over: 5.0,
+            end_under: 1.0,
+            end_times: (0.8, 0.2, 0.8),
         }
     }
 }

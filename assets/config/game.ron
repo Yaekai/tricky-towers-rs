@@ -608,6 +608,9 @@
         wait_seconds: 2.0,
         score_per_cell: 10.0,
         drop_speed: 4.0,
+        end_over: 5.0,
+        end_under: 1.0,
+        end_times: (0.8, 0.2, 0.8),
     ),
     endless_play: (
         survival_lives: 3,

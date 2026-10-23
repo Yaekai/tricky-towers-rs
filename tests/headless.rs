@@ -1468,7 +1468,16 @@ fn endless_race_ends_when_the_line_catches_the_tower() {
     config.endless.start_height = -0.5;
     config.endless.start_speed = 2.0;
     let mut app = headless_app(config);
-    // An empty base is caught within a second.
+    // An empty base is caught within a second; the pacer then sweeps up over the tower and
+    // down out of view (1.8 s) while no bricks come.
+    run_seconds(&mut app, 1.0, |_| {});
+    let state = tower(&mut app, 0);
+    let end = state.pacer_end.expect("caught");
+    assert_eq!(state.status, TowerStatus::Building);
+    run_seconds(&mut app, 0.9 - end.clock, |_| {});
+    let sweeping = tower(&mut app, 0);
+    assert!(sweeping.pacer >= sweeping.height + 4.9, "over the tower: {}", sweeping.pacer);
+    assert_eq!(sweeping.active, state.active, "no new brick while the pacer sweeps");
     run_seconds(&mut app, 1.0, |_| {});
     // A finished run gets its roof and FINISH, like the original's (ROOF, then BASK).
     assert_eq!(tower(&mut app, 0).status, TowerStatus::Won);

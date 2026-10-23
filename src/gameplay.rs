@@ -58,6 +58,7 @@ impl Plugin for GameplayPlugin {
                     )
                         .chain(),
                     judge_match,
+                    still_caught_towers,
                     petrify_out_towers,
                     raise_bases,
                     zap_over_laser,
@@ -536,6 +537,8 @@ pub struct TowerState {
     pub pacer_pause: f32,
     pub pacer_from: f32,
     pub pacer_clock: f32,
+    /// Endless Race once the pacer has caught the tower: its end sweep, before the roof.
+    pub pacer_end: Option<PacerEnd>,
     /// How far the widest settled brick reaches from the lane centre, in cells.
     pub half_width: f32,
     /// The tallest this tower has been, in cells (Endless Race's score).
@@ -606,6 +609,7 @@ impl TowerState {
             pacer_pause: 0.0,
             pacer_from: 0.0,
             pacer_clock: 0.0,
+            pacer_end: None,
             best_height: 0.0,
             half_width: 0.0,
             mystery_bag: Vec::new(),
@@ -1311,7 +1315,7 @@ fn spawn_next_brick(
     }
     let c = config.cell_size;
     for (tower_entity, tower, mut state, mut bag) in &mut towers {
-        if state.status != TowerStatus::Building || state.active.is_some() {
+        if state.status != TowerStatus::Building || state.active.is_some() || state.pacer_end.is_some() {
             continue;
         }
         // The Endless modes have no brick limit.
@@ -1525,7 +1529,12 @@ fn control_active_brick(
         let rotate_cw = std::mem::take(&mut input.rotate_pressed);
         let rotate_ccw = std::mem::take(&mut input.rotate_ccw_pressed);
 
-        if game.phase != Phase::Playing || state.status != TowerStatus::Building {
+        // ponytail: the original only stops dealing bricks for Endless Race's end sweep; the
+        // brick in hand stops here too rather than land on the stilled tower.
+        if game.phase != Phase::Playing
+            || state.status != TowerStatus::Building
+            || state.pacer_end.is_some()
+        {
             continue;
         }
         let Some(entity) = state.active else { continue };
@@ -2220,6 +2229,78 @@ pub fn advance_pacer(rules: &crate::config::EndlessRules, state: &mut TowerState
     state.pacer += state.pacer_speed * dt;
 }
 
+/// Endless Race's end (EndlessRaceGameModePlayController._StartEndAnimation): once the pacer
+/// catches the tower no bricks come and the tower stands still, while the pacer rises to
+/// `end_over` cells over the tower (out-sine), waits, and drops to `end_under` cells under
+/// the camera's bottom (in-expo); then the run is won and the roof comes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PacerEnd {
+    /// Seconds since the pacer caught the tower.
+    pub clock: f32,
+    from: f32,
+    high: f32,
+    low: f32,
+}
+
+impl PacerEnd {
+    fn new(config: &GameConfig, state: &TowerState) -> Self {
+        let rules = &config.endless;
+        // SingleTowerCamera's bottom for this tower (visuals::frame_towers).
+        let look = &config.hud;
+        let floor = -config.camera_floor();
+        let top = (state.stack_top + look.camera_height - look.camera_tower_room)
+            .max(floor + look.camera_height);
+        let bottom = (state.stack_top - look.camera_below_lowest)
+            .max(floor)
+            .min(top - look.camera_height);
+        Self {
+            clock: 0.0,
+            from: state.pacer,
+            high: state.height + rules.end_over,
+            low: bottom - rules.end_under,
+        }
+    }
+
+    /// The pacer's height `clock` seconds in, or `None` once the sweep is over.
+    fn pacer(&self, rules: &crate::config::EndlessRules) -> Option<f32> {
+        let (rise, wait, drop) = rules.end_times;
+        let t = self.clock;
+        if t < rise {
+            let k = (t / rise.max(f32::EPSILON) * std::f32::consts::FRAC_PI_2).sin();
+            Some(self.from + (self.high - self.from) * k)
+        } else if t < rise + wait {
+            Some(self.high)
+        } else if t < rise + wait + drop {
+            let x = (t - rise - wait) / drop.max(f32::EPSILON);
+            let k = if x <= 0.0 { 0.0 } else { 2f32.powf(10.0 * x - 10.0) };
+            Some(self.high + (self.low - self.high) * k)
+        } else {
+            None
+        }
+    }
+}
+
+/// The tower the Endless Race pacer caught stands still for the end sweep (Tower.StopPhysics),
+/// the brick in hand too.
+fn still_caught_towers(
+    mut commands: Commands,
+    towers: Query<(Entity, &TowerState)>,
+    mut bricks: Query<(Entity, &Brick, &RigidBody, &mut LinearVelocity, &mut AngularVelocity)>,
+) {
+    for (tower, state) in &towers {
+        if state.pacer_end.is_none() {
+            continue;
+        }
+        for (entity, brick, body, mut linear, mut angular) in &mut bricks {
+            if brick.tower == tower && *body != RigidBody::Static {
+                commands.entity(entity).insert(RigidBody::Static);
+                linear.0 = Vec2::ZERO;
+                angular.0 = 0.0;
+            }
+        }
+    }
+}
+
 /// A spell line picked up in Endless Race: the pacer stops, and rises faster after.
 pub fn pacer_checkpoint(rules: &crate::config::EndlessRules, state: &mut TowerState) {
     state.pacer_stages += 1;
@@ -2279,11 +2360,24 @@ fn judge_match(
             }
             ModeKind::Endless => {
                 state.best_height = state.best_height.max(state.height);
-                advance_pacer(&config.endless, &mut state, dt);
-                // Caught: the run is over, and like any finished single-player run the
-                // tower gets its roof and FINISH (EndlessRaceGameMode's ROOF and BASK states).
-                if state.pacer >= state.height {
-                    state.status = TowerStatus::Won;
+                // Caught: the pacer's end sweep, then the run is over, and like any finished
+                // single-player run the tower gets its roof and FINISH (EndlessRaceGameMode's
+                // ROOF and BASK states).
+                if let Some(mut end) = state.pacer_end {
+                    end.clock += dt;
+                    state.pacer_end = Some(end);
+                    match end.pacer(&config.endless) {
+                        Some(pacer) => state.pacer = pacer,
+                        None => {
+                            state.pacer = config.endless.intro_from;
+                            state.status = TowerStatus::Won;
+                        }
+                    }
+                } else {
+                    advance_pacer(&config.endless, &mut state, dt);
+                    if state.pacer >= state.height {
+                        state.pacer_end = Some(PacerEnd::new(&config, &state));
+                    }
                 }
             }
             ModeKind::EndlessSurvival => {

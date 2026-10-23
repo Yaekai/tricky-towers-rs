@@ -96,10 +96,8 @@ gives XP only online.
 ## Next up: single-player intro and Endless Race end (2026-10-23)
 Trials and Endless runs now have the original's intro timings and 3-2-1. Still missing: the
 wizard's part of a trial intro (WizardFlipEffect, CastOther until its SPELL_CAST, LaughHard
-after) and the enemy panel showing in Survival and Puzzle trials; and Endless Race's end
-(EndlessRaceGameModePlayController._StartEndAnimation): when the pacer catches the tower the
-bricks stop, the tower freezes, the pacer rises to 5 over the tower (0.8 s out-sine), waits
-0.2 s, drops to 1 under the camera bottom (0.8 s in-expo), and only then the roof comes.
+after) and the enemy panel showing in Survival and Puzzle trials. Endless Race's end sweep
+is done (`gameplay::PacerEnd`).
 
 ## Next up: spell casts as a pipeline (found 2026-10-22)
 Ours applies a spell the moment it is cast; the original runs each cast as an effect pipeline
