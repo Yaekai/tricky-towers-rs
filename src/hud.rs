@@ -28,6 +28,7 @@ impl Plugin for HudPlugin {
                 spawn_items,
                 fill_items,
                 place_items,
+                pop_ranks,
                 drop_roofs,
                 fade_losers,
             )
@@ -286,8 +287,13 @@ fn fill_items(
         } else {
             kept.2 += time.delta_secs();
         }
+        let before = kept.0;
         if kept.2 >= PLACE_HOLD || kept.0.is_none() || raw.is_none() {
             kept.0 = kept.1;
+        }
+        // A new place pops (WizardRankView's NewRank trigger, the RankUpdate clip).
+        if item.kind == Kind::Place && before.is_some() && kept.0.is_some() && kept.0 != before {
+            commands.entity(entity).insert(RankPop(0.0));
         }
         let place = kept.0;
         let shows = wanted(
@@ -736,6 +742,53 @@ enum ScorePart {
 
 /// A box on the 1920 x 1080 screen from its top-left corner: `centred` boxes keep their
 /// place from the screen's middle, the others from its right edge.
+/// The RankUpdate clip on a place label that just changed: seconds since it started.
+#[derive(Component)]
+struct RankPop(f32);
+
+/// RankUpdate's LabelNumber keys: scale, and the turn in degrees (sampled every 0.05 s).
+const RANK_SCALE: [(f32, f32); 5] = [(0.0, 1.0), (0.133, 0.8), (0.233, 1.224), (0.333, 1.0), (1.0, 1.0)];
+const RANK_TURN: [(f32, f32); 13] = [
+    (0.0, 0.0),
+    (0.05, 3.93),
+    (0.1, 4.17),
+    (0.15, -1.86),
+    (0.2, -8.45),
+    (0.25, -9.13),
+    (0.3, -1.73),
+    (0.35, 2.09),
+    (0.4, -0.57),
+    (0.45, -1.84),
+    (0.5, -0.13),
+    (0.55, 0.68),
+    (0.6, 0.0),
+];
+
+fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
+    let next = keys.iter().position(|k| k.0 > t).unwrap_or(keys.len() - 1);
+    let (a, b) = (keys[next.saturating_sub(1)], keys[next]);
+    let k = ((t - a.0) / (b.0 - a.0).max(1e-4)).clamp(0.0, 1.0);
+    a.1 + (b.1 - a.1) * k
+}
+
+fn pop_ranks(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut pops: Query<(Entity, &mut RankPop, &mut UiTransform)>,
+) {
+    for (entity, mut pop, mut transform) in &mut pops {
+        pop.0 += time.delta_secs();
+        let t = pop.0;
+        transform.scale = Vec2::splat(keyed(&RANK_SCALE, t));
+        // Unity's z turn is anticlockwise; UI rotation is clockwise on screen.
+        transform.rotation = Rot2::degrees(-keyed(&RANK_TURN, t));
+        if t >= 1.0 {
+            *transform = UiTransform::default();
+            commands.entity(entity).remove::<RankPop>();
+        }
+    }
+}
+
 fn hud_box(x: f32, y: f32, w: f32, h: f32, centred: bool) -> Node {
     let k = |v: f32| Val::Vh(v / 10.8);
     let mut node = Node {
