@@ -2386,3 +2386,27 @@ fn every_tower_is_its_own_physics_world() {
     assert!(!CollisionLayers::new(tower_layer(0), tower_layer(0)).interacts_with(CollisionLayers::new(tower_layer(1), tower_layer(1))));
 }
 
+
+#[test]
+fn a_curse_carries_the_brick_in_hand_back_up_but_mist_does_not() {
+    for (curse, lifts) in [(SpellKind::NoRotate, true), (SpellKind::Mist, false)] {
+        let mut config = fast_config();
+        config.mode = ModeKind::Race;
+        config.opponents = 1;
+        config.magic.enabled = true;
+        let mut app = headless_app(config);
+        run_seconds(&mut app, 1.5, |_| {});
+        let theirs = tower(&mut app, 1).active.expect("wizard 1 has a brick");
+        let y = |app: &App| app.world().get::<avian2d::prelude::Position>(theirs).map(|p| p.0.y);
+        let before = y(&app).unwrap();
+        cast_now(&mut app, SpellKind::Ivy, Some(curse));
+        run_seconds(&mut app, 1.0, |_| {});
+        let top = tower(&mut app, 1).stack_top;
+        let after = y(&app).unwrap_or(f32::MIN);
+        if lifts {
+            assert!(after >= (top + 15.0) * 32.0, "{curse:?}: {before} -> {after}");
+        } else {
+            assert!(after <= before, "{curse:?} lifted: {before} -> {after}");
+        }
+    }
+}

@@ -1200,6 +1200,10 @@ pub struct MagicRules {
     /// LIGHTNING_COMPLETE at 0.4 s), the caster's brick hanging till then.
     pub dark_cast_hold: f32,
     pub light_cast_land: f32,
+    /// MoveBrickUpEffect: a spell carries the brick in hand back up to this many cells over
+    /// the tower (Y_OFFSET), and it hangs this long after (the post-cast DelayEffect(0.3)).
+    pub move_up_over: f32,
+    pub move_up_settle: f32,
     /// A Fast brick falls at least this much faster than the drop speed, in cells/s.
     pub fast_extra_speed: f32,
     pub ice_bricks: u32,
@@ -1417,6 +1421,8 @@ impl Default for MagicRules {
             fast_bricks: 5,
             dark_cast_hold: 0.5,
             light_cast_land: 0.4,
+            move_up_over: 16.0,
+            move_up_settle: 0.3,
             fast_extra_speed: 7.5,
             ice_bricks: 4,
             ice_friction: 0.06,
