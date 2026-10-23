@@ -1190,6 +1190,9 @@ pub struct MagicRules {
     pub auto_build_bricks: u32,
     /// Times a cursed or Mystery brick that is lost comes back where it fell.
     pub respawn_limit: u32,
+    /// A placed brick lost within this many seconds still comes back (BrickDroppedChecker's
+    /// _BRICK_PLACED_TIMEOUT).
+    pub respawn_window: f32,
     /// Size of a Large brick, and how much each further Large adds.
     pub large_scale: f32,
     pub large_stack: f32,
@@ -1420,6 +1423,7 @@ impl Default for MagicRules {
             life_orb_floor: 10.0,
             auto_build_bricks: 5,
             respawn_limit: 3,
+            respawn_window: 2.5,
             large_scale: 2.0,
             large_stack: 0.5,
             fast_bricks: 5,

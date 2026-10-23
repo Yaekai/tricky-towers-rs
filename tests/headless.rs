@@ -2411,3 +2411,30 @@ fn a_curse_carries_the_brick_in_hand_back_up_but_mist_does_not() {
         }
     }
 }
+
+#[test]
+fn a_cursed_brick_dropped_in_race_comes_back_but_not_in_survival() {
+    for (mode, back) in [(ModeKind::Race, true), (ModeKind::Survival, false)] {
+        let mut config = fast_config();
+        config.mode = mode;
+        let mut app = headless_app(config);
+        run_seconds(&mut app, 0.2, |_| {});
+        // Curse the brick in hand, then steer it off the side.
+        let active = tower(&mut app, 0).active.expect("a brick in hand");
+        app.world_mut()
+            .get_mut::<tricky_towers::gameplay::ActiveBrick>(active)
+            .unwrap()
+            .mods
+            .no_rotate = true;
+        let lost = run_until(&mut app, 8.0, |app| {
+            human_input(app).left_held = true;
+            tower(app, 0).bricks_dropped > 0
+        });
+        assert!(lost, "{mode:?}: the brick never fell off");
+        let state = tower(&mut app, 0);
+        assert_eq!(state.respawn.is_some() || state.active.is_some_and(|e| app
+            .world()
+            .get::<tricky_towers::gameplay::ActiveBrick>(e)
+            .is_some_and(|a| a.mods.no_rotate)), back, "{mode:?}");
+    }
+}
