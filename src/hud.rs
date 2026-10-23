@@ -29,6 +29,8 @@ impl Plugin for HudPlugin {
                 fill_items,
                 place_items,
                 pop_ranks,
+                pop_hearts,
+                blink_last_heart,
                 drop_roofs,
                 fade_losers,
             )
@@ -324,7 +326,13 @@ fn fill_items(
             ImageNode,
             BackgroundColor,
         )>();
-        let mut layout = build(&mut node, &config.hud, &config, &art, &shows, height);
+        // Hearts filled since the last build pop in (all of them, one after another, the first
+        // time).
+        let filled_before = match item.shows {
+            Some(Shows::Hearts(lives, _)) => Some(lives),
+            _ => None,
+        };
+        let mut layout = build(&mut node, &config.hud, &config, &art, &shows, height, filled_before);
         // The plain text stays hidden behind its letter twin: a replaced Node would show it
         // for a frame (the count flashed in the wrong letters and under the card).
         if twin {
@@ -354,6 +362,7 @@ fn build(
     art: &Art,
     shows: &Shows,
     height: f32,
+    filled_before: Option<u32>,
 ) -> Node {
     let base = Node {
         position_type: PositionType::Absolute,
@@ -419,19 +428,22 @@ fn build(
                                     None => (image.clone(), Color::srgba(0.2, 0.2, 0.25, 0.6), Vec2::splat(size)),
                                 }
                             };
-                            row.spawn(Node {
-                                width: Val::Px(size),
-                                height: Val::Px(size),
-                                margin: UiRect {
-                                    left: Val::Px(if i % 3 == 0 { 0.0 } else { (1.3 * cell - size).max(0.0) }),
-                                    top: Val::Px(if i % 2 == 1 { cell } else { 0.0 }),
+                            let mut slot = row.spawn((
+                                HeartSlot(i),
+                                Node {
+                                    width: Val::Px(size),
+                                    height: Val::Px(size),
+                                    margin: UiRect {
+                                        left: Val::Px(if i % 3 == 0 { 0.0 } else { (1.3 * cell - size).max(0.0) }),
+                                        top: Val::Px(if i % 2 == 1 { 0.5 * cell } else { 0.0 }),
+                                        ..default()
+                                    },
+                                    justify_content: JustifyContent::Center,
+                                    align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            })
-                            .with_child((
+                            ));
+                            let heart = slot.with_child((
                                 ImageNode::new(picture).with_color(color),
                                 Node {
                                     width: Val::Px(shown.x),
@@ -439,6 +451,16 @@ fn build(
                                     ..default()
                                 },
                             ));
+                            // WizardHealthView: a newly filled heart grows to 1.6 and springs
+                            // back, 0.7 s on (and 0.3 s more per heart the first time).
+                            let delay = match filled_before {
+                                None => Some(HEART_POP_WAIT + i as f32 * HEART_POP_STAGGER),
+                                Some(before) if i >= before => Some(HEART_POP_WAIT),
+                                _ => None,
+                            };
+                            if i < *lives && let Some(delay) = delay {
+                                heart.insert(HeartPop { wait: delay, time: 0.0 });
+                            }
                         }
                     });
                 }
@@ -742,6 +764,107 @@ enum ScorePart {
 
 /// A box on the 1920 x 1080 screen from its top-left corner: `centred` boxes keep their
 /// place from the screen's middle, the others from its right edge.
+/// A heart's place under the wizard (WizardHealthView's hearts, first one 0).
+#[derive(Component)]
+struct HeartSlot(u32);
+
+/// A heart popping in: its wait before it shows, and seconds since it was made.
+#[derive(Component)]
+struct HeartPop {
+    wait: f32,
+    time: f32,
+}
+
+const HEART_POP_WAIT: f32 = 0.7;
+const HEART_POP_STAGGER: f32 = 0.3;
+
+fn pop_hearts(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut pops: Query<(Entity, &ChildOf, &mut HeartPop)>,
+    mut transforms: Query<&mut UiTransform>,
+) {
+    for (entity, parent, mut pop) in &mut pops {
+        pop.time += time.delta_secs();
+        let t = pop.time - pop.wait;
+        // Out-quad to 1.6 over 0.2 s, then out-elastic back to 1 over 0.75 s.
+        let scale = if t < 0.0 {
+            0.0
+        } else if t < 0.2 {
+            1.6 * EaseFunction::QuadraticOut.sample_clamped(t / 0.2)
+        } else {
+            1.6 - 0.6 * EaseFunction::ElasticOut.sample_clamped((t - 0.2) / 0.75)
+        };
+        if let Ok(mut transform) = transforms.get_mut(entity) {
+            transform.scale = Vec2::splat(scale);
+        }
+        let _ = parent;
+        if t >= 0.95 {
+            if let Ok(mut transform) = transforms.get_mut(entity) {
+                transform.scale = Vec2::ONE;
+            }
+            commands.entity(entity).remove::<HeartPop>();
+        }
+    }
+}
+
+/// The last heart blinking (WizardHealthView._Blink): once the grace time after a lost life is
+/// over with one life left, a copy of the first heart grows to twice its size and fades out over
+/// 0.7 s, every 1.5 s, with SFX_HEART_BLINK; it stops once there are two lives again.
+#[derive(Component)]
+struct HeartBlink(f32);
+
+fn blink_last_heart(
+    mut commands: Commands,
+    time: Res<Time>,
+    art: Res<Art>,
+    game: Res<Match>,
+    towers: Query<&TowerState>,
+    items: Query<&HudItem>,
+    slots: Query<(Entity, &HeartSlot, &ChildOf)>,
+    mut blinks: Query<(Entity, &mut HeartBlink, &ChildOf, &mut UiTransform, &mut ImageNode)>,
+) {
+    let wants = |slot_parent: Entity| -> bool {
+        let Ok(item) = items.get(slot_parent) else { return false };
+        let Ok(state) = towers.get(item.tower) else { return false };
+        game.phase == Phase::Playing && state.lives == Some(1) && state.invincible <= 0.0
+    };
+    for (entity, mut blink, parent, mut transform, mut image) in &mut blinks {
+        let still = slots.get(parent.parent()).is_ok_and(|(_, _, item)| wants(item.parent()));
+        if !still {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        if blink.0 == 0.0 && let Some(sound) = art.sounds.get("sfx_last_heart_v2") {
+            commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+        blink.0 += time.delta_secs();
+        let k = (blink.0 / 0.7).min(1.0);
+        transform.scale = Vec2::splat(1.0 + k);
+        image.color.set_alpha(1.0 - k);
+        if blink.0 >= 1.5 {
+            blink.0 = 0.0;
+        }
+    }
+    for (slot, heart, item) in &slots {
+        if heart.0 != 0 || !wants(item.parent()) || blinks.iter().any(|b| b.2.parent() == slot) {
+            continue;
+        }
+        let Some(image) = art.image("heart") else { continue };
+        commands.entity(slot).with_child((
+            HeartBlink(0.0),
+            ImageNode::new(image),
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            },
+            UiTransform::default(),
+        ));
+    }
+}
+
 /// The RankUpdate clip on a place label that just changed: seconds since it started.
 #[derive(Component)]
 struct RankPop(f32);
