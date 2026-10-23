@@ -240,6 +240,7 @@ fn attach_skulls(
 fn fly_skulls(
     mut commands: Commands,
     time: Res<Time>,
+    config: Res<GameConfig>,
     ghosted: Query<(), With<Ghosted>>,
     mut skulls: Query<(Entity, &ChildOf, &mut Skull, &mut Transform)>,
 ) {
@@ -249,7 +250,7 @@ fn fly_skulls(
             continue;
         }
         skull.time += time.delta_secs();
-        let t = (skull.time / SKULL_FLIGHT).min(1.0);
+        let t = (skull.time / config.magic.ghost_delay.max(SKULL_FLIGHT)).min(1.0);
         let ease = 1.0 - (1.0f32 - t).powi(3);
         let from = skull.grip * 4.0;
         transform.translation = from.lerp(skull.grip, ease).extend(6.0);
