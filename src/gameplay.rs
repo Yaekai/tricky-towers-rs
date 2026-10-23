@@ -556,11 +556,10 @@ impl TowerState {
             base_shown: 0.0,
             base_move: None,
             base_moves: 0,
-            lives: match config.mode {
-                // Endless Puzzle has one life: a lost brick ends the run.
-                ModeKind::EndlessPuzzle => Some(1),
-                mode => (mode.rules() == ModeKind::Survival).then_some(config.survival.lives),
-            },
+            // Endless Puzzle has no health (no HEALTH model): a lost brick lifts the tower.
+            lives: (config.mode.rules() == ModeKind::Survival
+                && config.mode != ModeKind::EndlessPuzzle)
+                .then_some(config.survival.lives),
             height: 0.0,
             stack_top: 0.0,
             all_settled: true,
@@ -673,18 +672,20 @@ impl TowerState {
         if config.mode == ModeKind::EndlessPuzzle {
             // Endless Puzzle: the laser rises at each level-up.
             let rules = &config.endless_play;
+            // DOTween's default ease, out-quad.
             let rising = self.level_up.map_or(0.0, |t| {
                 let k = ((t - rules.level_wait.0) / rules.rise_seconds.max(0.01)).clamp(0.0, 1.0);
-                k * k * (3.0 - 2.0 * k)
+                1.0 - (1.0 - k) * (1.0 - k)
             });
             return self.laser_base + rules.laser_rise * rising;
         }
         self.laser_base
     }
 
-    /// Puzzle: how far the base has risen, in cells, for the bricks that fell off.
+    /// Puzzle and Endless Puzzle (TowerMoveController): how far the base has risen, in
+    /// cells, for the bricks that fell off.
     pub fn base_rise(&self, config: &GameConfig) -> f32 {
-        if config.mode == ModeKind::Puzzle {
+        if matches!(config.mode, ModeKind::Puzzle | ModeKind::EndlessPuzzle) {
             config.puzzle.drop_penalty * self.bricks_dropped as f32
         } else {
             0.0
@@ -878,7 +879,7 @@ fn raise_bases(
         // touched the laser it stays put.
         let target = state.base_rise(&config);
         let heading = state.base_move.map_or(state.base_shown, |m| m.1);
-        if state.laser_count.is_none() && target != heading {
+        if state.laser_count.is_none() && state.hold_timer == 0.0 && target != heading {
             state.base_move = Some((state.base_shown, target, 0.0));
             state.base_moves += 1;
         }
@@ -1213,7 +1214,7 @@ fn start_match(
                 })
                 .collect();
             // Puzzle's bases rise under the bricks, so they move kinematically there.
-            let body = if config.mode == ModeKind::Puzzle {
+            let body = if config.mode.rules() == ModeKind::Puzzle {
                 RigidBody::Kinematic
             } else {
                 RigidBody::Static
@@ -1334,6 +1335,10 @@ fn spawn_next_brick(
         // A single-player run stops dealing bricks while its finish countdown runs, and deals
         // again if the countdown aborts (AbstractSinglePlayerGameMode's brickSpawningActive).
         if config.trial.is_some() && game.mode == ModeKind::Race && state.hold_timer > 0.0 {
+            continue;
+        }
+        // Endless Puzzle deals no more once a brick crossed the laser.
+        if game.mode == ModeKind::EndlessPuzzle && state.hold_timer > 0.0 {
             continue;
         }
         let respawn = state.respawn.take();
@@ -2172,14 +2177,20 @@ fn zap_over_laser(
         ),
     >,
 ) {
-    if game.mode != ModeKind::Puzzle || config.trial.is_some() {
+    let battle = game.mode == ModeKind::Puzzle && config.trial.is_none();
+    if !battle && game.mode != ModeKind::EndlessPuzzle {
         return;
     }
     for (entity, brick, aabb) in &bricks {
         let Ok(state) = towers.get(brick.tower) else {
             continue;
         };
-        if state.status == TowerStatus::Out
+        let crossed = if battle {
+            state.status == TowerStatus::Out
+        } else {
+            state.hold_timer > 0.0
+        };
+        if crossed
             && aabb.max.y / config.cell_size > state.laser(&config) + 0.05
         {
             commands.entity(entity).insert(crate::spells::Zapped {
@@ -2406,16 +2417,18 @@ fn judge_match(
                             state.dark_spell = None;
                         }
                     }
-                } else if (state.all_settled && state.height > state.laser(&config) + 0.05)
-                    || state.lives == Some(0)
-                {
-                    // The run's end is a win for the leaderboard: PuzzleRoofController puts
-                    // no roof on but makes the wizard the winner, so the bask says FINISH.
-                    state.status = TowerStatus::Won;
-                } else if state.bricks_used() >= state.level_end
-                    && state.active.is_none()
-                    && state.all_settled
-                {
+                } else if state.hold_timer > 0.0 || state.height > state.laser(&config) + 0.05 {
+                    // A brick over the laser is zapped (MaximumHeightGamePlayRule): no more
+                    // bricks come and a 3-2-1 runs (CountDownEffect, as a race's hold); then
+                    // the run is over, a win for the leaderboard: PuzzleRoofController puts no
+                    // roof on but makes the wizard the winner, so the bask says FINISH.
+                    state.hold_timer += dt;
+                    if state.hold_timer >= config.race.hold_seconds {
+                        state.status = TowerStatus::Won;
+                    }
+                } else if state.bricks_used() >= state.level_end && state.active.is_none() {
+                    // EndlessPuzzleGameModePlayController levels up as soon as the level's
+                    // bricks are used (placed or lost).
                     state.level_up = Some(0.0);
                     state.obstacles_placed = 0;
                 }

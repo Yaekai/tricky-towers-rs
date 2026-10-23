@@ -958,7 +958,8 @@ fn show_hold_counts(
         .max_by(|a, b| a.2.height.total_cmp(&b.2.height))
         .map(|(e, ..)| e);
     for (entity, ..) in &towers {
-        if game.mode == ModeKind::Race && !counts.iter().any(|(_, c, ..)| c.0 == entity) {
+        let counted = matches!(game.mode, ModeKind::Race | ModeKind::EndlessPuzzle);
+        if counted && !counts.iter().any(|(_, c, ..)| c.0 == entity) {
             let color = tone_color(&art, &images, Tone::Gold);
             let count = spawn_match_text(
                 &mut commands,
@@ -977,14 +978,20 @@ fn show_hold_counts(
             continue;
         };
         let holding = game.phase == Phase::Playing
-            && game.mode == ModeKind::Race
+            && matches!(game.mode, ModeKind::Race | ModeKind::EndlessPuzzle)
             && state.status == TowerStatus::Building
             && state.hold_timer > 0.0;
         let (lead, other) = config.race.countdown_above;
         let above = if leader == Some(count.0) { lead } else { other };
+        // Endless Puzzle's CountDownEffect stands over the tower, a race's over its line.
+        let from = if game.mode == ModeKind::EndlessPuzzle {
+            state.height
+        } else {
+            game.finish_height
+        };
         let at = Vec3::new(
             tower.origin_x,
-            config.cells(game.finish_height + above) + config.cell_size * 0.5,
+            config.cells(from + above) + config.cell_size * 0.5,
             0.0,
         );
         let Some(at) = holding

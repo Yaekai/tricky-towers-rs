@@ -1793,7 +1793,7 @@ fn endless_survival_waves_last_a_number_of_bricks() {
 }
 
 #[test]
-fn endless_puzzle_levels_raise_the_laser_and_a_lost_brick_ends_the_run() {
+fn endless_puzzle_levels_raise_the_laser_and_a_lost_brick_lifts_the_tower() {
     let mut config = fast_config();
     config.mode = ModeKind::EndlessPuzzle;
     config.magic.enabled = true;
@@ -1809,7 +1809,7 @@ fn endless_puzzle_levels_raise_the_laser_and_a_lost_brick_ends_the_run() {
         tower(app, 0).laser(&config)
     };
     assert_eq!(laser(&mut app), 30.0);
-    assert_eq!(tower(&mut app, 0).lives, Some(1));
+    assert_eq!(tower(&mut app, 0).lives, None, "Endless Puzzle has no health");
     assert_eq!(tower(&mut app, 0).light_spell, None);
 
     // Two bricks, then a level-up: the laser rises and Undo is given.
@@ -1828,14 +1828,39 @@ fn endless_puzzle_levels_raise_the_laser_and_a_lost_brick_ends_the_run() {
     assert_eq!(state.level_end, 2 + rules.level_bricks(2));
     assert_eq!(rules.level_bricks(2), 3);
 
-    // Steering a brick off the edge costs the only life.
+    // A brick steered off the edge lifts the tower half a cell (TowerMoveController); the
+    // run goes on.
     assert!(run_until(&mut app, 20.0, |app| {
         human_input(app).left_held = true;
-        app.world().resource::<Match>().phase == Phase::Over
+        tower(app, 0).bricks_dropped >= 1
     }));
+    human_input(&mut app).left_held = false;
+    run_seconds(&mut app, 0.5, |_| {});
+    let config = app.world().resource::<GameConfig>().clone();
     let state = tower(&mut app, 0);
-    assert_eq!(state.status, TowerStatus::Won);
-    assert!(state.bricks_dropped >= 1);
+    assert_eq!(state.status, TowerStatus::Building);
+    assert!((state.base_rise(&config) - 0.5 * state.bricks_dropped as f32).abs() < 1e-4);
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
+}
+
+#[test]
+fn endless_puzzle_ends_with_a_count_once_a_brick_crosses_the_laser() {
+    let mut config = fast_config();
+    config.mode = ModeKind::EndlessPuzzle;
+    config.endless_play.puzzle_drop_speed = 8.0;
+    config.endless_play.laser_start = 0.5;
+    let mut app = headless_app(config);
+    // The first brick crosses the laser: no more bricks come and a 3-2-1 runs.
+    assert!(run_until(&mut app, 20.0, |app| tower(app, 0).hold_timer > 0.0));
+    let used = tower(&mut app, 0).bricks_used();
+    run_seconds(&mut app, 2.5, |_| {});
+    let state = tower(&mut app, 0);
+    assert_eq!(state.status, TowerStatus::Building, "still counting");
+    assert!(state.bricks_used() <= used + 1, "no new bricks while it counts");
+    run_seconds(&mut app, 0.6, |_| {});
+    // FINISH: the run is a win for the leaderboard.
+    assert_eq!(tower(&mut app, 0).status, TowerStatus::Won);
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Over);
 }
 
 fn trial_config(trial: tricky_towers::config::TrialDef) -> GameConfig {

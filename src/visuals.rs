@@ -551,6 +551,8 @@ struct LaserSweep {
     tower: Entity,
     /// Seconds since a zap flashed it.
     flash: Option<f32>,
+    /// Endless Puzzle: the bricks used and whether a level-up ran, last frame.
+    seen: (u32, bool),
 }
 #[derive(Component)]
 struct LaserRest;
@@ -580,11 +582,21 @@ fn sweep_lasers(
             Visibility::Hidden
         });
     }
+    let endless = config.mode == crate::config::ModeKind::EndlessPuzzle;
     for (mut sweep, mut transform, mut visibility) in &mut bright {
-        let zapped = towers
-            .get(sweep.tower)
-            .is_ok_and(|s| s.status == crate::gameplay::TowerStatus::Out);
-        if !zapped {
+        let state = towers.get(sweep.tower).ok();
+        if endless {
+            // EndlessPuzzleGameModePlayController flashes the laser (AnimateZap) at every
+            // brick used, every brick zapped and each level-up's end.
+            let now = state.map_or((0, false), |s| (s.bricks_used(), s.level_up.is_some()));
+            let zapped = state.is_some_and(|s| s.hold_timer > 0.0) && sweep.flash.is_none();
+            if now.0 > sweep.seen.0 || (sweep.seen.1 && !now.1) || zapped {
+                sweep.flash = Some(0.0);
+            } else if let Some(flash) = sweep.flash.as_mut() {
+                *flash += time.delta_secs();
+            }
+            sweep.seen = now;
+        } else if !state.is_some_and(|s| s.status == crate::gameplay::TowerStatus::Out) {
             sweep.flash = None;
         } else if let Some(flash) = sweep.flash.as_mut() {
             *flash += time.delta_secs();
@@ -2999,6 +3011,7 @@ fn dress_platforms(
                                 width: line_width,
                                 tower: platform.tower,
                                 flash: None,
+                                seen: (0, false),
                             },
                             Transform::from_xyz(0.0, 0.0, 0.2),
                             Visibility::Hidden,

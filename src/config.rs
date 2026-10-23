@@ -388,7 +388,8 @@ pub struct EndlessPlay {
     pub survival_light: Vec<SpellKind>,
     /// Curse waves 15 to 29 s apart, each lasting a number of bricks.
     pub survival_waves: WaveRules,
-    /// Endless Puzzle: one life, drop speed 2, the laser starts at 6.2.
+    /// Endless Puzzle: no health (a lost brick lifts the tower), drop speed 2, the laser
+    /// starts at 6.2.
     pub puzzle_drop_speed: f32,
     pub laser_start: f32,
     /// Level 1 allows `first_bricks`; each level after allows

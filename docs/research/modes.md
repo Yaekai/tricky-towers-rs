@@ -135,7 +135,8 @@ wait 1 s, shake off, control back.
 
 ## Endless Survival and Endless Puzzle (read from the PC install, 2026-10-05)
 **Endless Puzzle**
-- One life. Drop speed starts at 2 (with the usual height bonus). Random bricks. No wind.
+- No health: a lost brick lifts the tower 0.5 cell over 0.4 s with a rumble
+  (TowerMoveController) instead of costing a life. Drop speed starts at 2 (with the usual height bonus). Random bricks. No wind.
   Puzzle floor `FLOOR_PUZZLE`. Camera zoomed 1.2× closer than battle Puzzle; bricks more than
   4 cells above the camera's top are removed. The drop guide is cream (1, 0.92, 0.74, 80%).
 - The laser starts at height 6.2. The run comes in **levels**: level 1 allows 6 bricks. When
@@ -148,8 +149,10 @@ wait 1 s, shake off, control back.
      Then wait 0.3 s.
   4. The laser zaps (laser start sound), spawning resumes, and you're given one Undo spell.
   5. The next level allows min(26, 6 + 2 × level) more bricks (8, 10, 12, … up to 26).
-- **Failing:** a brick zapped by the laser (settled above it) starts the end countdown; a lost
-  brick costs the only life. Either ends the run.
+- **Failing:** a brick over the laser is zapped and starts the end countdown (3-2-1, as a
+  race's hold); no more bricks come, and its end is the run's end. A lost brick only lifts
+  the tower (re-read 2026-10-23 from EndlessPuzzleGameModePlayController, TowerMoveController,
+  MaximumHeightGamePlayRule; the mode has no HEALTH model).
 - **Score:** the number of bricks in the tower (`BRICK_COUNT`) at the end.
 - There's no difficulty choice. The roof at the end is the Puzzle roof.
 
