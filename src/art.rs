@@ -1217,11 +1217,27 @@ fn play_sounds(
             }
         }
     }
+    let new_casts = (log.1 - heard.casts.min(log.1)) as usize;
+    // A curse of several at once (the compound spells) adds SFX_CAST_DARK_MAGIC_INTENSE.
+    // (The log has a line per target, so a caster counts once per different curse.)
+    let mut dark_by: Vec<(usize, crate::config::SpellKind)> = log
+        .0
+        .iter()
+        .rev()
+        .take(new_casts)
+        .filter(|c| c.spell.is_dark())
+        .map(|c| (c.caster, c.spell))
+        .collect();
+    dark_by.sort_unstable_by_key(|(caster, spell)| (*caster, *spell as usize));
+    dark_by.dedup();
+    if dark_by.windows(2).any(|w| w[0].0 == w[1].0) {
+        play("sfx_dark_magic_intense");
+    }
     for cast in log
         .0
         .iter()
         .rev()
-        .take((log.1 - heard.casts.min(log.1)) as usize)
+        .take(new_casts)
     {
         use crate::config::SpellKind;
         if cast.spell.is_dark() {
@@ -1239,7 +1255,10 @@ fn play_sounds(
             SpellKind::AutoRotate => "sfx_auto_rotate_start",
             SpellKind::Minibase => "sfx_spawn_minibase",
             SpellKind::ExtraLife => "sfx_spawn_life_v2",
-            SpellKind::Bubble => "sfx_bubble_pop",
+            // BubbleEffect's SFX_BUBBLE (the bubble growing).
+            SpellKind::Bubble => "sfx_grow_bubble",
+            // SpawnMysteryBrickEffect's SFX_SPAWN_MYSTERY_BRICK.
+            SpellKind::Mystery => "sfx_mystery_brick",
             SpellKind::Slow => "sfx_spawn_balloon",
             SpellKind::Fast => "sfx_fast_bricks",
             _ => "",
