@@ -27,7 +27,7 @@ impl Plugin for KeyboardInputPlugin {
             )
             .add_systems(
                 Update,
-                rumble_losers.run_if(resource_exists::<Messages<GamepadRumbleRequest>>),
+                (rumble_losers, rumble_large_bricks).run_if(resource_exists::<Messages<GamepadRumbleRequest>>),
             );
     }
 }
@@ -122,6 +122,52 @@ fn rumble_losers(
                 },
                 gamepad,
             });
+        }
+    }
+}
+
+/// LargeBrickControllerRumbleEffect: once a Large brick has grown, its player's pad rumbles
+/// on the big motor while it is steered, and 0.2 s more after it first touches down.
+fn rumble_large_bricks(
+    config: Res<crate::config::GameConfig>,
+    gamepads: Query<Entity, With<Gamepad>>,
+    towers: Query<(&Tower, &crate::gameplay::TowerState)>,
+    bricks: Query<&crate::gameplay::Brick>,
+    placed: Query<&crate::gameplay::Brick, Added<crate::gameplay::Placed>>,
+    lobby: Option<Res<crate::select::Lobby>>,
+    mut rumble: MessageWriter<GamepadRumbleRequest>,
+) {
+    let mut pads: Vec<Entity> = gamepads.iter().collect();
+    if pads.is_empty() {
+        return;
+    }
+    pads.sort();
+    let players = towers.iter().filter(|(t, _)| t.human).count();
+    let seats = seated(lobby.as_deref(), players);
+    let strength = config.moments.pad_rumble_strength;
+    let mut buzz = |tower: &Tower, seconds: f32| {
+        let Some(player) = tower.player else { return };
+        if let Some(slot) = (0..pads.len())
+            .find(|&slot| pad_player(seats.as_deref(), players, slot, pads[slot]) == Some(player))
+        {
+            rumble.write(GamepadRumbleRequest::Add {
+                duration: std::time::Duration::from_secs_f32(seconds),
+                intensity: GamepadRumbleIntensity::strong_motor(strength),
+                gamepad: pads[slot],
+            });
+        }
+    };
+    for (tower, state) in &towers {
+        // Steered and grown: a short buzz each frame keeps it going.
+        if state.active.and_then(|e| bricks.get(e).ok()).is_some_and(|b| b.scale > 1.0) {
+            buzz(tower, 0.05);
+        }
+    }
+    for brick in &placed {
+        if brick.scale > 1.0
+            && let Ok((tower, _)) = towers.get(brick.tower)
+        {
+            buzz(tower, 0.2);
         }
     }
 }
