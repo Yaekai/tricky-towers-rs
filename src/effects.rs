@@ -650,6 +650,8 @@ fn shake_for_roofs(
 /// and LIFE_LOST / LIFE_LOST_PUZZLE (Race listens to no lost-brick trigger).
 const PLACED_SHAKE: (f32, f32, f32) = (0.1, 0.13, 0.2);
 const LOST_SHAKE: (f32, f32, f32) = (0.2, 0.26, 0.2);
+/// BRICK_NUDGED's CameraShakeEffect.
+const NUDGE_SHAKE: (f32, f32, f32) = (0.2, 0.07, 0.1);
 
 // ponytail: the original shakes only that player's own camera; with one camera for every
 // lane these run only when a single tower plays (trials, Endless). Per-lane cameras would
@@ -660,6 +662,7 @@ fn shake_for_bricks(
     towers: Query<&crate::gameplay::TowerState>,
     placed: Query<&Brick, Added<crate::gameplay::Placed>>,
     mut lost: MessageReader<BrickLost>,
+    mut nudged: MessageReader<crate::gameplay::BrickNudged>,
     mut shake: ResMut<CameraShake>,
 ) {
     let mut kick = |(x, y, seconds): (f32, f32, f32), k: f32| {
@@ -667,6 +670,7 @@ fn shake_for_bricks(
     };
     let solo = towers.iter().count() == 1;
     let life_lost = lost.read().any(|l| l.life);
+    let nudges = nudged.read().count();
     if !solo || game.phase != crate::gameplay::Phase::Playing {
         return;
     }
@@ -675,6 +679,9 @@ fn shake_for_bricks(
     }
     if life_lost {
         kick(LOST_SHAKE, 1.0);
+    }
+    if nudges > 0 {
+        kick(NUDGE_SHAKE, 1.0);
     }
 }
 
