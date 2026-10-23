@@ -1124,10 +1124,25 @@ fn play_sounds(
     // BrickRotatedAudioEffect turns at a random pitch, 0.8 to 1.2.
     heard.roll = heard.roll.wrapping_mul(1_103_515_245).wrapping_add(12_345);
     let rotate_pitch = 0.8 + 0.4 * ((heard.roll >> 16) % 1000) as f32 / 1000.0;
-    // CountDownEffect: the leading tower's 3, 2, 1, each count at a higher pitch.
-    let countdown = if game.phase == Phase::Playing { lead_countdown(&config, &towers) } else { 0 };
+    // CountDownEffect: SFX_COUNT for the leading count's 3, 2, 1, each at a higher pitch; a
+    // Puzzle battle's laser touch runs one too (without the music ducking).
+    let laser = towers
+        .iter()
+        .filter_map(|(_, s, _)| s.laser_count)
+        .filter(|&t| t < config.puzzle.count_seconds)
+        .map(|t| (config.puzzle.count_seconds - t).ceil().max(1.0) as u32)
+        .min();
+    let countdown = if game.phase == Phase::Playing {
+        match (lead_countdown(&config, &towers), laser) {
+            (0, Some(n)) => n,
+            (n, Some(m)) => n.min(m),
+            (n, None) => n,
+        }
+    } else {
+        0
+    };
     if countdown != heard.countdown && (1..=3).contains(&countdown) {
-        play_with("sfx_countdown", 1.0, 1.0 + (3 - countdown) as f32 / 6.0);
+        play_with("sfx_count_v3", 1.0, 1.0 + (3 - countdown) as f32 / 6.0);
     }
     heard.countdown = countdown;
     let mut play = |name: &str| match name {
