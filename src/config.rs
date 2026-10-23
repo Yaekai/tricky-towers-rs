@@ -88,8 +88,17 @@ pub struct GameConfig {
     pub roofs: Roofs,
     /// How far above the tower top a new brick appears, in cells.
     pub spawn_gap: f32,
-    /// Bricks that fall this far below the platform are counted as dropped.
+    /// Race: bricks that fall this far below the platform hit the water and count as
+    /// dropped (BrickSplash).
     pub kill_depth: f32,
+    /// Survival and Puzzle: a brick is lost once it leaves its tower's view
+    /// (TowerPartRemoveOutsideCameraChecker): its centre plus `lost_reach` cells (its
+    /// maxDistanceFromCenter, times its scale) past the view's bottom or side, while it
+    /// falls faster than `lost_fall_speed` (isFalling). A Puzzle battle's bottom edge is
+    /// `lost_puzzle_offset` higher and needs no fall (TowerPartRemoveCheckerPuzzle).
+    pub lost_reach: f32,
+    pub lost_fall_speed: f32,
+    pub lost_puzzle_offset: f32,
     /// Fraction of a cell used for the physics collider of each cell. Slightly
     /// under 1.0 so neighbouring bricks do not start in contact.
     pub collider_scale: f32,
@@ -3477,6 +3486,9 @@ impl Default for GameConfig {
             roofs: Roofs::default(),
             spawn_gap: 17.0,
             kill_depth: 8.5,
+            lost_reach: 2.237,
+            lost_fall_speed: 3.0,
+            lost_puzzle_offset: 4.0,
             collider_scale: 0.99,
             drop_speed_default: 2.0,
             brick_friction: 0.4,

@@ -167,33 +167,79 @@ fn sink(
     velocity: Vec2,
     spin: f32,
     floats: bool,
+    water: bool,
 ) {
-    let water = &config.water;
+    let rules = &config.water;
     let mut brick = commands.entity(entity);
-    brick
-        .remove::<(
-            Brick,
-            ActiveBrick,
-            Cursed,
-            crate::spells::Bubbled,
-            crate::spells::Ghosted,
-        )>()
-        .insert((
-            Sunk,
-            RigidBody::Dynamic,
-            LinearVelocity(velocity * (1.0 - water.stop)),
-            AngularVelocity(spin * (1.0 - water.spin_damp)),
-        ));
-    if floats {
+    brick.remove::<(
+        Brick,
+        ActiveBrick,
+        Cursed,
+        crate::spells::Bubbled,
+        crate::spells::Ghosted,
+    )>();
+    // Out of view in Survival and Puzzle it just falls on; Race's water slows it.
+    let keep = if water { 1.0 - rules.stop } else { 1.0 };
+    let spin_keep = if water { 1.0 - rules.spin_damp } else { 1.0 };
+    brick.insert((
+        Sunk,
+        RigidBody::Dynamic,
+        LinearVelocity(velocity * keep),
+        AngularVelocity(spin * spin_keep),
+    ));
+    if floats && water {
         brick.insert(ConstantLinearAcceleration(
-            Vec2::Y * config.cells(water.lift),
+            Vec2::Y * config.cells(rules.lift),
         ));
     }
 }
 
-/// Lost bricks float in the water for a while, then go.
-// ponytail: Survival and Puzzle remove a part once it leaves the camera (their own
-// TowerPartRemoveCheckers); under the water that is out of view either way.
+/// Whether bricks are lost by leaving the view (Survival and Puzzle) rather than in
+/// Race's water.
+fn lost_out_of_view(game: &Match) -> bool {
+    matches!(game.mode.rules(), ModeKind::Survival | ModeKind::Puzzle)
+}
+
+/// The bottom of the towers' view and its half width around a tower, in cells, as the
+/// camera frames them (visuals::frame_towers: SingleTowerCamera, Puzzle's WidthTowerCamera
+/// on the floor); a lone tower's view is taken as wide as the screen.
+fn tower_view(config: &GameConfig, game: &Match, lowest: f32, highest: f32, towers: usize) -> (f32, f32) {
+    let floor = -config.camera_floor();
+    let bottom = if game.mode.rules() == ModeKind::Puzzle || game.phase == Phase::Over {
+        floor
+    } else {
+        let look = &config.hud;
+        let top = (highest + look.camera_height - look.camera_tower_room).max(floor + look.camera_height);
+        (lowest - look.camera_below_lowest).max(floor).min(top - look.camera_height)
+    };
+    // ponytail: a lane's view is its share of a 16:9 screen; a trial's split isn't modelled.
+    let lanes = if config.trial.is_some() { 1 } else { towers };
+    (bottom, config.lanes.width(lanes) / 2.0)
+}
+
+/// TowerPartRemoveOutsideCameraChecker and its Survival and Puzzle variants: whether a
+/// brick at `at` (cells from the tower's base centre) has left the view.
+fn out_of_view(
+    config: &GameConfig,
+    game: &Match,
+    view: (f32, f32),
+    at: Vec2,
+    fall: f32,
+    scale: f32,
+    ghosted: bool,
+) -> bool {
+    let reach = config.lost_reach * scale;
+    let battle_puzzle = game.mode == ModeKind::Puzzle && config.trial.is_none();
+    let offset = if battle_puzzle { config.lost_puzzle_offset } else { 0.0 };
+    let out = at.y + reach < view.0 + offset || at.x.abs() - reach > view.1;
+    // Survival battles and Endless Survival also drop a ghost-carried brick that leaves.
+    let ghost_rule = matches!(game.mode, ModeKind::Survival | ModeKind::EndlessSurvival)
+        && config.trial.is_none()
+        && ghosted;
+    out && (battle_puzzle || fall < -config.lost_fall_speed || ghost_rule)
+}
+
+/// Lost bricks float in Race's water for a while, or fall on out of view, then go.
 fn drain_water(
     mut commands: Commands,
     config: Res<GameConfig>,
@@ -1544,6 +1590,13 @@ fn control_active_brick(
     if game.mode == ModeKind::Endless {
         drop_speed = drop_speed.min(config.endless.max_drop_speed);
     }
+    let view = {
+        let (mut low, mut high, mut n) = (f32::MAX, f32::MIN, 0);
+        for (_, s, _) in towers.iter() {
+            (low, high, n) = (low.min(s.stack_top), high.max(s.stack_top), n + 1);
+        }
+        tower_view(&config, &game, low, high, n)
+    };
 
     for (tower, mut state, mut input) in &mut towers {
         let left_pressed = std::mem::take(&mut input.left_pressed);
@@ -1843,10 +1896,17 @@ fn control_active_brick(
             continue;
         }
 
-        // Steered off the side and past the kill line: it counts as dropped.
-        if position.0.y < -config.cells(config.kill_depth) {
+        // Steered off the side and past the kill line (out of view in Survival and Puzzle):
+        // it counts as dropped.
+        let gone = if lost_out_of_view(&game) {
+            let at = Vec2::new(position.0.x - tower.origin_x, position.0.y) / c;
+            out_of_view(&config, &game, view, at, -drop_speed, brick.scale, false)
+        } else {
+            position.0.y < -config.cells(config.kill_depth)
+        };
+        if gone {
             let falling = Vec2::NEG_Y * config.cells(drop_speed);
-            sink(&mut commands, &config, entity, falling, 0.0, true);
+            sink(&mut commands, &config, entity, falling, 0.0, true, !lost_out_of_view(&game));
             state.active = None;
             let life = state.lose_brick(&config);
             lost.write(BrickLost {
@@ -2035,6 +2095,14 @@ fn track_towers(
     mut lost: MessageWriter<BrickLost>,
 ) {
     let kill_y = -config.cells(config.kill_depth);
+    let view = {
+        let (mut low, mut high, mut n) = (f32::MAX, f32::MIN, 0);
+        for (_, s) in towers.iter() {
+            (low, high, n) = (low.min(s.stack_top), high.max(s.stack_top), n + 1);
+        }
+        tower_view(&config, &game, low, high, n)
+    };
+    let by_view = lost_out_of_view(&game);
 
     let settled_speed = config.cells(0.5);
     let mut tops: Vec<(Entity, f32, bool)> = Vec::new();
@@ -2055,9 +2123,16 @@ fn track_towers(
         // speculative margin while a brick moves (the trial 9 laser 0.27 over).
         let aabb = collider.aabb(position.0, *rotation);
         // A lost brick of an Ivy cluster is counted once the cluster lets go.
-        if position.0.y < kill_y && !in_ivy {
+        let gone = if by_view {
+            let at = Vec2::new(position.0.x - tower.origin_x, position.0.y) / config.cell_size;
+            let fall = velocity.0.y / config.cell_size;
+            out_of_view(&config, &game, view, at, fall, brick.scale, ghosted)
+        } else {
+            position.0.y < kill_y
+        };
+        if gone && !in_ivy {
             let spin = spin.map_or(0.0, |s| s.0);
-            sink(&mut commands, &config, entity, velocity.0, spin, !bubbled);
+            sink(&mut commands, &config, entity, velocity.0, spin, !bubbled, !by_view);
             // Once the match is over (and losing towers fall apart), losses no
             // longer change the score.
             let playing = game.phase == Phase::Playing;
@@ -2918,4 +2993,33 @@ pub fn auto_rotate_angle(magic: &crate::config::MagicRules, cycle: f32, t: f32) 
         swing - back
     };
     done * (swing - back) + within
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn survival_bricks_are_lost_as_they_leave_the_view() {
+        let config = GameConfig::default();
+        let game = Match { phase: Phase::Playing, mode: ModeKind::Survival, ..default() };
+        // Towers 30 cells tall: the view (41.5 cells, its top 21.5 over them) ends at 10.
+        let view = tower_view(&config, &game, 30.0, 30.0, 2);
+        assert!((view.0 - 10.0).abs() < 1e-4);
+        let falling = -5.0;
+        // Lost once the brick's reach is under the bottom, while it falls...
+        assert!(out_of_view(&config, &game, view, Vec2::new(0.0, 7.0), falling, 1.0, false));
+        assert!(!out_of_view(&config, &game, view, Vec2::new(0.0, 8.0), falling, 1.0, false));
+        // ...not while it rests or drifts down slowly, unless a ghost carries it off.
+        assert!(!out_of_view(&config, &game, view, Vec2::new(0.0, 7.0), -1.0, 1.0, false));
+        assert!(out_of_view(&config, &game, view, Vec2::new(0.0, 7.0), -1.0, 1.0, true));
+        // Past a lane's side.
+        assert!(out_of_view(&config, &game, view, Vec2::new(view.1 + 2.3, 15.0), falling, 1.0, false));
+        // A Puzzle battle: the floor plus 4, falling or not.
+        let puzzle = Match { mode: ModeKind::Puzzle, ..game.clone() };
+        let view = tower_view(&config, &puzzle, 0.0, 0.0, 2);
+        let edge = -config.camera_floor() + config.lost_puzzle_offset - config.lost_reach;
+        assert!(out_of_view(&config, &puzzle, view, Vec2::new(0.0, edge - 0.1), 0.0, 1.0, false));
+        assert!(!out_of_view(&config, &puzzle, view, Vec2::new(0.0, edge + 0.1), 0.0, 1.0, false));
+    }
 }
