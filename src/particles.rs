@@ -59,6 +59,14 @@ struct Particle {
 struct LostCross {
     time: f32,
     size: f32,
+    /// BlinkingCrossEffect: from where the brick left the view to the heart the lost life
+    /// empties, over 0.8 s (in-quad; the axis the brick didn't leave by starts 0.3 s late),
+    /// turning a full turn its side's way from 0.2 s.
+    from: Vec2,
+    tower: usize,
+    heart: Option<u32>,
+    side: f32,
+    bottom: bool,
 }
 
 /// A front cloud of the WAVE N message, drifting by its own keys (`moments.wave_clouds`).
@@ -324,7 +332,11 @@ fn lost_bricks(
     view_size: Res<ViewSize>,
     camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
     mut lost: MessageReader<BrickLost>,
+    towers: Query<(&Tower, &TowerState)>,
 ) {
+    // The heart a lost life empties: the one at the lives now left.
+    let lives: std::collections::HashMap<usize, u32> =
+        towers.iter().filter_map(|(t, s)| Some((t.index, s.lives?))).collect();
     let c = config.cell_size;
     let (centre, size) = match camera.single() {
         Ok((t, Projection::Orthographic(o))) => (t.translation.truncate(), view_size.0 * o.scale),
@@ -518,7 +530,15 @@ fn lost_bricks(
             None => Sprite::from_color(Color::srgb(0.9, 0.15, 0.15), Vec2::new(size, size * 0.2)),
         };
         commands.spawn((
-            LostCross { time: 0.0, size },
+            LostCross {
+                time: 0.0,
+                size,
+                from: edge,
+                tower: brick.tower,
+                heart: lives.get(&brick.tower).copied(),
+                side: if brick.at.x > centre.x { 1.0 } else { -1.0 },
+                bottom: brick.at.x > centre.x - half.x && brick.at.x < centre.x + half.x,
+            },
             sprite,
             Transform::from_translation(edge.extend(9.5)),
         ));
@@ -561,18 +581,33 @@ fn move_particles(
 fn spin_crosses(
     mut commands: Commands,
     time: Res<Time>,
+    hearts: Res<crate::hud::HeartSpots>,
     mut crosses: Query<(Entity, &mut LostCross, &mut Transform, &mut Sprite)>,
 ) {
     for (entity, mut cross, mut transform, mut sprite) in &mut crosses {
         cross.time += time.delta_secs();
         let t = cross.time;
-        if t >= 1.2 {
+        // With a heart to go to it is gone when it gets there.
+        let target = cross.heart.and_then(|h| hearts.0.get(&(cross.tower, h)).copied());
+        if t >= 1.2 || (target.is_some() && t >= 0.8) {
             commands.entity(entity).despawn();
             continue;
         }
-        // A full turn eased in after 0.2 s, shrinking to 30% over 0.8 s.
+        if let Some(to) = target {
+            let (wait_x, wait_y) = if cross.bottom { (0.3, 0.0) } else { (0.0, 0.3) };
+            let quad = |wait: f32| {
+                let k = ((t - wait) / (0.8 - wait)).clamp(0.0, 1.0);
+                k * k
+            };
+            let at = Vec2::new(
+                cross.from.x + quad(wait_x) * (to.x - cross.from.x),
+                cross.from.y + quad(wait_y) * (to.y - cross.from.y),
+            );
+            transform.translation = at.extend(transform.translation.z);
+        }
+        // A full turn eased in after 0.2 s, its side's way, shrinking to 30% over 0.8 s.
         let spin = ((t - 0.2) / 0.8).clamp(0.0, 1.0);
-        transform.rotation = Quat::from_rotation_z(-std::f32::consts::TAU * spin * spin);
+        transform.rotation = Quat::from_rotation_z(cross.side * std::f32::consts::TAU * spin * spin);
         let scale = 1.0 - 0.7 * (t / 0.8).min(1.0);
         if let Some(size) = sprite.custom_size.as_mut() {
             *size = size.normalize_or_zero() * cross.size * scale * std::f32::consts::SQRT_2;
