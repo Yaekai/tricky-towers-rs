@@ -767,7 +767,8 @@ fn orbit_bricks(
         let count = bricks.iter().filter(|(_, p, ..)| p.parent() == entity).count();
         let share = orbit.time / 2.0;
         let shown = (((count as f32) * share).round() as usize).min(count);
-        if shown > orbit.shown && orbit.since_sound > 0.075 {
+        // (WizardBricksView plays it on its clock while it builds, new brick or not.)
+        if orbit.shown < count && orbit.since_sound > 0.075 {
             orbit.since_sound = 0.0;
             if let Some(sound) = art.sounds.get("sfx_bubble_pop") {
                 commands.spawn((

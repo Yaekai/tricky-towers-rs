@@ -136,15 +136,20 @@ fn build_rival_lane(
     }
 }
 
-/// Shows round(groups × t / 1.5) groups at time t, with a bubble pop at most every
-/// 0.075 s, its pitch rising 1 → 2.5 over the build.
+/// Shows round(groups × t / 1.5) groups at time t, each with BRICK_SPAWN_POOF_SMALL, and a
+/// bubble pop every 0.075 s while it builds, its pitch rising 1 → 2.5 (TowerScenery).
 fn pop_in(
     mut commands: Commands,
     time: Res<Time>,
+    config: Res<GameConfig>,
     art: Res<Art>,
     mut lanes: Query<(&mut PopIn, &Children)>,
-    mut pieces: Query<(&RivalPiece, &mut Visibility)>,
+    mut pieces: Query<(&RivalPiece, &mut Visibility, &GlobalTransform)>,
+    mut seed: Local<u32>,
 ) {
+    if *seed == 0 {
+        *seed = 0x7A3D_51F1;
+    }
     for (mut pop, children) in &mut lanes {
         if pop.shown >= pop.groups {
             continue;
@@ -155,22 +160,26 @@ fn pop_in(
         let due = ((pop.groups as f32 * progress).round() as u32).min(pop.groups);
         if due > pop.shown {
             for child in children.iter() {
-                if let Ok((piece, mut visible)) = pieces.get_mut(child)
+                if let Ok((piece, mut visible, at)) = pieces.get_mut(child)
                     && piece.0 <= due
                 {
+                    if piece.0 > pop.shown {
+                        let at = at.translation().truncate();
+                        crate::particles::small_poof(&mut commands, &art, config.cell_size, at, 30.0, &mut seed);
+                    }
                     *visible = Visibility::Inherited;
                 }
             }
             pop.shown = due;
-            if pop.since_sound > POP_SOUND_GAP
-                && let Some(sound) = art.sounds.get("sfx_bubble_pop")
-            {
-                pop.since_sound = 0.0;
-                commands.spawn((
-                    AudioPlayer(sound.clone()),
-                    PlaybackSettings::DESPAWN.with_speed(1.0 + progress * 1.5),
-                ));
-            }
+        }
+        if pop.since_sound > POP_SOUND_GAP
+            && let Some(sound) = art.sounds.get("sfx_bubble_pop")
+        {
+            pop.since_sound = 0.0;
+            commands.spawn((
+                AudioPlayer(sound.clone()),
+                PlaybackSettings::DESPAWN.with_speed(1.0 + progress * 1.5),
+            ));
         }
     }
 }
