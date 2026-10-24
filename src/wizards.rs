@@ -108,6 +108,9 @@ pub struct Wizard {
     action_countdown: u32,
     laugh_cooldown: f32,
     startle_cooldown: f32,
+    /// A curse on its way startles the wizard as the beam comes (WizardStartleEffect after
+    /// the caster's beam goes up): seconds until then.
+    startle_in: Option<f32>,
     shake: f32,
     /// Seconds since the match was lost; the wizard shrinks away.
     vanish: f32,
@@ -254,6 +257,7 @@ fn spawn_wizards(
             action_countdown: 0,
             laugh_cooldown: 0.0,
             startle_cooldown: 0.0,
+            startle_in: None,
             shake: 0.0,
             vanish: 0.0,
             seen: Seen {
@@ -340,6 +344,7 @@ pub(crate) fn spawn_free_wizard(
         action_countdown: 0,
         laugh_cooldown: 0.0,
         startle_cooldown: 0.0,
+        startle_in: None,
         shake: 0.0,
         vanish: 0.0,
         seen: Seen::default(),
@@ -472,6 +477,13 @@ fn react_wizards(
         } else {
             wizard.startle_cooldown -= dt;
             wizard.shake -= dt;
+            if let Some(wait) = wizard.startle_in.as_mut() {
+                *wait -= dt;
+                if *wait <= 0.0 {
+                    wizard.startle_in = None;
+                    play(&mut wizard, Clip::Startle, None);
+                }
+            }
 
             if state.bricks_placed > wizard.seen.placed {
                 wizard.action_countdown = wizard.action_countdown.saturating_sub(1);
@@ -501,7 +513,7 @@ fn react_wizards(
                     }
                 } else if dark && cast.target == wizard.lane && wizard.startle_cooldown <= 0.0 {
                     wizard.startle_cooldown = look.reaction_cooldown;
-                    play(&mut wizard, Clip::Startle, None);
+                    wizard.startle_in = Some(config.casts.dark_start);
                 }
             }
             if state.lives.unwrap_or(0) < wizard.seen.lives.unwrap_or(0) {
