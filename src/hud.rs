@@ -30,6 +30,7 @@ impl Plugin for HudPlugin {
                 fill_items,
                 place_items,
                 pop_ranks,
+                pop_counts,
                 pop_hearts,
                 blink_last_heart,
                 find_hearts,
@@ -267,6 +268,7 @@ fn fill_items(
     )>,
     count_up: Option<Res<crate::intro::IntroCount>>,
     time: Res<Time>,
+    popping: Query<(), With<CountPop>>,
     mut steady: Local<HashMap<usize, (Option<usize>, Option<usize>, f32)>>,
 ) {
     let order: Vec<(usize, TowerState)> = towers
@@ -316,6 +318,17 @@ fn fill_items(
             && item.built_art == art.images.len()
         {
             continue;
+        }
+        // A count that changes pops (unless its pop is still playing).
+        if item.kind == Kind::Count
+            && let (Some(Shows::Text(before, _)), Shows::Text(now, _)) = (&item.shows, &shows)
+            && before != now
+            && before.parse::<u32>().is_ok()
+            && !popping.contains(entity)
+        {
+            let big = if game.mode == ModeKind::Survival { 1.8 } else { 1.3 };
+            let way = if (time.elapsed_secs() * 1000.0) as u32 % 2 == 0 { 1.0 } else { -1.0 };
+            commands.entity(entity).insert(CountPop(0.0, way, big));
         }
         let mut node = commands.entity(entity);
         node.despawn_children();
@@ -897,6 +910,43 @@ fn blink_last_heart(
 /// The RankUpdate clip on a place label that just changed: seconds since it started.
 #[derive(Component)]
 struct RankPop(f32);
+
+/// A count's UpdateVar01/02 clip as its number changes (LabelViewInt; BricksToPlaceView's
+/// BricksViewUpdateVar for the Survival count): seconds since, which way it tips, and how
+/// big it grows (1.8 for the Survival count, 1.3 for the others).
+#[derive(Component)]
+struct CountPop(f32, f32, f32);
+
+/// UpdateVar01's turn in degrees (02 tips the other way) and the scale's keys as a share of
+/// the growth.
+const COUNT_TURN: [(f32, f32); 8] = [
+    (0.0, 0.0),
+    (0.05, 12.0),
+    (0.1, 13.1),
+    (0.15, 13.5),
+    (0.2, 12.6),
+    (0.25, 9.8),
+    (0.3, 5.0),
+    (0.35, 0.0),
+];
+const COUNT_GROW: [(f32, f32); 4] = [(0.0, 0.0), (0.05, 1.0), (0.217, 1.0), (0.35, 0.0)];
+
+fn pop_counts(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut pops: Query<(Entity, &mut CountPop, &mut UiTransform)>,
+) {
+    for (entity, mut pop, mut transform) in &mut pops {
+        pop.0 += time.delta_secs();
+        let t = pop.0;
+        transform.scale = Vec2::splat(1.0 + (pop.2 - 1.0) * keyed(&COUNT_GROW, t));
+        transform.rotation = Rot2::degrees(-pop.1 * keyed(&COUNT_TURN, t));
+        if t >= 0.35 {
+            *transform = UiTransform::default();
+            commands.entity(entity).remove::<CountPop>();
+        }
+    }
+}
 
 /// RankUpdate's LabelNumber keys: scale, and the turn in degrees (sampled every 0.05 s).
 const RANK_SCALE: [(f32, f32); 5] = [(0.0, 1.0), (0.133, 0.8), (0.233, 1.224), (0.333, 1.0), (1.0, 1.0)];

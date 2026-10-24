@@ -222,6 +222,7 @@ impl Plugin for LettersPlugin {
                 sync_mirrors,
                 tidy_mirrors,
                 follow_nodes,
+                follow_transforms,
                 redraw_when_fields_load,
                 draw_letters,
             )
@@ -691,6 +692,20 @@ fn tidy_mirrors(
                     text.remove::<MirroredBy>();
                 }
             }
+        }
+    }
+}
+
+/// Turns and scales each twin with its text (the HUD labels' pops).
+fn follow_transforms(
+    texts: Query<(&MirroredBy, &UiTransform), Changed<UiTransform>>,
+    mut twins: Query<&mut UiTransform, Without<MirroredBy>>,
+) {
+    for (mirror, transform) in &texts {
+        if let Ok(mut twin) = twins.get_mut(mirror.0)
+            && *twin != *transform
+        {
+            *twin = *transform;
         }
     }
 }
