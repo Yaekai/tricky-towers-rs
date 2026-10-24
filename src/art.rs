@@ -1168,7 +1168,6 @@ fn play_sounds(
     for name in due {
         play(name);
     }
-    let mut later = Vec::new();
     if game.phase == Phase::Playing {
         if you.bricks_placed > heard.placed {
             // BrickPlacedAudioEffect: a Large brick lands heavy, an iced one with one of four
@@ -1243,8 +1242,10 @@ fn play_sounds(
         .collect();
     dark_by.sort_unstable_by_key(|(caster, spell)| (*caster, *spell as usize));
     dark_by.dedup();
+    // A compound's pre-cast effects (with the intense sound) run as the curse lands.
+    let mut later = Vec::new();
     if dark_by.windows(2).any(|w| w[0].0 == w[1].0) {
-        play("sfx_dark_magic_intense");
+        later.push((config.casts.dark_orb_land, "sfx_dark_magic_intense"));
     }
     for cast in log
         .0
@@ -1254,9 +1255,10 @@ fn play_sounds(
     {
         use crate::config::SpellKind;
         if cast.spell.is_dark() {
-            // WizardCastUpwardEffect's SFX_CAST_DARK_MAGIC and the zap.
-            play("sfx_cast_dark");
-            play("sfx_zap_enemy");
+            // The dark pipeline's zap (SFX_CAST_, after its 0.5 s delay) and
+            // WizardCastUpwardEffect's SFX_CAST_DARK_MAGIC as the beam goes up.
+            later.push((config.magic.dark_cast_hold, "sfx_zap_enemy"));
+            later.push((config.casts.dark_start, "sfx_cast_dark"));
         } else {
             // One of SFX_CAST_LIGHT_MAGIC_1 and _2 at random, with the lightning at the
             // wizard's cast-self moment (its AudioEffect waits 0.1 s more).
@@ -1265,8 +1267,7 @@ fn play_sounds(
                 ["sfx_cast_light", "sfx_cast_lightning_level_02"][light_pick as usize],
             ));
         }
-        // Each spell's own sound (AbstractInitSpellsCommand).
-        // ponytail: played with the cast, not when the spell lands (AUTO_BUILD's loop:
+        // Each spell's own sound (AbstractInitSpellsCommand; AUTO_BUILD's loop:
         // auto_build_loop).
         let own = match cast.spell {
             SpellKind::AutoRotate => "sfx_auto_rotate_start",
@@ -1280,11 +1281,11 @@ fn play_sounds(
             SpellKind::Fast => "sfx_fast_bricks",
             _ => "",
         };
-        // Minibase and Extra Life are spawned at the cast-self moment too.
-        if cast.spell.is_dark() {
-            play(own);
-        } else if !own.is_empty() {
-            later.push((config.magic.cast_self, own));
+        // A curse's own sound comes as it lands; Minibase and Extra Life are spawned at the
+        // cast-self moment.
+        if !own.is_empty() {
+            let at = if cast.spell.is_dark() { config.casts.dark_orb_land } else { config.magic.cast_self };
+            later.push((at, own));
         }
     }
     heard.later.extend(later);
