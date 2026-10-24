@@ -37,6 +37,7 @@ impl Plugin for VisualsPlugin {
                     dissolve_zapped,
                     ripple_water.after(fit_strips),
                     ripple_house_water,
+                    bob_heads,
                     pulse_band,
                     run_waves.after(fit_backgrounds),
                 ),
@@ -1876,6 +1877,49 @@ fn wave_islands(
     }
 }
 
+/// A Puzzle ruin's floating head (FloatingHead, FloatingHeadBackLeft/Center/Right): it rises
+/// or sinks `reach` units by `peak` seconds and is back by `period`, eased both ways.
+#[derive(Component)]
+struct HeadBob {
+    reach: f32,
+    peak: f32,
+    period: f32,
+}
+
+/// The floating heads staged as `background_puzzle[_pro]_7..12` (stage.ps1), with their
+/// clips' moves.
+fn head_bob(name: &str) -> Option<HeadBob> {
+    let n: u32 = name
+        .strip_prefix("background_puzzle_pro_")
+        .or_else(|| name.strip_prefix("background_puzzle_"))?
+        .parse()
+        .ok()?;
+    let (reach, peak, period) = match n {
+        7 => (0.32, 1.667, 3.55),
+        8 => (-0.82, 2.5, 5.0),
+        9 => (0.47, 1.767, 4.0),
+        10 => (-0.71, 3.217, 6.0),
+        11 => (-0.22, 2.283, 6.0),
+        12 => (0.144, 3.017, 6.0),
+        _ => return None,
+    };
+    Some(HeadBob { reach, peak, period })
+}
+
+fn bob_heads(time: Res<Time>, mut heads: Query<(&HeadBob, &mut ScreenLayer)>) {
+    for (bob, mut layer) in &mut heads {
+        let t = time.elapsed_secs() % bob.period;
+        let k = if t < bob.peak {
+            t / bob.peak
+        } else {
+            1.0 - (t - bob.peak) / (bob.period - bob.peak).max(0.01)
+        };
+        // Flat at both ends (the clip's keys have flat tangents).
+        let eased = k * k * (3.0 - 2.0 * k);
+        layer.lift = bob.reach * eased;
+    }
+}
+
 fn bob_islands(
     time: Res<Time>,
     config: Res<GameConfig>,
@@ -2465,6 +2509,10 @@ fn spawn_backgrounds(
                 let mut layer = commands.entity(island_entity);
                 if star {
                     layer.insert(Star::default());
+                }
+                // The Puzzle ruins' floating heads bob on their FloatingHead clips.
+                if let Some(bob) = head_bob(name) {
+                    layer.insert(bob);
                 }
                 if mode == ModeKind::Survival && name == "background_survival_0" {
                     layer.insert(Moon);
