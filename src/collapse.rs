@@ -75,9 +75,13 @@ pub enum CollapseKind {
     Thud,
 }
 
-/// True for a tower that plays no end sequence: the winner, or one that won on its own.
+/// True for a tower that plays no end sequence: the winner, one that won on its own, or
+/// any tower in a Puzzle mode (PuzzleGameBaskController counts the bricks instead; only
+/// GameBaskController, used by Race and Survival, plays CollapseTowerEffect).
 fn is_winner(game: &Match, tower: &Tower, state: &TowerState) -> bool {
-    game.winner == Some(tower.index) || state.status == TowerStatus::Won
+    game.winner == Some(tower.index)
+        || state.status == TowerStatus::Won
+        || game.mode.rules() == crate::config::ModeKind::Puzzle
 }
 
 /// True once every losing tower has finished its end sequence (winners count as

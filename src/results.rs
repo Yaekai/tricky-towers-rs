@@ -767,7 +767,17 @@ fn show_puzzle_scores(
                         .collect();
                     order.sort_unstable();
                     if let Some(&(_, brick)) = order.get(n as usize - 1) {
-                        commands.entity(brick).try_insert(BrickFlash(1.0));
+                        // PuzzleGameBaskController: back to its pack's look (stone and
+                        // grass go, ice stays), then the flash.
+                        commands
+                            .entity(brick)
+                            .remove::<(crate::spells::Stone, crate::spells::Grassy)>()
+                            .try_insert(BrickFlash(1.0))
+                            .queue_silenced(|mut e: EntityWorldMut| {
+                                if let Some(mut b) = e.get_mut::<crate::gameplay::Brick>() {
+                                    b.set_changed();
+                                }
+                            });
                     }
                 }
                 let from = if counting { height(n - 1) } else { height(n) };

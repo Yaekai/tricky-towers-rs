@@ -4,7 +4,6 @@
 //! extracted from your own install (see [`crate::art`]); otherwise everything
 //! is drawn as plain coloured shapes.
 
-use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
@@ -596,12 +595,18 @@ fn sweep_lasers(
                 *flash += time.delta_secs();
             }
             sweep.seen = now;
-        } else if !state.is_some_and(|s| s.status == crate::gameplay::TowerStatus::Out) {
-            sweep.flash = None;
-        } else if let Some(flash) = sweep.flash.as_mut() {
-            *flash += time.delta_secs();
         } else {
-            sweep.flash = Some(0.0);
+            // The one battle laser flashes whenever a tower goes out over it.
+            let out = towers
+                .iter()
+                .filter(|s| s.status == crate::gameplay::TowerStatus::Out)
+                .count() as u32;
+            if out > sweep.seen.0 {
+                sweep.flash = Some(0.0);
+            } else if let Some(flash) = sweep.flash.as_mut() {
+                *flash += time.delta_secs();
+            }
+            sweep.seen.0 = out;
         }
         if let Some(flash) = sweep.flash.filter(|&f| f < 1.0) {
             visibility.set_if_neq(Visibility::Inherited);
@@ -2884,6 +2889,7 @@ fn dress_platforms(
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut flags: Option<ResMut<Assets<crate::scene_material::CheckpointFlag>>>,
     platforms: Query<(Entity, &Platform, &Transform), Added<Platform>>,
+    tower_index: Query<&crate::gameplay::Tower>,
 ) {
     let c = config.cell_size;
     let art_name = format!("platform_{}", mode_key(game.mode));
@@ -2947,16 +2953,14 @@ fn dress_platforms(
             // original sets it 9 units into its zoomed background view, ?).
             let ball_x = c * 21.0;
             let trial_laser = config.trial.is_some() && game.mode.rules() == ModeKind::Puzzle;
-            // A race battle's finish line is one flag across the whole screen: each tower's
-            // part meets its neighbour's halfway and the outer ones reach the screen's edges.
-            let race_span = {
-                let half_screen = config.cells(config.lanes.screen_width) * 0.5;
-                let half_step = config.cells(config.lanes.spacing(lanes)) * 0.5;
-                let outer = half_step * (lanes as f32 - 1.0);
-                let x = placed.translation.x;
-                let left = if x <= -outer + c { -half_screen - x } else { -half_step };
-                let right = if x >= outer - c { half_screen - x } else { half_step };
-                (right - left, (left + right) * 0.5)
+            // A race battle's finish line is one flag across the whole screen (FinishLineLayer),
+            // drawn by the first tower alone: parts per tower met with a seam, overlapping
+            // tiles drawn darker and their grids out of step.
+            let first = tower_index.get(platform.tower).is_ok_and(|t| t.index == 0);
+            let race_span = if first {
+                (config.cells(config.lanes.screen_width), -placed.translation.x)
+            } else {
+                (0.0, 0.0)
             };
             let (line_width, line_x) = match game.mode.rules() {
                 ModeKind::Race if lanes > 1 && config.trial.is_none() => race_span,
@@ -2997,7 +3001,13 @@ fn dress_platforms(
                 ));
                 // A battle's Puzzle laser rests as the plain (off) laser; the bright one
                 // only sweeps in at the start (PuzzleMultiplayerLaserLayer).
-                let battle_laser = name == "laser" && !trial_laser;
+                // PuzzleMultiplayerLaserLayer is one laser for everyone: only the first tower's
+                // copy draws it (each copy is a whole screen wide; stacked, their glows
+                // doubled up).
+                let battle_laser = name == "laser"
+                    && !trial_laser
+                    && tower_index.get(platform.tower).is_ok_and(|t| t.index == 0);
+                let other_laser = name == "laser" && !trial_laser && !battle_laser;
                 let rest = if battle_laser && art.image("fx_laser_off").is_some() {
                     "fx_laser_off"
                 } else {
@@ -3022,6 +3032,8 @@ fn dress_platforms(
                 let rest_strip = if battle_laser {
                     art_strip_tall(&art, rest, c, line_width, config.cells(off_h), Vec3::X * line_x)
                         .map(|strip| line.with_child((strip, LaserRest)).id())
+                } else if other_laser {
+                    Some(line.id())
                 } else if trial_laser && name == "laser" {
                     // A Puzzle trial's laser is on all the time (PuzzleSinglePlayerLaserLayer).
                     art_strip_tall(&art, rest, c, line_width, config.cells(config.puzzle.trial_laser_height), Vec3::X * line_x)
@@ -3030,7 +3042,7 @@ fn dress_platforms(
                     // FinishFlag: tiles 1.2 cells apart at 0.7 alpha, each one bobbing on the
                     // Custom/FinishLine wave (`wave_finish_tiles`).
                     let step = c * 1.2;
-                    let count = (line_width / step).ceil().max(1.0) as i32;
+                    let count = (line_width / step).ceil() as i32;
                     let mut any = None;
                     for i in 0..count {
                         let x = line_x - line_width * 0.5 + step * (i as f32 + 0.5);
@@ -3048,7 +3060,7 @@ fn dress_platforms(
                 } else {
                     art_strip(&art, rest, c, line_width, Vec3::X * line_x).map(|strip| line.with_child(strip).id())
                 };
-                if rest_strip.is_none() {
+                if rest_strip.is_none() && !other_laser {
                     line.with_child((
                         Sprite::from_color(color, Vec2::new(line_width, 3.0)),
                         Transform::from_xyz(line_x, 0.0, 0.0),
@@ -3302,7 +3314,7 @@ fn update_drop_guide(
     mut materials: Option<ResMut<Assets<crate::post::GuideOverlay>>>,
     camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<DropGuide>)>,
     towers: Query<(Entity, &TowerState), With<Tower>>,
-    bricks: Query<(&ActiveBrick, &ColliderAabb)>,
+    bricks: Query<(&ActiveBrick, &Brick, &Transform), Without<DropGuide>>,
     mut guides: Query<(
         Entity,
         &DropGuide,
@@ -3368,7 +3380,7 @@ fn update_drop_guide(
             .filter(|_| game.phase == Phase::Playing)
             .and_then(|(_, state)| state.active)
             .and_then(|entity| bricks.get(entity).ok());
-        let Some((_, aabb)) = active else {
+        let Some((_, brick, at)) = active else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
@@ -3378,9 +3390,20 @@ fn update_drop_guide(
         {
             m.tint = tint;
         }
-        let width = aabb.max.x - aabb.min.x;
+        // BrickGuide: as wide as the brick (its colliders' bounds plus the shrink taken off
+        // them, so its whole cells), not the physics box, which is inset and padded.
+        let cell = config.cell_size * brick.scale;
+        let (left, right) = brick
+            .cells
+            .iter()
+            .flat_map(|c| {
+                [(-0.5, -0.5), (0.5, -0.5), (-0.5, 0.5), (0.5, 0.5)]
+                    .map(|(dx, dy)| (at.rotation * ((*c + Vec2::new(dx, dy)) * cell).extend(0.0)).x)
+            })
+            .fold((f32::MAX, f32::MIN), |(l, r), x| (l.min(x), r.max(x)));
+        let width = right - left;
         transform.translation =
-            Vec3::new((aabb.min.x + aabb.max.x) * 0.5, (top + bottom) * 0.5, -2.0);
+            Vec3::new(at.translation.x + (left + right) * 0.5, (top + bottom) * 0.5, -2.0);
         transform.scale = Vec3::new(width, (top - bottom).max(1.0), 1.0);
         visibility.set_if_neq(Visibility::Visible);
     }
@@ -3714,7 +3737,8 @@ fn update_lines(
     towers: Query<&TowerState>,
     art: Res<Art>,
     mut lines: Query<(&SpellLine, &Children, &mut Transform, &mut Visibility), Without<FinishLine>>,
-    mut finish: Query<(&FinishLine, &mut Transform, &mut Visibility), Without<SpellLine>>,
+    mut finish: Query<(&FinishLine, &ChildOf, &mut Transform, &mut Visibility), Without<SpellLine>>,
+    raised: Query<(&crate::gameplay::Raised, &Transform), (Without<FinishLine>, Without<SpellLine>)>,
     mut diamonds: Query<(&mut Sprite, &Transform), (With<SpellDiamond>, Without<SpellLine>, Without<FinishLine>)>,
     time: Res<Time>,
 ) {
@@ -3730,7 +3754,7 @@ fn update_lines(
         .collect();
     // How far the colours have run (a colour a step).
     let run = time.elapsed_secs() / config.hud.line_color_seconds.max(0.01);
-    for (line, mut transform, mut visibility) in &mut finish {
+    for (line, parent, mut transform, mut visibility) in &mut finish {
         visibility.set_if_neq(if over {
             Visibility::Hidden
         } else {
@@ -3745,9 +3769,12 @@ fn update_lines(
                 .map_or(config.endless.intro_from, |s| s.pacer),
             _ => game.finish_height,
         };
-        // The line is a child of its platform, which rises with Puzzle drops: take that rise
-        // back out so the line stays where the shared laser is.
-        let rise = towers.get(line.tower).map_or(0.0, |s| s.base_shown) * c;
+        // The line is a child of its platform, which rises with Puzzle drops: take the
+        // platform's own rise back out (where it is drawn, which can trail `base_shown`), so
+        // every tower's copy of the shared laser lies on the same line.
+        let rise = raised
+            .get(parent.parent())
+            .map_or(0.0, |(r, t)| t.translation.y - r.rest);
         transform.translation.y = config.cells(height) + c * 0.5 - rise;
     }
     for (line, children, mut transform, mut visibility) in &mut lines {

@@ -226,7 +226,11 @@ impl Plugin for LettersPlugin {
                 draw_letters,
             )
                 .chain()
-                .before(bevy::ui::UiSystems::Prepare),
+                .before(bevy::ui::UiSystems::Prepare)
+                // UiSystems::Stack isn't chained with the others: letters drawn after it had
+                // no place in the stack for a frame and showed under everything (the count
+                // flashed behind its card).
+                .before(bevy::ui::UiSystems::Stack),
         );
     }
 }

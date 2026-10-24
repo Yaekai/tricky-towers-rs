@@ -487,6 +487,11 @@ fn show_cup_panel(
                         (None, rgb(p.dot_colour))
                     }
                 };
+                // Only an empty slot's dot is round: a medal keeps its whole picture.
+                let round = if medal.is_some() { BorderRadius::ZERO } else { BorderRadius::MAX };
+                if node.border_radius != round {
+                    node.border_radius = round;
+                }
                 if let Some(mut slot) = image_node {
                     set_image(&mut slot, picture);
                 }
