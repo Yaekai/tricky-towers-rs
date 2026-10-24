@@ -93,13 +93,14 @@ indicator) and AcceptOnlineInvite need online play to show anything.
 The Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.
 
-## Found 2026-10-24: lane clipping in battles
-The original gives each tower its own camera over its share of the screen, so a brick that
-sticks out past a lane's edge is cut off there, and BrickClipper puts BRICK_CLIP_PARTICLE along
-the cut (rotated to the side, as tall as the brick). Ours draws every lane with one camera, so a
-brick hanging over the edge draws into its neighbour's lane and nothing marks the cut. A clip
-range per tower in the brick materials (and the effect at the edge) would match it; the lane
-edges are the screen split (`Lanes`), widened on wider screens like the original's viewports.
+## Lane clipping in battles (done 2026-10-24)
+The original gives each tower its own camera over its share of the screen, so a brick past a
+lane's edge is cut off there and BrickClipper puts the Forcefield (BRICK_CLIP_PARTICLE: stars,
+streaks and dots) on the cut. Ours cuts the brick materials and the drop guide at the lane
+(`clip` in `brick_material`, `Lanes` widths) and draws the Forcefield (`particles::clip_fields`).
+Left: decorations and other sprites on a brick (vines, snow, bubbles) aren't cut; Puzzle isn't cut
+at all (its WidthTowerCamera widens each lane to fit its tower); the stars and streaks are drawn
+alpha-blended, not additive.
 
 ## Next up: single-player intro and Endless Race end (2026-10-23)
 Trials and Endless runs have the original's intro (timings, the wizard's moves, the HUD

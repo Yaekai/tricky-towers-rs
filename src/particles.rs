@@ -34,6 +34,7 @@ impl Plugin for ParticlesPlugin {
                 move_particles,
                 spin_crosses,
                 fade_wave_messages,
+                (clip_fields, move_clip_sparks).chain(),
             ),
         );
     }
@@ -755,5 +756,282 @@ fn fade_wave_messages(
                 drift.translation = Val2::new(Val::Vh(x * vh_per_cell), Val::Px(0.0));
             }
         }
+    }
+}
+/// BrickClipper: while a brick on a shared screen sticks out of its tower's lane (its own
+/// camera's edge in the original), the Forcefield (BRICK_CLIP_PARTICLE) sits on the cut, as
+/// tall as the brick, turned to stream into the lane.
+#[derive(Component)]
+struct ClipField {
+    brick: Entity,
+    /// Emission owed to each layer (stars, streaks, dots).
+    carry: [f32; 3],
+}
+
+/// One of a Forcefield's particles, in the world (they stay where they were let go).
+#[derive(Component)]
+struct ClipSpark {
+    field: Entity,
+    layer: usize,
+    velocity: Vec2,
+    age: f32,
+    size: f32,
+}
+
+/// The Forcefield's three layers: rate a second, life, start speed (cells/s, random
+/// between), size (cells, random between) and picture. Back: stars from a half disc, Limit
+/// Velocity 1 (dampen 0.4); ForcefieldRays: streaks 8.97 times as long as wide; Front: dots
+/// on the foreground camera.
+const CLIP_LAYERS: [(f32, f32, (f32, f32), (f32, f32), &str); 3] = [
+    (10.0, 2.0, (1.0, 20.0), (0.2, 0.4), "spark_star"),
+    (100.0, 2.0, (1.0, 1.0), (0.2, 0.4), "cast_streak"),
+    (40.0, 2.0, (-0.01, 0.01), (0.2, 0.4), "explosion_flash"),
+];
+const CLIP_STREAK: f32 = 8.97;
+
+/// A brick's span around its position (pixels): left, right, bottom and top offsets.
+fn brick_span(brick: &crate::gameplay::Brick, rotation: Quat, cell: f32) -> (f32, f32, f32, f32) {
+    let cell = cell * brick.scale;
+    brick
+        .cells
+        .iter()
+        .flat_map(|c| {
+            [(-0.5, -0.5), (0.5, -0.5), (-0.5, 0.5), (0.5, 0.5)].map(|(dx, dy)| {
+                (rotation * ((*c + Vec2::new(dx, dy)) * cell).extend(0.0)).truncate()
+            })
+        })
+        .fold(
+            (f32::MAX, f32::MIN, f32::MAX, f32::MIN),
+            |(l, r, b, t), p| (l.min(p.x), r.max(p.x), b.min(p.y), t.max(p.y)),
+        )
+}
+
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn clip_fields(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    game: Res<Match>,
+    art: Res<Art>,
+    towers: Query<(&Tower, &TowerState)>,
+    bricks: Query<(Entity, &crate::gameplay::Brick, &Transform), Without<ClipField>>,
+    mut fields: Query<(Entity, &mut ClipField, &mut Transform)>,
+    sparks: Query<(Entity, &ClipSpark)>,
+    mut seed: Local<u32>,
+) {
+    if *seed == 0 {
+        *seed = 0x2F6B_1C9D;
+    }
+    let c = config.cell_size;
+    // ponytail: not in Puzzle, whose lanes aren't cut (brick_material::follow_bricks).
+    let lanes = if game.mode.rules() == ModeKind::Puzzle { 1 } else { towers.iter().count() };
+    // AbstractGameMode adds it in the GAME and ROOF states; a lone tower's camera is the
+    // whole screen.
+    let on = lanes > 1
+        && (game.phase == Phase::Playing
+            || towers
+                .iter()
+                .any(|(t, s)| crate::gameplay::roof_waiting(&game, t, s)));
+    let half = config.cells(config.lanes.width(lanes)) * 0.5;
+    // Each straddling brick's field: the cut's middle, its side (-1 left) and the brick's height.
+    let mut wanted: std::collections::HashMap<Entity, (Vec2, f32, f32)> = Default::default();
+    if on {
+        for (entity, brick, at) in &bricks {
+            let Ok((tower, _)) = towers.get(brick.tower) else {
+                continue;
+            };
+            let (left_edge, right_edge) = (tower.origin_x - half, tower.origin_x + half);
+            let x = at.translation.x;
+            // maxDistanceFromCenter first, then the brick's own width about its position.
+            let reach = 2.237 * brick.scale * c;
+            if x - reach > left_edge && x + reach < right_edge {
+                continue;
+            }
+            let (l, r, b, t) = brick_span(brick, at.rotation, c);
+            let width = r - l;
+            let (from, to) = (x - width / 2.0, x + width / 2.0);
+            let side = if from < left_edge && to > left_edge {
+                -1.0
+            } else if from < right_edge && to > right_edge {
+                1.0
+            } else {
+                continue;
+            };
+            let edge = if side < 0.0 { left_edge } else { right_edge };
+            wanted.insert(entity, (Vec2::new(edge, at.translation.y), side, t - b));
+        }
+    }
+    let dt = time.delta_secs();
+    let mut have = std::collections::HashSet::new();
+    for (entity, mut field, mut transform) in &mut fields {
+        let Some(&(at, side, height)) = wanted.get(&field.brick) else {
+            // The skin is switched off: its particles go with it.
+            for (spark, s) in &sparks {
+                if s.field == entity {
+                    commands.entity(spark).despawn();
+                }
+            }
+            commands.entity(entity).despawn();
+            continue;
+        };
+        have.insert(field.brick);
+        transform.translation = at.extend(0.0);
+        for layer in 0..3 {
+            field.carry[layer] += CLIP_LAYERS[layer].0 * dt;
+            while field.carry[layer] >= 1.0 {
+                field.carry[layer] -= 1.0;
+                spawn_clip_spark(
+                    &mut commands,
+                    &art,
+                    c,
+                    entity,
+                    layer,
+                    (at, side, height),
+                    0.0,
+                    &mut seed,
+                );
+            }
+        }
+    }
+    for (&brick, &(at, side, height)) in &wanted {
+        if have.contains(&brick) {
+            continue;
+        }
+        let field = commands
+            .spawn((
+                ClipField {
+                    brick,
+                    carry: [0.0; 3],
+                },
+                Transform::from_translation(at.extend(0.0)),
+            ))
+            .id();
+        // Prewarmed: it shows as if it had been running a whole cycle.
+        for layer in 0..3 {
+            let (rate, life, ..) = CLIP_LAYERS[layer];
+            for _ in 0..(rate * life) as usize {
+                let age = roll(&mut seed) * life;
+                spawn_clip_spark(
+                    &mut commands,
+                    &art,
+                    c,
+                    field,
+                    layer,
+                    (at, side, height),
+                    age,
+                    &mut seed,
+                );
+            }
+        }
+    }
+}
+
+/// One Forcefield particle let go from the cut at `cut.0` (`cut.1` -1 for a lane's left edge)
+/// along a brick `cut.2` pixels tall, `age` seconds old already (prewarm).
+#[allow(clippy::too_many_arguments)]
+fn spawn_clip_spark(
+    commands: &mut Commands,
+    art: &Art,
+    c: f32,
+    field: Entity,
+    layer: usize,
+    cut: (Vec2, f32, f32),
+    age: f32,
+    seed: &mut u32,
+) {
+    let (at, side, height) = cut;
+    let (_, _, speed, size, picture) = CLIP_LAYERS[layer];
+    let Some(image) = art.image(picture) else {
+        return;
+    };
+    // Into the lane, and along the cut.
+    let inward = Vec2::new(-side, 0.0);
+    let along = Vec2::Y;
+    let speed = (speed.0 + (speed.1 - speed.0) * roll(seed)) * c;
+    let size = (size.0 + (size.1 - size.0) * roll(seed)) * c;
+    let (offset, direction) = if layer == 0 {
+        // A half disc of radius 1, the shape stretched to half the brick's height along the cut.
+        let angle = roll(seed) * std::f32::consts::PI;
+        let r = roll(seed).sqrt();
+        let (cos, sin) = (angle.cos(), angle.sin());
+        (
+            along * (r * cos * height * 0.5) + inward * (r * sin * c),
+            along * cos + inward * sin,
+        )
+    } else {
+        // A straight edge as long as the brick, letting go into the lane.
+        (along * ((roll(seed) - 0.5) * height), inward)
+    };
+    let mut velocity = direction * speed;
+    let mut place = at + offset;
+    if age > 0.0 {
+        // Prewarm: the stars are slowed to their limit at once; the others keep their speed.
+        if layer == 0 {
+            velocity = velocity.clamp_length_max(c);
+        }
+        place += velocity * age;
+    }
+    let mut sprite = Sprite::from_image(image);
+    sprite.custom_size = Some(Vec2::splat(size));
+    let mut transform =
+        Transform::from_translation(place.extend(if layer == 2 { 460.0 } else { 50.0 }));
+    if layer == 1 {
+        // A stretched billboard along its motion.
+        sprite.custom_size = Some(Vec2::new(size * CLIP_STREAK, size));
+        transform.rotation = Quat::from_rotation_z(direction.y.atan2(direction.x));
+    }
+    // ponytail: drawn alpha-blended; the stars and streaks are additive in the original.
+    commands.spawn((
+        ClipSpark {
+            field,
+            layer,
+            velocity,
+            age,
+            size,
+        },
+        sprite,
+        transform,
+    ));
+}
+
+/// Moves the Forcefield particles: the stars slow to 1 cell/s (dampen 0.4 a frame) and keep
+/// their size and alpha until near the end (size to 0 over 0.86-0.99 of their life, alpha out
+/// over the last 0.11); streaks and dots just drift and go.
+fn move_clip_sparks(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut sparks: Query<(Entity, &mut ClipSpark, &mut Transform, &mut Sprite)>,
+) {
+    let dt = time.delta_secs();
+    let c = config.cell_size;
+    for (entity, mut spark, mut transform, mut sprite) in &mut sparks {
+        spark.age += dt;
+        let (_, life, ..) = CLIP_LAYERS[spark.layer];
+        if spark.age >= life {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        if spark.layer == 0 {
+            let speed = spark.velocity.length();
+            if speed > c {
+                let excess = (speed - c) * (1.0 - 0.4f32).powf(dt * 60.0);
+                spark.velocity *= (c + excess) / speed;
+            }
+            let k = spark.age / life;
+            let scale = if k < 0.859 {
+                1.0
+            } else {
+                (1.0 - (k - 0.859) / (0.991 - 0.859)).max(0.0)
+            };
+            sprite.custom_size = Some(Vec2::splat(spark.size * scale));
+            let alpha = if k < 0.894 {
+                1.0
+            } else {
+                1.0 - (k - 0.894) / (1.0 - 0.894)
+            };
+            sprite.color.set_alpha(alpha);
+        }
+        transform.translation += (spark.velocity * dt).extend(0.0);
     }
 }

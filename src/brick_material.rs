@@ -44,6 +44,8 @@ struct GalaxyBrick {
     water: vec4<f32>,
     water_line: vec4<f32>,
     water_colour: vec4<f32>,
+    // Its tower's lane on the screen: x left, y right (world pixels), z 1 when cut there.
+    clip: vec4<f32>,
 
 };
 
@@ -68,6 +70,15 @@ fn hue(c: vec3<f32>, angle: f32) -> vec3<f32> {
 
 // Under the water in Race (the original's WATER_ON): the water line's colour for the first
 // 0.12 of a cell, then the water's, fading out over 2 cells (stored sRGB colours).
+// Each tower has its own camera over its share of the screen in the original, so a brick
+// is cut off where it leaves its lane.
+fn in_lane(world_x: f32) -> f32 {
+    if (material.clip.z < 0.5) {
+        return 1.0;
+    }
+    return step(material.clip.x, world_x) * step(world_x, material.clip.y);
+}
+
 fn under_water(world_y: f32, colour: ptr<function, vec3<f32>>) -> f32 {
     if (material.water.y < 0.5) {
         return 1.0;
@@ -131,7 +142,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let wet = under_water(mesh.world_position.y, &colour);
 
     let alpha = max(map.a, map.b) * wet;
-    return vec4(srgb_to_linear(colour) * material.tint.rgb, alpha * material.tint.a);
+    return vec4(srgb_to_linear(colour) * material.tint.rgb, alpha * material.tint.a * in_lane(mesh.world_position.x));
 }
 "#;
 
@@ -165,6 +176,8 @@ pub struct GalaxyLook {
     pub water: Vec4,
     pub water_line: Vec4,
     pub water_colour: Vec4,
+    /// The tower's lane: x left, y right (world pixels), z 1 when the brick is cut there.
+    pub clip: Vec4,
 }
 
 impl Material2d for GalaxyBrick {
@@ -203,6 +216,8 @@ struct DiamondBrick {
     water: vec4<f32>,
     water_line: vec4<f32>,
     water_colour: vec4<f32>,
+    // Its tower's lane on the screen: x left, y right (world pixels), z 1 when cut there.
+    clip: vec4<f32>,
 
 };
 
@@ -226,6 +241,15 @@ fn band(x: f32, lit: f32) -> f32 {
 
 // Under the water in Race (the original's WATER_ON): the water line's colour for the first
 // 0.12 of a cell, then the water's, fading out over 2 cells (stored sRGB colours).
+// Each tower has its own camera over its share of the screen in the original, so a brick
+// is cut off where it leaves its lane.
+fn in_lane(world_x: f32) -> f32 {
+    if (material.clip.z < 0.5) {
+        return 1.0;
+    }
+    return step(material.clip.x, world_x) * step(world_x, material.clip.y);
+}
+
 fn under_water(world_y: f32, colour: ptr<function, vec3<f32>>) -> f32 {
     if (material.water.y < 0.5) {
         return 1.0;
@@ -270,7 +294,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     colour = colour + material.params.w * (1.0 - colour);
     let wet = under_water(mesh.world_position.y, &colour);
     let alpha = max(pat_linear.a, map.b) * wet;
-    return vec4(srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0))) * material.tint.rgb, alpha * material.tint.a);
+    return vec4(srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0))) * material.tint.rgb, alpha * material.tint.a * in_lane(mesh.world_position.x));
 }
 "#;
 
@@ -301,6 +325,8 @@ pub struct DiamondLook {
     pub water: Vec4,
     pub water_line: Vec4,
     pub water_colour: Vec4,
+    /// The tower's lane: x left, y right (world pixels), z 1 when the brick is cut there.
+    pub clip: Vec4,
 }
 
 impl Material2d for DiamondBrick {
@@ -335,6 +361,8 @@ struct LitBrick {
     water: vec4<f32>,
     water_line: vec4<f32>,
     water_colour: vec4<f32>,
+    // Its tower's lane on the screen: x left, y right (world pixels), z 1 when cut there.
+    clip: vec4<f32>,
 
 };
 
@@ -346,6 +374,15 @@ struct LitBrick {
 
 // Under the water in Race (the original's WATER_ON): the water line's colour for the first
 // 0.12 of a cell, then the water's, fading out over 2 cells (stored sRGB colours).
+// Each tower has its own camera over its share of the screen in the original, so a brick
+// is cut off where it leaves its lane.
+fn in_lane(world_x: f32) -> f32 {
+    if (material.clip.z < 0.5) {
+        return 1.0;
+    }
+    return step(material.clip.x, world_x) * step(world_x, material.clip.y);
+}
+
 fn under_water(world_y: f32, colour: ptr<function, vec3<f32>>) -> f32 {
     if (material.water.y < 0.5) {
         return 1.0;
@@ -384,7 +421,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
 
     let alpha = max(pat_linear.a, map.b) * wet;
     let out = srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0)));
-    return vec4(out * material.tint.rgb, alpha * material.tint.a);
+    return vec4(out * material.tint.rgb, alpha * material.tint.a * in_lane(mesh.world_position.x));
 }
 "#;
 
@@ -413,6 +450,8 @@ pub struct LitLook {
     pub water: Vec4,
     pub water_line: Vec4,
     pub water_colour: Vec4,
+    /// The tower's lane: x left, y right (world pixels), z 1 when the brick is cut there.
+    pub clip: Vec4,
 }
 
 impl Material2d for LitBrick {
@@ -446,6 +485,8 @@ struct HologramBrick {
     water: vec4<f32>,
     water_line: vec4<f32>,
     water_colour: vec4<f32>,
+    // Its tower's lane on the screen: x left, y right (world pixels), z 1 when cut there.
+    clip: vec4<f32>,
 
 };
 
@@ -462,6 +503,15 @@ fn hash(n: f32) -> f32 {
 
 // Under the water in Race (the original's WATER_ON): the water line's colour for the first
 // 0.12 of a cell, then the water's, fading out over 2 cells (stored sRGB colours).
+// Each tower has its own camera over its share of the screen in the original, so a brick
+// is cut off where it leaves its lane.
+fn in_lane(world_x: f32) -> f32 {
+    if (material.clip.z < 0.5) {
+        return 1.0;
+    }
+    return step(material.clip.x, world_x) * step(world_x, material.clip.y);
+}
+
 fn under_water(world_y: f32, colour: ptr<function, vec3<f32>>) -> f32 {
     if (material.water.y < 0.5) {
         return 1.0;
@@ -518,7 +568,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let wet = under_water(mesh.world_position.y, &colour);
     let alpha = max(flicker * map.a, map.b) * wet;
     let out = srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0)));
-    return vec4(out * material.tint.rgb, alpha * material.tint.a);
+    return vec4(out * material.tint.rgb, alpha * material.tint.a * in_lane(mesh.world_position.x));
 }
 "#;
 
@@ -546,6 +596,8 @@ pub struct HoloLook {
     pub water: Vec4,
     pub water_line: Vec4,
     pub water_colour: Vec4,
+    /// The tower's lane: x left, y right (world pixels), z 1 when the brick is cut there.
+    pub clip: Vec4,
 }
 
 impl Material2d for HologramBrick {
@@ -581,6 +633,7 @@ pub fn hologram_brick(
             water: Vec4::ZERO,
             water_line: Vec4::ZERO,
             water_colour: Vec4::ZERO,
+            clip: Vec4::ZERO,
         },
         bevel,
         pattern,
@@ -650,6 +703,7 @@ pub fn lit_brick(
             water: Vec4::ZERO,
             water_line: Vec4::ZERO,
             water_colour: Vec4::ZERO,
+            clip: Vec4::ZERO,
         },
         bevel,
         pattern,
@@ -674,10 +728,12 @@ fn follow_bricks(
     mut diamond_materials: Option<ResMut<Assets<DiamondBrick>>>,
     parents: Query<&ChildOf>,
     flashes: Query<&BrickFlash>,
+    bricks: Query<&crate::gameplay::Brick>,
+    towers: Query<&crate::gameplay::Tower>,
 ) {
     // The original turns the bricks' water on in Race (and the single-player race modes).
     let look = &config.water;
-    let on = game.is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Race);
+    let on = game.as_ref().is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Race);
     let rgb = |[r, g, b]: [u8; 3]| Vec4::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0);
     let water = (
         Vec4::new(-config.cells(config.kill_depth), if on { 1.0 } else { 0.0 }, config.cell_size, 0.0),
@@ -691,6 +747,22 @@ fn follow_bricks(
             .and_then(|brick| flashes.get(brick.parent()))
             .map_or(0.0, |f| f.0)
     };
+    // The lane each tower's camera shows: its share of the screen around its centre
+    // (`Lanes`). A lone tower's camera is the whole screen, so nothing is cut.
+    // ponytail: Puzzle's WidthTowerCamera widens each lane to fit its tower, which one camera
+    // over fixed lanes can't follow, so Puzzle isn't cut.
+    let puzzle = game.as_ref().is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Puzzle);
+    let lanes = if puzzle { 1 } else { towers.iter().count() };
+    let half = config.cells(config.lanes.width(lanes)) * 0.5;
+    let clip = |of: &ChildOf| {
+        parents
+            .get(of.parent())
+            .ok()
+            .and_then(|brick| bricks.get(brick.parent()).ok())
+            .and_then(|brick| towers.get(brick.tower).ok())
+            .filter(|_| lanes > 1)
+            .map_or(Vec4::ZERO, |t| Vec4::new(t.origin_x - half, t.origin_x + half, 1.0, 0.0))
+    };
     let tint = |of: &ChildOf| {
         sprites
             .get(of.parent())
@@ -701,13 +773,15 @@ fn follow_bricks(
             let angle = at.rotation().to_euler(EulerRot::XYZ).2;
             let tint = tint(of);
             let flash = flash(of);
+            let lane = clip(of);
             let same = materials
                 .get(&material.0)
                 .is_none_or(|m| {
                     (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint && m.look.water == water.0
-                        && m.look.params.w == flash
+                        && m.look.params.w == flash && m.look.clip == lane
                 });
             if !same && let Some(mut brick) = materials.get_mut(&material.0) {
+                brick.look.clip = lane;
                 brick.look.params.x = angle;
                 brick.look.params.w = flash;
                 brick.look.tint = tint;
@@ -720,13 +794,15 @@ fn follow_bricks(
             let angle = at.rotation().to_euler(EulerRot::XYZ).2;
             let tint = tint(of);
             let flash = flash(of);
+            let lane = clip(of);
             let same = materials
                 .get(&material.0)
                 .is_none_or(|m| {
                     (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint && m.look.water == water.0
-                        && m.look.params.w == flash
+                        && m.look.params.w == flash && m.look.clip == lane
                 });
             if !same && let Some(mut brick) = materials.get_mut(&material.0) {
+                brick.look.clip = lane;
                 brick.look.params.x = angle;
                 brick.look.params.w = flash;
                 brick.look.tint = tint;
@@ -738,9 +814,11 @@ fn follow_bricks(
         for (material, of) in &galaxy {
             let tint = tint(of);
             let flash = flash(of);
-            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.params.w != flash || m.look.water != water.0)
+            let lane = clip(of);
+            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.params.w != flash || m.look.water != water.0 || m.look.clip != lane)
                 && let Some(mut brick) = materials.get_mut(&material.0)
             {
+                brick.look.clip = lane;
                 brick.look.tint = tint;
                 brick.look.params.w = flash;
                 (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
@@ -751,9 +829,11 @@ fn follow_bricks(
         for (material, of) in &diamond {
             let tint = tint(of);
             let flash = flash(of);
-            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.params.w != flash || m.look.water != water.0)
+            let lane = clip(of);
+            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.params.w != flash || m.look.water != water.0 || m.look.clip != lane)
                 && let Some(mut brick) = materials.get_mut(&material.0)
             {
+                brick.look.clip = lane;
                 brick.look.tint = tint;
                 brick.look.params.w = flash;
                 (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;

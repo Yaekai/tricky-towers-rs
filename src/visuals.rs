@@ -3313,7 +3313,7 @@ fn update_drop_guide(
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut materials: Option<ResMut<Assets<crate::post::GuideOverlay>>>,
     camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<DropGuide>)>,
-    towers: Query<(Entity, &TowerState), With<Tower>>,
+    towers: Query<(Entity, &TowerState, &Tower)>,
     bricks: Query<(&ActiveBrick, &Brick, &Transform), Without<DropGuide>>,
     mut guides: Query<(
         Entity,
@@ -3341,7 +3341,7 @@ fn update_drop_guide(
         tint[3] = look.guide_trial_alpha;
     }
     let tint = Vec4::from_array(tint);
-    for (tower, _) in &towers {
+    for (tower, ..) in &towers {
         if guides.iter().any(|(_, g, ..)| g.tower == tower) {
             continue;
         }
@@ -3373,12 +3373,17 @@ fn update_drop_guide(
     let half = view.0.y * 0.5 * scale;
     let top = eye.translation.y + half;
     let bottom = (eye.translation.y - half).max(-config.cells(below));
+    // The guide is in its tower's world, so its lane's camera cuts it at the lane's edges
+    // (`brick_material`'s clip); a lone tower's camera is the whole screen.
+    let lanes = if game.mode.rules() == ModeKind::Puzzle { 1 } else { towers.iter().count() };
+    let lane_half = if lanes > 1 { config.cells(config.lanes.width(lanes)) * 0.5 } else { f32::MAX };
     for (_, guide, mut transform, mut visibility, material) in &mut guides {
+        let origin = towers.get(guide.tower).map_or(0.0, |(_, _, t)| t.origin_x);
         let active = towers
             .get(guide.tower)
             .ok()
             .filter(|_| game.phase == Phase::Playing)
-            .and_then(|(_, state)| state.active)
+            .and_then(|(_, state, _)| state.active)
             .and_then(|entity| bricks.get(entity).ok());
         let Some((_, brick, at)) = active else {
             visibility.set_if_neq(Visibility::Hidden);
@@ -3401,9 +3406,14 @@ fn update_drop_guide(
                     .map(|(dx, dy)| (at.rotation * ((*c + Vec2::new(dx, dy)) * cell).extend(0.0)).x)
             })
             .fold((f32::MAX, f32::MIN), |(l, r), x| (l.min(x), r.max(x)));
+        let left = (at.translation.x + left).max(origin - lane_half);
+        let right = (at.translation.x + right).min(origin + lane_half);
+        if right <= left {
+            visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        }
         let width = right - left;
-        transform.translation =
-            Vec3::new(at.translation.x + (left + right) * 0.5, (top + bottom) * 0.5, -2.0);
+        transform.translation = Vec3::new((left + right) * 0.5, (top + bottom) * 0.5, -2.0);
         transform.scale = Vec3::new(width, (top - bottom).max(1.0), 1.0);
         visibility.set_if_neq(Visibility::Visible);
     }
