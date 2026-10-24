@@ -17,12 +17,13 @@ pub struct ResultsPlugin;
 
 impl Plugin for ResultsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.init_resource::<PuzzleCountClock>().add_systems(
             Update,
             (
+                // The count's clock first: WINNER! waits for it.
+                show_puzzle_scores,
                 start_moments,
                 show_hold_counts,
-                show_puzzle_scores,
                 place_puzzle_scores,
                 fade_flashes,
                 animate_banners,
@@ -237,6 +238,7 @@ fn start_moments(
     towers: Query<(Entity, &Tower, &TowerState)>,
     moments: Query<Entity, With<Moment>>,
     camera: Query<&Projection, With<crate::visuals::MainCamera>>,
+    puzzle: Res<PuzzleCountClock>,
     mut seen: Local<(u64, HashSet<(Entity, bool)>)>,
 ) {
     // World text: a cell's size on the screen now.
@@ -279,6 +281,11 @@ fn start_moments(
             look.out_cells * cell_px,
         )
     };
+    // A Puzzle battle's WINNER!, spotlight and veils wait for the count to reach the most
+    // bricks (PuzzleGameBaskController._DoBaskEnd).
+    if puzzle.counting() {
+        return;
+    }
     // The winner's roof goes on before WINNER!, the spotlight and the veils.
     if towers
         .iter()
@@ -672,6 +679,35 @@ struct PuzzleScore {
     rise: Option<(f32, f32, f32, bool)>,
 }
 
+/// A Puzzle battle's count clock: seconds since the round ended, and when the count reaches
+/// the most bricks (`PuzzleGameBaskController._DoBaskEnd`: WINNER! then, the popup after
+/// `count_end_wait`). `end` is `None` outside a Puzzle battle's end.
+#[derive(Resource, Default, Debug)]
+pub struct PuzzleCountClock {
+    pub since: f32,
+    pub end: Option<f32>,
+}
+
+impl PuzzleCountClock {
+    /// Whether the count is still running (WINNER! and the popup wait for it).
+    pub fn counting(&self) -> bool {
+        self.end.is_some_and(|end| self.since < end)
+    }
+}
+
+/// When the count reaches the most bricks: `delay`, then `step` a brick, `pause` after a
+/// count that is some tower's total.
+pub fn puzzle_count_end(totals: &[u32], delay: f32, step: f32, pause: f32) -> f32 {
+    let most = totals.iter().copied().max().unwrap_or(0);
+    let mut at = delay;
+    let mut wait = step;
+    for tick in 1..=most {
+        at += wait;
+        wait = if totals.contains(&tick) { pause } else { step };
+    }
+    at
+}
+
 /// The Puzzle battle's count: the 3-2-1 over the lane that touched the laser, then each
 /// tower's bricks counted together, one at a time, each number riding up its lane. A tie
 /// for the most bricks says DRAW.
@@ -686,6 +722,7 @@ fn show_puzzle_scores(
     bricks: Query<(Entity, &Brick, Option<&Placed>, Has<Zapped>)>,
     time: Res<Time>,
     mut counted: Local<Option<(u64, f32)>>,
+    mut clock: ResMut<PuzzleCountClock>,
     mut labels: Local<HashMap<Entity, (String, Entity)>>,
     camera: Query<&Projection, With<crate::visuals::MainCamera>>,
 ) {
@@ -699,6 +736,7 @@ fn show_puzzle_scores(
         && game.phase != Phase::Menu;
     if !battle {
         *counted = None;
+        clock.end = None;
         for (_, (_, label)) in labels.drain() {
             if let Ok(mut label) = commands.get_entity(label) {
                 label.despawn();
@@ -729,6 +767,13 @@ fn show_puzzle_scores(
         .map(|(entity, _, _)| standing.get(&entity).copied().unwrap_or(0))
         .collect();
     let most = counts.iter().copied().max().unwrap_or(0);
+    match *counted {
+        Some((_, t)) => {
+            clock.since = t;
+            clock.end = Some(puzzle_count_end(&counts, rules.count_delay, rules.count_step, rules.count_pause));
+        }
+        None => clock.end = None,
+    }
     // DRAW only when two or more towers share the most bricks.
     let draw = over && puzzle_tie(&counts);
     let ticks = counted.and_then(|(_, t)| {
@@ -1077,6 +1122,14 @@ mod tests {
         assert_eq!(at(0.31 + 0.7), Some(2));
         assert_eq!(at(0.31 + 0.8), Some(3));
         assert_eq!(at(100.0), Some(4), "stops at the most bricks");
+    }
+
+    #[test]
+    fn the_count_ends_when_it_reaches_the_most_bricks() {
+        // 1.5 s, then 0.15 to 1, 0.15 to 2 (a total: 0.8 to wait), 0.8 to 3, 0.15 to 4.
+        let end = super::puzzle_count_end(&[2, 4], 1.5, 0.15, 0.8);
+        assert!((end - 2.75).abs() < 1e-4, "{end}");
+        assert_eq!(super::puzzle_count_end(&[0, 0], 1.5, 0.15, 0.8), 1.5);
     }
 
     #[test]

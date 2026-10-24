@@ -666,6 +666,9 @@ pub struct PuzzleRules {
     pub count_delay: f32,
     pub count_step: f32,
     pub count_pause: f32,
+    /// Once the count reaches the most bricks (WINNER! comes then), the round waits this
+    /// long before the popup (PuzzleGameBaskController's end timer).
+    pub count_end_wait: f32,
     /// The count rises from this many cells over the laser to `count_under_top` under the
     /// view's top, along exp(`count_curve` x count / most) - 1.
     pub count_over_laser: f32,
@@ -743,6 +746,7 @@ impl Default for PuzzleRules {
             count_delay: 1.5,
             count_step: 0.15,
             count_pause: 0.8,
+            count_end_wait: 4.0,
             count_over_laser: 4.0,
             count_under_top: 6.0,
             count_curve: 0.7,

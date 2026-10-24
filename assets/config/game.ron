@@ -594,6 +594,7 @@
         count_delay: 1.5,
         count_step: 0.15,
         count_pause: 0.8,
+        count_end_wait: 4.0,
         count_over_laser: 4.0,
         count_under_top: 6.0,
         count_curve: 0.7,

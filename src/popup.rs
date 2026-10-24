@@ -258,6 +258,7 @@ fn time_popup(
         &crate::gameplay::TowerState,
         Option<&crate::collapse::Collapse>,
     )>,
+    puzzle: Option<Res<crate::results::PuzzleCountClock>>,
 ) {
     if game.phase != Phase::Over || popup.round != game.round {
         popup.round = game.round;
@@ -274,7 +275,12 @@ fn time_popup(
         return;
     }
     popup.clock += time.delta_secs();
+    // A Puzzle battle's popup waits for its count and the end timer after it.
+    let counted = puzzle.as_ref().is_none_or(|p| {
+        p.end.is_none_or(|end| p.since >= end + config.puzzle.count_end_wait)
+    });
     if !popup.shown
+        && counted
         && popup.clock >= config.moments.popup_after
         && crate::collapse::all_done(&game, towers)
     {

@@ -2504,3 +2504,95 @@ fn a_cursed_brick_dropped_in_race_comes_back_but_not_in_survival() {
             .is_some_and(|a| a.mods.no_rotate)), back, "{mode:?}");
     }
 }
+
+/// Places a resting brick of `shape` centred on a static column `width` cells wide, 15 cells
+/// beside tower 0, and returns how far its middle has moved after `seconds`.
+fn brick_on_column(shape: &str, width: f32, rotated: bool, offset: f32, seconds: f32) -> Vec2 {
+    brick_on_column_with(shape, width, rotated, offset, seconds, |_| {})
+}
+
+fn brick_on_column_with(shape: &str, width: f32, rotated: bool, offset: f32, seconds: f32, tweak: impl Fn(&mut App)) -> Vec2 {
+    use avian2d::prelude::*;
+    let config = fast_config();
+    let mut app = headless_app(config.clone());
+    tweak(&mut app);
+    let c = config.cell_size;
+    let (tower_entity, origin) = {
+        let world = app.world_mut();
+        let (e, t) = world.query::<(Entity, &Tower)>().iter(world).next().unwrap();
+        (e, t.origin_x)
+    };
+    let x = origin + 15.0 * c;
+    let piece = config.pieces.iter().position(|p| p.name == shape).unwrap();
+    let def = tricky_towers::gameplay::piece_def(&config, piece);
+    let brick = Brick {
+        tower: tower_entity,
+        piece,
+        cells: def.centered_cells(),
+        color: Color::WHITE,
+        scale: 1.0,
+        mass: def.mass,
+        ice: false,
+    };
+    let (body, density) = tricky_towers::gameplay::brick_body(&config, &brick);
+    let half_height = if rotated { 0.5 } else { 1.0 };
+    let rotation = if rotated { Rotation::degrees(90.0) } else { Rotation::IDENTITY };
+    let world = app.world_mut();
+    world.spawn((
+        RigidBody::Static,
+        Collider::rectangle(width * c, 10.0 * c),
+        Friction::new(config.brick_friction),
+        Transform::from_xyz(x, -5.0 * c, 0.0),
+    ));
+    let at = Vec2::new(x + offset * c, (half_height + 0.01) * c);
+    let entity = world
+        .spawn((
+            brick,
+            RigidBody::Dynamic,
+            body,
+            density,
+            Friction::new(config.brick_friction),
+            Restitution::new(config.brick_restitution),
+            AngularDamping(config.angular_damping),
+            Transform::from_translation(at.extend(0.0)),
+            Position(at),
+            rotation,
+        ))
+        .id();
+    run_seconds(&mut app, seconds, |_| {});
+    let Some(now) = app.world().get::<Position>(entity).map(|p| p.0) else {
+        return Vec2::splat(f32::INFINITY);
+    };
+    (now - at) / c
+}
+
+#[test]
+fn a_square_brick_balances_on_a_one_cell_column() {
+    let moved = brick_on_column("O", 1.0, false, 0.0, 4.0);
+    assert!(moved.length() < 0.2, "the O slid off: moved {moved}");
+}
+
+/// Drops bricks of `shape` straight down onto a base that is a single column `width` cells
+/// wide, and returns the tower after `seconds`.
+fn drop_on_column(shape: &str, width: f32, seconds: f32) -> TowerState {
+    let mut config = fast_config();
+    config.bases.survival = vec![tricky_towers::config::BaseBox { x: (-width / 2.0, width / 2.0), y: (-10.0, 0.0) }];
+    config.pieces.retain(|p| p.name == shape);
+    let mut app = headless_app(config);
+    run_seconds(&mut app, seconds, |_| {});
+    tower(&mut app, 0)
+}
+
+#[test]
+fn a_square_brick_dropped_on_a_one_cell_column_holds() {
+    let state = drop_on_column("O", 1.0, 2.5);
+    assert!(state.bricks_placed >= 1, "{state:?}");
+    assert_eq!(state.bricks_dropped, 0, "the O fell off its column: {state:?}");
+}
+
+#[test]
+fn a_long_brick_dropped_on_a_two_cell_column_holds() {
+    let state = drop_on_column("I", 2.0, 2.5);
+    assert!(state.bricks_placed >= 1, "{state:?}");
+    assert_eq!(state.bricks_dropped, 0, "the I fell off its column: {state:?}");
+}

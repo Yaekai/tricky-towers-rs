@@ -814,6 +814,7 @@ fn match_end_stingers(
     towers: Query<(&Tower, &crate::gameplay::TowerState)>,
     mut roofs: MessageReader<crate::gameplay::RoofPlaced>,
     mut end: ResMut<MatchEnd>,
+    puzzle: Option<Res<crate::results::PuzzleCountClock>>,
     settings: Option<Res<crate::settings::Settings>>,
 ) {
     if end.round != game.round {
@@ -845,6 +846,10 @@ fn match_end_stingers(
     } else if single && !end.finish_tower {
         Some(towers.iter().any(|(t, s)| t.is_first_player() && s.status == crate::gameplay::TowerStatus::Won))
     } else if game.mode.rules() == ModeKind::Puzzle && game.winner.is_some() {
+        // A Puzzle battle's win music waits for the count (_DoBaskEnd).
+        if puzzle.as_ref().is_some_and(|p| p.counting()) {
+            return;
+        }
         Some(true)
     } else {
         None
