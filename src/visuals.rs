@@ -36,6 +36,7 @@ impl Plugin for VisualsPlugin {
                     wave_islands.after(bob_islands),
                     dissolve_zapped,
                     ripple_water.after(fit_strips),
+                    ripple_house_water,
                     pulse_band,
                     run_waves.after(fit_backgrounds),
                 ),
@@ -2879,6 +2880,62 @@ fn dress_trial_floor(
         base.with_child(picture);
     }
 }
+/// House01WaterRipple's three waterlines (cells from the base's top, which sits half a cell
+/// over the platform's centre): picture, x, the line's y, and its ring's start and end y,
+/// end scale and alpha at 0.8 s (House01WaterRippleAnim: out over 1 s from alpha 0.5, then
+/// gone until the 2.017 s loop comes round).
+const HOUSE_WATERLINES: [(&str, f32, f32, f32, f32, (f32, f32), f32); 3] = [
+    ("bg_race_waterline01", 0.98, -9.0, -9.0, -9.43, (1.3, 0.9), 0.329),
+    ("bg_race_waterline02", 3.637, -8.739, -8.79, -9.08, (1.5625, 0.6125), 0.355),
+    ("bg_race_waterline03", -0.903, -8.667, -8.72, -9.01, (1.15, 0.65), 0.372),
+];
+const HOUSE_WATER_TINT: (f32, f32, f32) = (0.7216, 0.7294, 0.9137);
+const HOUSE_RIPPLE_LOOP: f32 = 2.0167;
+
+/// One of the house's waterline rings: its line, and its picture's own scale.
+#[derive(Component)]
+struct HouseRipple(usize, Vec3);
+
+fn spawn_house_water(parent: &mut ChildSpawnerCommands, art: &Art, reflection: &str, c: f32) {
+    let top = c * 0.5;
+    if let Some((sprite, anchor, transform)) = art_sprite(art, reflection, c) {
+        parent.spawn((sprite, anchor, transform.with_translation(Vec3::new(0.18 * c, top - 9.72 * c, -0.1))));
+    }
+    let (r, g, b) = HOUSE_WATER_TINT;
+    for (i, &(name, x, y, ..)) in HOUSE_WATERLINES.iter().enumerate() {
+        let Some((mut sprite, anchor, transform)) = art_sprite(art, name, c) else { continue };
+        sprite.color = Color::srgb(r, g, b);
+        parent.spawn((sprite.clone(), anchor, transform.with_translation(Vec3::new(x * c, top + y * c, 0.1))));
+        sprite.color = Color::srgba(r, g, b, 0.0);
+        let scale = transform.scale;
+        parent.spawn((sprite, anchor, transform.with_translation(Vec3::new(x * c, top + y * c, 0.11)), HouseRipple(i, scale)));
+    }
+}
+
+/// The waterline rings slide down, widen and fade over 1 s, every 2.017 s.
+fn ripple_house_water(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut rings: Query<(&HouseRipple, &mut Transform, &mut Sprite)>,
+) {
+    let c = config.cell_size;
+    let t = time.elapsed_secs() % HOUSE_RIPPLE_LOOP;
+    let k = t.min(1.0);
+    for (ring, mut transform, mut sprite) in &mut rings {
+        let (_, _, _, from, to, (sx, sy), a8) = HOUSE_WATERLINES[ring.0];
+        transform.translation.y = c * 0.5 + (from + (to - from) * k) * c;
+        transform.scale = ring.1 * Vec3::new(1.0 + (sx - 1.0) * k, 1.0 + (sy - 1.0) * k, 1.0);
+        let alpha = if t < 0.8 {
+            0.5 + (a8 - 0.5) * t / 0.8
+        } else if t < 1.0 {
+            a8 * (1.0 - (t - 0.8) / 0.2)
+        } else {
+            0.0
+        };
+        sprite.color.set_alpha(alpha);
+    }
+}
+
 /// Draws each new platform and its goal line (race finish or puzzle laser).
 fn dress_platforms(
     mut commands: Commands,
@@ -2926,6 +2983,18 @@ fn dress_platforms(
                     }
                 });
             }
+        }
+        // The race house stands in the water: its waterlines, their rings and its
+        // reflection (House01WaterRipple, the Pro and Endless twins' own reflections).
+        if game.mode.look() == ModeKind::Race && !floor {
+            let reflection = if game.mode == ModeKind::Endless {
+                "bg_race_house01_reflection_endless"
+            } else if pro_look(game.mode, config.difficulty).is_some() {
+                "bg_race_house01_reflection_dark"
+            } else {
+                "bg_race_house01_reflection"
+            };
+            base.with_children(|parent| spawn_house_water(parent, &art, reflection, c));
         }
         if let Some(trial) = trial {
             dress_trial_floor(&mut base, &art, trial, c);
