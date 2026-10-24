@@ -38,6 +38,22 @@ const NUMBER_SIZE: f32 = 46.0;
 /// where the Wizard box's own place is -119.3, +10), the Medal and the Selected corner frame.
 const FACE: ((f32, f32), (f32, f32)) = ((82.5, 81.0), (-128.0, -3.0));
 const MEDAL: ((f32, f32), (f32, f32)) = ((70.0, 96.0), (145.3, -4.46));
+/// The Wizard box that masks the picture (135 x 102.4 at -119.3, +10), and the picture's
+/// top-left inside it (where FACE puts it).
+const FACE_MASK: ((f32, f32), (f32, f32)) = ((135.0, 102.4), (-119.3, 10.0));
+const FACE_IN_MASK: (f32, f32) = (17.55, 23.7);
+/// ShowWizard: picking a trial not yet beaten raises its wizard into the box (Container's
+/// y: time, value, in and out slopes; Unity's y runs up).
+const SHOW_WIZARD: [(f32, f32, f32, f32); 4] = [
+    (0.0, -101.0, 0.0, 0.0),
+    (0.15, -101.0, 0.0, 342.865),
+    (0.3, 1.86, 20.37, 20.37),
+    (0.35, -0.93, -55.78, 0.0),
+];
+
+/// The wizard picture inside a trial's Wizard box, for ShowWizard.
+#[derive(Component)]
+pub(crate) struct FaceRise(usize);
 const CORNER_FRAME: ((f32, f32), (f32, f32)) = ((448.9, 134.1), (3.0, -2.2));
 /// SinglePlayerGameModeSelect's medal corner, as centres from the screen's middle (y up):
 /// MedalsBackground 382 x 183 hanging 100 px over the top right, "MEDALS:" (26 px milky
@@ -92,6 +108,8 @@ pub struct TrialsMenu {
     /// Newly beaten trials' medals popping in (ItemCompleted): seconds since (below 0 while
     /// the screen settles). The tier unlock waits for it, as the original runs it first.
     medal_pop: Option<f32>,
+    /// The trial whose wizard ShowWizard last raised, and seconds since.
+    face: (usize, f32),
 }
 
 /// ItemCompleted: the medal's scale keys (straight between them) and its fade in; at
@@ -392,10 +410,25 @@ fn button_parts(
         button.insert((ImageNode::new(art), BackgroundColor(Color::NONE)));
     }
     if let Some(art) = image(&format!("menu_challenge_wizard{face}")) {
+        let (mask, at) = FACE_MASK;
         page.spawn((
-            ImageNode::new(art),
-            place(FACE.0, (x + FACE.1.0, y + FACE.1.1)),
+            Node {
+                overflow: Overflow::clip(),
+                ..place(mask, (x + at.0, y + at.1))
+            },
             TrialPart::Face(index),
+        ))
+        .with_child((
+            ImageNode::new(art),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(FACE_IN_MASK.0 / mask.0 * 100.0),
+                top: Val::Percent(FACE_IN_MASK.1 / mask.1 * 100.0),
+                width: Val::Percent(FACE.0.0 / mask.0 * 100.0),
+                height: Val::Percent(FACE.0.1 / mask.1 * 100.0),
+                ..default()
+            },
+            FaceRise(index),
         ));
     }
     page.spawn(place(BUTTON, (x, y))).with_children(|n| {
@@ -641,6 +674,7 @@ pub(crate) fn show_trials_screen(
     mut turns: Query<(&TrialPart, &mut UiTransform, Option<&mut ImageNode>)>,
     mut texts: Query<(&TrialPart, &mut Text)>,
     spots: Query<(&TrialPart, &UiGlobalTransform, &ComputedNode)>,
+    mut faces: Query<(&FaceRise, &mut Node), Without<TrialPart>>,
     screen_size: Query<&ComputedNode, With<TrialsRoot>>,
     mut seed: Local<u32>,
 ) {
@@ -725,6 +759,25 @@ pub(crate) fn show_trials_screen(
             }
             progress.save();
             menu.medal_pop = None;
+        }
+    }
+    // ShowWizard plays each time a trial not yet beaten is picked; a beaten one's wizard
+    // just stands there.
+    if menu.face.0 != menu.selected {
+        menu.face = (menu.selected, 0.0);
+    } else {
+        menu.face.1 += time.delta_secs();
+    }
+    for (face, mut node) in &mut faces {
+        let beaten = config.trials.get(face.0).is_some_and(|t| progress.is_done(&t.name));
+        let rise = if beaten || face.0 != menu.face.0 {
+            0.0
+        } else {
+            crate::config::curve(&SHOW_WIZARD, menu.face.1)
+        };
+        let top = Val::Percent((FACE_IN_MASK.1 - rise) / FACE_MASK.0.1 * 100.0);
+        if node.top != top {
+            node.top = top;
         }
     }
     let pop_time = menu.medal_pop;
