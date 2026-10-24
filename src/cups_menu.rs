@@ -1536,9 +1536,11 @@ fn say(commands: &mut Commands, art: &Art, wizard: usize, kind: &str, roll: f32)
 /// render layer, `WIN_UNIT` pixels a unit like the popup's sparks.
 const FLYER_LAYER: usize = 7;
 const FLYER_SPAWN: Vec2 = Vec2::new(650.0 / WIN_UNIT, -380.0 / WIN_UNIT);
-/// Where the wand is on the rig, in units from its middle facing left (the lightning starts
-/// there; SpellCastContainer's spot isn't read, a guess from the cast pose).
-const FLYER_WAND: Vec2 = Vec2::new(-0.9, 1.0);
+/// Where the wand is on wizard 1's rig, in units from its middle facing left: the
+/// SpellCastContainer with ArmBack at CastSelf's cast-self moment; each wizard's own is in
+/// `casts.cast_spots`. ponytail: the bolt starts at the press, not 0.43 s later as the
+/// original's (the flying wizard would have left its start behind).
+const FLYER_WAND: Vec2 = Vec2::new(-2.23, 1.43);
 
 /// The camera drawing the winner's wizard over the popup.
 #[derive(Component)]
@@ -1725,7 +1727,8 @@ fn fly_winner(
             // _HandleSpellCastSelf: a bolt from the wand to 18 units out the way it faces, at
             // a random height within 15, and one of the two light cast sounds.
             let face = if flyer.facing_left { 1.0 } else { -1.0 };
-            let wand = flyer.at + Vec2::new(FLYER_WAND.x * face, FLYER_WAND.y);
+            let spot = config.casts.cast_spots.get(flyer.wizard).map_or(FLYER_WAND, |s| Vec2::new(s.1.0, s.1.1));
+            let wand = flyer.at + Vec2::new(spot.x * face, spot.y);
             let to = Vec2::new(-18.0 * face, roll() * 30.0 - 15.0);
             crate::casts::spawn_bolt(
                 &mut commands,

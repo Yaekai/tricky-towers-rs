@@ -3053,6 +3053,10 @@ pub struct CastLook {
     /// The glow disc at a beam's foot, per wizard (each wizard has its own beam,
     /// Beam01-04; skin wizards use wizard 1's until theirs are read).
     pub beam_glow: Vec<(f32, f32, f32, f32)>,
+    /// Where each wizard's casts start, in units from its middle facing left: its
+    /// SpellCastContainer (on ArmBack) with ArmBack where the Casting clip holds it (the dark
+    /// beam) and where CastSelf has it at its cast-self moment (the lightning). Wizard 1 first.
+    pub cast_spots: Vec<((f32, f32), (f32, f32))>,
     /// The blobs spinning at each beam's foot, per wizard (Beam01-04's Blobs, back to
     /// front): picture, scale, starting angle and spin (degrees, a second; RotationBehaviour),
     /// opacity. They grow in over `beam_blob_grow` (BeamIn: from the start; BeamDownIn: after
@@ -3117,6 +3121,22 @@ impl Default for CastLook {
             beam_squeeze: 0.03,
             beam_width: 1.76,
             beam_reach: (107.7, 193.8),
+            cast_spots: vec![
+                ((-2.04, 1.91), (-2.23, 1.43)),
+                ((-2.04, 1.9), (-2.23, 1.43)),
+                ((-1.31, 1.82), (-1.74, 1.22)),
+                ((-2.0, 1.91), (-2.23, 1.43)),
+                ((-2.34, 1.1), (-2.39, 0.49)),
+                ((-2.9, 1.24), (-2.78, 0.73)),
+                ((-2.15, 1.88), (-2.03, 1.22)),
+                ((-2.33, 1.59), (-2.21, 0.93)),
+                ((-2.04, 1.9), (-2.23, 1.43)),
+                ((-3.42, 1.77), (-2.59, 1.63)),
+                ((-2.38, 1.58), (-2.23, 1.43)),
+                ((-2.44, 1.69), (-2.06, 1.16)),
+                ((-2.58, 2.23), (-2.51, 0.94)),
+                ((-2.17, 1.81), (-2.21, 1.16)),
+            ],
             beam_glow: vec![
                 (0.780, 1.0, 0.980, 0.153),
                 (0.780, 1.0, 0.980, 0.153),

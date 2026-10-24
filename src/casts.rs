@@ -58,11 +58,25 @@ fn wizard_spot(
     solo: bool,
     wizards: &Query<(&Wizard, &GlobalTransform)>,
 ) -> (Vec2, bool) {
+    wizard_spot_at(config, tower_entity, tower, state, solo, wizards, Vec2::ZERO)
+}
+
+/// `wizard_spot`, moved by `offset` units in the wizard's own frame (its wand).
+fn wizard_spot_at(
+    config: &GameConfig,
+    tower_entity: Entity,
+    tower: &Tower,
+    state: &TowerState,
+    solo: bool,
+    wizards: &Query<(&Wizard, &GlobalTransform)>,
+    offset: Vec2,
+) -> (Vec2, bool) {
     if let Some((_, at)) = wizards
         .iter()
         .find(|(w, _)| !w.enemy() && w.tower() == tower_entity)
     {
-        return (at.translation().truncate(), solo);
+        let local = (offset * config.cell_size).extend(0.0);
+        return (at.transform_point(local).truncate(), solo);
     }
     let look = &config.wizards;
     let x = if solo {
@@ -181,7 +195,18 @@ fn start_casts(
         };
         // Each wizard has its own beam (the original's BEAM_<wizard>).
         let wizard = skins.get(caster_entity).map_or(caster.index, |s| s.wizard);
-        let (from, _) = wizard_spot(&config, caster_entity, caster, caster_state, solo, &wizards);
+        // The beam and the lightning start at the wand (SpellCastContainer).
+        let spots = config.casts.cast_spots.get(wizard).copied().unwrap_or_default();
+        let wand = if cast.spell.is_dark() { spots.0 } else { spots.1 };
+        let (from, _) = wizard_spot_at(
+            &config,
+            caster_entity,
+            caster,
+            caster_state,
+            solo,
+            &wizards,
+            Vec2::new(wand.0, wand.1),
+        );
         if cast.spell.is_dark() {
             if !beamed_up.contains(&cast.caster) {
                 beamed_up.push(cast.caster);
