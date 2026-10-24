@@ -157,12 +157,19 @@ fn spawn_poofs(
     for (entity, transform) in &bricks {
         let at = transform.translation.truncate();
         let mut seed = (entity.to_bits() as u32) | 1;
+        brick_poof(&mut commands, &art, c, at, &mut seed);
+    }
+}
+
+/// BRICK_SPAWN_POOF: a white flash, eight puffs and five star sparks at `at`.
+pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32) {
+    {
         burst(
-            &mut commands,
-            &art,
+            commands,
+            art,
             c,
             at,
-            &mut seed,
+            seed,
             Burst {
                 image: "explosion_flash",
                 color: Color::WHITE,
@@ -178,11 +185,11 @@ fn spawn_poofs(
             },
         );
         burst(
-            &mut commands,
-            &art,
+            commands,
+            art,
             c,
             at,
-            &mut seed,
+            seed,
             Burst {
                 image: "mist_puff",
                 color: Color::WHITE,
@@ -198,11 +205,11 @@ fn spawn_poofs(
             },
         );
         burst(
-            &mut commands,
-            &art,
+            commands,
+            art,
             c,
             at,
-            &mut seed,
+            seed,
             Burst {
                 image: "spark_star",
                 color: Color::WHITE,
@@ -218,6 +225,51 @@ fn spawn_poofs(
             },
         );
     }
+}
+
+/// BRICK_SPAWN_POOF_SMALL (SpawnPoofSmall): a size 3 flash for 0.07 s and five white clouds
+/// at 20 to 40 cells/s (Limit Velocity 0.5, dampen 0.28), 0.8 to 1.4 cells, 0.5 s.
+pub(crate) fn small_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, z: f32, seed: &mut u32) {
+    burst(
+        commands,
+        art,
+        c,
+        at,
+        seed,
+        Burst {
+            image: "explosion_flash",
+            color: Color::WHITE,
+            count: 1,
+            speed: 0.0,
+            clamp: NO_CLAMP,
+            size: 3.0,
+            life: 0.07,
+            gravity: 0.0,
+            gravity_to: 0.0,
+            spread: None,
+            z,
+        },
+    );
+    burst(
+        commands,
+        art,
+        c,
+        at,
+        seed,
+        Burst {
+            image: "cast_droplet",
+            color: Color::srgb(0.95, 0.965, 1.0),
+            count: 5,
+            speed: 40.0,
+            clamp: (0.5, 0.28),
+            size: 1.1,
+            life: 0.5,
+            gravity: 0.0,
+            gravity_to: 0.0,
+            spread: None,
+            z: z + 0.01,
+        },
+    );
 }
 
 /// Three small dust puffs under a brick as it lands.

@@ -1126,10 +1126,9 @@ fn play_sounds(
     let Some((_, you, skin)) = towers.iter().find(|(t, _, _)| t.is_first_player()) else {
         return;
     };
-    // BRICK_SPAWNED: SFX_BRICK_SPAWN at half volume for each new brick.
-    // ponytail: the original starts it 0.15 s late; played at once here.
+    // BRICK_SPAWNED: SFX_BRICK_SPAWN at half volume for each new brick, 0.15 s late.
     if you.active.is_some() && you.active != heard.active {
-        play_with("sfx_brick_spawn", 0.5, 1.0);
+        heard.later.push((0.15, "sfx_brick_spawn"));
     }
     heard.active = you.active;
     // BrickRotatedAudioEffect turns at a random pitch, 0.8 to 1.2.
@@ -1159,6 +1158,7 @@ fn play_sounds(
     let mut play = |name: &str| match name {
         // BrickControl plays SFX_BRICK_MOVE at 0.15.
         "sfx_move" => play_with(name, 0.15, 1.0),
+        "sfx_brick_spawn" => play_with(name, 0.5, 1.0),
         "sfx_rotate" => play_with(name, 1.0, rotate_pitch),
         // A dark cast's zap (SFX_CAST_, looping at 0.8 while the beam is up).
         "sfx_zap_enemy" => play_with(name, 1.0, 0.8),

@@ -700,7 +700,7 @@ fn orbit_bricks(
     towers: Query<(&TowerState, &crate::gameplay::BrickBag, Option<&crate::gameplay::TowerSkin>)>,
     images: Option<Res<Assets<Image>>>,
     intro: Option<Res<crate::intro::IntroClock>>,
-    mut wizards: Query<(Entity, &Wizard, Option<&mut Orbit>)>,
+    mut wizards: Query<(Entity, &Wizard, Option<&mut Orbit>, &GlobalTransform)>,
     mut bricks: Query<(Entity, &ChildOf, &mut OrbitBrick, &mut Transform, &mut Visibility)>,
 ) {
     let trial = config.trial.is_some() && config.mode.rules() == ModeKind::Survival;
@@ -709,13 +709,16 @@ fn orbit_bricks(
     let shown = game.retry
         || intro.and_then(|c| c.0).is_none_or(|t| t >= config.intro.single_cast);
     let dt = time.delta_secs();
-    for (entity, wizard, orbit) in &mut wizards {
+    for (entity, wizard, orbit, global) in &mut wizards {
         if wizard.enemy || wizard.tower == Entity::PLACEHOLDER {
             continue;
         }
         let Ok((state, bag, skin)) = towers.get(wizard.tower) else {
             continue;
         };
+        // Where a ring brick is in the world, for the poofs.
+        let world = |local: Vec3| global.transform_point(local).truncate();
+        let mut seed = (entity.to_bits() as u32).wrapping_mul(2654435761) | 1;
         let spawned = state.bricks_used() + state.active.is_some() as u32;
         let left = config.survival.bricks_to_place.saturating_sub(spawned);
         let Some(mut orbit) = orbit else {
@@ -773,6 +776,16 @@ fn orbit_bricks(
                 ));
             }
         }
+        // Each brick pops in with BRICK_SPAWN_POOF_SMALL where it is on the ring (hidden
+        // bricks are moved round with the rest).
+        if shown > orbit.shown {
+            for (_, parent, brick, transform, _) in &bricks {
+                if parent.parent() == entity && (orbit.shown..shown).contains(&brick.index) {
+                    let at = world(transform.translation);
+                    crate::particles::small_poof(&mut commands, &art, wizard.cell, at, 30.0, &mut seed);
+                }
+            }
+        }
         orbit.shown = shown;
         if shown >= count {
             // DOTween's default out-quad, 0 to 1 over 2 s.
@@ -790,6 +803,11 @@ fn orbit_bricks(
         // The next brick is the last one in the row.
         next.sort_by(|a, b| b.cmp(a));
         for &(_, brick) in next.iter().take(gone as usize) {
+            // _RemoveBrick: BRICK_SPAWN_POOF where it was.
+            if let Ok((.., transform, _)) = bricks.get(brick) {
+                let at = world(transform.translation);
+                crate::particles::brick_poof(&mut commands, &art, wizard.cell, at, &mut seed);
+            }
             commands.entity(brick).despawn();
         }
         let unit = wizard.cell;
