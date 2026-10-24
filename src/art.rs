@@ -1061,6 +1061,8 @@ struct Heard {
     casts: u64,
     countdown: u32,
     phase: Option<Phase>,
+    /// Light-cast sounds still to come: seconds left and the sound.
+    later: Vec<(f32, &'static str)>,
 }
 
 /// The menus' cursor noise: one of the original's four select sounds, at random,
@@ -1099,11 +1101,18 @@ fn play_sounds(
     active: Query<(), With<ActiveBrick>>,
     bricks: Query<&crate::gameplay::Brick>,
     auto_built: Query<(), With<crate::gameplay::AutoBuilt>>,
+    time: Res<Time>,
     mut heard: Local<Heard>,
 ) {
     if art.sounds.is_empty() {
         return;
     }
+    let dt = time.delta_secs();
+    for wait in &mut heard.later {
+        wait.0 -= dt;
+    }
+    let due: Vec<&'static str> = heard.later.iter().filter(|w| w.0 <= 0.0).map(|w| w.1).collect();
+    heard.later.retain(|w| w.0 > 0.0);
     let mut play_with = |name: &str, volume: f32, speed: f32| {
         if let Some(handle) = art.sounds.get(name) {
             commands.spawn((
@@ -1156,6 +1165,10 @@ fn play_sounds(
         _ => play_with(name, 1.0, 1.0),
     };
     let light_pick = heard.roll >> 20 & 1;
+    for name in due {
+        play(name);
+    }
+    let mut later = Vec::new();
     if game.phase == Phase::Playing {
         if you.bricks_placed > heard.placed {
             // BrickPlacedAudioEffect: a Large brick lands heavy, an iced one with one of four
@@ -1245,8 +1258,12 @@ fn play_sounds(
             play("sfx_cast_dark");
             play("sfx_zap_enemy");
         } else {
-            // One of SFX_CAST_LIGHT_MAGIC_1 and _2 at random.
-            play(["sfx_cast_light", "sfx_cast_lightning_level_02"][light_pick as usize]);
+            // One of SFX_CAST_LIGHT_MAGIC_1 and _2 at random, with the lightning at the
+            // wizard's cast-self moment.
+            later.push((
+                config.magic.cast_self,
+                ["sfx_cast_light", "sfx_cast_lightning_level_02"][light_pick as usize],
+            ));
         }
         // Each spell's own sound (AbstractInitSpellsCommand).
         // ponytail: played with the cast, not when the spell lands (AUTO_BUILD's loop:
@@ -1263,7 +1280,16 @@ fn play_sounds(
             SpellKind::Fast => "sfx_fast_bricks",
             _ => "",
         };
-        play(own);
+        // Minibase and Extra Life are spawned at the cast-self moment too.
+        if cast.spell.is_dark() {
+            play(own);
+        } else if !own.is_empty() {
+            later.push((config.magic.cast_self, own));
+        }
+    }
+    heard.later.extend(later);
+    if game.phase != Phase::Playing {
+        heard.later.clear();
     }
     heard.placed = you.bricks_placed;
     heard.dropped = you.bricks_dropped;

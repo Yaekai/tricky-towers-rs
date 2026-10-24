@@ -3385,7 +3385,9 @@ fn update_drop_guide(
             .filter(|_| game.phase == Phase::Playing)
             .and_then(|(_, state, _)| state.active)
             .and_then(|entity| bricks.get(entity).ok());
-        let Some((_, brick, at)) = active else {
+        // SetGuideInvisibleEffect: hidden while a curse hangs the brick (the beams up to
+        // the end of the cast).
+        let Some((_, brick, at)) = active.filter(|(control, ..)| control.hold_rumble <= 0.0) else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };

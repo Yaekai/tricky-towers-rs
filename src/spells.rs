@@ -590,12 +590,14 @@ pub struct EnemyCasts(pub Vec<Curse>);
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 /// A cast on its way (AbstractInitSpellsCommand's pipelines): the spells land on the target
 /// `land` seconds after the cast; from `hold` seconds the target's brick in hand hangs where it
-/// is, shaking (PauseBrickControlEffect + ShakeModifier), until they land.
+/// is (PauseBrickControlEffect), shaking if `shake` (ShakeModifier), until `release`.
 #[derive(Debug, Clone)]
 pub(crate) struct PendingCast {
     time: f32,
     hold: f32,
     land: f32,
+    release: f32,
+    shake: bool,
     held: bool,
     target: Entity,
     spells: Vec<SpellKind>,
@@ -660,12 +662,19 @@ pub(crate) fn cast_spells(
                     curse.bricks,
                 ),
             };
-        // A dark cast hangs the victim's brick 0.5 s in and lands when the curse orb does; a
-        // light one hangs the caster's brick through its 0.4 s lightning.
-        let (hold, land) = if dark {
-            (magic.dark_cast_hold, config.casts.dark_orb_land)
+        // A dark cast hangs the victim's brick 0.5 s in and lands when the curse orb does. A
+        // light one hangs the caster's brick at once: Petrify, Ivy and Auto Build shake it
+        // through the lightning at the wizard's cast-self moment and land after it; Minibase,
+        // Extra Life and Undo land at that moment, then the lightning and a 0.3 s wait.
+        let after_bolt = matches!(spells[..], [SpellKind::Minibase | SpellKind::ExtraLife | SpellKind::Undo]);
+        let (hold, land, release, shake) = if dark {
+            (magic.dark_cast_hold, config.casts.dark_orb_land, config.casts.dark_orb_land, true)
+        } else if after_bolt {
+            let bolt = magic.cast_self + magic.light_cast_land;
+            (0.0, magic.cast_self, bolt + magic.move_up_settle, false)
         } else {
-            (0.0, magic.light_cast_land)
+            let bolt = magic.cast_self + magic.light_cast_land;
+            (0.0, bolt, bolt, true)
         };
         for (target, target_index) in targets {
             for &spell in &spells {
@@ -680,6 +689,8 @@ pub(crate) fn cast_spells(
                 time: 0.0,
                 hold,
                 land,
+                release,
+                shake,
                 held: false,
                 target,
                 spells: spells.clone(),
@@ -729,12 +740,14 @@ pub(crate) fn land_casts(
         cast.time += dt;
         if !cast.held && cast.time >= cast.hold {
             cast.held = true;
-            let hang = (cast.land - cast.time).max(0.0);
+            let hang = (cast.release - cast.time).max(0.0);
             if let Ok((_, _, state)) = towers.get(cast.target)
                 && let Some((mut control, _)) = state.active.and_then(|e| active.get_mut(e).ok())
             {
                 control.hold = control.hold.max(hang);
-                control.hold_shake = control.hold_shake.max(hang);
+                if cast.shake {
+                    control.hold_shake = control.hold_shake.max(hang);
+                }
                 if cast.spells.iter().any(|s| s.is_dark()) {
                     control.hold_rumble = control.hold_rumble.max(hang);
                 }
@@ -809,6 +822,23 @@ pub(crate) fn land_casts(
             } else {
                 cast_on_tower(&mut commands, &config, spell, target, tower, &mut state, &placed);
             }
+        }
+        // A curse keeps the brick hanging, shaking, through its post-cast delay (Bubble,
+        // Mist and Ghost 0.5 s, the rest 0.3 s) before ResumeBrickControl; a carried brick
+        // waits it once it is up.
+        let dark = cast.spells.iter().any(|s| s.is_dark());
+        if dark
+            && let Some(brick) = state.active
+            && let Ok((mut control, _)) = active.get_mut(brick)
+        {
+            let post = if cast.spells.iter().any(|s| matches!(s, SpellKind::Bubble | SpellKind::Mist | SpellKind::Ghost)) {
+                magic.post_cast_long
+            } else {
+                magic.move_up_settle
+            };
+            control.hold = control.hold.max(post);
+            control.hold_shake = control.hold_shake.max(post);
+            control.hold_rumble = control.hold_rumble.max(post);
         }
     }
 }

@@ -1733,6 +1733,7 @@ fn fly_winner(
                 to * WIN_UNIT,
                 WIN_UNIT,
                 Some(layer.clone()),
+                0.0,
             );
             let name = if roll() < 0.5 {
                 "sfx_cast_light"

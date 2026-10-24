@@ -1237,14 +1237,19 @@ pub struct MagicRules {
     pub fast_bricks: u32,
     /// Seconds after a dark cast that the victim's brick hangs (the dark pipeline's
     /// DelayEffect(0.5) before PauseBrickControlEffect); it lands with the curse orb
-    /// (`casts.dark_orb_land`). A light cast lands when its lightning ends (Lightning clip,
-    /// LIGHTNING_COMPLETE at 0.4 s), the caster's brick hanging till then.
+    /// (`casts.dark_orb_land`). A light cast's lightning lasts `light_cast_land` (Lightning
+    /// clip, LIGHTNING_COMPLETE at 0.4 s) from the wizard's cast-self moment (`cast_self`,
+    /// the SPELL_CAST_SELF event of every CastSelf clip).
     pub dark_cast_hold: f32,
     pub light_cast_land: f32,
+    pub cast_self: f32,
     /// MoveBrickUpEffect: a spell carries the brick in hand back up to this many cells over
     /// the tower (Y_OFFSET), and it hangs this long after (the post-cast DelayEffect(0.3)).
     pub move_up_over: f32,
     pub move_up_settle: f32,
+    /// The post-cast delay of Bubble, Mist and Ghost (AbstractInitSpellsCommand: 0.5 s; the others
+    /// wait `move_up_settle`), while the victim's brick still hangs.
+    pub post_cast_long: f32,
     /// A Fast brick falls at least this much faster than the drop speed, in cells/s.
     pub fast_extra_speed: f32,
     pub ice_bricks: u32,
@@ -1470,8 +1475,10 @@ impl Default for MagicRules {
             fast_bricks: 5,
             dark_cast_hold: 0.5,
             light_cast_land: 0.4,
+            cast_self: 0.4333,
             move_up_over: 16.0,
             move_up_settle: 0.3,
+            post_cast_long: 0.5,
             fast_extra_speed: 7.5,
             ice_bricks: 4,
             ice_friction: 0.06,

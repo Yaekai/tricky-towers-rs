@@ -98,6 +98,7 @@ fn fast_config() -> GameConfig {
     config.magic.dark_cast_hold = 0.0;
     config.casts.dark_orb_land = 0.0;
     config.magic.light_cast_land = 0.0;
+    config.magic.cast_self = 0.0;
     config
 }
 

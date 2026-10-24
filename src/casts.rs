@@ -117,12 +117,13 @@ pub(crate) fn spawn_bolt(
     to: Vec2,
     cell: f32,
     layers: Option<bevy::camera::visibility::RenderLayers>,
+    delay: f32,
 ) {
     commands.spawn((
         Lightning {
             from,
             to,
-            time: 0.0,
+            time: -delay,
             segments: Vec::new(),
             cell,
             layers,
@@ -204,7 +205,9 @@ fn start_casts(
         } else if !lit.contains(&cast.caster) {
             lit.push(cast.caster);
             let to = brick_at(caster_state, caster);
-            spawn_bolt(&mut commands, from, to, config.cell_size, None);
+            // It strikes at the wizard's cast-self moment (WizardLightningEffect after
+            // WizardCastSelfAnimationEffect).
+            spawn_bolt(&mut commands, from, to, config.cell_size, None, config.magic.cast_self);
         }
     }
 }
@@ -1167,6 +1170,9 @@ fn run_lightning(
     let image = art.image("cast_lightning");
     for (entity, mut bolt) in &mut bolts {
         bolt.time += time.delta_secs();
+        if bolt.time < 0.0 {
+            continue;
+        }
         if bolt.time >= look.lightning {
             for &piece in &bolt.segments {
                 commands.entity(piece).despawn();
