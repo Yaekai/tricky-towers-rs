@@ -1566,7 +1566,8 @@ fn flick_hints(
     mut hints: Query<(&ButtonHint, &mut Sprite)>,
 ) {
     let playstation = pads.iter().next().is_some_and(crate::input::is_playstation);
-    let down = time.elapsed_secs() % 0.4 >= 0.2;
+    // The clip starts on the pressed (down) picture.
+    let down = time.elapsed_secs() % 0.4 < 0.2;
     for (hint, mut sprite) in &mut hints {
         let side = if hint.dark { "dark" } else { "light" };
         let state = if down { "down" } else { "up" };

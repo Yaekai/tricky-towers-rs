@@ -570,6 +570,8 @@ pub(crate) fn spawn_single_screens(
                         },
                         place(crate::select::SEAT_ARROW, (side * ROW_ARROW_X, y)),
                         Item::RowFocus(row),
+                        // SPArrowIdle: 200 to 210 px out.
+                        crate::select::ArrowBob(Vec2::new(side * 10.0, 0.0)),
                     ));
                 }
             }

@@ -276,7 +276,9 @@ fn spawn_help(
         }
         for right in [false, true] {
             let x = if right { ARROW_X } else { -ARROW_X };
-            let mut arrow = root.spawn(place(ARROW, (x, 0.0)));
+            // ArrowsIdle: 300 to 310 px out.
+            let side = if right { 1.0 } else { -1.0 };
+            let mut arrow = root.spawn((place(ARROW, (x, 0.0)), crate::select::ArrowBob(Vec2::new(side * 10.0, 0.0))));
             if let Some(art) = image("menu_arrow") {
                 // The staged arrow points up; these point out sideways.
                 arrow.insert((

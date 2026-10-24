@@ -22,6 +22,7 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Update, crate::select::bob_arrows);
         app.add_plugins((
             crate::popup::PopupPlugin,
             crate::cups_menu::CupsMenuPlugin,

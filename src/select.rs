@@ -634,6 +634,8 @@ pub(crate) fn spawn_select_screens(
                             },
                             place(SEAT_ARROW, (x + side * SEAT_ARROW_X, y)),
                             Part::SeatArrow(seat, row, flip_x),
+                            // ArrowIdle_0: 165 to 170 px out.
+                            ArrowBob(Vec2::new(side * 5.0, 0.0)),
                         ));
                     }
                 }
@@ -823,6 +825,8 @@ pub(crate) fn spawn_select_screens(
                     },
                     place(COLUMN_ARROW, (x, y)),
                     Part::Arrow { column, up },
+                    // ArrowIdle: 130 to 125 px from the middle, towards it.
+                    ArrowBob(Vec2::new(0.0, if up { 5.0 } else { -5.0 })),
                 ));
             }
         }
@@ -1671,6 +1675,24 @@ pub(crate) fn show_select_screens(
             }
         };
         v.set_if_neq(shown(want));
+    }
+}
+
+/// A menu arrow's idle bob (ArrowIdle, ArrowIdle_0, ArrowsIdle, SPArrowIdle): out by `.0`
+/// reference pixels (UI x right, y down) and back each second, easing at both ends.
+#[derive(Component)]
+pub(crate) struct ArrowBob(pub Vec2);
+
+pub(crate) fn bob_arrows(time: Res<Time>, mut arrows: Query<(&ArrowBob, &mut UiTransform)>) {
+    let t = time.elapsed_secs() % 1.0;
+    let k = if t < 0.5 { t / 0.5 } else { (1.0 - t) / 0.5 };
+    let s = k * k * (3.0 - 2.0 * k);
+    for (bob, mut transform) in &mut arrows {
+        let v = bob.0 * s;
+        let want = Val2::new(Val::Vh(v.x / 10.8), Val::Vh(v.y / 10.8));
+        if transform.translation != want {
+            transform.translation = want;
+        }
     }
 }
 
