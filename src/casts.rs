@@ -384,7 +384,8 @@ fn spawn_victim_beams(
     // Wizards 1 and 2's down beams burst sparks up from the brick as they start (BeamDown03
     // and 04 have none).
     if wizard < 2 {
-        commands.spawn(SparkBurst { foot, time: -config.casts.dark_fall });
+        // BeamDownIn switches the Sparks on 0.2 s in.
+        commands.spawn(SparkBurst { foot, time: -config.casts.dark_fall - 0.2 });
     }
     let lane = spawn_beam(commands, config, art, BeamKind::Lane, foot, lane_x, wizard);
     commands
@@ -392,7 +393,7 @@ fn spawn_victim_beams(
         .insert((Visibility::Hidden, DelayedBy(config.casts.dark_start)));
 }
 
-/// BeamDown01 and 02's Sparks: one burst of 20 stars when the beam starts, from a 4-cell line
+/// BeamDown01 and 02's Sparks: one burst of 20 stars 0.2 s after the beam starts, from a 4-cell line
 /// across the brick, shooting up at 10 to 400 cells/s and slowed to 1 (Limit Velocity,
 /// dampen 0.3 a frame), spinning at 1 to 6.3 rad/s, 0.33 to 0.44 cells, 0.7 s; they flicker
 /// lime, yellow and cyan from 0.55 to 0.67 of their life and shrink away at the end.
