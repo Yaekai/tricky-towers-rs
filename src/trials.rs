@@ -45,6 +45,10 @@ pub struct TrialProgress {
     /// Tiers the Trials screen has shown opening (their unlock plays once).
     #[serde(default)]
     pub tiers_shown: usize,
+    /// Beaten trials whose medal the Trials screen has popped in (ItemCompleted plays once);
+    /// none in a save from before it, whose medals all count as shown.
+    #[serde(default)]
+    pub medals_shown: Option<Vec<String>>,
     #[serde(skip)]
     pub file: Option<PathBuf>,
 }

@@ -89,6 +89,28 @@ pub struct TrialsMenu {
     from_trial: bool,
     /// When the last chain sound played, in unlock seconds.
     chain_sound: f32,
+    /// Newly beaten trials' medals popping in (ItemCompleted): seconds since (below 0 while
+    /// the screen settles). The tier unlock waits for it, as the original runs it first.
+    medal_pop: Option<f32>,
+}
+
+/// ItemCompleted: the medal's scale keys (straight between them) and its fade in; at
+/// SPAWN_STARS the heavy landing and SFX_WINNER (0.15 s late) sound, and at
+/// SHOW_MEDAL_COMPLETE (1 s) it is done.
+const MEDAL_POP: [(f32, f32); 5] = [(0.0, 0.5), (0.1, 2.0), (0.2, 2.0), (0.333, 0.95), (0.367, 1.0)];
+const MEDAL_FADE: f32 = 0.1;
+const MEDAL_STARS: f32 = 0.333;
+const MEDAL_DONE: f32 = 1.0;
+
+fn medal_scale(t: f32) -> f32 {
+    match MEDAL_POP.iter().position(|(at, _)| t < *at) {
+        Some(0) => MEDAL_POP[0].1,
+        Some(i) => {
+            let ((t0, a), (t1, b)) = (MEDAL_POP[i - 1], MEDAL_POP[i]);
+            a + (b - a) * (t - t0) / (t1 - t0)
+        }
+        None => 1.0,
+    }
 }
 
 /// One piece of the chain on the locked panel.
@@ -631,9 +653,55 @@ pub(crate) fn show_trials_screen(
     let pages = config.trials.len().div_ceil(per_tier);
     let medals = progress.medals(tiers);
     let shown_tiers = tiers_shown(&progress, tiers);
+    // Trials beaten since the screen last showed them pop their medals in first.
+    if progress.medals_shown.is_none() {
+        progress.medals_shown = Some(progress.done.clone());
+    }
+    let seen = progress.medals_shown.clone().unwrap_or_default();
+    let fresh: Vec<usize> = config
+        .trials
+        .iter()
+        .enumerate()
+        .filter(|(_, t)| progress.is_done(&t.name) && !seen.contains(&t.name))
+        .map(|(i, _)| i)
+        .collect();
+    if menu.medal_pop.is_none() && !fresh.is_empty() && menu.unlock.is_none() {
+        let wait = if menu.from_trial { AFTER_TRIAL } else { 0.0 };
+        menu.medal_pop = Some(-wait);
+        menu.from_trial = false;
+    }
+    if let Some(t) = menu.medal_pop.as_mut() {
+        let before = *t;
+        *t += time.delta_secs();
+        if before < MEDAL_STARS
+            && *t >= MEDAL_STARS
+            && let Some(art) = art.as_deref()
+        {
+            if let Some(sound) = art.sounds.get("sfx_brick_heavy") {
+                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+            }
+        }
+        // AudioEffect("SFX_WINNER", 1, 0.15): 0.15 s after.
+        if before < MEDAL_STARS + 0.15
+            && *t >= MEDAL_STARS + 0.15
+            && let Some(sound) = art.as_deref().and_then(|a| a.sounds.get("sfx_score_tail"))
+        {
+            commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+        if *t >= MEDAL_DONE {
+            let shown = progress.medals_shown.get_or_insert_default();
+            for &i in &fresh {
+                shown.push(config.trials[i].name.clone());
+            }
+            progress.save();
+            menu.medal_pop = None;
+        }
+    }
+    let pop_time = menu.medal_pop;
+    let popping = |i: usize| pop_time.filter(|_| fresh.contains(&i));
     // A tier that has opened since the screen last showed it plays its unlock:
     // the screen turns to it first.
-    if menu.unlock.is_none() {
+    if menu.unlock.is_none() && menu.medal_pop.is_none() {
         if shown_tiers < pages && tiers.is_open(shown_tiers * per_tier, medals) {
             let wait = if menu.from_trial { AFTER_TRIAL } else { 0.0 };
             menu.unlock = Some((shown_tiers, -(wait + SLIDE_SECONDS)));
@@ -704,10 +772,10 @@ pub(crate) fn show_trials_screen(
                 }
             },
             TrialPart::Corner(i) | TrialPart::Face(i) => i == menu.selected,
-            TrialPart::Medal(i) => config
-                .trials
-                .get(i)
-                .is_some_and(|t| progress.is_done(&t.name)),
+            TrialPart::Medal(i) => {
+                config.trials.get(i).is_some_and(|t| progress.is_done(&t.name))
+                    && popping(i).is_none_or(|t| t >= 0.0)
+            }
             TrialPart::PageArrow(right) => {
                 if right {
                     tier + 1 < pages
@@ -727,6 +795,16 @@ pub(crate) fn show_trials_screen(
                     ((time - link_start(i)) / LINK_SHRINK).clamp(0.0, 1.0)
                 });
                 transform.scale = Vec2::splat(1.0 - gone);
+            }
+            TrialPart::Medal(i) => {
+                let t = popping(i).unwrap_or(MEDAL_DONE);
+                transform.scale = Vec2::splat(medal_scale(t));
+                if let Some(mut image) = image {
+                    let alpha = (t / MEDAL_FADE).clamp(0.0, 1.0);
+                    if image.color.alpha() != alpha {
+                        image.color.set_alpha(alpha);
+                    }
+                }
             }
             TrialPart::Padlock(t) => {
                 let since = unlocking(t).map_or(f32::MIN, |time| time - padlock_start());

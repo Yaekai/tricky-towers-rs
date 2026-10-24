@@ -1259,9 +1259,9 @@ fn play_sounds(
             play("sfx_zap_enemy");
         } else {
             // One of SFX_CAST_LIGHT_MAGIC_1 and _2 at random, with the lightning at the
-            // wizard's cast-self moment.
+            // wizard's cast-self moment (its AudioEffect waits 0.1 s more).
             later.push((
-                config.magic.cast_self,
+                config.magic.cast_self + 0.1,
                 ["sfx_cast_light", "sfx_cast_lightning_level_02"][light_pick as usize],
             ));
         }
