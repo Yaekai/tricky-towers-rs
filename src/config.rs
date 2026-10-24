@@ -3153,7 +3153,7 @@ impl Default for CastLook {
                     down: true,
                     rate: 5.0,
                     life: 3.0,
-                    speed: (0.0, 15.0),
+                    speed: (10.0, 15.0),
                     size: (0.1, 10.0),
                     spread: 1.6,
                     ring: 0.0,
@@ -3203,7 +3203,7 @@ impl Default for CastLook {
                     down: true,
                     rate: 5.0,
                     life: 3.0,
-                    speed: (0.0, 15.0),
+                    speed: (10.0, 15.0),
                     size: (0.1, 10.0),
                     spread: 1.6,
                     ring: 0.0,
@@ -4535,7 +4535,7 @@ impl Default for ExplosionLook {
 /// range (cells a second, random between), drawn size (cells, a stretched streak is tall),
 /// how wide a box it starts in, the radius of the ring it starts on instead (0 for none; a
 /// ring's particles stay put and swell and shrink), and the two tints it picks between.
-/// Speeds marked as ranges from 0 are guesses: the original's lower ends weren't saved.
+/// Speed ranges are the prefabs' Random Between Two Constants (min = scalar x the min curve).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct BeamStream {

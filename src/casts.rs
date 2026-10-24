@@ -27,6 +27,7 @@ impl Plugin for CastsPlugin {
                 run_beams,
                 run_skin_beams,
                 run_impacts,
+                burst_down_sparks,
                 stream_beams,
                 run_streams,
                 run_orbs,
@@ -355,10 +356,117 @@ fn spawn_victim_beams(
             ));
         }
     }
+    // Wizards 1 and 2's down beams burst sparks up from the brick as they start (BeamDown03
+    // and 04 have none).
+    if wizard < 2 {
+        commands.spawn(SparkBurst { foot, time: -config.casts.dark_fall });
+    }
     let lane = spawn_beam(commands, config, art, BeamKind::Lane, foot, lane_x, wizard);
     commands
         .entity(lane)
         .insert((Visibility::Hidden, DelayedBy(config.casts.dark_start)));
+}
+
+/// BeamDown01 and 02's Sparks: one burst of 20 stars when the beam starts, from a 4-cell line
+/// across the brick, shooting up at 10 to 400 cells/s and slowed to 1 (Limit Velocity,
+/// dampen 0.3 a frame), spinning at 1 to 6.3 rad/s, 0.33 to 0.44 cells, 0.7 s; they flicker
+/// lime, yellow and cyan from 0.55 to 0.67 of their life and shrink away at the end.
+#[derive(Component)]
+struct SparkBurst {
+    foot: Vec2,
+    time: f32,
+}
+
+#[derive(Component)]
+struct DownSpark {
+    velocity: Vec2,
+    spin: f32,
+    size: f32,
+    age: f32,
+}
+
+const DOWN_SPARKS: usize = 20;
+const DOWN_SPARK_LIFE: f32 = 0.7;
+/// The Sparks' colour keys over their life (straight between keys).
+const DOWN_SPARK_COLOURS: [(f32, [f32; 3]); 8] = [
+    (0.55, [1.0, 1.0, 1.0]),
+    (0.57, [0.847, 1.0, 0.153]),
+    (0.59, [1.0, 1.0, 1.0]),
+    (0.61, [1.0, 0.937, 0.102]),
+    (0.63, [1.0, 1.0, 1.0]),
+    (0.65, [0.0, 1.0, 1.0]),
+    (0.67, [1.0, 1.0, 1.0]),
+    (1.0, [1.0, 1.0, 1.0]),
+];
+
+fn burst_down_sparks(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    mut bursts: Query<(Entity, &mut SparkBurst)>,
+    mut sparks: Query<(Entity, &mut DownSpark, &mut Transform, &mut Sprite)>,
+    mut seed: Local<u32>,
+) {
+    let dt = time.delta_secs();
+    let c = config.cell_size;
+    if *seed == 0 {
+        *seed = 0x51F1_7A3D;
+    }
+    for (entity, mut burst) in &mut bursts {
+        burst.time += dt;
+        if burst.time < 0.0 {
+            continue;
+        }
+        commands.entity(entity).despawn();
+        let Some(image) = art.image("spark_star") else { continue };
+        for _ in 0..DOWN_SPARKS {
+            let x = (skin_roll(&mut seed) * 4.0 - 2.0) * c;
+            let speed = (10.0 + 390.0 * skin_roll(&mut seed)) * c;
+            let size = (0.3 + 0.1 * skin_roll(&mut seed)) * 1.1 * c;
+            let spin = 1.047 + (6.283 - 1.047) * skin_roll(&mut seed);
+            let mut sprite = Sprite::from_image(image.clone());
+            sprite.custom_size = Some(Vec2::splat(size * 0.9));
+            commands.spawn((
+                DownSpark { velocity: Vec2::Y * speed, spin, size, age: 0.0 },
+                sprite,
+                Transform::from_translation((burst.foot + Vec2::X * x).extend(16.6)),
+            ));
+        }
+    }
+    for (entity, mut spark, mut transform, mut sprite) in &mut sparks {
+        spark.age += dt;
+        let k = spark.age / DOWN_SPARK_LIFE;
+        if k >= 1.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let speed = spark.velocity.length();
+        if speed > c {
+            let excess = (speed - c) * (1.0 - 0.3f32).powf(dt * 60.0);
+            spark.velocity *= (c + excess) / speed;
+        }
+        transform.translation += (spark.velocity * dt).extend(0.0);
+        transform.rotate_z(spark.spin * dt);
+        // Size over life: 0.9 until 0.73, up to 1 by 0.82, gone by 0.99.
+        let scale = if k < 0.733 {
+            0.9
+        } else if k < 0.82 {
+            0.9 + 0.1 * (k - 0.733) / (0.82 - 0.733)
+        } else {
+            (1.0 - (k - 0.82) / (0.989 - 0.82)).max(0.0)
+        };
+        sprite.custom_size = Some(Vec2::splat(spark.size * scale));
+        let colour = match DOWN_SPARK_COLOURS.iter().position(|(t, _)| k < *t) {
+            Some(0) | None => DOWN_SPARK_COLOURS[0].1,
+            Some(i) => {
+                let ((t0, a), (t1, b)) = (DOWN_SPARK_COLOURS[i - 1], DOWN_SPARK_COLOURS[i]);
+                let f = (k - t0) / (t1 - t0);
+                [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]
+            }
+        };
+        sprite.color = Color::srgb(colour[0], colour[1], colour[2]);
+    }
 }
 
 /// A particle given off by a beam: its velocity (pixels a second), life, age, full size and
