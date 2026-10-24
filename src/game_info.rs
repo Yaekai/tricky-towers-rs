@@ -184,6 +184,7 @@ fn player_name(tower: &Tower) -> String {
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn show_game_info(
     info: Res<GameInfo>,
+    cup: Option<Res<crate::cups::Cup>>,
     game: Res<Match>,
     config: Res<GameConfig>,
     xp: Option<Res<XpBook>>,
@@ -193,10 +194,13 @@ fn show_game_info(
     mut parts: Query<(&InfoPart, &mut Visibility, Option<&mut ImageNode>), Without<GameInfoRoot>>,
     mut texts: Query<(&InfoPart, &mut Text)>,
 ) {
+    // In a cup the Game info key shows the cup's standings instead
+    // (CupMatchFlowController's TournamentCurrentScorePopup, drawn by cups_menu).
+    let open = info.open && !cup.is_some_and(|c| c.size.is_some());
     for mut v in &mut root {
-        v.set_if_neq(shown(info.open));
+        v.set_if_neq(shown(open));
     }
-    if !info.open {
+    if !open {
         return;
     }
     let mut list: Vec<(&Tower, Option<&TowerSkin>)> = towers.iter().collect();

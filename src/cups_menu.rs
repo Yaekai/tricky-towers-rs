@@ -319,10 +319,15 @@ fn show_cup_panel(
     )>,
     mut texts: Query<(&Part, &mut Text)>,
     grey: Option<ResMut<crate::post::GreyTarget>>,
+    info: Option<Res<crate::game_info::GameInfo>>,
     mut was_up: Local<bool>,
 ) {
     let p = &config.cup_panel;
-    let up = popup.panel_up(&cup, p);
+    // TournamentCurrentScorePopup: in a cup match the Game info key shows the standings so
+    // far, settled at once (no medals filling in, no CONTINUE).
+    // ponytail: shown and hidden at once; the original fades it 0.1 s each way.
+    let peek = info.is_some_and(|i| i.open) && cup.size.is_some() && !popup.panel_up(&cup, p);
+    let up = popup.panel_up(&cup, p) || peek;
     // Behind the standings and the winner popup the world turns grey (the popups' Black &
     // White background). Only a change writes it, so the pause can grey the world too.
     let grey_up = up || popup.winner_since().is_some();
@@ -333,7 +338,13 @@ fn show_cup_panel(
     }
     *was_up = grey_up;
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
-    let order: Vec<usize> = cup.panel_order();
+    let mut order: Vec<usize> = cup.panel_order();
+    if order.is_empty() && peek {
+        // Before the first match ends every player is there with no medals.
+        let mut all: Vec<usize> = towers.iter().map(|(t, _)| t.index).collect();
+        all.sort_unstable();
+        order = all;
+    }
     let tower = |row: usize| {
         order
             .get(row)
@@ -341,7 +352,7 @@ fn show_cup_panel(
     };
     let size = cup.rules(&config.cups);
     let target = size.map_or(0, |s| s.target as usize).min(SLOTS);
-    let since = popup.since_shown();
+    let since = if peek { f32::MAX / 4.0 } else { popup.since_shown() };
     let grow = order.len().saturating_sub(2) as f32 * p.row_pitch;
     // A bigger cup is wider by a slot per point past the Tiny Cup's 6, on both sides.
     let wide = (target as f32 - 6.0) * p.slot_pitch;
