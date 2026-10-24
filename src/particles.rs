@@ -35,6 +35,7 @@ impl Plugin for ParticlesPlugin {
                 spin_crosses,
                 fade_wave_messages,
                 (clip_fields, move_clip_sparks).chain(),
+                move_ui_stars,
             ),
         );
     }
@@ -1085,5 +1086,105 @@ fn move_clip_sparks(
             sprite.color.set_alpha(alpha);
         }
         transform.translation += (spark.velocity * dt).extend(0.0);
+    }
+}
+
+/// A UI star burst (the SpawnStars particle systems on the cup medals and the trial list's
+/// medal): how many, start speed and size (units, random between; a unit is 108 reference
+/// pixels there), life, Limit Velocity (units/s, dampen a frame), the colour over life (from,
+/// to) and when it starts to fade out (share of its life).
+pub(crate) struct UiBurst {
+    pub count: u32,
+    pub speed: (f32, f32),
+    pub size: (f32, f32),
+    pub life: f32,
+    pub clamp: (f32, f32),
+    pub colours: (Color, Color),
+    pub fade_from: f32,
+}
+
+/// One star of a UI burst: logical pixels, its velocity, spin and age.
+#[derive(Component)]
+pub(crate) struct UiStar {
+    at: Vec2,
+    velocity: Vec2,
+    spin: f32,
+    turn: f32,
+    size: f32,
+    age: f32,
+    unit: f32,
+    burst: (f32, (f32, f32), (Color, Color), f32),
+}
+
+/// Bursts `b` from a 0.29-unit circle's edge round `at` (logical pixels, `unit` pixels a
+/// unit), each star flying outward; drawn over the popups.
+pub(crate) fn ui_burst(commands: &mut Commands, art: &Art, at: Vec2, unit: f32, b: &UiBurst, seed: &mut u32) {
+    let Some(image) = art.image("spark_star") else { return };
+    for _ in 0..b.count {
+        let angle = roll(seed) * std::f32::consts::TAU;
+        let dir = Vec2::from_angle(angle);
+        let speed = b.speed.0 + (b.speed.1 - b.speed.0) * roll(seed);
+        let size = (b.size.0 + (b.size.1 - b.size.0) * roll(seed)) * unit;
+        let spin = (roll(seed) * 2.0 - 1.0) * std::f32::consts::TAU;
+        let start = at + dir * 0.29 * unit;
+        commands.spawn((
+            UiStar {
+                at: start,
+                velocity: dir * speed * unit,
+                spin,
+                turn: 0.0,
+                size,
+                age: 0.0,
+                unit,
+                burst: (b.life, b.clamp, b.colours, b.fade_from),
+            },
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(start.x - size / 2.0),
+                top: Val::Px(start.y - size / 2.0),
+                width: Val::Px(size),
+                height: Val::Px(size),
+                ..default()
+            },
+            ImageNode::new(image.clone()).with_color(b.colours.0),
+            GlobalZIndex(30),
+        ));
+    }
+}
+
+/// Moves the UI stars: slowed to their limit, spinning, full size until 0.69 of their life
+/// then shrinking away, the colour running from one end to the other and fading out late.
+fn move_ui_stars(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut stars: Query<(Entity, &mut UiStar, &mut Node, &mut ImageNode, &mut UiTransform)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut star, mut node, mut image, mut transform) in &mut stars {
+        star.age += dt;
+        let (life, (limit, dampen), (from, to), fade_from) = star.burst;
+        let k = star.age / life;
+        if k >= 1.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let top = limit * star.unit;
+        let speed = star.velocity.length();
+        if speed > top {
+            let excess = (speed - top) * (1.0 - dampen).powf(dt * 60.0);
+            star.velocity *= (top + excess) / speed;
+        }
+        let step = star.velocity * dt;
+        star.at += step;
+        star.turn += star.spin * dt;
+        let scale = if k < 0.688 { 1.0 } else { 1.0 - (k - 0.688) / (1.0 - 0.688) };
+        let size = star.size * scale;
+        node.left = Val::Px(star.at.x - size / 2.0);
+        node.top = Val::Px(star.at.y - size / 2.0);
+        node.width = Val::Px(size);
+        node.height = Val::Px(size);
+        transform.rotation = Rot2::radians(star.turn);
+        let alpha = if k < fade_from { 1.0 } else { 1.0 - (k - fade_from) / (1.0 - fade_from) };
+        image.color = from.mix(&to, k).with_alpha(alpha);
     }
 }

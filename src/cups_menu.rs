@@ -1483,14 +1483,20 @@ fn shown_medals(cup: &crate::cups::Cup, fill: &[Vec<f32>], since: f32, t: usize)
 /// LEVEL_UP, silver and bronze their own, the empty one one of six MEDAL_EARNED_EMPTY_
 /// (staged as sfx_4th_place_01..06; the name match is ours). Only medals inside the target
 /// land as pictures; past it they count up on "+N" with the same sound.
+#[allow(clippy::too_many_arguments)]
 fn medal_sounds(
     mut commands: Commands,
     config: Res<GameConfig>,
     cup: Res<crate::cups::Cup>,
     popup: Res<Popup>,
     art: Option<Res<Art>>,
+    slots: Query<(&Part, &UiGlobalTransform, &ComputedNode)>,
     mut heard: Local<Vec<usize>>,
+    mut seed: Local<u32>,
 ) {
+    if *seed == 0 {
+        *seed = 0x3C6E_F372;
+    }
     let p = &config.cup_panel;
     if !popup.panel_up(&cup, p) {
         heard.clear();
@@ -1506,6 +1512,42 @@ fn medal_sounds(
     for t in 0..towers {
         let now = shown_medals(&cup, &fill, since, t);
         while heard[t] < now {
+            // The medal's SpawnStars burst as it lands (only those inside the target land
+            // as pictures): four stars in its colours, three pale ones for the empty medal.
+            let k = heard[t];
+            let target = cup.rules(&config.cups).map_or(0, |s| s.target as usize).min(SLOTS);
+            let row = cup.panel_order().iter().position(|&o| o == t);
+            if k < target
+                && let Some(art) = art.as_deref()
+                && let Some((_, at, node)) = slots.iter().find(|(part, ..)| Some(**part) == row.map(|r| Part::Slot(r, k)))
+            {
+                let scale = node.inverse_scale_factor();
+                // The slot's centre stays put whether it shows a dot or the medal.
+                let centre = at.translation * scale;
+                // Units of 108 reference pixels: measured on the row, whose height is fixed.
+                let row_height = slots
+                    .iter()
+                    .find(|(part, ..)| Some(**part) == row.map(Part::Row))
+                    .map_or(p.row_height, |(_, _, n)| n.size().y * n.inverse_scale_factor());
+                let unit = 108.0 * row_height / p.row_height.max(1.0);
+                let rgb = |r: u8, g: u8, b: u8| Color::srgb_u8(r, g, b);
+                let (count, colours, dampen, fade) = match cup.medal(t, k) {
+                    Some(0) => (4, (rgb(255, 51, 131), rgb(255, 211, 73)), 0.9, 0.665),
+                    Some(1) => (4, (rgb(79, 80, 255), rgb(247, 169, 255)), 0.9, 0.665),
+                    Some(2) => (4, (rgb(255, 81, 51), rgb(255, 73, 114)), 0.9, 0.665),
+                    _ => (3, (rgb(242, 246, 255), rgb(241, 245, 255)), 0.8, 0.856),
+                };
+                let burst = crate::particles::UiBurst {
+                    count,
+                    speed: (5.0, 10.0),
+                    size: (0.07, 0.15),
+                    life: 0.5,
+                    clamp: (0.1, dampen),
+                    colours,
+                    fade_from: fade,
+                };
+                crate::particles::ui_burst(&mut commands, art, centre, unit, &burst, &mut seed);
+            }
             let name = match cup.medal(t, heard[t]) {
                 Some(0) => "sfx_medal_earned_gold".to_string(),
                 Some(1) => "sfx_medal_earned_silver".to_string(),

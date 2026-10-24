@@ -640,7 +640,13 @@ pub(crate) fn show_trials_screen(
     mut parts: Query<(&TrialPart, &mut Node, &mut Visibility), Without<TrialsRoot>>,
     mut turns: Query<(&TrialPart, &mut UiTransform, Option<&mut ImageNode>)>,
     mut texts: Query<(&TrialPart, &mut Text)>,
+    spots: Query<(&TrialPart, &UiGlobalTransform, &ComputedNode)>,
+    screen_size: Query<&ComputedNode, With<TrialsRoot>>,
+    mut seed: Local<u32>,
 ) {
+    if *seed == 0 {
+        *seed = 0x1B87_3593;
+    }
     let on = game.phase == Phase::Menu && *screen == MenuScreen::Trials;
     for mut v in &mut root {
         v.set_if_neq(shown(on));
@@ -679,6 +685,30 @@ pub(crate) fn show_trials_screen(
         {
             if let Some(sound) = art.sounds.get("sfx_brick_heavy") {
                 commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+            }
+            // SPAWN_STARS: six pink stars burst from the medal (its SpawnStars, a unit 108
+            // reference pixels on the 1080-tall screen).
+            let unit = screen_size
+                .iter()
+                .next()
+                .map_or(108.0, |n| 108.0 * n.size().y * n.inverse_scale_factor() / SCREEN.1);
+            let pink = Color::srgb_u8(255, 38, 188);
+            let burst = crate::particles::UiBurst {
+                count: 6,
+                speed: (30.0, 50.0),
+                size: (0.1, 0.2),
+                life: 0.5,
+                clamp: (0.5, 0.9),
+                colours: (pink, pink),
+                fade_from: 0.856,
+            };
+            for (part, at, node) in &spots {
+                if let TrialPart::Medal(i) = *part
+                    && fresh.contains(&i)
+                {
+                    let centre = at.translation * node.inverse_scale_factor();
+                    crate::particles::ui_burst(&mut commands, art, centre, unit, &burst, &mut seed);
+                }
             }
         }
         // AudioEffect("SFX_WINNER", 1, 0.15): 0.15 s after.
