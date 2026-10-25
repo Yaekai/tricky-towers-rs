@@ -913,11 +913,19 @@ pub(crate) fn dress_bricks(
         ) && brick.piece < config.pieces.len()
             && !stone
             && !brick.ice;
+        // IceBrickModifier: a brick with its own ice picture (_ICE_PACK, the default pack's)
+        // takes it; any other pack lit by World/Bricks keeps its pattern with ICE_ON.
+        let ice_on = brick.ice
+            && !stone
+            && !own_material
+            && pack != crate::config::BrickPack::default()
+            && brick.piece < config.pieces.len()
+            && art.entries.get(&pack.brick_art(&def.name)).is_some_and(|e| e.light.is_some());
         // A normal brick takes its tower's brick pack art (default when not staged);
         // stone and ice keep their own looks.
         let key = if brick.piece < config.pieces.len() {
             let packed = pack.brick_art(&def.name);
-            if stone || brick.ice || art.image(&packed).is_none() {
+            if stone || (brick.ice && !ice_on) || art.image(&packed).is_none() {
                 format!("brick_{}", def.name)
             } else {
                 packed
@@ -928,7 +936,7 @@ pub(crate) fn dress_bricks(
         let whole = brick.cells.len() == def.cells.len();
         let variant = |suffix: &str| art.image(&format!("{key}_{suffix}"));
         // The plain sprite stands in for a missing stone or ice version, tinted.
-        let (image, mut color) = match (whole, stone, brick.ice) {
+        let (image, mut color) = match (whole, stone, brick.ice && !ice_on) {
             (false, ..) => (None, brick.color),
             // Petrified: iced too has its own look (_PETRIFIED_ICE_PACK), and the Puzzle
             // desert its sandy stone (_PETRIFIED_DESERT_PACK, worldId 2).
@@ -1014,11 +1022,11 @@ pub(crate) fn dress_bricks(
                     center.extend(placed.map_or(0.0, |p| p.0 as f32 * 5.0e-5)),
                 );
                 // A plain brick with light colours is lit in the world by its material.
-                let lit = (whole && !stone && !brick.ice && !own_material)
+                let lit = (whole && !stone && (!brick.ice || ice_on) && !own_material)
                     .then_some(())
                     .and(meshes.as_mut().zip(lit_bricks.as_mut()))
                     .and_then(|(meshes, lit_bricks)| {
-                        crate::brick_material::lit_brick(&art, &key, size, color, meshes, lit_bricks)
+                        crate::brick_material::lit_brick(&art, &key, size, color, ice_on, meshes, lit_bricks)
                     });
                 match lit {
                     _ if own_material => {}

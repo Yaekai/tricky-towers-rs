@@ -345,6 +345,7 @@ const LIT_WGSL: &str = r#"// A lit brick, the way the original's World/Bricks sh
 // brick-lighting.md), written from those notes, on stored (sRGB) values like the original.
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
+#import bevy_sprite::mesh2d_view_bindings::view
 
 struct LitBrick {
     // rgb: colour, a: strength.
@@ -352,7 +353,7 @@ struct LitBrick {
     shadow: vec4<f32>,
     // rgb: the outline colour.
     border: vec4<f32>,
-    // x: the brick's rotation (radians), w: flash.
+    // x: the brick's rotation (radians), y: 1 when iced (ICE_ON), w: flash.
     params: vec4<f32>,
     // The effects' tint, multiplied in like a sprite's colour.
     tint: vec4<f32>,
@@ -410,16 +411,33 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let r = material.params.x;
     let world_n = vec2(cos(r) * n.x - sin(r) * n.y, sin(r) * n.x + cos(r) * n.y);
     let d = dot(world_n, vec2(-0.44721359, 0.89442718));
-    colour = mix(colour, material.highlight.rgb, clamp(d, 0.0, 1.0) * material.highlight.a);
-    colour = mix(colour, material.shadow.rgb, clamp(-d, 0.0, 1.0) * material.shadow.a);
+    var pattern_alpha = pat_linear.a;
+    var border = material.border.rgb;
+    if (material.params.y > 0.5) {
+        // ICE_ON (an iced pack brick): the pattern half way to (0.6, 0.8, 1), two sets of
+        // diagonal shine bands fixed to the camera, the highlight half way to icy white, a fixed
+        // lilac shadow and a blue outline.
+        let at = (mesh.world_position.xy - view.world_position.xy) / material.water.z;
+        let band = fract(vec2(at.x + at.y) * vec2(0.5, 0.6)) - vec2(0.8, 0.9);
+        let shine = clamp(ceil(max(band.x, 0.0) + max(band.y, 0.0)), 0.0, 1.0);
+        colour = mix(colour, vec3(0.6, 0.8, 1.0), 0.5) + shine * 0.1;
+        pattern_alpha = pattern_alpha * 1.1;
+        let light = mix(material.highlight, vec4(0.945098, 0.984314, 1.0, 1.0), 0.5);
+        colour = mix(colour, light.rgb, clamp(d, 0.0, 1.0) * light.a);
+        colour = mix(colour, vec3(0.470588, 0.431373, 0.745098), clamp(-d, 0.0, 1.0));
+        border = vec3(0.329412, 0.337255, 0.752941);
+    } else {
+        colour = mix(colour, material.highlight.rgb, clamp(d, 0.0, 1.0) * material.highlight.a);
+        colour = mix(colour, material.shadow.rgb, clamp(-d, 0.0, 1.0) * material.shadow.a);
+    }
 
     // The outline and cracks (the map's blue, and its outside) in the line colour.
     let outline = 1.0 - (1.0 - map.b) * map.a;
-    colour = mix(colour, material.border.rgb, outline);
+    colour = mix(colour, border, outline);
     colour = colour + material.params.w * (1.0 - colour);
     let wet = under_water(mesh.world_position.y, &colour);
 
-    let alpha = max(pat_linear.a, map.b) * wet;
+    let alpha = max(pattern_alpha, map.b) * wet;
     let out = srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0)));
     return vec4(out * material.tint.rgb, alpha * material.tint.a * in_lane(mesh.world_position.x));
 }
@@ -682,6 +700,7 @@ pub fn lit_brick(
     key: &str,
     size: Vec2,
     color: Color,
+    ice: bool,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<LitBrick>,
 ) -> Option<(Handle<Mesh>, Handle<LitBrick>)> {
@@ -698,7 +717,7 @@ pub fn lit_brick(
             highlight: Vec4::new(hr, hg, hb, ha),
             shadow: Vec4::new(sr, sg, sb, sa),
             border: Vec4::new(lr, lg, lb, 1.0),
-            params: Vec4::ZERO,
+            params: Vec4::new(0.0, if ice { 1.0 } else { 0.0 }, 0.0, 0.0),
             tint: Vec4::from_array(color.to_linear().to_f32_array()),
             water: Vec4::ZERO,
             water_line: Vec4::ZERO,
