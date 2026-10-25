@@ -405,7 +405,7 @@ fn decorate_bricks(
                     let lit = meshes.as_mut().zip(lit_bricks.as_mut()).and_then(
                         |(meshes, lit_bricks)| {
                             crate::brick_material::lit_brick(
-                                &art, &key, size, clear, meshes, lit_bricks,
+                                &art, &key, size, clear, false, meshes, lit_bricks,
                             )
                         },
                     );
