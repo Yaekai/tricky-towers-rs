@@ -3943,8 +3943,8 @@ struct LineIcon {
 }
 
 /// LineSpellContainer.PlayCollectedAnimation when a tower meets its spell line: the icons
-/// 5 cells over the line (2 either side for a pair), every other piece to the dark one.
-// ponytail: from the lane's middle on the line, not the brick's contact point.
+/// 5 cells over the line (2 either side for a pair), every other piece to the dark one. The
+/// line is met where the tower's highest placed brick stands.
 #[allow(clippy::type_complexity)]
 fn collect_lines(
     mut commands: Commands,
@@ -3953,6 +3953,7 @@ fn collect_lines(
     towers: Query<(Entity, &Tower, &TowerState)>,
     lines: Query<(&SpellLine, &Children)>,
     diamonds: Query<(&Sprite, &GlobalTransform), With<SpellDiamond>>,
+    placed: Query<(&Brick, &Transform), (With<Placed>, Without<ActiveBrick>)>,
     mut seen: Local<bevy::platform::collections::HashMap<Entity, (u32, f32)>>,
     mut seed: Local<u32>,
 ) {
@@ -3967,7 +3968,12 @@ fn collect_lines(
         if state.lines_reached != was.0 + 1 {
             continue;
         }
-        let met = Vec2::new(tower.origin_x, was.1);
+        let x = placed
+            .iter()
+            .filter(|(b, _)| b.tower == entity)
+            .max_by(|a, b| a.1.translation.y.total_cmp(&b.1.translation.y))
+            .map_or(tower.origin_x, |(_, t)| t.translation.x);
+        let met = Vec2::new(x, was.1);
         let dark = crate::casts::icon_spell(state, true).map(|d| (d, true));
         let (first, second) = match crate::casts::icon_spell(state, false) {
             Some(l) => (Some((l, false)), dark),

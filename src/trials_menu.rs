@@ -688,7 +688,11 @@ pub(crate) fn show_trials_screen(
     spots: Query<(&TrialPart, &UiGlobalTransform, &ComputedNode)>,
     mut faces: Query<(&FaceRise, &mut Node), Without<TrialPart>>,
     screen_size: Query<&ComputedNode, With<TrialsRoot>>,
-    mut seed: Local<u32>,
+    (mut seed, pads, mut rumble): (
+        Local<u32>,
+        Query<Entity, With<Gamepad>>,
+        Option<ResMut<Messages<bevy::input::gamepad::GamepadRumbleRequest>>>,
+    ),
 ) {
     if *seed == 0 {
         *seed = 0x1B87_3593;
@@ -725,6 +729,20 @@ pub(crate) fn show_trials_screen(
     if let Some(t) = menu.medal_pop.as_mut() {
         let before = *t;
         *t += time.delta_secs();
+        // AnimateLevelCompleteEffect rumbles 150/150 while the medal pops in.
+        if before <= 0.0 && *t > 0.0 && let Some(rumble) = rumble.as_mut() {
+            let strength = 150.0 / 255.0;
+            for gamepad in &pads {
+                rumble.write(bevy::input::gamepad::GamepadRumbleRequest::Add {
+                    duration: std::time::Duration::from_secs_f32(MEDAL_DONE),
+                    intensity: bevy::input::gamepad::GamepadRumbleIntensity {
+                        strong_motor: strength,
+                        weak_motor: strength,
+                    },
+                    gamepad,
+                });
+            }
+        }
         if before < MEDAL_STARS
             && *t >= MEDAL_STARS
             && let Some(art) = art.as_deref()

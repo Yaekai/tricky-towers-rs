@@ -19,7 +19,7 @@ impl Plugin for CupsMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (spawn_cup_panel, spawn_cup_winner))
             .add_systems(Update, (show_cup_panel, show_cup_winner, celebrate, fly_winner).chain())
-            .add_systems(Update, (medal_sounds, pop_overtime));
+            .add_systems(Update, (medal_sounds, pop_overtime, shake_rows));
     }
 }
 
@@ -51,6 +51,32 @@ fn pop_overtime(
         transform.scale = Vec2::new(1.0, y);
         if t >= OVERTIME_IN[3].0 {
             commands.entity(entity).remove::<OvertimePop>();
+        }
+    }
+}
+
+/// A standings row shaking (the shakeItem clip: a reference pixel each way over 0.1 s).
+#[derive(Component)]
+struct RowShake(f32);
+
+const SHAKE_ITEM: [(f32, f32, f32); 4] = [(0.0, 1.0, -1.0), (0.033, -1.0, 1.0), (0.067, -1.0, -1.0), (0.1, 1.0, -1.0)];
+
+fn shake_rows(mut commands: Commands, time: Res<Time>, mut rows: Query<(Entity, &mut RowShake, &mut UiTransform)>) {
+    for (entity, mut shake, mut transform) in &mut rows {
+        shake.0 += time.delta_secs();
+        let t = shake.0;
+        let (x, y) = SHAKE_ITEM
+            .windows(2)
+            .find(|w| t <= w[1].0)
+            .map_or((0.0, 0.0), |w| {
+                let k = (t - w[0].0) / (w[1].0 - w[0].0);
+                (w[0].1 + (w[1].1 - w[0].1) * k, w[0].2 + (w[1].2 - w[0].2) * k)
+            });
+        // Reference pixels on the 1080-tall screen; UI y runs down.
+        transform.translation = Val2::new(Val::Vh(x / 10.8), Val::Vh(-y / 10.8));
+        if t >= SHAKE_ITEM[3].0 {
+            transform.translation = Val2::new(Val::Px(0.0), Val::Px(0.0));
+            commands.entity(entity).remove::<RowShake>();
         }
     }
 }
@@ -1523,6 +1549,7 @@ fn medal_sounds(
     popup: Res<Popup>,
     art: Option<Res<Art>>,
     slots: Query<(&Part, &UiGlobalTransform, &ComputedNode)>,
+    rows: Query<(Entity, &Part)>,
     mut heard: Local<Vec<usize>>,
     mut seed: Local<u32>,
 ) {
@@ -1549,6 +1576,12 @@ fn medal_sounds(
             let k = heard[t];
             let target = cup.rules(&config.cups).map_or(0, |s| s.target as usize).min(SLOTS);
             let row = cup.panel_order().iter().position(|&o| o == t);
+            // ShakeResultsItemEffect: the row shakes a pixel with each medal that lands.
+            if k < target
+                && let Some((entity, _)) = rows.iter().find(|(_, part)| Some(**part) == row.map(Part::Row))
+            {
+                commands.entity(entity).insert(RowShake(0.0));
+            }
             if k < target
                 && let Some(art) = art.as_deref()
                 && let Some((_, at, node)) = slots.iter().find(|(part, ..)| Some(**part) == row.map(|r| Part::Slot(r, k)))
