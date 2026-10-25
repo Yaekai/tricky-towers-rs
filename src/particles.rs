@@ -842,6 +842,15 @@ const CLIP_LAYERS: [(f32, f32, (f32, f32), (f32, f32), &str); 3] = [
 ];
 const CLIP_STREAK: f32 = 8.97;
 
+/// Each layer's start colour (r, g, b, a), random between the two: pale green to lilac
+/// stars, faint (12-16%) cyan to blue streaks, cream to mint dots. Drawn as plain white at
+/// full strength they were the bright white flicker Max saw on bricks at a lane's edge.
+const CLIP_COLOURS: [([f32; 4], [f32; 4]); 3] = [
+    ([0.596, 1.0, 0.965, 1.0], [0.835, 0.647, 1.0, 1.0]),
+    ([0.824, 0.992, 1.0, 0.165], [0.176, 0.761, 1.0, 0.122]),
+    ([1.0, 0.988, 0.824, 1.0], [0.788, 1.0, 0.973, 1.0]),
+];
+
 /// A brick's span around its position (pixels): left, right, bottom and top offsets.
 fn brick_span(brick: &crate::gameplay::Brick, rotation: Quat, cell: f32) -> (f32, f32, f32, f32) {
     let cell = cell * brick.scale;
@@ -1026,6 +1035,10 @@ fn spawn_clip_spark(
     }
     let mut sprite = Sprite::from_image(image);
     sprite.custom_size = Some(Vec2::splat(size));
+    let (a, b) = CLIP_COLOURS[layer];
+    let k = roll(seed);
+    let colour: [f32; 4] = std::array::from_fn(|i| a[i] + (b[i] - a[i]) * k);
+    sprite.color = Color::srgba(colour[0], colour[1], colour[2], colour[3]);
     let mut transform =
         Transform::from_translation(place.extend(if layer == 2 { 460.0 } else { 50.0 }));
     if layer == 1 {
