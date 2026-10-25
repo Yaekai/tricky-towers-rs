@@ -37,12 +37,13 @@ impl Plugin for ParticlesPlugin {
                 (clip_fields, move_clip_sparks).chain(),
                 move_ui_stars,
                 move_winner_stars,
+                move_shaped,
             ),
         );
     }
 }
 
-/// One particle: velocity (pixels/s), gravity (pixels/s², up positive), age and life,
+/// One particle: velocity (pixels/s), gravity (pixels/sÂ², up positive), age and life,
 /// size from start to end, and whether it fades out.
 #[derive(Component)]
 struct Particle {
@@ -229,75 +230,199 @@ pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, s
     }
 }
 
-/// BUBBLE_POP_PARTICLE_2..4 (BubblePop2-4, by the brick's size across): 15 white drops let go
-/// from a ring of radius 1.73, 2.73 or 3.73 cells, flying out at 15 to 120 cells/s slowed to
-/// 0.2 (dampen 0.6), 0.15 to 0.3 cells, mint to white, for 0.5 to 1 s.
-// ponytail: the size curve (up to 0.9 by 11%, full at 87%, gone at the end) is held flat.
-pub(crate) fn bubble_pop(commands: &mut Commands, art: &Art, c: f32, at: Vec2, across: u32, seed: &mut u32) {
-    let Some(image) = art.image("cast_droplet") else {
+/// A particle drawn with its prefab's curves: size over life (two curves it picks between),
+/// colour over life (two gradients it picks between, or one), alpha over life, Limit Velocity
+/// and spin.
+#[derive(Component)]
+pub(crate) struct Shaped {
+    velocity: Vec2,
+    age: f32,
+    life: f32,
+    size: f32,
+    /// Limit Velocity: top speed (pixels/s) and dampen per 60 Hz frame.
+    clamp: (f32, f32),
+    spin: f32,
+    sizes: (&'static [(f32, f32)], &'static [(f32, f32)]),
+    colours: (&'static [(f32, [f32; 3])], &'static [(f32, [f32; 3])]),
+    alpha: &'static [(f32, f32)],
+    /// Where between the two size curves and the two gradients it sits.
+    mix: f32,
+}
+
+/// One kind of shaped particle, from a prefab's modules (cells and seconds).
+struct ShapedKind {
+    image: &'static str,
+    count: u32,
+    life: (f32, f32),
+    speed: (f32, f32),
+    size: (f32, f32),
+    clamp: (f32, f32),
+    spin: bool,
+    sizes: (&'static [(f32, f32)], &'static [(f32, f32)]),
+    colours: (&'static [(f32, [f32; 3])], &'static [(f32, [f32; 3])]),
+    alpha: &'static [(f32, f32)],
+}
+
+/// Where the particles start and which way they go: a point (any way), a ring of this radius
+/// (outwards) or an edge this long across (upwards).
+enum Emit {
+    Point,
+    Ring(f32),
+    Edge(f32),
+}
+
+const WHITE_KEYS: &[(f32, [f32; 3])] = &[(0.0, [255.0, 255.0, 255.0])];
+const FLAT: &[(f32, f32)] = &[(0.0, 1.0), (1.0, 1.0)];
+
+fn spawn_shaped(commands: &mut Commands, art: &Art, c: f32, at: Vec2, from: &Emit, z: f32, kind: &ShapedKind, seed: &mut u32) {
+    let Some(image) = art.image(kind.image) else {
         return;
     };
-    let radius = across.clamp(2, 4) as f32 - 0.27;
-    for _ in 0..15 {
-        let way = Vec2::from_angle(roll(seed) * std::f32::consts::TAU);
-        let speed = (15.0 + 105.0 * roll(seed)) * c;
-        let size = (0.15 + 0.15 * roll(seed)) * c;
-        let k = roll(seed);
-        let color = Color::srgb(0.788 + 0.204 * k, 1.0 - 0.008 * k, 0.945 + 0.055 * k);
+    let between = |(a, b): (f32, f32), k: f32| a + (b - a) * k;
+    for _ in 0..kind.count {
+        let (place, way) = match *from {
+            Emit::Point => (Vec2::ZERO, Vec2::from_angle(roll(seed) * std::f32::consts::TAU)),
+            Emit::Ring(r) => {
+                let way = Vec2::from_angle(roll(seed) * std::f32::consts::TAU);
+                (way * r, way)
+            }
+            Emit::Edge(length) => (Vec2::X * (roll(seed) - 0.5) * length, Vec2::Y),
+        };
+        let size = between(kind.size, roll(seed)) * c;
         commands.spawn((
-            Particle {
-                velocity: way * speed,
-                gravity: 0.0,
-                time: 0.0,
-                life: 0.5 + 0.5 * roll(seed),
-                size: (size, size),
-                fade: false,
-                clamp: (0.2 * c, 0.6),
+            Shaped {
+                velocity: way * between(kind.speed, roll(seed)) * c,
+                age: 0.0,
+                life: between(kind.life, roll(seed)),
+                size,
+                clamp: (kind.clamp.0 * c, kind.clamp.1),
+                spin: if kind.spin { (roll(seed) * 2.0 - 1.0) * std::f32::consts::TAU } else { 0.0 },
+                sizes: kind.sizes,
+                colours: kind.colours,
+                alpha: kind.alpha,
+                mix: roll(seed),
             },
             Sprite {
                 image: image.clone(),
-                color,
-                custom_size: Some(Vec2::splat(size)),
+                custom_size: Some(Vec2::ZERO),
                 ..default()
             },
-            Transform::from_translation((at + way * radius * c).extend(30.0)),
+            Transform::from_translation((at + place * c).extend(z)),
         ));
     }
 }
 
+fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
+    keys.windows(2)
+        .find(|w| t <= w[1].0)
+        .map_or(keys[keys.len() - 1].1, |w| {
+            w[0].1 + (w[1].1 - w[0].1) * ((t - w[0].0) / (w[1].0 - w[0].0).max(1e-4)).clamp(0.0, 1.0)
+        })
+}
+
+fn gradient(keys: &[(f32, [f32; 3])], t: f32) -> [f32; 3] {
+    std::array::from_fn(|i| {
+        let points: Vec<(f32, f32)> = keys.iter().map(|k| (k.0, k.1[i] / 255.0)).collect();
+        if points.len() == 1 { points[0].1 } else { keyed(&points, t) }
+    })
+}
+
+fn move_shaped(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut parts: Query<(Entity, &mut Shaped, &mut Transform, &mut Sprite)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut p, mut transform, mut sprite) in &mut parts {
+        p.age += dt;
+        let t = p.age / p.life.max(1e-4);
+        if t >= 1.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let speed = p.velocity.length();
+        if speed > p.clamp.0 {
+            let excess = (speed - p.clamp.0) * (1.0 - p.clamp.1).powf(dt * 60.0);
+            let top = p.clamp.0;
+            p.velocity *= (top + excess) / speed;
+        }
+        transform.translation += (p.velocity * dt).extend(0.0);
+        transform.rotate_z(p.spin * dt);
+        let k = p.mix;
+        let size = keyed(p.sizes.0, t) + (keyed(p.sizes.1, t) - keyed(p.sizes.0, t)) * k;
+        sprite.custom_size = Some(Vec2::splat(p.size * size));
+        let (a, b) = (gradient(p.colours.0, t), gradient(p.colours.1, t));
+        let rgb: [f32; 3] = std::array::from_fn(|i| a[i] + (b[i] - a[i]) * k);
+        sprite.color = Color::srgba(rgb[0], rgb[1], rgb[2], keyed(p.alpha, t));
+    }
+}
+
+/// BUBBLE_POP_PARTICLE_2..4 (BubblePop2-4, by the brick's size across): 15 white drops let go
+/// from a ring of radius 1.73, 2.73 or 3.73 cells, flying out at 15 to 120 cells/s slowed to
+/// 0.2 (dampen 0.6), 0.15 to 0.3 cells, mint to white, for 0.5 to 1 s, growing to 0.9 by 11%
+/// of their life, full at 87% and gone at the end.
+pub(crate) fn bubble_pop(commands: &mut Commands, art: &Art, c: f32, at: Vec2, across: u32, seed: &mut u32) {
+    const GROW: &[(f32, f32)] = &[(0.0, 0.0), (0.11, 0.898), (0.87, 1.0), (1.0, 0.0)];
+    const MINT: &[(f32, [f32; 3])] = &[(0.0, [201.0, 255.0, 241.0])];
+    const PALE: &[(f32, [f32; 3])] = &[(0.0, [253.0, 253.0, 255.0])];
+    let kind = ShapedKind {
+        image: "cast_droplet",
+        count: 15,
+        life: (0.5, 1.0),
+        speed: (15.0, 120.0),
+        size: (0.15, 0.3),
+        clamp: (0.2, 0.6),
+        spin: false,
+        sizes: (GROW, GROW),
+        colours: (MINT, PALE),
+        alpha: FLAT,
+    };
+    let radius = across.clamp(2, 4) as f32 - 0.27;
+    spawn_shaped(commands, art, c, at, &Emit::Ring(radius), 30.0, &kind, seed);
+}
+
 /// DESTROY_WIZARD_PARTICLES (DestroyPoof), where a losing wizard goes: a size 4 flash for
-/// 0.15 s, 8 white discs thrown up and slowed to 2 cells/s, 5 stars slowed to 3 and 8 white
-/// discs slowed to 0.5 over 0.5 s.
-// ponytail: through `burst`: its fixed life and 60-100% speeds stand in for the prefab's
-// ranges and edge emitter, the flash stays white and the stars aren't rainbow.
+/// 0.15 s turning white, green, pink, purple and fading from halfway; 8 white discs thrown up
+/// from a 4.26-cell edge (20-80 cells/s, slowed to 2) for 1-2 s; 5 rainbow stars from a
+/// 4.3-cell edge (20-200, slowed to 3) for 1-2 s; 8 white discs out of the middle (50-100,
+/// slowed to 0.5) for 0.5 s. Sizes and fades are the prefab's curves.
 pub(crate) fn destroy_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32) {
-    let parts = [
-        ("explosion_flash", 1, 0.0, NO_CLAMP, 4.0, 0.15),
-        ("cast_droplet", 8, 80.0, (2.0, 0.15), 0.8, 1.5),
-        ("spark_star", 5, 200.0, (3.0, 0.3), 0.5, 1.5),
-        ("cast_droplet", 8, 100.0, (0.5, 0.28), 1.0, 0.5),
+    const FLASH: &[(f32, [f32; 3])] = &[
+        (0.33, [255.0, 255.0, 255.0]),
+        (0.34, [115.0, 255.0, 88.0]),
+        (0.65, [114.0, 255.0, 88.0]),
+        (0.66, [255.0, 144.0, 206.0]),
+        (0.753, [80.0, 0.0, 97.0]),
     ];
-    for (i, (image, count, speed, clamp, size, life)) in parts.into_iter().enumerate() {
-        burst(
-            commands,
-            art,
-            c,
-            at,
-            seed,
-            Burst {
-                image,
-                color: Color::WHITE,
-                count,
-                speed,
-                clamp,
-                size,
-                life,
-                gravity: 0.0,
-                gravity_to: 0.0,
-                spread: None,
-                z: 30.0 + i as f32 * 0.01,
-            },
-        );
+    const HALF_FADE: &[(f32, f32)] = &[(0.0, 1.0), (0.5, 1.0), (1.0, 0.0)];
+    const UP_FADE: &[(f32, f32)] = &[(0.0, 1.0), (0.359, 1.0), (1.0, 0.0)];
+    const LATE_FADE: &[(f32, f32)] = &[(0.0, 1.0), (0.856, 1.0), (1.0, 0.0)];
+    const UP_A: &[(f32, f32)] = &[(0.0, 1.0), (0.939, 0.668), (1.0, 0.0)];
+    const UP_B: &[(f32, f32)] = &[(0.0, 0.905), (0.593, 0.439), (1.0, 0.0)];
+    const STAR: &[(f32, f32)] = &[(0.0, 1.0), (0.688, 1.0), (1.0, 0.0)];
+    const OUT_A: &[(f32, f32)] = &[(0.0, 1.0), (0.671, 0.764), (1.0, 0.0)];
+    const OUT_B: &[(f32, f32)] = &[(0.0, 0.905), (0.665, 0.489), (1.0, 0.0)];
+    let kinds = [
+        (Emit::Point, ShapedKind {
+            image: "explosion_flash", count: 1, life: (0.15, 0.15), speed: (0.0, 0.0), size: (4.0, 4.0),
+            clamp: (f32::MAX, 0.0), spin: false, sizes: (FLAT, FLAT), colours: (FLASH, FLASH), alpha: HALF_FADE,
+        }),
+        (Emit::Edge(4.26), ShapedKind {
+            image: "cast_droplet", count: 8, life: (1.0, 2.0), speed: (20.0, 80.0), size: (0.3, 0.8),
+            clamp: (2.0, 0.15), spin: true, sizes: (UP_A, UP_B), colours: (WHITE_KEYS, WHITE_KEYS), alpha: UP_FADE,
+        }),
+        (Emit::Edge(4.3), ShapedKind {
+            image: "spark_star", count: 5, life: (1.0, 2.0), speed: (20.0, 200.0), size: (0.3, 0.5),
+            clamp: (3.0, 0.3), spin: true, sizes: (STAR, STAR),
+            colours: (&WINNER_STAR_COLOURS[0], &WINNER_STAR_COLOURS[1]), alpha: LATE_FADE,
+        }),
+        (Emit::Point, ShapedKind {
+            image: "cast_droplet", count: 8, life: (0.5, 0.5), speed: (50.0, 100.0), size: (0.5, 1.0),
+            clamp: (0.5, 0.28), spin: true, sizes: (OUT_A, OUT_B), colours: (WHITE_KEYS, WHITE_KEYS), alpha: LATE_FADE,
+        }),
+    ];
+    for (i, (from, kind)) in kinds.iter().enumerate() {
+        spawn_shaped(commands, art, c, at, from, 30.0 + i as f32 * 0.01, kind, seed);
     }
 }
 
@@ -391,7 +516,7 @@ fn landing_dust(
 
 /// When a brick is placed, each petrified brick of that tower in view sheds a few
 /// dark-red bits across its width (GRAVEL: colour (0.22, 0.11, 0.11), size 0.5, 1 s; its
-/// start speed points at the camera, and a world Force of 10 to 20 cells/s² pulls it down).
+/// start speed points at the camera, and a world Force of 10 to 20 cells/sÂ² pulls it down).
 #[allow(clippy::type_complexity)]
 fn gravel(
     mut commands: Commands,
@@ -953,10 +1078,18 @@ fn clip_fields(
     mut fields: Query<(Entity, &mut ClipField, &mut Transform)>,
     sparks: Query<(Entity, &ClipSpark)>,
     mut seed: Local<u32>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut adds: Option<ResMut<Assets<crate::scene_material::AdditiveSprite>>>,
+    mut quad: Local<Option<Handle<Mesh>>>,
 ) {
     if *seed == 0 {
         *seed = 0x2F6B_1C9D;
     }
+    // The stars and streaks are added onto the screen (Particles/Additive, tint 0.5 x 2).
+    let quad = meshes
+        .as_mut()
+        .map(|m| quad.get_or_insert_with(|| m.add(Rectangle::new(1.0, 1.0))).clone());
+    let mut add = quad.zip(adds.as_deref_mut());
     let c = config.cell_size;
     // ponytail: not in Puzzle, whose lanes aren't cut (brick_material::follow_bricks).
     let lanes = if game.mode.rules() == ModeKind::Puzzle { 1 } else { towers.iter().count() };
@@ -1024,6 +1157,7 @@ fn clip_fields(
                     (at, side, height),
                     0.0,
                     &mut seed,
+                    &mut add,
                 );
             }
         }
@@ -1055,6 +1189,7 @@ fn clip_fields(
                     (at, side, height),
                     age,
                     &mut seed,
+                    &mut add,
                 );
             }
         }
@@ -1073,6 +1208,7 @@ fn spawn_clip_spark(
     cut: (Vec2, f32, f32),
     age: f32,
     seed: &mut u32,
+    add: &mut Option<(Handle<Mesh>, &mut Assets<crate::scene_material::AdditiveSprite>)>,
 ) {
     let (at, side, height) = cut;
     let (_, _, speed, size, picture) = CLIP_LAYERS[layer];
@@ -1119,18 +1255,28 @@ fn spawn_clip_spark(
         sprite.custom_size = Some(Vec2::new(size * CLIP_STREAK, size));
         transform.rotation = Quat::from_rotation_z(direction.y.atan2(direction.x));
     }
-    // ponytail: drawn alpha-blended; the stars and streaks are additive in the original.
-    commands.spawn((
-        ClipSpark {
-            field,
-            layer,
-            velocity,
-            age,
-            size,
-        },
-        sprite,
-        transform,
-    ));
+    let spark = ClipSpark {
+        field,
+        layer,
+        velocity,
+        age,
+        size,
+    };
+    match add {
+        Some((quad, adds)) if layer < 2 => {
+            let scale = sprite.custom_size.unwrap_or(Vec2::splat(size));
+            let tint = Vec4::from_array(sprite.color.to_linear().to_f32_array());
+            commands.spawn((
+                spark,
+                Mesh2d(quad.clone()),
+                MeshMaterial2d(adds.add(crate::scene_material::AdditiveSprite { tint, picture: sprite.image })),
+                transform.with_scale(scale.extend(1.0)),
+            ));
+        }
+        _ => {
+            commands.spawn((spark, sprite, transform));
+        }
+    }
 }
 
 /// Moves the Forcefield particles: the stars slow to 1 cell/s (dampen 0.4 a frame) and keep
@@ -1140,11 +1286,18 @@ fn move_clip_sparks(
     mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
-    mut sparks: Query<(Entity, &mut ClipSpark, &mut Transform, &mut Sprite)>,
+    mut sparks: Query<(
+        Entity,
+        &mut ClipSpark,
+        &mut Transform,
+        Option<&mut Sprite>,
+        Option<&MeshMaterial2d<crate::scene_material::AdditiveSprite>>,
+    )>,
+    mut adds: Option<ResMut<Assets<crate::scene_material::AdditiveSprite>>>,
 ) {
     let dt = time.delta_secs();
     let c = config.cell_size;
-    for (entity, mut spark, mut transform, mut sprite) in &mut sparks {
+    for (entity, mut spark, mut transform, sprite, material) in &mut sparks {
         spark.age += dt;
         let (_, life, ..) = CLIP_LAYERS[spark.layer];
         if spark.age >= life {
@@ -1163,13 +1316,20 @@ fn move_clip_sparks(
             } else {
                 (1.0 - (k - 0.859) / (0.991 - 0.859)).max(0.0)
             };
-            sprite.custom_size = Some(Vec2::splat(spark.size * scale));
             let alpha = if k < 0.894 {
                 1.0
             } else {
                 1.0 - (k - 0.894) / (1.0 - 0.894)
             };
-            sprite.color.set_alpha(alpha);
+            if let Some(mut sprite) = sprite {
+                sprite.custom_size = Some(Vec2::splat(spark.size * scale));
+                sprite.color.set_alpha(alpha);
+            } else {
+                transform.scale = Vec3::new(spark.size * scale, spark.size * scale, 1.0);
+                if let Some(mut look) = material.and_then(|m| adds.as_mut()?.get_mut(&m.0)) {
+                    look.tint.w = alpha;
+                }
+            }
         }
         transform.translation += (spark.velocity * dt).extend(0.0);
     }
@@ -1191,7 +1351,7 @@ pub(crate) struct WinnerStar {
 const WINNER_STAR_LIFE: f32 = 1.5;
 /// The two colour gradients (time, r, g, b; 0 to 255), the size curve (time, share, times
 /// the module's 1.2) and when the alpha starts to fall.
-const WINNER_STAR_COLOURS: [[(f32, [f32; 3]); 7]; 2] = [
+static WINNER_STAR_COLOURS: [[(f32, [f32; 3]); 7]; 2] = [
     [
         (0.0, [255.0, 231.0, 38.0]),
         (0.394, [249.0, 255.0, 150.0]),
