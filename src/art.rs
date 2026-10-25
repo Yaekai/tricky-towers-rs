@@ -110,6 +110,10 @@ pub struct ArtEntry {
     /// `(r, g, b, a)` 0 to 255. Transparent if left out, like the original's ruins.
     #[serde(default)]
     pub outline: Option<Pair<(f32, f32, f32, f32)>>,
+    /// Mask sprites only: keep only the outline (the body left transparent), for an outline
+    /// that fades on its own (Endless Puzzle's ruins tweening their outline colours in).
+    #[serde(default)]
+    pub outline_only: Option<bool>,
     /// Brick-pack bricks: the entry of the bevel map this colour pattern is lit by
     /// (World/Bricks/Default: red/green the bevel's slope, blue the outline and cracks).
     #[serde(default)]
@@ -569,7 +573,7 @@ fn recolor_masks(
     mut images: ResMut<Assets<Image>>,
     mut done: Local<std::collections::HashSet<String>>,
 ) {
-    type Ready = (String, [Color; 2], [Color; 2], Handle<Image>);
+    type Ready = (String, [Color; 2], [Color; 2], Handle<Image>, bool);
     let ready: Vec<Ready> = art
         .entries
         .iter()
@@ -587,10 +591,10 @@ fn recolor_masks(
                 .as_ref()
                 .and_then(Pair::get)
                 .map_or((Color::NONE, Color::NONE), |(t, b)| (rgba(t), rgba(b)));
-            Some((name.clone(), [color(a), color(b)], [top, bottom], handle))
+            Some((name.clone(), [color(a), color(b)], [top, bottom], handle, entry.outline_only == Some(true)))
         })
         .collect();
-    for (name, [red, yellow], [top, bottom], handle) in ready {
+    for (name, [red, yellow], [top, bottom], handle, only) in ready {
         done.insert(name.clone());
         let Some(mut image) = images.get(&handle).cloned() else {
             continue;
@@ -619,12 +623,16 @@ fn recolor_masks(
                 // Body and outline share the pixel by how much of each the mask has.
                 let total = body + line;
                 let mix = |f: f32, e: f32| (f * body + e * line) / total;
-                let out = Color::srgba(
-                    mix(fill.red * body, edge.red),
-                    mix(fill.green * body, edge.green),
-                    mix(fill.blue * body, edge.blue),
-                    p.alpha * (body + line * edge.alpha) / total,
-                );
+                let out = if only {
+                    Color::srgba(edge.red, edge.green, edge.blue, p.alpha * line * edge.alpha / total)
+                } else {
+                    Color::srgba(
+                        mix(fill.red * body, edge.red),
+                        mix(fill.green * body, edge.green),
+                        mix(fill.blue * body, edge.blue),
+                        p.alpha * (body + line * edge.alpha) / total,
+                    )
+                };
                 let _ = image.set_color_at(x, y, out);
             }
         }

@@ -106,11 +106,16 @@ pub(crate) fn glow_copy(source: &Image, strength: f32) -> Option<Image> {
     Some(out)
 }
 
-/// An Endless Puzzle eclipse layer and its full colour: it fades in over 2 s when the
-/// intro's EclipseEffect starts (EndlessPuzzleGameModeIntroController: 0.5 s, the laser
-/// moving in, 0.5 s, the eclipse sound and EclipseEffect, 0.5 s, the 3-2-1).
+/// An Endless Puzzle layer whose colour tweens over 2 s when the intro's EclipseEffect
+/// starts (EndlessPuzzleGameModeIntroController: 0.5 s, the laser moving in, 0.5 s, the
+/// eclipse sound and EclipseEffect, 0.5 s, the 3-2-1), eased out-quad like DOTween's default:
+/// the sky strips' tints (DesertEndlessGradientsLayer), and the plain-coloured copies of the
+/// sky (DesertBackgroundGradient) and ruins (RuinsLayer) fading out over the red ones.
 #[derive(Component)]
-pub(crate) struct EclipseFade(pub(crate) Color);
+pub(crate) struct EclipseFade {
+    pub(crate) from: Color,
+    pub(crate) to: Color,
+}
 
 /// Without an intro (headless runs) it starts this far into play.
 const ECLIPSE_START: f32 = 1.0;
@@ -141,7 +146,7 @@ fn fade_eclipse(
     mut layers: Query<(&EclipseFade, &mut Sprite)>,
     mut played: Local<u64>,
 ) {
-    let t = eclipse_progress(&game, intro.as_deref());
+    let t = EaseFunction::QuadraticOut.sample_clamped(eclipse_progress(&game, intro.as_deref()));
     // The sound goes with EclipseEffect; a Retry's instant eclipse has none.
     let since = eclipse_since(&game, intro.as_deref());
     if game.phase != Phase::Menu && (0.0..ECLIPSE_TIME).contains(&since) && *played != game.round {
@@ -151,7 +156,7 @@ fn fade_eclipse(
         }
     }
     for (fade, mut sprite) in &mut layers {
-        let want = fade.0.with_alpha(fade.0.alpha() * t);
+        let want = fade.from.mix(&fade.to, t);
         if sprite.color != want {
             sprite.color = want;
         }
@@ -2250,19 +2255,20 @@ fn spawn_backgrounds(
     } else if let Some(sky) = for_mode("sky") {
         let colors = sky.colors();
         if !colors.is_empty() {
-            let mut layer = commands.spawn((
+            commands.spawn((
                 Sky,
                 Sprite::from_image(images.add(gradient_image(&colors))),
                 Transform::from_xyz(0.0, 0.0, -950.0),
                 ChildOf(camera),
             ));
+            // The desert sky it starts from (DesertGradientLayer's colours) fades out over it.
             if mode == ModeKind::EndlessPuzzle && game.phase != Phase::Menu {
-                layer.insert(EclipseFade(Color::WHITE));
                 if let Some(plain) = art.entries.get("sky_puzzle") {
                     commands.entity(camera).with_child((
                         Sky,
+                        EclipseFade { from: Color::WHITE, to: Color::WHITE.with_alpha(0.0) },
                         Sprite::from_image(images.add(gradient_image(&plain.colors()))),
-                        Transform::from_xyz(0.0, 0.0, -950.5),
+                        Transform::from_xyz(0.0, 0.0, -949.5),
                     ));
                 }
             }
@@ -2335,8 +2341,8 @@ fn spawn_backgrounds(
             ));
         }
     }
-    // In a match Endless Puzzle starts as plain Puzzle and its eclipse fades in over
-    // the plain layers during the intro (`fade_eclipse`).
+    // In a match Endless Puzzle's layers start in the plain desert colours (their `_start`
+    // entries) and tween to their own during the intro (`fade_eclipse`).
     let eclipse = mode == ModeKind::EndlessPuzzle && game.phase != Phase::Menu;
     // Behind the menus the foreground water runs along the view's bottom (RaceForeground's
     // WaterLayer) for the Race family (Race, Race Special, Endless Race: Max's Endless
@@ -2403,20 +2409,9 @@ fn spawn_backgrounds(
             ChildOf(camera),
         ));
     }
-    let mut names: Vec<(String, bool)> = background_names_for(&art, mode, pro)
-        .into_iter()
-        .map(|n| (n, eclipse))
-        .collect();
-    if eclipse {
-        names.extend(
-            background_names_for(&art, ModeKind::Puzzle, None)
-                .into_iter()
-                .map(|n| (n, false)),
-        );
-    }
-    for (order, (name, fades)) in names.iter().enumerate() {
+    let names = background_names_for(&art, mode, pro);
+    for (order, name) in names.iter().enumerate() {
         let name = name.as_str();
-        let order = order % names.len().max(1);
         let Some(entry) = art.entries.get(name) else {
             continue;
         };
@@ -2446,7 +2441,7 @@ fn spawn_backgrounds(
             Transform::from_xyz(
                 0.0,
                 0.0,
-                layer_z(&art, name, order) + if *fades { 0.005 } else { 0.0 },
+                layer_z(&art, name, order),
             ),
         );
         match (entry.screen, entry.position) {
@@ -2571,8 +2566,41 @@ fn spawn_backgrounds(
                 if mode == ModeKind::Survival && name == "background_survival_0" {
                     layer.insert(Moon);
                 }
-                if *fades {
-                    layer.insert(EclipseFade(tint));
+                // An Endless Puzzle ruin's outline, drawn on its own: it fades in with the eclipse.
+                if let Some(image) = art.image(&format!("{name}_outline")) {
+                    let mut outline = commands.spawn((
+                        Sprite { image, ..default() },
+                        anchor,
+                        Transform::from_xyz(0.0, 0.0, 0.005),
+                        bevy::camera::visibility::RenderLayers::from_layers(&[0, SCENE_LAYER]),
+                        ChildOf(island_entity),
+                    ));
+                    if eclipse {
+                        outline.insert(EclipseFade { from: Color::WHITE.with_alpha(0.0), to: Color::WHITE });
+                    }
+                }
+                let mut layer = commands.entity(island_entity);
+                if let Some(start) = eclipse.then(|| art.entries.get(&format!("{name}_start"))).flatten() {
+                    let from = start
+                        .tint
+                        .map_or(Color::WHITE, |(r, g, b)| Color::srgb(r / 255.0, g / 255.0, b / 255.0))
+                        .with_alpha(start.opacity.unwrap_or(1.0));
+                    match art.image(&format!("{name}_start")).filter(|_| start.mask.is_some()) {
+                        // A ruin: its copy in the start colours fades out over it.
+                        Some(image) => {
+                            layer.with_child((
+                                EclipseFade { from: Color::WHITE, to: Color::WHITE.with_alpha(0.0) },
+                                Sprite { image, ..default() },
+                                anchor,
+                                Transform::from_xyz(0.0, 0.0, 0.01),
+                                bevy::camera::visibility::RenderLayers::from_layers(&[0, SCENE_LAYER]),
+                            ));
+                        }
+                        // A sky strip: its tint tweens.
+                        None => {
+                            layer.insert(EclipseFade { from, to: tint });
+                        }
+                    }
                 }
                 // How a Survival curse wave changes it (SurvivalBackground): the starry
                 // sky stays, tinted layers (the large clouds) darken, the rest grey.
@@ -2594,10 +2622,7 @@ fn spawn_backgrounds(
             // Drawn in each lane by `spawn_lane_layers`.
             (None, Some(_)) => {}
             (None, None) => {
-                let mut layer = commands.spawn((Background, base, ChildOf(camera)));
-                if *fades {
-                    layer.insert(EclipseFade(tint));
-                }
+                commands.spawn((Background, base, ChildOf(camera)));
             }
         }
     }

@@ -4440,10 +4440,17 @@ pub struct HudLook {
     pub card_bar_color: [u8; 3],
     /// The Survival brick count's text size (share of view height).
     pub count_size: f32,
-    /// The place label (1ST, 2ND...) under the wizard: text size, cells below the
-    /// wizard, and the leader's and the others' colours (0-255).
-    pub place_size: f32,
+    /// The place label (1ST, 2ND...) as WizardRankView's Rank prefab: its root's cells
+    /// under the wizard (BottomHUDContainer 1.53 down, the Rank 1 up), then the number's
+    /// and the suffix's boxes off the root (centre x, y up, width, height) and letter sizes
+    /// in cells (TMP 18 and 10.5 at the 0.0855 cells a point WINNER! and WIZARD OUT! measure).
     pub place_below: f32,
+    pub place_number: [f32; 5],
+    pub place_suffix: [f32; 5],
+    /// Per place, the face and outline of both texts (EnzoBlackRank1st01/02 ... 4th01/02).
+    pub place_faces: [[u8; 3]; 4],
+    pub place_outlines: [[u8; 3]; 4],
+    /// The counts' colour (0-255), and a second one no longer drawn.
     pub place_first: [u8; 3],
     pub place_other: [u8; 3],
     /// Hearts under the wizard: size in cells of the view (gph_heart, 29 px at 26 a unit) and
@@ -4499,8 +4506,11 @@ impl Default for HudLook {
             card_bar_color: [36, 52, 110],
             // BricksView's label: font 64 on the 1080 canvas.
             count_size: 64.0 / 1080.0,
-            place_size: 22.0 / 720.0,
-            place_below: 2.2,
+            place_below: 0.53,
+            place_number: [-0.38, -1.66, 0.4351437, 1.0563351, 18.0 * 0.0855],
+            place_suffix: [0.23, -1.44, 0.7251576, 0.6072804, 10.5 * 0.0855],
+            place_faces: [[255, 248, 136], [244, 226, 239], [206, 125, 39], [234, 238, 255]],
+            place_outlines: [[255, 95, 24], [108, 81, 138], [243, 234, 92], [63, 61, 109]],
             place_first: [255, 190, 60],
             place_other: [205, 190, 240],
             // gph_heart: 29 px at 26 px a unit.

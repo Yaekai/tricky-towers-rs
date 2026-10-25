@@ -219,15 +219,6 @@ ModeScreenBg 'puzzle_pro' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   3 0.
 ModeScreenBg 'puzzle_pro' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.5 'Pro ruins middle right' ', mask: ((126, 22, 60), (103, 14, 43))'
 ModeScreenBg 'puzzle_pro' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.5 'Pro ruins front left' ', mask: ((46, 4, 5), (46, 4, 5))'
 ModeScreenBg 'puzzle_pro' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.5 'Pro ruins front right' ', mask: ((46, 4, 5), (46, 4, 5))'
-# Endless Puzzle: the ruins in the red eclipse colours it tweens to (DesertEndlessBackground
-# AnimateIn; the menu shows them at once), slower parallax (back 0.1, middle and front 0.3).
-ModeScreenBg 'endless_puzzle' 0 'gph_backgroundBackLeft'     0.0 0.0 15.0 3.8   0 0.1 'Endless Puzzle ruins back left' ', mask: ((155, 29, 51), (174, 31, 61))'
-ModeScreenBg 'endless_puzzle' 1 'gph_backgroundBackRight'    1.0 0.0 -30.3 3.8  1 0.1 'Endless Puzzle ruins back right' ', mask: ((155, 29, 51), (174, 31, 61))'
-ModeScreenBg 'endless_puzzle' 2 'gph_backgroundMiddleLeft'   0.0 0.0 0.0 3.44   2 0.3 'Endless Puzzle ruins middle left' ', mask: ((102, 21, 29), (75, 15, 25))'
-ModeScreenBg 'endless_puzzle' 3 'gph_backgroundMiddleCenter' 0.5 0.0 0.0 3.44   3 0.3 'Endless Puzzle ruins middle centre' ', mask: ((102, 21, 29), (75, 15, 25))'
-ModeScreenBg 'endless_puzzle' 4 'gph_backgroundMiddleRight'  1.0 0.0 0.0 3.44   4 0.3 'Endless Puzzle ruins middle right' ', mask: ((102, 21, 29), (75, 15, 25))'
-ModeScreenBg 'endless_puzzle' 5 'gph_backgroundFrontLeft'    0.0 0.0 0.0 3.6    5 0.3 'Endless Puzzle ruins front left' ', mask: ((44, 6, 9), (44, 6, 9))'
-ModeScreenBg 'endless_puzzle' 6 'gph_backgroundFrontRight'   1.0 0.0 0.0 2.1    6 0.3 'Endless Puzzle ruins front right' ', mask: ((44, 6, 9), (44, 6, 9))'
 # The floating rocks: the ruins prefabs' Head children (IslandBackLeft, IslandMiddleLeft/Center/Right),
 # static, recoloured with their ruin layer's mask (RuinsLayer), at the prefab's anchor and parallax,
 # drawn just in front of their layer. Index, layer, sprite, anchor x, offset x, offset y.
@@ -242,7 +233,6 @@ $heads = @(
 $headLooks = @{
   'puzzle' = @(', mask: ((244, 217, 176), (247, 224, 190))', 0.3, ', mask: ((224, 172, 146), (214, 152, 131))', 0.5)
   'puzzle_pro' = @(', mask: ((200, 36, 70), (215, 44, 83))', 0.3, ', mask: ((126, 22, 60), (103, 14, 43))', 0.5)
-  'endless_puzzle' = @(', mask: ((155, 29, 51), (174, 31, 61))', 0.1, ', mask: ((102, 21, 29), (75, 15, 25))', 0.3)
 }
 # The Puzzle sky's soft bands (BackgroundGradients, and BackgroundProGradients on Special): strips
 # stretched across the view at fixed heights from its middle, behind the sun and the ruins.
@@ -262,7 +252,44 @@ foreach ($look in $headLooks.Keys) {
     ModeScreenBg $look $h[0] $h[2] $h[3] 0.0 $h[4] $h[5] ($h[1] + 0.5) $par "Floating rock over the $look ruins ($($h[2]))" $mask
   }
 }
-$manifest.Add('    "sky_endless_puzzle": (colors: [(139, 23, 56), (159, 38, 49), (255, 105, 39)]),')
+# Endless Puzzle (DesertEndlessBackground, DesertBackgroundEndlessSun): the ruins and their heads in
+# the red eclipse colours and outlines (RuinsLayer _OutlineColorTop/Bottom) they tween to in AnimateIn,
+# slower parallax (back 0.1, middle and front 0.3), and the three sky strips (BackgroundEndlessGradients)
+# in their end tints. Each has a `_start` copy in the colours it starts from (the plain desert's,
+# outlines transparent); visuals.rs fades or tweens from it over 2 s. The outlines are `_outline`
+# copies (outline only) that fade in on their own, since they start transparent. The menu shows the
+# end colours.
+$endlessLooks = @(
+  @(0.1, ', mask: ((155, 29, 51), (174, 31, 61))', ', mask: ((244, 217, 176), (247, 224, 190))', ', outline: ((174, 31, 61, 255), (174, 31, 61, 255))'),
+  @(0.3, ', mask: ((102, 21, 29), (75, 15, 25))', ', mask: ((224, 172, 146), (214, 152, 131))', ', outline: ((248, 156, 44, 255), (248, 156, 44, 0))'),
+  @(0.3, ', mask: ((44, 6, 9), (44, 6, 9))', ', mask: ((196, 116, 100), (196, 116, 100))', ''))
+# Index, sprite, anchor x, offset x, offset y, z, ruin layer (back, middle, front).
+$endlessParts = @(
+  @(0, 'gph_backgroundBackLeft', 0.0, 15.0, 3.8, 0, 0),
+  @(1, 'gph_backgroundBackRight', 1.0, -30.3, 3.8, 1, 0),
+  @(2, 'gph_backgroundMiddleLeft', 0.0, 0.0, 3.44, 2, 1),
+  @(3, 'gph_backgroundMiddleCenter', 0.5, 0.0, 3.44, 3, 1),
+  @(4, 'gph_backgroundMiddleRight', 1.0, 0.0, 3.44, 4, 1),
+  @(5, 'gph_backgroundFrontLeft', 0.0, 0.0, 3.6, 5, 2),
+  @(6, 'gph_backgroundFrontRight', 1.0, 0.0, 2.1, 6, 2))
+foreach ($h in $heads) { $endlessParts += ,@($h[0], $h[2], $h[3], $h[4], $h[5], ($h[1] + 0.5), [int]($h[1] -ne 0)) }
+foreach ($p in $endlessParts) {
+  $l = $endlessLooks[$p[6]]
+  ModeScreenBg 'endless_puzzle' $p[0] $p[1] $p[2] 0.0 $p[3] $p[4] $p[5] $l[0] "Endless Puzzle ruins ($($p[1]))" $l[1]
+  ModeScreenBg 'endless_puzzle' "$($p[0])_start" $p[1] $p[2] 0.0 $p[3] $p[4] $p[5] $l[0] "Endless Puzzle ruins ($($p[1])) in the start colours" $l[2]
+  if ($l[3]) { ModeScreenBg 'endless_puzzle' "$($p[0])_outline" $p[1] $p[2] 0.0 $p[3] $p[4] $p[5] $l[0] "Endless Puzzle ruins ($($p[1])) outline" ($l[1] + $l[3] + ', outline_only: true') }
+}
+# Strip index, y, z, scale, end tint and opacity, start tint and opacity (FromHex32, alpha / 256).
+$endlessStrips = @(
+  @(20, 9.1, -41, 1.0, '(255, 105, 39), stretch: true, scale: 1.0, opacity: 0.492', '(255, 241, 172), stretch: true, scale: 1.0, opacity: 0.996'),
+  @(21, 20.5, -43, 1.5, '(187, 17, 45), stretch: true, scale: 1.5, opacity: 0.648', '(246, 152, 221), stretch: true, scale: 1.5, opacity: 0.297'),
+  @(22, -14.7, -42, 2.0, '(159, 38, 49), stretch: true, scale: 2.0, opacity: 0.996', '(252, 230, 203), stretch: true, scale: 2.0, opacity: 0.996'))
+foreach ($g in $endlessStrips) {
+  ModeScreenBg 'endless_puzzle' $g[0] 'gph_gradientReflected' 0.5 0.5 0.0 $g[1] $g[2] 0.0 'Endless Puzzle sky gradient' ", tint: $($g[4])"
+  ModeScreenBg 'endless_puzzle' "$($g[0])_start" 'gph_gradientReflected' 0.5 0.5 0.0 $g[1] $g[2] 0.0 'Endless Puzzle sky gradient start' ", tint: $($g[5])"
+}
+# The sky gradient it tweens to, top to bottom (DesertBackgroundEndlessSun: bottom #8B1838, top #4A1117).
+$manifest.Add('    "sky_endless_puzzle": (colors: [(74, 17, 23), (139, 23, 56)]),')
 # Race Pro: the stormy clouds drift (screen units a second); the race islands are drawn from their
 # night textures (Resources\game\background\race\islands\Island*Dark.png, plain textures, not
 # sprites) with the day island as `lit`, shown while the lightning flashes (fades over 0.2 s).
