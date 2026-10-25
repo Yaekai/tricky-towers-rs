@@ -67,6 +67,8 @@ enum Shows {
     /// The next brick, drawn with the tower's brick pack.
     Card(usize, crate::config::BrickPack),
     Text(String, Color),
+    /// A place, 0 for the leader: the number and its suffix.
+    Rank(usize),
     /// Lives left and the most there have been: filled hearts, then crosses.
     Hearts(u32, u32),
 }
@@ -208,23 +210,7 @@ fn wanted(
         }
         // Places only in battles: trials show none.
         Kind::Place if game.mode == ModeKind::Race && config.trial.is_none() && playing => {
-            match place {
-                Some(p) => {
-                    let text = match p {
-                        0 => "1ST".to_string(),
-                        1 => "2ND".to_string(),
-                        2 => "3RD".to_string(),
-                        n => format!("{}TH", n + 1),
-                    };
-                    let color = if p == 0 {
-                        look.place_first
-                    } else {
-                        look.place_other
-                    };
-                    Shows::Text(text, rgb(color))
-                }
-                None => Shows::Nothing,
-            }
+            place.map_or(Shows::Nothing, Shows::Rank)
         }
         // A Puzzle trial has one life: a dropped brick fails it (one heart under the wizard).
         Kind::Hearts
@@ -403,9 +389,63 @@ fn build(
     };
     match shows {
         Shows::Nothing => base,
+        Shows::Rank(place) => {
+            // WizardRankView's Rank prefab, the item's node being its root: the number
+            // right-aligned in its box and the suffix (ST, ND, RD, TH) left-aligned in its own,
+            // each in its place's material (EnzoBlackRank1st01..4th02: one face and outline per
+            // place, the number's dilate and outline 0.35, the suffix's 0.5; no underlay).
+            let cell = height / config.hud.camera_height.max(1.0);
+            let i = (*place).min(3);
+            let face = rgb(look.place_faces[i]);
+            let parts = [
+                (look.place_number, (place + 1).to_string(), JustifyContent::FlexEnd, 0.0, 0.0),
+                (
+                    look.place_suffix,
+                    ["ST", "ND", "RD", "TH"][i].to_string(),
+                    JustifyContent::FlexStart,
+                    0.5 - 1.0 * 0.8333 / 2.0,
+                    2.0,
+                ),
+            ];
+            node.with_children(|root| {
+                for (k, ([x, y, w, h, size], words, justify, edge, spacing)) in parts.into_iter().enumerate() {
+                    root.spawn((
+                        RankBox(k == 1),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: Val::Px((x - w * 0.5) * cell),
+                            top: Val::Px((-y - h * 0.5) * cell),
+                            width: Val::Px(w * cell),
+                            height: Val::Px(h * cell),
+                            justify_content: justify,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        UiTransform::default(),
+                    ))
+                    .with_child((
+                        Text::new(words),
+                        TextFont {
+                            font_size: FontSize::Px(size * cell),
+                            ..default()
+                        },
+                        TextColor(face),
+                        crate::letters::TextLook {
+                            body: false,
+                            face: Some(face),
+                            outline: Some(rgb(look.place_outlines[i])),
+                            low: None,
+                            outline_edge: edge,
+                        },
+                        crate::letters::LetterSpacing(spacing),
+                    ));
+                }
+            });
+            base
+        }
         Shows::Text(words, color) => {
             let count = words.parse::<u32>().is_ok();
-            let size = if count { look.count_size } else { look.place_size } * height;
+            let size = look.count_size * height;
             text(node, words, *color, size);
             // The Survival count is BricksView's EnzoBlackGold60: the gold face, dilate and
             // outline 0.2.
@@ -948,22 +988,115 @@ fn pop_counts(
     }
 }
 
-/// RankUpdate's LabelNumber keys: scale, and the turn in degrees (sampled every 0.05 s).
-const RANK_SCALE: [(f32, f32); 5] = [(0.0, 1.0), (0.133, 0.8), (0.233, 1.224), (0.333, 1.0), (1.0, 1.0)];
-const RANK_TURN: [(f32, f32); 13] = [
-    (0.0, 0.0),
+/// RankUpdate's keys: each label's turn in degrees (every frame of the clip) and its x and y
+/// scale (time, value, in and out slopes); the suffix's are the number's 0.1 s later.
+const RANK_NUMBER_TURN: [(f32, f32); 38] = [
+    (0.0, -0.03),
+    (0.017, 1.18),
+    (0.033, 2.61),
     (0.05, 3.93),
+    (0.067, 4.82),
+    (0.083, 4.97),
     (0.1, 4.17),
+    (0.117, 2.62),
+    (0.133, 0.53),
     (0.15, -1.86),
+    (0.167, -4.30),
+    (0.183, -6.58),
     (0.2, -8.45),
+    (0.217, -9.68),
+    (0.233, -10.03),
     (0.25, -9.13),
+    (0.267, -7.10),
+    (0.283, -4.46),
     (0.3, -1.73),
+    (0.317, 0.56),
+    (0.333, 1.89),
     (0.35, 2.09),
+    (0.367, 1.54),
+    (0.383, 0.55),
     (0.4, -0.57),
+    (0.417, -1.50),
+    (0.433, -1.95),
     (0.45, -1.84),
+    (0.467, -1.40),
+    (0.483, -0.79),
     (0.5, -0.13),
+    (0.517, 0.41),
+    (0.533, 0.72),
     (0.55, 0.68),
-    (0.6, 0.0),
+    (0.567, 0.42),
+    (0.583, 0.14),
+    (0.6, 0.00),
+    (0.617, 0.00),
+];
+const RANK_SUFFIX_TURN: [(f32, f32); 38] = [
+    (0.1, 0.00),
+    (0.117, 1.21),
+    (0.133, 2.64),
+    (0.15, 3.96),
+    (0.167, 4.85),
+    (0.183, 5.00),
+    (0.2, 4.21),
+    (0.217, 2.65),
+    (0.233, 0.56),
+    (0.25, -1.82),
+    (0.267, -4.27),
+    (0.283, -6.54),
+    (0.3, -8.41),
+    (0.317, -9.64),
+    (0.333, -10.00),
+    (0.35, -9.10),
+    (0.367, -7.07),
+    (0.383, -4.44),
+    (0.4, -1.71),
+    (0.417, 0.57),
+    (0.433, 1.90),
+    (0.45, 2.10),
+    (0.467, 1.56),
+    (0.483, 0.58),
+    (0.5, -0.53),
+    (0.517, -1.46),
+    (0.533, -1.90),
+    (0.55, -1.79),
+    (0.567, -1.37),
+    (0.583, -0.77),
+    (0.6, -0.13),
+    (0.617, 0.40),
+    (0.633, 0.70),
+    (0.65, 0.68),
+    (0.667, 0.46),
+    (0.683, 0.18),
+    (0.7, 0.00),
+    (0.717, 0.00),
+];
+const RANK_NUMBER_SCALE_X: [(f32, f32, f32, f32); 5] = [
+    (0.0, 1.0000, 0.0000, -1.4827),
+    (0.133, 0.8023, 1.3364, 1.3364),
+    (0.233, 1.2240, 5.2037, 5.2037),
+    (0.333, 1.0000, -1.1200, 0.0000),
+    (1.0, 1.0000, 0.0000, 0.0000),
+];
+const RANK_NUMBER_SCALE_Y: [(f32, f32, f32, f32); 5] = [
+    (0.0, 1.0000, 0.0000, -1.5050),
+    (0.133, 0.7993, 1.3943, 1.3943),
+    (0.233, 1.2240, 4.9732, 4.9732),
+    (0.333, 1.0059, -1.0951, f32::INFINITY),
+    (1.0, 1.0000, 0.0000, 0.0000),
+];
+const RANK_SUFFIX_SCALE_X: [(f32, f32, f32, f32); 5] = [
+    (0.1, 1.0000, 0.0000, -1.5000),
+    (0.233, 0.8000, 1.3500, 1.3500),
+    (0.333, 1.2200, 3.6468, 3.6468),
+    (0.433, 1.0000, -1.1000, 0.0000),
+    (1.0, 1.0000, 0.0000, 0.0000),
+];
+const RANK_SUFFIX_SCALE_Y: [(f32, f32, f32, f32); 5] = [
+    (0.1, 1.0000, 0.0000, -1.5000),
+    (0.233, 0.8000, 1.3500, 1.3500),
+    (0.333, 1.2200, 3.5731, 3.5731),
+    (0.433, 1.0000, -1.1000, 0.0000),
+    (1.0, 1.0000, 0.0000, 0.0000),
 ];
 
 fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
@@ -973,19 +1106,42 @@ fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
     a.1 + (b.1 - a.1) * k
 }
 
+/// The number's and the suffix's boxes in a place label (true for the suffix).
+#[derive(Component)]
+struct RankBox(bool);
+
 fn pop_ranks(
     mut commands: Commands,
     time: Res<Time>,
-    mut pops: Query<(Entity, &mut RankPop, &mut UiTransform)>,
+    mut pops: Query<(Entity, &mut RankPop, &Children)>,
+    mut boxes: Query<(&RankBox, &mut UiTransform)>,
 ) {
-    for (entity, mut pop, mut transform) in &mut pops {
+    use crate::config::curve;
+    for (entity, mut pop, children) in &mut pops {
         pop.0 += time.delta_secs();
         let t = pop.0;
-        transform.scale = Vec2::splat(keyed(&RANK_SCALE, t));
-        // Unity's z turn is anticlockwise; UI rotation is clockwise on screen.
-        transform.rotation = Rot2::degrees(-keyed(&RANK_TURN, t));
-        if t >= 1.0 {
-            *transform = UiTransform::default();
+        let done = t >= 1.0;
+        for child in children.iter() {
+            let Ok((part, mut transform)) = boxes.get_mut(child) else {
+                continue;
+            };
+            let (x, y, turn) = if part.0 {
+                (&RANK_SUFFIX_SCALE_X, &RANK_SUFFIX_SCALE_Y, &RANK_SUFFIX_TURN[..])
+            } else {
+                (&RANK_NUMBER_SCALE_X, &RANK_NUMBER_SCALE_Y, &RANK_NUMBER_TURN[..])
+            };
+            *transform = if done {
+                UiTransform::default()
+            } else {
+                UiTransform {
+                    scale: Vec2::new(curve(x, t), curve(y, t)),
+                    // Unity's z turn is anticlockwise; UI rotation is clockwise on screen.
+                    rotation: Rot2::degrees(-keyed(turn, t)),
+                    ..default()
+                }
+            };
+        }
+        if done {
             commands.entity(entity).remove::<RankPop>();
         }
     }
