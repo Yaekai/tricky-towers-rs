@@ -2392,6 +2392,37 @@ fn a_survival_roof_straddles_a_square_brick_a_little_off_the_grid() {
 }
 
 #[test]
+fn a_nudge_into_something_places_the_brick_and_kicks_it_back() {
+    use avian2d::prelude::*;
+    let mut config = fast_config();
+    config.survival.drop_speed = 0.5;
+    let cell = config.cell_size;
+    let mut app = headless_app(config);
+    assert!(run_until(&mut app, 5.0, |app| tower(app, 0).active.is_some()));
+    let brick = tower(&mut app, 0).active.unwrap();
+    let at = app.world().get::<Position>(brick).unwrap().0;
+    let right = {
+        let world = app.world();
+        let rot = *world.get::<Rotation>(brick).unwrap();
+        world.get::<Collider>(brick).unwrap().aabb(at, rot).max.x
+    };
+    // A wall half a cell right of the brick: the nudge's full cell is blocked by half a cell.
+    let x = right + 0.5 * cell + 0.5 * cell;
+    app.world_mut().spawn((
+        RigidBody::Static,
+        Collider::rectangle(cell, 20.0 * cell),
+        Transform::from_xyz(x, at.y, 0.0),
+        Position(Vec2::new(x, at.y)),
+    ));
+    human_input(&mut app).nudge_right_pressed = true;
+    run_seconds(&mut app, 0.2, |_| {});
+    let world = app.world();
+    assert!(world.get::<ActiveBrick>(brick).is_none(), "the nudge placed it");
+    let v = world.get::<LinearVelocity>(brick).unwrap().0;
+    assert!(v.x < 0.0, "kicked back left, moving {v:?}");
+}
+
+#[test]
 fn a_trial_has_its_own_floor_lane_and_rival_tower() {
     use tricky_towers::gameplay::{Platform, RivalLane};
     let mut config = fast_config();
