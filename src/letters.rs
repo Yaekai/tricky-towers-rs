@@ -31,7 +31,27 @@ struct SdfLetter {
     // dilated edge less the offset), inner and outer reach and power.
     glow: vec4<f32>,
     glow_shape: vec4<f32>,
+    // BEVEL_ON (x above 0): y the material's weight plus its bevel offset, z the bevel's
+    // width (outline width + bevel width).
+    bevel: vec4<f32>,
 };
+
+// The bevel every BEVEL_ON Enzo material shares (MilkyWhite*, White): bevel 0.4, clamp
+// 0.351, roundness 0, raised (ShaderFlags 1), gradient scale 6, light angle 3.14, diffuse
+// 0.5, ambient 0, no specular.
+const BEVEL: f32 = 0.4;
+const BEVEL_CLAMP: f32 = 0.351;
+const GRADIENT_SCALE: f32 = 6.0;
+const LIGHT_ANGLE: f32 = 3.14;
+const DIFFUSE: f32 = 0.5;
+const AMBIENT: f32 = 0.0;
+
+// TextMeshPro's GetSurfaceNormal on four field samples half a texel either side.
+fn bevel_height(h: f32) -> f32 {
+    let t = clamp((h + material.bevel.y - 0.5) / material.bevel.z + 0.5, 0.0, 1.0);
+    let raised = 1.0 - abs(t * 2.0 - 1.0);
+    return min(raised, 1.0 - BEVEL_CLAMP);
+}
 
 @group(1) @binding(0) var<uniform> material: SdfLetter;
 @group(1) @binding(1) var field: texture_2d<f32>;
@@ -60,6 +80,18 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // more, to the power).
     var rgb = c.rgb * c.a * a;
     var alpha = c.a * a;
+    if material.bevel.x > 0.0 {
+        let texel = 0.5 / vec2<f32>(textureDimensions(field));
+        let left = bevel_height(textureSample(field, field_sampler, uv - vec2(texel.x, 0.0)).a);
+        let right = bevel_height(textureSample(field, field_sampler, uv + vec2(texel.x, 0.0)).a);
+        // The field's rows run down here and up in the original's atlas.
+        let up = bevel_height(textureSample(field, field_sampler, uv - vec2(0.0, texel.y)).a);
+        let down = bevel_height(textureSample(field, field_sampler, uv + vec2(0.0, texel.y)).a);
+        let k = BEVEL * material.bevel.z * GRADIENT_SCALE * -2.0;
+        let n = normalize(vec3(-(right - left) * k, (up - down) * k, 1.0));
+        let light = normalize(vec3(sin(LIGHT_ANGLE), cos(LIGHT_ANGLE), -1.0));
+        rgb = rgb * (1.0 - dot(n, light) * DIFFUSE) * mix(AMBIENT, 1.0, n.z * n.z);
+    }
     if material.glow.a > 0.0 {
         let g = material.glow_shape.x - d;
         let t = select(material.glow_shape.y, material.glow_shape.z, g >= 0.0);
@@ -91,6 +123,7 @@ pub struct SdfLook {
     pub face: Vec4,
     pub glow: Vec4,
     pub glow_shape: Vec4,
+    pub bevel: Vec4,
 }
 
 impl bevy::ui_render::prelude::UiMaterial for SdfLetter {
@@ -205,6 +238,8 @@ pub struct TextLook {
     /// and outline width (0.5 - (dilate + width) x 0.833 / 2); 0 for the outlined Enzo
     /// materials' usual 0.35 / 0.35 (OUTLINE_EDGE).
     pub outline_edge: f32,
+    /// The material's BEVEL_ON lighting (every MilkyWhite and White Enzo material shares it).
+    pub bevel: bool,
 }
 
 impl TextLook {
@@ -216,6 +251,7 @@ impl TextLook {
         low: Some(Color::srgb(1.0, 137.0 / 255.0, 22.0 / 255.0)),
         // Dilate and outline 0.25 (EnzoBlackGold46).
         outline_edge: 0.5 - 0.5 * 0.8333 / 2.0,
+        bevel: false,
     };
     /// EnzoBlackRed: red at the top to pink at the bottom (BACK).
     pub const PINK: Self = Self {
@@ -225,6 +261,7 @@ impl TextLook {
         low: Some(Color::srgb(1.0, 41.0 / 255.0, 182.0 / 255.0)),
         // Dilate and outline 0.25 (EnzoBlackRed46).
         outline_edge: 0.5 - 0.5 * 0.8333 / 2.0,
+        bevel: false,
     };
     /// EnzoBlackRed60: the red gradient, dilate and outline 0.2 (the trials' LOCKED).
     pub const PINK_60: Self = Self { outline_edge: 0.5 - 0.4 * 0.8333 / 2.0, ..Self::PINK };
@@ -246,6 +283,7 @@ impl TextLook {
         outline: Some(Color::srgb(0.169, 0.035, 0.137)),
         low: None,
         outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
+        bevel: false,
     };
     /// EnzoBlackBlackThickOutline: a dark face in a pale blue outline (182, 197, 254),
     /// dilate and outline 0.3.
@@ -255,6 +293,7 @@ impl TextLook {
         outline: Some(Color::srgb(0.714, 0.773, 0.996)),
         low: None,
         outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
+        bevel: false,
     };
     /// List rows and buttons: near-black body letters.
     pub const BODY: Self = Self {
@@ -263,17 +302,18 @@ impl TextLook {
         outline: None,
         low: None,
         outline_edge: 0.0,
+        bevel: false,
     };
     /// Screen titles: milky white display letters with a dark outline
-    /// (the original's EnzoBlackMilkyWhiteOutline26). Its face (182, 197, 254) is lit by the
-    /// material's bevel (BEVEL_ON, diffuse 0.5): measured on Max's title clip it shows as
-    /// (208, 224, 253), which is what is drawn here.
+    /// (the original's EnzoBlackMilkyWhiteOutline26): its face (182, 197, 254) lit by the
+    /// material's bevel, which brightens the flat face to the (208, 224, 253) of Max's title clip.
     pub const TITLE: Self = Self {
         body: false,
-        face: Some(Color::srgb(0.816, 0.878, 0.992)),
+        face: Some(Color::srgb(0.7137255, 0.77254903, 0.99607843)),
         outline: Some(Color::srgb(0.145, 0.051, 0.157)),
         low: None,
         outline_edge: 0.0,
+        bevel: true,
     };
     /// Display letters in their own colour with the dark outline (button hints, tiles).
     pub const OUTLINED: Self = Self {
@@ -282,6 +322,7 @@ impl TextLook {
         outline: Some(Color::srgb(0.145, 0.051, 0.157)),
         low: None,
         outline_edge: 0.0,
+        bevel: false,
     };
 }
 
@@ -387,6 +428,7 @@ struct LetterText {
     low: Option<Color>,
     outline_edge: f32,
     glow: Option<TextGlow>,
+    bevel: bool,
 }
 
 /// The language files' names, in `settings::LANGUAGES` order (Finnish is `fl`).
@@ -671,6 +713,7 @@ fn letter_text(
         low: look.low.map(faded),
         outline_edge: look.outline_edge,
         glow: glow.copied(),
+        bevel: look.bevel,
     }
 }
 
@@ -995,6 +1038,16 @@ fn spawn_line(
                                 .glow
                                 .filter(|_| with_face || text.outline.is_none())
                                 .map_or((Vec4::ZERO, Vec4::ZERO), |g| g.shader());
+                            // BEVEL_ON on the node that draws the face: the material's weight (its
+                            // dilate, taken as equal to its outline width as in most of them)
+                            // plus the bevel offset 0.077, and the outline width plus 0.311.
+                            let bevel = if text.bevel && (with_face || text.outline.is_none()) {
+                                let edge = if text.outline_edge > 0.0 { text.outline_edge } else { OUTLINE_EDGE };
+                                let width = (0.5 - edge) / 0.8333;
+                                Vec4::new(1.0, width * 0.8333 * 0.5 + 0.077, (width + 0.311).max(0.01), 0.0)
+                            } else {
+                                Vec4::ZERO
+                            };
                             let look = SdfLook {
                                 color: linear(color),
                                 rect: Vec4::new(rect.0 / size.x, rect.1 / size.y, rect.2 / size.x, rect.3 / size.y),
@@ -1003,8 +1056,9 @@ fn spawn_line(
                                 face: face.0,
                                 glow,
                                 glow_shape,
+                                bevel,
                             };
-                            let key: Vec<u32> = [look.color, look.rect, look.edge, look.low, look.face, look.glow, look.glow_shape]
+                            let key: Vec<u32> = [look.color, look.rect, look.edge, look.low, look.face, look.glow, look.glow_shape, look.bevel]
                                 .iter()
                                 .flat_map(|v| v.to_array())
                                 .map(f32::to_bits)

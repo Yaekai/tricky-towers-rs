@@ -677,11 +677,16 @@ fn move_wizards(
                 b.facing * (0.7 + 0.3 * EaseFunction::BackOut.sample_clamped(k))
             });
         }
+        // WizardShakeEffect (an AbstractShakeEffect): a random spot within the reach each frame.
         if wizard.shake > 0.0 {
-            at += Vec2::new(
-                look.shake.0 * (t * 60.0).sin(),
-                look.shake.1 * (t * 73.0).cos(),
-            );
+            let mut seed = (t * 1000.0) as u32 ^ (wizard.lane as u32).wrapping_mul(2_654_435_761) | 1;
+            let mut roll = || {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                (seed % 10_000) as f32 / 5_000.0 - 1.0
+            };
+            at += Vec2::new(look.shake.0 * roll(), look.shake.1 * roll());
         }
         let lane_x = if wizard.enemy {
             enemy_lane.unwrap_or(tower.origin_x)

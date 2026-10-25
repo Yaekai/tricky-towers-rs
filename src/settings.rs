@@ -386,6 +386,7 @@ const ROW_TEXT: TextLook = TextLook {
     outline: None,
     low: None,
     outline_edge: 0.0,
+    bevel: false,
 };
 /// The value area at the row's right end, its arrows and the slider bar.
 const VALUE_WIDTH: f32 = 360.0;

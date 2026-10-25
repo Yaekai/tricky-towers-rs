@@ -518,6 +518,7 @@ pub(crate) fn spawn_controls_panel(
                                 outline: None,
                                 low: None,
                                 outline_edge: 0.0,
+                                bevel: false,
                             },
                         ));
                         // Nudge has two arrows a side, the others one.
@@ -621,6 +622,7 @@ fn spawn_pause_menu(
                             low: None,
                             // Dilate and outline 0.15.
                             outline_edge: 0.5 - 0.3 * 0.8333 / 2.0,
+                            bevel: false,
                         },
                     ));
                 });
@@ -1239,6 +1241,7 @@ fn spawn_main_menu(
                                         outline: Some(Color::srgb(1.0, 0.9882353, 0.8745098)),
                                         low: None,
                                         outline_edge: 0.5 - 0.26 * 0.8333 / 2.0,
+                                        bevel: false,
                                     },
                                 ),
                                 crate::letters::LetterSpacing(-2.0),

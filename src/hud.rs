@@ -436,6 +436,7 @@ fn build(
                             outline: Some(rgb(look.place_outlines[i])),
                             low: None,
                             outline_edge: edge,
+                            bevel: false,
                         },
                         crate::letters::LetterSpacing(spacing),
                     ));

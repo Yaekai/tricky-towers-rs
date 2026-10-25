@@ -197,6 +197,7 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                     outline: None,
                     low: None,
                     outline_edge: 0.0,
+                    bevel: false,
                 };
                 for i in 0..MAX_TOWERS {
                     panel

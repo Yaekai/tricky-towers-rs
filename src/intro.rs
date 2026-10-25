@@ -87,6 +87,7 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
     let outlined = TextLook {
     low: None,
     outline_edge: 0.0,
+    bevel: false,
         body: false,
         face: None,
         outline: TextLook::OUTLINED.outline,
