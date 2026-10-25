@@ -19,7 +19,39 @@ impl Plugin for CupsMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (spawn_cup_panel, spawn_cup_winner))
             .add_systems(Update, (show_cup_panel, show_cup_winner, celebrate, fly_winner).chain())
-            .add_systems(Update, medal_sounds);
+            .add_systems(Update, (medal_sounds, pop_overtime));
+    }
+}
+
+/// A "+N" overtime count that just changed, and seconds since: AnimateOvertimeMedalEffect's
+/// OvertimeIn clip squashes it 1.25, 0.85, 1.1 and back to 1 tall over 0.23 s.
+#[derive(Component)]
+struct OvertimePop(f32);
+
+const OVERTIME_IN: [(f32, f32); 4] = [(0.0, 1.25), (0.117, 0.85), (0.183, 1.1), (0.233, 1.0)];
+
+fn pop_overtime(
+    mut commands: Commands,
+    time: Res<Time>,
+    changed: Query<(Entity, &Part, &Text), Changed<Text>>,
+    mut pops: Query<(Entity, &mut OvertimePop, &mut UiTransform)>,
+) {
+    for (entity, part, text) in &changed {
+        if matches!(part, Part::Extra(_)) && !text.0.is_empty() {
+            commands.entity(entity).insert(OvertimePop(0.0));
+        }
+    }
+    for (entity, mut pop, mut transform) in &mut pops {
+        pop.0 += time.delta_secs();
+        let t = pop.0;
+        let y = OVERTIME_IN
+            .windows(2)
+            .find(|w| t <= w[1].0)
+            .map_or(1.0, |w| w[0].1 + (w[1].1 - w[0].1) * (t - w[0].0) / (w[1].0 - w[0].0));
+        transform.scale = Vec2::new(1.0, y);
+        if t >= OVERTIME_IN[3].0 {
+            commands.entity(entity).remove::<OvertimePop>();
+        }
     }
 }
 
