@@ -1313,6 +1313,8 @@ fn dress_bubbles(
     mut failed: RemovedComponents<crate::spells::BubbleFail>,
     children: Query<&Children>,
     bubbles: Query<(), With<BubbleSprite>>,
+    shapes: Query<&Brick>,
+    globals: Query<&GlobalTransform>,
 ) {
     // Every bubbled brick wears its bubble; it comes back if the brick's pictures were
     // redrawn (they take all its children with them).
@@ -1347,7 +1349,7 @@ fn dress_bubbles(
             Transform::from_xyz(0.0, 0.0, 0.5),
         ));
     }
-    // A bubble that goes pops (SFX_BUBBLE_POP).
+    // A bubble that goes pops (SFX_BUBBLE_POP) in its BUBBLE_POP_PARTICLE.
     for entity in popped.read().chain(failed.read()) {
         if bricks.contains(entity) {
             continue;
@@ -1357,6 +1359,20 @@ fn dress_bubbles(
             if bubbles.contains(child) {
                 commands.entity(child).despawn();
                 had = true;
+                if let (Ok(at), Ok(brick)) = (globals.get(child), shapes.get(entity)) {
+                    let max = brick.cells.iter().fold(0.0f32, |a, b| a.max(b.abs().max_element()));
+                    // Its size across in cells, not counting Large (width / scale).
+                    let across = (max * 2.0 + 1.0).round() as u32;
+                    let mut seed = entity.index_u32() | 1;
+                    crate::particles::bubble_pop(
+                        &mut commands,
+                        &art,
+                        config.cell_size,
+                        at.translation().truncate(),
+                        across,
+                        &mut seed,
+                    );
+                }
             }
         }
         if had && let Some(sound) = art.sounds.get("sfx_bubble_pop") {

@@ -229,6 +229,42 @@ pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, s
     }
 }
 
+/// BUBBLE_POP_PARTICLE_2..4 (BubblePop2-4, by the brick's size across): 15 white drops let go
+/// from a ring of radius 1.73, 2.73 or 3.73 cells, flying out at 15 to 120 cells/s slowed to
+/// 0.2 (dampen 0.6), 0.15 to 0.3 cells, mint to white, for 0.5 to 1 s.
+// ponytail: the size curve (up to 0.9 by 11%, full at 87%, gone at the end) is held flat.
+pub(crate) fn bubble_pop(commands: &mut Commands, art: &Art, c: f32, at: Vec2, across: u32, seed: &mut u32) {
+    let Some(image) = art.image("cast_droplet") else {
+        return;
+    };
+    let radius = across.clamp(2, 4) as f32 - 0.27;
+    for _ in 0..15 {
+        let way = Vec2::from_angle(roll(seed) * std::f32::consts::TAU);
+        let speed = (15.0 + 105.0 * roll(seed)) * c;
+        let size = (0.15 + 0.15 * roll(seed)) * c;
+        let k = roll(seed);
+        let color = Color::srgb(0.788 + 0.204 * k, 1.0 - 0.008 * k, 0.945 + 0.055 * k);
+        commands.spawn((
+            Particle {
+                velocity: way * speed,
+                gravity: 0.0,
+                time: 0.0,
+                life: 0.5 + 0.5 * roll(seed),
+                size: (size, size),
+                fade: false,
+                clamp: (0.2 * c, 0.6),
+            },
+            Sprite {
+                image: image.clone(),
+                color,
+                custom_size: Some(Vec2::splat(size)),
+                ..default()
+            },
+            Transform::from_translation((at + way * radius * c).extend(30.0)),
+        ));
+    }
+}
+
 /// DESTROY_WIZARD_PARTICLES (DestroyPoof), where a losing wizard goes: a size 4 flash for
 /// 0.15 s, 8 white discs thrown up and slowed to 2 cells/s, 5 stars slowed to 3 and 8 white
 /// discs slowed to 0.5 over 0.5 s.
