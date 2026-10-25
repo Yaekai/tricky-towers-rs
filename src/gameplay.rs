@@ -1947,11 +1947,12 @@ fn control_active_brick(
             continue;
         }
 
-        // Steered off the side and past the kill line (out of view in Survival and Puzzle):
-        // it counts as dropped.
+        // Steered off the side and past the kill line, or in Survival and Puzzle with its top
+        // under the view's bottom (LocalGamePlayController: however slowly it falls): it counts
+        // as dropped.
         let gone = if lost_out_of_view(&game) {
-            let at = Vec2::new(position.0.x - tower.origin_x, position.0.y) / c;
-            out_of_view(&config, &game, view, at, -drop_speed, brick.scale, false)
+            let top = control.query_shape.aabb(position.0, rotation).max.y / c + config.steer_inset * brick.scale;
+            top < view.0
         } else {
             position.0.y < -config.cells(config.kill_depth)
         };
