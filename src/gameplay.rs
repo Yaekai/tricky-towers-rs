@@ -41,6 +41,7 @@ impl Plugin for GameplayPlugin {
                     control_active_brick,
                     blow_wind,
                     push_wind,
+                    apply_kicks,
                     track_towers,
                     crate::spells::update_spell_lines,
                     crate::spells::run_curse_waves,
@@ -1185,8 +1186,10 @@ fn start_match(
     // seed only fixes the first one, so runs stay reproducible.
     let match_seed = config.seed ^ game.round.wrapping_mul(0x9E37_79B9_7F4A_7C15);
     let mut roll = config.seed ^ round.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    // PuzzleGameModeFactory: a whole number of cells picked with Random.Range(min, max) (max
+    // left out) plus 0.2, so the laser sits at the lowest height or 1, 2... cells above it.
     let laser = config.puzzle.line_height
-        + (xorshift(&mut roll) % 1001) as f32 / 1000.0 * config.puzzle.line_random;
+        + (xorshift(&mut roll) % (config.puzzle.line_random.max(0.0) as u64 + 1)) as f32;
     // Race wind blows to a random side for the whole match.
     let wind = match config.race.wind {
         Some(_) if config.mode == ModeKind::Race => {
@@ -1559,7 +1562,35 @@ fn spawn_next_brick(
 /// A push to give a brick once it is placed, in cells per second.
 struct Shove {
     entity: Entity,
-    velocity: Vec2,
+    /// Cells/s of speed given to a body of mass 1, pushed at `point` (world pixels).
+    impulse: Vec2,
+    point: Vec2,
+}
+
+/// An impulse waiting for its body to be dynamic (a brick placed this frame becomes so a frame
+/// later): BrickMovementController.Move's AddForceAtPosition(.., Impulse) at the contact point.
+#[derive(Component)]
+pub struct Kick {
+    pub impulse: Vec2,
+    pub point: Vec2,
+    frames: u8,
+}
+
+fn apply_kicks(
+    mut commands: Commands,
+    mut kicks: Query<(Entity, &mut Kick, &RigidBody, Forces)>,
+) {
+    for (entity, mut kick, body, mut forces) in &mut kicks {
+        if body.is_dynamic() {
+            forces.apply_linear_impulse_at_point(kick.impulse, kick.point);
+            commands.entity(entity).remove::<Kick>();
+        } else {
+            kick.frames += 1;
+            if kick.frames > 3 {
+                commands.entity(entity).remove::<Kick>();
+            }
+        }
+    }
 }
 
 /// Moves each controlled brick: moves, nudges, rotation and falling. The
@@ -1576,7 +1607,6 @@ fn control_active_brick(
     // Position and Rotation are read here and written back through commands,
     // because SpatialQuery already reads them for every collider.
     mut bricks: Query<(&mut ActiveBrick, &Brick, &Position, &Rotation)>,
-    mut velocities: Query<(&RigidBody, &mut LinearVelocity), Without<ActiveBrick>>,
     mut lost: MessageWriter<BrickLost>,
     mut nudged: MessageWriter<BrickNudged>,
 ) {
@@ -1740,18 +1770,20 @@ fn control_active_brick(
                     None => position.0.x += sign * want,
                     Some(hit) => {
                         position.0.x += sign * hit.distance;
-                        // Blocked by more than a little: bump the brick in the
-                        // way, and this one is placed.
-                        if want - hit.distance > config.cells(config.bump_threshold) {
+                        // Blocked by a quarter cell or more (KICKBACK_DEFAULT): this brick is
+                        // placed and kicked back, the one in the way kicked on, at the contact.
+                        if want - hit.distance >= config.cells(config.bump_threshold) {
                             placed = true;
                             let push = Vec2::X * sign;
                             shoves.push(Shove {
                                 entity,
-                                velocity: push * config.bump_impulse,
+                                impulse: -push * config.bump_impulse,
+                                point: hit.point1,
                             });
                             shoves.push(Shove {
                                 entity: hit.entity,
-                                velocity: push * config.bump_impulse_other,
+                                impulse: push * config.bump_impulse_other,
+                                point: hit.point1,
                             });
                         }
                     }
@@ -1771,12 +1803,13 @@ fn control_active_brick(
                     None => position.0.x += sign * want,
                     Some(hit) => {
                         position.0.x += sign * hit.distance;
-                        placed = true;
-                        for target in [entity, hit.entity] {
-                            shoves.push(Shove {
-                                entity: target,
-                                velocity: Vec2::X * sign * config.nudge_impulse,
-                            });
+                        // KICKBACK_NUDGE: blocked by a quarter cell or more, this brick is placed
+                        // and both are kicked 4.5 apart at the contact; less, it just stops short.
+                        if want - hit.distance >= config.cells(config.bump_threshold) {
+                            placed = true;
+                            let push = Vec2::X * sign * config.nudge_impulse;
+                            shoves.push(Shove { entity, impulse: -push, point: hit.point1 });
+                            shoves.push(Shove { entity: hit.entity, impulse: push, point: hit.point1 });
                         }
                     }
                 }
@@ -1890,15 +1923,16 @@ fn control_active_brick(
                 });
             }
             for shove in shoves {
-                let velocity = shove.velocity * c;
-                if shove.entity == entity {
-                    if !control.mods.petrify {
-                        commands.entity(entity).insert(LinearVelocity(velocity));
-                    }
-                } else if let Ok((RigidBody::Dynamic, mut v)) = velocities.get_mut(shove.entity) {
-                    v.0 += velocity;
-                    commands.queue_silenced(WakeBody(shove.entity));
+                if shove.entity == entity && control.mods.petrify {
+                    continue;
                 }
+                // The original's impulse in its units (a cell), so pixels here.
+                commands.entity(shove.entity).try_insert(Kick {
+                    impulse: shove.impulse * c,
+                    point: shove.point,
+                    frames: 0,
+                });
+                commands.queue_silenced(WakeBody(shove.entity));
             }
             state.active = None;
             state.bricks_placed += 1;
