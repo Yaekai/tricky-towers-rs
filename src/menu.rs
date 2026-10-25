@@ -998,7 +998,8 @@ pub const TILES: [Tile; 7] = [
 ];
 
 const SCREEN: (f32, f32) = (1920.0, 1080.0);
-/// How far a tile's name sits over its top edge (Max's title clip).
+/// How far a tile's name sits over its top edge (Max's title clip; the scene's text boxes put
+/// the names 1 to 6 px over, which drew them lower than the clip shows).
 const LABEL_UP: f32 = 10.0;
 /// The rotating sun-ray layers behind a selected tile's art.
 const RAY_LAYERS: usize = 5;
@@ -1102,6 +1103,9 @@ fn spawn_main_menu(
                     // Grey when not picked.
                     let mut back = t.spawn((fill(), shown_when(false)));
                     match image(&format!("menu_tile_{key}_deselected")) {
+                        // QuitButton's pictures are 9-sliced (borders left, right, top,
+                        // bottom); stretched, its 48 px picture's dark border grew 42% taller.
+                        Some(art) if key == "quit" => back.insert(crate::select::sliced(art, [34.0, 30.0, 15.0, 14.0])),
                         Some(art) => back.insert(ImageNode::new(art)),
                         None => back.insert(BackgroundColor(Color::srgb(
                             0.35 + r * 0.15,
@@ -1162,7 +1166,12 @@ fn spawn_main_menu(
                     }
                     for (part, picked) in [("_front_deselected", false), ("_front", true)] {
                         if let Some(art) = image(&format!("menu_tile_{key}{part}")) {
-                            t.spawn((ImageNode::new(art), front(), shown_when(picked)));
+                            let picture = if key == "quit" {
+                                crate::select::sliced(art, [50.0, 38.0, 22.0, 22.0])
+                            } else {
+                                ImageNode::new(art)
+                            };
+                            t.spawn((picture, front(), shown_when(picked)));
                         }
                     }
                     let corner = if small {
@@ -1207,26 +1216,33 @@ fn spawn_main_menu(
                     }
                     // The Help tile's big question mark.
                     if tile.key == "help" {
+                        // Its 200 x 154.4 box sits 1.6 px over the tile's middle.
                         t.spawn(Node {
                             position_type: PositionType::Absolute,
                             width: Val::Percent(100.0),
                             height: Val::Percent(100.0),
+                            top: Val::Percent(-1.6 / h * 100.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             ..default()
                         })
                         .with_children(|q| {
-                            // The original's "?" is dark with a white outline, 130.5 px.
-                            q.spawn(crate::select::label_with(
-                                130.5 / SCREEN.1 * 100.0,
-                                "?",
-                                crate::letters::TextLook {
-                                    body: false,
-                                    face: Some(Color::srgb(0.07, 0.055, 0.12)),
-                                    outline: Some(Color::WHITE),
-                                    low: None,
-                                    outline_edge: 0.0,
-                                },
+                            // The '?' in EnzoBlackMainMenuImage, 130.5 px, spaced -2: a near-black
+                            // face, a cream outline (dilate and outline 0.13) and a grey glow.
+                            q.spawn((
+                                crate::select::label_with(
+                                    130.5 / SCREEN.1 * 100.0,
+                                    "?",
+                                    crate::letters::TextLook {
+                                        body: false,
+                                        face: Some(Color::srgb(0.09411765, 0.02745098, 0.08627451)),
+                                        outline: Some(Color::srgb(1.0, 0.9882353, 0.8745098)),
+                                        low: None,
+                                        outline_edge: 0.5 - 0.26 * 0.8333 / 2.0,
+                                    },
+                                ),
+                                crate::letters::LetterSpacing(-2.0),
+                                crate::letters::TextGlow::MAIN_MENU_IMAGE,
                             ));
                         });
                     }

@@ -27,6 +27,10 @@ struct SdfLetter {
     // An outline drawn with its face in one pass (alpha above 0): the face's colour, cut at
     // edge.w; edge.y and edge.z place the face's top and height in the node for `low`.
     face: vec4<f32>,
+    // TextMeshPro's GLOW_ON (alpha above 0): its colour, and in the field its centre (the
+    // dilated edge less the offset), inner and outer reach and power.
+    glow: vec4<f32>,
+    glow_shape: vec4<f32>,
 };
 
 @group(1) @binding(0) var<uniform> material: SdfLetter;
@@ -51,7 +55,20 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     } else if material.low.a > 0.0 {
         c = mix(material.color, material.low, in.uv.y);
     }
-    return vec4(c.rgb, c.a * a);
+    // Premultiplied: a glow adds its colour inside the letter and lies over what is behind
+    // outside it (GetGlowColor: from the edge out over `outer` and in over `inner`, one pixel
+    // more, to the power).
+    var rgb = c.rgb * c.a * a;
+    var alpha = c.a * a;
+    if material.glow.a > 0.0 {
+        let g = material.glow_shape.x - d;
+        let t = select(material.glow_shape.y, material.glow_shape.z, g >= 0.0);
+        let v = clamp(abs(g) / (t + fwidth(d)), 0.0, 1.0);
+        let k = clamp(material.glow.a * (1.0 - pow(v, material.glow_shape.w)) * 2.0, 0.0, 1.0);
+        rgb = rgb + material.glow.rgb * k;
+        alpha = max(alpha, k);
+    }
+    return vec4(rgb, alpha);
 }
 "#;
 
@@ -72,11 +89,64 @@ pub struct SdfLook {
     pub edge: Vec4,
     pub low: Vec4,
     pub face: Vec4,
+    pub glow: Vec4,
+    pub glow_shape: Vec4,
 }
 
 impl bevy::ui_render::prelude::UiMaterial for SdfLetter {
     fn fragment_shader() -> bevy::shader::ShaderRef {
         bevy::shader::ShaderRef::Handle(SDF_SHADER)
+    }
+
+    fn specialize(
+        descriptor: &mut bevy::render::render_resource::RenderPipelineDescriptor,
+        _key: bevy::ui_render::prelude::UiMaterialKey<Self>,
+    ) {
+        if let Some(target) = descriptor.fragment.as_mut().and_then(|f| f.targets.first_mut()).and_then(|t| t.as_mut()) {
+            target.blend = Some(bevy::render::render_resource::BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+        }
+    }
+}
+
+/// A TextMeshPro material's glow (GLOW_ON), in its own units: colour, face dilate, glow
+/// offset, inner and outer reach, power, and the material's scale ratios A and B.
+#[derive(Component, Clone, Copy, PartialEq, Debug)]
+pub struct TextGlow {
+    pub color: Color,
+    pub dilate: f32,
+    pub offset: f32,
+    pub inner: f32,
+    pub outer: f32,
+    pub power: f32,
+    pub ratio_a: f32,
+    pub ratio_b: f32,
+}
+
+impl TextGlow {
+    /// EnzoBlackMainMenuImage (the title's "?"): a grey glow, dilate 0.13, offset 0.01, inner
+    /// 0.317, outer 0.197, power 0.64.
+    pub const MAIN_MENU_IMAGE: Self = Self {
+        color: Color::srgb(0.44705883, 0.41960785, 0.41960785),
+        dilate: 0.13,
+        offset: 0.01,
+        inner: 0.317,
+        outer: 0.197,
+        power: 0.64,
+        ratio_a: 0.8333333,
+        ratio_b: 0.72499996,
+    };
+
+    /// The shader's colour and shape: field units are half the material's, scaled by its ratios.
+    fn shader(&self) -> (Vec4, Vec4) {
+        (
+            Vec4::from_array(self.color.to_linear().to_f32_array()),
+            Vec4::new(
+                0.5 - 0.5 * self.dilate * self.ratio_a - 0.5 * self.offset * self.ratio_b,
+                0.5 * self.inner,
+                0.5 * self.outer * self.ratio_b,
+                self.power,
+            ),
+        )
     }
 }
 
@@ -316,6 +386,7 @@ struct LetterText {
     outline: Option<Color>,
     low: Option<Color>,
     outline_edge: f32,
+    glow: Option<TextGlow>,
 }
 
 /// The language files' names, in `settings::LANGUAGES` order (Finnish is `fl`).
@@ -569,6 +640,7 @@ fn letter_text(
     look: Option<&TextLook>,
     spacing: Option<&LetterSpacing>,
     fit: Option<&AutoSize>,
+    glow: Option<&TextGlow>,
     translations: &Translations,
     sheet: Option<&Letters>,
 ) -> LetterText {
@@ -583,18 +655,22 @@ fn letter_text(
     if let (Some(fit), Some(sheet)) = (fit, sheet) {
         size = fit_size(sheet, &words, size, spacing, fit);
     }
+    // A face or outline colour from the look still fades with the TextColor's alpha.
+    let fade = color.map_or(1.0, |c| c.0.alpha());
+    let faded = |c: Color| c.with_alpha(c.alpha() * fade);
     LetterText {
         spacing,
         text: words,
         size,
         view_height,
-        color: look.face.unwrap_or(color.map_or(Color::WHITE, |c| c.0)),
+        color: look.face.map(faded).unwrap_or(color.map_or(Color::WHITE, |c| c.0)),
         centered: layout.is_some_and(|l| l.justify == Justify::Center),
         right: layout.is_some_and(|l| l.justify == Justify::Right),
         body: look.body,
-        outline: look.outline,
-        low: look.low,
+        outline: look.outline.map(faded),
+        low: look.low.map(faded),
         outline_edge: look.outline_edge,
+        glow: glow.copied(),
     }
 }
 
@@ -617,6 +693,7 @@ fn mirror_texts(
             Option<&GlobalZIndex>,
             Option<&LetterSpacing>,
             Option<&AutoSize>,
+            Option<&TextGlow>,
         ),
         Without<MirroredBy>,
     >,
@@ -625,11 +702,11 @@ fn mirror_texts(
     if !art.letters.contains_key(FONT) {
         return;
     }
-    for (entity, text, font, color, layout, look, mut node, parent, z, spacing, fit) in &mut texts {
+    for (entity, text, font, color, layout, look, mut node, parent, z, spacing, fit, glow) in &mut texts {
         let mirror = commands
             .spawn((
                 node.clone(),
-                letter_text(text, font, color, layout, look, spacing, fit, &translations, display_sheet(&art)),
+                letter_text(text, font, color, layout, look, spacing, fit, glow, &translations, display_sheet(&art)),
                 Mirrors(entity),
             ))
             .id();
@@ -665,6 +742,7 @@ fn sync_mirrors(
             Option<&TextLook>,
             Option<&LetterSpacing>,
             Option<&AutoSize>,
+            Option<&TextGlow>,
         ),
         Or<(
             Changed<Text>,
@@ -672,13 +750,15 @@ fn sync_mirrors(
             Changed<TextFont>,
             Changed<TextLook>,
             Changed<LetterSpacing>,
+            Changed<AutoSize>,
+            Changed<TextGlow>,
         )>,
     >,
     mut mirrors: Query<&mut LetterText>,
 ) {
-    for (mirror, text, font, color, layout, look, spacing, fit) in &texts {
+    for (mirror, text, font, color, layout, look, spacing, fit, glow) in &texts {
         if let Ok(mut letters) = mirrors.get_mut(mirror.0) {
-            let new = letter_text(text, font, color, layout, look, spacing, fit, &translations, display_sheet(&art));
+            let new = letter_text(text, font, color, layout, look, spacing, fit, glow, &translations, display_sheet(&art));
             if *letters != new {
                 *letters = new;
             }
@@ -910,14 +990,21 @@ fn spawn_line(
                             let full = rect.3.max(0.001);
                             let face = if with_face { (linear(text.color), pad / full, gh / full) } else { (Vec4::ZERO, 0.0, 1.0) };
                             let low = low.map_or(Vec4::ZERO, linear);
+                            // The glow goes on the node that draws the face.
+                            let (glow, glow_shape) = text
+                                .glow
+                                .filter(|_| with_face || text.outline.is_none())
+                                .map_or((Vec4::ZERO, Vec4::ZERO), |g| g.shader());
                             let look = SdfLook {
                                 color: linear(color),
                                 rect: Vec4::new(rect.0 / size.x, rect.1 / size.y, rect.2 / size.x, rect.3 / size.y),
                                 edge: Vec4::new(edge, face.1, face.2, FACE_EDGE),
                                 low,
                                 face: face.0,
+                                glow,
+                                glow_shape,
                             };
-                            let key: Vec<u32> = [look.color, look.rect, look.edge, look.low, look.face]
+                            let key: Vec<u32> = [look.color, look.rect, look.edge, look.low, look.face, look.glow, look.glow_shape]
                                 .iter()
                                 .flat_map(|v| v.to_array())
                                 .map(f32::to_bits)

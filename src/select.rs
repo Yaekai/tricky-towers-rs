@@ -472,6 +472,11 @@ pub enum Part {
     /// The cup column's name ("Tiny Cup") and target ("First to 6 points").
     CupName,
     CupTarget,
+    /// The item before's cup name and target, sliding out as the column scrolls.
+    CupNamePrev,
+    CupTargetPrev,
+    /// The difficulty item before's name, sliding out.
+    ColumnNamePrev,
     /// The difficulty's name on its tile.
     ColumnName(usize),
     /// The difficulty tile's light and dark magic slots (0, 1), and what the difficulty takes
@@ -619,6 +624,9 @@ pub(crate) fn spawn_select_screens(
                         ..default()
                     },
                     Part::SeatJoinGlyph(seat),
+                    // A TMP sprite in the label's text, drawn at its own shape (a pad's
+                    // round button was stretched to the space bar's box).
+                    crate::ui_material::KeepShape,
                 ));
                 p.spawn((label_with(3.6, "", crate::letters::TextLook::TITLE), JOIN_FIT, Part::SeatJoin(seat)));
             });
@@ -726,7 +734,12 @@ pub(crate) fn spawn_select_screens(
     let modes = spawn_page(&mut commands, art, "Select Mode");
     commands.entity(modes).insert(ModesRoot);
     commands.entity(modes).with_children(|page| {
-        for (part, size, y) in [(Part::CupName, CUP_NAME_SIZE, CUP_NAME_Y), (Part::CupTarget, 28.0, CUP_TARGET_Y)] {
+        for (part, size, y) in [
+            (Part::CupName, CUP_NAME_SIZE, CUP_NAME_Y),
+            (Part::CupTarget, 28.0, CUP_TARGET_Y),
+            (Part::CupNamePrev, CUP_NAME_SIZE, CUP_NAME_Y),
+            (Part::CupTargetPrev, 28.0, CUP_TARGET_Y),
+        ] {
             // Over the column windows spawned after it, or the cards hide it.
             page.spawn((place((CUP_NAME_LINE, 100.0), (COLUMN_X[2], y)), ZIndex(1)))
                 .with_children(|n| {
@@ -783,16 +796,18 @@ pub(crate) fn spawn_select_screens(
                         Part::MagicIcon(slot),
                     ));
                 }
-                page.spawn(place((400.0, 100.0), (x, TILE_NAME_Y)))
-                    .with_children(|n| {
-                        n.spawn((
-                            label_with(60.0 / 10.8, "", crate::letters::TextLook::TITLE),
-                            Part::ColumnName(column),
-                            // DifficultyItem/CupItem names space -1 (SPECIAL and SUPER CUP -2,
-                            // set with their words).
-                            crate::letters::LetterSpacing(-1.0),
-                        ));
-                    });
+                for part in [Part::ColumnName(column), Part::ColumnNamePrev] {
+                    page.spawn(place((400.0, 100.0), (x, TILE_NAME_Y)))
+                        .with_children(|n| {
+                            n.spawn((
+                                label_with(60.0 / 10.8, "", crate::letters::TextLook::TITLE),
+                                part,
+                                // DifficultyItem/CupItem names space -1 (SPECIAL and SUPER CUP -2,
+                                // set with their words).
+                                crate::letters::LetterSpacing(-1.0),
+                            ));
+                        });
+                }
             }
             if column == 0 {
                 for (i, pick) in LOCAL_MODES.iter().chain(SINGLE_MODES.iter()).enumerate() {
@@ -804,15 +819,16 @@ pub(crate) fn spawn_select_screens(
                         },
                         None => crate::letters::TextLook::TITLE,
                     };
-                    page.spawn((
-                        place((400.0, 100.0), (x + dx, TILE_NAME_Y)),
-                        Visibility::Hidden,
-                        Part::ModeName(i),
-                    ))
+                    page.spawn(place((400.0, 100.0), (x + dx, TILE_NAME_Y)))
                     .with_children(|n| {
                         // ModeItem names space -1, SURVIVAL -2.
                         let spacing = if pick.name().eq_ignore_ascii_case("survival") { -2.0 } else { -1.0 };
-                        n.spawn((label_with(60.0 / 10.8, pick.name(), look), crate::letters::LetterSpacing(spacing)));
+                        n.spawn((
+                            label_with(60.0 / 10.8, pick.name(), look),
+                            crate::letters::LetterSpacing(spacing),
+                            Visibility::Hidden,
+                            Part::ModeName(i),
+                        ));
                     });
                 }
             }
@@ -1312,6 +1328,7 @@ pub(crate) fn show_select_screens(
             Option<&MaterialNode<crate::ui_material::TurningPicture>>,
             Option<&mut TextFont>,
             Option<&mut crate::letters::LetterSpacing>,
+            Option<&mut TextColor>,
         ),
         (Without<PlayersRoot>, Without<ModesRoot>),
     >,
@@ -1400,15 +1417,34 @@ pub(crate) fn show_select_screens(
         let x = (*since / SCROLL_SECONDS).min(1.0);
         slide[c] = *dir * (1.0 - x) * (1.0 - x);
     }
-    // A name shows once its item is less than half an item from its place (its alpha is
-    // 1 - 2 x the distance in the original).
+    // A name shows once its item is less than half an item from its place.
     let named = |c: usize| slide[c].abs() < 0.5;
+    // Item labels slide with their card and fade by its distance from its place
+    // (ModeSelectScrollPanelItemRenderer.SetVisibility: alpha 1 - 2 x the distance); the item
+    // before, `dir` back, shows too while it leaves.
+    let dirs: [f32; 3] = std::array::from_fn(|c| scroll[c].2);
+    let before = |c: usize, at: usize| (at as i32 - dirs[c] as i32).rem_euclid(counts[c].max(1) as i32) as usize;
+    let fade = |d: f32, transform: Option<Mut<UiTransform>>, color: Option<Mut<TextColor>>| -> bool {
+        let alpha = (1.0 - 2.0 * d.abs()).clamp(0.0, 1.0);
+        if let Some(mut transform) = transform {
+            let want = Val2::new(Val::Vh(0.0), Val::Vh(d * ITEM_PITCH / 10.8));
+            if transform.translation != want {
+                transform.translation = want;
+            }
+        }
+        if let Some(mut color) = color
+            && color.0.alpha() != alpha
+        {
+            color.0.set_alpha(alpha);
+        }
+        alpha > 0.0
+    };
     // A pack card pops when confirmed: 1.1 wide back to 1 over 0.6 s, out-elastic
     // (BrickPackScrollPanelItemRenderer.SetReady).
     for seat in 0..MAX_TOWERS {
         pops[seat] = lobby.confirmed[seat][1].then(|| pops[seat].map_or(0.0, |t| t + time.delta_secs()));
     }
-    for (part, mut v, mut node, image_node, transform, text, picture, font, spacing) in &mut parts {
+    for (part, mut v, mut node, image_node, transform, text, picture, font, spacing, color) in &mut parts {
         let want = match *part {
             Part::SeatIdle(seat) => !ready(seat),
             Part::SeatTaken(seat) => ready(seat),
@@ -1525,19 +1561,22 @@ pub(crate) fn show_select_screens(
                 turn_layer(layer, transform, picture);
                 lobby.confirmed[seat][1]
             }
-            Part::CupName | Part::CupTarget if !named(2) => false,
-            Part::CupName | Part::CupTarget => {
-                let size = cup_item
+            Part::CupNamePrev | Part::CupTargetPrev if slide[2] == 0.0 => false,
+            Part::CupName | Part::CupTarget | Part::CupNamePrev | Part::CupTargetPrev => {
+                let leaving = matches!(*part, Part::CupNamePrev | Part::CupTargetPrev);
+                let item = if leaving { before(2, cup_item) } else { cup_item };
+                let is_name = matches!(*part, Part::CupName | Part::CupNamePrev);
+                let size = item
                     .checked_sub(1)
                     .and_then(|i| config.cups.sizes.get(i));
-                let words = match (*part, size) {
-                    (Part::CupName, Some(size)) => size.name.to_uppercase(),
-                    (Part::CupName, None) => "SINGLE MATCH".to_string(),
-                    (_, Some(size)) => format!("First to {} points", size.target),
-                    (_, None) => String::new(),
+                let words = match (is_name, size) {
+                    (true, Some(size)) => size.name.to_uppercase(),
+                    (true, None) => "SINGLE MATCH".to_string(),
+                    (false, Some(size)) => format!("First to {} points", size.target),
+                    (false, None) => String::new(),
                 };
                 // The name auto-sizes (TMP, 60 down to 18) to fit its 400 px line.
-                if *part == Part::CupName
+                if is_name
                     && let (Some(art), Some(mut font)) = (art.as_ref(), font)
                 {
                     let wide = crate::letters::translated_width(art, &words, CUP_NAME_SIZE);
@@ -1556,12 +1595,18 @@ pub(crate) fn show_select_screens(
                 {
                     text.0 = words;
                 }
-                true
+                fade(slide[2] - if leaving { dirs[2] } else { 0.0 }, transform, color)
             }
             Part::ColumnName(2) => false,
-            Part::ColumnName(_) if !named(1) => false,
-            Part::ColumnName(_) => {
-                let name = difficulty.name().to_uppercase();
+            Part::ColumnNamePrev if slide[1] == 0.0 => false,
+            Part::ColumnName(_) | Part::ColumnNamePrev => {
+                let leaving = *part == Part::ColumnNamePrev;
+                let shown = if leaving {
+                    DifficultyPick::ALL[before(1, lobby.difficulty).min(DifficultyPick::ALL.len() - 1)]
+                } else {
+                    difficulty
+                };
+                let name = shown.name().to_uppercase();
                 // DifficultyItem03 (SPECIAL) spaces -2, the others -1.
                 if let Some(mut spacing) = spacing {
                     spacing.set_if_neq(crate::letters::LetterSpacing(if name == "SPECIAL" { -2.0 } else { -1.0 }));
@@ -1571,7 +1616,7 @@ pub(crate) fn show_select_screens(
                 {
                     text.0 = name;
                 }
-                true
+                fade(slide[1] - if leaving { dirs[1] } else { 0.0 }, transform, color)
             }
             Part::MagicSlot(_) | Part::MagicIcon(_) if !named(1) => false,
             Part::MagicSlot(slot) | Part::MagicIcon(slot) => {
@@ -1649,8 +1694,17 @@ pub(crate) fn show_select_screens(
                     _ => false,
                 }
             }
-            Part::ModeName(_) if !named(0) => false,
-            Part::ModeName(i) => LOCAL_MODES.iter().chain(SINGLE_MODES.iter()).nth(i) == Some(&mode),
+            Part::ModeName(i) => {
+                let pick = LOCAL_MODES.iter().chain(SINGLE_MODES.iter()).nth(i);
+                let leaving = modes[before(0, lobby.mode).min(modes.len() - 1)];
+                if pick == Some(&mode) {
+                    fade(slide[0], transform, color)
+                } else if slide[0] != 0.0 && pick == Some(&leaving) {
+                    fade(slide[0] - dirs[0], transform, color)
+                } else {
+                    false
+                }
+            }
             Part::Frame => {
                 // The frame slides to the active column.
                 move_node(&mut node, FRAME, (COLUMN_X[lobby.column] + FRAME_X, 0.0));

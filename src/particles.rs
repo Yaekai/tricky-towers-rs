@@ -247,6 +247,8 @@ pub(crate) struct Shaped {
     alpha: &'static [(f32, f32)],
     /// Where between the two size curves and the two gradients it sits.
     mix: f32,
+    /// Velocity over Lifetime: a constant push not held back by the limit (pixels/s).
+    drift: Vec2,
 }
 
 /// One kind of shaped particle, from a prefab's modules (cells and seconds).
@@ -261,6 +263,8 @@ struct ShapedKind {
     sizes: (&'static [(f32, f32)], &'static [(f32, f32)]),
     colours: (&'static [(f32, [f32; 3])], &'static [(f32, [f32; 3])]),
     alpha: &'static [(f32, f32)],
+    /// Velocity over Lifetime picked between -drift and drift on each axis (cells/s).
+    drift: f32,
 }
 
 /// Where the particles start and which way they go: a point (any way), a ring of this radius
@@ -301,6 +305,7 @@ fn spawn_shaped(commands: &mut Commands, art: &Art, c: f32, at: Vec2, from: &Emi
                 colours: kind.colours,
                 alpha: kind.alpha,
                 mix: roll(seed),
+                drift: Vec2::new(roll(seed) * 2.0 - 1.0, roll(seed) * 2.0 - 1.0) * kind.drift * c,
             },
             Sprite {
                 image: image.clone(),
@@ -346,7 +351,7 @@ fn move_shaped(
             let top = p.clamp.0;
             p.velocity *= (top + excess) / speed;
         }
-        transform.translation += (p.velocity * dt).extend(0.0);
+        transform.translation += ((p.velocity + p.drift) * dt).extend(0.0);
         transform.rotate_z(p.spin * dt);
         let k = p.mix;
         let size = keyed(p.sizes.0, t) + (keyed(p.sizes.1, t) - keyed(p.sizes.0, t)) * k;
@@ -375,7 +380,7 @@ pub(crate) fn bubble_pop(commands: &mut Commands, art: &Art, c: f32, at: Vec2, a
         spin: false,
         sizes: (GROW, GROW),
         colours: (MINT, PALE),
-        alpha: FLAT,
+        alpha: FLAT, drift: 0.0,
     };
     let radius = across.clamp(2, 4) as f32 - 0.27;
     spawn_shaped(commands, art, c, at, &Emit::Ring(radius), 30.0, &kind, seed);
@@ -405,20 +410,20 @@ pub(crate) fn destroy_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2,
     let kinds = [
         (Emit::Point, ShapedKind {
             image: "explosion_flash", count: 1, life: (0.15, 0.15), speed: (0.0, 0.0), size: (4.0, 4.0),
-            clamp: (f32::MAX, 0.0), spin: false, sizes: (FLAT, FLAT), colours: (FLASH, FLASH), alpha: HALF_FADE,
+            clamp: (f32::MAX, 0.0), spin: false, sizes: (FLAT, FLAT), colours: (FLASH, FLASH), alpha: HALF_FADE, drift: 0.0,
         }),
         (Emit::Edge(4.26), ShapedKind {
             image: "cast_droplet", count: 8, life: (1.0, 2.0), speed: (20.0, 80.0), size: (0.3, 0.8),
-            clamp: (2.0, 0.15), spin: true, sizes: (UP_A, UP_B), colours: (WHITE_KEYS, WHITE_KEYS), alpha: UP_FADE,
+            clamp: (2.0, 0.15), spin: true, sizes: (UP_A, UP_B), colours: (WHITE_KEYS, WHITE_KEYS), alpha: UP_FADE, drift: 0.0,
         }),
         (Emit::Edge(4.3), ShapedKind {
             image: "spark_star", count: 5, life: (1.0, 2.0), speed: (20.0, 200.0), size: (0.3, 0.5),
             clamp: (3.0, 0.3), spin: true, sizes: (STAR, STAR),
-            colours: (&WINNER_STAR_COLOURS[0], &WINNER_STAR_COLOURS[1]), alpha: LATE_FADE,
+            colours: (&WINNER_STAR_COLOURS[0], &WINNER_STAR_COLOURS[1]), alpha: LATE_FADE, drift: 0.0,
         }),
         (Emit::Point, ShapedKind {
             image: "cast_droplet", count: 8, life: (0.5, 0.5), speed: (50.0, 100.0), size: (0.5, 1.0),
-            clamp: (0.5, 0.28), spin: true, sizes: (OUT_A, OUT_B), colours: (WHITE_KEYS, WHITE_KEYS), alpha: LATE_FADE,
+            clamp: (0.5, 0.28), spin: true, sizes: (OUT_A, OUT_B), colours: (WHITE_KEYS, WHITE_KEYS), alpha: LATE_FADE, drift: 0.0,
         }),
     ];
     for (i, (from, kind)) in kinds.iter().enumerate() {
@@ -471,46 +476,97 @@ pub(crate) fn small_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, z
     );
 }
 
-/// Three small dust puffs under a brick as it lands.
+/// BrickImpactDustEffect: two frames after a brick (or the roof) is set down, a ray goes 0.3
+/// cells down from the bottom of each of its boxes, every 0.1 cells across until one hits
+/// something else of its tower and every 0.5 after, and BRICK_IMPACT_DUST rises at each hit:
+/// three puffs from a 0.1 circle at 4 cells/s held to 0.5 (dampen 1) plus a drift of up to 1
+/// each way, 0.1 to 0.5 cells, spinning up to a turn a second, for 0.2 to 0.8 s, full size to
+/// 56% of their life then shrinking away, near white, fading over the last 14%.
+#[allow(clippy::type_complexity)]
 fn landing_dust(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
-    bricks: Query<(Entity, &Transform, &crate::gameplay::Brick), Added<Placed>>,
+    spatial: avian2d::prelude::SpatialQuery,
+    placed: Query<Entity, Added<Placed>>,
     mut roofs: MessageReader<crate::gameplay::RoofPlaced>,
+    roof_pieces: Query<(Entity, &crate::gameplay::RoofPiece)>,
+    bodies: Query<(
+        &avian2d::prelude::Collider,
+        &avian2d::prelude::Position,
+        &avian2d::prelude::Rotation,
+        &avian2d::prelude::CollisionLayers,
+    )>,
+    mut due: Local<Vec<(Entity, u8)>>,
 ) {
+    use avian2d::prelude::*;
+    const SHRINK: &[(f32, f32)] = &[(0.0, 1.0), (0.558, 1.0), (1.0, 0.0)];
+    const DUST: &[(f32, [f32; 3])] = &[(0.0, [233.0, 237.0, 253.0]), (1.0, [232.0, 236.0, 253.0])];
+    const FADE: &[(f32, f32)] = &[(0.0, 1.0), (0.856, 1.0), (1.0, 0.0)];
+    let kind = ShapedKind {
+        image: "brick_impact_dust",
+        count: 3,
+        life: (0.2, 0.8),
+        speed: (4.0, 4.0),
+        size: (0.1, 0.5),
+        clamp: (0.5, 1.0),
+        spin: true,
+        sizes: (SHRINK, SHRINK),
+        colours: (DUST, DUST),
+        alpha: FADE,
+        drift: 1.0,
+    };
     let c = config.cell_size;
-    // The roof set down raises the same dust (ROOF_PLACED's BrickImpactDustEffect).
-    let landings: Vec<(Entity, Vec2)> = bricks
-        .iter()
-        .map(|(entity, transform, brick)| {
-            let low = brick.cells.iter().fold(f32::MAX, |m, p| m.min(p.y));
-            (entity, transform.translation.truncate() + Vec2::Y * (low - 0.5) * c * brick.scale)
-        })
-        .chain(roofs.read().map(|r| (r.tower, r.at)))
-        .collect();
-    for (entity, at) in landings {
+    due.extend(placed.iter().map(|e| (e, 0)));
+    for roof in roofs.read() {
+        due.extend(roof_pieces.iter().filter(|(_, r)| r.tower == roof.tower).map(|(e, _)| (e, 0)));
+    }
+    let mut ready = Vec::new();
+    due.retain_mut(|(entity, frames)| {
+        *frames += 1;
+        if *frames >= 2 {
+            ready.push(*entity);
+            false
+        } else {
+            true
+        }
+    });
+    for entity in ready {
+        let Ok((collider, position, rotation, layers)) = bodies.get(entity) else {
+            continue;
+        };
+        let filter = SpatialQueryFilter::from_mask(layers.memberships).with_excluded_entities([entity]);
+        // Each box's world bounds (Collider2D.bounds).
+        let shape = collider.shape_scaled();
+        let parts: Vec<(Vec2, f32, avian2d::parry::shape::SharedShape)> = match shape.as_compound() {
+            Some(compound) => compound
+                .shapes()
+                .iter()
+                .map(|(iso, part)| (Vec2::new(iso.translation.x, iso.translation.y), iso.rotation.angle(), part.clone()))
+                .collect(),
+            None => vec![(Vec2::ZERO, 0.0, shape.clone())],
+        };
         let mut seed = (entity.to_bits() as u32).wrapping_mul(7919) | 1;
-        burst(
-            &mut commands,
-            &art,
-            c,
-            at,
-            &mut seed,
-            Burst {
-                image: "brick_impact_dust",
-                color: Color::WHITE,
-                count: 3,
-                speed: 4.0,
-                clamp: (0.5, 1.0),
-                size: 0.5,
-                life: 0.8,
-                gravity: 0.0,
-                gravity_to: 0.0,
-                spread: Some(2.6),
-                z: 7.0,
-            },
-        );
+        for (offset, angle, part) in parts {
+            let local = part.compute_local_aabb();
+            let (lo, hi) = (Vec2::new(local.mins.x, local.mins.y), Vec2::new(local.maxs.x, local.maxs.y));
+            let turn = Rot2::radians(angle);
+            let corners = [lo, Vec2::new(hi.x, lo.y), hi, Vec2::new(lo.x, hi.y)]
+                .map(|p| position.0 + *rotation * (offset + turn * p));
+            let min = corners.iter().fold(Vec2::MAX, |m, p| m.min(*p));
+            let max_x = corners.iter().fold(f32::MIN, |m, p| m.max(p.x));
+            let mut x = min.x;
+            let mut hit_once = false;
+            while x <= max_x {
+                let from = Vec2::new(x, min.y);
+                if let Some(hit) = spatial.cast_ray(from, Dir2::NEG_Y, 0.3 * c, true, &filter) {
+                    hit_once = true;
+                    let at = from - Vec2::Y * hit.distance;
+                    spawn_shaped(&mut commands, &art, c, at, &Emit::Ring(0.1), 7.0, &kind, &mut seed);
+                }
+                x += if hit_once { 0.5 * c } else { 0.1 * c };
+            }
+        }
     }
 }
 
