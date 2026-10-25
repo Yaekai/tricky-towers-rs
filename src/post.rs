@@ -31,6 +31,9 @@ const GREY_WGSL: &str = r#"// The screen turned grey by `amount` (the original's
 struct GreyOut {
     params: vec4<f32>,
     pacer: vec4<f32>,
+    lanes: vec4<f32>,
+    shake_x: vec4<f32>,
+    shake_y: vec4<f32>,
 };
 
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
@@ -39,7 +42,21 @@ struct GreyOut {
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    let c = textureSample(screen_texture, texture_sampler, in.uv);
+    // A shaking player's lane (its own camera in the original) shows the screen moved by its
+    // shake, kept inside the lane.
+    var left = 0.0;
+    var right = 1.0;
+    var shift = vec2(0.0);
+    for (var i = 0; i < 4; i++) {
+        if in.uv.x < settings.lanes[i] {
+            right = settings.lanes[i];
+            shift = vec2(settings.shake_x[i], settings.shake_y[i]);
+            break;
+        }
+        left = settings.lanes[i];
+    }
+    let uv = clamp(in.uv + shift, vec2(left, 0.0), vec2(right, 1.0));
+    let c = textureSample(screen_texture, texture_sampler, uv);
     let s = linear_to_srgb(c.rgb);
     let g = dot(s, vec3(0.21, 0.72, 0.07));
     var o = mix(s, vec3(g), settings.params.x);
@@ -420,6 +437,11 @@ fn follow_grab(
 pub struct GreyOut {
     pub params: Vec4,
     pub pacer: Vec4,
+    /// Each lane's right edge on the screen (0 to 1, left to right; past the last, 2), and the
+    /// shift of each lane's picture this frame (screen shares; `effects::CameraShake`).
+    pub lanes: Vec4,
+    pub shake_x: Vec4,
+    pub shake_y: Vec4,
 }
 
 impl Default for GreyOut {
@@ -427,6 +449,46 @@ impl Default for GreyOut {
         Self {
             params: Vec4::new(0.0, 2.0, 0.0, 0.0),
             pacer: Vec4::ONE,
+            lanes: Vec4::splat(2.0),
+            shake_x: Vec4::ZERO,
+            shake_y: Vec4::ZERO,
+        }
+    }
+}
+
+/// Lays each shaking lane's shift on the camera: lanes split halfway between towers.
+fn follow_lane_shake(
+    shake: Option<Res<crate::effects::CameraShake>>,
+    towers: Query<&crate::gameplay::Tower>,
+    mut cameras: Query<(&Camera, &GlobalTransform, &mut GreyOut)>,
+) {
+    let offsets = shake.map_or([Vec2::ZERO; 4], |s| s.lane_offsets);
+    let mut order: Vec<(f32, usize)> = towers.iter().map(|t| (t.origin_x, t.index)).collect();
+    order.sort_by(|a, b| a.0.total_cmp(&b.0));
+    for (camera, at, mut grey) in &mut cameras {
+        let Some(size) = camera.logical_viewport_size() else {
+            continue;
+        };
+        let screen = |p: Vec2| camera.world_to_viewport(at, p.extend(0.0)).ok().map(|v| v / size);
+        let mut lanes = Vec4::splat(2.0);
+        let (mut sx, mut sy) = (Vec4::ZERO, Vec4::ZERO);
+        if order.len() > 1 {
+            for (slot, &(x, index)) in order.iter().take(4).enumerate() {
+                let edge = order.get(slot + 1).and_then(|&(next, _)| screen(Vec2::new((x + next) * 0.5, 0.0)));
+                lanes[slot] = edge.map_or(2.0, |e| e.x);
+                let off = offsets.get(index).copied().unwrap_or_default();
+                // The camera moves by the shake, so the picture moves the other way.
+                if let (Some(a), Some(b)) = (screen(Vec2::ZERO), screen(off)) {
+                    let d = b - a;
+                    sx[slot] = d.x;
+                    sy[slot] = d.y;
+                }
+            }
+        }
+        if grey.lanes != lanes || grey.shake_x != sx || grey.shake_y != sy {
+            grey.lanes = lanes;
+            grey.shake_x = sx;
+            grey.shake_y = sy;
         }
     }
 }
@@ -552,7 +614,7 @@ pub struct PostPlugin;
 impl Plugin for PostPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GreyTarget>()
-            .add_systems(Update, (follow_grey, follow_pacer));
+            .add_systems(Update, (follow_grey, follow_pacer, follow_lane_shake.after(crate::visuals::FramedCamera)));
         let Some(mut images) = app.world_mut().get_resource_mut::<Assets<Image>>() else {
             return;
         };

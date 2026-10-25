@@ -2838,19 +2838,10 @@ fn steer_roofs(
                 } else {
                     &rules.race
                 };
-                let c = config.cell_size;
-                let parts: Vec<_> = boxes
-                    .iter()
-                    .map(|b| {
-                        let size = Vec2::new(b.x.1 - b.x.0, b.y.1 - b.y.0) * c;
-                        let centre = Vec2::new(b.x.0 + b.x.1, b.y.0 + b.y.1) * 0.5 * c;
-                        (
-                            centre,
-                            Rotation::IDENTITY,
-                            Collider::rectangle(size.x, size.y),
-                        )
-                    })
-                    .collect();
+                // Steered like a brick, its boxes shrunk by the steering inset on every side
+                // (Brick's shrink amount 0.15), so its feet straddle a brick that is a little
+                // off the grid.
+                let parts = roof_collider(config.cell_size, boxes, config.steer_inset);
                 let at = Vec2::new(
                     tower.origin_x,
                     config.cells(state.stack_top + config.spawn_gap),
@@ -2864,7 +2855,7 @@ fn steer_roofs(
                         repeating: false,
                     },
                     RigidBody::Kinematic,
-                    Collider::compound(parts),
+                    parts,
                     Transform::from_translation(at.extend(0.0)),
                     Position(at),
                     Rotation::IDENTITY,
@@ -2881,16 +2872,24 @@ fn steer_roofs(
                 let right = std::mem::take(&mut input.right_pressed);
                 let nudge_left = std::mem::take(&mut input.nudge_left_pressed);
                 let nudge_right = std::mem::take(&mut input.nudge_right_pressed);
-                let filter = SpatialQueryFilter::from_excluded_entities([roof_entity]);
+                let filter = tower_filter(tower.index).with_excluded_entities([roof_entity]);
+                // Like BrickMovementController.Move: look the inset further, stop that much short.
+                let inset = config.cells(config.steer_inset);
                 let cast = |from: Vec2, dir: Dir2, max: f32| {
-                    spatial.cast_shape(
-                        shape,
-                        from,
-                        0.0,
-                        dir,
-                        &ShapeCastConfig::from_max_distance(max),
-                        &filter,
-                    )
+                    spatial
+                        .cast_shape(
+                            shape,
+                            from,
+                            0.0,
+                            dir,
+                            &ShapeCastConfig::from_max_distance(max + inset),
+                            &filter,
+                        )
+                        .map(|mut hit| {
+                            hit.distance = (hit.distance - inset).max(0.0);
+                            hit
+                        })
+                        .filter(|hit| hit.distance <= max)
                 };
                 let mut at = position.0;
                 let reach = config.cells(config.lane_reach(state.half_width));
@@ -2933,7 +2932,21 @@ fn steer_roofs(
                 match cast(at, Dir2::NEG_Y, fall) {
                     Some(hit) => {
                         at.y -= hit.distance;
-                        commands.entity(roof_entity).insert(RigidBody::Static);
+                        // LocalRoofController: on its first contact it is made physical (full
+                        // size less Brick's 0.005 shrink, falling, mass 1) and joins the tower,
+                        // which stays stopped; the physics settles it from there.
+                        let survival = roof.survival;
+                        let boxes = if survival { &rules.survival } else { &rules.race };
+                        let solid = roof_collider(config.cell_size, boxes, 0.005);
+                        let area: f32 = boxes.iter().map(|b| (b.x.1 - b.x.0 - 0.01) * (b.y.1 - b.y.0 - 0.01)).sum();
+                        commands.entity(roof_entity).insert((
+                            solid,
+                            ColliderDensity(config.brick_mass / (area * config.cell_size * config.cell_size).max(f32::EPSILON)),
+                            RigidBody::Dynamic,
+                            Friction::new(config.brick_friction),
+                            Restitution::new(config.brick_restitution),
+                            AngularDamping(config.angular_damping),
+                        ));
                         state.roof = RoofStage::Resting(0.0);
                         let bottom = shape.aabb(at, 0.0).min.y;
                         placed.write(RoofPlaced {
@@ -2963,6 +2976,20 @@ fn steer_roofs(
             RoofStage::Done => {}
         }
     }
+}
+
+/// A roof's compound collider from its boxes (cells), each shrunk by `shrink` cells a side.
+fn roof_collider(cell: f32, boxes: &[crate::config::BaseBox], shrink: f32) -> Collider {
+    Collider::compound(
+        boxes
+            .iter()
+            .map(|b| {
+                let size = (Vec2::new(b.x.1 - b.x.0, b.y.1 - b.y.0) - Vec2::splat(2.0 * shrink)).max(Vec2::splat(0.01)) * cell;
+                let centre = Vec2::new(b.x.0 + b.x.1, b.y.0 + b.y.1) * 0.5 * cell;
+                (centre, Rotation::IDENTITY, Collider::rectangle(size.x, size.y))
+            })
+            .collect(),
+    )
 }
 
 /// The wizard (0 for wizard 1) and brick pack a tower is drawn with. Looks only.

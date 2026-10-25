@@ -2340,6 +2340,40 @@ fn a_roof_steered_off_into_the_void_does_not_panic() {
 }
 
 #[test]
+fn a_survival_roof_straddles_a_square_brick_a_little_off_the_grid() {
+    use avian2d::prelude::*;
+    use tricky_towers::gameplay::{RoofPiece, RoofStage};
+    let mut config = fast_config();
+    config.survival.bricks_to_place = 3;
+    config.survival.finish_countdown = 0.5;
+    config.spawn_gap = 17.0;
+    let cell = config.cell_size;
+    let mut app = headless_app(config);
+    assert!(run_until(&mut app, 15.0, |app| tower(app, 0).roof == RoofStage::Steering));
+    // A 2 x 2 brick (0.99 of its cells, like a placed one) 0.1 cells right of the roof's middle,
+    // well over the tower.
+    let world = app.world_mut();
+    let origin = world.query::<&Tower>().iter(world).next().unwrap().origin_x;
+    let top = (tower(&mut app, 0).stack_top + 4.0) * cell;
+    let x = origin + 0.1 * cell;
+    app.world_mut().spawn((
+        RigidBody::Static,
+        Collider::rectangle(1.98 * cell, 1.98 * cell),
+        Transform::from_xyz(x, top - cell, 0.0),
+        Position(Vec2::new(x, top - cell)),
+    ));
+    assert!(run_until(&mut app, 30.0, |app| {
+        human_input(app).fast_fall_held = true;
+        tower(app, 0).roof == RoofStage::Done
+    }));
+    // Its feet (1 cell tall, their bottoms 9.38 under the roof's origin) came down round the
+    // brick rather than resting on its top.
+    let world = app.world_mut();
+    let roof = world.query_filtered::<&Position, With<RoofPiece>>().single(world).unwrap().0;
+    assert!(roof.y - 9.38 * cell < top - 0.5 * cell, "roof feet at {} over a brick top at {}", (roof.y - 9.38 * cell) / cell, top / cell);
+}
+
+#[test]
 fn a_trial_has_its_own_floor_lane_and_rival_tower() {
     use tricky_towers::gameplay::{Platform, RivalLane};
     let mut config = fast_config();

@@ -88,18 +88,21 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
         face: None,
         outline: TextLook::OUTLINED.outline,
     };
-    let words = |size: f32| {
+    // ModeTitleMessage*'s Label (EnzoBlackGold46) and OvertimeLabel (EnzoBlackGold26), spaced
+    // -1, auto-sized from their largest size (160 and 46 px) to fit the band less 400 and 500
+    // px; `title_words` keeps the fit to the band as it opens.
+    let words = |size: f32, look: TextLook| {
         (
             Text::new(""),
-            // ModeTitleMessage* and CountdownMessage space -1.
             crate::letters::LetterSpacing(-1.0),
             TextFont {
-                font_size: FontSize::Vh(size),
+                font_size: FontSize::Vh(size / 10.8),
                 ..default()
             },
             TextColor(GOLD),
             TextLayout::justify(Justify::Center),
-            outlined,
+            look,
+            crate::letters::AutoSize { min: 18.0 / 10.8, width: f32::MAX },
         )
     };
     for d in 0..3 {
@@ -120,16 +123,6 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
             Part::Band(d),
         ));
         band.with_children(|band| {
-            let (left, right) = look.title_slice[d];
-            let mut fill = band.spawn(Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..default()
-            });
-            if let Some(picture) = image(&format!("menu_mode_title_background_{art_name}")) {
-                fill.insert(sliced(picture, [left, right, 0.0, 0.0]));
-            }
             // The ribbon ends hang off each end, the right one mirrored.
             let side = image(&format!("menu_mode_title_side_{art_name}"));
             let (dx, dy) = look.title_side_at;
@@ -157,6 +150,18 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
                     });
                 }
             }
+            // The band over its ends (ModeTitleMessage*: BackgroundLeft/Right come before
+            // BackgroundSprite), so the ends show only below and beside it.
+            let (left, right) = look.title_slice[d];
+            let mut fill = band.spawn(Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            });
+            if let Some(picture) = image(&format!("menu_mode_title_background_{art_name}")) {
+                fill.insert(sliced(picture, [left, right, 0.0, 0.0]));
+            }
             let star = image(&format!("menu_mode_title_star_{art_name}"));
             for &from_end in &look.title_stars[d] {
                 for flip in [false, true] {
@@ -180,9 +185,9 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
                 }
             }
             // The words' bottom sits `title_bottom` below the band's centre.
-            for (part, size, bottom) in [
-                (Part::Words(d), look.title_size, look.title_bottom),
-                (Part::Overtime(d), look.overtime_size, look.overtime_bottom),
+            for (part, size, bottom, face) in [
+                (Part::Words(d), 160.0, look.title_bottom, TextLook::GOLD),
+                (Part::Overtime(d), 46.0, look.overtime_bottom, TextLook::GOLD_75),
             ] {
                 band.spawn((
                     Node {
@@ -193,7 +198,7 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
                         justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    children![(words(size), part)],
+                    children![(words(size, face), part)],
                 ));
             }
         });
@@ -388,7 +393,7 @@ fn show_title(
     )>,
     mut images: Query<&mut ImageNode>,
     kids: Query<&Children>,
-    mut words: Query<(&Part, &mut Text, &mut TextColor)>,
+    mut words: Query<(&Part, &mut Text, &mut TextColor, &mut crate::letters::AutoSize)>,
 ) {
     let look = &config.intro;
     let d = intro.difficulty;
@@ -452,7 +457,16 @@ fn show_title(
         _ => "PUZZLE",
     };
     let difficulty = ["EASY", "NORMAL", "SPECIAL"][d];
-    for (part, mut text, mut color) in &mut words {
+    let band_width = curve(&look.title_widths[d], t);
+    for (part, mut text, mut color, mut fit) in &mut words {
+        // The labels sit 200 and 250 px in from the band's ends.
+        let room = match *part {
+            Part::Words(_) => band_width - 400.0,
+            _ => band_width - 500.0,
+        } / 10.8;
+        if fit.width != room {
+            fit.width = room.max(0.0);
+        }
         let want = match *part {
             Part::Words(band) if band == d => format!("{mode} {difficulty}"),
             Part::Overtime(band) if band == d && intro.overtime => "OVERTIME".to_string(),

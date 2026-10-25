@@ -429,6 +429,12 @@ pub(crate) struct CameraShake {
     /// Random jumps of up to this many pixels each way, every frame, while this brick is
     /// still in hand (Large's BrickCameraShakeEffect stops when the brick touches anything).
     pub(crate) held: Vec<(Entity, f32)>,
+    /// Shakes of one player's own camera in a battle (each tower has its camera in the
+    /// original): tower index, reach in pixels, seconds left. Drawn by shifting that lane's
+    /// part of the screen (`post::GreyOut::shake`).
+    pub(crate) lane_kicks: Vec<(usize, Vec2, f32)>,
+    /// This frame's shift of each lane by tower index, in world pixels.
+    pub(crate) lane_offsets: [Vec2; 4],
     applied: Vec2,
     seed: u32,
 }
@@ -638,12 +644,18 @@ fn stop_rumble(mut commands: Commands, time: Res<Time>, mut rumbles: Query<(Enti
 /// A roof set down shakes the camera (ROOF_PLACED's CameraShakeEffect).
 fn shake_for_roofs(
     config: Res<GameConfig>,
+    towers: Query<&crate::gameplay::Tower>,
     mut roofs: MessageReader<crate::gameplay::RoofPlaced>,
     mut shake: ResMut<CameraShake>,
 ) {
-    for _ in roofs.read() {
+    let solo = towers.iter().count() == 1;
+    for roof in roofs.read() {
         let (x, y, seconds) = config.moments.roof_shake;
-        shake.kicks.push((Vec2::new(x, y) * config.cell_size, seconds));
+        let reach = Vec2::new(x, y) * config.cell_size;
+        match towers.get(roof.tower) {
+            Ok(tower) if !solo => shake.lane_kicks.push((tower.index, reach, seconds)),
+            _ => shake.kicks.push((reach, seconds)),
+        }
     }
 }
 
@@ -655,35 +667,46 @@ const LOST_SHAKE: (f32, f32, f32) = (0.2, 0.26, 0.2);
 /// BRICK_NUDGED's CameraShakeEffect.
 const NUDGE_SHAKE: (f32, f32, f32) = (0.2, 0.07, 0.1);
 
-// ponytail: the original shakes only that player's own camera; with one camera for every
-// lane these run only when a single tower plays (trials, Endless). Per-lane cameras would
-// let battles shake too.
+// The original shakes that player's own camera: with one tower that is the camera; in a
+// battle its lane of the screen shifts instead (`CameraShake::lane_kicks`).
 fn shake_for_bricks(
     config: Res<GameConfig>,
     game: Res<crate::gameplay::Match>,
-    towers: Query<&crate::gameplay::TowerState>,
+    towers: Query<(&crate::gameplay::Tower, &crate::gameplay::TowerState)>,
     placed: Query<&Brick, Added<crate::gameplay::Placed>>,
+    bricks: Query<&Brick>,
     mut lost: MessageReader<BrickLost>,
     mut nudged: MessageReader<crate::gameplay::BrickNudged>,
     mut shake: ResMut<CameraShake>,
 ) {
-    let mut kick = |(x, y, seconds): (f32, f32, f32), k: f32| {
-        shake.kicks.push((Vec2::new(x, y) * k * config.cell_size, seconds * if k > 1.0 { 1.5 } else { 1.0 }));
-    };
     let solo = towers.iter().count() == 1;
-    let life_lost = lost.read().any(|l| l.life);
-    let nudges = nudged.read().count();
-    if !solo || game.phase != crate::gameplay::Phase::Playing {
+    let mut kick = |tower: usize, (x, y, seconds): (f32, f32, f32), k: f32| {
+        let reach = Vec2::new(x, y) * k * config.cell_size;
+        let seconds = seconds * if k > 1.0 { 1.5 } else { 1.0 };
+        if solo {
+            shake.kicks.push((reach, seconds));
+        } else {
+            shake.lane_kicks.push((tower, reach, seconds));
+        }
+    };
+    let index = |tower: Entity| towers.get(tower).ok().map(|(t, _)| t.index);
+    let lost: Vec<usize> = lost.read().filter(|l| l.life).map(|l| l.tower).collect();
+    let nudged: Vec<usize> = nudged
+        .read()
+        .filter_map(|n| bricks.get(n.brick).ok().and_then(|b| index(b.tower)))
+        .collect();
+    if game.phase != crate::gameplay::Phase::Playing {
         return;
     }
     for brick in &placed {
-        kick(PLACED_SHAKE, if brick.scale > 1.0 { 2.0 } else { 1.0 });
+        let Some(tower) = index(brick.tower) else { continue };
+        kick(tower, PLACED_SHAKE, if brick.scale > 1.0 { 2.0 } else { 1.0 });
     }
-    if life_lost {
-        kick(LOST_SHAKE, 1.0);
+    for tower in lost {
+        kick(tower, LOST_SHAKE, 1.0);
     }
-    if nudges > 0 {
-        kick(NUDGE_SHAKE, 1.0);
+    for tower in nudged {
+        kick(tower, NUDGE_SHAKE, 1.0);
     }
 }
 
@@ -981,14 +1004,25 @@ fn shake_camera(
         *left -= dt;
         *left > 0.0
     });
+    shake.lane_kicks.retain_mut(|(_, _, left)| {
+        *left -= dt;
+        *left > 0.0
+    });
     shake.held.retain(|(brick, _)| in_hand.contains(*brick));
-    let t = time.elapsed_secs();
-    let mut offset = shake
-        .kicks
-        .iter()
-        .map(|(reach, _)| Vec2::new(reach.x * (t * 61.0).sin(), reach.y * (t * 47.0).cos()))
-        .sum::<Vec2>();
-    let mut seed = shake.seed | 1;
+    let mut seed = (shake.seed | 1) ^ (time.elapsed_secs().to_bits());
+    // AbstractShakeEffect: a random place within the reach each frame; with several running,
+    // the last one started sets it.
+    let jump = |reach: Vec2, seed: &mut u32| {
+        Vec2::new(roll(seed) * 2.0 - 1.0, roll(seed) * 2.0 - 1.0) * reach
+    };
+    let mut offset = shake.kicks.last().map_or(Vec2::ZERO, |&(reach, _)| jump(reach, &mut seed));
+    let mut lanes = [Vec2::ZERO; 4];
+    for (lane, slot) in lanes.iter_mut().enumerate() {
+        if let Some(&(_, reach, _)) = shake.lane_kicks.iter().rev().find(|k| k.0 == lane) {
+            *slot = jump(reach, &mut seed);
+        }
+    }
+    shake.lane_offsets = lanes;
     for (_, reach) in shake.held.clone() {
         offset += Vec2::new(roll(&mut seed) * 2.0 - 1.0, roll(&mut seed) * 2.0 - 1.0) * reach;
     }
