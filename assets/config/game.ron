@@ -1628,10 +1628,6 @@
         line_spacing_per_extra_player: 0.25,
         line_wait: 18.0,
         line_wait_per_extra_player: 0.25,
-        line_wait_extra_on: [
-            Normal,
-            Pro,
-        ],
         line_slide_speed: 0.5,
         line_catch_up_beyond: 9.0,
         line_catch_up_rate: 0.5,

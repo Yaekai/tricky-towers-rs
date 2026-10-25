@@ -1177,11 +1177,10 @@ pub struct MagicRules {
     pub line_spacing: f32,
     /// Extra spacing per player beyond two, as a fraction.
     pub line_spacing_per_extra_player: f32,
-    /// Race: seconds a new line waits before sliding down to the tower.
+    /// Race and Survival battles: seconds a new line waits before sliding down to the tower.
     pub line_wait: f32,
-    /// Extra wait per player beyond two, as a fraction, on these difficulties only.
+    /// Extra wait per player beyond two, as a fraction (where the spacing grows too; spells.rs).
     pub line_wait_per_extra_player: f32,
-    pub line_wait_extra_on: Vec<Difficulty>,
     /// Race: cells per second a waiting line slides down.
     pub line_slide_speed: f32,
     /// A line further above the tower than this slides faster, by half the excess.
@@ -1313,7 +1312,6 @@ impl Default for MagicRules {
             line_spacing_per_extra_player: 0.25,
             line_wait: 18.0,
             line_wait_per_extra_player: 0.25,
-            line_wait_extra_on: vec![Difficulty::Normal, Difficulty::Pro],
             line_slide_speed: 0.5,
             line_catch_up_beyond: 9.0,
             line_catch_up_rate: 0.5,
@@ -1516,15 +1514,6 @@ impl MagicRules {
     pub fn spacing(&self, players: usize) -> f32 {
         let extra = players.saturating_sub(2) as f32;
         self.line_spacing * (1.0 + self.line_spacing_per_extra_player * extra)
-    }
-
-    /// Seconds a new race line waits with `players` players in the match.
-    pub fn wait(&self, players: usize, difficulty: Difficulty) -> f32 {
-        if !self.line_wait_extra_on.contains(&difficulty) {
-            return self.line_wait;
-        }
-        let extra = players.saturating_sub(2) as f32;
-        self.line_wait * (1.0 + self.line_wait_per_extra_player * extra)
     }
 
     pub fn dark_set(&self, name: &str) -> Option<&DarkSet> {
@@ -4367,9 +4356,6 @@ mod tests {
             })
         };
         assert!(minibase(Difficulty::Pro) && !minibase(Difficulty::Normal));
-        // The line wait grows with players on Normal and Pro, not on Easy.
-        assert_eq!(magic.wait(4, Difficulty::Easy), magic.line_wait);
-        assert_eq!(magic.wait(4, Difficulty::Pro), magic.line_wait * 1.5);
     }
 
     #[test]

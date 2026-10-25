@@ -286,6 +286,7 @@ const ENZO_BLACK: crate::letters::TextLook = crate::letters::TextLook {
     outline: None,
     low: None,
     outline_edge: 0.0,
+    bevel: false,
 };
 /// EnzoBlackWhite32: white face, dark outline (dilate and outline 0.3).
 const ENZO_WHITE: crate::letters::TextLook = crate::letters::TextLook {
@@ -294,6 +295,7 @@ const ENZO_WHITE: crate::letters::TextLook = crate::letters::TextLook {
     outline: Some(Color::srgb(0.169, 0.035, 0.137)),
     low: None,
     outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
+    bevel: false,
 };
 /// `menu_button_background`'s 9-slice borders, as on the Settings rows.
 const BUTTON_SLICE: [f32; 4] = [18.0, 71.0, 15.0, 16.0];

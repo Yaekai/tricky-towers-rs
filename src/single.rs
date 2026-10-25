@@ -187,6 +187,7 @@ const LIST_LOOKS: [(crate::letters::TextLook, f32); 3] = [
             low: None,
             // Dilate and outline 0.3 (EnzoBlackWhite32).
             outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
+            bevel: false,
         },
         32.0,
     ),
@@ -207,6 +208,7 @@ const LIST_LOOKS: [(crate::letters::TextLook, f32); 3] = [
             low: None,
             // Dilate and outline 0.3 (EnzoBlackWhite32).
             outline_edge: 0.5 - 0.6 * 0.8333 / 2.0,
+            bevel: false,
         },
         32.0,
     ),

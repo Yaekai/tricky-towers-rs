@@ -178,9 +178,22 @@ pub(crate) fn update_spell_lines(
         return;
     }
     let trial_lines = trial_lines.flatten();
+    // Race and Survival battles' lines slide down to the tower (MoveDownLineSpellContainer);
+    // trials', Puzzle battles' and the Endless modes' stay where they are.
+    let difficulty = config.difficulty.unwrap_or_default();
+    let sliding = matches!(game.mode, ModeKind::Race | ModeKind::Survival) && config.trial.is_none();
+    // The spacing and the slide's wait grow a quarter per extra player (the factories'
+    // extra share): not in Race Easy nor Survival Easy and Pro, whose MoveDown factories keep
+    // 0; the still lines' default factory always grows.
+    let grows = match (sliding, game.mode, difficulty) {
+        (false, ..) => true,
+        (true, ModeKind::Race, d) => d != crate::config::Difficulty::Easy,
+        (true, _, d) => d == crate::config::Difficulty::Normal,
+    };
+    let counted = if grows { game.players } else { 1 };
     let spacing = match &trial_lines {
         Some(lines) => lines.every * (1.0 + 0.25 * game.players.saturating_sub(1) as f32),
-        None => magic.spacing(game.players),
+        None => magic.spacing(counted),
     };
     let building: Vec<f32> = towers
         .iter()
@@ -203,16 +216,19 @@ pub(crate) fn update_spell_lines(
         }
         let Some(mut line) = state.spell_line else {
             // Endless Race's lines are checkpoints at set heights.
+            // A sliding line starts its spacing over the tower (MoveDownSpellContainerSpawner);
+            // still ones every spacing from the ground up (SpellContainerSpawner).
             state.spell_line = Some(if game.mode == ModeKind::Endless {
                 config.endless.line_height(state.lines_reached)
+            } else if sliding {
+                height + spacing
             } else {
-                state.next_line.max(height + spacing)
+                state.next_line.max(spacing)
             });
-            state.line_wait = magic.wait(game.players, config.difficulty.unwrap_or_default());
+            state.line_wait = magic.line_wait * (1.0 + magic.line_wait_per_extra_player * counted.saturating_sub(2) as f32);
             continue;
         };
-        // Race lines slide down to the tower; Endless Race's stay at their checkpoint.
-        if game.mode == ModeKind::Race {
+        if sliding {
             let above = line - height;
             if above > magic.line_rush_beyond || state.line_wait <= 0.0 {
                 let speed = magic.line_slide_speed

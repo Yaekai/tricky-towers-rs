@@ -1320,6 +1320,24 @@ fn race_spell_line_slides_down_after_waiting() {
 }
 
 #[test]
+fn survival_battle_lines_slide_like_race_ones() {
+    for (mode, slides) in [(ModeKind::Survival, true)] {
+        let mut config = fast_config();
+        config.mode = mode;
+        config.magic.enabled = true;
+        config.magic.line_wait = 0.2;
+        config.magic.line_spacing = 20.0;
+        config.magic.line_rush_beyond = 100.0;
+        let mut app = headless_app(config);
+        run_seconds(&mut app, 0.1, |_| {});
+        let first = tower(&mut app, 0).spell_line.expect("a spell line");
+        run_seconds(&mut app, 1.0, |_| {});
+        let later = tower(&mut app, 0).spell_line.expect("a spell line");
+        assert_eq!(later < first, slides, "{mode:?}: {first} then {later}");
+    }
+}
+
+#[test]
 #[ignore = "slow: about two minutes of AI matches"]
 fn stress_ai_spells() {
     for seed in 1..13u64 {
