@@ -65,6 +65,9 @@ struct Intro {
     race: bool,
 }
 
+/// How much narrower than the band each difficulty's title and OVERTIME labels are (px).
+const TITLE_INSETS: [(f32, f32); 3] = [(200.0, 200.0), (400.0, 500.0), (560.0, 700.0)];
+
 const GOLD: Color = Color::srgb(1.0, 0.824, 0.314);
 
 #[derive(Component, Clone, Copy, PartialEq)]
@@ -90,7 +93,7 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
     };
     // ModeTitleMessage*'s Label (EnzoBlackGold46) and OvertimeLabel (EnzoBlackGold26), spaced
     // -1, auto-sized from their largest size (160 and 46 px) to fit the band less 400 and 500
-    // px; `title_words` keeps the fit to the band as it opens.
+    // px (Normal's; `TITLE_INSETS`), kept fitted to the band as it opens.
     let words = |size: f32, look: TextLook| {
         (
             Text::new(""),
@@ -459,10 +462,12 @@ fn show_title(
     let difficulty = ["EASY", "NORMAL", "SPECIAL"][d];
     let band_width = curve(&look.title_widths[d], t);
     for (part, mut text, mut color, mut fit) in &mut words {
-        // The labels sit 200 and 250 px in from the band's ends.
+        // Each ModeTitleMessage's Label and OvertimeLabel are narrower than the band by their
+        // own amounts (Easy 200 and 200, Normal 400 and 500, Special 560 and 700 px).
+        let (words_in, overtime_in) = TITLE_INSETS[d];
         let room = match *part {
-            Part::Words(_) => band_width - 400.0,
-            _ => band_width - 500.0,
+            Part::Words(_) => band_width - words_in,
+            _ => band_width - overtime_in,
         } / 10.8;
         if fit.width != room {
             fit.width = room.max(0.0);
