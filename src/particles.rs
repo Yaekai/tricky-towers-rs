@@ -36,6 +36,7 @@ impl Plugin for ParticlesPlugin {
                 fade_wave_messages,
                 (clip_fields, move_clip_sparks).chain(),
                 move_ui_stars,
+                move_winner_stars,
             ),
         );
     }
@@ -1099,6 +1100,120 @@ fn move_clip_sparks(
             sprite.color.set_alpha(alpha);
         }
         transform.translation += (spark.velocity * dt).extend(0.0);
+    }
+}
+
+/// WINNER_STARS_PARTICLE: 15 stars thrown out at once from a point, 50 to 100 cells/s,
+/// slowed to 0.5 (Limit Velocity, dampen 0.4 a frame), 0.6 to 0.8 cells, spinning up to a
+/// turn a second either way, for 1.5 s; each runs its colour through one of two rainbow
+/// gradients (or between them) and fades from 86% of its life.
+#[derive(Component)]
+pub(crate) struct WinnerStar {
+    velocity: Vec2,
+    spin: f32,
+    age: f32,
+    size: f32,
+    mix: f32,
+}
+
+const WINNER_STAR_LIFE: f32 = 1.5;
+/// The two colour gradients (time, r, g, b; 0 to 255), the size curve (time, share, times
+/// the module's 1.2) and when the alpha starts to fall.
+const WINNER_STAR_COLOURS: [[(f32, [f32; 3]); 7]; 2] = [
+    [
+        (0.0, [255.0, 231.0, 38.0]),
+        (0.394, [249.0, 255.0, 150.0]),
+        (0.45, [255.0, 255.0, 255.0]),
+        (0.521, [28.0, 255.0, 48.0]),
+        (0.594, [255.0, 255.0, 255.0]),
+        (0.679, [255.0, 17.0, 81.0]),
+        (0.753, [255.0, 255.0, 255.0]),
+    ],
+    [
+        (0.0, [255.0, 177.0, 38.0]),
+        (0.391, [255.0, 105.0, 37.0]),
+        (0.45, [255.0, 255.0, 255.0]),
+        (0.521, [28.0, 255.0, 48.0]),
+        (0.594, [255.0, 255.0, 255.0]),
+        (0.688, [161.0, 36.0, 255.0]),
+        (0.753, [255.0, 255.0, 255.0]),
+    ],
+];
+const WINNER_STAR_SIZE: [(f32, f32); 4] = [(0.0, 0.826), (0.799, 0.8425), (0.884, 1.0), (1.0, 0.0)];
+const WINNER_STAR_FADE: f32 = 0.856;
+
+/// Throws the winner's stars out from `at` (pixels), as PuzzleGameBaskController does at the
+/// count once WINNER! has moved in.
+pub(crate) fn winner_stars(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32) {
+    let Some(image) = art.image("spark_star") else {
+        return;
+    };
+    for _ in 0..15 {
+        let angle = roll(seed) * std::f32::consts::TAU;
+        let speed = (50.0 + 50.0 * roll(seed)) * c;
+        let size = (0.6 + 0.2 * roll(seed)) * c * 1.2;
+        commands.spawn((
+            WinnerStar {
+                velocity: Vec2::from_angle(angle) * speed,
+                spin: (roll(seed) * 2.0 - 1.0) * std::f32::consts::TAU,
+                age: 0.0,
+                size,
+                mix: roll(seed),
+            },
+            Sprite {
+                image: image.clone(),
+                custom_size: Some(Vec2::ZERO),
+                ..default()
+            },
+            Transform::from_translation(at.extend(470.0)),
+        ));
+    }
+}
+
+fn move_winner_stars(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut stars: Query<(Entity, &mut WinnerStar, &mut Transform, &mut Sprite)>,
+) {
+    let dt = time.delta_secs();
+    let top = 0.5 * config.cell_size;
+    let along = |keys: &[(f32, f32)], t: f32| {
+        keys.windows(2)
+            .find(|w| t <= w[1].0)
+            .map_or(keys[keys.len() - 1].1, |w| {
+                w[0].1 + (w[1].1 - w[0].1) * ((t - w[0].0) / (w[1].0 - w[0].0).max(1e-4))
+            })
+    };
+    let colour = |keys: &[(f32, [f32; 3]); 7], t: f32| -> [f32; 3] {
+        std::array::from_fn(|i| {
+            let points: Vec<(f32, f32)> = keys.iter().map(|k| (k.0, k.1[i] / 255.0)).collect();
+            along(&points, t)
+        })
+    };
+    for (entity, mut star, mut transform, mut sprite) in &mut stars {
+        star.age += dt;
+        let t = star.age / WINNER_STAR_LIFE;
+        if t >= 1.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let speed = star.velocity.length();
+        if speed > top {
+            let excess = (speed - top) * (1.0 - 0.4f32).powf(dt * 60.0);
+            star.velocity *= (top + excess) / speed;
+        }
+        transform.translation += (star.velocity * dt).extend(0.0);
+        transform.rotate_z(star.spin * dt);
+        sprite.custom_size = Some(Vec2::splat(star.size * along(&WINNER_STAR_SIZE, t)));
+        let (a, b) = (colour(&WINNER_STAR_COLOURS[0], t), colour(&WINNER_STAR_COLOURS[1], t));
+        let rgb: [f32; 3] = std::array::from_fn(|i| a[i] + (b[i] - a[i]) * star.mix);
+        let alpha = if t < WINNER_STAR_FADE {
+            1.0
+        } else {
+            1.0 - (t - WINNER_STAR_FADE) / (1.0 - WINNER_STAR_FADE)
+        };
+        sprite.color = Color::srgba(rgb[0], rgb[1], rgb[2], alpha);
     }
 }
 

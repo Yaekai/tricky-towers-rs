@@ -570,11 +570,17 @@ fn animate_banners(
     mut looks: Query<(&mut TextLook, Has<BackLayer>), With<MatchLabel>>,
     mut rays: Query<&mut UiTransform, (With<Sunrays>, Without<Banner>, Without<Trophy>)>,
     mut cups: Query<&mut UiTransform, (With<Trophy>, Without<Banner>, Without<Sunrays>)>,
+    scores: Query<&PuzzleScore>,
+    art: Res<Art>,
+    mut seed: Local<u32>,
 ) {
     let Ok((camera, eye, projection)) = camera.single() else {
         return;
     };
     let look = &config.moments;
+    if *seed == 0 {
+        *seed = 0x51A7_3C11;
+    }
     let half_view = view.0.y
         * 0.5
         * match projection {
@@ -588,6 +594,26 @@ fn animate_banners(
         let Ok((tower, state)) = towers.get(banner.tower) else {
             continue;
         };
+        // A Puzzle battle's WINNER! throws the winner's stars from its count once it has
+        // moved in (PuzzleGameBaskController's "inComplete"); DRAW has none.
+        let moved_in = look.winner_in_x.last().map_or(0.0, |k| k.0);
+        if !banner.out
+            && game.mode == ModeKind::Puzzle
+            && config.trial.is_none()
+            && game.winner.is_some()
+            && banner.time - dt < moved_in
+            && banner.time >= moved_in
+            && let Some(to) = scores
+                .iter()
+                .find(|s| s.tower == banner.tower)
+                .and_then(|s| s.rise.map(|r| r.1))
+        {
+            let rules = &config.puzzle;
+            let low = (state.laser(&config) + rules.count_over_laser) * config.cell_size;
+            let high = view_top - rules.count_under_top * config.cell_size;
+            let at = Vec2::new(tower.origin_x, low + to * (high - low));
+            crate::particles::winner_stars(&mut commands, &art, config.cell_size, at, &mut seed);
+        }
         // WINNER! stands 10 cells over its tower's top, or in Puzzle 11 under the view's
         // top; WIZARD OUT! too, moved by its clips (GameFinishController).
         let t = banner.time;
