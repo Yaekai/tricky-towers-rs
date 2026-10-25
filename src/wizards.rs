@@ -112,7 +112,7 @@ pub struct Wizard {
     /// the caster's beam goes up): seconds until then.
     startle_in: Option<f32>,
     shake: f32,
-    /// Seconds since the match was lost; the wizard shrinks away.
+    /// Seconds since the wizard began to disappear (Dying, then gone at KILL_WIZARD).
     vanish: f32,
     seen: Seen,
     rng: u64,
@@ -580,6 +580,7 @@ fn move_wizards(
     towers: Query<(&Tower, &TowerState)>,
     rivals: Query<&crate::gameplay::RivalLane>,
     mut wizards: Query<(Entity, &mut Wizard, &mut Transform, &mut Visibility)>,
+    art: Res<Art>,
 ) {
     let look = &config.wizards;
     // A trial's enemy wizard floats by the enemy lane (right of the player's).
@@ -591,12 +592,27 @@ fn move_wizards(
             continue;
         };
         // A lost match, or a Survival tower out while the others play on
-        // (GameFinishController hides the wizard): it shrinks away in a moment, like a poof.
+        // (GameFinishController hides the wizard): AbstractWizard.Disappear plays Dying, and at
+        // its KILL_WIZARD event the wizard goes in DESTROY_WIZARD_PARTICLES with SFX_WIZARD_LOSE.
         let out_of_survival =
             game.mode.rules() == crate::config::ModeKind::Survival && state.status == TowerStatus::Out;
         let gone = if !wizard.enemy && (crate::hud::lost(&game, tower, state) || out_of_survival) {
+            if wizard.vanish == 0.0 {
+                play(&mut wizard, Clip::Dying, None);
+            }
+            let number = wizard.key.trim_start_matches("wizard").parse::<usize>().unwrap_or(1);
+            let kill = config.hud.wizard_kill.get(number - 1).copied().unwrap_or(0.683);
+            let before = wizard.vanish;
             wizard.vanish += dt;
-            (wizard.vanish / config.hud.wizard_vanish.max(0.01)).min(1.0)
+            if before < kill && wizard.vanish >= kill {
+                let mut seed = (entity.to_bits() as u32) | 1;
+                let at = transform.translation.truncate();
+                crate::particles::destroy_poof(&mut commands, &art, config.cell_size, at, &mut seed);
+                if let Some(sound) = art.sounds.get("sfx_wizard_lose") {
+                    commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+                }
+            }
+            if wizard.vanish >= kill { 1.0 } else { 0.0 }
         } else {
             wizard.vanish = 0.0;
             0.0
@@ -675,8 +691,7 @@ fn move_wizards(
         transform.translation.x = lane_x + config.cells(at.x);
         transform.translation.y = config.cells(at.y);
         // Alone, the wizard floats on the left and turns to face the tower.
-        let size = 1.0 - gone * gone;
-        transform.scale = Vec3::new(if solo { -size } else { size } * facing, size, 1.0);
+        transform.scale = Vec3::new(if solo { -1.0 } else { 1.0 } * facing, 1.0, 1.0);
     }
 }
 

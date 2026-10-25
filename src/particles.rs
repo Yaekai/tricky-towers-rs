@@ -229,6 +229,42 @@ pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, s
     }
 }
 
+/// DESTROY_WIZARD_PARTICLES (DestroyPoof), where a losing wizard goes: a size 4 flash for
+/// 0.15 s, 8 white discs thrown up and slowed to 2 cells/s, 5 stars slowed to 3 and 8 white
+/// discs slowed to 0.5 over 0.5 s.
+// ponytail: through `burst`: its fixed life and 60-100% speeds stand in for the prefab's
+// ranges and edge emitter, the flash stays white and the stars aren't rainbow.
+pub(crate) fn destroy_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32) {
+    let parts = [
+        ("explosion_flash", 1, 0.0, NO_CLAMP, 4.0, 0.15),
+        ("cast_droplet", 8, 80.0, (2.0, 0.15), 0.8, 1.5),
+        ("spark_star", 5, 200.0, (3.0, 0.3), 0.5, 1.5),
+        ("cast_droplet", 8, 100.0, (0.5, 0.28), 1.0, 0.5),
+    ];
+    for (i, (image, count, speed, clamp, size, life)) in parts.into_iter().enumerate() {
+        burst(
+            commands,
+            art,
+            c,
+            at,
+            seed,
+            Burst {
+                image,
+                color: Color::WHITE,
+                count,
+                speed,
+                clamp,
+                size,
+                life,
+                gravity: 0.0,
+                gravity_to: 0.0,
+                spread: None,
+                z: 30.0 + i as f32 * 0.01,
+            },
+        );
+    }
+}
+
 /// BRICK_SPAWN_POOF_SMALL (SpawnPoofSmall): a size 3 flash for 0.07 s and five white clouds
 /// at 20 to 40 cells/s (Limit Velocity 0.5, dampen 0.28), 0.8 to 1.4 cells, 0.5 s.
 pub(crate) fn small_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, z: f32, seed: &mut u32) {

@@ -4474,8 +4474,9 @@ pub struct HudLook {
     /// Losing towers turn this colour (0-1) by this much once the match is over.
     pub loser_tint: [f32; 3],
     pub loser_mix: f32,
-    /// Losing wizards shrink away over this many seconds once the match is over.
-    pub wizard_vanish: f32,
+    /// A losing wizard plays its Dying clip and is gone at the clip's KILL_WIZARD event, this
+    /// many seconds in, for wizards 1 to 14 (AbstractWizard.Disappear).
+    pub wizard_kill: Vec<f32>,
     /// The tower camera (SingleTowerCamera): at least this many cells tall, its top
     /// this many cells of room above the highest tower minus `camera_tower_room`
     /// (the original's maxTowerInScreen), its bottom this far under the lowest tower
@@ -4528,7 +4529,10 @@ impl Default for HudLook {
             line_color_seconds: 1.0,
             loser_tint: [0.78, 0.82, 0.88],
             loser_mix: 0.7,
-            wizard_vanish: 0.6,
+            wizard_kill: vec![
+                0.683, 0.767, 0.767, 0.683, 0.683, 0.683, 0.683, 0.683, 0.767, 0.767, 0.767,
+                0.683, 0.683, 0.683,
+            ],
             camera_height: 41.538_46,
             camera_tower_room: 20.0,
             camera_below_lowest: 10.0,
