@@ -490,26 +490,38 @@ fn spawn_locked(
                     BackgroundColor(Color::NONE),
                 ));
             }
-            // The original's WorldSelectListItem: LOCKED in pink across the panel's top
-            // edge left of centre, "EARN 8 / TO UNLOCK" right of centre and the medal at
-            // the right end.
-            let locked = Color::srgb(1.0, 0.31, 0.55);
-            page.spawn(place((393.0, 80.0), (-105.0, y + LOCKED.1 / 2.0)))
-                .with_children(|t| {
-                    t.spawn(label_with(
-                        vh(60.0),
-                        "LOCKED",
-                        crate::letters::TextLook::OUTLINED,
-                    ))
-                    .insert((TextColor(locked), crate::letters::LetterSpacing(-1.0)));
-                });
-            page.spawn(place((348.0, 150.0), (82.5, y)))
-                .with_children(|t| {
-                    t.spawn((
-                        label_with(vh(46.0), "", crate::letters::TextLook::OUTLINED),
-                        TrialPart::LockedText(tier),
+            // The original's WorldSelectListItem: LOCKED (EnzoBlackRed60) left-aligned across
+            // the panel's top edge, turned 3.4 degrees, "EARN 8 / TO UNLOCK"
+            // (EnzoBlackSilver46) right-aligned against the medal at the right end.
+            page.spawn((
+                Node {
+                    justify_content: JustifyContent::FlexStart,
+                    ..place((393.0, 80.0), (-105.0, y + LOCKED.1 / 2.0))
+                },
+                UiTransform {
+                    rotation: turn(3.4),
+                    ..default()
+                },
+            ))
+            .with_children(|t| {
+                t.spawn(label_with(vh(60.0), "LOCKED", crate::letters::TextLook::PINK_60))
+                    .insert((
+                        TextLayout::justify(Justify::Left),
+                        crate::letters::LetterSpacing(-1.0),
                     ));
-                });
+            });
+            page.spawn(Node {
+                justify_content: JustifyContent::FlexEnd,
+                ..place((348.0, 150.0), (82.5, y))
+            })
+            .with_children(|t| {
+                t.spawn((
+                    label_with(vh(46.0), "", crate::letters::TextLook::SILVER),
+                    crate::letters::LetterSpacing(-1.0),
+                    TrialPart::LockedText(tier),
+                ))
+                .insert(TextLayout::justify(Justify::Right));
+            });
             if let Some(art) = image("medal_large") {
                 page.spawn((
                     ImageNode::new(art),

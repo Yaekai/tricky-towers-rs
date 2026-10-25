@@ -2596,3 +2596,51 @@ fn a_long_brick_dropped_on_a_two_cell_column_holds() {
     assert!(state.bricks_placed >= 1, "{state:?}");
     assert_eq!(state.bricks_dropped, 0, "the I fell off its column: {state:?}");
 }
+
+#[test]
+fn a_puzzle_rise_keeps_a_brick_near_the_edge_where_it_was() {
+    // TowerMoveController only moves the camera, so a rise never shakes the tower: an O
+    // resting 0.4 cells off the middle of a one-cell base must still be there after it.
+    use avian2d::prelude::*;
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.puzzle.floor = tricky_towers::config::PuzzleFloor::Plain;
+    config.puzzle.drop_speed = 0.5;
+    config.platform_width = 1.0;
+    let mut app = headless_app(config.clone());
+    let c = config.cell_size;
+    let (owner, origin) = {
+        let world = app.world_mut();
+        let (e, t) = world.query::<(Entity, &Tower)>().iter(world).find(|(_, t)| t.index == 0).unwrap();
+        (e, t.origin_x)
+    };
+    let piece = config.pieces.iter().position(|p| p.name == "O").unwrap();
+    let def = tricky_towers::gameplay::piece_def(&config, piece);
+    let brick = Brick { tower: owner, piece, cells: def.centered_cells(), color: Color::WHITE, scale: 1.0, mass: def.mass, ice: false };
+    let (body, density) = tricky_towers::gameplay::brick_body(&config, &brick);
+    let at = Vec2::new(origin + 0.4 * c, 1.01 * c);
+    let o = app
+        .world_mut()
+        .spawn((
+            brick,
+            RigidBody::Dynamic,
+            body,
+            density,
+            Friction::new(config.brick_friction),
+            AngularDamping(config.angular_damping),
+            Transform::from_translation(at.extend(0.0)),
+            Position(at),
+        ))
+        .id();
+    run_seconds(&mut app, 1.0, |_| {});
+    let world = app.world_mut();
+    for (t, mut s) in world.query::<(&Tower, &mut TowerState)>().iter_mut(world) {
+        if t.index == 0 {
+            s.bricks_dropped += 1;
+        }
+    }
+    run_seconds(&mut app, 2.0, |_| {});
+    let now = app.world().get::<Position>(o).expect("the O fell off").0;
+    let moved = (now - at) / c;
+    assert!((moved.x).abs() < 0.05 && (moved.y - 0.5).abs() < 0.05, "the O moved {moved}");
+}

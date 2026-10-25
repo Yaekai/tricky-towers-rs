@@ -1489,7 +1489,10 @@ fn spawn_cloud(
 ) {
     let look = &config.casts;
     let size = config.cells(look.cloud_size);
-    let cloud = match art.image("spell_cloud") {
+    // WizardSpellView: LightSpellBG (the white backing) for a light spell, DarkSpellBG for a
+    // dark one.
+    let back = if dark { "spell_cloud" } else { "spell_slot_light" };
+    let cloud = match art.image(back) {
         Some(image) => Sprite {
             image,
             custom_size: Some(Vec2::splat(size)),

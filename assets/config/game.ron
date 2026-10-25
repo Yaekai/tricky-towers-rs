@@ -67,6 +67,8 @@
         drop_speed: (10.0, 18.0),
         drop_gravity: 36.0,
         drop_shrink: (0.45, 0.93),
+        front_colors: ((0.906, 0.914, 1.0), (0.788, 0.871, 1.0)),
+        drop_colors: ((0.863, 0.918, 1.0), (0.761, 0.824, 1.0)),
     ),
     casts: (
         dark_start: 0.8,
@@ -107,8 +109,8 @@
         cloud_float: 3.0,
         cloud_used: 1.22,
         cloud_hide: 0.38,
-        cloud_size: 3.5,
-        cloud_icon: 0.69,
+        cloud_size: 2.69,
+        cloud_icon: 0.9,
         cloud_spots: [
             ((0.58, 4.8), (2.87, 3.53)),
             ((0.38, 5.37), (2.67, 4.1)),

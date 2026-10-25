@@ -85,13 +85,15 @@ function Add-Audio($key, $clip, $what) {
 # A brick-pack brick drawn by the World/Bricks/Default shader: the prefab's sprite is a
 # bevel map (red/green the bevel's slope, blue the outline and cracks), the material
 # gives the colour pattern and the highlight and shadow colours. The game lights them.
-function Add-LitBrick($key, $pack, $shape, $dir, $what) {
+# Halloween's material lights its _PatternBlackWhite with the *BlackWhite colours (World/Bricks/
+# Halloween once its fade is done); Candy's draws an outline in _BorderColor and no light.
+function Add-LitBrick($key, $pack, $shape, $dir, $what, $tex = '_PatternTex', $high = '_HighlightColor', $low = '_ShadowColor', $border = $null) {
   $prefab = Join-Path $A "Resources\game\bricks\brickpack\$pack\Brick$shape.prefab"
   if (-not (Test-Path $prefab)) { $missing.Add("$key (prefab $pack/Brick$shape)"); return }
   $p = Get-Content $prefab -Raw
   $sprite = [IO.Path]::GetFileNameWithoutExtension($idx[[regex]::Match($p, 'm_Sprite: \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value])
   $mat = Get-Content $idx[[regex]::Match($p, 'm_Materials:\s*\n\s*- \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value] -Raw
-  $pattern = Split-Path -Leaf $idx[[regex]::Match($mat, '_PatternTex\s*\n\s*second:\s*\n\s*m_Texture: \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value]
+  $pattern = Split-Path -Leaf $idx[[regex]::Match($mat, "$tex\s*\n\s*second:\s*\n\s*m_Texture: \{fileID: \d+, guid: ([0-9a-f]+)").Groups[1].Value]
   $num = '(-?[0-9.]+(?:[eE][-+]?\d+)?)'
   $color = {
     param($n)
@@ -101,8 +103,10 @@ function Add-LitBrick($key, $pack, $shape, $dir, $what) {
   # Not every material sets _Angle (Christmas); the game then keeps its default.
   $angle = [regex]::Match($mat, "name: _Angle\s*\n\s*second: $num").Groups[1].Value
   if ($angle) { $angle = ", light_angle: $(Inv ([double]$angle))" }
+  $line = ''
+  if ($border) { $line = ', line: ' + ((& $color $border) -replace ', [^,]+\)$', ')') }
   Add-Sprite "$($key)_bevel" $sprite "$dir\bevel_$shape.png" "$what, bevel and outline map"
-  Add-Texture $key $pattern "$dir\$shape.png" $what ", bevel: `"$($key)_bevel`", light: ($(& $color '_HighlightColor'), $(& $color '_ShadowColor'))$angle"
+  Add-Texture $key $pattern "$dir\$shape.png" $what ", bevel: `"$($key)_bevel`", light: ($(& $color $high), $(& $color $low))$angle$line"
 }
 foreach ($b in 'I','O','T','S','Z','J','L') { Add-LitBrick "brick_$b" 'default' $b 'bricks' "Brick $b, default pack" }
 Add-Sprite 'mystery_block' 'gph_brickMystery01' 'bricks\mystery_block.png' 'Mystery 1, 2x4 block'
@@ -617,8 +621,11 @@ Add-Sprite 'modal_tile' 'gph_modalTile' 'menu\modal_tile.png' 'Dark tiled overla
 
 # --- Brick packs (BrickPack folders; picked per player on Select Players) ---
 foreach ($s in 'I','O','T','S','Z','J','L') { Add-LitBrick "brick_christmas_$s" 'christmas' $s 'bricks\christmas' "Brick $s, christmas pack" }
-foreach ($pk in @(@('candy','candy'), @('diamond','diamond'), @('spring','easter'), @('halloween','halloween'))) {
-  foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_$($pk[0])_$s" "gph_brick$($s)_$($pk[1])_texture.png" "bricks\$($pk[0])\$s.png" "Brick $s, $($pk[0]) pack" }
+foreach ($s in 'I','O','T','S','Z','J','L') {
+  Add-LitBrick "brick_spring_$s" 'easter' $s 'bricks\spring' "Brick $s, spring pack"
+  Add-LitBrick "brick_halloween_$s" 'halloween' $s 'bricks\halloween' "Brick $s, halloween pack" '_PatternBlackWhite' '_HighlightColorBlackWhite' '_ShadowColorBlackWhite'
+  Add-LitBrick "brick_candy_$s" 'candy' $s 'bricks\candy' "Brick $s, candy pack" '_PatternTex' '_HighlightColor' '_ShadowColor' '_BorderColor'
+  Add-Texture "brick_diamond_$s" "gph_brick$($s)_diamond_texture.png" "bricks\diamond\$s.png" "Brick $s, diamond pack"
 }
 foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_christmas_lights_$s" "gph_brick$($s)_christmas_lightsTexture03.png" "bricks\christmas\lights_$s.png" "Christmas pack: blinking lights layer for brick $s" }
 foreach ($pk in 'default','candy','christmas','diamond','easter','galaxy','halloween','hologram') { Add-Texture "brick_pack_icon_$pk" "icn_brickPack_$pk.png" "bricks\icons\pack_$pk.png" "Select Players: brick pack icon ($pk)" }

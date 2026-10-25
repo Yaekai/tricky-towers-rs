@@ -343,22 +343,31 @@ pub fn puzzle_floor(config: &GameConfig, roll: &mut u64) -> Vec<(f32, f32, f32, 
                 if place {
                     let wide = if xorshift(roll) % 3 == 0 { 2 } else { 1 };
                     let wide = if num + wide > width { 1 } else { wide };
-                    let x = num as f32 + (wide as f32 - 1.0) * 0.5 - (width - 1) as f32 * 0.5;
+                    // From RandomPuzzleFloor's _minX, floor(-width / 2): a 5-wide floor sits
+                    // half a cell left of the lane centre.
+                    let x = num as f32 + wide as f32 * 0.5 + (-(width as f32) / 2.0).floor();
                     pieces.push((x, wide));
                     num += wide;
                 } else {
                     num += 1;
                 }
             }
-            // One piece stays flat, the others drop by a random amount.
-            let flat = (!pieces.is_empty()).then(|| (xorshift(roll) % pieces.len() as u64) as usize);
-            for (k, &(x, wide)) in pieces.iter().enumerate() {
-                let drop = if flat == Some(k) {
-                    0.0
-                } else {
-                    (xorshift(roll) % (lowest as u64 + 1)) as f32
-                };
-                columns.push((x, -drop, -depth, wide));
+            // One piece stays flat; with more than one, another drops by 1 to `lowest`;
+            // the rest by 0 to `lowest`.
+            let mut left: Vec<usize> = (0..pieces.len()).collect();
+            if !left.is_empty() {
+                left.remove((xorshift(roll) % left.len() as u64) as usize);
+            }
+            let mut drops = vec![0u32; pieces.len()];
+            if pieces.len() > 1 && lowest > 0 {
+                let k = left.remove((xorshift(roll) % left.len() as u64) as usize);
+                drops[k] = 1 + (xorshift(roll) % lowest as u64) as u32;
+            }
+            for &k in &left {
+                drops[k] = (xorshift(roll) % (lowest as u64 + 1)) as u32;
+            }
+            for (&(x, wide), &drop) in pieces.iter().zip(&drops) {
+                columns.push((x, -(drop as f32), -depth, wide));
             }
         }
         // ProRandomPuzzleFloor: a 1-wide pillar; beside it a column on each side from 4
@@ -936,12 +945,19 @@ fn raise_bases(
     time: Res<Time>,
     config: Res<GameConfig>,
     mut towers: Query<(Entity, &mut TowerState)>,
-    mut bases: Query<(&Raised, &mut Transform, Option<(&Position, &mut LinearVelocity)>)>,
+    mut bases: Query<(&Raised, &mut Transform), Without<RigidBody>>,
+    mut bodies: Query<
+        (&mut Position, &mut Transform, Option<&Brick>, Option<&Raised>, Option<&Children>),
+        (With<RigidBody>, Without<ChildOf>),
+    >,
+    members: Query<&Brick, Without<RigidBody>>,
 ) {
     let dt = time.delta_secs().max(f32::EPSILON);
     let rules = &config.puzzle;
     let mut shown: HashMap<Entity, f32> = HashMap::new();
+    let mut moved: HashMap<Entity, f32> = HashMap::new();
     for (entity, mut state) in &mut towers {
+        let before = state.base_shown;
         // Each brick lost before the round's bricks are zapped moves the base up from where
         // it is to the new height over `base_rise_time` (DOTween's out-quad); once a tower
         // touched the laser it stays put.
@@ -961,24 +977,31 @@ fn raise_bases(
             state.base_shown = at;
         }
         shown.insert(entity, state.base_shown * config.cell_size);
+        if state.base_shown != before {
+            moved.insert(entity, (state.base_shown - before) * config.cell_size);
+        }
     }
-    // Kinematic parts are moved at the speed that brings them to their height this step, so
-    // they lift the bricks on them and nothing passes through the ground; a part with no body
-    // (the platform holding the lines and art) is simply put there.
-    for (raised, mut transform, body) in &mut bases {
+    // The original moves nothing: TowerMoveController only shifts the tower's camera offset,
+    // so the tower and the laser part by half a cell while every brick keeps its contacts.
+    // With one camera for all lanes the whole tower (floor, bricks, Ivy clusters, the brick in
+    // hand) is moved by the same amount instead; pushing the floor up under the bricks threw
+    // the ones near an edge off.
+    if !moved.is_empty() {
+        for (mut position, mut transform, brick, raised, children) in &mut bodies {
+            let owner = brick.map(|b| b.tower).or(raised.map(|r| r.tower)).or_else(|| {
+                children?.iter().find_map(|c| members.get(c).ok()).map(|b| b.tower)
+            });
+            if let Some(&dy) = owner.and_then(|t| moved.get(&t)) {
+                position.0.y += dy;
+                transform.translation.y += dy;
+            }
+        }
+    }
+    // A part with no body (the platform holding the lines and art) is simply put there.
+    for (raised, mut transform) in &mut bases {
         let want = raised.rest + shown.get(&raised.tower).copied().unwrap_or(0.0);
-        match body {
-            Some((position, mut velocity)) => {
-                let wanted = Vec2::new(0.0, (want - position.0.y) / dt);
-                if velocity.0 != wanted {
-                    velocity.0 = wanted;
-                }
-            }
-            None => {
-                if transform.translation.y != want {
-                    transform.translation.y = want;
-                }
-            }
+        if transform.translation.y != want {
+            transform.translation.y = want;
         }
     }
 }

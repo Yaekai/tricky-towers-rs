@@ -286,13 +286,14 @@ fn splash(
     mut lost: MessageReader<BrickLost>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut drop_look: Local<Option<(Handle<Mesh>, Handle<ColorMaterial>)>>,
+    mut drop_look: Local<Option<Handle<Mesh>>>,
 ) {
     let look = &config.splash;
-    // Every drop is the same white disc, scaled.
-    let (disc, white) = drop_look
-        .get_or_insert_with(|| (meshes.add(Circle::new(0.5)), materials.add(Color::WHITE)))
-        .clone();
+    // Every drop is the same disc, scaled, in its own pale blue.
+    let disc = drop_look.get_or_insert_with(|| meshes.add(Circle::new(0.5))).clone();
+    let between = |(a, b): ((f32, f32, f32), (f32, f32, f32)), t: f32| {
+        Color::srgb(a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t, a.2 + (b.2 - a.2) * t)
+    };
     for (n, brick) in lost.read().enumerate() {
         let mut seed = (time.elapsed_secs() * 1000.0) as u32 ^ (n as u32 * 7919) | 1;
         let mut r = || roll(&mut seed);
@@ -325,6 +326,7 @@ fn splash(
             commands.spawn((
                 Sprite {
                     image: picture,
+                    color: between(look.front_colors, r()),
                     custom_size: Some(Vec2::ZERO),
                     ..default()
                 },
@@ -348,7 +350,7 @@ fn splash(
             let size = look.drop_size.0 + (look.drop_size.1 - look.drop_size.0) * r();
             commands.spawn((
                 Mesh2d(disc.clone()),
-                MeshMaterial2d(white.clone()),
+                MeshMaterial2d(materials.add(between(look.drop_colors, r()))),
                 Transform::from_translation(start.extend(5.5))
                     .with_scale(Vec3::splat(config.cells(size))),
                 SplashPiece {

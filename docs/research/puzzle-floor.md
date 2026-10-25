@@ -24,3 +24,15 @@ currently one cell (top, bottom and the art).
 
 The random sequence can't match the original's (a different generator), so only the rules above
 should match: widths of 1 and 2, the gap chance, one removed piece and the drops.
+
+## Where the floor sits and how it "rises"
+
+- The floor's first cell starts at `floor(-width / 2)` from the lane centre, so a 5-wide Easy
+  floor runs from -3 to +2 (half a cell left of centre); a 6-wide one is centred.
+- After the flat piece is taken out, one more piece (when there are two or more) is always
+  dropped by 1 to the lowest drop; the rest by 0 to the lowest.
+- A lost brick doesn't move anything physical: the tower's controller only adds half a cell
+  to its camera offset (over 0.4 s), which shifts the camera, the laser test and the drop guide.
+  The bricks keep their contacts. We draw all lanes with one camera, so we move the whole tower
+  (floor, bricks and the brick in hand) up together instead; pushing only the floor up under
+  the bricks threw ones resting near an edge off.

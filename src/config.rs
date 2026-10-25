@@ -3083,7 +3083,8 @@ pub struct CastLook {
     pub cloud_float: f32,
     pub cloud_used: f32,
     pub cloud_hide: f32,
-    /// Cloud size in cells (the 139 px backing at 52 px a unit, drawn ×1.31), the icon's
+    /// Cloud size in cells (the 140 px backing at 52 px a unit: WizardSpellView puts
+    /// Light/DarkSpellBG in at scale 1, not the prefab's ×1.31 placeholder), the icon's
     /// share of it (126 px icons at 52 px a unit, unscaled).
     pub cloud_size: f32,
     pub cloud_icon: f32,
@@ -3277,8 +3278,8 @@ impl Default for CastLook {
             cloud_float: 3.0,
             cloud_used: 1.22,
             cloud_hide: 0.38,
-            cloud_size: 3.5,
-            cloud_icon: 0.69,
+            cloud_size: 2.69,
+            cloud_icon: 0.9,
             cloud_show_x: vec![(0.3333, 0.2, 0.0, 1.161), (0.4, 0.3896, 4.143, 4.143), (0.5, 0.8544, 4.288, 4.288), (0.5333, 0.9805, 3.182, 3.182), (0.6, 0.9734, -2.338, -2.338), (0.6667, 0.8098, -1.514, -1.514), (0.7333, 0.8276, 1.562, 1.562), (0.8333, 0.9953, 0.6947, 0.0)],
             cloud_show_y: vec![(0.3333, 0.2, 0.0, 0.0), (0.4, 0.2, 1.161, 1.161), (0.5, 0.5397, 4.768, 4.768), (0.5333, 0.7011, 4.816, 4.816), (0.6, 0.9805, 3.182, 3.182), (0.6667, 0.9734, -2.338, -2.338), (0.7333, 0.8098, -1.514, -1.514), (0.8333, 0.9953, 0.6947, 0.0)],
             cloud_used_x: vec![(0.0, 1.0, 0.0, 2.345), (0.06667, 1.3, -1.043, -1.043), (0.2, 1.3, -1.814, 0.0), (0.8167, 1.267, 1.27, 0.0), (0.8833, 1.3, -2.541, 0.0), (0.9833, 1.234, -1.079, -1.079), (1.083, 0.7128, -7.592, -7.592), (1.217, 0.0, -2.336, 0.0)],
@@ -3326,6 +3327,11 @@ pub struct SplashLook {
     pub drop_gravity: f32,
     /// Drops keep full size until the first time and are gone by the second.
     pub drop_shrink: (f32, f32),
+    /// Start colours (r, g, b, 0 to 1), each piece between the two (the Splash prefab's
+    /// SplashFront and SplashDrops "random between two colours"; SplashMat's tint is
+    /// neutral).
+    pub front_colors: ((f32, f32, f32), (f32, f32, f32)),
+    pub drop_colors: ((f32, f32, f32), (f32, f32, f32)),
 }
 
 impl Default for SplashLook {
@@ -3343,6 +3349,8 @@ impl Default for SplashLook {
             drop_speed: (10.0, 18.0),
             drop_gravity: 36.0,
             drop_shrink: (0.45, 0.93),
+            front_colors: ((0.906, 0.914, 1.0), (0.788, 0.871, 1.0)),
+            drop_colors: ((0.863, 0.918, 1.0), (0.761, 0.824, 1.0)),
         }
     }
 }

@@ -156,6 +156,15 @@ impl TextLook {
         // Dilate and outline 0.25 (EnzoBlackRed46).
         outline_edge: 0.5 - 0.5 * 0.8333 / 2.0,
     };
+    /// EnzoBlackRed60: the red gradient, dilate and outline 0.2 (the trials' LOCKED).
+    pub const PINK_60: Self = Self { outline_edge: 0.5 - 0.4 * 0.8333 / 2.0, ..Self::PINK };
+    /// EnzoBlackSilver46: gph_gradientTextureFont05, pale blue at the top to lavender at the
+    /// bottom, dilate and outline 0.25.
+    pub const SILVER: Self = Self {
+        face: Some(Color::srgb(208.0 / 255.0, 222.0 / 255.0, 241.0 / 255.0)),
+        low: Some(Color::srgb(138.0 / 255.0, 135.0 / 255.0, 222.0 / 255.0)),
+        ..Self::PINK
+    };
     /// EnzoBlackGold75: the gold gradient with a thinner outline (dilate and outline 0.15).
     pub const GOLD_75: Self = Self { outline_edge: 0.5 - 0.3 * 0.8333 / 2.0, ..Self::GOLD };
     /// EnzoBlackRed75: the red gradient, dilate and outline 0.15.
@@ -301,6 +310,8 @@ struct LetterText {
     view_height: bool,
     color: Color,
     centered: bool,
+    /// Lines lined up on their right ends (TextMeshPro's Right alignment).
+    right: bool,
     body: bool,
     outline: Option<Color>,
     low: Option<Color>,
@@ -579,6 +590,7 @@ fn letter_text(
         view_height,
         color: look.face.unwrap_or(color.map_or(Color::WHITE, |c| c.0)),
         centered: layout.is_some_and(|l| l.justify == Justify::Center),
+        right: layout.is_some_and(|l| l.justify == Justify::Right),
         body: look.body,
         outline: look.outline,
         low: look.low,
@@ -808,6 +820,8 @@ fn draw_letters(
                 flex_direction: FlexDirection::Column,
                 align_items: if text.centered {
                     AlignItems::Center
+                } else if text.right {
+                    AlignItems::FlexEnd
                 } else {
                     AlignItems::FlexStart
                 },
