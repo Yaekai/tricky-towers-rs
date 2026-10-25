@@ -40,6 +40,7 @@ impl Plugin for VisualsPlugin {
                     bob_heads,
                     pulse_band,
                     run_waves.after(fit_backgrounds),
+                    place_horizon.after(fit_backgrounds),
                 ),
             )
             .add_systems(
@@ -1757,6 +1758,7 @@ fn show_scene_in_menus(
                 Added<ScreenLayer>,
                 Added<Sky>,
                 Added<WaterBand>,
+                Added<Horizon>,
                 Added<Background>,
                 Added<LitLayer>,
                 Added<SceneWave>,
@@ -2096,6 +2098,36 @@ struct WaterBand {
     parallax: f32,
 }
 
+/// Race Special's horizon (WaterGradientLayer's PRO_HORIZON): its Waterline, gph_waterline04
+/// stretched 20 across and 0.6 up, 0.04 over the top of the water band.
+#[derive(Component)]
+struct Horizon;
+
+fn place_horizon(
+    art: Res<Art>,
+    images: Res<Assets<Image>>,
+    bands: Query<(&WaterBand, &Sprite, &Children), Without<Horizon>>,
+    mut lines: Query<(&mut Sprite, &mut Transform), With<Horizon>>,
+) {
+    let ppu = art.entries.get("race_waterline").and_then(|e| e.pixels_per_unit).unwrap_or(26.0);
+    for (band, sprite, children) in &bands {
+        let Some(size) = sprite.custom_size else {
+            continue;
+        };
+        let unit = size.y / band.height.max(0.01);
+        for child in children.iter() {
+            let Ok((mut line, mut transform)) = lines.get_mut(child) else {
+                continue;
+            };
+            let Some(picture) = images.get(&line.image).map(|i| i.size_f32() / ppu) else {
+                continue;
+            };
+            line.custom_size = Some(picture * Vec2::new(20.0, 0.6) * unit);
+            transform.translation = Vec3::new(0.0, size.y + 0.04 * unit, 0.1);
+        }
+    }
+}
+
 /// A tall gradient image from `colors`, top to bottom.
 pub(crate) fn gradient_image(colors: &[Color]) -> Image {
     use bevy::asset::RenderAssetUsages;
@@ -2272,7 +2304,7 @@ fn spawn_backgrounds(
         }
     }
     if let Some((colors, height, parallax, view_height)) = pro_band {
-        commands.entity(camera).with_child((
+        let mut band = commands.spawn((
             WaterBand {
                 height,
                 view_height: view_height.max(0.01),
@@ -2282,6 +2314,11 @@ fn spawn_backgrounds(
             Anchor::BOTTOM_CENTER,
             Transform::from_xyz(0.0, 0.0, -900.5),
         ));
+        if let Some(line) = art.image("race_waterline") {
+            band.with_child((Horizon, Sprite::from_image(line), Transform::default()));
+        }
+        let band = band.id();
+        commands.entity(camera).add_child(band);
     } else if let Some(band) = band {
         let colors = band.colors();
         if !colors.is_empty() {
