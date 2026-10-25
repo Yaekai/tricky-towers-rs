@@ -1369,9 +1369,9 @@ fn run_lightning(
 
 /// A spell cloud beside a wizard, holding one spell.
 #[derive(Component)]
-struct SpellCloud {
-    tower: Entity,
-    dark: bool,
+pub(crate) struct SpellCloud {
+    pub(crate) tower: Entity,
+    pub(crate) dark: bool,
     stage: CloudStage,
     time: f32,
     /// Seconds since it appeared, for the pick-up blink.
@@ -1401,7 +1401,7 @@ enum CloudStage {
     Hide,
 }
 
-fn icon_spell(state: &TowerState, dark: bool) -> Option<SpellKind> {
+pub(crate) fn icon_spell(state: &TowerState, dark: bool) -> Option<SpellKind> {
     if dark {
         state
             .dark_spell

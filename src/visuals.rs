@@ -78,6 +78,7 @@ impl Plugin for VisualsPlugin {
                     update_drop_guide.after(frame_towers),
                     frame_towers.in_set(FramedCamera),
                     update_hud,
+                    (collect_lines, fly_line_pieces, fly_line_icons).before(update_lines),
                     update_lines,
                     show_trial_clock,
                     (update_mist, spin_orbs),
@@ -3910,6 +3911,186 @@ fn show_trial_clock(
             node.left = Val::Px((spot.x - half.x).clamp(0.0, view.0.x));
             node.top = Val::Px(spot.y - half.y);
         }
+    }
+}
+
+/// One piece of a collected spell line (SpellContainerPiece): after 0.1 s it shrinks to
+/// nothing over 0.9 s (in-back) while flying at 30 to 40 cells/s from a random way round
+/// towards its icon, spinning 1080 degrees a second and running through the line colours at
+/// 50 a second.
+#[derive(Component)]
+struct LinePiece {
+    target: Vec2,
+    delay: f32,
+    shrink: f32,
+    size: Vec2,
+    speed: f32,
+    way: Vec2,
+    pull: f32,
+    spin: f32,
+    hue: f32,
+}
+
+/// A collected line's spell icon (LineSpellContainer._ShowSpellIcon): its spell slot and icon
+/// pop up to 1.5 after 0.4 s (out-back, 0.3 s), then after 0.3 s turn a full turn, shrink
+/// and fly into the wizard's spell cloud (in-back, 0.3 s).
+#[derive(Component)]
+struct LineIcon {
+    tower: Entity,
+    dark: bool,
+    age: f32,
+    from: Vec2,
+}
+
+/// LineSpellContainer.PlayCollectedAnimation when a tower meets its spell line: the icons
+/// 5 cells over the line (2 either side for a pair), every other piece to the dark one.
+// ponytail: from the lane's middle on the line, not the brick's contact point.
+#[allow(clippy::type_complexity)]
+fn collect_lines(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    towers: Query<(Entity, &Tower, &TowerState)>,
+    lines: Query<(&SpellLine, &Children)>,
+    diamonds: Query<(&Sprite, &GlobalTransform), With<SpellDiamond>>,
+    mut seen: Local<bevy::platform::collections::HashMap<Entity, (u32, f32)>>,
+    mut seed: Local<u32>,
+) {
+    if *seed == 0 {
+        *seed = 0x2C1B_5A77;
+    }
+    let c = config.cell_size;
+    for (entity, tower, state) in &towers {
+        let was = seen.get(&entity).copied().unwrap_or((state.lines_reached, 0.0));
+        let line_y = state.spell_line.map_or(was.1, |h| config.cells(h) + c * 0.5);
+        seen.insert(entity, (state.lines_reached, line_y));
+        if state.lines_reached != was.0 + 1 {
+            continue;
+        }
+        let met = Vec2::new(tower.origin_x, was.1);
+        let dark = crate::casts::icon_spell(state, true).map(|d| (d, true));
+        let (first, second) = match crate::casts::icon_spell(state, false) {
+            Some(l) => (Some((l, false)), dark),
+            None => (dark, None),
+        };
+        let one = met + Vec2::new(if second.is_some() { -2.0 } else { 0.0 }, 5.0) * c;
+        let two = met + Vec2::new(2.0, 5.0) * c;
+        for ((spell, dark), at) in [first.map(|s| (s, one)), second.map(|s| (s, two))].into_iter().flatten() {
+            let back = if dark { "spell_cloud" } else { "spell_slot_light" };
+            let size = config.cells(config.casts.cloud_size);
+            let mut icon = commands.spawn((
+                LineIcon { tower: entity, dark, age: 0.0, from: at },
+                Transform::from_translation(at.extend(470.0)).with_scale(Vec3::ZERO),
+                Visibility::default(),
+            ));
+            if let Some(image) = art.image(back) {
+                icon.with_child((
+                    Sprite { image, custom_size: Some(Vec2::splat(size)), ..default() },
+                    Transform::default(),
+                ));
+            }
+            if let Some((sprite, anchor, transform)) = art_sprite(&art, &format!("spell_icon_{spell:?}"), c) {
+                icon.with_child((sprite, anchor, transform.with_translation(Vec3::Z * 0.1)));
+            }
+        }
+        let Some((_, children)) = lines.iter().find(|(l, _)| l.tower == entity) else {
+            continue;
+        };
+        for (i, child) in children.iter().enumerate() {
+            let Ok((sprite, at)) = diamonds.get(child) else {
+                continue;
+            };
+            let target = if i % 2 == 0 && second.is_some() { two } else { one };
+            let angle = crate::particles::roll(&mut seed) * std::f32::consts::TAU;
+            commands.spawn((
+                LinePiece {
+                    target,
+                    delay: 0.1,
+                    shrink: 0.0,
+                    size: sprite.custom_size.unwrap_or(Vec2::splat(c)),
+                    speed: (30.0 + 10.0 * crate::particles::roll(&mut seed)) * c,
+                    way: Vec2::from_angle(angle),
+                    pull: 0.0,
+                    spin: if crate::particles::roll(&mut seed) < 0.5 { 1.0 } else { -1.0 },
+                    hue: i as f32,
+                },
+                Sprite { image: sprite.image.clone(), custom_size: sprite.custom_size, ..default() },
+                Transform::from_translation(at.translation().truncate().extend(469.0)),
+            ));
+        }
+    }
+}
+
+fn fly_line_pieces(
+    mut commands: Commands,
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut pieces: Query<(Entity, &mut LinePiece, &mut Transform, &mut Sprite)>,
+) {
+    let dt = time.delta_secs();
+    let colors: Vec<Color> = config.hud.line_colors.iter().map(|&[r, g, b]| Color::srgb_u8(r, g, b)).collect();
+    for (entity, mut piece, mut transform, mut sprite) in &mut pieces {
+        transform.rotate_z(piece.spin * 1080f32.to_radians() * dt);
+        piece.hue += 50.0 * dt;
+        if !colors.is_empty() {
+            let n = colors.len();
+            let i = piece.hue.floor() as usize % n;
+            sprite.color = colors[i].mix(&colors[(i + 1) % n], piece.hue.fract());
+        }
+        if piece.delay > 0.0 {
+            piece.delay -= dt;
+            continue;
+        }
+        piece.shrink += dt;
+        let k = piece.shrink / 0.9;
+        if k >= 1.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        sprite.custom_size = Some(piece.size * (1.0 - EaseFunction::BackIn.sample_clamped(k)));
+        // Slerp from its random way to the target, the pull closing 30% of the gap a frame.
+        let at = transform.translation.truncate();
+        let gap = piece.target - at;
+        let to = gap.normalize_or_zero();
+        let from = piece.way.to_angle();
+        let turn = (to.to_angle() - from + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
+            - std::f32::consts::PI;
+        let step = Vec2::from_angle(from + turn * piece.pull) * piece.speed * dt;
+        piece.pull = 1.0 - (1.0 - piece.pull) * 0.7f32.powf(dt * 60.0);
+        let step = if step.length_squared() > gap.length_squared() { gap } else { step };
+        transform.translation += step.extend(0.0);
+    }
+}
+
+fn fly_line_icons(
+    mut commands: Commands,
+    time: Res<Time>,
+    clouds: Query<(&crate::casts::SpellCloud, &GlobalTransform)>,
+    mut icons: Query<(Entity, &mut LineIcon, &mut Transform)>,
+) {
+    for (entity, mut icon, mut transform) in &mut icons {
+        icon.age += time.delta_secs();
+        let t = icon.age;
+        if t < 0.4 {
+            continue;
+        }
+        if t < 1.0 {
+            transform.scale = Vec3::splat(1.5 * EaseFunction::BackOut.sample_clamped((t - 0.4) / 0.3));
+            continue;
+        }
+        let k = (t - 1.0) / 0.3;
+        if k >= 1.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let e = EaseFunction::BackIn.sample_clamped(k);
+        let to = clouds
+            .iter()
+            .find(|(c, _)| c.tower == icon.tower && c.dark == icon.dark)
+            .map_or(icon.from, |(_, g)| g.translation().truncate());
+        transform.translation = (icon.from + (to - icon.from) * e).extend(transform.translation.z);
+        transform.scale = Vec3::splat(1.5 * (1.0 - e));
+        transform.rotation = Quat::from_rotation_z(e * std::f32::consts::TAU);
     }
 }
 
