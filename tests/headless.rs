@@ -2423,6 +2423,20 @@ fn a_nudge_into_something_places_the_brick_and_kicks_it_back() {
 }
 
 #[test]
+fn a_brick_in_hand_steered_off_the_base_is_lost_once_out_of_view_however_slow() {
+    let mut config = fast_config();
+    config.survival.drop_speed = 2.0;
+    let mut app = headless_app(config);
+    assert!(run_until(&mut app, 5.0, |app| tower(app, 0).active.is_some()));
+    // Off the castle's side, dropped fast for a while, then let go to fall at 2 cells/s
+    // (Max: a brick thrown into the void took 20 s to count).
+    run_seconds(&mut app, 2.0, |app| human_input(app).left_held = true);
+    run_seconds(&mut app, 0.1, |app| human_input(app).left_held = false);
+    let lost_by = |app: &mut App| tower(app, 0).tower_losses > 0 || tower(app, 0).lives < Some(3);
+    assert!(run_until(&mut app, 20.0, lost_by), "the slow brick was never lost");
+}
+
+#[test]
 fn a_trial_has_its_own_floor_lane_and_rival_tower() {
     use tricky_towers::gameplay::{Platform, RivalLane};
     let mut config = fast_config();

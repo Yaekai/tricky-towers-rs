@@ -41,6 +41,8 @@ impl Plugin for ResultsPlugin {
 pub(crate) enum Tone {
     Gold,
     Red,
+    /// EnzoBlackBronzeFront / Back (COUNT_MESSAGE_TEXT_DRAW_*, DRAW!).
+    Bronze,
 }
 
 impl Tone {
@@ -48,6 +50,7 @@ impl Tone {
         match self {
             Tone::Gold => "text_gradient_gold",
             Tone::Red => "text_gradient_red",
+            Tone::Bronze => "text_gradient_bronze",
         }
     }
 
@@ -56,6 +59,12 @@ impl Tone {
         let face = match self {
             Tone::Gold => TextLook::GOLD,
             Tone::Red => TextLook::PINK,
+            // gph_gradientTextureFont04: its top and bottom rows.
+            Tone::Bronze => TextLook {
+                face: Some(Color::srgb_u8(246, 147, 103)),
+                low: Some(Color::srgb_u8(229, 96, 66)),
+                ..TextLook::GOLD
+            },
         };
         TextLook {
             face: face.face,
@@ -69,7 +78,7 @@ impl Tone {
     /// letters cut the face at 0.5 only), so the wine band is a little thinner.
     pub(crate) fn back(self) -> TextLook {
         let wine = match self {
-            Tone::Gold => Color::srgb_u8(158, 23, 64),
+            Tone::Gold | Tone::Bronze => Color::srgb_u8(158, 23, 64),
             Tone::Red => Color::srgb_u8(160, 24, 101),
         };
         TextLook {
@@ -86,6 +95,7 @@ impl Tone {
         match self {
             Tone::Gold => Color::srgb_u8(255, 210, 80),
             Tone::Red => Color::srgb_u8(240, 70, 110),
+            Tone::Bronze => Color::srgb_u8(235, 114, 79),
         }
     }
 }
@@ -295,16 +305,24 @@ fn start_moments(
     }
     for (entity, tower, state) in &towers {
         let won = state.status == TowerStatus::Won || (over && game.winner == Some(tower.index));
-        if won && seen.1.insert((entity, true)) {
-            let color = tone_color(&art, &images, Tone::Gold);
-            let banner = spawn_match_text(&mut commands, &config, win_words, win_size, color, Tone::Gold);
+        // A drawn Puzzle round: every tower with the most bricks says DRAW! (DrawMessage: font 40
+        // against WINNER!'s 32.75, bronze, no sunrays) and gets the winner's light.
+        let drew = puzzle.tied.contains(&entity);
+        if (won || drew) && seen.1.insert((entity, true)) {
+            let (words, size, tone) = if drew {
+                ("DRAW!", look.banner_cells * 40.0 / 32.75 * cell_px, Tone::Bronze)
+            } else {
+                (win_words, win_size, Tone::Gold)
+            };
+            let color = tone_color(&art, &images, tone);
+            let banner = spawn_match_text(&mut commands, &config, words, size, color, tone);
             commands.entity(banner).insert(Banner {
                 tower: entity,
                 out: false,
                 time: 0.0,
                 leave: None,
             });
-            if let Some(image) = art.image("winner_sunrays") {
+            if let Some(image) = art.image("winner_sunrays").filter(|_| !drew) {
                 let rays = commands
                     .spawn((
                         Sunrays,
@@ -712,6 +730,8 @@ struct PuzzleScore {
 pub struct PuzzleCountClock {
     pub since: f32,
     pub end: Option<f32>,
+    /// The towers sharing the most bricks in a drawn round (each says DRAW!).
+    pub tied: Vec<Entity>,
 }
 
 impl PuzzleCountClock {
@@ -802,6 +822,15 @@ fn show_puzzle_scores(
     }
     // DRAW only when two or more towers share the most bricks.
     let draw = over && puzzle_tie(&counts);
+    clock.tied = if draw {
+        towers
+            .iter()
+            .filter(|(entity, ..)| standing.get(entity).copied().unwrap_or(0) == most)
+            .map(|(entity, ..)| entity)
+            .collect()
+    } else {
+        Vec::new()
+    };
     let ticks = counted.and_then(|(_, t)| {
         puzzle_ticks(
             t - rules.count_delay,
@@ -852,18 +881,22 @@ fn show_puzzle_scores(
                     }
                 }
                 let from = if counting { height(n - 1) } else { height(n) };
-                let words = if done && draw && total == most {
-                    format!("{n} DRAW")
-                } else {
-                    n.to_string()
-                };
+                // The count keeps its number; a tie turns it bronze and DRAW! comes over it
+                // (PuzzleGameBaskController._ShowCountMessageFinalState / DRAW_TEXT).
+                let words = n.to_string();
                 let size = if done && total == most {
                     config.moments.score_cells
                 } else {
                     config.moments.count_cells
                 };
                 // A loser's final count turns red (COUNT_MESSAGE_TEXT_LOSER_*).
-                let tone = if done && total < most { Tone::Red } else { Tone::Gold };
+                let tone = if done && total < most {
+                    Tone::Red
+                } else if done && draw {
+                    Tone::Bronze
+                } else {
+                    Tone::Gold
+                };
                 (words, size, tone, Some((from, height(n), since, counting)))
             })
         } else {
