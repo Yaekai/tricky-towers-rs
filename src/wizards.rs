@@ -523,7 +523,9 @@ fn react_wizards(
                 play(&mut wizard, Clip::Startle, None);
             }
             let out = state.status == TowerStatus::Out;
-            if out && !wizard.seen.out {
+            // A Puzzle battle's GameFinishController(false) keeps the wizard of a finished tower.
+            let kept = game.mode == crate::config::ModeKind::Puzzle && config.trial.is_none();
+            if out && !wizard.seen.out && !kept {
                 play(&mut wizard, Clip::Dying, None);
             }
             // A roof set down, in any mode (ROOF_PLACED): Action, then Cheer.
@@ -625,7 +627,10 @@ fn move_wizards(
         wizard.time += dt;
         // The enemy floats 4 cells over the tower top (the original's EnemyWizard).
         let target = state.height + if wizard.enemy { 4.0 } else { look.lift };
-        let y = wizard.y.get_or_insert(target);
+        // AbstractWizardMovementGameController: a tower's wizard starts level with the base
+        // and eases up (Lerp by the frame time each frame).
+        let start = if wizard.enemy { target } else { 0.0 };
+        let y = wizard.y.get_or_insert(start);
         *y += (target - *y) * dt.min(1.0);
         let y = *y;
         let offset = if wizard.enemy {

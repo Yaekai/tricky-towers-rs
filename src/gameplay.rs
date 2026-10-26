@@ -2272,17 +2272,13 @@ fn track_towers(
     }
 }
 
-/// Puzzle battles: once a tower goes out over the laser, its bricks above the laser
-/// are zapped away like Undo's (the original's MaximumHeightGamePlayRule). Bricks
-/// joined by Ivy stay: removing one from a cluster isn't safe.
-#[allow(clippy::type_complexity)]
 /// A brick of a tower that went out, turning to stone in this many seconds.
 #[derive(Component)]
 pub struct PetrifyIn(pub f32);
 
-/// A Survival tower that goes out turns to stone from the bottom up (GameFinishController
-/// petrifies every brick of a finished tower: PetrifyBrickModifier(instant) after a random
-/// 0.05 to 0.1 s plus its height / 40).
+/// A Survival or Puzzle battle tower that goes out turns to stone from the bottom up
+/// (GameFinishController petrifies every brick of a finished tower: PetrifyBrickModifier(instant)
+/// after a random 0.05 to 0.1 s plus its height / 40; Puzzle's keeps its wizard).
 fn petrify_out_towers(
     mut commands: Commands,
     time: Res<Time>,
@@ -2296,6 +2292,7 @@ fn petrify_out_towers(
             Without<FloorBlock>,
             Without<crate::spells::Stone>,
             Without<PetrifyIn>,
+            Without<crate::spells::Zapped>,
             Without<ChildOf>,
         ),
     >,
@@ -2311,7 +2308,8 @@ fn petrify_out_towers(
                 .insert((RigidBody::Static, crate::spells::Stone));
         }
     }
-    if game.mode.rules() != ModeKind::Survival || game.phase != Phase::Playing {
+    let puzzle_battle = game.mode == ModeKind::Puzzle && config.trial.is_none();
+    if !(game.mode.rules() == ModeKind::Survival || puzzle_battle) || game.phase != Phase::Playing {
         return;
     }
     let (low, high, per) = config.survival.out_petrify;
@@ -2330,6 +2328,10 @@ fn petrify_out_towers(
     }
 }
 
+/// MaximumHeightGamePlayRule: every brick whose top is over the laser is zapped (an
+/// UndoBrickModifier, which takes an Ivy brick out of its cluster first, so `loosen_ivy`
+/// frees the rest).
+#[allow(clippy::type_complexity)]
 fn zap_over_laser(
     mut commands: Commands,
     config: Res<GameConfig>,
@@ -2341,7 +2343,6 @@ fn zap_over_laser(
             Without<ActiveBrick>,
             Without<FloorBlock>,
             Without<crate::spells::Zapped>,
-            Without<ChildOf>,
         ),
     >,
 ) {

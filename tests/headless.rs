@@ -190,6 +190,38 @@ fn a_tower_that_goes_out_turns_to_stone_while_the_match_goes_on() {
 }
 
 #[test]
+fn a_puzzle_battle_tower_that_goes_out_turns_to_stone_too() {
+    // PuzzleGameMode's GameFinishController(false): the wizard stays, the bricks petrify.
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.puzzle.line_height = 40.0;
+    config.players = 3;
+    config.opponents = 0;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 8.0, |_| {});
+    assert!(tower(&mut app, 0).bricks_placed >= 1);
+    {
+        let world = app.world_mut();
+        let mut states = world.query::<(&Tower, &mut TowerState)>();
+        for (t, mut state) in states.iter_mut(world) {
+            if t.index == 0 {
+                state.status = TowerStatus::Out;
+            }
+        }
+    }
+    run_seconds(&mut app, 1.5, |_| {});
+    let world = app.world_mut();
+    let mine_tower = world
+        .query::<(Entity, &Tower)>()
+        .iter(world)
+        .find(|(_, t)| t.index == 0)
+        .map(|(e, _)| e);
+    let mut stone = world.query_filtered::<&Brick, (With<tricky_towers::spells::Stone>, Without<ActiveBrick>)>();
+    let mine = stone.iter(world).filter(|b| Some(b.tower) == mine_tower).count();
+    assert!(mine >= 1, "its placed bricks should be stone, got {mine}");
+}
+
+#[test]
 fn a_lost_life_gives_a_moment_of_grace() {
     let mut config = fast_config();
     config.survival.invincible_seconds = 1000.0;

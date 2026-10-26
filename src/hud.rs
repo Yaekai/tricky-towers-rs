@@ -157,6 +157,12 @@ fn wanted(
             let finished_puzzle =
                 game.mode == ModeKind::Puzzle && state.bricks_used() + 1 >= config.puzzle.bricks;
             let intro = game.phase == Phase::Intro && game.mode == ModeKind::Survival;
+            // A Survival battle's GameFinishController keeps an out tower's HUD
+            // (hideHudOnFinish false): its card stays on the brick it would have dealt.
+            let kept = game.phase == Phase::Playing
+                && game.mode == ModeKind::Survival
+                && config.trial.is_none()
+                && state.status == TowerStatus::Out;
             // While Survival's count counts up the card flips through random bricks
             // from its own bag, once per two counted (AnimateBrickCountEffect), then
             // lands on the real next brick.
@@ -165,7 +171,7 @@ fn wanted(
                 (0..=counted / 2).map(|_| flips.draw()).last().unwrap_or(0)
             });
             match bag {
-                Some(bag) if (playing || intro) && !finished_puzzle => {
+                Some(bag) if (playing || intro || kept) && !finished_puzzle => {
                     Shows::Card(flip.unwrap_or_else(|| bag.peek()), pack)
                 }
                 _ => Shows::Nothing,
@@ -188,8 +194,9 @@ fn wanted(
                     .saturating_sub(state.bricks_used()),
             );
             let over = game.phase == Phase::Over;
-            // An out tower's HUD hides with its next card (GameFinishController).
-            if state.status == TowerStatus::Out
+            // An out tower keeps its HUD in a battle (SurvivalGameMode's GameFinishController
+            // doesn't hide it); a trial's hides.
+            if state.status == TowerStatus::Out && config.trial.is_some()
                 || over && state.status != TowerStatus::Won && game.winner.is_some()
             {
                 Shows::Nothing

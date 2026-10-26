@@ -22,7 +22,7 @@ const GALAXY_WGSL: &str = r#"// A Galaxy brick, drawn the way the original's bri
 // blends in gamma space, and the result goes back to linear light for Bevy.
 #import bevy_sprite::{
     mesh2d_vertex_output::VertexOutput,
-    mesh2d_view_bindings::globals,
+    mesh2d_view_bindings::{globals, view},
 }
 #import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
 
@@ -46,6 +46,8 @@ struct GalaxyBrick {
     water_colour: vec4<f32>,
     // Its tower's lane on the screen: x left, y right (world pixels), z 1 when cut there.
     clip: vec4<f32>,
+    // x: 1 when iced (ICE_ON).
+    ice: vec4<f32>,
 
 };
 
@@ -56,6 +58,13 @@ struct GalaxyBrick {
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var sky_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(5) var star: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(6) var star_sampler: sampler;
+
+// ICE_ON's shine: two sets of diagonal bands fixed to the camera, a cell apart in units.
+fn ice_shine(world: vec2<f32>, cell: f32) -> f32 {
+    let at = (world - view.world_position.xy) / cell;
+    let band = fract(vec2(at.x + at.y) * vec2(0.5, 0.6)) - vec2(0.8, 0.9);
+    return clamp(ceil(max(band.x, 0.0) + max(band.y, 0.0)), 0.0, 1.0);
+}
 
 // The original's hue turn, a YIQ-style rotation.
 fn hue(c: vec3<f32>, angle: f32) -> vec3<f32> {
@@ -132,17 +141,30 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let r = material.params.y;
     let world_n = vec2(cos(r) * n.x - sin(r) * n.y, sin(r) * n.x + cos(r) * n.y);
     let d = dot(world_n, vec2(-0.44721359, 0.89442718));
-    colour = mix(colour, material.highlight.rgb, clamp(d, 0.0, 1.0) * material.highlight.a);
-    colour = mix(colour, material.shadow.rgb, clamp(-d, 0.0, 1.0) * material.shadow.a);
+    var map_alpha = map.a;
+    var border = material.border.rgb;
+    if (material.ice.x > 0.5) {
+        // ICE_ON, as the lit bricks': the sky half way to (0.6, 0.8, 1) with the shine, the
+        // highlight half way to icy white, a lilac shadow and a blue outline.
+        colour = mix(colour, vec3(0.6, 0.8, 1.0), 0.5) + ice_shine(mesh.world_position.xy, material.params.z) * 0.1;
+        map_alpha = map.a * 1.1;
+        let light = mix(material.highlight, vec4(0.945098, 0.984314, 1.0, 1.0), 0.5);
+        colour = mix(colour, light.rgb, clamp(d, 0.0, 1.0) * light.a);
+        colour = mix(colour, vec3(0.470588, 0.431373, 0.745098), clamp(-d, 0.0, 1.0));
+        border = vec3(0.329412, 0.337255, 0.752941);
+    } else {
+        colour = mix(colour, material.highlight.rgb, clamp(d, 0.0, 1.0) * material.highlight.a);
+        colour = mix(colour, material.shadow.rgb, clamp(-d, 0.0, 1.0) * material.shadow.a);
+    }
 
     // The outline (the map's blue, and its outside) in the border colour.
     let outline = 1.0 - (1.0 - map.b) * map.a;
-    colour = mix(colour, material.border.rgb, outline);
+    colour = mix(colour, border, outline);
     colour = colour + material.params.w * (1.0 - colour);
     let wet = under_water(mesh.world_position.y, &colour);
 
-    let alpha = max(map.a, map.b) * wet;
-    return vec4(srgb_to_linear(colour) * material.tint.rgb, alpha * material.tint.a * in_lane(mesh.world_position.x));
+    let alpha = max(map_alpha, map.b) * wet;
+    return vec4(srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0))) * material.tint.rgb, alpha * material.tint.a * in_lane(mesh.world_position.x));
 }
 "#;
 
@@ -178,6 +200,8 @@ pub struct GalaxyLook {
     pub water_colour: Vec4,
     /// The tower's lane: x left, y right (world pixels), z 1 when the brick is cut there.
     pub clip: Vec4,
+    /// x: 1 when iced (the shader's ICE_ON).
+    pub ice: Vec4,
 }
 
 impl Material2d for GalaxyBrick {
@@ -196,7 +220,7 @@ const DIAMOND_WGSL: &str = r#"// A Diamond brick, drawn the way the original's b
 // written from those notes, on stored (sRGB) values like the original.
 #import bevy_sprite::{
     mesh2d_vertex_output::VertexOutput,
-    mesh2d_view_bindings::globals,
+    mesh2d_view_bindings::{globals, view},
 }
 #import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
 
@@ -218,6 +242,8 @@ struct DiamondBrick {
     water_colour: vec4<f32>,
     // Its tower's lane on the screen: x left, y right (world pixels), z 1 when cut there.
     clip: vec4<f32>,
+    // x: 1 when iced (ICE_ON).
+    ice: vec4<f32>,
 
 };
 
@@ -226,6 +252,13 @@ struct DiamondBrick {
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var bevel_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var pattern: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var pattern_sampler: sampler;
+
+// ICE_ON's shine: two sets of diagonal bands fixed to the camera, a cell apart in units.
+fn ice_shine(world: vec2<f32>, cell: f32) -> f32 {
+    let at = (world - view.world_position.xy) / cell;
+    let band = fract(vec2(at.x + at.y) * vec2(0.5, 0.6)) - vec2(0.8, 0.9);
+    return clamp(ceil(max(band.x, 0.0) + max(band.y, 0.0)), 0.0, 1.0);
+}
 
 // Photoshop's overlay: darks multiplied by twice the colour, lights screened.
 fn overlay(a: vec3<f32>, b: vec3<f32>) -> vec3<f32> {
@@ -288,12 +321,25 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let a = material.params.x;
     let shine = clamp(dot(vec2(cos(a), sin(a)), world_n), 0.0, 1.0) * material.params.y;
     colour = mix(colour, vec3(1.0), shine);
+    var pattern_alpha = pat_linear.a;
+    var border = material.border.rgb;
+    if (material.ice.x > 0.5) {
+        // ICE_ON: half way to (0.6, 0.8, 1) with the shine, then lit like the ice bricks; the
+        // pack has no highlight, so its light is icy white at half strength, then a lilac
+        // shadow and a blue outline.
+        colour = mix(colour, vec3(0.6, 0.8, 1.0), 0.5) + ice_shine(mesh.world_position.xy, material.water.z) * 0.1;
+        pattern_alpha = pattern_alpha * 1.1;
+        let d = dot(world_n, vec2(-0.44721359, 0.89442718));
+        colour = mix(colour, vec3(0.472549, 0.492157, 0.5), clamp(d, 0.0, 1.0) * 0.5);
+        colour = mix(colour, vec3(0.470588, 0.431373, 0.745098), clamp(-d, 0.0, 1.0));
+        border = vec3(0.329412, 0.337255, 0.752941);
+    }
 
     let outline = 1.0 - (1.0 - map.b) * map.a;
-    colour = mix(colour, material.border.rgb, outline);
+    colour = mix(colour, border, outline);
     colour = colour + material.params.w * (1.0 - colour);
     let wet = under_water(mesh.world_position.y, &colour);
-    let alpha = max(pat_linear.a, map.b) * wet;
+    let alpha = max(pattern_alpha, map.b) * wet;
     return vec4(srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0))) * material.tint.rgb, alpha * material.tint.a * in_lane(mesh.world_position.x));
 }
 "#;
@@ -327,6 +373,8 @@ pub struct DiamondLook {
     pub water_colour: Vec4,
     /// The tower's lane: x left, y right (world pixels), z 1 when the brick is cut there.
     pub clip: Vec4,
+    /// x: 1 when iced (the shader's ICE_ON).
+    pub ice: Vec4,
 }
 
 impl Material2d for DiamondBrick {
@@ -488,7 +536,7 @@ const HOLO_WGSL: &str = r#"// A Hologram brick, the way the original's World/Bri
 // (docs/research/hologram.md), written from those notes, on stored (sRGB) values.
 #import bevy_sprite::{
     mesh2d_vertex_output::VertexOutput,
-    mesh2d_view_bindings::globals,
+    mesh2d_view_bindings::{globals, view},
 }
 #import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
 
@@ -505,6 +553,8 @@ struct HologramBrick {
     water_colour: vec4<f32>,
     // Its tower's lane on the screen: x left, y right (world pixels), z 1 when cut there.
     clip: vec4<f32>,
+    // x: 1 when iced (ICE_ON).
+    ice: vec4<f32>,
 
 };
 
@@ -513,6 +563,13 @@ struct HologramBrick {
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var bevel_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var pattern: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var pattern_sampler: sampler;
+
+// ICE_ON's shine: two sets of diagonal bands fixed to the camera, a cell apart in units.
+fn ice_shine(world: vec2<f32>, cell: f32) -> f32 {
+    let at = (world - view.world_position.xy) / cell;
+    let band = fract(vec2(at.x + at.y) * vec2(0.5, 0.6)) - vec2(0.8, 0.9);
+    return clamp(ceil(max(band.x, 0.0) + max(band.y, 0.0)), 0.0, 1.0);
+}
 
 // The shader's hash.
 fn hash(n: f32) -> f32 {
@@ -576,15 +633,28 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let r = material.params.x;
     let world_n = vec2(cos(r) * n.x - sin(r) * n.y, sin(r) * n.x + cos(r) * n.y);
     let l = dot(world_n, vec2(-0.44721359, 0.89442718));
-    colour = mix(colour, material.highlight.rgb, clamp(l, 0.0, 1.0) * material.highlight.a);
-    colour = mix(colour, material.shadow.rgb, clamp(-l, 0.0, 1.0) * material.shadow.a);
-
     // The outline, black at rest, (0.8, 1, 1) through a glitch.
+    var border = d * vec3(0.8, 1.0, 1.0);
+    var map_alpha = flicker * map.a;
+    if (material.ice.x > 0.5) {
+        // ICE_ON: half way to (0.6, 0.8, 1) with the shine, the highlight half way to icy
+        // white, a lilac shadow and a blue outline.
+        colour = mix(colour, vec3(0.6, 0.8, 1.0), 0.5) + ice_shine(mesh.world_position.xy, material.params.z) * 0.1;
+        map_alpha = map_alpha * 1.1;
+        let light = mix(material.highlight, vec4(0.945098, 0.984314, 1.0, 1.0), 0.5);
+        colour = mix(colour, light.rgb, clamp(l, 0.0, 1.0) * light.a);
+        colour = mix(colour, vec3(0.470588, 0.431373, 0.745098), clamp(-l, 0.0, 1.0));
+        border = vec3(0.329412, 0.337255, 0.752941);
+    } else {
+        colour = mix(colour, material.highlight.rgb, clamp(l, 0.0, 1.0) * material.highlight.a);
+        colour = mix(colour, material.shadow.rgb, clamp(-l, 0.0, 1.0) * material.shadow.a);
+    }
+
     let outline = 1.0 - (1.0 - map.b) * map.a;
-    colour = mix(colour, d * vec3(0.8, 1.0, 1.0), outline);
+    colour = mix(colour, border, outline);
     colour = colour + material.params.w * (1.0 - colour);
     let wet = under_water(mesh.world_position.y, &colour);
-    let alpha = max(flicker * map.a, map.b) * wet;
+    let alpha = max(map_alpha, map.b) * wet;
     let out = srgb_to_linear(clamp(colour, vec3(0.0), vec3(1.0)));
     return vec4(out * material.tint.rgb, alpha * material.tint.a * in_lane(mesh.world_position.x));
 }
@@ -616,6 +686,8 @@ pub struct HoloLook {
     pub water_colour: Vec4,
     /// The tower's lane: x left, y right (world pixels), z 1 when the brick is cut there.
     pub clip: Vec4,
+    /// x: 1 when iced (the shader's ICE_ON).
+    pub ice: Vec4,
 }
 
 impl Material2d for HologramBrick {
@@ -635,6 +707,7 @@ pub fn hologram_brick(
     key: &str,
     size: Vec2,
     cell: f32,
+    ice: bool,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<HologramBrick>,
 ) -> Option<(Handle<Mesh>, Handle<HologramBrick>)> {
@@ -652,6 +725,7 @@ pub fn hologram_brick(
             water_line: Vec4::ZERO,
             water_colour: Vec4::ZERO,
             clip: Vec4::ZERO,
+            ice: Vec4::X * ice as u8 as f32,
         },
         bevel,
         pattern,
