@@ -109,6 +109,29 @@ function Add-LitBrick($key, $pack, $shape, $dir, $what, $tex = '_PatternTex', $h
   Add-Texture $key $pattern "$dir\$shape.png" $what ", bevel: `"$($key)_bevel`", light: ($(& $color $high), $(& $color $low))$angle$line"
 }
 foreach ($b in 'I','O','T','S','Z','J','L') { Add-LitBrick "brick_$b" 'default' $b 'bricks' "Brick $b, default pack" }
+# Galaxy and Diamond bricks draw with their own shaders (src/brick_material.rs): the prefab's
+# bevel map, and from the shape's material the border colour (and Galaxy's light colours).
+# Galaxy's pattern is the starfield render texture, so its entry is the bevel map itself.
+function Add-PackBrick($key, $pack, $shape, $dir, $what) {
+  $prefab = Join-Path $A "Resources\game\bricks\brickpack\$pack\Brick$shape.prefab"
+  if (-not (Test-Path $prefab)) { $missing.Add("$key (prefab $pack/Brick$shape)"); return }
+  $p = Get-Content $prefab -Raw
+  $sprite = [IO.Path]::GetFileNameWithoutExtension($idx[[regex]::Match($p, 'm_Sprite: \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value])
+  $mat = Get-Content $idx[[regex]::Match($p, 'm_Materials:\s*\n\s*- \{fileID: \d+, guid: ([0-9a-f]+)').Groups[1].Value] -Raw
+  $num = '(-?[0-9.]+(?:[eE][-+]?\d+)?)'
+  $color = {
+    param($n, $parts)
+    $m = [regex]::Match($mat, "name: $n\s*\n\s*second: \{r: $num, g: $num, b: $num, a: $num\}")
+    '(' + ((1..$parts | ForEach-Object { Inv ([double]$m.Groups[$_].Value) }) -join ', ') + ')'
+  }
+  $line = ", line: $(& $color '_BorderColor' 3)"
+  Add-Sprite "$($key)_bevel" $sprite "$dir\bevel_$shape.png" "$what, bevel and outline map"
+  if ($pack -eq 'galaxy') {
+    Add-Sprite $key $sprite "$dir\bevel_$shape.png" $what $null ", bevel: `"$($key)_bevel`", light: ($(& $color '_HighlightColor' 4), $(& $color '_ShadowColor' 4))$line"
+  } else {
+    Add-Texture $key "gph_brick$($shape)_diamond_texture.png" "$dir\$shape.png" $what $line
+  }
+}
 Add-Sprite 'mystery_block' 'gph_brickMystery01' 'bricks\mystery_block.png' 'Mystery 1, 2x4 block'
 Add-Sprite 'mystery_blob'  'gph_brickMystery02' 'bricks\mystery_blob.png'  'Mystery 2, blob in a 3x4 box (cells: 2x3 at x -1.5..0.5 y -2..1, 1x3 at x 0.5..1.5 y -1..2, 1x1 at x -0.5..0.5 y 1..2; plus a decorative rotor, gph_brickMystery02Rotor, drawn on top)'
 Add-Sprite 'mystery_table' 'gph_brickMystery03' 'bricks\mystery_table.png' 'Mystery 3, table: 4x2 slab on two 1x1 feet'
@@ -652,7 +675,8 @@ foreach ($s in 'I','O','T','S','Z','J','L') {
   Add-LitBrick "brick_spring_$s" 'easter' $s 'bricks\spring' "Brick $s, spring pack"
   Add-LitBrick "brick_halloween_$s" 'halloween' $s 'bricks\halloween' "Brick $s, halloween pack" '_PatternBlackWhite' '_HighlightColorBlackWhite' '_ShadowColorBlackWhite'
   Add-LitBrick "brick_candy_$s" 'candy' $s 'bricks\candy' "Brick $s, candy pack" '_PatternTex' '_HighlightColor' '_ShadowColor' '_BorderColor'
-  Add-Texture "brick_diamond_$s" "gph_brick$($s)_diamond_texture.png" "bricks\diamond\$s.png" "Brick $s, diamond pack"
+  Add-PackBrick "brick_diamond_$s" 'diamond' $s 'bricks\diamond' "Brick $s, diamond pack"
+  Add-PackBrick "brick_galaxy_$s" 'galaxy' $s 'bricks\galaxy' "Brick $s, galaxy pack"
 }
 foreach ($s in 'I','O','T','S','Z','J','L') { Add-Texture "brick_christmas_lights_$s" "gph_brick$($s)_christmas_lightsTexture03.png" "bricks\christmas\lights_$s.png" "Christmas pack: blinking lights layer for brick $s" }
 foreach ($pk in 'default','candy','christmas','diamond','easter','galaxy','halloween','hologram') { Add-Texture "brick_pack_icon_$pk" "icn_brickPack_$pk.png" "bricks\icons\pack_$pk.png" "Select Players: brick pack icon ($pk)" }

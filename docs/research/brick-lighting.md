@@ -49,3 +49,20 @@ already keep it fixed in the world.
 - In our build: Easter now decorates every cell's face (40%) and every top edge (25%), as above
   (visuals.rs); before, a brick had at most one flower or egg.
 
+## Iced pack bricks (ICE_ON, read 2026-10-26)
+Every brick shader has an ICE_ON variant, and the Galaxy, Diamond and Hologram ones do the same
+thing as the lit bricks' on top of their own look:
+- The pack's colour (Galaxy's hue-turned sky, Diamond's pattern after its gloss bands and sweep,
+  Hologram's pattern after its scan lines and bright glitch bands) goes half way to (0.6, 0.8, 1),
+  plus 0.1 where either of two sets of diagonal bands fixed to the camera is lit
+  (frac((x + y) x 0.5) over 0.8, frac((x + y) x 0.6) over 0.9, x and y in units).
+- Its alpha is 1.1 times the usual (bevel map alpha for Galaxy, flicker x map alpha for Hologram,
+  the pattern's for Diamond).
+- The highlight is half way to icy white (0.945, 0.984, 1) and strength 1; Diamond has no
+  highlight colour, so its light is (0.473, 0.492, 0.5) at 0.5.
+- The shadow side goes fully to lilac (0.471, 0.431, 0.745), and the outline is blue
+  (0.329, 0.337, 0.753), replacing the pack's border (and Hologram's glitch outline).
+
+Staging: Galaxy and Diamond bricks need the prefab's bevel map and the shape's material colours
+(Galaxy: highlight, shadow, border; Diamond: border); stage.ps1's Add-PackBrick stages them.
+

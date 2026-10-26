@@ -305,8 +305,10 @@ fn decorate_bricks(
         let Ok(skin) = skins.get(brick.tower) else {
             continue;
         };
-        // Only the seven normal shapes, in their own look.
-        if brick.piece >= config.pieces.len() || stone || brick.ice {
+        // Only the seven normal shapes, in their own look. Galaxy, Diamond and Hologram draw
+        // iced bricks themselves (their shaders' ICE_ON); the other packs' ice is in visuals.
+        let own_ice = matches!(skin.pack, BrickPack::Galaxy | BrickPack::Diamond | BrickPack::Hologram);
+        if brick.piece >= config.pieces.len() || stone || (brick.ice && !own_ice) {
             continue;
         }
         let c = config.cell_size * brick.scale;
@@ -498,7 +500,7 @@ fn decorate_bricks(
                 let center = (min + max) * 0.5 * c;
                 if let Some((mesh, material)) = meshes.as_mut().zip(holo_bricks.as_mut()).and_then(
                     |(meshes, holo_bricks)| {
-                        crate::brick_material::hologram_brick(&art, &key, size, c, meshes, holo_bricks)
+                        crate::brick_material::hologram_brick(&art, &key, size, c, brick.ice, meshes, holo_bricks)
                     },
                 ) {
                     // An unplaced brick's glitch never comes.
@@ -564,6 +566,7 @@ fn decorate_bricks(
                             water_line: Vec4::ZERO,
                             water_colour: Vec4::ZERO,
                             clip: Vec4::ZERO,
+                            ice: Vec4::X * brick.ice as u8 as f32,
                         },
                         bevel,
                         pattern,
@@ -639,6 +642,7 @@ fn decorate_bricks(
                             water_line: Vec4::ZERO,
                             water_colour: Vec4::ZERO,
                             clip: Vec4::ZERO,
+                            ice: Vec4::X * brick.ice as u8 as f32,
                         },
                         bevel,
                         sky,

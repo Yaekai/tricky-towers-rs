@@ -903,16 +903,15 @@ pub(crate) fn dress_bricks(
         let cell = config.cell_size * brick.scale;
         let def = piece_def(&config, brick.piece);
         let pack = skins.get(brick.tower).map(|s| s.pack).unwrap_or_default();
-        // Galaxy, Diamond and Hologram bricks are drawn by their own materials in packs.rs;
-        // their Ivy and grass still go on here.
+        // Galaxy, Diamond and Hologram bricks, iced too (their ICE_ON), are drawn by their own
+        // materials in packs.rs; their Ivy and grass still go on here.
         let own_material = matches!(
             pack,
             crate::config::BrickPack::Galaxy
                 | crate::config::BrickPack::Diamond
                 | crate::config::BrickPack::Hologram
         ) && brick.piece < config.pieces.len()
-            && !stone
-            && !brick.ice;
+            && !stone;
         // IceBrickModifier: a brick with its own ice picture (_ICE_PACK, the default pack's)
         // takes it; any other pack lit by World/Bricks keeps its pattern with ICE_ON.
         let ice_on = brick.ice

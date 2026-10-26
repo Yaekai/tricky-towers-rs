@@ -88,6 +88,9 @@ pub enum DebugCommand {
     /// by side comparison with a reference picture. No physics; spawns in place.
     PackLine {
         pack: crate::config::BrickPack,
+        /// Iced, as if hit by the Ice curse.
+        #[serde(default)]
+        ice: bool,
     },
     /// DEBUG-TOOL: switch the Galaxy starfield's scroll on or off.
     GalaxyFrame {
@@ -277,7 +280,7 @@ fn apply_debug_commands(
                 }
                 request.pending = true;
             }
-            DebugCommand::PackLine { pack } => {
+            DebugCommand::PackLine { pack, ice } => {
                 // Show the row in a match, not over the start or menu screens.
                 if game.phase == crate::gameplay::Phase::Menu {
                     game.phase = crate::gameplay::Phase::Playing;
@@ -294,7 +297,7 @@ fn apply_debug_commands(
                         color: Color::srgb(def.color[0], def.color[1], def.color[2]),
                         scale: 1.0,
                         mass: def.mass,
-                        ice: false,
+                        ice,
                     };
                     let (body, density) = brick_body(&config, &brick);
                     let x = (piece as f32 - (count as f32 - 1.0) / 2.0) * 4.0;
