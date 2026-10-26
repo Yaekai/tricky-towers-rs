@@ -15,6 +15,7 @@ use crate::config::{CupPanel, GameConfig};
 use crate::cups::Cup;
 use crate::gameplay::{Match, MatchRequest, Phase};
 use crate::menu::{MenuScreen, MenuSystems};
+use crate::trials::TrialProgress;
 
 pub struct PopupPlugin;
 
@@ -153,21 +154,52 @@ struct PopupWords(usize);
 const PICKED: Color = Color::srgb(1.0, 0.85, 0.25);
 const OTHER: Color = Color::srgb(1.0, 0.31, 0.55);
 
-/// The items after a trial: Retry and Select Trial (the original's slanted panel).
+/// The items after a trial (SinglePlayerGameTypeController's EndGamePopup): Next once the
+/// trial is beaten (now or before), Retry, and Select Trial (END_GAME_POPUP_QUIT_SINGLE_PLAYER).
 const TRIAL_ITEMS: [&str; 2] = ["Retry", "Select Trial"];
+const TRIAL_ITEMS_NEXT: [&str; 3] = ["Next", "Retry", "Select Trial"];
 /// After an Endless run: Retry and Back to menu (EndGamePopup with no Next, its quit label
 /// END_GAME_POPUP_QUIT_LEADERBOARD), which go where Rematch and Select Mode go.
 const ENDLESS_ITEMS: [&str; 2] = ["Retry", "Back to menu"];
 
-/// The two-item lists that replace Rematch / Select Mode / Main menu.
-fn short_items(config: &GameConfig) -> Option<[&'static str; 2]> {
-    if config.trial.is_some() {
-        Some(TRIAL_ITEMS)
+/// A local match picked with a Random mode or difficulty (SingleLocalMatchFlowController's
+/// allowNext, more than one game mode): Next match deals another pair.
+const LOCAL_ITEMS_NEXT: [&str; 4] = ["Next match", "Rematch", "Select Mode", "Main menu"];
+/// The most items any list has (the rows spawned).
+const MAX_ITEMS: usize = 4;
+
+/// The popup's items for this match.
+fn popup_items(config: &GameConfig, progress: Option<&TrialProgress>, cup: &Cup) -> &'static [&'static str] {
+    if let Some(trial) = config.trial {
+        let beaten = config
+            .trials
+            .get(trial)
+            .zip(progress)
+            .is_some_and(|(t, p)| p.is_done(&t.name));
+        if beaten { &TRIAL_ITEMS_NEXT } else { &TRIAL_ITEMS }
     } else if config.mode.is_endless() {
-        Some(ENDLESS_ITEMS)
+        &ENDLESS_ITEMS
+    } else if cup.size.is_none() && cup.options.len() > 1 {
+        &LOCAL_ITEMS_NEXT
     } else {
-        None
+        &POPUP_ITEMS
     }
+}
+
+/// GameStateController._HandleNextTrial: a tier that has just opened goes back to the list
+/// (its unlock plays there), else the next trial if its tier is open, else the list.
+/// ponytail: after the last trial the original opens the Credits; we go to the list.
+fn next_trial(config: &GameConfig, progress: &TrialProgress) -> Option<usize> {
+    let tiers = &config.trial_tiers;
+    let medals = progress.medals(tiers);
+    let open = tiers.tiers.iter().filter(|(_, need)| medals >= *need).count();
+    if open > crate::trials_menu::tiers_shown(progress, tiers) {
+        return None;
+    }
+    config
+        .trial
+        .map(|i| i + 1)
+        .filter(|&n| n < config.trials.len() && tiers.is_open(n, medals))
 }
 
 fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
@@ -202,7 +234,8 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
             panel.insert((sliced(back, PANEL_SLICE), BackgroundColor(Color::NONE)));
         }
         let bar = image("menu_item_selected");
-        for (i, item) in POPUP_ITEMS.iter().enumerate() {
+        for i in 0..MAX_ITEMS {
+            let item = POPUP_ITEMS.get(i).copied().unwrap_or("");
             let top = ITEMS_TOP + ROW * i as f32 + (ROW - LABEL.1) / 2.0;
             // The bar sits behind the label, as wide as the label's words.
             let mut row = root.spawn((
@@ -306,6 +339,8 @@ fn popup_input(
     mut screen: ResMut<MenuScreen>,
     mut request: ResMut<MatchRequest>,
     mut cup: ResMut<crate::cups::Cup>,
+    progress: Option<Res<TrialProgress>>,
+    mut trials_menu: Option<ResMut<crate::trials_menu::TrialsMenu>>,
     mut last_cursor: Local<Option<Vec2>>,
 ) {
     if !popup.shown || game.phase != Phase::Over {
@@ -323,7 +358,8 @@ fn popup_input(
         }
         return;
     }
-    let count = short_items(&config).map_or(POPUP_ITEMS.len(), |items| items.len());
+    let items = popup_items(&config, progress.as_deref(), &cup);
+    let count = items.len();
     let (mut up, mut down, mut pick) = (false, false, false);
     if let Some(keys) = keys {
         // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
@@ -373,12 +409,43 @@ fn popup_input(
     if !pick {
         return;
     }
-    match POPUP_ITEMS[popup.selected.min(POPUP_ITEMS.len() - 1)] {
+    match items[popup.selected.min(count - 1)] {
+        // SingleLocalMatchFlowController._HandleNext: another of the picked pairs at random.
+        "Next match" if cup.size.is_none() => {
+            let current = cup.current;
+            let others: Vec<_> = cup.options.iter().copied().filter(|o| Some(*o) != current).collect();
+            if !others.is_empty() {
+                let (mode, difficulty) = others[time.elapsed().as_nanos() as usize / 1000 % others.len()];
+                config.mode = mode;
+                config.difficulty = Some(difficulty);
+                cup.current = Some((mode, difficulty));
+                cup.show_title = true;
+            }
+            request.retry = false;
+            request.pending = true;
+        }
+        "Next" => {
+            match progress.as_deref().and_then(|p| next_trial(&config, p)) {
+                Some(next) => {
+                    config.trial = Some(next);
+                    config.difficulty = Some(crate::config::Difficulty::Normal);
+                    if let Some(menu) = trials_menu.as_mut() {
+                        menu.selected = next;
+                    }
+                    request.retry = false;
+                    request.pending = true;
+                }
+                None => {
+                    game.phase = Phase::Menu;
+                    *screen = MenuScreen::Trials;
+                }
+            }
+        }
         "Main menu" => {
             game.phase = Phase::Menu;
             *screen = MenuScreen::Main;
         }
-        "Select Mode" => {
+        "Select Mode" | "Select Trial" | "Back to menu" => {
             game.phase = Phase::Menu;
             *screen = if config.trial.is_some() {
                 MenuScreen::Trials
@@ -420,15 +487,12 @@ fn show_popup(
     )>,
     cup: Res<crate::cups::Cup>,
     art: Option<Res<Art>>,
+    progress: Option<Res<TrialProgress>>,
     mut texts: Query<(&PopupWords, &mut Text, &mut TextColor, &mut crate::letters::TextLook)>,
 ) {
-    let short = short_items(&config);
+    let items = popup_items(&config, progress.as_deref(), &cup);
     for (item, mut text, mut color, mut look) in &mut texts {
-        let words = match short {
-            Some(items) => items.get(item.0).copied().unwrap_or(""),
-            None => POPUP_ITEMS[item.0],
-        }
-        .to_uppercase();
+        let words = items.get(item.0).copied().unwrap_or("").to_uppercase();
         if text.0 != words {
             text.0 = words;
         }
@@ -450,8 +514,7 @@ fn show_popup(
         1.0
     };
     let eased = 1.0 - (1.0 - t) * (1.0 - t);
-    let items = short.map_or(POPUP_ITEMS.len(), |items| items.len());
-    let bottom = px(-(height(items) + SPILL.1) * (1.0 - eased));
+    let bottom = px(-(height(items.len()) + SPILL.1) * (1.0 - eased));
     let visible = popup.shown
         && !popup.panel_up(&cup, &config.cup_panel)
         && popup.winner_since().is_none();
@@ -464,7 +527,7 @@ fn show_popup(
         if node.bottom != bottom {
             node.bottom = bottom;
         }
-        let tall = px(height(items));
+        let tall = px(height(items.len()));
         if node.height != tall {
             node.height = tall;
         }
@@ -475,10 +538,7 @@ fn show_popup(
     for (bar, image, mut colour, mut shown, mut node) in &mut bars {
         // The bar is as wide as its words (the label's content-size fit) and the padding;
         // the words are drawn by their letter twin, which gives the row no width of its own.
-        let words = match short {
-            Some(items) => items.get(bar.0).copied().unwrap_or(""),
-            None => POPUP_ITEMS[bar.0],
-        };
+        let words = items.get(bar.0).copied().unwrap_or("");
         if let Some(art) = art.as_deref() {
             let wide = crate::letters::line_width(art, &words.to_uppercase(), 40.0);
             if wide > 0.0 {
@@ -488,7 +548,7 @@ fn show_popup(
                 }
             }
         }
-        shown.set_if_neq(if short.is_some_and(|items| bar.0 >= items.len()) {
+        shown.set_if_neq(if bar.0 >= items.len() {
             Visibility::Hidden
         } else {
             Visibility::Inherited
@@ -512,5 +572,42 @@ fn show_popup(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn next_goes_on_in_an_open_tier_and_back_to_the_list_when_a_tier_opens() {
+        let mut config = GameConfig::default();
+        assert!(config.trials.len() > 10, "the trial list");
+        let mut progress = TrialProgress::default();
+        config.trial = Some(0);
+        let cup = Cup::default();
+        assert_eq!(popup_items(&config, Some(&progress), &cup), &TRIAL_ITEMS[..], "no Next before a win");
+        progress.done.push(config.trials[0].name.clone());
+        assert_eq!(popup_items(&config, Some(&progress), &cup), &TRIAL_ITEMS_NEXT[..]);
+        assert_eq!(next_trial(&config, &progress), Some(1));
+        // The tenth medal of the first tier opens the second: the list plays its unlock.
+        config.trial = Some(9);
+        progress.done = config.trials[..config.trial_tiers.tiers[1].1 as usize]
+            .iter()
+            .map(|t| t.name.clone())
+            .collect();
+        assert_eq!(next_trial(&config, &progress), None);
+        progress.tiers_shown = 2;
+        assert_eq!(next_trial(&config, &progress), Some(10));
+    }
+
+    #[test]
+    fn a_random_local_match_offers_next_match() {
+        use crate::config::{Difficulty, ModeKind};
+        let config = GameConfig::default();
+        let mut cup = Cup::default();
+        assert_eq!(popup_items(&config, None, &cup), &POPUP_ITEMS[..]);
+        cup.options = vec![(ModeKind::Race, Difficulty::Easy), (ModeKind::Puzzle, Difficulty::Easy)];
+        assert_eq!(popup_items(&config, None, &cup), &LOCAL_ITEMS_NEXT[..]);
     }
 }
