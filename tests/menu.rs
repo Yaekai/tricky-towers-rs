@@ -249,14 +249,14 @@ fn escape_pauses_and_the_pause_menu_resumes_retries_or_quits() {
     fade(&mut app);
     assert_eq!(
         (phase(&app), screen(&app)),
-        (Phase::Menu, MenuScreen::Main),
-        "Quit"
+        (Phase::Menu, MenuScreen::Modes),
+        "Quit goes back to Select Mode"
     );
     tap(&mut app, KeyCode::Escape);
     assert_eq!(
         phase(&app),
         Phase::Menu,
-        "Esc on the title screen doesn't resume"
+        "Esc on the menus doesn't resume"
     );
 }
 
@@ -699,4 +699,25 @@ fn help_pages_turn_both_ways_and_escape_goes_back_to_the_title() {
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
     // It opens on the controls again.
     assert_eq!(page(&app), 0);
+}
+
+#[test]
+fn exit_game_asks_first_and_cancel_closes_the_popup() {
+    use tricky_towers::confirm::ExitConfirm;
+    let mut app = app();
+    app.world_mut().resource_mut::<MainMenu>().selected = 6;
+    tap(&mut app, KeyCode::Enter);
+    let confirm = |app: &App| {
+        let c = app.world().resource::<ExitConfirm>();
+        (c.open, c.selected)
+    };
+    assert_eq!(confirm(&app), (true, 1), "the popup opens on CANCEL");
+    tap(&mut app, KeyCode::Escape);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main, "Esc is the popup's");
+    tap(&mut app, KeyCode::Enter);
+    for _ in 0..64 {
+        app.update();
+    }
+    assert!(!confirm(&app).0, "CANCEL closes it");
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
 }

@@ -558,7 +558,7 @@ fn spawn_locked(
 
 /// Tiers shown as open so far: the saved count, and at least every tier that needs
 /// no medals (those never play an unlock).
-fn tiers_shown(progress: &TrialProgress, tiers: &crate::config::TrialTiers) -> usize {
+pub(crate) fn tiers_shown(progress: &TrialProgress, tiers: &crate::config::TrialTiers) -> usize {
     let free = tiers
         .tiers
         .iter()

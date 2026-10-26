@@ -28,6 +28,7 @@ impl Plugin for MenuPlugin {
             crate::cups_menu::CupsMenuPlugin,
             crate::settings::SettingsPlugin,
             crate::navbar::NavBarPlugin,
+            crate::confirm::ConfirmPlugin,
         ))
         .init_resource::<MenuScreen>()
         .init_resource::<MainMenu>()
@@ -99,6 +100,7 @@ fn menu_escape(
     mut single: ResMut<SingleMenu>,
     time: Res<Time>,
     config: Res<GameConfig>,
+    confirm: Res<crate::confirm::ExitConfirm>,
 ) {
     let Some(keys) = keys else { return };
     if !keys.just_pressed(KeyCode::Escape) {
@@ -138,6 +140,8 @@ fn menu_escape(
         (Phase::Menu, MenuScreen::Help) => *screen = MenuScreen::Main,
         // Back leaves the lobby for the Online Battle screen.
         (Phase::Menu, MenuScreen::Lobby | MenuScreen::Invite) => *screen = MenuScreen::Single,
+        // The exit popup takes the input while it is up (its own input layer).
+        (Phase::Menu, MenuScreen::Main) if confirm.open => {}
         (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
         // The explanation popup waits for Continue.
         (Phase::Menu, MenuScreen::Explain) => {}
@@ -660,7 +664,9 @@ fn spawn_pause_menu(
 }
 
 /// Up/Down pick an option, Enter or A takes it. Resume goes back to the
-/// match, Retry starts it again, Quit leaves for the title tiles.
+/// match, Retry starts it again, Quit leaves for the screen the match came from: Select Mode
+/// after a local battle (LocalMultiplayerGameTypeController), the Trials list after a trial,
+/// the Endless screen after an Endless run (SinglePlayerLeaderboardGameTypeController).
 fn pause_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     gamepads: Query<&Gamepad>,
@@ -707,7 +713,13 @@ fn pause_input(
             }
             _ => {
                 pause.resume_to = None;
-                *screen = MenuScreen::Main;
+                *screen = if config.trial.is_some() {
+                    MenuScreen::Trials
+                } else if config.mode.is_endless() {
+                    MenuScreen::Endless
+                } else {
+                    MenuScreen::Modes
+                };
             }
         }
         return;
@@ -1375,7 +1387,7 @@ fn tile_towards(from: usize, dir: Vec2) -> usize {
 /// Local Battle opens player select, Single Player the mode select with
 /// Endless Race, and Quit closes the game. The other tiles aren't built yet.
 #[allow(clippy::too_many_arguments)]
-fn main_menu_input(
+pub(crate) fn main_menu_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     mouse: Option<Res<ButtonInput<MouseButton>>>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -1385,10 +1397,11 @@ fn main_menu_input(
     mut menu: ResMut<MainMenu>,
     mut lobby: ResMut<Lobby>,
     mut single: ResMut<SingleMenu>,
-    mut exit: MessageWriter<AppExit>,
+    mut confirm: ResMut<crate::confirm::ExitConfirm>,
+    time: Res<Time>,
     mut last_cursor: Local<Option<Vec2>>,
 ) {
-    if game.phase != Phase::Menu || *screen != MenuScreen::Main {
+    if game.phase != Phase::Menu || *screen != MenuScreen::Main || confirm.open {
         return;
     }
     let mut dir = Vec2::ZERO;
@@ -1462,9 +1475,8 @@ fn main_menu_input(
         "help" => {
             *screen = MenuScreen::Help;
         }
-        "quit" => {
-            exit.write(AppExit::Success);
-        }
+        // MainMenuController asks first (ConfirmPopup).
+        "quit" => confirm.show(time.elapsed_secs()),
         _ => {}
     }
 }

@@ -668,6 +668,7 @@ Add-Sprite 'page_dot_off' 'gph_menuPagination_inactive' 'menu\page_dot_off.png' 
 foreach ($d in 'Easy','Normal','Special','Total') { Add-Texture "stats_icon_$($d.ToLower())" "icn_statsPopup$d.png" "menu\stats_icon_$($d.ToLower()).png" "Stats popup column icon ($d)" }
 Add-Texture 'player_left_cross' 'icn_gameInfoPlayerLeft.png' 'menu\player_left_cross.png' 'Game Info: player left'
 Add-Sprite 'modal_tile' 'gph_modalTile' 'menu\modal_tile.png' 'Dark tiled overlay behind popups'
+Add-Sprite 'popup_confirm_background' 'gph_popupBackground_0' 'menu\popup_confirm_background.png' 'ConfirmPopup panel (780x450), 9-sliced left 238, right 240, top 38, bottom 55'
 
 # --- Brick packs (BrickPack folders; picked per player on Select Players) ---
 foreach ($s in 'I','O','T','S','Z','J','L') { Add-LitBrick "brick_christmas_$s" 'christmas' $s 'bricks\christmas' "Brick $s, christmas pack" }
