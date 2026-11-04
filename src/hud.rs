@@ -38,7 +38,8 @@ impl Plugin for HudPlugin {
                 fade_losers,
             )
                 .chain()
-                .after(FramedCamera),
+                .after(FramedCamera)
+                .after(crate::wizards::WizardBlinking),
         );
     }
 }
@@ -263,6 +264,7 @@ fn fill_items(
     time: Res<Time>,
     popping: Query<(), With<CountPop>>,
     mut steady: Local<HashMap<usize, (Option<usize>, Option<usize>, f32)>>,
+    blinks: Option<Res<crate::wizards::WizardBlinks>>,
 ) {
     let order: Vec<(usize, TowerState)> = towers
         .iter()
@@ -306,6 +308,13 @@ fn fill_items(
             count_up.as_ref().and_then(|c| c.0),
             tower.index,
         );
+        let blink_hidden = matches!(item.kind, Kind::Place | Kind::Hearts)
+            && blinks.as_ref().is_some_and(|b| b.hidden(item.tower, &config.wizards));
+        visibility.set_if_neq(if shows == Shows::Nothing || blink_hidden {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
         if item.shows.as_ref() == Some(&shows)
             && item.built_at == height
             && item.built_art == art.images.len()
@@ -351,11 +360,6 @@ fn fill_items(
         layout.left = old.left;
         layout.top = old.top;
         node.insert(layout);
-        visibility.set_if_neq(if shows == Shows::Nothing {
-            Visibility::Hidden
-        } else {
-            Visibility::Inherited
-        });
         item.shows = Some(shows);
         item.built_at = height;
         item.built_art = art.images.len();
@@ -1328,5 +1332,42 @@ fn show_scores(
         if text.0 != words {
             text.0 = words;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invincibility_blinks_hearts_but_keeps_the_next_card_visible() {
+        let config = GameConfig { mode: ModeKind::Survival, ..default() };
+        let state = TowerState::new(&config, 1);
+        let bag = BrickBag::new(1, config.pieces.len());
+        let mut app = App::new();
+        app.insert_resource(config)
+            .insert_resource(Match { phase: Phase::Playing, mode: ModeKind::Survival, ..default() })
+            .insert_resource(Time::<()>::default())
+            .init_resource::<Art>()
+            .init_resource::<crate::spells::SpellLog>()
+            .init_resource::<ViewSize>()
+            .add_plugins((crate::wizards::WizardsPlugin, HudPlugin));
+        let tower = app.world_mut().spawn((
+            Tower { index: 0, origin_x: 0.0, human: true, player: Some(0) }, state, bag,
+        )).id();
+        app.update();
+        app.world_mut().get_mut::<TowerState>(tower).unwrap().invincible = 1.5;
+        app.update();
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(0.06));
+        app.update();
+        let visible = |app: &mut App, kind| {
+            *app.world_mut().query::<(&HudItem, &Visibility)>().iter(app.world())
+                .find(|(item, _)| item.kind == kind).unwrap().1
+        };
+        assert_eq!(visible(&mut app, Kind::Hearts), Visibility::Hidden);
+        assert_eq!(visible(&mut app, Kind::Card), Visibility::Inherited);
+        app.world_mut().get_mut::<TowerState>(tower).unwrap().invincible = 0.0;
+        app.update();
+        assert_eq!(visible(&mut app, Kind::Hearts), Visibility::Inherited);
     }
 }

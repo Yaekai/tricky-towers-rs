@@ -15,9 +15,13 @@ pub struct WizardsPlugin;
 
 impl Plugin for WizardsPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<WizardBlinks>()
+            .add_systems(Update, update_blinks.in_set(WizardBlinking));
         app.add_systems(
             Update,
-            (spawn_wizards, react_wizards, move_wizards, pose_wizards, swoosh_turns, orbit_bricks).chain(),
+            (spawn_wizards, react_wizards, move_wizards, pose_wizards, swoosh_turns, orbit_bricks)
+                .chain()
+                .after(WizardBlinking),
         );
     }
 }
@@ -70,6 +74,8 @@ fn voice_kind(clip: Clip) -> &'static str {
 /// speech table: wizards 1-4 laugh at 0.8; packs 5 (0.65), 9 (0.3) and 10-14 (1.1) have
 /// their own volume; guest characters 9-14 play at their own pitch, the rest at 1.13.
 pub(crate) fn voice_mix(number: u32, kind: &str) -> (f32, f32) {
+    // Every character's loud laugh comes from the shared speech pool.
+    let number = if kind == "laugh_hard" { 1 } else { number };
     let pitch = if number >= 9 { 1.0 } else { 1.13 };
     let volume = match number {
         5 => 0.65,
@@ -114,6 +120,8 @@ pub struct Wizard {
     shake: f32,
     /// Seconds since the wizard began to disappear (Dying, then gone at KILL_WIZARD).
     vanish: f32,
+    /// The appearance poof comes on the second movement update.
+    appear_updates: u8,
     seen: Seen,
     rng: u64,
     /// The trial's enemy wizard: floats by the player's tower, only laughs.
@@ -182,6 +190,40 @@ impl Wizard {
 /// One part of a wizard (`wizard1_body`, ...).
 #[derive(Component)]
 struct WizardPart(String);
+
+/// A shared render clock keeps the wizard, lower HUD and spell clouds in step.
+#[derive(Resource, Default)]
+pub(crate) struct WizardBlinks(std::collections::HashMap<Entity, f32>);
+
+impl WizardBlinks {
+    pub(crate) fn hidden(&self, tower: Entity, look: &WizardLook) -> bool {
+        self.0.get(&tower).is_some_and(|age| {
+            (*age / look.blink_interval.max(f32::EPSILON)).floor() as u32 % 2 != 0
+        })
+    }
+}
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct WizardBlinking;
+
+fn update_blinks(
+    time: Res<Time>,
+    game: Res<crate::gameplay::Match>,
+    towers: Query<(Entity, &Tower, &TowerState)>,
+    mut blinks: ResMut<WizardBlinks>,
+) {
+    blinks.0.retain(|tower, _| towers.contains(*tower));
+    let dt = if game.phase == crate::gameplay::Phase::Menu { 0.0 } else { time.delta_secs() };
+    for (entity, tower, state) in &towers {
+        let won = state.status == TowerStatus::Won
+            || (game.phase == crate::gameplay::Phase::Over && game.winner == Some(tower.index));
+        if state.invincible > 0.0 && !won {
+            blinks.0.entry(entity).and_modify(|age| *age += dt).or_insert(0.0);
+        } else {
+            blinks.0.remove(&entity);
+        }
+    }
+}
 
 fn part_transform(art: &Art, image: &str, part: &str, cell: f32) -> (Anchor, Transform) {
     let entry = art.entries.get(image).or_else(|| art.entries.get(part));
@@ -260,6 +302,7 @@ fn spawn_wizards(
             startle_in: None,
             shake: 0.0,
             vanish: 0.0,
+            appear_updates: 0,
             seen: Seen {
                 placed: state.bricks_placed,
                 lives: state.lives,
@@ -347,6 +390,7 @@ pub(crate) fn spawn_free_wizard(
         startle_in: None,
         shake: 0.0,
         vanish: 0.0,
+        appear_updates: 0,
         seen: Seen::default(),
         rng: 1,
         enemy: false,
@@ -583,6 +627,7 @@ fn move_wizards(
     rivals: Query<&crate::gameplay::RivalLane>,
     mut wizards: Query<(Entity, &mut Wizard, &mut Transform, &mut Visibility)>,
     art: Res<Art>,
+    blinks: Res<WizardBlinks>,
 ) {
     let look = &config.wizards;
     // A trial's enemy wizard floats by the enemy lane (right of the player's).
@@ -619,7 +664,7 @@ fn move_wizards(
             wizard.vanish = 0.0;
             0.0
         };
-        visibility.set_if_neq(if gone >= 1.0 {
+        visibility.set_if_neq(if gone >= 1.0 || (!wizard.enemy && blinks.hidden(wizard.tower, look)) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
@@ -702,6 +747,16 @@ fn move_wizards(
         transform.translation.y = config.cells(at.y);
         // Alone, the wizard floats on the left and turns to face the tower.
         transform.scale = Vec3::new(if solo { -1.0 } else { 1.0 } * facing, 1.0, 1.0);
+        if wizard.appear_updates < 2 {
+            wizard.appear_updates += 1;
+            if wizard.appear_updates == 2 {
+                let at = transform.translation.truncate() + Vec2::Y * config.cells(look.appear_above);
+                let mut seed = entity.to_bits() as u32 | 1;
+                crate::particles::brick_poof_at(
+                    &mut commands, &art, config.cell_size, at, transform.translation.z + 1.0, &mut seed,
+                );
+            }
+        }
     }
 }
 
@@ -1054,6 +1109,83 @@ fn pose_wizards(
 mod tests {
     use super::*;
 
+    fn wizard_app() -> (App, Entity) {
+        let config = GameConfig { mode: ModeKind::Survival, ..default() };
+        let state = TowerState::new(&config, 1);
+        let mut art = Art::default();
+        art.entries.insert("wizard1".into(), ron::from_str("(parts: Some([]))").unwrap());
+        let mut app = App::new();
+        app.insert_resource(config)
+            .insert_resource(crate::gameplay::Match {
+                phase: crate::gameplay::Phase::Playing, mode: ModeKind::Survival, ..default()
+            })
+            .insert_resource(Time::<()>::default())
+            .insert_resource(art)
+            .init_resource::<WizardBlinks>()
+            .add_systems(Update, (update_blinks, spawn_wizards, move_wizards).chain());
+        let tower = app.world_mut().spawn((
+            Tower { index: 0, origin_x: 0.0, human: true, player: Some(0) }, state,
+        )).id();
+        (app, tower)
+    }
+
+    fn step(app: &mut App, seconds: f32) {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(seconds));
+        app.update();
+    }
+
+    #[test]
+    fn invincibility_blinks_on_the_render_clock_and_restores_winners() {
+        let (mut app, tower) = wizard_app();
+        app.update();
+        let wizard = app.world_mut().query_filtered::<Entity, With<Wizard>>()
+            .single(app.world()).unwrap();
+        app.world_mut().get_mut::<TowerState>(tower).unwrap().invincible = 1.5;
+        step(&mut app, 0.02);
+        step(&mut app, 0.04);
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Inherited));
+        step(&mut app, 0.011);
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Hidden));
+        step(&mut app, 0.05);
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Inherited));
+        step(&mut app, 0.05);
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Hidden));
+        app.world_mut().get_mut::<TowerState>(tower).unwrap().status = TowerStatus::Won;
+        step(&mut app, 0.0);
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Inherited));
+        {
+            let mut state = app.world_mut().get_mut::<TowerState>(tower).unwrap();
+            state.status = TowerStatus::Building;
+            state.invincible = 0.0;
+        }
+        step(&mut app, 0.0);
+        assert!(!app.world().resource::<WizardBlinks>().hidden(tower, &GameConfig::default().wizards));
+        app.world_mut().get_mut::<TowerState>(tower).unwrap().status = TowerStatus::Out;
+        step(&mut app, 1.0);
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Hidden), "ending a blink cannot revive a vanished wizard");
+    }
+
+    #[test]
+    fn a_new_wizard_poofs_above_it_on_its_second_update_only() {
+        let (mut app, _) = wizard_app();
+        assert_eq!(app.world().resource::<GameConfig>().wizards.action_every, (3, 7));
+        app.update();
+        assert_eq!(app.world_mut().query::<&Sprite>().iter(app.world()).count(), 0);
+        step(&mut app, 0.01);
+        let wizard_at = app.world_mut().query_filtered::<&Transform, With<Wizard>>()
+            .single(app.world()).unwrap().translation;
+        let config = app.world().resource::<GameConfig>();
+        let expected = wizard_at.truncate() + Vec2::Y * config.cells(config.wizards.appear_above);
+        let count = app.world_mut().query::<(&Sprite, &Transform)>().iter(app.world())
+            .inspect(|(_, at)| {
+                assert_eq!(at.translation.truncate(), expected);
+                assert!(at.translation.z > wizard_at.z);
+            }).count();
+        assert_eq!(count, 14, "the standard brick-appearance burst");
+        step(&mut app, 0.01);
+        assert_eq!(app.world_mut().query::<&Sprite>().iter(app.world()).count(), count);
+    }
+
     #[test]
     fn a_race_trial_wizard_turns_casts_and_laughs_before_the_countdown() {
         let look = crate::config::IntroRules::default();
@@ -1078,5 +1210,8 @@ mod tests {
         assert_eq!(voice_mix(5, "laugh"), (0.65, 1.13));
         assert_eq!(voice_mix(9, "startle"), (0.3, 1.0));
         assert_eq!(voice_mix(12, "cheer"), (1.1, 1.0));
+        for number in 1..=14 {
+            assert_eq!(voice_mix(number, "laugh_hard"), (0.8, 1.13), "wizard {number}");
+        }
     }
 }

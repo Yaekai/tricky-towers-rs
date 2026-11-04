@@ -1,4 +1,5 @@
-//! Settings → Credits (docs/research/menus.md, "Credits popup"): over `modal_tile`, a
+//! Settings → Credits, also shown after the last trial (docs/research/menus.md,
+//! "Credits popup"): over `modal_tile`, a
 //! first screen with the logo and THANK YOU FOR PLAYING!, then the original's
 //! credits list (`credits_content`, staged from the install) and the Weirdbeard
 //! logo, scrolling up in 60 s. Down holds it at 10×, Up runs it back at 10×, any
@@ -19,7 +20,7 @@ impl Plugin for CreditsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CreditsMenu>()
             .add_systems(Startup, spawn_credits)
-            .add_systems(Update, run_credits);
+            .add_systems(Update, run_credits.after(crate::menu::MenuSystems));
     }
 }
 
@@ -28,6 +29,7 @@ impl Plugin for CreditsPlugin {
 pub struct CreditsMenu {
     pub open: bool,
     pub time: f32,
+    pub(crate) after_trial: bool,
 }
 
 /// Seconds before the scroll starts, how long it takes, and the Up/Down speed.
@@ -265,16 +267,26 @@ fn spawn_credits(mut commands: Commands, art: Option<Res<Art>>) {
 fn run_credits(
     time: Res<Time>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
     pads: Query<(Entity, &Gamepad)>,
-    game: Res<Match>,
-    screen: Res<MenuScreen>,
+    mut game: ResMut<Match>,
+    mut screen: ResMut<MenuScreen>,
     mut menu: ResMut<CreditsMenu>,
     mut root: Query<&mut Visibility, With<CreditsRoot>>,
     mut content: Query<(&CreditsContent, &mut Node)>,
+    mut was_open: Local<bool>,
 ) {
-    if game.phase != Phase::Menu || *screen != MenuScreen::Settings {
+    let allowed = if menu.after_trial {
+        game.phase == Phase::Over
+    } else {
+        game.phase == Phase::Menu && *screen == MenuScreen::Settings
+    };
+    if !allowed {
         menu.open = false;
+        menu.after_trial = false;
     }
+    let just_opened = menu.open && !*was_open;
+    *was_open = menu.open;
     for mut v in &mut root {
         v.set_if_neq(shown(menu.open));
     }
@@ -282,23 +294,41 @@ fn run_credits(
         menu.time = 0.0;
         return;
     }
-    let held = |key: KeyCode, button: GamepadButton| {
-        keys.as_ref().is_some_and(|k| k.pressed(key)) || pads.iter().any(|(_, p)| p.pressed(button))
-    };
-    let speed = if held(KeyCode::ArrowDown, GamepadButton::DPadDown) {
+    let down = keys.as_ref().is_some_and(|k| k.any_pressed([KeyCode::ArrowDown, KeyCode::KeyS]))
+        || pads.iter().any(|(_, p)| p.pressed(GamepadButton::DPadDown) || p.left_stick().y < 0.0);
+    let up = keys.as_ref().is_some_and(|k| k.any_pressed([KeyCode::ArrowUp, KeyCode::KeyW]))
+        || pads.iter().any(|(_, p)| p.pressed(GamepadButton::DPadUp) || p.left_stick().y > 0.0);
+    let speed = if down {
         FAST
-    } else if held(KeyCode::ArrowUp, GamepadButton::DPadUp) {
+    } else if up {
         -FAST
     } else {
         1.0
     };
-    // Any other button closes it (Esc is handled with the menu's Esc).
+    // ANY_BUTTON maps Return/Space/Esc and the pad's face, start, bumper and trigger buttons.
     let taps = crate::select::read_taps(keys.as_deref(), &pads);
-    let closing = taps.key_pick || !taps.pad_pick.is_empty() || !taps.pad_back.is_empty();
+    // shortcut: Bevy has no standard touchpad button; add it when its device mapping is measured.
+    let closing = taps.key_pick
+        || keys.as_ref().is_some_and(|k| k.just_pressed(KeyCode::Escape))
+        || pads.iter().any(|(_, p)| p.any_just_pressed([
+            GamepadButton::South, GamepadButton::East, GamepadButton::North, GamepadButton::West,
+            GamepadButton::Start, GamepadButton::LeftTrigger, GamepadButton::LeftTrigger2,
+            GamepadButton::RightTrigger, GamepadButton::RightTrigger2,
+        ]))
+        || mouse.as_ref().is_some_and(|m| m.any_just_pressed([
+            MouseButton::Left, MouseButton::Right, MouseButton::Middle,
+        ]));
     let before = menu.time;
     menu.time = (menu.time + time.delta_secs() * speed).max(0.0);
-    if closing || (before >= DELAY + SCROLL) {
+    // The press that opens the popup belongs to the screen underneath it.
+    if (closing && !just_opened) || (before >= DELAY + SCROLL) {
         menu.open = false;
+        *was_open = false;
+        if menu.after_trial {
+            menu.after_trial = false;
+            game.phase = Phase::Menu;
+            *screen = MenuScreen::Start;
+        }
         return;
     }
     for (content, mut node) in &mut content {

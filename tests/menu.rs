@@ -321,6 +321,121 @@ fn game_completed_popup_rematches_selects_a_mode_or_goes_to_the_title() {
 }
 
 #[test]
+fn final_trial_next_opens_credits_and_closing_returns_to_start() {
+    use tricky_towers::credits::CreditsMenu;
+    use tricky_towers::popup::Popup;
+    use tricky_towers::trials::TrialProgress;
+
+    for close in [Some(KeyCode::Enter), Some(KeyCode::Escape), None] {
+        let mut app = app();
+        let (done, tiers) = {
+            let mut config = app.world_mut().resource_mut::<GameConfig>();
+            config.trial = Some(config.trials.len() - 1);
+            config.moments.popup_after = 0.0;
+            (
+                config.trials.iter().map(|t| t.name.clone()).collect(),
+                config.trial_tiers.tiers.len(),
+            )
+        };
+        {
+            let mut progress = app.world_mut().resource_mut::<TrialProgress>();
+            progress.done = done;
+            progress.tiers_shown = tiers;
+        }
+        app.world_mut().resource_mut::<Match>().phase = Phase::Over;
+        app.update();
+        assert!(app.world().resource::<Popup>().shown);
+        tap(&mut app, KeyCode::Enter);
+        assert!(app.world().resource::<CreditsMenu>().open, "the opening press must not close Credits");
+        assert!(!app.world().resource::<Popup>().shown, "the trial popup stays hidden under Credits");
+        assert_eq!(app.world().resource::<Match>().phase, Phase::Over);
+        if let Some(key) = close {
+            tap(&mut app, key);
+        } else {
+            app.world_mut().resource_mut::<CreditsMenu>().time = 60.5;
+            app.update();
+        }
+        assert!(!app.world().resource::<CreditsMenu>().open);
+        assert_eq!(app.world().resource::<Match>().phase, Phase::Menu);
+        assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Start);
+    }
+}
+
+#[test]
+fn settings_credits_ignores_the_opening_press_and_returns_to_settings() {
+    use tricky_towers::credits::CreditsMenu;
+    use tricky_towers::settings::{Row, SettingsMenu};
+
+    let mut app = app();
+    *app.world_mut().resource_mut::<MenuScreen>() = MenuScreen::Settings;
+    app.world_mut().resource_mut::<SettingsMenu>().selected = 4;
+    assert_eq!(app.world().resource::<SettingsMenu>().row(), Row::Credits);
+    for close in [KeyCode::Enter, KeyCode::Escape] {
+        tap(&mut app, KeyCode::Enter);
+        assert!(app.world().resource::<CreditsMenu>().open);
+        tap(&mut app, close);
+        assert!(!app.world().resource::<CreditsMenu>().open);
+        assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Settings);
+    }
+}
+
+#[test]
+fn credits_scrolls_with_menu_directions_and_closes_on_pad_buttons_or_mouse() {
+    use tricky_towers::credits::CreditsMenu;
+    use tricky_towers::settings::SettingsMenu;
+
+    let mut app = app_with(|app| {
+        app.init_resource::<ButtonInput<MouseButton>>();
+    });
+    let pad = app.world_mut().spawn(Gamepad::default()).id();
+    *app.world_mut().resource_mut::<MenuScreen>() = MenuScreen::Settings;
+    app.world_mut().resource_mut::<SettingsMenu>().selected = 4;
+    tap(&mut app, KeyCode::Enter);
+    // Only the mapped ANY_BUTTON keys close: ordinary letters and Left do not.
+    tap(&mut app, KeyCode::KeyQ);
+    tap(&mut app, KeyCode::ArrowLeft);
+    assert!(app.world().resource::<CreditsMenu>().open);
+    app.world_mut().resource_mut::<CreditsMenu>().time = 10.0;
+    tap(&mut app, KeyCode::KeyS);
+    assert!(app.world().resource::<CreditsMenu>().time > 10.1);
+    tap(&mut app, KeyCode::KeyW);
+    assert!(app.world().resource::<CreditsMenu>().time < 10.1);
+    let before = app.world().resource::<CreditsMenu>().time;
+    app.world_mut().get_mut::<Gamepad>(pad).unwrap().digital_mut().press(GamepadButton::DPadDown);
+    app.update();
+    assert!(app.world().resource::<CreditsMenu>().open);
+    assert!(app.world().resource::<CreditsMenu>().time > before);
+    {
+        let mut gamepad = app.world_mut().get_mut::<Gamepad>(pad).unwrap();
+        gamepad.digital_mut().release(GamepadButton::DPadDown);
+        gamepad.digital_mut().clear();
+        gamepad.analog_mut().set(GamepadAxis::LeftStickY, 1.0);
+    }
+    let before = app.world().resource::<CreditsMenu>().time;
+    app.update();
+    assert!(app.world().resource::<CreditsMenu>().open);
+    assert!(app.world().resource::<CreditsMenu>().time < before);
+    app.world_mut().get_mut::<Gamepad>(pad).unwrap().analog_mut().set(GamepadAxis::LeftStickY, 0.0);
+    // A face button other than Continue, and an analog trigger, both close it.
+    for button in [GamepadButton::North, GamepadButton::LeftTrigger2] {
+        app.world_mut().get_mut::<Gamepad>(pad).unwrap().digital_mut().press(button);
+        app.update();
+        assert!(!app.world().resource::<CreditsMenu>().open);
+        {
+            let mut gamepad = app.world_mut().get_mut::<Gamepad>(pad).unwrap();
+            gamepad.digital_mut().release(button);
+            gamepad.digital_mut().clear();
+        }
+        tap(&mut app, KeyCode::Enter);
+        assert!(app.world().resource::<CreditsMenu>().open);
+    }
+    app.world_mut().resource_mut::<ButtonInput<MouseButton>>().press(MouseButton::Right);
+    app.update();
+    assert!(!app.world().resource::<CreditsMenu>().open);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Settings);
+}
+
+#[test]
 fn trials_list_plays_the_picked_trial() {
     let mut app = app();
     let screen = |app: &App| *app.world().resource::<MenuScreen>();

@@ -1,5 +1,37 @@
 # What's next
 
+Start with the [2026-11-03 handoff](handoff-2026-11-03.md) and the
+[current behavior audit](research/parity-audit-2026-11-03.md). The audit records the
+November implementation batch and its local evidence. The older working notes
+below include tasks already completed in October.
+
+## Confirmed remaining implementation work
+
+1. **Pause presentation:** freeze the match's scaled animations, particles and
+   effects while the pause menu animates; retain the match HUD and spell clouds.
+   Physics already pauses. This needs a shared time policy, not separate fixes
+   for every animation.
+2. **Transitions:** implement the 0.077-second fade to black before changing
+   screens; clearing from black afterward is already implemented. The start
+   screen also still skips its pre-title Rumble clip.
+3. **Cup presentation:** fade the Game-info standings in/out over 0.1 seconds and
+   add the cup winner's separate spawn poof on its popup render layer.
+4. **Lane cameras/clipping:** brick materials and the drop guide are clipped, but
+   decorations and Puzzle's widening per-player views remain incomplete.
+5. **Trial 9 physics:** keep the temporary 0.3 laser slack until the stack-height
+   discrepancy below is explained. Do not replace evidence with another guess.
+6. **Online and Shop:** initial Online Battle menus exist; real matchmaking,
+   network play and connected lobby/invite behavior are not implemented. The
+   Shop is still unimplemented under the current plan.
+7. **Verification:** remaining estimated values, language overflow, Windows
+   display scaling and physical controller mappings need focused comparisons.
+   The PlayStation touchpad Credits-close action has no reliable Bevy mapping.
+
+The spell pipeline, Endless Puzzle obstacles, iced brick-pack shaders and final
+trial Credits should not be restarted from the historical descriptions below.
+
+## Historical working notes
+
 The open work, most useful first. "Estimated" means the value is ours, not yet read from the
 original; those are marked `(?)` in `src/`. The status table in the [README](../README.md) gives
 the overview; `docs/pc-tasks.md` and `docs/research/compare-2026-10-06.md` keep the detailed

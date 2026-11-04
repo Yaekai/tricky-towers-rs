@@ -188,18 +188,26 @@ fn popup_items(config: &GameConfig, progress: Option<&TrialProgress>, cup: &Cup)
 
 /// GameStateController._HandleNextTrial: a tier that has just opened goes back to the list
 /// (its unlock plays there), else the next trial if its tier is open, else the list.
-/// ponytail: after the last trial the original opens the Credits; we go to the list.
-fn next_trial(config: &GameConfig, progress: &TrialProgress) -> Option<usize> {
+/// After the final trial, Credits close back to the start screen.
+#[derive(Debug, PartialEq, Eq)]
+enum NextTrial {
+    Play(usize),
+    List,
+    Credits,
+}
+
+fn next_trial(config: &GameConfig, progress: &TrialProgress) -> NextTrial {
     let tiers = &config.trial_tiers;
     let medals = progress.medals(tiers);
     let open = tiers.tiers.iter().filter(|(_, need)| medals >= *need).count();
     if open > crate::trials_menu::tiers_shown(progress, tiers) {
-        return None;
+        return NextTrial::List;
     }
-    config
-        .trial
-        .map(|i| i + 1)
-        .filter(|&n| n < config.trials.len() && tiers.is_open(n, medals))
+    match config.trial.map(|i| i + 1) {
+        Some(next) if next == config.trials.len() => NextTrial::Credits,
+        Some(next) if next < config.trials.len() && tiers.is_open(next, medals) => NextTrial::Play(next),
+        _ => NextTrial::List,
+    }
 }
 
 fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
@@ -292,7 +300,12 @@ fn time_popup(
         Option<&crate::collapse::Collapse>,
     )>,
     puzzle: Option<Res<crate::results::PuzzleCountClock>>,
+    credits: Res<crate::credits::CreditsMenu>,
 ) {
+    if credits.open {
+        popup.shown = false;
+        return;
+    }
     if game.phase != Phase::Over || popup.round != game.round {
         popup.round = game.round;
         popup.clock = 0.0;
@@ -342,8 +355,9 @@ fn popup_input(
     progress: Option<Res<TrialProgress>>,
     mut trials_menu: Option<ResMut<crate::trials_menu::TrialsMenu>>,
     mut last_cursor: Local<Option<Vec2>>,
+    mut credits: ResMut<crate::credits::CreditsMenu>,
 ) {
-    if !popup.shown || game.phase != Phase::Over {
+    if !popup.shown || game.phase != Phase::Over || credits.open {
         return;
     }
     // The cup winner popup closes by itself, fades to black and goes to Select Mode
@@ -425,8 +439,8 @@ fn popup_input(
             request.pending = true;
         }
         "Next" => {
-            match progress.as_deref().and_then(|p| next_trial(&config, p)) {
-                Some(next) => {
+            match progress.as_deref().map_or(NextTrial::List, |p| next_trial(&config, p)) {
+                NextTrial::Play(next) => {
                     config.trial = Some(next);
                     config.difficulty = Some(crate::config::Difficulty::Normal);
                     if let Some(menu) = trials_menu.as_mut() {
@@ -435,9 +449,14 @@ fn popup_input(
                     request.retry = false;
                     request.pending = true;
                 }
-                None => {
+                NextTrial::List => {
                     game.phase = Phase::Menu;
                     *screen = MenuScreen::Trials;
+                }
+                NextTrial::Credits => {
+                    credits.open = true;
+                    credits.time = 0.0;
+                    credits.after_trial = true;
                 }
             }
         }
@@ -589,16 +608,16 @@ mod tests {
         assert_eq!(popup_items(&config, Some(&progress), &cup), &TRIAL_ITEMS[..], "no Next before a win");
         progress.done.push(config.trials[0].name.clone());
         assert_eq!(popup_items(&config, Some(&progress), &cup), &TRIAL_ITEMS_NEXT[..]);
-        assert_eq!(next_trial(&config, &progress), Some(1));
+        assert_eq!(next_trial(&config, &progress), NextTrial::Play(1));
         // The tenth medal of the first tier opens the second: the list plays its unlock.
         config.trial = Some(9);
         progress.done = config.trials[..config.trial_tiers.tiers[1].1 as usize]
             .iter()
             .map(|t| t.name.clone())
             .collect();
-        assert_eq!(next_trial(&config, &progress), None);
+        assert_eq!(next_trial(&config, &progress), NextTrial::List);
         progress.tiers_shown = 2;
-        assert_eq!(next_trial(&config, &progress), Some(10));
+        assert_eq!(next_trial(&config, &progress), NextTrial::Play(10));
     }
 
     #[test]

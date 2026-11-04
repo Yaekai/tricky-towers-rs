@@ -166,6 +166,11 @@ fn spawn_poofs(
 
 /// BRICK_SPAWN_POOF: a white flash, eight puffs and five star sparks at `at`.
 pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32) {
+    brick_poof_at(commands, art, c, at, 8.0, seed);
+}
+
+/// The same poof over another object's render depth (the wizard's appearance).
+pub(crate) fn brick_poof_at(commands: &mut Commands, art: &Art, c: f32, at: Vec2, z: f32, seed: &mut u32) {
     {
         burst(
             commands,
@@ -184,7 +189,7 @@ pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, s
                 gravity: 0.0,
                 gravity_to: 0.0,
                 spread: None,
-                z: 8.0,
+                z,
             },
         );
         burst(
@@ -204,7 +209,7 @@ pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, s
                 gravity: 0.0,
                 gravity_to: 0.0,
                 spread: None,
-                z: 8.0,
+                z,
             },
         );
         burst(
@@ -224,7 +229,7 @@ pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, s
                 gravity: 0.0,
                 gravity_to: 0.0,
                 spread: None,
-                z: 8.1,
+                z: z + 0.1,
             },
         );
     }

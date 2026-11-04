@@ -106,6 +106,9 @@ fn menu_escape(
     if !keys.just_pressed(KeyCode::Escape) {
         return;
     }
+    if credits.open && credits.after_trial {
+        return;
+    }
     let now = time.elapsed_secs();
     match (game.phase, *screen) {
         // Pause the match.
