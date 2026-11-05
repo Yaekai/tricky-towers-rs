@@ -1317,14 +1317,17 @@ fn dress_tower_pieces(
 
 /// The bubble drawn around a brick lifted by the Bubble spell.
 #[derive(Component)]
-struct BubbleSprite;
+struct BubbleSprite(Vec3);
 
 #[allow(clippy::type_complexity)]
 fn dress_bubbles(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
-    bricks: Query<(Entity, &Brick, Option<&Children>), Or<(With<Bubbled>, With<crate::spells::BubbleFail>)>>,
+    bricks: Query<
+        (Entity, &Brick, Option<&Children>, Option<&Bubbled>, Option<&crate::spells::BubbleFail>),
+        Or<(With<Bubbled>, With<crate::spells::BubbleFail>)>,
+    >,
     mut popped: RemovedComponents<Bubbled>,
     mut failed: RemovedComponents<crate::spells::BubbleFail>,
     children: Query<&Children>,
@@ -1334,36 +1337,32 @@ fn dress_bubbles(
 ) {
     // Every bubbled brick wears its bubble; it comes back if the brick's pictures were
     // redrawn (they take all its children with them).
-    for (entity, brick, kids) in &bricks {
+    for (entity, brick, kids, bubble, failed) in &bricks {
         if kids.is_some_and(|k| k.iter().any(|c| bubbles.contains(c))) {
             continue;
         }
-        let max = brick
-            .cells
-            .iter()
-            .fold(0.0f32, |a, b| a.max(b.abs().max_element()));
-        let size = (max + 1.0) * 2.0 * config.cell_size * brick.scale;
-        // The original has bubbles for bricks 2, 3 and 4 cells across, in 3 looks each.
-        let across = ((max * 2.0 + 1.0) * brick.scale).round().clamp(2.0, 4.0) as u32;
-        let look = entity.index_u32() % 3 + 1;
-        let Some(image) = [
+        let Some(appearance) = bubble.map(|b| b.appearance).or_else(|| failed.map(|b| b.appearance)) else {
+            continue;
+        };
+        let (across, look) = (appearance.size, appearance.variant);
+        let Some((sprite, anchor, mut transform)) = [
             format!("bubble_{across}_{look}"),
             format!("bubble_{across}"),
             "bubble".into(),
         ]
         .iter()
-        .find_map(|name| art.image(name)) else {
+        .find_map(|name| art_sprite(&art, name, config.cells(brick.scale))) else {
             continue;
         };
+        let art_scale = transform.scale;
+        transform.translation.z = 0.5;
+        transform.scale *= Vec2::splat(appearance.scale).extend(1.0);
         commands.entity(entity).with_child((
-            BubbleSprite,
+            BubbleSprite(art_scale),
             crate::brick_material::LaneDecoration(brick.tower),
-            Sprite {
-                image,
-                custom_size: Some(Vec2::splat(size)),
-                ..default()
-            },
-            Transform::from_xyz(0.0, 0.0, 0.5),
+            sprite,
+            anchor,
+            transform,
         ));
     }
     // A bubble that goes pops (SFX_BUBBLE_POP) in its BUBBLE_POP_PARTICLE.
@@ -1402,22 +1401,15 @@ fn dress_bubbles(
 /// + (sin(10t) + 1) x 0.025 up), turns 50 degrees its brick's way over its 3 s, and from 2 s
 /// flashes, out to +0.2 and back every 1/6 s.
 fn wobble_bubbles(
-    mut bubbles: Query<(&mut Transform, &ChildOf), With<BubbleSprite>>,
+    mut bubbles: Query<(&mut Transform, &ChildOf, &BubbleSprite)>,
     bricks: Query<&crate::spells::Bubbled>,
 ) {
-    for (mut transform, parent) in &mut bubbles {
+    for (mut transform, parent, sprite) in &mut bubbles {
         let Ok(bubble) = bricks.get(parent.parent()) else {
             continue;
         };
         let t = bubble.age;
-        let scale = if t < 2.0 {
-            Vec2::new(1.0 + ((t * 20.0).sin() + 1.0) * 0.025, 1.0 + ((t * 10.0).sin() + 1.0) * 0.025)
-        } else {
-            let phase = ((t - 2.0) * 6.0) % 2.0;
-            let k = if phase < 1.0 { phase } else { 2.0 - phase };
-            Vec2::splat(1.0 + 0.2 * (1.0 - (1.0 - k) * (1.0 - k)))
-        };
-        transform.scale = scale.extend(1.0);
+        transform.scale = sprite.0 * bubble.shell_scale().extend(1.0);
         // The brick under it turns too; the bubble's own turn is what is left of its 50.
         let brick_turn = if t < 1.0 {
             bubble.tilt * EaseFunction::ElasticOut.sample_clamped(t)
@@ -1425,8 +1417,7 @@ fn wobble_bubbles(
             let k = ((t - 1.0) / 2.0).min(1.0);
             bubble.tilt + 20.0 * bubble.dir() * k * k
         };
-        let own = 50.0 * bubble.dir() * (t / 3.0).min(1.0);
-        transform.rotation = Quat::from_rotation_z((own - brick_turn).to_radians());
+        transform.rotation = Quat::from_rotation_z((bubble.shell_turn() - brick_turn).to_radians());
     }
 }
 

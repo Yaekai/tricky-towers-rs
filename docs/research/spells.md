@@ -30,10 +30,12 @@ Plain-language notes from Max's installed copy. Units are brick cells.
 - **Bubble:** targets the newest placed brick without a bubble. A vined or petrified brick wears
   a bubble for 0.7 s without lifting and is skipped by subsequent casts while it wears it. A
   loose brick lifts with an upward pull of 21.5 × scale, easing to 18 over 1 s, then 17.5
-  (gravity is 18). It tilts 3 to 12°, and pops after 3 s or when a brick hits it. A lifted brick
-  does not count toward height.
+  (gravity is 18). It tilts 3 to 12°, and pops after 3 s or when a brick hits it. The controlled
+  brick can also pop the shell before it reaches the brick inside. The shell has two shapes per
+  size and starts at 1.5× scale around a grassy brick. A lifted brick does not count toward height.
 - **Slow:** a balloon starts two cells above the tower height and rises at 2.5 cells/s, following
-  the brick's x. A catch plays the collision sound and poof, freezes the brick and shakes it for
+  the brick's x. Its trigger grows during the 0.5 s pop-in, wobbles with the orb and stays active
+  during its 0.5 s shrink. A catch plays the collision sound and poof, freezes the brick and shakes it for
   0.3 s. The tethered balloon then appears and grows over 0.4 s. Steering resumes 0.3 s after it
   appears. Idle fall speed is capped at 1 cell/s, and sideways steps work as usual. Once the
   balloon finishes growing, the held-Down cap falls from 6 to 3 cells/s at 8 cells/s². A new Down
@@ -46,3 +48,6 @@ Plain-language notes from Max's installed copy. Units are brick cells.
 
 There are 16 combinations of two to four effects on the current brick, such as Large + Ice or
 Fast + Mystery. Two of them repeat for 4 bricks: Fast + No-rotate, and Mystery + Ice + Auto-rotate.
+
+Unity's circular 2D trigger uses the larger of the two animated axes for its world radius.
+[Unity physics developer's explanation](https://discussions.unity.com/t/2d-physics-in-unity-2021-2-beta-850340/850340/20)

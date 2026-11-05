@@ -1277,6 +1277,9 @@ pub struct MagicRules {
     pub bubble_lift: (f32, f32, f32),
     pub bubble_ease: f32,
     pub bubble_seconds: f32,
+    /// Bubble trigger radius and vertical offset for each size (2, 3, 4), two looks each.
+    pub bubble_trigger: [[(f32, f32); 2]; 3],
+    pub bubble_grassy_scale: f32,
     /// Balloon (SlowBrickModifier): the most it falls without holding down (maxBrickSpeed);
     /// held down it speeds up as usual but no faster than a cap that starts at
     /// `slow_fast_fall_speed` on each press after inflation and eases down by `slow_fast_ease` a second to
@@ -1290,6 +1293,9 @@ pub struct MagicRules {
     pub slow_catch_hold: f32,
     /// Time the attached balloon takes to inflate before the drop cap starts easing.
     pub slow_inflate: f32,
+    /// The homing orb's scale-in and scale-out durations.
+    pub slow_orb_pop_in: f32,
+    pub slow_orb_shrink: f32,
     pub mist_seconds: f32,
     /// Height of the fog over the tower top, in cells.
     pub mist_height: f32,
@@ -1503,6 +1509,12 @@ impl Default for MagicRules {
             bubble_lift: (21.5, 18.0, 17.5),
             bubble_ease: 1.0,
             bubble_seconds: 3.0,
+            bubble_trigger: [
+                [(1.8125458, 0.0), (1.8645563, 0.03)],
+                [(2.0723667, 0.0), (2.0756803, 0.03)],
+                [(2.4160252, 0.0), (2.3950863, 0.06)],
+            ],
+            bubble_grassy_scale: 1.5,
             slow_fall_speed: 1.0,
             slow_fast_fall_speed: 6.0,
             slow_fast_floor: 3.0,
@@ -1510,6 +1522,8 @@ impl Default for MagicRules {
             slow_catch_shake: 0.3,
             slow_catch_hold: 0.3,
             slow_inflate: 0.4,
+            slow_orb_pop_in: 0.5,
+            slow_orb_shrink: 0.5,
             mist_seconds: 15.0,
             mist_height: 5.0,
             grassy_radius: 5.0,
