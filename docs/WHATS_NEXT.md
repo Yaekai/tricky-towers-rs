@@ -58,8 +58,15 @@ supersedes the older working notes below.
      centre but is as wide as the screen allows around it. Ours draw those modes
      with one full-screen camera and size their HUD from the full height.
    - 125% scaling and window resizing need a windowed check by Max (offscreen runs
-     always render at 1x). Also still to check: whether a shake should move only its
-     own lane.
+     always render at 1x).
+   - *Shakes in a split Puzzle battle.* Every original camera shake moves the camera
+     container of the tower whose effect fired it (AbstractGameController injects its
+     own `_cameraContainer`; CollapseTowerEffect and LargeBrickModifier do the same).
+     So only that tower's lane shakes: each lane camera now adds its own tower's
+     `CameraShake::lane_offsets` (`lanes::follow_lanes`), the collapse blasts and
+     rumble and a Large brick's held shake go to their tower's lane, and the post
+     shader's lane shift is off while split. Race and Survival keep the old way
+     (one camera, lanes shifted in post).
    - *Forcefield on Puzzle cuts.* Puzzle battles keep AbstractGameMode's brick effects
      (BrickClipper in GAME and ROOF), and BrickClipper measures against its own tower's
      ZoomableCamera edges. So a split Puzzle screen now draws the Forcefield at each

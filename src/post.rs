@@ -467,7 +467,10 @@ fn follow_lane_shake(
     shake: Option<Res<crate::effects::CameraShake>>,
     towers: Query<&crate::gameplay::Tower>,
     mut cameras: Query<(&Camera, &GlobalTransform, &mut GreyOut)>,
+    split: Option<Res<crate::lanes::LaneViews>>,
 ) {
+    // A split screen's lane cameras shake themselves (lanes::follow_lanes).
+    let split = split.is_some_and(|l| l.split());
     let offsets = shake.map_or([Vec2::ZERO; 4], |s| s.lane_offsets);
     let mut order: Vec<(f32, usize)> = towers.iter().map(|t| (t.origin_x, t.index)).collect();
     order.sort_by(|a, b| a.0.total_cmp(&b.0));
@@ -478,7 +481,7 @@ fn follow_lane_shake(
         let screen = |p: Vec2| camera.world_to_viewport(at, p.extend(0.0)).ok().map(|v| v / size);
         let mut lanes = Vec4::splat(2.0);
         let (mut sx, mut sy) = (Vec4::ZERO, Vec4::ZERO);
-        if order.len() > 1 {
+        if order.len() > 1 && !split {
             for (slot, &(x, index)) in order.iter().take(4).enumerate() {
                 let edge = order.get(slot + 1).and_then(|&(next, _)| screen(Vec2::new((x + next) * 0.5, 0.0)));
                 lanes[slot] = edge.map_or(2.0, |e| e.x);

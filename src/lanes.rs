@@ -235,7 +235,12 @@ fn follow_lanes(
         (Entity, &mut Projection),
         (With<BackCamera>, Without<MainCamera>, Without<LaneCamera>),
     >,
+    shake: Option<Res<crate::effects::CameraShake>>,
 ) {
+    // Each tower's camera shakes alone (the original's shakes move that tower's camera
+    // container): its lane's offset from `CameraShake`.
+    let offsets = shake.map_or([Vec2::ZERO; 4], |s| s.lane_offsets);
+    let off = |tower: usize| offsets.get(tower).copied().unwrap_or_default();
     let Ok((eye, mut camera, at, projection, target, _)) = main.single_mut() else {
         return;
     };
@@ -296,7 +301,8 @@ fn follow_lanes(
             continue;
         };
         seen[i] = true;
-        transform.translation = Vec3::new(view.centre_x, at.translation.y, at.translation.z);
+        let o = off(view.tower);
+        transform.translation = Vec3::new(view.centre_x + o.x, at.translation.y + o.y, at.translation.z);
         transform.rotation = at.rotation;
         *p = projection.clone();
         lane_camera.order = 1 + i as isize;
@@ -315,7 +321,11 @@ fn follow_lanes(
                 ..default()
             },
             projection.clone(),
-            Transform::from_xyz(view.centre_x, at.translation.y, at.translation.z),
+            Transform::from_xyz(
+                view.centre_x + off(view.tower).x,
+                at.translation.y + off(view.tower).y,
+                at.translation.z,
+            ),
             RenderLayers::layer(0),
             LaneCamera(view.tower),
         ));

@@ -515,8 +515,12 @@ fn show_collapse(
     time: Res<Time>,
     mut events: MessageReader<CollapseEvent>,
     mut shake: ResMut<CameraShake>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
     let c = config.cell_size;
+    // A split screen gives each tower its own camera, and CollapseTowerEffect shakes only
+    // that tower's camera container.
+    let split = lanes.is_some_and(|l| l.split());
     let look = &config.moments;
     let play = |commands: &mut Commands, name: &str, settings: PlaybackSettings| {
         art.sounds
@@ -529,7 +533,11 @@ fn show_collapse(
             CollapseKind::Begin => {}
             CollapseKind::Blast { at, .. } => {
                 let (x, y, seconds) = look.blast_shake;
-                shake.kicks.push((Vec2::new(x, y) * c, seconds));
+                if split {
+                    shake.lane_kicks.push((event.tower, Vec2::new(x, y) * c, seconds));
+                } else {
+                    shake.kicks.push((Vec2::new(x, y) * c, seconds));
+                }
                 play(&mut commands, "sfx_explosion", PlaybackSettings::DESPAWN);
                 let mut seed = (time.elapsed_secs() * 1000.0) as u32 ^ (n as u32 * 7919) | 1;
                 // The brick hides and the original's EXPLOSION_PARTICLE plays where it was
@@ -580,7 +588,11 @@ fn show_collapse(
             }
             CollapseKind::Rumble(seconds) => {
                 let (x, y, _) = look.rumble;
-                shake.kicks.push((Vec2::new(x, y) * c, *seconds));
+                if split {
+                    shake.lane_kicks.push((event.tower, Vec2::new(x, y) * c, *seconds));
+                } else {
+                    shake.kicks.push((Vec2::new(x, y) * c, *seconds));
+                }
                 if let Some(sound) = play(&mut commands, "sfx_rumble", PlaybackSettings::LOOP) {
                     commands.entity(sound).insert(Rumble { left: *seconds });
                 }
@@ -998,7 +1010,11 @@ fn shake_camera(
     mut shake: ResMut<CameraShake>,
     in_hand: Query<(), With<crate::gameplay::ActiveBrick>>,
     mut camera: Query<&mut Transform, With<crate::visuals::MainCamera>>,
+    split: Option<Res<crate::lanes::LaneViews>>,
+    bricks: Query<&Brick>,
+    towers: Query<&crate::gameplay::Tower>,
 ) {
+    let split = split.is_some_and(|l| l.split());
     let dt = time.delta_secs();
     shake.kicks.retain_mut(|(_, left)| {
         *left -= dt;
@@ -1022,10 +1038,20 @@ fn shake_camera(
             *slot = jump(reach, &mut seed);
         }
     }
-    shake.lane_offsets = lanes;
-    for (_, reach) in shake.held.clone() {
-        offset += Vec2::new(roll(&mut seed) * 2.0 - 1.0, roll(&mut seed) * 2.0 - 1.0) * reach;
+    for (brick, reach) in shake.held.clone() {
+        let jitter = Vec2::new(roll(&mut seed) * 2.0 - 1.0, roll(&mut seed) * 2.0 - 1.0) * reach;
+        // LargeBrickModifier shakes its own tower's camera container.
+        let lane = split
+            .then(|| bricks.get(brick).ok().and_then(|b| towers.get(b.tower).ok()))
+            .flatten()
+            .map(|t| t.index)
+            .filter(|&i| i < lanes.len());
+        match lane {
+            Some(i) => lanes[i] += jitter,
+            None => offset += jitter,
+        }
     }
+    shake.lane_offsets = lanes;
     shake.seed = seed;
     shake.applied = Vec2::ZERO;
     if let Ok(mut transform) = camera.single_mut() {
