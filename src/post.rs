@@ -588,7 +588,7 @@ fn follow_pacer(
 
 fn follow_grey(
     mut commands: Commands,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     target: Res<GreyTarget>,
     mut cameras: Query<(Entity, Option<&mut GreyOut>), With<crate::visuals::MainCamera>>,
 ) {
@@ -614,7 +614,7 @@ pub struct PostPlugin;
 impl Plugin for PostPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GreyTarget>()
-            .add_systems(Update, (follow_grey, follow_pacer, follow_lane_shake.after(crate::visuals::FramedCamera)));
+            .add_systems(Update, (follow_grey.after(crate::menu::MenuSystems), follow_pacer, follow_lane_shake.after(crate::visuals::FramedCamera)));
         let Some(mut images) = app.world_mut().get_resource_mut::<Assets<Image>>() else {
             return;
         };

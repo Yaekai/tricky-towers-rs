@@ -113,6 +113,10 @@ const NO_CLAMP: (f32, f32) = (f32::MAX, 0.0);
 
 #[allow(clippy::too_many_arguments)]
 fn burst(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32, b: Burst) {
+    burst_on_layer(commands, art, c, at, seed, b, None);
+}
+
+fn burst_on_layer(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32, b: Burst, layers: Option<&bevy::camera::visibility::RenderLayers>) {
     let image = art
         .image(b.image)
         .or_else(|| art.image("mist_puff"))
@@ -133,7 +137,7 @@ fn burst(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32, b
             },
             None => Sprite::from_color(b.color.with_alpha(0.7), Vec2::splat(size * 0.5)),
         };
-        commands.spawn((
+        let mut particle = commands.spawn((
             Particle {
                 velocity: Vec2::from_angle(angle) * speed,
                 gravity: (b.gravity + (b.gravity_to - b.gravity) * roll(seed)) * c,
@@ -146,6 +150,9 @@ fn burst(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32, b
             sprite,
             Transform::from_translation(at.extend(b.z)),
         ));
+        if let Some(layers) = layers {
+            particle.insert(layers.clone());
+        }
     }
 }
 
@@ -166,8 +173,18 @@ fn spawn_poofs(
 
 /// BRICK_SPAWN_POOF: a white flash, eight puffs and five star sparks at `at`.
 pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32) {
+    brick_poof_at(commands, art, c, at, 8.0, seed);
+}
+
+/// The same poof over another object's render depth (the wizard's appearance).
+pub(crate) fn brick_poof_at(commands: &mut Commands, art: &Art, c: f32, at: Vec2, z: f32, seed: &mut u32) {
+    brick_poof_on_layer(commands, art, c, at, z, seed, None);
+}
+
+/// The cup winner's poof uses the popup camera's layer and pixel scale.
+pub(crate) fn brick_poof_on_layer(commands: &mut Commands, art: &Art, c: f32, at: Vec2, z: f32, seed: &mut u32, layers: Option<&bevy::camera::visibility::RenderLayers>) {
     {
-        burst(
+        burst_on_layer(
             commands,
             art,
             c,
@@ -184,10 +201,11 @@ pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, s
                 gravity: 0.0,
                 gravity_to: 0.0,
                 spread: None,
-                z: 8.0,
+                z,
             },
+            layers,
         );
-        burst(
+        burst_on_layer(
             commands,
             art,
             c,
@@ -204,10 +222,11 @@ pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, s
                 gravity: 0.0,
                 gravity_to: 0.0,
                 spread: None,
-                z: 8.0,
+                z,
             },
+            layers,
         );
-        burst(
+        burst_on_layer(
             commands,
             art,
             c,
@@ -224,8 +243,9 @@ pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, s
                 gravity: 0.0,
                 gravity_to: 0.0,
                 spread: None,
-                z: 8.1,
+                z: z + 0.1,
             },
+            layers,
         );
     }
 }

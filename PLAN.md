@@ -47,11 +47,11 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    scoring, difficulty levels, Survival Pro curse waves, cursed-brick respawn, Endless Race (all
    values from the original). Race Pro wind and the wider Puzzle lane, from the original.
    Survival Pro curse waves follow the original's four tables. Losing towers fall apart before
-   the popup (`src/collapse.rs`). Endless Survival and Endless Puzzle, local cups (a debug
-   extra: first to 6/12/18 points with overtime) and the pad defaults follow the PC readouts.
+   the popup (`src/collapse.rs`). Endless Survival and Endless Puzzle, local cups
+   (first to 6/12/18 points with overtime) and the pad defaults follow the PC readouts.
    XP and wizard levels are in as data (`XpRules`); only online play gives XP in the original.
-   Still to do: Endless Puzzle obstacle blocks, the Survival roof (both wait on readouts queued
-   in `docs/pc-tasks.md`).
+   Endless Puzzle obstacle blocks and the Survival roof are implemented. Trial 9's stack-height
+   discrepancy remains unresolved; see `docs/WHATS_NEXT.md` before changing its laser slack.
 4. **Local multiplayer** (done): up to 4 players, keyboard and gamepads.
 5. **The original's look and sound** (in progress): loaded at runtime from the player's own
    install via the gitignored `extracted/` folder (`docs/art-layout.md`). Done: bricks, bases,
@@ -61,23 +61,23 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    skulls, cast beams, lightning, spell clouds and the Large grow (`src/casts.rs`), tower
    collapse blasts and shakes, wizard and brick-pack skins, Race Pro rain and lightning, Puzzle
    sandstorm and eclipse, Survival's wave sky, spawn puffs and landing dust, the Single Player,
-   Endless, Trials and Settings screens. None of the newer screens has been pictured yet (the
-   cloud has no GPU). To do: check the cast effects and collapse against the original
-   on Max's PC and fix the `(?)` sizes, the Auto Rotate wind-up, stone and ice transitions, the
-   decorations at a beam's foot, and the explosion art.
-6. **Trials** (done, waiting on pictures): the original's 50 trials in 5 tiers opened by
+   Endless, Trials and Settings screens. Recent PC work includes silent offscreen checks of
+   every mode and the title screen. Remaining confirmed gaps include pause text opacity transitions,
+   lane clipping of decorations, Puzzle's per-player framing and pre-change transition fades.
+   Continue checking effects against the original and measuring the remaining `(?)` values.
+6. **Trials** (implemented, further comparisons needed): the original's 50 trials in 5 tiers opened by
    medals (`src/trial_list.rs`, also editable in `game.ron`), with goals, fixed brick orders,
    their own spell lines and the enemy wizard's curses, the enemy lane with the rival tower
-   (`src/rival.rs`), their own floors, and the tier unlock animation. To do: the mode stinger
-   when a trial starts, and checking it all against the original on Max's PC.
+   (`src/rival.rs`), their own floors, tier unlock animation and mode stingers. Keep comparing
+   the trials against the original on Max's PC.
 7. **Mod loading** (done): a `mods/` folder of RON config changes and art packs, merged at
    startup in name order (`src/mods.rs`, `docs/modding.md`).
-8. **Online battle menus** (planned, Max 2026-10-17): the Online Battle screens laid out like the
-   original's, with no networking yet; online play itself may follow.
+8. **Online battle menus** (partly implemented): the initial Online Battle screens and waiting
+   lobby exist; connected lobby/invite behavior and network play remain.
 9. **Not planned yet:** the Shop.
 
 ## How work is split
-- Code is written on a `claude/*` branch (cloud or PC) and merged into `main` through a pull
+- Code is written on an agent branch (`claude/*` or `codex/*`) and merged into `main` through a pull
   request once `cargo test` passes. `features/spells-puzzle-menu` is retired.
 - A Claude session on Max's PC follows `docs/pc-tasks.md` after every pull: build, test,
   re-stage `extracted\` from the install, screenshot each mode with `--play`, and report. Queue

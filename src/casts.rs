@@ -20,7 +20,7 @@ pub struct CastsPlugin;
 
 impl Plugin for CastsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.init_resource::<CameraShake>().add_systems(
             Update,
             (
                 start_casts,
@@ -39,7 +39,9 @@ impl Plugin for CastsPlugin {
                 quiet_large_rumbles,
                 lock_bricks,
             )
-                .chain(),
+                .chain()
+                .after(crate::wizards::WizardBlinking)
+                .run_if(crate::menu::presentation_running),
         );
     }
 }
@@ -1599,19 +1601,25 @@ fn animate_clouds(
     config: Res<GameConfig>,
     towers: Query<(Entity, &Tower, &TowerState)>,
     wizards: Query<(&Wizard, &GlobalTransform)>,
-    mut clouds: Query<(Entity, &mut SpellCloud, &mut Transform, Option<&Children>)>,
-    mut parts: Query<&mut Visibility, Or<(With<CloudIcon>, With<ButtonHint>)>>,
+    mut clouds: Query<(Entity, &mut SpellCloud, &mut Transform, Option<&Children>, &mut Visibility)>,
+    mut parts: Query<&mut Visibility, (Or<(With<CloudIcon>, With<ButtonHint>)>, Without<SpellCloud>)>,
     hints: Query<(), With<ButtonHint>>,
     mut icons: Query<&mut Sprite, With<CloudIcon>>,
+    blinks: Option<Res<crate::wizards::WizardBlinks>>,
 ) {
     let look = &config.casts;
     let dt = time.delta_secs();
     let solo = towers.iter().count() == 1;
-    for (entity, mut cloud, mut transform, children) in &mut clouds {
+    for (entity, mut cloud, mut transform, children, mut visibility) in &mut clouds {
         let Ok((tower_entity, tower, state)) = towers.get(cloud.tower) else {
             commands.entity(entity).despawn();
             continue;
         };
+        visibility.set_if_neq(if blinks.as_ref().is_some_and(|b| b.hidden(tower_entity, &config.wizards)) {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
         cloud.time += dt;
         cloud.age += dt;
         let (at, flip) = wizard_spot(&config, tower_entity, tower, state, solo, &wizards);
@@ -2091,7 +2099,7 @@ mod tests {
             .insert_resource(config)
             .init_resource::<Art>()
             .init_resource::<CameraShake>()
-            .add_plugins((crate::TowerCorePlugin, CastsPlugin));
+            .add_plugins((crate::TowerCorePlugin, CastsPlugin, crate::wizards::WizardsPlugin));
         app.finish();
         app.cleanup();
         for _ in 0..10 {
@@ -2187,5 +2195,27 @@ mod tests {
         }
         assert!(saw_wave);
         assert_eq!(count::<Beam>(&mut app), 0);
+    }
+
+    #[test]
+    fn invincibility_blinks_the_spell_cloud_with_its_wizard() {
+        let mut app = app();
+        let tower = you(&mut app);
+        {
+            let mut state = app.world_mut().get_mut::<TowerState>(tower).unwrap();
+            state.light_spell = Some(SpellKind::Ivy);
+            state.invincible = 1.5;
+        }
+        step(&mut app, 1);
+        let shown = |app: &mut App| {
+            app.world_mut().query_filtered::<&Visibility, With<SpellCloud>>()
+                .single(app.world()).copied().unwrap()
+        };
+        assert_eq!(shown(&mut app), Visibility::Inherited);
+        step(&mut app, 4);
+        assert_eq!(shown(&mut app), Visibility::Hidden);
+        app.world_mut().get_mut::<TowerState>(tower).unwrap().invincible = 0.0;
+        step(&mut app, 1);
+        assert_eq!(shown(&mut app), Visibility::Inherited);
     }
 }

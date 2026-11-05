@@ -39,7 +39,8 @@ impl Plugin for MenuPlugin {
         .init_resource::<Leaderboard>()
         .init_resource::<crate::visuals::MenuLook>()
         .init_resource::<crate::trials_menu::TrialsMenu>()
-        .add_systems(Update, (black_transitions, show_cursor))
+        .add_systems(First, pause_match_clock.before(bevy::time::TimeSystems))
+        .add_systems(Update, (black_transitions, show_cursor.after(MenuSystems)))
         .add_systems(
             Startup,
             (
@@ -98,7 +99,7 @@ fn menu_escape(
     mut stats: ResMut<crate::stats::StatsMenu>,
     mut credits: ResMut<crate::credits::CreditsMenu>,
     mut single: ResMut<SingleMenu>,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     config: Res<GameConfig>,
     confirm: Res<crate::confirm::ExitConfirm>,
 ) {
@@ -106,16 +107,21 @@ fn menu_escape(
     if !keys.just_pressed(KeyCode::Escape) {
         return;
     }
+    if credits.open && credits.after_trial {
+        return;
+    }
     let now = time.elapsed_secs();
+    if pause.is_active() {
+        if pause.is_open() && pause.shown(now, config.menu.pause_fade) >= 1.0 {
+            pause.closing = Some(("Resume", now));
+        }
+        return;
+    }
     match (game.phase, *screen) {
         // Pause the match.
         (Phase::Playing | Phase::Intro, _) => pause.open(&mut game, &mut screen, now),
         // Back to the match we paused, once the menu has faded in and out.
-        (Phase::Menu, MenuScreen::Pause) => {
-            if pause.closing.is_none() && pause.shown(now, config.menu.pause_fade) >= 1.0 {
-                pause.closing = Some(("Resume", now));
-            }
-        }
+        (Phase::Menu, MenuScreen::Pause) => {}
         // Leave a finished match, or step back a screen.
         // Back on Select Players undoes the keyboard seat's last step first.
         (Phase::Menu, MenuScreen::Players)
@@ -222,7 +228,7 @@ fn spawn_black_screen(mut commands: Commands) {
 }
 
 fn black_transitions(
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     screen: Res<MenuScreen>,
     game: Res<Match>,
     mut last: Local<Option<(MenuScreen, bool)>>,
@@ -257,20 +263,29 @@ fn black_transitions(
 pub struct PauseMenu {
     pub selected: usize,
     pub resume_to: Option<Phase>,
-    /// When (Time's elapsed seconds) it opened: it takes input once it has faded in.
+    /// When (Real time's elapsed seconds) it opened: it takes input once it has faded in.
     pub opened: f32,
     /// The option taken and when, while the menu fades out before it happens.
     pub closing: Option<(&'static str, f32)>,
 }
 
 impl PauseMenu {
+    /// Match time and player input stay frozen until the fade-out finishes.
+    pub fn is_active(&self) -> bool {
+        self.resume_to.is_some()
+    }
+
+    /// Audio and cursor resume as soon as the pause menu starts closing.
+    pub fn is_open(&self) -> bool {
+        self.is_active() && self.closing.is_none()
+    }
+
     /// Pauses the match (PauseMenu.Enable): the first option picked, fading in.
     fn open(&mut self, game: &mut Match, screen: &mut MenuScreen, now: f32) {
         self.resume_to = Some(game.phase);
         self.selected = 0;
         self.opened = now;
         self.closing = None;
-        game.phase = Phase::Menu;
         *screen = MenuScreen::Pause;
     }
 
@@ -285,6 +300,29 @@ impl PauseMenu {
             None => k(now - self.opened),
         }
     }
+}
+
+/// Freeze scaled world time, leaving the pause menu's Real clock running.
+fn pause_match_clock(
+    pause: Res<PauseMenu>,
+    mut time: ResMut<Time<Virtual>>,
+    mut inputs: Query<&mut crate::gameplay::PlayerInput>,
+) {
+    if pause.is_active() {
+        time.pause();
+        for mut input in &mut inputs {
+            *input = default();
+        }
+    } else {
+        time.unpause();
+    }
+}
+
+pub(crate) fn presentation_running(
+    pause: Option<Res<PauseMenu>>,
+    time: Option<Res<Time<Virtual>>>,
+) -> bool {
+    !pause.is_some_and(|p| p.is_active()) && !time.is_some_and(|t| t.is_paused())
 }
 
 /// The original's pause options, top to bottom.
@@ -678,12 +716,12 @@ fn pause_input(
     mut request: ResMut<MatchRequest>,
     cup: Option<Res<crate::cups::Cup>>,
     mut last_cursor: Local<Option<Vec2>>,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     config: Res<GameConfig>,
 ) {
     let now = time.elapsed_secs();
     // Start on any pad pauses, as Esc does.
-    if matches!(game.phase, Phase::Playing | Phase::Intro)
+    if !pause.is_active() && matches!(game.phase, Phase::Playing | Phase::Intro)
         && gamepads
             .iter()
             .any(|pad| pad.just_pressed(GamepadButton::Start))
@@ -691,7 +729,7 @@ fn pause_input(
         pause.open(&mut game, &mut screen, now);
         return;
     }
-    if game.phase != Phase::Menu || *screen != MenuScreen::Pause {
+    if !pause.is_active() {
         return;
     }
     // The option taken happens once the menu has faded out (PauseMenu._Disable).
@@ -713,6 +751,7 @@ fn pause_input(
             }
             _ => {
                 pause.resume_to = None;
+                game.phase = Phase::Menu;
                 *screen = if config.trial.is_some() {
                     MenuScreen::Trials
                 } else if config.mode.is_endless() {
@@ -780,10 +819,8 @@ fn pause_input(
 
 #[allow(clippy::type_complexity)]
 fn show_pause_menu(
-    game: Res<Match>,
-    screen: Res<MenuScreen>,
     pause: Res<PauseMenu>,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     config: Res<GameConfig>,
     mut root: Query<(&mut Visibility, &mut BackgroundColor), With<PauseRoot>>,
     mut bars: Query<(&PauseBar, Option<&mut ImageNode>, &mut BackgroundColor), Without<PauseRoot>>,
@@ -842,7 +879,7 @@ fn show_pause_menu(
             color.0 = want;
         }
     }
-    let shown = game.phase == Phase::Menu && *screen == MenuScreen::Pause;
+    let shown = pause.is_active();
     // Behind the pause the world turns grey (PausePopup's BlackWhite background); the cup
     // standings set it too, so only a change of the pause writes it. It clears as the
     // menu fades out.
@@ -895,11 +932,12 @@ fn show_pause_menu(
 /// can show it meanwhile.
 fn show_cursor(
     game: Res<Match>,
+    pause: Res<PauseMenu>,
     popup: Option<Res<crate::popup::Popup>>,
     mut cursors: Query<&mut bevy::window::CursorOptions, With<PrimaryWindow>>,
     mut was: Local<Option<bool>>,
 ) {
-    let visible = game.phase == Phase::Menu || popup.is_some_and(|p| p.shown);
+    let visible = game.phase == Phase::Menu || pause.is_open() || popup.is_some_and(|p| p.shown);
     if *was == Some(visible) {
         return;
     }
@@ -1572,6 +1610,24 @@ fn spin_tile_rays(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_intro_load_fade_finishes_while_match_time_is_paused() {
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<Time<Real>>()
+            .insert_resource(Match { phase: Phase::Intro, ..default() })
+            .insert_resource(MenuScreen::Pause)
+            .add_systems(Update, black_transitions);
+        let cover = app.world_mut().spawn((BlackScreen(0.0), BackgroundColor(Color::BLACK))).id();
+        app.update();
+        assert_eq!(app.world().get::<BackgroundColor>(cover).unwrap().0.alpha(), 1.0);
+        app.world_mut().resource_mut::<Time<Real>>()
+            .advance_by(std::time::Duration::from_secs_f32(TRANSITION_TIME * 2.0));
+        app.update();
+        assert_eq!(app.world().resource::<Time>().elapsed_secs(), 0.0);
+        assert_eq!(app.world().get::<BackgroundColor>(cover).unwrap().0.alpha(), 0.0);
+    }
 
     #[test]
     fn a_cursor_over_a_title_tile_picks_it() {

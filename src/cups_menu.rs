@@ -18,7 +18,7 @@ pub struct CupsMenuPlugin;
 impl Plugin for CupsMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (spawn_cup_panel, spawn_cup_winner))
-            .add_systems(Update, (show_cup_panel, show_cup_winner, celebrate, fly_winner).chain())
+            .add_systems(Update, (show_cup_panel, show_cup_winner, celebrate, fly_winner, play_cast_sounds).chain())
             .add_systems(Update, (medal_sounds, pop_overtime, shake_rows));
     }
 }
@@ -1515,6 +1515,39 @@ struct Flyer {
     wizard: usize,
     /// A nudge under way: seconds since, and its way (+1 right, -1 left).
     nudge: Option<(f32, f32)>,
+    /// The light cast waits for the animation's SPELL_CAST_SELF event.
+    cast_at: Option<f32>,
+}
+
+impl Flyer {
+    fn cast_ready(&mut self, now: f32, clip: crate::wizards::Clip, delay: f32) -> bool {
+        let Some(start) = self.cast_at else { return false };
+        if clip != crate::wizards::Clip::CastSelf {
+            self.cast_at = None;
+            return false;
+        }
+        if now - start < delay {
+            return false;
+        }
+        self.cast_at = None;
+        true
+    }
+}
+
+/// The cast sound's AudioEffect starts 0.1 s after the lightning event.
+#[derive(Component)]
+struct FlyerCastSound {
+    at: f32,
+    sound: Handle<AudioSource>,
+}
+
+fn play_cast_sounds(mut commands: Commands, time: Res<Time>, sounds: Query<(Entity, &FlyerCastSound)>) {
+    for (entity, sound) in &sounds {
+        if time.elapsed_secs() >= sound.at {
+            commands.entity(entity).insert((AudioPlayer(sound.sound.clone()), PlaybackSettings::DESPAWN))
+                .remove::<FlyerCastSound>();
+        }
+    }
 }
 
 /// One of the 8 ghosts a nudge leaves behind the wizard (ControllableWizard._NudgeWizard):
@@ -1657,8 +1690,7 @@ const FLYER_LAYER: usize = 7;
 const FLYER_SPAWN: Vec2 = Vec2::new(650.0 / WIN_UNIT, -380.0 / WIN_UNIT);
 /// Where the wand is on wizard 1's rig, in units from its middle facing left: the
 /// SpellCastContainer with ArmBack at CastSelf's cast-self moment; each wizard's own is in
-/// `casts.cast_spots`. ponytail: the bolt starts at the press, not 0.43 s later as the
-/// original's (the flying wizard would have left its start behind).
+/// `casts.cast_spots`. The bolt samples its moving wand at the cast-self moment.
 const FLYER_WAND: Vec2 = Vec2::new(-2.23, 1.43);
 
 /// The camera drawing the winner's wizard over the popup.
@@ -1741,6 +1773,10 @@ fn fly_winner(
         else {
             return;
         };
+        let mut poof_seed = (rig.to_bits() as u32) | 1;
+        crate::particles::brick_poof_on_layer(
+            &mut commands, art, WIN_UNIT, FLYER_SPAWN * WIN_UNIT, 21.0, &mut poof_seed, Some(&layer),
+        );
         pop(&mut commands);
         // It cheers as it comes in (ControllableWizard.Init).
         commands.entity(rig).queue(|mut e: EntityWorldMut| {
@@ -1748,13 +1784,14 @@ fn fly_winner(
                 w.act(crate::wizards::Clip::Cheer);
             }
         });
-        commands.entity(rig).insert(Flyer {
+        commands.entity(rig).insert((Flyer {
             at: FLYER_SPAWN,
             speed: Vec2::ZERO,
             facing_left: true,
             wizard,
             nudge: None,
-        });
+            cast_at: None,
+        }, rig_transform(FLYER_SPAWN, true, 1.0, 20.0)));
         if cameras.is_empty() {
             // Over everything the main camera drew (its UI too), into the same picture.
             let (order, target, msaa) = main
@@ -1828,6 +1865,7 @@ fn fly_winner(
         *seed = 0x2545_f491;
     }
     let mut roll = || crate::particles::roll(&mut seed);
+    let now = time.elapsed_secs();
     for (_, mut flyer, mut transform, mut rig) in &mut flyers {
         for (on, kind, clip) in [
             (light, "cast_self", Clip::CastSelf),
@@ -1839,35 +1877,8 @@ fn fly_winner(
         ] {
             if on {
                 rig.act(clip);
+                flyer.cast_at = (clip == Clip::CastSelf).then_some(now);
                 say(&mut commands, art, flyer.wizard, kind, roll());
-            }
-        }
-        if light {
-            // _HandleSpellCastSelf: a bolt from the wand to 18 units out the way it faces, at
-            // a random height within 15, and one of the two light cast sounds.
-            let face = if flyer.facing_left { 1.0 } else { -1.0 };
-            let spot = config.casts.cast_spots.get(flyer.wizard).map_or(FLYER_WAND, |s| Vec2::new(s.1.0, s.1.1));
-            let wand = flyer.at + Vec2::new(spot.x * face, spot.y);
-            let to = Vec2::new(-18.0 * face, roll() * 30.0 - 15.0);
-            crate::casts::spawn_bolt(
-                &mut commands,
-                wand * WIN_UNIT,
-                to * WIN_UNIT,
-                WIN_UNIT,
-                Some(layer.clone()),
-                0.0,
-            );
-            let name = if roll() < 0.5 {
-                "sfx_cast_light"
-            } else {
-                "sfx_cast_lightning_level_02"
-            };
-            if let Some(sound) = art
-                .sounds
-                .get(name)
-                .or_else(|| art.sounds.get("sfx_cast_light"))
-            {
-                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
             }
         }
         if let Some(way) = nudge
@@ -1926,6 +1937,28 @@ fn fly_winner(
             }
         }
         *transform = rig_transform(flyer.at, flyer.facing_left, squash, 20.0);
+        if flyer.cast_ready(now, rig.clip, config.magic.cast_self) {
+            // ControllableWizard's animation event uses the wand where the wizard is now.
+            let face = if flyer.facing_left { 1.0 } else { -1.0 };
+            let spot = config.casts.cast_spots.get(flyer.wizard).map_or(FLYER_WAND, |s| Vec2::new(s.1.0, s.1.1));
+            let wand = transform.transform_point((spot * WIN_UNIT).extend(0.0)).truncate();
+            let to = Vec2::new(-18.0 * face, roll() * 30.0 - 15.0);
+            crate::casts::spawn_bolt(
+                &mut commands,
+                wand,
+                to * WIN_UNIT,
+                WIN_UNIT,
+                Some(layer.clone()),
+                0.0,
+            );
+            let name = if roll() < 0.5 { "sfx_cast_light" } else { "sfx_cast_lightning_level_02" };
+            if let Some(sound) = art.sounds.get(name).or_else(|| art.sounds.get("sfx_cast_light")) {
+                commands.spawn(FlyerCastSound {
+                    at: now + config.cup_panel.winner_cast_sound_delay,
+                    sound: sound.clone(),
+                });
+            }
+        }
     }
 }
 
@@ -1940,7 +1973,63 @@ fn rig_transform(at: Vec2, facing_left: bool, squash: f32, z: f32) -> Transform 
 }
 #[cfg(test)]
 mod tests {
-    use super::winner_counts;
+    use super::*;
+
+    #[test]
+    fn the_cup_wizard_poof_is_on_the_popup_layer_at_its_spawn_position() {
+        let mut app = App::new();
+        app.init_resource::<Art>().add_systems(Startup, |mut commands: Commands, art: Res<Art>| {
+            let mut seed = 1;
+            crate::particles::brick_poof_on_layer(
+                &mut commands, &art, WIN_UNIT, FLYER_SPAWN * WIN_UNIT, 21.0, &mut seed,
+                Some(&bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER)),
+            );
+        });
+        app.update();
+        let world = app.world_mut();
+        let count = world.query::<(&Sprite, &Transform, &bevy::camera::visibility::RenderLayers)>()
+            .iter(world).inspect(|(_, at, layer)| {
+                assert_eq!(at.translation.truncate(), FLYER_SPAWN * WIN_UNIT);
+                assert_eq!(**layer, bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER));
+            }).count();
+        assert_eq!(count, 14, "one flash, eight puffs and five stars");
+    }
+
+    #[test]
+    fn the_flying_wizard_cast_waits_for_its_animation_and_cancels_if_interrupted() {
+        use crate::wizards::Clip;
+        let mut flyer = Flyer {
+            at: Vec2::ZERO, speed: Vec2::ZERO, facing_left: true, wizard: 0,
+            nudge: None, cast_at: Some(0.0),
+        };
+        let delay = GameConfig::default().magic.cast_self;
+        assert!(!flyer.cast_ready(0.0, Clip::CastSelf, delay));
+        assert!(!flyer.cast_ready(delay / 2.0, Clip::CastSelf, delay));
+        assert!(flyer.cast_ready(delay, Clip::CastSelf, delay));
+        assert!(!flyer.cast_ready(delay + 1.0, Clip::CastSelf, delay), "one bolt per cast");
+        flyer.cast_at = Some(0.0);
+        assert!(!flyer.cast_ready(delay / 2.0, Clip::Cheer, delay));
+        assert!(!flyer.cast_ready(delay, Clip::CastSelf, delay), "an interrupted cast stays cancelled");
+    }
+
+    #[test]
+    fn the_flying_wizard_cast_sound_waits_after_the_bolt_and_plays_once() {
+        let delay = GameConfig::default().cup_panel.winner_cast_sound_delay;
+        let mut app = App::new();
+        app.init_resource::<Time>().add_systems(Update, play_cast_sounds);
+        let sound = app.world_mut().spawn(FlyerCastSound { at: delay, sound: Handle::default() }).id();
+        app.update();
+        assert!(app.world().get::<AudioPlayer>(sound).is_none());
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(delay / 2.0));
+        app.update();
+        assert!(app.world().get::<AudioPlayer>(sound).is_none());
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(delay));
+        app.update();
+        assert!(app.world().get::<AudioPlayer>(sound).is_some());
+        assert!(app.world().get::<FlyerCastSound>(sound).is_none());
+        app.update();
+        assert_eq!(app.world_mut().query::<&AudioPlayer>().iter(app.world()).count(), 1);
+    }
 
     #[test]
     fn the_winner_counts_run_in_turn_and_skip_empty_ones() {

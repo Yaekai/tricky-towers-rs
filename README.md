@@ -76,20 +76,20 @@ differs, which keeps bots, replays and netplay simple. More in [`PLAN.md`](PLAN.
 |---|---|---|
 | Controls, physics, drop speeds | ✅ | |
 | Race, Survival, Puzzle at Easy / Normal / Special | ✅ | |
-| Spells (17) and how they're awarded | ✅ | Auto Rotate wind-up, stone and ice transitions |
+| Spells (17) and how they're awarded | 🟡 | further timing and effect comparisons |
 | Local multiplayer (1-4 players) and local cups | ✅ | |
-| Wizards (14), animations and voices | ✅ | |
-| Brick packs (8) | 🟡 | Spring's look |
+| Wizards (14), animations and voices | 🟡 | remaining presentation comparisons |
+| Brick packs (8) | 🟡 | further visual comparisons |
 | Trials (50 in 5 tiers) and tier unlock | 🟡 | checking against the original |
-| Endless Race / Survival / Puzzle | 🟡 | Endless Puzzle obstacle blocks |
+| Endless Race / Survival / Puzzle | 🟡 | further play comparisons; obstacle blocks are implemented |
 | Backgrounds, weather and shaders | 🟡 | some sizes and colours still estimated |
-| In-match HUD and effects | 🟡 | cast beam foot decorations, explosion art |
+| In-match HUD and effects | 🟡 | pause text opacity transitions and remaining lane clipping |
 | Match end (WINNER!, collapse, Game Completed, cup winner) | 🟡 | timings still estimated |
 | Menus: start, title, players, modes, single player, endless, trials, settings, keybinding, stats, pause | 🟡 | small layout differences |
 | Explanation, Help and Credits popups | 🟡 | |
 | Text in the original's 19 languages | 🟡 | from the original's language files; long words can still overflow |
-| Values still estimated | 🟡 | about 40 marked `(?)` in `src/` |
-| Online battle menus | ❌ | planned (no online play yet) |
+| Values still estimated | 🟡 | remaining `(?)` values in `src/` |
+| Online battle menus | 🟡 | initial screens exist; connected flows and online play remain |
 | Shop | ❌ | not planned |
 
 Not in the original, kept as extras: AI wizards in local battles, the `mods/` folder and the

@@ -2465,6 +2465,8 @@ pub struct CupPanel {
     pub winner_trophy_grow: (f32, f32),
     pub winner_close: f32,
     pub winner_fade: f32,
+    /// ControllableWizard's light-cast AudioEffect delay after SPELL_CAST_SELF.
+    pub winner_cast_sound_delay: f32,
 }
 
 impl Default for CupPanel {
@@ -2540,6 +2542,7 @@ impl Default for CupPanel {
             winner_trophy_grow: (0.4, 0.6),
             winner_close: 12.0,
             winner_fade: 3.0,
+            winner_cast_sound_delay: 0.1,
         }
     }
 }
@@ -3475,12 +3478,16 @@ pub struct WizardLook {
     pub lift: f32,
     /// Bob sideways and up and down, in cells (sideways at 1×time, up at 2×time).
     pub bob: (f32, f32),
-    /// The wizard plays Action on every n-th placed brick, n drawn from this range.
+    /// The wizard plays Action on every n-th placed brick, n drawn from this inclusive range.
     pub action_every: (u32, u32),
     /// Seconds before another Laugh or Startle may play.
     pub reaction_cooldown: f32,
     /// Shake on losing a life: cells sideways and up, and seconds.
     pub shake: (f32, f32, f32),
+    /// Seconds between visibility changes while the wizard is invincible (Wizard._Blink).
+    pub blink_interval: f32,
+    /// Cells above a newly created wizard for its brick-appearance poof.
+    pub appear_above: f32,
 }
 
 impl Default for WizardLook {
@@ -3490,9 +3497,11 @@ impl Default for WizardLook {
             solo_offset_x: -11.0,
             lift: 4.0,
             bob: (0.5, 0.55),
-            action_every: (3, 8),
+            action_every: (3, 7),
             reaction_cooldown: 7.0,
             shake: (0.1, 0.13, 0.2),
+            blink_interval: 0.05,
+            appear_above: 2.0,
         }
     }
 }

@@ -1,5 +1,33 @@
 # What's next
 
+Start with the [2026-11-04 handoff](handoff-2026-11-04.md) and the
+[current behavior audit](research/parity-audit-2026-11-03.md). The audit records the
+November implementation batch and its local evidence. The older working notes
+below include tasks already completed in October.
+
+## Confirmed remaining implementation work
+
+1. **Transitions:** implement the 0.077-second fade to black before changing
+   screens; clearing from black afterward is already implemented. The start
+   screen still skips its pre-title Rumble clip. Pause text and controls need
+   their opacity transition.
+2. **Cup presentation:** fade the Game-info standings in/out over 0.1 seconds.
+3. **Lane cameras/clipping:** brick materials and the drop guide are clipped, but
+   decorations and Puzzle's widening per-player views remain incomplete.
+4. **Trial 9 physics:** keep the temporary 0.3 laser slack until the stack-height
+   discrepancy below is explained. Do not replace evidence with another guess.
+5. **Online and Shop:** initial Online Battle menus exist; real matchmaking,
+   network play and connected lobby/invite behavior are not implemented. The
+   Shop is still unimplemented under the current plan.
+6. **Verification:** remaining estimated values, language overflow, Windows
+   display scaling and physical controller mappings need focused comparisons.
+   The PlayStation touchpad Credits-close action has no reliable Bevy mapping.
+
+The spell pipeline, Endless Puzzle obstacles, iced brick-pack shaders and final
+trial Credits should not be restarted from the historical descriptions below.
+
+## Historical working notes
+
 The open work, most useful first. "Estimated" means the value is ours, not yet read from the
 original; those are marked `(?)` in `src/`. The status table in the [README](../README.md) gives
 the overview; `docs/pc-tasks.md` and `docs/research/compare-2026-10-06.md` keep the detailed

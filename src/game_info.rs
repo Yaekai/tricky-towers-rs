@@ -20,7 +20,7 @@ impl Plugin for GameInfoPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameInfo>()
             .add_systems(Startup, spawn_game_info)
-            .add_systems(Update, (toggle_game_info, show_game_info).chain());
+            .add_systems(Update, (toggle_game_info, show_game_info).chain().after(crate::menu::MenuSystems));
     }
 }
 
@@ -158,8 +158,9 @@ fn toggle_game_info(
     pads: Query<&Gamepad>,
     game: Res<Match>,
     mut info: ResMut<GameInfo>,
+    pause: Option<Res<crate::menu::PauseMenu>>,
 ) {
-    if game.phase != Phase::Playing {
+    if game.phase != Phase::Playing || pause.is_some_and(|p| p.is_active()) {
         info.open = false;
         return;
     }

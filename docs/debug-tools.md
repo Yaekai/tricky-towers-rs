@@ -4,7 +4,9 @@ DEBUG-TOOL: none of this is in the original game. It is here to test and picture
 and goes before the final build (docs/release-checklist.md).
 
 ## Debug commands (src/debug.rs)
-One set of commands drives everything below. Each runs at the start of the next fixed step:
+One set of commands drives everything below. Gameplay commands run at the start of
+the next fixed step. `Tap`, `Picture` and `Quit` run on the frame clock, so a script
+can inspect and resume a paused match:
 - `Start(mode: Race, difficulty: Some(Pro), players: Some(1), opponents: Some(2))`: start or
   restart a match (unset fields keep the current config).
 - `Press(tower: 0, key: CastDark)`: press a button for a tower once. Keys: `Left`, `Right`,
@@ -21,7 +23,9 @@ In tests, push commands into the `DebugQueue` resource
 (see `debug_commands_and_scripts_drive_a_match` in tests/headless.rs).
 
 ## Script files
-A RON list of `(at: seconds, run: Command)`, run in time order from the moment the game starts.
+A RON list of `(at: seconds, run: Command)`, run in real-time order from the moment
+the game starts, including while a match is paused. Gameplay commands wait for the
+next running fixed step; frame commands continue during pause.
 Battles open with their intro (mode title, Race's camera sweep, 3-2-1; src/intro.rs), so play
 starts about 6.5 s after a Race `Start` (4.5 s in Survival, 3.5 s in Puzzle):
 
