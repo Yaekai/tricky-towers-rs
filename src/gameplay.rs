@@ -27,6 +27,7 @@ impl Plugin for GameplayPlugin {
             .add_message::<BrickNudged>()
             .add_message::<BrickRespawned>()
             .add_message::<SlowBalloonCue>()
+            .add_message::<crate::spells::LifeOrbEnded>()
             .add_observer(put_in_tower_layer)
             .add_systems(FixedPreUpdate, layer_stragglers)
             .init_resource::<crate::spells::SpellLog>()
@@ -1883,7 +1884,8 @@ fn control_active_brick(
         // Rotation: 90 degrees, tried in steps. No wall kicks: if the turn is
         // blocked part way, the brick stops there and is placed.
         let mut turns: Vec<f32> = Vec::new();
-        control.refused = (control.refused - dt).max(0.0);
+        let shake_left = control.refused - dt;
+        control.refused = if shake_left > f32::EPSILON { shake_left } else { 0.0 };
         if !control.mods.no_rotate && control.mods.auto_rotate.is_none() {
             if rotate_cw {
                 turns.push(-90.0);
@@ -1891,7 +1893,7 @@ fn control_active_brick(
             if rotate_ccw {
                 turns.push(90.0);
             }
-        } else if control.mods.no_rotate && (rotate_cw || rotate_ccw) {
+        } else if control.mods.no_rotate && (rotate_cw || rotate_ccw) && control.refused == 0.0 {
             // No Rotate: the turn is refused with a shake.
             control.refused = config.magic.no_rotate_shake;
         }

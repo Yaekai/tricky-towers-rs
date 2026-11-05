@@ -1697,6 +1697,8 @@
         auto_rotate_swing: (105.0, 0.45),
         no_rotate_shake: 0.3,
         no_rotate_jump: 0.1,
+        no_rotate_chain_delay: 0.08,
+        no_rotate_chain_pitch: (0.95, 1.05),
         mystery_pieces: [
             (name: "Block", color: (0.8, 0.55, 0.85), cells: [(0, 0), (1, 0), (0, 1), (1, 1), (0, 2), (1, 2), (0, 3), (1, 3)], mass: 1.5),
             (name: "Blob", color: (0.55, 0.8, 0.7), cells: [(0, 0), (1, 0), (0, 1), (1, 1), (2, 1), (0, 2), (1, 2), (2, 2), (1, 3), (2, 3)], mass: 1.75),

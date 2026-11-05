@@ -63,17 +63,24 @@ fn player_for_slot(players: usize, slot: usize) -> usize {
 
 /// The people seated on Select Players, in player order, when they are the match's
 /// players (a local battle); None otherwise (single player, scripted matches).
-fn seated(lobby: Option<&crate::select::Lobby>, players: usize) -> Option<Vec<crate::select::Seat>> {
+pub(crate) fn seated(lobby: Option<&crate::select::Lobby>, players: usize) -> Option<Vec<crate::select::Seat>> {
     let humans: Vec<_> = lobby?.seats.iter().copied().filter(|s| s.human()).collect();
     (players > 1 && humans.len() == players).then_some(humans)
 }
 
 /// The player a pad drives: its seat's player in a local battle (none if it didn't
 /// join), else by connection order.
-fn pad_player(seats: Option<&[crate::select::Seat]>, players: usize, slot: usize, pad: Entity) -> Option<usize> {
+pub(crate) fn pad_player(seats: Option<&[crate::select::Seat]>, players: usize, slot: usize, pad: Entity) -> Option<usize> {
     match seats {
         Some(seats) => seats.iter().position(|s| *s == crate::select::Seat::Pad(pad)),
         None => Some(player_for_slot(players, slot)),
+    }
+}
+
+pub(crate) fn keyboard_player(seats: Option<&[crate::select::Seat]>) -> Option<usize> {
+    match seats {
+        Some(seats) => seats.iter().position(|s| *s == crate::select::Seat::Keyboard),
+        None => Some(0),
     }
 }
 
@@ -232,12 +239,8 @@ fn read_keyboard(
     }
     // In a local battle the keyboard drives the player whose seat it took.
     let players = towers.iter().filter(|(t, _)| t.human).count();
-    let player = match seated(lobby.as_deref(), players) {
-        Some(seats) => match seats.iter().position(|s| *s == crate::select::Seat::Keyboard) {
-            Some(p) => p,
-            None => return,
-        },
-        None => 0,
+    let Some(player) = keyboard_player(seated(lobby.as_deref(), players).as_deref()) else {
+        return;
     };
     // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
     if keys.any_just_pressed(RESTART) {

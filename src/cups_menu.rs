@@ -15,11 +15,14 @@ use crate::select::{SCREEN, label_with, shown};
 
 pub struct CupsMenuPlugin;
 
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct CupFlyerMotion;
+
 impl Plugin for CupsMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (spawn_cup_panel, spawn_cup_winner))
             .add_systems(Update, (show_cup_panel.after(crate::game_info::GameInfoSystems),
-                show_cup_winner, celebrate, fly_winner, play_cast_sounds).chain())
+                show_cup_winner, celebrate, fly_winner.in_set(CupFlyerMotion), play_cast_sounds).chain())
             .add_systems(Update, (medal_sounds, pop_overtime, shake_rows));
     }
 }
@@ -1745,8 +1748,12 @@ fn fly_winner(
     cup: Res<Cup>,
     popup: Res<Popup>,
     art: Option<Res<Art>>,
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    pads: Query<&Gamepad>,
+    controls: (
+        Option<Res<ButtonInput<KeyCode>>>,
+        Option<Res<crate::select::Lobby>>,
+        Option<Res<crate::keybinding::KeyBindings>>,
+    ),
+    pads: Query<(Entity, &Gamepad)>,
     towers: Query<(&Tower, Option<&TowerSkin>)>,
     mut flyers: Query<
         (
@@ -1764,9 +1771,9 @@ fn fly_winner(
         (&Camera, &bevy::camera::RenderTarget, Option<&Msaa>),
         With<crate::visuals::MainCamera>,
     >,
-    bindings: Option<Res<crate::keybinding::KeyBindings>>,
     mut seed: Local<u32>,
 ) {
+    let (keys, lobby, bindings) = controls;
     let since = popup.winner_since();
     let due = winner_trophy_in(&cup, &config) + WIN_WIZARD_AFTER;
     let up = since.is_some_and(|t| t >= due && t < config.cup_panel.winner_close);
@@ -1793,11 +1800,10 @@ fn fly_winner(
         return;
     }
     let Some(art) = art.as_deref() else { return };
+    let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
+    let winning_tower = towers.iter().find(|(t, _)| Some(t.index) == winner);
     if flyers.is_empty() {
-        let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
-        let wizard = towers
-            .iter()
-            .find(|(t, _)| Some(t.index) == winner)
+        let wizard = winning_tower
             .map_or(0, |(t, skin)| skin.map_or(t.index, |s| s.wizard));
         let Some(rig) =
             crate::wizards::spawn_free_wizard(&mut commands, art, wizard, WIN_UNIT, layer.clone())
@@ -1860,15 +1866,29 @@ fn fly_winner(
         }
         return;
     }
-    // The held direction: the arrows, or any pad's d-pad or left stick.
+    // The flying wizard listens to the winner's controller, using the match's seat mapping.
+    let player = winning_tower.and_then(|(tower, _)| tower.player);
+    let players = towers.iter().filter(|(tower, _)| tower.human).count();
+    let seats = crate::input::seated(lobby.as_deref(), players);
+    let keys = keys.as_deref().filter(|_| {
+        player.is_some() && player == crate::input::keyboard_player(seats.as_deref())
+    });
+    let winner_pad = player.and_then(|player| {
+        let mut pads: Vec<_> = pads.iter().collect();
+        pads.sort_by_key(|(entity, _)| *entity);
+        pads.into_iter().enumerate().find_map(|(slot, (entity, pad))| {
+            (crate::input::pad_player(seats.as_deref(), players, slot, entity) == Some(player))
+                .then_some(pad)
+        })
+    });
     let mut dir = Vec2::ZERO;
-    if let Some(keys) = &keys {
+    if let Some(keys) = keys {
         dir.x += keys.pressed(KeyCode::ArrowRight) as i32 as f32
             - keys.pressed(KeyCode::ArrowLeft) as i32 as f32;
         dir.y += keys.pressed(KeyCode::ArrowUp) as i32 as f32
             - keys.pressed(KeyCode::ArrowDown) as i32 as f32;
     }
-    for pad in &pads {
+    if let Some(pad) = winner_pad {
         dir.x += pad.pressed(GamepadButton::DPadRight) as i32 as f32
             - pad.pressed(GamepadButton::DPadLeft) as i32 as f32;
         dir.y += pad.pressed(GamepadButton::DPadUp) as i32 as f32
@@ -1886,9 +1906,9 @@ fn fly_winner(
         let code = bindings
             .as_ref()
             .map_or(action.default_key(), |b| b.key(action));
-        keys.as_ref().is_some_and(|k| k.just_pressed(code))
+        keys.is_some_and(|k| k.just_pressed(code))
     };
-    let pad = |button: GamepadButton| pads.iter().any(|p| p.just_pressed(button));
+    let pad = |button: GamepadButton| winner_pad.is_some_and(|p| p.just_pressed(button));
     let light = key(Action::LightMagic) || pad(GamepadButton::West);
     let dark = key(Action::DarkMagic) || pad(GamepadButton::East);
     let overview = key(Action::GameInfo) || pad(GamepadButton::North);
@@ -1906,7 +1926,7 @@ fn fly_winner(
     }
     let mut roll = || crate::particles::roll(&mut seed);
     let now = time.elapsed_secs();
-    for (_, mut flyer, mut transform, mut rig) in &mut flyers {
+    for (entity, mut flyer, mut transform, mut rig) in &mut flyers {
         for (on, kind, clip) in [
             (light, "cast_self", Clip::CastSelf),
             // ACTIVATE_SPELL_DARK plays Laugh: the same WizardNNLaugh clip as LaughEvil
@@ -1981,11 +2001,10 @@ fn fly_winner(
             // ControllableWizard's animation event uses the wand where the wizard is now.
             let face = if flyer.facing_left { 1.0 } else { -1.0 };
             let spot = config.casts.cast_spots.get(flyer.wizard).map_or(FLYER_WAND, |s| Vec2::new(s.1.0, s.1.1));
-            let wand = transform.transform_point((spot * WIN_UNIT).extend(0.0)).truncate();
             let to = Vec2::new(-18.0 * face, roll() * 30.0 - 15.0);
             crate::casts::spawn_bolt(
                 &mut commands,
-                wand,
+                crate::casts::BoltOrigin::Wand(entity, spot * WIN_UNIT),
                 to * WIN_UNIT,
                 WIN_UNIT,
                 Some(layer.clone()),

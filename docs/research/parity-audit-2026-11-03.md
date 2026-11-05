@@ -42,10 +42,12 @@ WizardAnimationController and AbstractWizard.
 ## Cup winner's light cast
 
 Pressing light magic starts CastSelf. The bolt starts at the clip's cast-self
-event (0.4333 seconds, already recorded in `magic.cast_self`), from the wand where
-the wizard is then, with its current facing. A different animation interrupting
-the cast prevents that event. One of the two light-cast sounds follows the event
-by 0.1 seconds.
+event (0.4333 seconds, already recorded in `magic.cast_self`). The bolt follows
+the wizard's wand as it flies and faces either way, while the endpoint stays
+where the cast put it. A different animation interrupting the cast prevents
+that event. One of the two light-cast sounds follows the event by 0.1 seconds.
+The popup only takes input from the controller assigned to the winning wizard.
+The Rust rig still uses its configured local wand offset for each skin.
 
 Sources: ControllableWizard and WizardAnimationController; the staged CastSelf
 clip event timing.

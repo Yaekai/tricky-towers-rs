@@ -10,8 +10,9 @@ Plain-language notes from Max's installed copy. Units are brick cells.
 - **Undo:** the last placed brick is zapped for 0.75 s, then removed. It does not count as dropped.
 - **Minibase:** a stone ledge appears 3 to 5 cells left or right of centre (random side, rounded to
   0.5), at height max(tower, 2) + 3. It counts as part of the tower.
-- **Extra life** (Survival): a heart orb at x −5, height max(tower, 10) + 3. Touch it with a brick
-  for one more life.
+- **Extra Life** (Survival): a heart orb at x −5, height max(tower, 10) + 3. It drifts right and
+  bobs, checking the current vertical speed before applying each step's force. It poofs on arrival
+  and when it leaves. Touch it with a brick for one more life and the pickup sound.
 - **Auto-build** (far behind only): the next 5 bricks drop at once to a random spot over the tower
   and petrify.
 
@@ -19,14 +20,18 @@ Plain-language notes from Max's installed copy. Units are brick cells.
 - **Large:** the current brick grows to 2× over 0.3 s (+0.5 for each extra Large).
 - **Fast:** for the next 5 bricks, the fall speed is at least the drop speed + 7.5.
 - **Ice:** the next 4 bricks have friction 0.06 (normal is 0.4).
-- **No-rotate:** turning is blocked; the brick shakes for 0.3 s when you try.
+- **No-rotate:** turning is blocked. The first refused turn shakes the brick for 0.3 s. More
+  attempts during the shake leave its timer running. A chain sound starts 0.08 s after the lock
+  attaches or a new shake starts.
 - **Auto-rotate:** winds back 15° over 0.2 s, turns 105° over 0.45 s (90° net), waits 1 s, repeats.
   Manual turning is off.
 - **Mystery:** the current brick becomes one of 3 shapes from a bag: a 2×4 block (mass 1.5), a
   10-cell blob (mass 1.75), or a table, a 4×2 slab on two 1×1 feet (mass 1.75).
-- **Bubble:** lifts the victim's last brick (not if vined or petrified) with an upward pull of
-  21.5 × scale, easing to 18 over 1 s, then 17.5 (gravity is 18). It tilts 3 to 12°, and pops
-  after 3 s or when a brick hits it. A bubbled brick does not count toward height.
+- **Bubble:** targets the newest placed brick without a bubble. A vined or petrified brick wears
+  a bubble for 0.7 s without lifting and is skipped by subsequent casts while it wears it. A
+  loose brick lifts with an upward pull of 21.5 × scale, easing to 18 over 1 s, then 17.5
+  (gravity is 18). It tilts 3 to 12°, and pops after 3 s or when a brick hits it. A lifted brick
+  does not count toward height.
 - **Slow:** a balloon starts two cells above the tower height and rises at 2.5 cells/s, following
   the brick's x. A catch plays the collision sound and poof, freezes the brick and shakes it for
   0.3 s. The tethered balloon then appears and grows over 0.4 s. Steering resumes 0.3 s after it

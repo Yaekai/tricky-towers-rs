@@ -9,7 +9,7 @@ use crate::art::Art;
 use crate::collapse::{CollapseEvent, CollapseKind};
 use crate::config::GameConfig;
 use crate::gameplay::{ActiveBrick, Brick, BrickLost, SlowBalloonCue};
-use crate::spells::Ghosted;
+use crate::spells::{Ghosted, LifeOrb, LifeOrbEnded};
 use crate::visuals::FramedCamera;
 
 pub struct EffectsPlugin;
@@ -21,7 +21,7 @@ impl Plugin for EffectsPlugin {
             (
                 float_balloons,
                 show_balloon_orbs,
-                balloon_cues,
+                (balloon_cues, life_orb_cues),
                 attach_skulls,
                 fly_skulls,
                 splash,
@@ -139,6 +139,27 @@ fn balloon_cues(
             }
         };
         if let Some(sound) = art.sounds.get(name) {
+            commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
+        }
+    }
+}
+
+fn life_orb_cues(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    spawned: Query<(Entity, &Transform), Added<LifeOrb>>,
+    mut ended: MessageReader<LifeOrbEnded>,
+) {
+    let c = config.cell_size;
+    for (entity, at) in &spawned {
+        let mut seed = (entity.to_bits() as u32) | 1;
+        crate::particles::brick_poof(&mut commands, &art, c, at.translation.truncate(), &mut seed);
+    }
+    for cue in ended.read() {
+        let mut seed = cue.at.x.to_bits() | 1;
+        crate::particles::brick_poof(&mut commands, &art, c, cue.at, &mut seed);
+        if cue.collected && let Some(sound) = art.sounds.get("sfx_pickup_life_v2") {
             commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
         }
     }
