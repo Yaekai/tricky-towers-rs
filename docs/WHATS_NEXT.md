@@ -41,9 +41,22 @@ supersedes the older working notes below.
      with its tower's viewport, the one GamePositionHelper fits in the 16:9 box, and
      its root is anchored to that rectangle's corners (`AbstractHUD`, the modes'
      `_CreateHud`). So when letterboxed the cards hang from the box's top, not the
-     screen's: done for split Puzzle screens (`hud::place_items`). Still open: the
-     card's size and its offset from the tower follow the original's canvas scaler
-     (not read yet); ours scale them with the full screen's height and width.
+     screen's: done for split Puzzle screens (`hud::place_items`). Sizes: the HUD
+     canvas (`UI HUD` in the Game scene) is Screen Space - Camera with a CanvasScaler
+     set to Scale With Screen Size, reference 1920x1080, screen match mode Expand, so
+     one canvas unit is min(width/1920, height/1080) pixels: the 16:9 box's height /
+     1080 on any screen. Its `Container` fills the canvas (HUDSafeZoneScaler adds
+     nothing at VISIBLE_SCREEN_RATIO 1). So split Puzzle HUD items now take their size
+     from the box's height and the card's sideways offset from the box's width
+     (`hud::fill_items`, `hud::place_items`): at 1280x1024 the card is drawn exactly as
+     at 1280x720, at 3440x1440 as at 2560x1440.
+   - *Race and Survival battles* (read only, not changed): they keep the default
+     `GetGamePosition`, so they get the same 16:9-fitted lane viewports, one camera
+     per tower (`camera.rect` = the viewport), and the same HUD anchoring and Expand
+     scaling. Each tower also has a background and a foreground camera (its
+     `TowerBackground<n>` / `TowerForeground<n>` layers) whose rect keeps the lane's
+     centre but is as wide as the screen allows around it. Ours draw those modes
+     with one full-screen camera and size their HUD from the full height.
    - 125% scaling and window resizing need a windowed check by Max (offscreen runs
      always render at 1x). Also still to check: the BrickClipper Forcefield on
      Puzzle cuts, and whether a shake should move only its own lane.
