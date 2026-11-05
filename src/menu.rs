@@ -773,6 +773,7 @@ fn spawn_pause_menu(
                     if let Some(bar) = &bar {
                         let mut node = sliced(bar.clone(), BAR_SLICE);
                         node.color = Color::NONE;
+                        node.visual_box = bevy::ui::VisualBox::PaddingBox;
                         item.insert(node);
                     }
                     item.with_children(|r| {
