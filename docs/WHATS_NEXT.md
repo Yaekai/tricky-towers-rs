@@ -6,16 +6,17 @@ supersedes the older working notes below.
 
 ## Active backlog
 
-1. **Give multiplayer Puzzle fixed, centered viewports.** Claude started this
-   in the cloud from `bee6196`. Verify its first slice in a two-seat local battle.
-   Use the original's margins and gaps to define stable screen
-   rectangles. Keep the widest-tower zoom and each lane's projected center and
-   clip edges in agreement as the camera pulls back. Trace `visuals::frame_towers`,
-   `hud::place_items`, `post::follow_grab`, the laser and the foreground sand
-   before splitting the draw. Verify that a wide stack leaves each tower and its
-   HUD centered, a decoration stops at its own edge, and the laser stays shared.
-   Then cover three and four seats, window resizing and 125% scaling. Regression
-   check Puzzle trials, solo Endless Puzzle and the Race/Survival lane cuts.
+1. **Give multiplayer Puzzle fixed, centered viewports.** First slice merged
+   2026-11-05 (`src/lanes.rs`): a back camera draws the scene, one camera per tower
+   draws its GamePositionHelper rectangle (`config::Lanes` margins and gaps), and the
+   main camera draws DesertForeground's sand and the UI last. The zoom uses the
+   rectangle's aspect; HUD, hearts, scores and banners add `LaneViews::shift`; grab
+   shaders sample by whole-picture UV. Checked in the cloud with placeholder art for
+   two, three and four seats, pause and results, plus unchanged Survival and solo
+   Endless Puzzle, and a test that each tower stays centred as the zoom widens. Left:
+   a staged-art pass on the PC with a real wide stack (decorations, heat haze, front
+   sand, drop guide), window resizing and 125% scaling, the BrickClipper Forcefield on
+   Puzzle cuts, Puzzle trials, and whether a shake should move only its own lane.
 2. **Reproduce the Trial 9 stack-height mismatch.** Replay the same placements
    and rotations for `SP_10` and record each brick's settled position and top.
    Use the existing `trial brick over laser` diagnostic and compare the first

@@ -345,11 +345,7 @@ fn follow_grab(
     mut lanes: ResMut<Assets<BeamLane>>,
     main: Query<
         (Entity, &Camera, &Projection, &Transform),
-        (
-            With<crate::visuals::MainCamera>,
-            Without<GrabCamera>,
-            Without<Haze>,
-        ),
+        (With<crate::visuals::MainCamera>, Without<GrabCamera>, Without<Haze>),
     >,
     mut grab: Query<(&mut Camera, &mut Projection), With<GrabCamera>>,
     mut haze: Query<(&mut Transform, &mut Visibility), With<Haze>>,
@@ -479,19 +475,12 @@ fn follow_lane_shake(
         let Some(size) = camera.logical_viewport_size() else {
             continue;
         };
-        let screen = |p: Vec2| {
-            camera
-                .world_to_viewport(at, p.extend(0.0))
-                .ok()
-                .map(|v| v / size)
-        };
+        let screen = |p: Vec2| camera.world_to_viewport(at, p.extend(0.0)).ok().map(|v| v / size);
         let mut lanes = Vec4::splat(2.0);
         let (mut sx, mut sy) = (Vec4::ZERO, Vec4::ZERO);
         if order.len() > 1 {
             for (slot, &(x, index)) in order.iter().take(4).enumerate() {
-                let edge = order
-                    .get(slot + 1)
-                    .and_then(|&(next, _)| screen(Vec2::new((x + next) * 0.5, 0.0)));
+                let edge = order.get(slot + 1).and_then(|&(next, _)| screen(Vec2::new((x + next) * 0.5, 0.0)));
                 lanes[slot] = edge.map_or(2.0, |e| e.x);
                 let off = offsets.get(index).copied().unwrap_or_default();
                 // The camera moves by the shake, so the picture moves the other way.
@@ -555,12 +544,7 @@ fn follow_pacer(
     game: Option<Res<crate::gameplay::Match>>,
     menu: Option<Res<crate::visuals::MenuScene>>,
     towers: Query<&crate::gameplay::TowerState>,
-    lines: Query<(
-        Entity,
-        &crate::visuals::FinishLine,
-        &GlobalTransform,
-        &InheritedVisibility,
-    )>,
+    lines: Query<(Entity, &crate::visuals::FinishLine, &GlobalTransform, &InheritedVisibility)>,
     strips: Query<(&ChildOf, &bevy::camera::primitives::Aabb, &GlobalTransform), With<Sprite>>,
     mut cameras: Query<(&Camera, &GlobalTransform, &mut GreyOut)>,
     // Stopped or not, the grey when that last changed, and the time since.
@@ -590,8 +574,7 @@ fn follow_pacer(
                     .iter()
                     .filter(|(of, ..)| of.parent() == entity)
                     .map(|(_, aabb, at)| {
-                        at.transform_point(Vec3::from(aabb.center - aabb.half_extents))
-                            .y
+                        at.transform_point(Vec3::from(aabb.center - aabb.half_extents)).y
                     })
                     .fold(line.translation().y, f32::min);
                 let y = camera
@@ -636,14 +619,8 @@ pub struct PostPlugin;
 
 impl Plugin for PostPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GreyTarget>().add_systems(
-            Update,
-            (
-                follow_grey.after(crate::menu::MenuSystems),
-                follow_pacer,
-                follow_lane_shake.after(crate::visuals::FramedCamera),
-            ),
-        );
+        app.init_resource::<GreyTarget>()
+            .add_systems(Update, (follow_grey.after(crate::menu::MenuSystems), follow_pacer, follow_lane_shake.after(crate::visuals::FramedCamera)));
         let Some(mut images) = app.world_mut().get_resource_mut::<Assets<Image>>() else {
             return;
         };
@@ -653,31 +630,20 @@ impl Plugin for PostPlugin {
             bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
             None,
         ));
-        app.insert_resource(GrabTarget(grab)).add_systems(
-            PostUpdate,
-            follow_grab.before(bevy::camera::CameraUpdateSystems),
-        );
+        app.insert_resource(GrabTarget(grab))
+            .add_systems(PostUpdate, follow_grab.before(bevy::camera::CameraUpdateSystems));
         if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
             let _ = shaders.insert(
                 GREY_SHADER.id(),
                 Shader::from_wgsl(GREY_WGSL, "grey_out.wgsl"),
             );
-            let _ = shaders.insert(
-                LANE_SHADER.id(),
-                Shader::from_wgsl(LANE_WGSL, "beam_lane.wgsl"),
-            );
-            let _ = shaders.insert(
-                HAZE_SHADER.id(),
-                Shader::from_wgsl(HAZE_WGSL, "heat_haze.wgsl"),
-            );
+            let _ = shaders.insert(LANE_SHADER.id(), Shader::from_wgsl(LANE_WGSL, "beam_lane.wgsl"));
+            let _ = shaders.insert(HAZE_SHADER.id(), Shader::from_wgsl(HAZE_WGSL, "heat_haze.wgsl"));
             let _ = shaders.insert(
                 GUIDE_SHADER.id(),
                 Shader::from_wgsl(GUIDE_WGSL, "guide_overlay.wgsl"),
             );
-            let _ = shaders.insert(
-                SPOT_SHADER.id(),
-                Shader::from_wgsl(SPOT_WGSL, "spot_overlay.wgsl"),
-            );
+            let _ = shaders.insert(SPOT_SHADER.id(), Shader::from_wgsl(SPOT_WGSL, "spot_overlay.wgsl"));
             app.add_plugins((
                 FullscreenMaterialPlugin::<GreyOut>::default(),
                 Material2dPlugin::<GuideOverlay>::default(),

@@ -204,23 +204,14 @@ fn lost_out_of_view(game: &Match) -> bool {
 /// The bottom of the towers' view and its half width around a tower, in cells, as the
 /// camera frames them (visuals::frame_towers: SingleTowerCamera, Puzzle's WidthTowerCamera
 /// on the floor); a lone tower's view is taken as wide as the screen.
-fn tower_view(
-    config: &GameConfig,
-    game: &Match,
-    lowest: f32,
-    highest: f32,
-    towers: usize,
-) -> (f32, f32) {
+fn tower_view(config: &GameConfig, game: &Match, lowest: f32, highest: f32, towers: usize) -> (f32, f32) {
     let floor = -config.camera_floor();
     let bottom = if game.mode.rules() == ModeKind::Puzzle || game.phase == Phase::Over {
         floor
     } else {
         let look = &config.hud;
-        let top =
-            (highest + look.camera_height - look.camera_tower_room).max(floor + look.camera_height);
-        (lowest - look.camera_below_lowest)
-            .max(floor)
-            .min(top - look.camera_height)
+        let top = (highest + look.camera_height - look.camera_tower_room).max(floor + look.camera_height);
+        (lowest - look.camera_below_lowest).max(floor).min(top - look.camera_height)
     };
     // ponytail: a lane's view is its share of a 16:9 screen; a trial's split isn't modelled.
     let lanes = if config.trial.is_some() { 1 } else { towers };
@@ -240,11 +231,7 @@ fn out_of_view(
 ) -> bool {
     let reach = config.lost_reach * scale;
     let battle_puzzle = game.mode == ModeKind::Puzzle && config.trial.is_none();
-    let offset = if battle_puzzle {
-        config.lost_puzzle_offset
-    } else {
-        0.0
-    };
+    let offset = if battle_puzzle { config.lost_puzzle_offset } else { 0.0 };
     let out = at.y + reach < view.0 + offset || at.x.abs() - reach > view.1;
     // Survival battles and Endless Survival also drop a ghost-carried brick that leaves.
     let ghost_rule = matches!(game.mode, ModeKind::Survival | ModeKind::EndlessSurvival)
@@ -961,13 +948,7 @@ fn raise_bases(
     mut towers: Query<(Entity, &mut TowerState)>,
     mut bases: Query<(&Raised, &mut Transform), Without<RigidBody>>,
     mut bodies: Query<
-        (
-            &mut Position,
-            &mut Transform,
-            Option<&Brick>,
-            Option<&Raised>,
-            Option<&Children>,
-        ),
+        (&mut Position, &mut Transform, Option<&Brick>, Option<&Raised>, Option<&Children>),
         (With<RigidBody>, Without<ChildOf>),
     >,
     members: Query<&Brick, Without<RigidBody>>,
@@ -1008,15 +989,9 @@ fn raise_bases(
     // the ones near an edge off.
     if !moved.is_empty() {
         for (mut position, mut transform, brick, raised, children) in &mut bodies {
-            let owner = brick
-                .map(|b| b.tower)
-                .or(raised.map(|r| r.tower))
-                .or_else(|| {
-                    children?
-                        .iter()
-                        .find_map(|c| members.get(c).ok())
-                        .map(|b| b.tower)
-                });
+            let owner = brick.map(|b| b.tower).or(raised.map(|r| r.tower)).or_else(|| {
+                children?.iter().find_map(|c| members.get(c).ok()).map(|b| b.tower)
+            });
             if let Some(&dy) = owner.and_then(|t| moved.get(&t)) {
                 position.0.y += dy;
                 transform.translation.y += dy;
@@ -1051,10 +1026,7 @@ fn brick_boxes(cells: &[Vec2]) -> Vec<(Vec2, f32, f32)> {
     // Stack runs with the same extent on neighbouring rows: (y_lo, y_hi, x_start, x_end).
     let mut boxes: Vec<(i32, i32, i32, i32)> = Vec::new();
     for (y, x0, x1) in runs {
-        match boxes
-            .iter_mut()
-            .find(|b| b.2 == x0 && b.3 == x1 && b.1 + 2 == y)
-        {
+        match boxes.iter_mut().find(|b| b.2 == x0 && b.3 == x1 && b.1 + 2 == y) {
             Some(b) => b.1 = y,
             None => boxes.push((y, y, x0, x1)),
         }
@@ -1063,11 +1035,7 @@ fn brick_boxes(cells: &[Vec2]) -> Vec<(Vec2, f32, f32)> {
         .into_iter()
         .map(|(y0, y1, x0, x1)| {
             let centre = Vec2::new((x0 + x1) as f32 / 4.0, (y0 + y1) as f32 / 4.0);
-            (
-                centre,
-                (x1 - x0) as f32 / 2.0 + 1.0,
-                (y1 - y0) as f32 / 2.0 + 1.0,
-            )
+            (centre, (x1 - x0) as f32 / 2.0 + 1.0, (y1 - y0) as f32 / 2.0 + 1.0)
         })
         .collect()
 }
@@ -1097,10 +1065,7 @@ pub fn brick_body(config: &GameConfig, brick: &Brick) -> (Collider, ColliderDens
     let cell = config.cell_size * brick.scale;
     let fill = config.collider_scale;
     let trim = (1.0 - fill) * cell;
-    let area: f32 = brick_boxes(&brick.cells)
-        .iter()
-        .map(|&(_, w, h)| (w * cell - trim) * (h * cell - trim))
-        .sum();
+    let area: f32 = brick_boxes(&brick.cells).iter().map(|&(_, w, h)| (w * cell - trim) * (h * cell - trim)).sum();
     (
         brick_collider(&brick.cells, cell, fill),
         ColliderDensity(config.brick_mass * brick.mass / area.max(f32::EPSILON)),
@@ -1358,9 +1323,7 @@ fn start_match(
         let top_ledge = |side: f32| {
             floor
                 .iter()
-                .filter(|&&(x, top, bottom, _)| {
-                    x != 0.0 && top - bottom <= 1.0 && x.signum() == side
-                })
+                .filter(|&&(x, top, bottom, _)| x != 0.0 && top - bottom <= 1.0 && x.signum() == side)
                 .map(|&(_, top, _, _)| top)
                 .fold(f32::MIN, f32::max)
         };
@@ -1447,10 +1410,7 @@ fn spawn_next_brick(
     }
     let c = config.cell_size;
     for (tower_entity, tower, mut state, mut bag) in &mut towers {
-        if state.status != TowerStatus::Building
-            || state.active.is_some()
-            || state.pacer_end.is_some()
-        {
+        if state.status != TowerStatus::Building || state.active.is_some() || state.pacer_end.is_some() {
             continue;
         }
         // The Endless modes have no brick limit.
@@ -1594,10 +1554,7 @@ fn spawn_next_brick(
             .id();
         state.active = Some(entity);
         if let Some(back) = respawn {
-            respawned.write(BrickRespawned {
-                brick: entity,
-                from: back.from,
-            });
+            respawned.write(BrickRespawned { brick: entity, from: back.from });
         }
     }
 }
@@ -1619,7 +1576,10 @@ pub struct Kick {
     frames: u8,
 }
 
-fn apply_kicks(mut commands: Commands, mut kicks: Query<(Entity, &mut Kick, &RigidBody, Forces)>) {
+fn apply_kicks(
+    mut commands: Commands,
+    mut kicks: Query<(Entity, &mut Kick, &RigidBody, Forces)>,
+) {
     for (entity, mut kick, body, mut forces) in &mut kicks {
         if body.is_dynamic() {
             forces.apply_linear_impulse_at_point(kick.impulse, kick.point);
@@ -1657,10 +1617,7 @@ fn control_active_brick(
     // (PuzzleGameModeFactory: no tower height), and Endless Race tops out.
     let (highest, out) = towers.iter().fold((0.0f32, 0u32), |(h, o), (_, s, _)| {
         let playing = s.status == TowerStatus::Building;
-        (
-            if playing { h.max(s.height) } else { h },
-            o + (s.status == TowerStatus::Out) as u32,
-        )
+        (if playing { h.max(s.height) } else { h }, o + (s.status == TowerStatus::Out) as u32)
     });
     let steady = game.mode == ModeKind::Puzzle && config.trial.is_none();
     let mut drop_speed = config.drop_speed()
@@ -1735,9 +1692,7 @@ fn control_active_brick(
                 control.hold = control.hold.max(config.magic.move_up_settle);
                 commands.entity(entity).remove::<ColliderDisabled>();
             }
-            commands
-                .entity(entity)
-                .insert((Position(at), LinearVelocity::ZERO));
+            commands.entity(entity).insert((Position(at), LinearVelocity::ZERO));
             continue;
         }
         // Caught by Slow's balloon: it hangs still a moment, shaking at first.
@@ -1843,10 +1798,7 @@ fn control_active_brick(
             let want = config.cells(config.nudge_distance);
             let along = if nudge > 0 { Dir2::X } else { Dir2::NEG_X };
             if in_lane(position.0.x + sign * want) {
-                nudged.write(BrickNudged {
-                    brick: entity,
-                    dir: sign,
-                });
+                nudged.write(BrickNudged { brick: entity, dir: sign });
                 match cast(position.0, rotation, along, want) {
                     None => position.0.x += sign * want,
                     Some(hit) => {
@@ -1856,16 +1808,8 @@ fn control_active_brick(
                         if want - hit.distance >= config.cells(config.bump_threshold) {
                             placed = true;
                             let push = Vec2::X * sign * config.nudge_impulse;
-                            shoves.push(Shove {
-                                entity,
-                                impulse: -push,
-                                point: hit.point1,
-                            });
-                            shoves.push(Shove {
-                                entity: hit.entity,
-                                impulse: push,
-                                point: hit.point1,
-                            });
+                            shoves.push(Shove { entity, impulse: -push, point: hit.point1 });
+                            shoves.push(Shove { entity: hit.entity, impulse: push, point: hit.point1 });
                         }
                     }
                 }
@@ -1925,14 +1869,11 @@ fn control_active_brick(
             if pressed {
                 control.slow_cap = magic.slow_fast_fall_speed;
             }
-            control.slow_cap =
-                (control.slow_cap - magic.slow_fast_ease * dt).max(magic.slow_fast_floor);
+            control.slow_cap = (control.slow_cap - magic.slow_fast_ease * dt).max(magic.slow_fast_floor);
             if input.fast_fall_held {
                 (control.speed.max(base) + config.drop_acceleration * dt).min(control.slow_cap)
             } else {
-                (control.speed - config.drop_deceleration * dt)
-                    .max(base)
-                    .min(magic.slow_fall_speed)
+                (control.speed - config.drop_deceleration * dt).max(base).min(magic.slow_fall_speed)
             }
         } else if input.fast_fall_held {
             (control.speed.max(base) + config.drop_acceleration * dt).min(config.drop_max_speed)
@@ -2010,23 +1951,14 @@ fn control_active_brick(
         // under the view's bottom (LocalGamePlayController: however slowly it falls): it counts
         // as dropped.
         let gone = if lost_out_of_view(&game) {
-            let top = control.query_shape.aabb(position.0, rotation).max.y / c
-                + config.steer_inset * brick.scale;
+            let top = control.query_shape.aabb(position.0, rotation).max.y / c + config.steer_inset * brick.scale;
             top < view.0
         } else {
             position.0.y < -config.cells(config.kill_depth)
         };
         if gone {
             let falling = Vec2::NEG_Y * config.cells(drop_speed);
-            sink(
-                &mut commands,
-                &config,
-                entity,
-                falling,
-                0.0,
-                true,
-                !lost_out_of_view(&game),
-            );
+            sink(&mut commands, &config, entity, falling, 0.0, true, !lost_out_of_view(&game));
             state.active = None;
             let life = state.lose_brick(&config);
             lost.write(BrickLost {
@@ -2150,11 +2082,7 @@ fn layer_for(
         .or_else(|| {
             towers
                 .iter()
-                .min_by(|a, b| {
-                    (a.1.origin_x - x)
-                        .abs()
-                        .total_cmp(&(b.1.origin_x - x).abs())
-                })
+                .min_by(|a, b| (a.1.origin_x - x).abs().total_cmp(&(b.1.origin_x - x).abs()))
                 .map(|(_, t)| t.index)
         })?;
     let layer = tower_layer(index);
@@ -2239,19 +2167,8 @@ fn track_towers(
         state.half_width = 0.0;
         state.all_settled = true;
     }
-    for (
-        entity,
-        brick,
-        position,
-        velocity,
-        collider,
-        rotation,
-        bubbled,
-        ghosted,
-        cursed,
-        spin,
-        in_ivy,
-    ) in &bricks
+    for (entity, brick, position, velocity, collider, rotation, bubbled, ghosted, cursed, spin, in_ivy) in
+        &bricks
     {
         let Ok((_, tower, mut state)) = towers.get_mut(brick.tower) else {
             continue;
@@ -2269,15 +2186,7 @@ fn track_towers(
         };
         if gone && !in_ivy {
             let spin = spin.map_or(0.0, |s| s.0);
-            sink(
-                &mut commands,
-                &config,
-                entity,
-                velocity.0,
-                spin,
-                !bubbled,
-                !by_view,
-            );
+            sink(&mut commands, &config, entity, velocity.0, spin, !bubbled, !by_view);
             // Once the match is over (and losing towers fall apart), losses no
             // longer change the score.
             let playing = game.phase == Phase::Playing;
@@ -2328,14 +2237,7 @@ fn track_towers(
         }
         // DEBUG-TOOL: a trial's bricks over the laser, for comparing with the original.
         if config.trial.is_some() && aabb.max.y / config.cell_size > state.laser_base + 0.05 {
-            info!(
-                "trial brick over laser: piece {:?} at ({:.2}, {:.2}) top {:.2} settled {}",
-                brick.piece,
-                position.0.x / config.cell_size,
-                position.0.y / config.cell_size,
-                aabb.max.y / config.cell_size,
-                settled
-            );
+            info!("trial brick over laser: piece {:?} at ({:.2}, {:.2}) top {:.2} settled {}", brick.piece, position.0.x / config.cell_size, position.0.y / config.cell_size, aabb.max.y / config.cell_size, settled);
         }
         tops.push((brick.tower, aabb.max.y, settled));
         let c = config.cell_size;
@@ -2420,9 +2322,9 @@ fn petrify_out_towers(
         }
         let r = (state.random() % 1000) as f32 / 1000.0;
         let height = position.0.y / config.cell_size;
-        commands.entity(entity).insert(PetrifyIn(
-            low + (high - low) * r + height.max(0.0) / per.max(0.01),
-        ));
+        commands
+            .entity(entity)
+            .insert(PetrifyIn(low + (high - low) * r + height.max(0.0) / per.max(0.01)));
     }
 }
 
@@ -2457,7 +2359,9 @@ fn zap_over_laser(
         } else {
             state.hold_timer > 0.0
         };
-        if crossed && aabb.max.y / config.cell_size > state.laser(&config) + 0.05 {
+        if crossed
+            && aabb.max.y / config.cell_size > state.laser(&config) + 0.05
+        {
             commands.entity(entity).insert(crate::spells::Zapped {
                 timer: config.puzzle.zap_seconds,
                 length: config.puzzle.zap_seconds,
@@ -2552,11 +2456,7 @@ impl PacerEnd {
             Some(self.high)
         } else if t < rise + wait + drop {
             let x = (t - rise - wait) / drop.max(f32::EPSILON);
-            let k = if x <= 0.0 {
-                0.0
-            } else {
-                2f32.powf(10.0 * x - 10.0)
-            };
+            let k = if x <= 0.0 { 0.0 } else { 2f32.powf(10.0 * x - 10.0) };
             Some(self.high + (self.low - self.high) * k)
         } else {
             None
@@ -2569,13 +2469,7 @@ impl PacerEnd {
 fn still_caught_towers(
     mut commands: Commands,
     towers: Query<(Entity, &TowerState)>,
-    mut bricks: Query<(
-        Entity,
-        &Brick,
-        &RigidBody,
-        &mut LinearVelocity,
-        &mut AngularVelocity,
-    )>,
+    mut bricks: Query<(Entity, &Brick, &RigidBody, &mut LinearVelocity, &mut AngularVelocity)>,
 ) {
     for (tower, state) in &towers {
         if state.pacer_end.is_none() {
@@ -2722,11 +2616,7 @@ fn judge_match(
                 let trial_drop = config.trial.is_some() && state.bricks_dropped > 0;
                 // A brick touching the laser stops that player's bricks at once; the
                 // round's 3-2-1 runs, then the bricks are counted (judge_match).
-                let slack = if config.trial.is_some() {
-                    rules.trial_laser_slack
-                } else {
-                    0.0
-                };
+                let slack = if config.trial.is_some() { rules.trial_laser_slack } else { 0.0 };
                 if state.laser_count.is_none()
                     && !trial_drop
                     && state.height > state.laser(&config) + 0.05 + slack
@@ -2777,10 +2667,7 @@ fn judge_match(
 
     // A Puzzle round is counted once every touched tower's 3-2-1 has run.
     let counting = game.mode.rules() == ModeKind::Puzzle
-        && towers.iter().any(|(_, s)| {
-            s.laser_count
-                .is_some_and(|t| t < config.puzzle.count_seconds)
-        });
+        && towers.iter().any(|(_, s)| s.laser_count.is_some_and(|t| t < config.puzzle.count_seconds));
     for (_, mut state) in &mut towers {
         if let Some(t) = state.laser_count.as_mut() {
             *t += dt;
@@ -2810,11 +2697,7 @@ fn judge_match(
         winner = None;
         // A tie for the most bricks is a draw: no winner, and both lanes say DRAW.
         if building.is_empty() {
-            let most = towers
-                .iter()
-                .map(|(_, s)| s.bricks_placed)
-                .max()
-                .unwrap_or(0);
+            let most = towers.iter().map(|(_, s)| s.bricks_placed).max().unwrap_or(0);
             let leaders: Vec<usize> = towers
                 .iter()
                 .filter(|(_, s)| s.bricks_placed == most)
@@ -2831,9 +2714,7 @@ fn judge_match(
     }
     // Over when someone wins, nobody is left, or every human is out (a Puzzle round
     // waits for its count).
-    if !counting
-        && (winner.is_some() || building.is_empty() || (humans > 0 && humans_building == 0))
-    {
+    if !counting && (winner.is_some() || building.is_empty() || (humans > 0 && humans_building == 0)) {
         game.phase = Phase::Over;
         game.winner = winner;
     }
@@ -3091,23 +2972,12 @@ fn steer_roofs(
                         // size less Brick's 0.005 shrink, falling, mass 1) and joins the tower,
                         // which stays stopped; the physics settles it from there.
                         let survival = roof.survival;
-                        let boxes = if survival {
-                            &rules.survival
-                        } else {
-                            &rules.race
-                        };
+                        let boxes = if survival { &rules.survival } else { &rules.race };
                         let solid = roof_collider(config.cell_size, boxes, 0.005);
-                        let area: f32 = boxes
-                            .iter()
-                            .map(|b| (b.x.1 - b.x.0 - 0.01) * (b.y.1 - b.y.0 - 0.01))
-                            .sum();
+                        let area: f32 = boxes.iter().map(|b| (b.x.1 - b.x.0 - 0.01) * (b.y.1 - b.y.0 - 0.01)).sum();
                         commands.entity(roof_entity).insert((
                             solid,
-                            ColliderDensity(
-                                config.brick_mass
-                                    / (area * config.cell_size * config.cell_size)
-                                        .max(f32::EPSILON),
-                            ),
+                            ColliderDensity(config.brick_mass / (area * config.cell_size * config.cell_size).max(f32::EPSILON)),
                             RigidBody::Dynamic,
                             Friction::new(config.brick_friction),
                             Restitution::new(config.brick_restitution),
@@ -3150,15 +3020,9 @@ fn roof_collider(cell: f32, boxes: &[crate::config::BaseBox], shrink: f32) -> Co
         boxes
             .iter()
             .map(|b| {
-                let size = (Vec2::new(b.x.1 - b.x.0, b.y.1 - b.y.0) - Vec2::splat(2.0 * shrink))
-                    .max(Vec2::splat(0.01))
-                    * cell;
+                let size = (Vec2::new(b.x.1 - b.x.0, b.y.1 - b.y.0) - Vec2::splat(2.0 * shrink)).max(Vec2::splat(0.01)) * cell;
                 let centre = Vec2::new(b.x.0 + b.x.1, b.y.0 + b.y.1) * 0.5 * cell;
-                (
-                    centre,
-                    Rotation::IDENTITY,
-                    Collider::rectangle(size.x, size.y),
-                )
+                (centre, Rotation::IDENTITY, Collider::rectangle(size.x, size.y))
             })
             .collect(),
     )
@@ -3244,87 +3108,24 @@ mod tests {
     #[test]
     fn survival_bricks_are_lost_as_they_leave_the_view() {
         let config = GameConfig::default();
-        let game = Match {
-            phase: Phase::Playing,
-            mode: ModeKind::Survival,
-            ..default()
-        };
+        let game = Match { phase: Phase::Playing, mode: ModeKind::Survival, ..default() };
         // Towers 30 cells tall: the view (41.5 cells, its top 21.5 over them) ends at 10.
         let view = tower_view(&config, &game, 30.0, 30.0, 2);
         assert!((view.0 - 10.0).abs() < 1e-4);
         let falling = -5.0;
         // Lost once the brick's reach is under the bottom, while it falls...
-        assert!(out_of_view(
-            &config,
-            &game,
-            view,
-            Vec2::new(0.0, 7.0),
-            falling,
-            1.0,
-            false
-        ));
-        assert!(!out_of_view(
-            &config,
-            &game,
-            view,
-            Vec2::new(0.0, 8.0),
-            falling,
-            1.0,
-            false
-        ));
+        assert!(out_of_view(&config, &game, view, Vec2::new(0.0, 7.0), falling, 1.0, false));
+        assert!(!out_of_view(&config, &game, view, Vec2::new(0.0, 8.0), falling, 1.0, false));
         // ...not while it rests or drifts down slowly, unless a ghost carries it off.
-        assert!(!out_of_view(
-            &config,
-            &game,
-            view,
-            Vec2::new(0.0, 7.0),
-            -1.0,
-            1.0,
-            false
-        ));
-        assert!(out_of_view(
-            &config,
-            &game,
-            view,
-            Vec2::new(0.0, 7.0),
-            -1.0,
-            1.0,
-            true
-        ));
+        assert!(!out_of_view(&config, &game, view, Vec2::new(0.0, 7.0), -1.0, 1.0, false));
+        assert!(out_of_view(&config, &game, view, Vec2::new(0.0, 7.0), -1.0, 1.0, true));
         // Past a lane's side.
-        assert!(out_of_view(
-            &config,
-            &game,
-            view,
-            Vec2::new(view.1 + 2.3, 15.0),
-            falling,
-            1.0,
-            false
-        ));
+        assert!(out_of_view(&config, &game, view, Vec2::new(view.1 + 2.3, 15.0), falling, 1.0, false));
         // A Puzzle battle: the floor plus 4, falling or not.
-        let puzzle = Match {
-            mode: ModeKind::Puzzle,
-            ..game.clone()
-        };
+        let puzzle = Match { mode: ModeKind::Puzzle, ..game.clone() };
         let view = tower_view(&config, &puzzle, 0.0, 0.0, 2);
         let edge = -config.camera_floor() + config.lost_puzzle_offset - config.lost_reach;
-        assert!(out_of_view(
-            &config,
-            &puzzle,
-            view,
-            Vec2::new(0.0, edge - 0.1),
-            0.0,
-            1.0,
-            false
-        ));
-        assert!(!out_of_view(
-            &config,
-            &puzzle,
-            view,
-            Vec2::new(0.0, edge + 0.1),
-            0.0,
-            1.0,
-            false
-        ));
+        assert!(out_of_view(&config, &puzzle, view, Vec2::new(0.0, edge - 0.1), 0.0, 1.0, false));
+        assert!(!out_of_view(&config, &puzzle, view, Vec2::new(0.0, edge + 0.1), 0.0, 1.0, false));
     }
 }

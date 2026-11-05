@@ -109,11 +109,7 @@ pub fn tower_piece_collider(piece: &crate::config::TowerPieceShape, cell: f32) -
     }
     let mut parts: Vec<(Vec2, Rotation, Collider)> = Vec::new();
     for &(at, size) in &piece.boxes {
-        parts.push((
-            v(at),
-            Rotation::IDENTITY,
-            Collider::rectangle(size.0 * cell, size.1 * cell),
-        ));
+        parts.push((v(at), Rotation::IDENTITY, Collider::rectangle(size.0 * cell, size.1 * cell)));
     }
     for &(at, r) in &piece.circles {
         parts.push((v(at), Rotation::IDENTITY, Collider::circle(r * cell)));
@@ -185,8 +181,7 @@ pub(crate) fn update_spell_lines(
     // Race and Survival battles' lines slide down to the tower (MoveDownLineSpellContainer);
     // trials', Puzzle battles' and the Endless modes' stay where they are.
     let difficulty = config.difficulty.unwrap_or_default();
-    let sliding =
-        matches!(game.mode, ModeKind::Race | ModeKind::Survival) && config.trial.is_none();
+    let sliding = matches!(game.mode, ModeKind::Race | ModeKind::Survival) && config.trial.is_none();
     // The spacing and the slide's wait grow a quarter per extra player (the factories'
     // extra share): not in Race Easy nor Survival Easy and Pro, whose MoveDown factories keep
     // 0; the still lines' default factory always grows.
@@ -230,8 +225,7 @@ pub(crate) fn update_spell_lines(
             } else {
                 state.next_line.max(spacing)
             });
-            state.line_wait = magic.line_wait
-                * (1.0 + magic.line_wait_per_extra_player * counted.saturating_sub(2) as f32);
+            state.line_wait = magic.line_wait * (1.0 + magic.line_wait_per_extra_player * counted.saturating_sub(2) as f32);
             continue;
         };
         if sliding {
@@ -688,17 +682,9 @@ pub(crate) fn cast_spells(
         // light one hangs the caster's brick at once: Petrify, Ivy and Auto Build shake it
         // through the lightning at the wizard's cast-self moment and land after it; Minibase,
         // Extra Life and Undo land at that moment, then the lightning and a 0.3 s wait.
-        let after_bolt = matches!(
-            spells[..],
-            [SpellKind::Minibase | SpellKind::ExtraLife | SpellKind::Undo]
-        );
+        let after_bolt = matches!(spells[..], [SpellKind::Minibase | SpellKind::ExtraLife | SpellKind::Undo]);
         let (hold, land, release, shake) = if dark {
-            (
-                magic.dark_cast_hold,
-                config.casts.dark_orb_land,
-                config.casts.dark_orb_land,
-                true,
-            )
+            (magic.dark_cast_hold, config.casts.dark_orb_land, config.casts.dark_orb_land, true)
         } else if after_bolt {
             let bolt = magic.cast_self + magic.light_cast_land;
             (0.0, magic.cast_self, bolt + magic.move_up_settle, false)
@@ -850,15 +836,7 @@ pub(crate) fn land_casts(
                     );
                 }
             } else {
-                cast_on_tower(
-                    &mut commands,
-                    &config,
-                    spell,
-                    target,
-                    tower,
-                    &mut state,
-                    &placed,
-                );
+                cast_on_tower(&mut commands, &config, spell, target, tower, &mut state, &placed);
             }
         }
         // A curse keeps the brick hanging, shaking, through its post-cast delay (Bubble,
@@ -869,11 +847,7 @@ pub(crate) fn land_casts(
             && let Some(brick) = state.active
             && let Ok((mut control, _)) = active.get_mut(brick)
         {
-            let post = if cast
-                .spells
-                .iter()
-                .any(|s| matches!(s, SpellKind::Bubble | SpellKind::Mist | SpellKind::Ghost))
-            {
+            let post = if cast.spells.iter().any(|s| matches!(s, SpellKind::Bubble | SpellKind::Mist | SpellKind::Ghost)) {
                 magic.post_cast_long
             } else {
                 magic.move_up_settle
@@ -1027,11 +1001,7 @@ fn cast_on_tower(
             };
             let offset = ((lo + (hi - lo) * t) * 2.0).round() * 0.5 * side;
             let survival = config.mode.look() == ModeKind::Survival;
-            let lift = if survival {
-                magic.minibase_lift_survival
-            } else {
-                magic.minibase_lift
-            };
+            let lift = if survival { magic.minibase_lift_survival } else { magic.minibase_lift };
             let y = state.height.max(magic.minibase_floor) + lift;
             // SpawnTowerPieceEffect: the world's left or right piece, by the side it lands on.
             let shape = usize::from(survival) * 2 + usize::from(side > 0.0);
@@ -1070,10 +1040,7 @@ fn cast_on_tower(
         SpellKind::Slow => {
             // Over the tower's top part (GetTopTowerpartFromTowerEffect), 2 cells over
             // the tower's height.
-            let top = latest
-                .iter()
-                .map(|(_, b)| b)
-                .max_by(|a, b| a.2.0.y.total_cmp(&b.2.0.y));
+            let top = latest.iter().map(|(_, b)| b).max_by(|a, b| a.2.0.y.total_cmp(&b.2.0.y));
             let x = top.map_or(tower.origin_x, |b| b.2.0.x);
             commands.spawn((
                 BalloonOrb {
@@ -1089,14 +1056,9 @@ fn cast_on_tower(
             // skipping Bubble and BubbleFail): a vined or stone brick only gets a bubble
             // that pops 0.7 s later (BubbleFailModifier); a loose one floats off.
             let pick = latest.iter().map(|(_, b)| *b).find(|b| !b.7);
-            let loose = matches!(
-                pick,
-                Some((_, _, _, Some(RigidBody::Dynamic), false, false, ..))
-            );
+            let loose = matches!(pick, Some((_, _, _, Some(RigidBody::Dynamic), false, false, ..)));
             if let Some((entity, ..)) = pick.filter(|_| !loose) {
-                commands.entity(entity).insert(BubbleFail {
-                    timer: BUBBLE_FAIL_SECONDS,
-                });
+                commands.entity(entity).insert(BubbleFail { timer: BUBBLE_FAIL_SECONDS });
             }
             if let Some((entity, ..)) = pick.filter(|_| loose) {
                 let tilt = 3.0 + (state.random() % 900) as f32 / 100.0;
@@ -1121,10 +1083,7 @@ fn cast_on_tower(
         }
         SpellKind::Ghost => {
             // The last brick not ghosted, petrified or in Ivy (GetLastBrick's exclusions).
-            let pick = latest
-                .iter()
-                .map(|(_, b)| *b)
-                .find(|b| !b.9 && !b.4 && !b.5);
+            let pick = latest.iter().map(|(_, b)| *b).find(|b| !b.9 && !b.4 && !b.5);
             if let Some((entity, _, at, Some(RigidBody::Dynamic), false, false, ..)) = pick {
                 let outward = if at.0.x > tower.origin_x { 1.0 } else { -1.0 };
                 let tilt = 3.0 + (state.random() % 900) as f32 / 100.0;
@@ -1306,9 +1265,9 @@ pub(crate) fn grow_ivy(
             // already in a cluster keep theirs.
             if child_of.is_none() {
                 let units = (p.0 - position.0).length() / config.cell_size.max(0.01);
-                commands.entity(m).insert(VineDelay(
-                    time.elapsed_secs() + units * config.magic.ivy_spread,
-                ));
+                commands
+                    .entity(m)
+                    .insert(VineDelay(time.elapsed_secs() + units * config.magic.ivy_spread));
             }
             let local = inverse * (p.0 - position.0);
             let turn = (inverse * *r).as_radians();
@@ -1506,21 +1465,18 @@ pub(crate) fn carry_ghosts(
             continue;
         }
         // Floating: anything it newly touches makes the skulls let go, as does the time.
-        let now: Vec<Entity> = colliding
-            .map(|c| c.iter().copied().collect())
-            .unwrap_or_default();
+        let now: Vec<Entity> = colliding.map(|c| c.iter().copied().collect()).unwrap_or_default();
         let touching = ghost.touching.get_or_insert_with(|| now.clone());
         let hit = now.iter().any(|e| !touching.contains(e));
         if ghost.time >= magic.ghost_seconds || hit {
-            commands
-                .entity(entity)
-                .remove::<(Ghosted, SleepingDisabled)>();
+            commands.entity(entity).remove::<(Ghosted, SleepingDisabled)>();
             continue;
         }
         let (high, low) = magic.ghost_lift;
         let lift = (high + (low - high) * t.min(1.0)) * brick.scale;
-        velocity.0 +=
-            Vec2::new(ghost.outward * magic.ghost_push * brick.scale, lift) * config.cell_size * dt;
+        velocity.0 += Vec2::new(ghost.outward * magic.ghost_push * brick.scale, lift)
+            * config.cell_size
+            * dt;
         // The same turn as a bubble's, always anticlockwise.
         let from = *ghost.start.get_or_insert(rotation.as_radians());
         let turn = if t < 1.0 {
@@ -1582,9 +1538,7 @@ pub(crate) fn home_balloons(
             continue;
         };
         transform.translation.y += BALLOON_RISE * c * dt;
-        let brick = state
-            .active
-            .and_then(|b| active.get(b).ok().map(|(_, p)| (b, p.0)));
+        let brick = state.active.and_then(|b| active.get(b).ok().map(|(_, p)| (b, p.0)));
         if let Some((_, at)) = brick {
             let x = transform.translation.x;
             transform.translation.x = x + (at.x - x) * (dt * BALLOON_EASE).min(1.0);
@@ -1596,12 +1550,7 @@ pub(crate) fn home_balloons(
         let centre = transform.translation.truncate() + offset * c;
         let touched = brick.filter(|(b, _)| {
             spatial
-                .shape_intersections(
-                    &Collider::circle(radius * c),
-                    centre,
-                    0.0,
-                    &SpatialQueryFilter::default(),
-                )
+                .shape_intersections(&Collider::circle(radius * c), centre, 0.0, &SpatialQueryFilter::default())
                 .contains(b)
         });
         if let Some((b, _)) = touched
@@ -1636,11 +1585,7 @@ pub(crate) fn collect_life_orbs(
     for (entity, mut life, mut transform) in &mut orbs {
         // FloatingSpellOrb.FixedUpdate: the push, gravity, and a tilt of 2 degrees per cell/s
         // of climb.
-        let push = if life.ascending {
-            ORB_PUSH_UP
-        } else {
-            ORB_PUSH_DOWN
-        };
+        let push = if life.ascending { ORB_PUSH_UP } else { ORB_PUSH_DOWN };
         life.velocity += (push - Vec2::Y * config.gravity) * dt;
         if life.ascending && life.velocity.y > ORB_TURN_SPEED {
             life.ascending = false;

@@ -8,8 +8,8 @@ use bevy::prelude::*;
 
 use crate::art::{Art, Letters};
 
-const SDF_SHADER: Handle<Shader> =
-    bevy::asset::uuid_handle!("4d1e7a29-c603-4b85-9f2e-61b8d0a3e5c7");
+
+const SDF_SHADER: Handle<Shader> = bevy::asset::uuid_handle!("4d1e7a29-c603-4b85-9f2e-61b8d0a3e5c7");
 
 const SDF_WGSL: &str = r#"// One letter from the original's distance-field font (TextMeshPro), sharp at any size:
 // the field is read in the letter's rectangle and cut at `edge`, softened by one screen pixel.
@@ -137,14 +137,8 @@ impl bevy::ui_render::prelude::UiMaterial for SdfLetter {
         descriptor: &mut bevy::render::render_resource::RenderPipelineDescriptor,
         _key: bevy::ui_render::prelude::UiMaterialKey<Self>,
     ) {
-        if let Some(target) = descriptor
-            .fragment
-            .as_mut()
-            .and_then(|f| f.targets.first_mut())
-            .and_then(|t| t.as_mut())
-        {
-            target.blend =
-                Some(bevy::render::render_resource::BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+        if let Some(target) = descriptor.fragment.as_mut().and_then(|f| f.targets.first_mut()).and_then(|t| t.as_mut()) {
+            target.blend = Some(bevy::render::render_resource::BlendState::PREMULTIPLIED_ALPHA_BLENDING);
         }
     }
 }
@@ -272,10 +266,7 @@ impl TextLook {
         bevel: false,
     };
     /// EnzoBlackRed60: the red gradient, dilate and outline 0.2 (the trials' LOCKED).
-    pub const PINK_60: Self = Self {
-        outline_edge: 0.5 - 0.4 * 0.8333 / 2.0,
-        ..Self::PINK
-    };
+    pub const PINK_60: Self = Self { outline_edge: 0.5 - 0.4 * 0.8333 / 2.0, ..Self::PINK };
     /// EnzoBlackSilver46: gph_gradientTextureFont05, pale blue at the top to lavender at the
     /// bottom, dilate and outline 0.25.
     pub const SILVER: Self = Self {
@@ -284,15 +275,9 @@ impl TextLook {
         ..Self::PINK
     };
     /// EnzoBlackGold75: the gold gradient with a thinner outline (dilate and outline 0.15).
-    pub const GOLD_75: Self = Self {
-        outline_edge: 0.5 - 0.3 * 0.8333 / 2.0,
-        ..Self::GOLD
-    };
+    pub const GOLD_75: Self = Self { outline_edge: 0.5 - 0.3 * 0.8333 / 2.0, ..Self::GOLD };
     /// EnzoBlackRed75: the red gradient, dilate and outline 0.15.
-    pub const PINK_75: Self = Self {
-        outline_edge: 0.5 - 0.3 * 0.8333 / 2.0,
-        ..Self::PINK
-    };
+    pub const PINK_75: Self = Self { outline_edge: 0.5 - 0.3 * 0.8333 / 2.0, ..Self::PINK };
     /// EnzoBlackWhite32: face (234, 238, 255), dark outline, dilate and outline 0.3.
     pub const WHITE_32: Self = Self {
         body: false,
@@ -348,10 +333,7 @@ pub struct LettersPlugin;
 impl Plugin for LettersPlugin {
     fn build(&self, app: &mut App) {
         if let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() {
-            let _ = shaders.insert(
-                SDF_SHADER.id(),
-                Shader::from_wgsl(SDF_WGSL, "sdf_letter.wgsl"),
-            );
+            let _ = shaders.insert(SDF_SHADER.id(), Shader::from_wgsl(SDF_WGSL, "sdf_letter.wgsl"));
             app.add_plugins(bevy::ui_render::prelude::UiMaterialPlugin::<SdfLetter>::default());
         }
         app.init_resource::<Translations>().add_systems(
@@ -393,9 +375,7 @@ pub(crate) struct FadedUi {
 }
 
 fn faded_color(current: Color, state: &mut Option<(Color, Color)>, opacity: f32) -> Color {
-    let base = state
-        .filter(|(_, applied)| *applied == current)
-        .map_or(current, |(base, _)| base);
+    let base = state.filter(|(_, applied)| *applied == current).map_or(current, |(base, _)| base);
     let applied = base.with_alpha(base.alpha() * opacity);
     *state = Some((base, applied));
     applied
@@ -421,8 +401,7 @@ pub(crate) fn apply_ui_opacity(
             continue;
         }
         for entity in std::iter::once(root).chain(children.iter_descendants(root)) {
-            let Ok((background, image, text, mirrored, letter, state)) = nodes.get_mut(entity)
-            else {
+            let Ok((background, image, text, mirrored, letter, state)) = nodes.get_mut(entity) else {
                 continue;
             };
             let mut new = FadedUi::default();
@@ -440,25 +419,17 @@ pub(crate) fn apply_ui_opacity(
             }
             if let Some(mut text) = text {
                 // The mirror draws its own glyphs. Fading the source would rebuild them.
-                let color = faded_color(
-                    text.0,
-                    &mut style.text,
-                    if mirrored { 1.0 } else { opacity.0 },
-                );
+                let color = faded_color(text.0, &mut style.text, if mirrored { 1.0 } else { opacity.0 });
                 text.set_if_neq(TextColor(color));
             }
             if let (Some(mut letter), Some(glyphs)) = (letter, glyphs.as_deref_mut()) {
                 if style.letter == Some(letter.0.id()) {
-                    if glyphs
-                        .get(&letter.0)
-                        .is_some_and(|g| g.look.opacity != opacity.0)
+                    if glyphs.get(&letter.0).is_some_and(|g| g.look.opacity != opacity.0)
                         && let Some(mut glyph) = glyphs.get_mut(&letter.0)
                     {
                         glyph.look.opacity = opacity.0;
                     }
-                } else if opacity.0 < 1.0
-                    && let Some(mut glyph) = glyphs.get(&letter.0).cloned()
-                {
+                } else if opacity.0 < 1.0 && let Some(mut glyph) = glyphs.get(&letter.0).cloned() {
                     // The cache owns the original material; give the fading glyph its own copy.
                     glyph.look.opacity = opacity.0;
                     letter.0 = glyphs.add(glyph);
@@ -511,31 +482,20 @@ fn fit_size(sheet: &Letters, words: &str, size: f32, spacing: f32, fit: &AutoSiz
                 .sum::<f32>()
         })
         .fold(0.0, f32::max);
-    if widest > fit.width {
-        (size * fit.width / widest).max(fit.min)
-    } else {
-        size
-    }
+    if widest > fit.width { (size * fit.width / widest).max(fit.min) } else { size }
 }
 
 /// How many lines `text` draws in the picked language, and their line height, at `size`
 /// shrunk by `fit` (same unit as `size`).
 pub fn translated_lines(art: &Art, text: &str, size: f32, fit: &AutoSize) -> (usize, f32) {
     let words = CURRENT.read().map(|w| w.clone()).unwrap_or_default();
-    let translations = Translations {
-        code: String::new(),
-        words,
-        patterns: Vec::new(),
-    };
+    let translations = Translations { code: String::new(), words, patterns: Vec::new() };
     let Some(sheet) = display_sheet(art) else {
         return (text.split('\n').count(), size);
     };
     let words = translations.apply(text, Some(sheet));
     let size = fit_size(sheet, &words, size, 0.0, fit);
-    (
-        words.split('\n').count(),
-        sheet.line_height * size / sheet.size.max(1.0),
-    )
+    (words.split('\n').count(), sheet.line_height * size / sheet.size.max(1.0))
 }
 
 /// Text to draw with the letter sheet.
@@ -584,45 +544,26 @@ impl Translations {
         // A line with a value in it: the value goes into the picked language's line.
         let filled = || {
             self.patterns.iter().find_map(|(before, after, picked)| {
-                let middle = key
-                    .strip_prefix(before.as_str())?
-                    .strip_suffix(after.as_str())?;
+                let middle = key.strip_prefix(before.as_str())?.strip_suffix(after.as_str())?;
                 if middle.is_empty() {
                     return None;
                 }
                 // A value that is itself a line ("{cupType} Winner!") is translated too.
-                let middle = self
-                    .words
-                    .get(middle)
-                    .cloned()
-                    .unwrap_or_else(|| middle.to_string());
+                let middle = self.words.get(middle).cloned().unwrap_or_else(|| middle.to_string());
                 let start = picked.find('{')?;
                 let end = picked[start..].find('}')? + start;
-                Some(format!(
-                    "{}{}{}",
-                    &picked[..start],
-                    middle,
-                    &picked[end + 1..]
-                ))
+                Some(format!("{}{}{}", &picked[..start], middle, &picked[end + 1..]))
             })
         };
         let Some(found) = self.words.get(&key).cloned().or_else(filled) else {
             return text.to_string();
         };
-        let found = if text == text.to_uppercase() {
-            found.to_uppercase()
-        } else {
-            found
-        };
+        let found = if text == text.to_uppercase() { found.to_uppercase() } else { found };
         // Leading empty lines leave room for a button picture drawn over them ("\nTO JOIN").
-        let found = format!(
-            "{}{found}",
-            "\n".repeat(text.len() - text.trim_start_matches('\n').len())
-        );
+        let found = format!("{}{found}", "\n".repeat(text.len() - text.trim_start_matches('\n').len()));
         let drawable = sheet.is_none_or(|sheet| {
             found.chars().filter(|c| !c.is_whitespace()).all(|c| {
-                sheet.glyphs.contains_key(&c)
-                    || c.to_uppercase().any(|u| sheet.glyphs.contains_key(&u))
+                sheet.glyphs.contains_key(&c) || c.to_uppercase().any(|u| sheet.glyphs.contains_key(&u))
             })
         });
         if drawable { found } else { text.to_string() }
@@ -694,21 +635,13 @@ static CURRENT: std::sync::LazyLock<std::sync::RwLock<std::collections::HashMap<
 /// How wide `line` draws in the picked language (see `line_width`).
 pub fn translated_width(art: &Art, line: &str, size: f32) -> f32 {
     let words = CURRENT.read().map(|w| w.clone()).unwrap_or_default();
-    let translations = Translations {
-        code: String::new(),
-        words,
-        patterns: Vec::new(),
-    };
+    let translations = Translations { code: String::new(), words, patterns: Vec::new() };
     line_width(art, &translations.apply(line, display_sheet(art)), size)
 }
 
 /// A line as the translations are keyed: capitals, no button glyphs, one line.
 fn plain(text: &str) -> String {
-    clean(text)
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_uppercase()
+    clean(text).split_whitespace().collect::<Vec<_>>().join(" ").to_uppercase()
 }
 
 /// A line without its button glyphs, its written line breaks (`\n`) made real ones and the
@@ -733,9 +666,8 @@ fn clean(text: &str) -> String {
 
 /// Every lookup of one of the original's language files, by key.
 fn read_language(code: &str) -> std::collections::HashMap<String, String> {
-    let text =
-        std::fs::read_to_string(crate::art::extracted_dir().join(format!("language/{code}.txt")))
-            .unwrap_or_default();
+    let text = std::fs::read_to_string(crate::art::extracted_dir().join(format!("language/{code}.txt")))
+        .unwrap_or_default();
     let mut words = std::collections::HashMap::new();
     for block in text.split("<lookup>").skip(1) {
         let between = |open: &str, close: &str| {
@@ -743,10 +675,7 @@ fn read_language(code: &str) -> std::collections::HashMap<String, String> {
             let end = block[start..].find(close)? + start;
             Some(block[start..end].to_string())
         };
-        if let (Some(key), Some(value)) = (
-            between("<key>", "</key>"),
-            between("<translation>", "</translation>"),
-        ) {
+        if let (Some(key), Some(value)) = (between("<key>", "</key>"), between("<translation>", "</translation>")) {
             let value = value
                 .replace("&amp;", "&")
                 .replace("&lt;", "<")
@@ -768,11 +697,7 @@ fn load_translations(
 ) {
     let code = settings
         .as_ref()
-        .and_then(|s| {
-            crate::settings::LANGUAGES
-                .iter()
-                .position(|&l| l == s.language)
-        })
+        .and_then(|s| crate::settings::LANGUAGES.iter().position(|&l| l == s.language))
         .map_or("en", |i| LANGUAGE_FILES[i]);
     if translations.code == code {
         return;
@@ -790,20 +715,13 @@ fn load_translations(
             if let Some(picked) = picked
                 .get(key)
                 .filter(|p| !p.trim().is_empty())
-                .map(|p| {
-                    if code == "ar" {
-                        reverse_text(&p.replace("\\n", "\n"))
-                    } else {
-                        p.clone()
-                    }
-                })
+                .map(|p| if code == "ar" { reverse_text(&p.replace("\\n", "\n")) } else { p.clone() })
                 .map(|p| p.replace("[controller]", word))
                 .as_ref()
             {
                 translations.words.insert(plain(english), clean(picked));
                 let english_line = plain(english);
-                if let (Some(start), 1) =
-                    (english_line.find('{'), english_line.matches('{').count())
+                if let (Some(start), 1) = (english_line.find('{'), english_line.matches('{').count())
                     && let Some(end) = english_line[start..].find('}').map(|e| e + start)
                     && picked.matches('{').count() == 1
                 {
@@ -815,15 +733,10 @@ fn load_translations(
                 }
                 // A line around one button glyph ("Press [continue] to start") also gives its
                 // two halves, for screens that draw the glyph between two texts.
-                if let (Some((eb, ea)), Some((pb, pa))) =
-                    (around_glyph(english), around_glyph(picked))
-                {
+                if let (Some((eb, ea)), Some((pb, pa))) = (around_glyph(english), around_glyph(picked)) {
                     for (e, p) in [(eb, pb), (ea, pa)] {
                         if !plain(&e).is_empty() {
-                            translations
-                                .words
-                                .entry(plain(&e))
-                                .or_insert_with(|| clean(&p));
+                            translations.words.entry(plain(&e)).or_insert_with(|| clean(&p));
                         }
                     }
                 }
@@ -879,10 +792,7 @@ fn letter_text(
         text: words,
         size,
         view_height,
-        color: look
-            .face
-            .map(faded)
-            .unwrap_or(color.map_or(Color::WHITE, |c| c.0)),
+        color: look.face.map(faded).unwrap_or(color.map_or(Color::WHITE, |c| c.0)),
         centered: layout.is_some_and(|l| l.justify == Justify::Center),
         right: layout.is_some_and(|l| l.justify == Justify::Right),
         body: look.body,
@@ -922,24 +832,11 @@ fn mirror_texts(
     if !art.letters.contains_key(FONT) {
         return;
     }
-    for (entity, text, font, color, layout, look, mut node, parent, z, spacing, fit, glow) in
-        &mut texts
-    {
+    for (entity, text, font, color, layout, look, mut node, parent, z, spacing, fit, glow) in &mut texts {
         let mirror = commands
             .spawn((
                 node.clone(),
-                letter_text(
-                    text,
-                    font,
-                    color,
-                    layout,
-                    look,
-                    spacing,
-                    fit,
-                    glow,
-                    &translations,
-                    display_sheet(&art),
-                ),
+                letter_text(text, font, color, layout, look, spacing, fit, glow, &translations, display_sheet(&art)),
                 Mirrors(entity),
             ))
             .id();
@@ -991,18 +888,7 @@ fn sync_mirrors(
 ) {
     for (mirror, text, font, color, layout, look, spacing, fit, glow) in &texts {
         if let Ok(mut letters) = mirrors.get_mut(mirror.0) {
-            let new = letter_text(
-                text,
-                font,
-                color,
-                layout,
-                look,
-                spacing,
-                fit,
-                glow,
-                &translations,
-                display_sheet(&art),
-            );
+            let new = letter_text(text, font, color, layout, look, spacing, fit, glow, &translations, display_sheet(&art));
             if *letters != new {
                 *letters = new;
             }
@@ -1099,11 +985,7 @@ fn redraw_when_fields_load(
         return;
     }
     let Some(images) = images else { return };
-    let mut fields = art
-        .letters
-        .values()
-        .filter_map(|l| l.sdf_handle.as_ref())
-        .peekable();
+    let mut fields = art.letters.values().filter_map(|l| l.sdf_handle.as_ref()).peekable();
     if fields.peek().is_none() {
         return;
     }
@@ -1162,9 +1044,7 @@ fn draw_letters(
                         sheet,
                         text,
                         line,
-                        field
-                            .clone()
-                            .zip(sdf.as_deref_mut().map(|s| (s, &mut *cache))),
+                        field.clone().zip(sdf.as_deref_mut().map(|s| (s, &mut *cache))),
                     );
                 }
             });
@@ -1177,10 +1057,7 @@ fn spawn_line(
     sheet: &Letters,
     text: &LetterText,
     line: &str,
-    mut field: Option<(
-        (Handle<Image>, Vec2),
-        (&mut Assets<SdfLetter>, &mut SdfCache),
-    )>,
+    mut field: Option<((Handle<Image>, Vec2), (&mut Assets<SdfLetter>, &mut SdfCache))>,
 ) {
     let k = text.size / sheet.size.max(1.0);
     let len = |v: f32| {
@@ -1223,134 +1100,91 @@ fn spawn_line(
                     }
                     let has_field = field.is_some();
                     // A letter from the field: its rectangle as shares of the atlas.
-                    let mut from_field =
-                        |glyph_rect: (f32, f32, f32, f32),
-                         pad: f32,
-                         color: Color,
-                         edge: f32,
-                         low: Option<Color>,
-                         with_face: bool| {
-                            let ((handle, size), (sdf, cache)) = field.as_mut()?;
-                            let linear = |c: Color| Vec4::from_array(c.to_linear().to_f32_array());
-                            let handle_hash = {
-                                use std::hash::{Hash, Hasher};
-                                let mut h = std::collections::hash_map::DefaultHasher::new();
-                                handle.id().hash(&mut h);
-                                h.finish() as u32
+                    let mut from_field = |glyph_rect: (f32, f32, f32, f32),
+                                          pad: f32,
+                                          color: Color,
+                                          edge: f32,
+                                          low: Option<Color>,
+                                          with_face: bool| {
+                        let ((handle, size), (sdf, cache)) = field.as_mut()?;
+                        let linear = |c: Color| Vec4::from_array(c.to_linear().to_f32_array());
+                        let handle_hash = {
+                            use std::hash::{Hash, Hasher};
+                            let mut h = std::collections::hash_map::DefaultHasher::new();
+                            handle.id().hash(&mut h);
+                            h.finish() as u32
+                        };
+                        // The look and cache key for one glyph's rectangle in this style.
+                        let make = |(gx, gy, gw, gh): (f32, f32, f32, f32)| {
+                            let rect = (gx - pad, gy - pad, gw + 2.0 * pad, gh + 2.0 * pad);
+                            let full = rect.3.max(0.001);
+                            let face = if with_face { (linear(text.color), pad / full, gh / full) } else { (Vec4::ZERO, 0.0, 1.0) };
+                            let low = low.map_or(Vec4::ZERO, linear);
+                            // The glow goes on the node that draws the face.
+                            let (glow, glow_shape) = text
+                                .glow
+                                .filter(|_| with_face || text.outline.is_none())
+                                .map_or((Vec4::ZERO, Vec4::ZERO), |g| g.shader());
+                            // BEVEL_ON on the node that draws the face: the material's weight (its
+                            // dilate, taken as equal to its outline width as in most of them)
+                            // plus the bevel offset 0.077, and the outline width plus 0.311.
+                            let bevel = if text.bevel && (with_face || text.outline.is_none()) {
+                                let edge = if text.outline_edge > 0.0 { text.outline_edge } else { OUTLINE_EDGE };
+                                let width = (0.5 - edge) / 0.8333;
+                                Vec4::new(1.0, width * 0.8333 * 0.5 + 0.077, (width + 0.311).max(0.01), 0.0)
+                            } else {
+                                Vec4::ZERO
                             };
-                            // The look and cache key for one glyph's rectangle in this style.
-                            let make = |(gx, gy, gw, gh): (f32, f32, f32, f32)| {
-                                let rect = (gx - pad, gy - pad, gw + 2.0 * pad, gh + 2.0 * pad);
-                                let full = rect.3.max(0.001);
-                                let face = if with_face {
-                                    (linear(text.color), pad / full, gh / full)
-                                } else {
-                                    (Vec4::ZERO, 0.0, 1.0)
-                                };
-                                let low = low.map_or(Vec4::ZERO, linear);
-                                // The glow goes on the node that draws the face.
-                                let (glow, glow_shape) = text
-                                    .glow
-                                    .filter(|_| with_face || text.outline.is_none())
-                                    .map_or((Vec4::ZERO, Vec4::ZERO), |g| g.shader());
-                                // BEVEL_ON on the node that draws the face: the material's weight (its
-                                // dilate, taken as equal to its outline width as in most of them)
-                                // plus the bevel offset 0.077, and the outline width plus 0.311.
-                                let bevel = if text.bevel && (with_face || text.outline.is_none()) {
-                                    let edge = if text.outline_edge > 0.0 {
-                                        text.outline_edge
-                                    } else {
-                                        OUTLINE_EDGE
-                                    };
-                                    let width = (0.5 - edge) / 0.8333;
-                                    Vec4::new(
-                                        1.0,
-                                        width * 0.8333 * 0.5 + 0.077,
-                                        (width + 0.311).max(0.01),
-                                        0.0,
-                                    )
-                                } else {
-                                    Vec4::ZERO
-                                };
-                                let look = SdfLook {
-                                    color: linear(color),
-                                    rect: Vec4::new(
-                                        rect.0 / size.x,
-                                        rect.1 / size.y,
-                                        rect.2 / size.x,
-                                        rect.3 / size.y,
-                                    ),
-                                    edge: Vec4::new(edge, face.1, face.2, FACE_EDGE),
-                                    low,
-                                    face: face.0,
-                                    glow,
-                                    glow_shape,
-                                    bevel,
-                                    opacity: 1.0,
-                                };
-                                let key: Vec<u32> = [
-                                    look.color,
-                                    look.rect,
-                                    look.edge,
-                                    look.low,
-                                    look.face,
-                                    look.glow,
-                                    look.glow_shape,
-                                    look.bevel,
-                                ]
+                            let look = SdfLook {
+                                color: linear(color),
+                                rect: Vec4::new(rect.0 / size.x, rect.1 / size.y, rect.2 / size.x, rect.3 / size.y),
+                                edge: Vec4::new(edge, face.1, face.2, FACE_EDGE),
+                                low,
+                                face: face.0,
+                                glow,
+                                glow_shape,
+                                bevel,
+                                opacity: 1.0,
+                            };
+                            let key: Vec<u32> = [look.color, look.rect, look.edge, look.low, look.face, look.glow, look.glow_shape, look.bevel]
                                 .iter()
                                 .flat_map(|v| v.to_array())
                                 .map(f32::to_bits)
                                 .chain([handle_hash])
                                 .collect();
-                                (key, look)
-                            };
-                            // A letter drawn before reuses its material: a new one isn't ready to draw
-                            // for a frame, so a changing count showed only some of its layers.
-                            let (key, look) = make(glyph_rect);
-                            if !cache.0.contains_key(&key) && ch.is_ascii_digit() {
-                                // First digit in this style: make 0-9 now so the next count doesn't blink.
-                                for d in sheet
-                                    .glyphs
-                                    .iter()
-                                    .filter(|(c, _)| c.is_ascii_digit())
-                                    .map(|(_, g)| g.rect)
-                                {
-                                    if d.2 > 0.0 && d.3 > 0.0 {
-                                        let (dk, dl) = make(d);
-                                        cache.0.entry(dk).or_insert_with(|| {
-                                            sdf.add(SdfLetter {
-                                                look: dl,
-                                                field: handle.clone(),
-                                            })
-                                        });
-                                    }
+                            (key, look)
+                        };
+                        // A letter drawn before reuses its material: a new one isn't ready to draw
+                        // for a frame, so a changing count showed only some of its layers.
+                        let (key, look) = make(glyph_rect);
+                        if !cache.0.contains_key(&key) && ch.is_ascii_digit() {
+                            // First digit in this style: make 0-9 now so the next count doesn't blink.
+                            for d in sheet.glyphs.iter().filter(|(c, _)| c.is_ascii_digit()).map(|(_, g)| g.rect) {
+                                if d.2 > 0.0 && d.3 > 0.0 {
+                                    let (dk, dl) = make(d);
+                                    cache.0.entry(dk).or_insert_with(|| sdf.add(SdfLetter { look: dl, field: handle.clone() }));
                                 }
                             }
-                            let material = cache
-                                .0
-                                .entry(key)
-                                .or_insert_with(|| {
-                                    sdf.add(SdfLetter {
-                                        look,
-                                        field: handle.clone(),
-                                    })
-                                })
-                                .clone();
-                            Some(bevy::ui_render::prelude::MaterialNode(material))
-                        };
+                        }
+                        let material = cache
+                            .0
+                            .entry(key)
+                            .or_insert_with(|| sdf.add(SdfLetter { look, field: handle.clone() }))
+                            .clone();
+                        Some(bevy::ui_render::prelude::MaterialNode(material))
+                    };
                     if let Some(color) = text.outline
                         && (sheet.outline_handle.is_some() || has_field)
                     {
                         let p = sheet.outline_pad;
                         let place = Node {
-                            position_type: PositionType::Absolute,
-                            left: len((ox - p) * k),
-                            top: len((sheet.ascender - oy - p) * k),
-                            width: len((w + 2.0 * p) * k),
-                            height: len((h + 2.0 * p) * k),
-                            ..default()
-                        };
+                                position_type: PositionType::Absolute,
+                                left: len((ox - p) * k),
+                                top: len((sheet.ascender - oy - p) * k),
+                                width: len((w + 2.0 * p) * k),
+                                height: len((h + 2.0 * p) * k),
+                                ..default()
+                            };
                         // The face goes in the same node: two nodes rounded to pixels apart left
                         // the outline thin on the top left and thick on the bottom right.
                         let face = (text.color.alpha() > 0.0).then_some(());
@@ -1358,11 +1192,7 @@ fn spawn_line(
                             (x, y, w, h),
                             p,
                             color,
-                            if text.outline_edge > 0.0 {
-                                text.outline_edge
-                            } else {
-                                OUTLINE_EDGE
-                            },
+                            if text.outline_edge > 0.0 { text.outline_edge } else { OUTLINE_EDGE },
                             face.and(text.low),
                             face.is_some(),
                         ) {
@@ -1377,12 +1207,7 @@ fn spawn_line(
                                     cell.spawn((
                                         ImageNode {
                                             image: outline.clone(),
-                                            rect: Some(Rect::new(
-                                                x - p,
-                                                y - p,
-                                                x + w + p,
-                                                y + h + p,
-                                            )),
+                                            rect: Some(Rect::new(x - p, y - p, x + w + p, y + h + p)),
                                             color,
                                             ..default()
                                         },
@@ -1430,64 +1255,33 @@ mod tests {
         use bevy::ui_render::prelude::MaterialNode;
 
         let mut app = App::new();
-        app.init_resource::<Assets<SdfLetter>>()
-            .add_systems(PostUpdate, apply_ui_opacity);
-        let shared = app
-            .world_mut()
-            .resource_mut::<Assets<SdfLetter>>()
-            .add(SdfLetter {
-                look: SdfLook {
-                    color: Vec4::ONE,
-                    rect: Vec4::ZERO,
-                    edge: Vec4::ZERO,
-                    low: Vec4::ZERO,
-                    face: Vec4::ZERO,
-                    glow: Vec4::ZERO,
-                    glow_shape: Vec4::ZERO,
-                    bevel: Vec4::ZERO,
-                    opacity: 1.0,
-                },
-                field: Handle::default(),
-            });
+        app.init_resource::<Assets<SdfLetter>>().add_systems(PostUpdate, apply_ui_opacity);
+        let shared = app.world_mut().resource_mut::<Assets<SdfLetter>>().add(SdfLetter {
+            look: SdfLook {
+                color: Vec4::ONE, rect: Vec4::ZERO, edge: Vec4::ZERO, low: Vec4::ZERO,
+                face: Vec4::ZERO, glow: Vec4::ZERO, glow_shape: Vec4::ZERO,
+                bevel: Vec4::ZERO, opacity: 1.0,
+            },
+            field: Handle::default(),
+        });
         let root = app.world_mut().spawn(UiOpacity(0.5)).id();
         let original = Color::srgba(0.1, 0.2, 0.3, 0.8);
-        let glyph = app
-            .world_mut()
-            .spawn((MaterialNode(shared.clone()), ChildOf(root)))
-            .id();
-        let picture = app
-            .world_mut()
-            .spawn((
-                ImageNode {
-                    color: original,
-                    ..default()
-                },
-                ChildOf(root),
-            ))
-            .id();
+        let glyph = app.world_mut().spawn((MaterialNode(shared.clone()), ChildOf(root))).id();
+        let picture = app.world_mut().spawn((
+            ImageNode { color: original, ..default() }, ChildOf(root),
+        )).id();
         app.update();
-        let private = app
-            .world()
-            .get::<MaterialNode<SdfLetter>>(glyph)
-            .unwrap()
-            .0
-            .clone();
+        let private = app.world().get::<MaterialNode<SdfLetter>>(glyph).unwrap().0.clone();
         assert_ne!(private, shared);
         for opacity in [0.25, 1.0] {
             app.world_mut().get_mut::<UiOpacity>(root).unwrap().0 = opacity;
             app.update();
             let world = app.world();
             let glyphs = world.resource::<Assets<SdfLetter>>();
-            assert_eq!(
-                world.get::<MaterialNode<SdfLetter>>(glyph).unwrap().0,
-                private
-            );
+            assert_eq!(world.get::<MaterialNode<SdfLetter>>(glyph).unwrap().0, private);
             assert_eq!(glyphs.get(&private).unwrap().look.opacity, opacity);
             assert_eq!(glyphs.get(&shared).unwrap().look.opacity, 1.0);
-            assert_eq!(
-                world.get::<ImageNode>(picture).unwrap().color,
-                original.with_alpha(0.8 * opacity)
-            );
+            assert_eq!(world.get::<ImageNode>(picture).unwrap().color, original.with_alpha(0.8 * opacity));
         }
     }
 
@@ -1515,15 +1309,8 @@ mod tests {
         let translations = super::Translations {
             code: "de".into(),
             words: Default::default(),
-            patterns: vec![(
-                "FIRST TO ".into(),
-                " POINTS".into(),
-                "Wer zuerst {targetScore} Punkte hat".into(),
-            )],
+            patterns: vec![("FIRST TO ".into(), " POINTS".into(), "Wer zuerst {targetScore} Punkte hat".into())],
         };
-        assert_eq!(
-            translations.apply("First to 6 points", None),
-            "Wer zuerst 6 Punkte hat"
-        );
+        assert_eq!(translations.apply("First to 6 points", None), "Wer zuerst 6 Punkte hat");
     }
 }

@@ -19,14 +19,7 @@ impl Plugin for WizardsPlugin {
             .add_systems(Update, update_blinks.in_set(WizardBlinking));
         app.add_systems(
             Update,
-            (
-                spawn_wizards,
-                react_wizards,
-                move_wizards,
-                pose_wizards,
-                swoosh_turns,
-                orbit_bricks,
-            )
+            (spawn_wizards, react_wizards, move_wizards, pose_wizards, swoosh_turns, orbit_bricks)
                 .chain()
                 .after(WizardBlinking)
                 .run_if(crate::menu::presentation_running),
@@ -221,20 +214,12 @@ fn update_blinks(
     mut blinks: ResMut<WizardBlinks>,
 ) {
     blinks.0.retain(|tower, _| towers.contains(*tower));
-    let dt = if game.phase == crate::gameplay::Phase::Menu {
-        0.0
-    } else {
-        time.delta_secs()
-    };
+    let dt = if game.phase == crate::gameplay::Phase::Menu { 0.0 } else { time.delta_secs() };
     for (entity, tower, state) in &towers {
         let won = state.status == TowerStatus::Won
             || (game.phase == crate::gameplay::Phase::Over && game.winner == Some(tower.index));
         if state.invincible > 0.0 && !won {
-            blinks
-                .0
-                .entry(entity)
-                .and_modify(|age| *age += dt)
-                .or_insert(0.0);
+            blinks.0.entry(entity).and_modify(|age| *age += dt).or_insert(0.0);
         } else {
             blinks.0.remove(&entity);
         }
@@ -418,12 +403,7 @@ pub(crate) fn spawn_free_wizard(
     };
     Some(
         commands
-            .spawn((
-                wizard,
-                Transform::default(),
-                Visibility::default(),
-                extra.clone(),
-            ))
+            .spawn((wizard, Transform::default(), Visibility::default(), extra.clone()))
             .with_children(|w| add_parts(w, art, &key, &parts, cell, extra))
             .id(),
     )
@@ -439,10 +419,7 @@ impl Wizard {
 /// Starts `clip` unless something more important is playing.
 /// The tower's roof has landed (or been steered away) and rests.
 fn roof_down(state: &TowerState) -> bool {
-    matches!(
-        state.roof,
-        crate::gameplay::RoofStage::Resting(_) | crate::gameplay::RoofStage::Done
-    )
+    matches!(state.roof, crate::gameplay::RoofStage::Resting(_) | crate::gameplay::RoofStage::Done)
 }
 
 /// A trial's intro moves for its wizard, in seconds from the intro's start: turning round,
@@ -461,8 +438,7 @@ fn trial_intro_moves(look: &crate::config::IntroRules, mode: ModeKind) -> Vec<(f
         ModeKind::Race => {
             let wait = look.single_race_wait;
             // The cast ends as the camera is back down; 0.3 s later it turns back and laughs.
-            let end =
-                wait + cast + look.single_race_up + look.single_race_hold + look.single_race_down;
+            let end = wait + cast + look.single_race_up + look.single_race_hold + look.single_race_down;
             let back = end + (look.single_race_after - 0.2).max(0.0);
             vec![
                 (wait / 2.0, IntroMove::Turn),
@@ -666,35 +642,20 @@ fn move_wizards(
         // A lost match, or a Survival tower out while the others play on
         // (GameFinishController hides the wizard): AbstractWizard.Disappear plays Dying, and at
         // its KILL_WIZARD event the wizard goes in DESTROY_WIZARD_PARTICLES with SFX_WIZARD_LOSE.
-        let out_of_survival = game.mode.rules() == crate::config::ModeKind::Survival
-            && state.status == TowerStatus::Out;
+        let out_of_survival =
+            game.mode.rules() == crate::config::ModeKind::Survival && state.status == TowerStatus::Out;
         let gone = if !wizard.enemy && (crate::hud::lost(&game, tower, state) || out_of_survival) {
             if wizard.vanish == 0.0 {
                 play(&mut wizard, Clip::Dying, None);
             }
-            let number = wizard
-                .key
-                .trim_start_matches("wizard")
-                .parse::<usize>()
-                .unwrap_or(1);
-            let kill = config
-                .hud
-                .wizard_kill
-                .get(number - 1)
-                .copied()
-                .unwrap_or(0.683);
+            let number = wizard.key.trim_start_matches("wizard").parse::<usize>().unwrap_or(1);
+            let kill = config.hud.wizard_kill.get(number - 1).copied().unwrap_or(0.683);
             let before = wizard.vanish;
             wizard.vanish += dt;
             if before < kill && wizard.vanish >= kill {
                 let mut seed = (entity.to_bits() as u32) | 1;
                 let at = transform.translation.truncate();
-                crate::particles::destroy_poof(
-                    &mut commands,
-                    &art,
-                    config.cell_size,
-                    at,
-                    &mut seed,
-                );
+                crate::particles::destroy_poof(&mut commands, &art, config.cell_size, at, &mut seed);
                 if let Some(sound) = art.sounds.get("sfx_wizard_lose") {
                     commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
                 }
@@ -704,13 +665,11 @@ fn move_wizards(
             wizard.vanish = 0.0;
             0.0
         };
-        visibility.set_if_neq(
-            if gone >= 1.0 || (!wizard.enemy && blinks.hidden(wizard.tower, look)) {
-                Visibility::Hidden
-            } else {
-                Visibility::Inherited
-            },
-        );
+        visibility.set_if_neq(if gone >= 1.0 || (!wizard.enemy && blinks.hidden(wizard.tower, look)) {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
         wizard.time += dt;
         // The enemy floats 4 cells over the tower top (the original's EnemyWizard).
         let target = state.height + if wizard.enemy { 4.0 } else { look.lift };
@@ -771,8 +730,7 @@ fn move_wizards(
         }
         // WizardShakeEffect (an AbstractShakeEffect): a random spot within the reach each frame.
         if wizard.shake > 0.0 {
-            let mut seed =
-                (t * 1000.0) as u32 ^ (wizard.lane as u32).wrapping_mul(2_654_435_761) | 1;
+            let mut seed = (t * 1000.0) as u32 ^ (wizard.lane as u32).wrapping_mul(2_654_435_761) | 1;
             let mut roll = || {
                 seed ^= seed << 13;
                 seed ^= seed >> 17;
@@ -793,16 +751,10 @@ fn move_wizards(
         if wizard.appear_updates < 2 {
             wizard.appear_updates += 1;
             if wizard.appear_updates == 2 {
-                let at =
-                    transform.translation.truncate() + Vec2::Y * config.cells(look.appear_above);
+                let at = transform.translation.truncate() + Vec2::Y * config.cells(look.appear_above);
                 let mut seed = entity.to_bits() as u32 | 1;
                 crate::particles::brick_poof_at(
-                    &mut commands,
-                    &art,
-                    config.cell_size,
-                    at,
-                    transform.translation.z + 1.0,
-                    &mut seed,
+                    &mut commands, &art, config.cell_size, at, transform.translation.z + 1.0, &mut seed,
                 );
             }
         }
@@ -838,29 +790,17 @@ fn orbit_bricks(
     config: Res<GameConfig>,
     art: Res<Art>,
     game: Res<crate::gameplay::Match>,
-    towers: Query<(
-        &TowerState,
-        &crate::gameplay::BrickBag,
-        Option<&crate::gameplay::TowerSkin>,
-    )>,
+    towers: Query<(&TowerState, &crate::gameplay::BrickBag, Option<&crate::gameplay::TowerSkin>)>,
     images: Option<Res<Assets<Image>>>,
     intro: Option<Res<crate::intro::IntroClock>>,
     mut wizards: Query<(Entity, &Wizard, Option<&mut Orbit>, &GlobalTransform)>,
-    mut bricks: Query<(
-        Entity,
-        &ChildOf,
-        &mut OrbitBrick,
-        &mut Transform,
-        &mut Visibility,
-    )>,
+    mut bricks: Query<(Entity, &ChildOf, &mut OrbitBrick, &mut Transform, &mut Visibility)>,
 ) {
     let trial = config.trial.is_some() && config.mode.rules() == ModeKind::Survival;
     // SurvivalWizardHUD shows once a trial's intro has the wizard's spell out
     // (EnemyWizardHUDShowEffect), at once on a Retry.
     let shown = game.retry
-        || intro
-            .and_then(|c| c.0)
-            .is_none_or(|t| t >= config.intro.single_cast);
+        || intro.and_then(|c| c.0).is_none_or(|t| t >= config.intro.single_cast);
     let dt = time.delta_secs();
     for (entity, wizard, orbit, global) in &mut wizards {
         if wizard.enemy || wizard.tower == Entity::PLACEHOLDER {
@@ -882,22 +822,14 @@ fn orbit_bricks(
             let mut bag = bag.clone();
             let pack = skin.map(|s| s.pack).unwrap_or_default();
             let cell = wizard.cell;
-            commands.entity(entity).insert(Orbit {
-                time: 0.0,
-                shown: 0,
-                speed: 0.0,
-                since_sound: 0.0,
-                left,
-            });
+            commands.entity(entity).insert(Orbit { time: 0.0, shown: 0, speed: 0.0, since_sound: 0.0, left });
             let count = left as usize;
             let mut seed = (entity.to_bits() as u32) | 1;
             for i in 0..count {
                 let piece = bag.draw();
                 let def = crate::gameplay::piece_def(&config, piece);
                 let key = pack.brick_art(&def.name);
-                let Some(image) = art.image(&key) else {
-                    continue;
-                };
+                let Some(image) = art.image(&key) else { continue };
                 // The picture at its own size (as dress_bricks draws a brick).
                 let size = art
                     .entries
@@ -905,9 +837,7 @@ fn orbit_bricks(
                     .and_then(|e| e.bevel.clone())
                     .and_then(|b| {
                         let ppu = art.entries.get(&b)?.pixels_per_unit?;
-                        Some(
-                            images.as_ref()?.get(&art.image(&b)?)?.size_f32() / ppu.max(1.0) * cell,
-                        )
+                        Some(images.as_ref()?.get(&art.image(&b)?)?.size_f32() / ppu.max(1.0) * cell)
                     });
                 let index = count - 1 - i;
                 commands.entity(entity).with_child((
@@ -917,11 +847,7 @@ fn orbit_bricks(
                         ring: index % 3,
                         index,
                     },
-                    Sprite {
-                        image,
-                        custom_size: size,
-                        ..default()
-                    },
+                    Sprite { image, custom_size: size, ..default() },
                     Transform::default(),
                     Visibility::Hidden,
                 ));
@@ -931,10 +857,7 @@ fn orbit_bricks(
         // Pop in over 2 s, one after another, with a rising bubble pop every 0.075 s.
         orbit.time += dt;
         orbit.since_sound += dt;
-        let count = bricks
-            .iter()
-            .filter(|(_, p, ..)| p.parent() == entity)
-            .count();
+        let count = bricks.iter().filter(|(_, p, ..)| p.parent() == entity).count();
         let share = orbit.time / 2.0;
         let shown = (((count as f32) * share).round() as usize).min(count);
         // (WizardBricksView plays it on its clock while it builds, new brick or not.)
@@ -953,14 +876,7 @@ fn orbit_bricks(
             for (_, parent, brick, transform, _) in &bricks {
                 if parent.parent() == entity && (orbit.shown..shown).contains(&brick.index) {
                     let at = world(transform.translation);
-                    crate::particles::small_poof(
-                        &mut commands,
-                        &art,
-                        wizard.cell,
-                        at,
-                        30.0,
-                        &mut seed,
-                    );
+                    crate::particles::small_poof(&mut commands, &art, wizard.cell, at, 30.0, &mut seed);
                 }
             }
         }
@@ -1028,20 +944,11 @@ fn swoosh_turns(
     time: Res<Time>,
     art: Res<Art>,
     wizards: Query<&Wizard>,
-    mut swooshes: Query<(
-        Entity,
-        &ChildOf,
-        &mut Swoosh,
-        &mut Sprite,
-        &mut Anchor,
-        &mut Transform,
-    )>,
+    mut swooshes: Query<(Entity, &ChildOf, &mut Swoosh, &mut Sprite, &mut Anchor, &mut Transform)>,
 ) {
     for (entity, parent, mut swoosh, mut sprite, mut anchor, mut transform) in &mut swooshes {
         swoosh.0 += time.delta_secs();
-        let frame = art
-            .frame_name("wizard_rotate", swoosh.0)
-            .map(str::to_string);
+        let frame = art.frame_name("wizard_rotate", swoosh.0).map(str::to_string);
         let (Some(frame), Some(length)) = (frame, art.length("wizard_rotate")) else {
             commands.entity(entity).despawn();
             continue;
@@ -1072,11 +979,7 @@ fn bask(wizard: &mut Wizard, at: Vec2, height: f32, dt: f32, single: bool, puzzl
     };
     let b = wizard.bask.get_or_insert_with(|| {
         // Down to 8 under the top (Puzzle: 4 over it), never under 5.
-        let y = if puzzle {
-            (height + 4.0).max(5.0)
-        } else {
-            (height - 8.0).max(5.0)
-        };
+        let y = if puzzle { (height + 4.0).max(5.0) } else { (height - 8.0).max(5.0) };
         Bask {
             time: 0.0,
             leg: 0.0,
@@ -1122,11 +1025,7 @@ fn bask(wizard: &mut Wizard, at: Vec2, height: f32, dt: f32, single: bool, puzzl
         let y = (here.y + jitter).min(height).max((height - 12.5).max(0.0));
         b.to = Vec2::new(6.0 * b.side, y);
         let d = (b.to - here).normalize_or_zero();
-        let side = if d.x > 0.0 {
-            Vec2::new(d.y, -d.x)
-        } else {
-            Vec2::new(-d.y, d.x)
-        };
+        let side = if d.x > 0.0 { Vec2::new(d.y, -d.x) } else { Vec2::new(-d.y, d.x) };
         b.bow = here + (b.to - here) * 0.5 + side * 5.0;
         b.seconds = seconds;
         if landed {
@@ -1212,46 +1111,27 @@ mod tests {
     use super::*;
 
     fn wizard_app() -> (App, Entity) {
-        let config = GameConfig {
-            mode: ModeKind::Survival,
-            ..default()
-        };
+        let config = GameConfig { mode: ModeKind::Survival, ..default() };
         let state = TowerState::new(&config, 1);
         let mut art = Art::default();
-        art.entries.insert(
-            "wizard1".into(),
-            ron::from_str("(parts: Some([]))").unwrap(),
-        );
+        art.entries.insert("wizard1".into(), ron::from_str("(parts: Some([]))").unwrap());
         let mut app = App::new();
         app.insert_resource(config)
             .insert_resource(crate::gameplay::Match {
-                phase: crate::gameplay::Phase::Playing,
-                mode: ModeKind::Survival,
-                ..default()
+                phase: crate::gameplay::Phase::Playing, mode: ModeKind::Survival, ..default()
             })
             .insert_resource(Time::<()>::default())
             .insert_resource(art)
             .init_resource::<WizardBlinks>()
             .add_systems(Update, (update_blinks, spawn_wizards, move_wizards).chain());
-        let tower = app
-            .world_mut()
-            .spawn((
-                Tower {
-                    index: 0,
-                    origin_x: 0.0,
-                    human: true,
-                    player: Some(0),
-                },
-                state,
-            ))
-            .id();
+        let tower = app.world_mut().spawn((
+            Tower { index: 0, origin_x: 0.0, human: true, player: Some(0) }, state,
+        )).id();
         (app, tower)
     }
 
     fn step(app: &mut App, seconds: f32) {
-        app.world_mut()
-            .resource_mut::<Time>()
-            .advance_by(std::time::Duration::from_secs_f32(seconds));
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(seconds));
         app.update();
     }
 
@@ -1259,98 +1139,52 @@ mod tests {
     fn invincibility_blinks_on_the_render_clock_and_restores_winners() {
         let (mut app, tower) = wizard_app();
         app.update();
-        let wizard = app
-            .world_mut()
-            .query_filtered::<Entity, With<Wizard>>()
-            .single(app.world())
-            .unwrap();
-        app.world_mut()
-            .get_mut::<TowerState>(tower)
-            .unwrap()
-            .invincible = 1.5;
+        let wizard = app.world_mut().query_filtered::<Entity, With<Wizard>>()
+            .single(app.world()).unwrap();
+        app.world_mut().get_mut::<TowerState>(tower).unwrap().invincible = 1.5;
         step(&mut app, 0.02);
         step(&mut app, 0.04);
-        assert_eq!(
-            app.world().get::<Visibility>(wizard),
-            Some(&Visibility::Inherited)
-        );
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Inherited));
         step(&mut app, 0.011);
-        assert_eq!(
-            app.world().get::<Visibility>(wizard),
-            Some(&Visibility::Hidden)
-        );
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Hidden));
         step(&mut app, 0.05);
-        assert_eq!(
-            app.world().get::<Visibility>(wizard),
-            Some(&Visibility::Inherited)
-        );
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Inherited));
         step(&mut app, 0.05);
-        assert_eq!(
-            app.world().get::<Visibility>(wizard),
-            Some(&Visibility::Hidden)
-        );
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Hidden));
         app.world_mut().get_mut::<TowerState>(tower).unwrap().status = TowerStatus::Won;
         step(&mut app, 0.0);
-        assert_eq!(
-            app.world().get::<Visibility>(wizard),
-            Some(&Visibility::Inherited)
-        );
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Inherited));
         {
             let mut state = app.world_mut().get_mut::<TowerState>(tower).unwrap();
             state.status = TowerStatus::Building;
             state.invincible = 0.0;
         }
         step(&mut app, 0.0);
-        assert!(
-            !app.world()
-                .resource::<WizardBlinks>()
-                .hidden(tower, &GameConfig::default().wizards)
-        );
+        assert!(!app.world().resource::<WizardBlinks>().hidden(tower, &GameConfig::default().wizards));
         app.world_mut().get_mut::<TowerState>(tower).unwrap().status = TowerStatus::Out;
         step(&mut app, 1.0);
-        assert_eq!(
-            app.world().get::<Visibility>(wizard),
-            Some(&Visibility::Hidden),
-            "ending a blink cannot revive a vanished wizard"
-        );
+        assert_eq!(app.world().get::<Visibility>(wizard), Some(&Visibility::Hidden), "ending a blink cannot revive a vanished wizard");
     }
 
     #[test]
     fn a_new_wizard_poofs_above_it_on_its_second_update_only() {
         let (mut app, _) = wizard_app();
-        assert_eq!(
-            app.world().resource::<GameConfig>().wizards.action_every,
-            (3, 7)
-        );
+        assert_eq!(app.world().resource::<GameConfig>().wizards.action_every, (3, 7));
         app.update();
-        assert_eq!(
-            app.world_mut().query::<&Sprite>().iter(app.world()).count(),
-            0
-        );
+        assert_eq!(app.world_mut().query::<&Sprite>().iter(app.world()).count(), 0);
         step(&mut app, 0.01);
-        let wizard_at = app
-            .world_mut()
-            .query_filtered::<&Transform, With<Wizard>>()
-            .single(app.world())
-            .unwrap()
-            .translation;
+        let wizard_at = app.world_mut().query_filtered::<&Transform, With<Wizard>>()
+            .single(app.world()).unwrap().translation;
         let config = app.world().resource::<GameConfig>();
         let expected = wizard_at.truncate() + Vec2::Y * config.cells(config.wizards.appear_above);
-        let count = app
-            .world_mut()
-            .query::<(&Sprite, &Transform)>()
-            .iter(app.world())
+        let count = app.world_mut().query::<(&Sprite, &Transform)>().iter(app.world())
             .inspect(|(_, at)| {
                 assert_eq!(at.translation.truncate(), expected);
                 assert!(at.translation.z > wizard_at.z);
-            })
-            .count();
+            }).count();
         assert_eq!(count, 14, "the standard brick-appearance burst");
         step(&mut app, 0.01);
-        assert_eq!(
-            app.world_mut().query::<&Sprite>().iter(app.world()).count(),
-            count
-        );
+        assert_eq!(app.world_mut().query::<&Sprite>().iter(app.world()).count(), count);
     }
 
     #[test]
@@ -1362,10 +1196,7 @@ mod tests {
         assert_eq!(moves[1], (0.4, IntroMove::Cast));
         // Back round and laughing 0.2 s before the 3-2-1.
         assert!((moves[3].0 - (countdown - 0.2)).abs() < 1e-4);
-        assert_eq!(
-            (moves[2].1, moves[3].1),
-            (IntroMove::Turn, IntroMove::Laugh)
-        );
+        assert_eq!((moves[2].1, moves[3].1), (IntroMove::Turn, IntroMove::Laugh));
         // Survival laughs after the cast's 2 s, Puzzle after its 0.5 s.
         assert!((trial_intro_moves(&look, ModeKind::Survival)[1].0 - 2.5333).abs() < 1e-3);
         assert!((trial_intro_moves(&look, ModeKind::Puzzle)[1].0 - 1.0333).abs() < 1e-3);
@@ -1381,11 +1212,7 @@ mod tests {
         assert_eq!(voice_mix(9, "startle"), (0.3, 1.0));
         assert_eq!(voice_mix(12, "cheer"), (1.1, 1.0));
         for number in 1..=14 {
-            assert_eq!(
-                voice_mix(number, "laugh_hard"),
-                (0.8, 1.13),
-                "wizard {number}"
-            );
+            assert_eq!(voice_mix(number, "laugh_hard"), (0.8, 1.13), "wizard {number}");
         }
     }
 }

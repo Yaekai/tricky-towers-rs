@@ -404,12 +404,7 @@ impl Plugin for ArtPlugin {
                     light_bricks,
                     play_animations,
                     apply_font,
-                    (
-                        match_end_stingers,
-                        play_music,
-                        duck_music.after(crate::menu::MenuSystems),
-                    )
-                        .chain(),
+                    (match_end_stingers, play_music, duck_music.after(crate::menu::MenuSystems)).chain(),
                     play_sounds.after(crate::menu::MenuSystems),
                     menu_cursor_sound.after(crate::menu::MenuSystems),
                     auto_rotate_sounds,
@@ -596,13 +591,7 @@ fn recolor_masks(
                 .as_ref()
                 .and_then(Pair::get)
                 .map_or((Color::NONE, Color::NONE), |(t, b)| (rgba(t), rgba(b)));
-            Some((
-                name.clone(),
-                [color(a), color(b)],
-                [top, bottom],
-                handle,
-                entry.outline_only == Some(true),
-            ))
+            Some((name.clone(), [color(a), color(b)], [top, bottom], handle, entry.outline_only == Some(true)))
         })
         .collect();
     for (name, [red, yellow], [top, bottom], handle, only) in ready {
@@ -635,12 +624,7 @@ fn recolor_masks(
                 let total = body + line;
                 let mix = |f: f32, e: f32| (f * body + e * line) / total;
                 let out = if only {
-                    Color::srgba(
-                        edge.red,
-                        edge.green,
-                        edge.blue,
-                        p.alpha * line * edge.alpha / total,
-                    )
+                    Color::srgba(edge.red, edge.green, edge.blue, p.alpha * line * edge.alpha / total)
                 } else {
                     Color::srgba(
                         mix(fill.red * body, edge.red),
@@ -684,13 +668,7 @@ fn light_bricks(
     mut images: ResMut<Assets<Image>>,
     mut done: Local<std::collections::HashSet<String>>,
 ) {
-    type Ready = (
-        String,
-        Handle<Image>,
-        Handle<Image>,
-        [Srgba; 2],
-        (f32, f32, f32),
-    );
+    type Ready = (String, Handle<Image>, Handle<Image>, [Srgba; 2], (f32, f32, f32));
     let ready: Vec<Ready> = art
         .entries
         .iter()
@@ -704,10 +682,7 @@ fn light_bricks(
             // Candy's World/Bricks/Default (the variant with _BorderColor) draws the pattern and
             // its outline only: no highlight or shadow.
             let shade = if unlit_brick(name) { 0.0 } else { 1.0 };
-            let light = [
-                Srgba::new(hr, hg, hb, ha * shade),
-                Srgba::new(sr, sg, sb, sa * shade),
-            ];
+            let light = [Srgba::new(hr, hg, hb, ha * shade), Srgba::new(sr, sg, sb, sa * shade)];
             let line = entry.line.unwrap_or(BRICK_LINE);
             Some((name.clone(), pattern, bevel, light, line))
         })
@@ -731,8 +706,7 @@ fn light_bricks(
                     continue;
                 };
                 let (map, base) = (map.to_srgba(), base.to_srgba());
-                let slope =
-                    (map.red * 2.0 - 1.0) * BRICK_LIGHT.0 + (map.green * 2.0 - 1.0) * BRICK_LIGHT.1;
+                let slope = (map.red * 2.0 - 1.0) * BRICK_LIGHT.0 + (map.green * 2.0 - 1.0) * BRICK_LIGHT.1;
                 let (to, by) = if slope > 0.0 {
                     (high, slope)
                 } else {
@@ -878,11 +852,7 @@ fn match_end_stingers(
     let win = if roofed {
         Some(true)
     } else if single && !end.finish_tower {
-        Some(
-            towers
-                .iter()
-                .any(|(t, s)| t.is_first_player() && s.status == crate::gameplay::TowerStatus::Won),
-        )
+        Some(towers.iter().any(|(t, s)| t.is_first_player() && s.status == crate::gameplay::TowerStatus::Won))
     } else if game.mode.rules() == ModeKind::Puzzle && game.winner.is_some() {
         // A Puzzle battle's win music waits for the count (_DoBaskEnd).
         if puzzle.as_ref().is_some_and(|p| p.counting()) {
@@ -930,14 +900,8 @@ fn play_music(
     // The cup winner popup stops the ambience and rolls a drum until its trophy is in,
     // then plays the win music (TournamentWinnerPopup).
     let cup_win = popup.as_ref().and_then(|p| p.winner_since()).map(|since| {
-        let trophy_in = cup
-            .as_ref()
-            .map_or(0.0, |c| crate::cups_menu::winner_trophy_in(c, &config));
-        if since < trophy_in {
-            "sfx_drum_roll"
-        } else {
-            "music_win_game_loop"
-        }
+        let trophy_in = cup.as_ref().map_or(0.0, |c| crate::cups_menu::winner_trophy_in(c, &config));
+        if since < trophy_in { "sfx_drum_roll" } else { "music_win_game_loop" }
     });
     let volume = settings.as_ref().map_or(1.0, |s| s.music);
     if game.phase == Phase::Menu {
@@ -1004,11 +968,7 @@ fn play_music(
     let _ = &towers;
     let results = match end.stinger {
         Some((since, win)) => {
-            let (name, wait) = if win {
-                ("music_win_game_loop", 1.8818)
-            } else {
-                ("music_lose_game_loop", 3.3)
-            };
+            let (name, wait) = if win { ("music_win_game_loop", 1.8818) } else { ("music_lose_game_loop", 3.3) };
             Some((time.elapsed_secs() - since >= wait).then_some(name))
         }
         None if end.finish_tower && game.phase != Phase::Menu => Some(None),
@@ -1016,14 +976,7 @@ fn play_music(
     };
     let battle = match (game.phase, game.mode.look()) {
         // Joining an online game stops the music (the join handlers' MusicStopEffect).
-        (Phase::Menu, _)
-            if matches!(
-                screen.as_deref(),
-                Some(MenuScreen::Lobby | MenuScreen::Invite)
-            ) =>
-        {
-            None
-        }
+        (Phase::Menu, _) if matches!(screen.as_deref(), Some(MenuScreen::Lobby | MenuScreen::Invite)) => None,
         (Phase::Menu, _) => Some("music_menu"),
         (Phase::Intro, _) => None,
         (_, ModeKind::Race) if race_pro && art.sounds.contains_key("music_racepro_v3") => {
@@ -1066,9 +1019,7 @@ fn lead_countdown(
     towers
         .iter()
         .filter_map(|(_, s, _)| s.count_left(config))
-        .fold(None, |best: Option<f32>, t| {
-            Some(best.map_or(t, |b| b.min(t)))
-        })
+        .fold(None, |best: Option<f32>, t| Some(best.map_or(t, |b| b.min(t))))
         .map_or(0, |t| t.ceil().max(1.0) as u32)
 }
 
@@ -1102,11 +1053,7 @@ fn duck_music(
     let now = share.get_or_insert(1.0);
     let rate = if target < *now { 1.0 / 0.15 } else { 1.0 / 0.5 };
     let step = rate * time.delta_secs();
-    *now = if target < *now {
-        (*now - step).max(target)
-    } else {
-        (*now + step).min(target)
-    };
+    *now = if target < *now { (*now - step).max(target) } else { (*now + step).min(target) };
     let volume = settings.as_ref().map_or(1.0, |s| s.music) * *now;
     for mut sink in &mut sinks {
         if (sink.volume().to_linear() - volume).abs() > 1e-3 {
@@ -1180,12 +1127,7 @@ fn play_sounds(
     for wait in &mut heard.later {
         wait.0 -= dt;
     }
-    let due: Vec<&'static str> = heard
-        .later
-        .iter()
-        .filter(|w| w.0 <= 0.0)
-        .map(|w| w.1)
-        .collect();
+    let due: Vec<&'static str> = heard.later.iter().filter(|w| w.0 <= 0.0).map(|w| w.1).collect();
     heard.later.retain(|w| w.0 > 0.0);
     let mut play_with = |name: &str, volume: f32, speed: f32| {
         if let Some(handle) = art.sounds.get(name) {
@@ -1269,10 +1211,7 @@ fn play_sounds(
         // BRICK_LOST elsewhere (LIFE_LOST); Race only splashes.
         if you.bricks_dropped > heard.dropped {
             match game.mode.rules() {
-                ModeKind::Puzzle => play(&format!(
-                    "sfx_brick_drop_sand_0{}",
-                    you.bricks_dropped % 4 + 1
-                )),
+                ModeKind::Puzzle => play(&format!("sfx_brick_drop_sand_0{}", you.bricks_dropped % 4 + 1)),
                 ModeKind::Race => {}
                 _ if you.lives < heard.lives => play("sfx_drop_lost"),
                 _ => {}
@@ -1299,10 +1238,7 @@ fn play_sounds(
                 // BrickRotatedAudioEffect: the piano plays one of its 23 notes instead.
                 let held = you.active.and_then(|e| bricks.get(e).ok());
                 if held.is_some_and(|b| piano(&config, b)) {
-                    play(&format!(
-                        "sfx_piano_brick_{:02}",
-                        (heard.roll >> 8) % 23 + 1
-                    ));
+                    play(&format!("sfx_piano_brick_{:02}", (heard.roll >> 8) % 23 + 1));
                 } else {
                     play("sfx_rotate");
                 }
@@ -1327,7 +1263,12 @@ fn play_sounds(
     if dark_by.windows(2).any(|w| w[0].0 == w[1].0) {
         later.push((config.casts.dark_orb_land, "sfx_dark_magic_intense"));
     }
-    for cast in log.0.iter().rev().take(new_casts) {
+    for cast in log
+        .0
+        .iter()
+        .rev()
+        .take(new_casts)
+    {
         use crate::config::SpellKind;
         if cast.spell.is_dark() {
             // The dark pipeline's zap (SFX_CAST_, after its 0.5 s delay) and
@@ -1359,11 +1300,7 @@ fn play_sounds(
         // A curse's own sound comes as it lands; Minibase and Extra Life are spawned at the
         // cast-self moment.
         if !own.is_empty() {
-            let at = if cast.spell.is_dark() {
-                config.casts.dark_orb_land
-            } else {
-                config.magic.cast_self
-            };
+            let at = if cast.spell.is_dark() { config.casts.dark_orb_land } else { config.magic.cast_self };
             later.push((at, own));
         }
     }
@@ -1421,13 +1358,7 @@ fn ice_hit_sounds(
     mut commands: Commands,
     art: Res<Art>,
     config: Res<crate::config::GameConfig>,
-    iced: Query<
-        (Entity, &crate::gameplay::Brick),
-        (
-            Changed<crate::gameplay::Brick>,
-            Without<avian2d::prelude::CollisionEventsEnabled>,
-        ),
-    >,
+    iced: Query<(Entity, &crate::gameplay::Brick), (Changed<crate::gameplay::Brick>, Without<avian2d::prelude::CollisionEventsEnabled>)>,
     bricks: Query<&crate::gameplay::Brick>,
     velocities: Query<&avian2d::prelude::LinearVelocity>,
     mut starts: MessageReader<avian2d::prelude::CollisionStart>,
@@ -1435,15 +1366,10 @@ fn ice_hit_sounds(
 ) {
     for (entity, brick) in &iced {
         if brick.ice || piano(&config, brick) {
-            commands
-                .entity(entity)
-                .try_insert(avian2d::prelude::CollisionEventsEnabled);
+            commands.entity(entity).try_insert(avian2d::prelude::CollisionEventsEnabled);
         }
     }
-    let speed = |body: Option<Entity>| {
-        body.and_then(|b| velocities.get(b).ok())
-            .map_or(Vec2::ZERO, |v| v.0)
-    };
+    let speed = |body: Option<Entity>| body.and_then(|b| velocities.get(b).ok()).map_or(Vec2::ZERO, |v| v.0);
     for start in starts.read() {
         let knocker = |test: &dyn Fn(&crate::gameplay::Brick) -> bool| {
             [start.body1, start.body2]
@@ -1452,10 +1378,7 @@ fn ice_hit_sounds(
                 .any(|b| bricks.get(*b).is_ok_and(test))
         };
         let (ice, keys) = (knocker(&|b| b.ice), knocker(&|b| piano(&config, b)));
-        if !(ice || keys)
-            || (speed(start.body1) - speed(start.body2)).length()
-                <= config.cells(config.ice_hit_speed)
-        {
+        if !(ice || keys) || (speed(start.body1) - speed(start.body2)).length() <= config.cells(config.ice_hit_speed) {
             continue;
         }
         *roll = (*roll * 7 + 3) % 21;
@@ -1487,11 +1410,7 @@ fn auto_build_loop(
     match (building, *playing) {
         (true, None) => {
             if let Some(handle) = art.sounds.get("sfx_auto_build_loop") {
-                *playing = Some(
-                    commands
-                        .spawn((AudioPlayer(handle.clone()), PlaybackSettings::LOOP))
-                        .id(),
-                );
+                *playing = Some(commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::LOOP)).id());
             }
         }
         (false, Some(entity)) => {
@@ -1514,30 +1433,21 @@ fn auto_rotate_sounds(
 ) {
     heard.retain(|(e, _)| bricks.contains(*e));
     for (entity, brick) in &bricks {
-        let Some(cycle) = brick.mods.auto_rotate else {
-            continue;
-        };
-        let turns = ((brick.auto_rotate_timer - 0.3) / cycle.max(0.01))
-            .floor()
-            .max(0.0) as u32;
+        let Some(cycle) = brick.mods.auto_rotate else { continue };
+        let turns = ((brick.auto_rotate_timer - 0.3) / cycle.max(0.01)).floor().max(0.0) as u32;
         let was = heard.iter().find(|h| h.0 == entity).map_or(0, |h| h.1);
         if turns > was {
             let roll = (brick.auto_rotate_timer * 1000.0) as u32;
-            if let Some(handle) = art
-                .sounds
-                .get(&format!("sfx_auto_rotate_0{}", roll % 3 + 1))
-            {
+            if let Some(handle) = art.sounds.get(&format!("sfx_auto_rotate_0{}", roll % 3 + 1)) {
                 let pitch = 0.95 + (roll % 101) as f32 / 1000.0;
-                commands.spawn((
-                    AudioPlayer(handle.clone()),
-                    PlaybackSettings::DESPAWN.with_speed(pitch),
-                ));
+                commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN.with_speed(pitch)));
             }
         }
         heard.retain(|h| h.0 != entity);
         heard.push((entity, turns));
     }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -1550,8 +1460,7 @@ mod tests {
         };
         let mut art = Art::default();
         for n in 1..=4 {
-            art.sounds
-                .insert(format!("sfx_menu_select_0{n}"), handle(1));
+            art.sounds.insert(format!("sfx_menu_select_0{n}"), handle(1));
         }
         for (name, n) in [("sfx_rotate", 2), ("sfx_move", 3), ("sfx_nudge", 4)] {
             art.sounds.insert(name.into(), handle(n));
@@ -1563,10 +1472,7 @@ mod tests {
             ))
             .insert_resource(crate::config::GameConfig::default())
             .insert_resource(art)
-            .insert_resource(crate::menu::PauseMenu {
-                resume_to: Some(Phase::Playing),
-                ..default()
-            })
+            .insert_resource(crate::menu::PauseMenu { resume_to: Some(Phase::Playing), ..default() })
             .init_resource::<ButtonInput<KeyCode>>()
             .add_plugins(crate::TowerCorePlugin)
             .add_systems(Update, (play_sounds, menu_cursor_sound).chain());
@@ -1575,27 +1481,14 @@ mod tests {
         for _ in 0..10 {
             app.update();
         }
-        assert!(
-            app.world_mut()
-                .query::<&ActiveBrick>()
-                .iter(app.world())
-                .count()
-                > 0
-        );
+        assert!(app.world_mut().query::<&ActiveBrick>().iter(app.world()).count() > 0);
         let press = |app: &mut App, key| {
-            app.world_mut()
-                .resource_mut::<ButtonInput<KeyCode>>()
-                .press(key);
+            app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(key);
             app.update();
-            app.world_mut()
-                .resource_mut::<ButtonInput<KeyCode>>()
-                .reset_all();
+            app.world_mut().resource_mut::<ButtonInput<KeyCode>>().reset_all();
             let world = app.world_mut();
-            let sounds: Vec<_> = world
-                .query::<(Entity, &AudioPlayer)>()
-                .iter(world)
-                .map(|(e, p)| (e, p.0.id()))
-                .collect();
+            let sounds: Vec<_> = world.query::<(Entity, &AudioPlayer)>().iter(world)
+                .map(|(e, p)| (e, p.0.id())).collect();
             for &(entity, _) in &sounds {
                 world.despawn(entity);
             }
@@ -1604,21 +1497,11 @@ mod tests {
         assert_eq!(press(&mut app, KeyCode::ArrowUp), vec![handle(1).id()]);
         assert_eq!(press(&mut app, KeyCode::ArrowLeft), vec![handle(1).id()]);
         assert!(press(&mut app, KeyCode::KeyU).is_empty());
-        app.world_mut()
-            .resource_mut::<crate::menu::PauseMenu>()
-            .closing = Some(("Resume", 0.0));
-        assert!(
-            press(&mut app, KeyCode::ArrowUp).is_empty(),
-            "fade-out still blocks match controls"
-        );
-        app.world_mut()
-            .resource_mut::<crate::menu::PauseMenu>()
-            .resume_to = None;
+        app.world_mut().resource_mut::<crate::menu::PauseMenu>().closing = Some(("Resume", 0.0));
+        assert!(press(&mut app, KeyCode::ArrowUp).is_empty(), "fade-out still blocks match controls");
+        app.world_mut().resource_mut::<crate::menu::PauseMenu>().resume_to = None;
         app.world_mut().resource_mut::<Time<Virtual>>().pause();
-        assert!(
-            press(&mut app, KeyCode::ArrowUp).is_empty(),
-            "the closing frame is still frozen"
-        );
+        assert!(press(&mut app, KeyCode::ArrowUp).is_empty(), "the closing frame is still frozen");
         app.world_mut().resource_mut::<Time<Virtual>>().unpause();
         assert_eq!(press(&mut app, KeyCode::ArrowUp), vec![handle(2).id()]);
         assert_eq!(press(&mut app, KeyCode::ArrowLeft), vec![handle(3).id()]);
@@ -1679,9 +1562,7 @@ mod tests {
 
     #[test]
     fn lit_brick_entry_reads() {
-        let e = read_entry(
-            r#"(file: "bricks/T.png", bevel: "brick_T_bevel", light: ((0.7106, 0.9034, 0.9118, 0.903), (0.2279, 0.2974, 0.5, 0.903)), light_angle: 280.0)"#,
-        );
+        let e = read_entry(r#"(file: "bricks/T.png", bevel: "brick_T_bevel", light: ((0.7106, 0.9034, 0.9118, 0.903), (0.2279, 0.2974, 0.5, 0.903)), light_angle: 280.0)"#);
         assert_eq!(e.bevel.as_deref(), Some("brick_T_bevel"));
         assert!(e.light.unwrap().get().is_some());
     }

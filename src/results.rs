@@ -6,10 +6,10 @@ use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::brick_material::BrickFlash;
-use crate::config::{GameConfig, ModeKind, curve, keyed};
-use crate::gameplay::{Brick, Match, Phase, Placed, Tower, TowerState, TowerStatus};
 use crate::letters::TextLook;
+use crate::brick_material::BrickFlash;
+use crate::config::{curve, keyed, GameConfig, ModeKind};
+use crate::gameplay::{Brick, Match, Phase, Placed, Tower, TowerState, TowerStatus};
 use crate::spells::Zapped;
 use crate::visuals::{FramedCamera, ViewSize};
 
@@ -207,14 +207,7 @@ fn spawn_match_text(
             Visibility::Hidden,
         ))
         .with_children(|parent| {
-            parent.spawn((
-                layer(
-                    Color::srgb_u8(r, g, b),
-                    size * look.shadow_drop,
-                    tone.back(),
-                ),
-                BackLayer,
-            ));
+            parent.spawn((layer(Color::srgb_u8(r, g, b), size * look.shadow_drop, tone.back()), BackLayer));
             parent.spawn(layer(color, 0.0, tone.front()));
         })
         .id()
@@ -288,17 +281,16 @@ fn start_moments(
     // Trials end on FINISH / FAILED instead (the original's CHALLENGE_FINISH_MESSAGE and
     // CHALLENGE_FAILED_MESSAGE; same size as WINNER! in Max's screenshots).
     // Endless runs end on FINISH too (SinglePlayerLeaderboardBaskController).
-    let (win_words, win_size, out_words, out_size) =
-        if config.trial.is_some() || game.mode.is_endless() {
-            ("FINISH", look.banner_size, "FAILED", look.banner_size)
-        } else {
-            (
-                "WINNER!",
-                look.banner_cells * cell_px,
-                "WIZARD OUT!",
-                look.out_cells * cell_px,
-            )
-        };
+    let (win_words, win_size, out_words, out_size) = if config.trial.is_some() || game.mode.is_endless() {
+        ("FINISH", look.banner_size, "FAILED", look.banner_size)
+    } else {
+        (
+            "WINNER!",
+            look.banner_cells * cell_px,
+            "WIZARD OUT!",
+            look.out_cells * cell_px,
+        )
+    };
     // A Puzzle battle's WINNER!, spotlight and veils wait for the count to reach the most
     // bricks (PuzzleGameBaskController._DoBaskEnd).
     if puzzle.counting() {
@@ -318,11 +310,7 @@ fn start_moments(
         let drew = puzzle.tied.contains(&entity);
         if (won || drew) && seen.1.insert((entity, true)) {
             let (words, size, tone) = if drew {
-                (
-                    "DRAW!",
-                    look.banner_cells * 40.0 / 32.75 * cell_px,
-                    Tone::Bronze,
-                )
+                ("DRAW!", look.banner_cells * 40.0 / 32.75 * cell_px, Tone::Bronze)
             } else {
                 (win_words, win_size, Tone::Gold)
             };
@@ -369,9 +357,7 @@ fn start_moments(
             );
             // Survival's world (World02) draws its beam as a plain sprite.
             if key != "survival" {
-                commands
-                    .entity(beam)
-                    .insert((OverlayBeam(None), crate::post::NeedsGrab));
+                commands.entity(beam).insert((OverlayBeam(None), crate::post::NeedsGrab));
             }
         }
         // Only Survival says WIZARD OUT! (its finish message); trials say FAILED.
@@ -380,14 +366,7 @@ fn start_moments(
             && seen.1.insert((entity, false))
         {
             let color = tone_color(&art, &images, Tone::Red);
-            let banner = spawn_match_text(
-                &mut commands,
-                &config,
-                out_words,
-                out_size,
-                color,
-                Tone::Red,
-            );
+            let banner = spawn_match_text(&mut commands, &config, out_words, out_size, color, Tone::Red);
             commands.entity(banner).insert(Banner {
                 tower: entity,
                 out: true,
@@ -490,23 +469,22 @@ fn spawn_light(
     } else {
         bevy::sprite::Anchor::BOTTOM_CENTER
     };
-    commands
-        .spawn((
-            Moment,
-            Light {
-                tower,
-                delay,
-                alpha,
-                time: 0.0,
-            },
-            sprite,
-            anchor,
-            // Winner/LoserHighlightBackground draw on their own background camera (depth 7):
-            // over the scenery, under the towers.
-            Transform::from_xyz(0.0, 0.0, -100.0),
-            strip,
-        ))
-        .id()
+    commands.spawn((
+        Moment,
+        Light {
+            tower,
+            delay,
+            alpha,
+            time: 0.0,
+        },
+        sprite,
+        anchor,
+        // Winner/LoserHighlightBackground draw on their own background camera (depth 7):
+        // over the scenery, under the towers.
+        Transform::from_xyz(0.0, 0.0, -100.0),
+        strip,
+    ))
+    .id()
 }
 
 #[allow(clippy::type_complexity)]
@@ -520,14 +498,7 @@ fn animate_lights(
     view: Res<ViewSize>,
     camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<Light>)>,
     towers: Query<&Tower>,
-    mut lights: Query<(
-        Entity,
-        &mut Light,
-        &Strip,
-        &mut Sprite,
-        &mut Transform,
-        Option<&mut OverlayBeam>,
-    )>,
+    mut lights: Query<(Entity, &mut Light, &Strip, &mut Sprite, &mut Transform, Option<&mut OverlayBeam>)>,
     mut quads: Query<&mut Transform, (Without<Light>, Without<crate::visuals::MainCamera>)>,
     grab: Option<Res<crate::post::GrabTarget>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
@@ -550,8 +521,7 @@ fn animate_lights(
         let mut drawn = false;
         if let Some(mut overlay) = overlay {
             if overlay.0.is_none()
-                && let (Some(grab), Some(meshes), Some(spots)) =
-                    (grab.as_ref(), meshes.as_mut(), spots.as_mut())
+                && let (Some(grab), Some(meshes), Some(spots)) = (grab.as_ref(), meshes.as_mut(), spots.as_mut())
             {
                 let spot = spots.add(crate::post::SpotOverlay {
                     colour: Vec4::new(1.0, 1.0, 1.0, 0.0),
@@ -639,9 +609,7 @@ fn animate_banners(
         };
     let view_top = eye.translation().y + half_view;
     let dt = time.delta_secs();
-    for (entity, mut banner, mut node, computed, mut transform, mut visibility, children) in
-        &mut banners
-    {
+    for (entity, mut banner, mut node, computed, mut transform, mut visibility, children) in &mut banners {
         banner.time += dt;
         let Ok((tower, state)) = towers.get(banner.tower) else {
             continue;
@@ -706,20 +674,14 @@ fn animate_banners(
         }
         // WIZARD OUT! fades in and out with its clips (both layers' font alpha).
         if banner.out {
-            let share = |t: f32, (from, to): (f32, f32)| {
-                ((t - from) / (to - from).max(0.001)).clamp(0.0, 1.0)
-            };
+            let share = |t: f32, (from, to): (f32, f32)| ((t - from) / (to - from).max(0.001)).clamp(0.0, 1.0);
             let alpha = match banner.leave {
                 Some(leave) => 1.0 - share(leave, look.out_fade_out),
                 None => share(t, look.out_fade_in),
             };
             for child in children.iter() {
                 if let Ok((mut letters, back)) = looks.get_mut(child) {
-                    let base = if back {
-                        Tone::Red.back()
-                    } else {
-                        Tone::Red.front()
-                    };
+                    let base = if back { Tone::Red.back() } else { Tone::Red.front() };
                     let want = faded(base, alpha);
                     if *letters != want {
                         *letters = want;
@@ -728,19 +690,15 @@ fn animate_banners(
             }
         }
         if banner.out {
-            if banner
-                .leave
-                .is_some_and(|l| l > look.out_leave.last().map_or(0.0, |k| k.0))
-            {
+            if banner.leave.is_some_and(|l| l > look.out_leave.last().map_or(0.0, |k| k.0)) {
                 commands.entity(entity).despawn();
             }
         } else {
             let moved_in = look.winner_in_x.last().map_or(0.0, |k| k.0);
             let ((x, y), at) = match look.winner_idle_x.last() {
-                Some(&(length, ..)) if t > moved_in && length > 0.0 => (
-                    (&look.winner_idle_x, &look.winner_idle_y),
-                    (t - moved_in) % length,
-                ),
+                Some(&(length, ..)) if t > moved_in && length > 0.0 => {
+                    ((&look.winner_idle_x, &look.winner_idle_y), (t - moved_in) % length)
+                }
                 _ => ((&look.winner_in_x, &look.winner_in_y), t),
             };
             transform.scale = Vec2::new(curve(x, at), curve(y, at));
@@ -822,8 +780,9 @@ fn show_puzzle_scores(
             Ok(Projection::Orthographic(o)) => o.scale.max(0.001),
             _ => 1.0,
         };
-    let battle =
-        game.mode == ModeKind::Puzzle && config.trial.is_none() && game.phase != Phase::Menu;
+    let battle = game.mode == ModeKind::Puzzle
+        && config.trial.is_none()
+        && game.phase != Phase::Menu;
     if !battle {
         *counted = None;
         clock.end = None;
@@ -860,12 +819,7 @@ fn show_puzzle_scores(
     match *counted {
         Some((_, t)) => {
             clock.since = t;
-            clock.end = Some(puzzle_count_end(
-                &counts,
-                rules.count_delay,
-                rules.count_step,
-                rules.count_pause,
-            ));
+            clock.end = Some(puzzle_count_end(&counts, rules.count_delay, rules.count_step, rules.count_pause));
         }
         None => clock.end = None,
     }
@@ -983,9 +937,7 @@ fn show_puzzle_scores(
                     tone,
                 );
                 // Over WINNER!'s sunrays, which would otherwise wash it out.
-                commands
-                    .entity(label)
-                    .insert((Visibility::Hidden, GlobalZIndex(21)));
+                commands.entity(label).insert((Visibility::Hidden, GlobalZIndex(21)));
                 labels.insert(entity, (key, label));
                 label
             }
@@ -1074,20 +1026,14 @@ fn place_puzzle_scores(
                 };
                 // Unity's +z turn is anticlockwise; Bevy's UI turns clockwise for positive angles.
                 transform.rotation = Rot2::degrees(-tip);
-                camera.world_to_viewport(
-                    eye,
-                    Vec3::new(tower.origin_x + lanes.shift(tower.index), y, 0.0),
-                )
+                camera.world_to_viewport(eye, Vec3::new(tower.origin_x + lanes.shift(tower.index), y, 0.0))
             }
             // The 3-2-1 over its own tower's top (CountDownEffect; measured on Max's Puzzle
             // clip, 7.6 cells over the top brick).
             None => {
                 transform.rotation = Rot2::IDENTITY;
                 let y = config.cells(state.height.max(0.0) + config.moments.countdown_above);
-                camera.world_to_viewport(
-                    eye,
-                    Vec3::new(tower.origin_x + lanes.shift(tower.index), y, 0.0),
-                )
+                camera.world_to_viewport(eye, Vec3::new(tower.origin_x + lanes.shift(tower.index), y, 0.0))
             }
         };
         let Ok(at) = at else {
@@ -1158,9 +1104,7 @@ fn show_hold_counts(
             commands.entity(entity).despawn();
             continue;
         };
-        let left = state
-            .count_left(&config)
-            .filter(|_| game.phase == Phase::Playing);
+        let left = state.count_left(&config).filter(|_| game.phase == Phase::Playing);
         let holding = left.is_some();
         let (lead, other) = config.race.countdown_above;
         let above = if leader == Some(count.0) { lead } else { other };
@@ -1208,11 +1152,7 @@ fn show_hold_counts(
         }
         node.display = Display::Grid;
         // Rank 2 counts are 36 against rank 1's 52.
-        let scale = if leader == Some(count.0) {
-            1.0
-        } else {
-            config.race.countdown_small
-        };
+        let scale = if leader == Some(count.0) { 1.0 } else { config.race.countdown_small };
         if let Some(mut transform) = transform
             && transform.scale != Vec2::splat(scale)
         {

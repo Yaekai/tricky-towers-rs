@@ -136,10 +136,7 @@ fn words(size: f32, text: String, look: TextLook, spacing: f32) -> impl Bundle {
     (
         Text::new(text.to_uppercase()),
         look,
-        TextFont {
-            font_size: FontSize::Vh(size / 10.8),
-            ..default()
-        },
+        TextFont { font_size: FontSize::Vh(size / 10.8), ..default() },
         TextColor(Color::WHITE),
         TextLayout::justify(Justify::Center),
         LetterSpacing(spacing),
@@ -181,94 +178,85 @@ fn spawn_help(
     }
     root.with_children(|root| {
         // The controls page: the keyboard panel in the middle.
-        root.spawn((
-            full(),
-            HelpPage(0),
-            Visibility::Hidden,
-            UiTransform::default(),
-        ))
-        .with_children(|page| {
-            crate::menu::spawn_controls_panel(
-                page,
-                art,
-                keys.as_deref().unwrap_or(&defaults),
-                Some((SCREEN.0 / 2.0, SCREEN.1 / 2.0)),
-            );
-        });
-        for (i, &(title, line, picture, mode)) in PAGES.iter().enumerate() {
-            root.spawn((
-                full(),
-                HelpPage(i + 1),
-                Visibility::Hidden,
-                UiTransform::default(),
-            ))
+        root.spawn((full(), HelpPage(0), Visibility::Hidden, UiTransform::default()))
             .with_children(|page| {
-                page.spawn(place((1600.0, 100.0), (0.0, 410.0)))
-                    .with_children(|t| {
-                        t.spawn(words(75.0, say(title), TextLook::GOLD_75, -2.0));
-                    });
-                page.spawn(place((1600.0, 50.0), (0.0, 333.5)))
-                    .with_children(|t| {
-                        t.spawn(words(26.0, say(line), TextLook::WHITE_32, -1.0));
-                    });
-                let mut pic = page.spawn(place(picture_size(picture), (0.0, PICTURE_Y)));
-                if let Some(art) = image(picture) {
-                    pic.insert(ImageNode::new(art));
-                }
-                // SurvivalExplanations' brick count over its picture.
-                if picture == "menu_mode_survivalsp" {
-                    page.spawn(place((50.0, 60.0), (-24.0, PICTURE_Y + 110.0)))
+                crate::menu::spawn_controls_panel(
+                    page,
+                    art,
+                    keys.as_deref().unwrap_or(&defaults),
+                    Some((SCREEN.0 / 2.0, SCREEN.1 / 2.0)),
+                );
+            });
+        for (i, &(title, line, picture, mode)) in PAGES.iter().enumerate() {
+            root.spawn((full(), HelpPage(i + 1), Visibility::Hidden, UiTransform::default()))
+                .with_children(|page| {
+                    page.spawn(place((1600.0, 100.0), (0.0, 410.0)))
                         .with_children(|t| {
-                            t.spawn(words(46.0, "66".into(), TextLook::GOLD, 0.0));
+                            t.spawn(words(75.0, say(title), TextLook::GOLD_75, -2.0));
                         });
-                }
-                let Some(mode) = mode else { return };
-                for (c, &(difficulty, art_name, size, x)) in COLUMNS.iter().enumerate() {
-                    let mut pic = page.spawn(place(size, (x, -235.0)));
-                    if let Some(art) = image(art_name) {
+                    page.spawn(place((1600.0, 50.0), (0.0, 333.5)))
+                        .with_children(|t| {
+                            t.spawn(words(26.0, say(line), TextLook::WHITE_32, -1.0));
+                        });
+                    let mut pic = page.spawn(place(picture_size(picture), (0.0, PICTURE_Y)));
+                    if let Some(art) = image(picture) {
                         pic.insert(ImageNode::new(art));
                     }
-                    let key = match difficulty {
-                        Difficulty::Easy => "DIFFICULTY_EASY",
-                        Difficulty::Normal => "DIFFICULTY_NORMAL",
-                        Difficulty::Pro => "DIFFICULTY_PRO",
-                    };
-                    let width = if c == 0 { 275.0 } else { 373.6 };
-                    page.spawn(place((width, 50.0), (x, -349.0)))
-                        .with_children(|t| {
-                            t.spawn(words(46.0, say(key), TextLook::DARK_THICK, 0.0));
-                        });
-                    if difficulty == Difficulty::Pro {
-                        let key = title.trim_start_matches("EXPLANATION_TITLE_");
-                        page.spawn(place((373.0, 50.0), (x, -391.0)))
+                    // SurvivalExplanations' brick count over its picture.
+                    if picture == "menu_mode_survivalsp" {
+                        page.spawn(place((50.0, 60.0), (-24.0, PICTURE_Y + 110.0)))
                             .with_children(|t| {
-                                t.spawn(words(
-                                    26.0,
-                                    say(&format!("EXPLANATION_{key}_PRO_SUBTITLE")),
-                                    TextLook::PINK_75,
-                                    -1.0,
-                                ));
+                                t.spawn(words(46.0, "66".into(), TextLook::GOLD, 0.0));
                             });
                     }
-                    let icons = crate::explain::slots(mode, difficulty);
-                    for (s, back) in ["spell_slot_light", "spell_slot_dark"].iter().enumerate() {
-                        let mut slot = page.spawn(place((55.0, 55.0), (SLOT_X[c][s], -450.0)));
-                        if let Some(art) = image(back) {
-                            slot.insert(ImageNode::new(art));
+                    let Some(mode) = mode else { return };
+                    for (c, &(difficulty, art_name, size, x)) in COLUMNS.iter().enumerate() {
+                        let mut pic = page.spawn(place(size, (x, -235.0)));
+                        if let Some(art) = image(art_name) {
+                            pic.insert(ImageNode::new(art));
                         }
-                        if let Some(icon) = icons[s].and_then(image) {
-                            slot.with_child((
-                                ImageNode::new(icon),
-                                Node {
-                                    width: Val::Percent(50.0 / 55.0 * 100.0),
-                                    height: Val::Percent(50.0 / 55.0 * 100.0),
-                                    ..default()
-                                },
-                            ));
+                        let key = match difficulty {
+                            Difficulty::Easy => "DIFFICULTY_EASY",
+                            Difficulty::Normal => "DIFFICULTY_NORMAL",
+                            Difficulty::Pro => "DIFFICULTY_PRO",
+                        };
+                        let width = if c == 0 { 275.0 } else { 373.6 };
+                        page.spawn(place((width, 50.0), (x, -349.0)))
+                            .with_children(|t| {
+                                t.spawn(words(46.0, say(key), TextLook::DARK_THICK, 0.0));
+                            });
+                        if difficulty == Difficulty::Pro {
+                            let key = title.trim_start_matches("EXPLANATION_TITLE_");
+                            page.spawn(place((373.0, 50.0), (x, -391.0)))
+                                .with_children(|t| {
+                                    t.spawn(words(
+                                        26.0,
+                                        say(&format!("EXPLANATION_{key}_PRO_SUBTITLE")),
+                                        TextLook::PINK_75,
+                                        -1.0,
+                                    ));
+                                });
+                        }
+                        let icons = crate::explain::slots(mode, difficulty);
+                        for (s, back) in ["spell_slot_light", "spell_slot_dark"].iter().enumerate()
+                        {
+                            let mut slot = page.spawn(place((55.0, 55.0), (SLOT_X[c][s], -450.0)));
+                            if let Some(art) = image(back) {
+                                slot.insert(ImageNode::new(art));
+                            }
+                            if let Some(icon) = icons[s].and_then(image) {
+                                slot.with_child((
+                                    ImageNode::new(icon),
+                                    Node {
+                                        width: Val::Percent(50.0 / 55.0 * 100.0),
+                                        height: Val::Percent(50.0 / 55.0 * 100.0),
+                                        ..default()
+                                    },
+                                ));
+                            }
                         }
                     }
-                }
-            });
+                });
         }
         // The page dots: every page's off dot, the current page's on dot over it.
         let on = image("page_dot_on").or_else(|| image("menu_pagination_active"));
@@ -290,10 +278,7 @@ fn spawn_help(
             let x = if right { ARROW_X } else { -ARROW_X };
             // ArrowsIdle: 300 to 310 px out.
             let side = if right { 1.0 } else { -1.0 };
-            let mut arrow = root.spawn((
-                place(ARROW, (x, 0.0)),
-                crate::select::ArrowBob(Vec2::new(side * 10.0, 0.0)),
-            ));
+            let mut arrow = root.spawn((place(ARROW, (x, 0.0)), crate::select::ArrowBob(Vec2::new(side * 10.0, 0.0))));
             if let Some(art) = image("menu_arrow") {
                 // The staged arrow points up; these point out sideways.
                 arrow.insert((
@@ -319,9 +304,7 @@ fn help_input(
     }
     let mut taps = read_taps(keys.as_deref(), &pads);
     // The mouse: a click on either arrow turns the page.
-    if mouse
-        .as_deref()
-        .is_some_and(|m| m.just_pressed(MouseButton::Left))
+    if mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left))
         && let Ok(window) = windows.single()
         && let Some(c) = window.cursor_position()
     {

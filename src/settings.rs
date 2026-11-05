@@ -19,8 +19,8 @@ use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
 use serde::{Deserialize, Serialize};
 
 use crate::art::Music;
-use crate::gameplay::{Match, Phase};
 use crate::letters::TextLook;
+use crate::gameplay::{Match, Phase};
 use crate::menu::{MenuScreen, ScreenTransition};
 use crate::select::{
     CORNER_SMALL, SCREEN, corners, label, label_with, place, read_taps, shown, sliced, spawn_page,
@@ -44,14 +44,7 @@ impl Plugin for SettingsPlugin {
             .add_systems(Startup, crate::keybinding::spawn_keybinding_popup)
             .add_systems(Update, crate::keybinding::show_keybinding_popup)
             .add_systems(Startup, spawn_settings_screen)
-            .add_systems(
-                Update,
-                (
-                    apply_settings,
-                    read_screen_modes,
-                    pause_sfx.after(crate::menu::MenuSystems),
-                ),
-            )
+            .add_systems(Update, (apply_settings, read_screen_modes, pause_sfx.after(crate::menu::MenuSystems)))
             // Before the audio output (which runs after transform propagation) picks
             // new sounds up.
             .add_systems(
@@ -420,7 +413,9 @@ fn row_y(index: usize) -> f32 {
 /// The settings row under a cursor (top-left origin) in a window `window` big.
 fn row_at(cursor: Vec2, window: Vec2, rows: usize) -> Option<usize> {
     let p = screen_point(cursor, window);
-    (0..rows).find(|&i| (p.x.abs() <= ROW.0 / 2.0) && ((p.y - row_y(i)).abs() <= ROW.1 / 2.0))
+    (0..rows).find(|&i| {
+        (p.x.abs() <= ROW.0 / 2.0) && ((p.y - row_y(i)).abs() <= ROW.1 / 2.0)
+    })
 }
 
 /// A cursor (top-left origin) in a window `window` big, on the 1920x1080 screen
@@ -489,7 +484,10 @@ pub(crate) enum SettingsPart {
     PageArrow(bool),
 }
 
-fn spawn_settings_screen(mut commands: Commands, art: Option<Res<crate::art::Art>>) {
+fn spawn_settings_screen(
+    mut commands: Commands,
+    art: Option<Res<crate::art::Art>>,
+) {
     let art = art.as_deref();
     let image = |name: &str| art.and_then(|a| a.image(name));
     let root = spawn_page(&mut commands, art, "SETTINGS");
@@ -563,18 +561,8 @@ fn spawn_row(
         });
         // Its Selected corners sit 10 px out from the button, as on the other rows.
         if let Some(corner) = image("menu_corner_small") {
-            let frame = (
-                APPLY_BUTTON.0 + 2.0 * CORNER_GAP,
-                APPLY_BUTTON.1 + 2.0 * CORNER_GAP,
-            );
-            corners(
-                page,
-                &corner,
-                frame,
-                (0.0, y),
-                CORNER_SMALL,
-                SettingsPart::Corner(p, i),
-            );
+            let frame = (APPLY_BUTTON.0 + 2.0 * CORNER_GAP, APPLY_BUTTON.1 + 2.0 * CORNER_GAP);
+            corners(page, &corner, frame, (0.0, y), CORNER_SMALL, SettingsPart::Corner(p, i));
         }
         return;
     }
@@ -587,10 +575,7 @@ fn spawn_row(
     }
     if let Some(icon) = row.icon().and_then(image) {
         // Each icon at its own prefab's size, centred in the 100 px box.
-        page.spawn((
-            ImageNode::new(icon),
-            place(row.icon_size(), (left + ICON.1, y + ICON.2)),
-        ));
+        page.spawn((ImageNode::new(icon), place(row.icon_size(), (left + ICON.1, y + ICON.2))));
     }
     let title_box = (ROW.0 - TITLE_X, ROW.1);
     page.spawn(Node {
@@ -600,11 +585,7 @@ fn spawn_row(
     .with_children(|t| {
         // Titles auto-size from 36 down to 24 px in their box: the row less 510 px beside a
         // slider or a choice, less 263.8 beside a toggle or alone (SettingsList*Item).
-        let free = if matches!(row.kind(), Kind::Slider | Kind::Choice) {
-            510.0
-        } else {
-            263.8
-        };
+        let free = if matches!(row.kind(), Kind::Slider | Kind::Choice) { 510.0 } else { 263.8 };
         t.spawn((
             label_with(TITLE_SIZE / SCREEN.1 * 100.0, row.title(), ROW_TEXT),
             crate::letters::AutoSize {
@@ -775,10 +756,7 @@ pub(crate) fn settings_input(
         && let Some(i) = crate::keybinding::row_at(screen_point(c, window.size()))
     {
         binds.selected = i;
-        if mouse
-            .as_deref()
-            .is_some_and(|m| m.just_pressed(MouseButton::Left))
-        {
+        if mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left)) {
             taps.key_pick = true;
         }
     }
@@ -1037,10 +1015,7 @@ fn apply_settings(
         // The resolution is in screen pixels (as Unity's Screen.SetResolution), whatever the
         // display's scaling.
         if !settings.fullscreen
-            && (
-                window.resolution.physical_width(),
-                window.resolution.physical_height(),
-            ) != (w, h)
+            && (window.resolution.physical_width(), window.resolution.physical_height()) != (w, h)
         {
             window.resolution.set_physical_resolution(w, h);
         }
@@ -1056,14 +1031,9 @@ fn read_screen_modes(
     if !settings.screen_modes.is_empty() {
         return;
     }
-    let Ok(monitor) = monitors.single() else {
-        return;
-    };
-    let mut modes: Vec<(u32, u32)> = monitor
-        .video_modes
-        .iter()
-        .map(|m| (m.physical_size.x, m.physical_size.y))
-        .collect();
+    let Ok(monitor) = monitors.single() else { return };
+    let mut modes: Vec<(u32, u32)> =
+        monitor.video_modes.iter().map(|m| (m.physical_size.x, m.physical_size.y)).collect();
     modes.sort_unstable();
     modes.dedup();
     if modes.is_empty() {
@@ -1105,12 +1075,7 @@ fn sfx_rules(
     }
     let held: Vec<AssetId<AudioSource>> = art
         .iter()
-        .flat_map(|a| {
-            ONE_AT_A_TIME
-                .iter()
-                .filter_map(|n| a.sounds.get(n))
-                .map(|h| h.id())
-        })
+        .flat_map(|a| ONE_AT_A_TIME.iter().filter_map(|n| a.sounds.get(n)).map(|h| h.id()))
         .collect();
     let playing: Vec<AssetId<AudioSource>> = sounds
         .iter()
@@ -1140,11 +1105,7 @@ fn pause_sfx(
     pause: Res<crate::menu::PauseMenu>,
     sinks: Query<
         (Entity, &AudioSink),
-        (
-            Without<Music>,
-            Without<crate::art::Stinger>,
-            Without<crate::art::Ambience>,
-        ),
+        (Without<Music>, Without<crate::art::Stinger>, Without<crate::art::Ambience>),
     >,
     mut held: Local<Option<Vec<Entity>>>,
 ) {
@@ -1174,11 +1135,8 @@ mod tests {
     #[test]
     fn a_sound_asked_for_twice_in_a_frame_plays_once_at_the_effects_volume() {
         let mut app = App::new();
-        app.insert_resource(Settings {
-            volume: 0.5,
-            ..default()
-        })
-        .add_systems(Update, sfx_rules);
+        app.insert_resource(Settings { volume: 0.5, ..default() })
+            .add_systems(Update, sfx_rules);
         let sound = || {
             (
                 AudioPlayer(Handle::<AudioSource>::default()),
@@ -1232,21 +1190,12 @@ mod tests {
     #[test]
     fn clicks_on_a_slider_step_or_set_the_nearest_tenth() {
         let left = value_x(BAR_INSET);
-        assert_eq!(
-            click_steps(Row::Effects, value_x(VALUE_ARROW_INSET), 0.5),
-            Some(-1)
-        );
-        assert_eq!(
-            click_steps(Row::Music, value_x(VALUE_WIDTH - VALUE_ARROW_INSET), 0.5),
-            Some(1)
-        );
+        assert_eq!(click_steps(Row::Effects, value_x(VALUE_ARROW_INSET), 0.5), Some(-1));
+        assert_eq!(click_steps(Row::Music, value_x(VALUE_WIDTH - VALUE_ARROW_INSET), 0.5), Some(1));
         assert_eq!(click_steps(Row::Effects, left + BAR.0 * 0.3, 1.0), Some(-7));
         assert_eq!(click_steps(Row::Effects, left + BAR.0, 0.2), Some(8));
         assert_eq!(click_steps(Row::Resolution, left + BAR.0 * 0.5, 0.0), None);
-        assert_eq!(
-            click_steps(Row::Fullscreen, value_x(VALUE_ARROW_INSET), 0.0),
-            None
-        );
+        assert_eq!(click_steps(Row::Fullscreen, value_x(VALUE_ARROW_INSET), 0.0), None);
     }
 
     #[test]

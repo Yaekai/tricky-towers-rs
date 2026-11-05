@@ -85,11 +85,7 @@ impl Stats {
     /// A drawn match (a Puzzle tie): counted as a game and a draw.
     pub fn add_draw(&mut self, mode: ModeKind, difficulty: Difficulty) {
         self.add(mode, difficulty, false);
-        if let Some(r) = self
-            .records
-            .iter_mut()
-            .find(|r| r.mode == mode && r.difficulty == difficulty)
-        {
+        if let Some(r) = self.records.iter_mut().find(|r| r.mode == mode && r.difficulty == difficulty) {
             r.draws += 1;
         }
     }
@@ -176,20 +172,12 @@ fn count_stats(
             }
         }
         for entity in unbubbled.read() {
-            if bricks.get(entity).is_ok_and(|b| {
-                towers
-                    .get(b.tower)
-                    .is_ok_and(|(t, _)| t.index == tower.index)
-            }) {
+            if bricks.get(entity).is_ok_and(|b| towers.get(b.tower).is_ok_and(|(t, _)| t.index == tower.index)) {
                 stats.bubbles_stomped += 1;
             }
         }
         let (round, count, on) = stats.waves;
-        let (count, mut on) = if round == game.round {
-            (count, on)
-        } else {
-            (0, false)
-        };
+        let (count, mut on) = if round == game.round { (count, on) } else { (0, false) };
         let mut count = count;
         let waving = state.wave_left > 0.0 || state.wave_bricks > 0;
         if waving && !on {
@@ -214,8 +202,7 @@ fn count_stats(
             // The fastest Race won on Normal (GoToRoof with levelId RACE_NORMAL).
             if won && game.mode == ModeKind::Race && difficulty == Difficulty::Normal {
                 let time = game.elapsed;
-                stats.fastest_normal_race =
-                    Some(stats.fastest_normal_race.map_or(time, |t| t.min(time)));
+                stats.fastest_normal_race = Some(stats.fastest_normal_race.map_or(time, |t| t.min(time)));
             }
             stats.save();
         }
@@ -340,17 +327,10 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
                     BackgroundColor(Color::NONE),
                 ));
             }
-            root.spawn(place(
-                (size.0, 60.0),
-                (left + size.0 / 2.0, PANEL_TOP + 9.0),
-            ))
-            .with_children(|t| {
-                t.spawn(crate::select::label_with(
-                    vh(46.0),
-                    title,
-                    crate::letters::TextLook::GOLD,
-                ));
-            });
+            root.spawn(place((size.0, 60.0), (left + size.0 / 2.0, PANEL_TOP + 9.0)))
+                .with_children(|t| {
+                    t.spawn(crate::select::label_with(vh(46.0), title, crate::letters::TextLook::GOLD));
+                });
         }
         // A 45 px strip with a name and values, as SubStatsItem / OtherStatsItem.
         let strip = |root: &mut ChildSpawnerCommands, left: f32, width: f32, y: f32| {
@@ -366,11 +346,7 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
             ("stats_icon_easy", (26.0, 25.0), inner + 262.0),
             ("stats_icon_normal", (41.0, 27.0), inner + 377.0),
             ("stats_icon_special", (52.0, 31.0), inner + 493.0),
-            (
-                "stats_icon_total",
-                (18.0, 20.0),
-                inner + width - 19.0 - 10.0,
-            ),
+            ("stats_icon_total", (18.0, 20.0), inner + width - 19.0 - 10.0),
         ] {
             let mut node = root.spawn(place(size, (x, PANEL_TOP - 97.0)));
             if let Some(art) = image(icon) {
@@ -385,22 +361,13 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
                 ..place((200.0, 50.0), (inner + 20.0 + 100.0, top - 25.0))
             })
             .with_children(|t| {
-                t.spawn(plain(
-                    vh(30.0),
-                    mode.name(),
-                    crate::letters::TextLook {
-                        face: Some(Color::BLACK),
-                        ..default()
-                    },
-                ));
+                t.spawn(plain(vh(30.0), mode.name(), crate::letters::TextLook {
+                    face: Some(Color::BLACK),
+                    ..default()
+                }));
             });
             let rows: &[(usize, &str)] = if *mode == ModeKind::Puzzle {
-                &[
-                    (0, "Games won"),
-                    (1, "Games draw"),
-                    (2, "Games lost"),
-                    (3, "Win-lose ratio"),
-                ]
+                &[(0, "Games won"), (1, "Games draw"), (2, "Games lost"), (3, "Win-lose ratio")]
             } else {
                 &[(0, "Games won"), (2, "Games lost"), (3, "Win-lose ratio")]
             };
@@ -427,11 +394,7 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
                 .enumerate()
                 {
                     root.spawn(Node {
-                        justify_content: if right {
-                            JustifyContent::FlexEnd
-                        } else {
-                            JustifyContent::Center
-                        },
+                        justify_content: if right { JustifyContent::FlexEnd } else { JustifyContent::Center },
                         align_items: AlignItems::Center,
                         ..place((w, 45.0), (inner + x + w / 2.0, y))
                     })
@@ -439,11 +402,7 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
                         // These count online matches only (LocalGameController.UpdateStats runs
                         // from the online game type), so with no online play they stay at 0, and
                         // "-" for the ratio with neither wins nor losses.
-                        t.spawn(plain(
-                            vh(26.0),
-                            if row == 3 { "-" } else { "0" },
-                            column_look(c),
-                        ));
+                        t.spawn(plain(vh(26.0), if row == 3 { "-" } else { "0" }, column_look(c)));
                     });
                 }
             }
@@ -458,25 +417,17 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
             ..place((180.0, 50.0), (inner + 20.0 + 90.0, top - 25.0))
         })
         .with_children(|t| {
-            t.spawn(plain(
-                vh(30.0),
-                "Online cups",
-                crate::letters::TextLook {
-                    face: Some(Color::BLACK),
-                    ..default()
-                },
-            ));
+            t.spawn(plain(vh(30.0), "Online cups", crate::letters::TextLook {
+                face: Some(Color::BLACK),
+                ..default()
+            }));
         });
         for (x, name) in [(-108.0, "Won"), (7.0, "Lost"), (122.0, "Ratio")] {
-            root.spawn(place((90.0, 50.0), (middle + x + 45.0, top - 25.0)))
-                .with_children(|t| {
-                    t.spawn(plain(vh(18.0), name, name_look));
-                });
+            root.spawn(place((90.0, 50.0), (middle + x + 45.0, top - 25.0))).with_children(|t| {
+                t.spawn(plain(vh(18.0), name, name_look));
+            });
         }
-        let mut icon = root.spawn(place(
-            (18.0, 20.0),
-            (inner + width - 19.0 - 10.0, top - 25.0),
-        ));
+        let mut icon = root.spawn(place((18.0, 20.0), (inner + width - 19.0 - 10.0, top - 25.0)));
         if let Some(art) = image("stats_icon_total") {
             icon.insert(ImageNode::new(art));
         }
@@ -493,20 +444,12 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
         .enumerate()
         {
             root.spawn(Node {
-                justify_content: if right {
-                    JustifyContent::FlexEnd
-                } else {
-                    JustifyContent::Center
-                },
+                justify_content: if right { JustifyContent::FlexEnd } else { JustifyContent::Center },
                 align_items: AlignItems::Center,
                 ..place((w, 45.0), (inner + x + w / 2.0, y))
             })
             .with_children(|t| {
-                t.spawn(plain(
-                    vh(26.0),
-                    words,
-                    column_look(if c == 2 { 3 } else { c }),
-                ));
+                t.spawn(plain(vh(26.0), words, column_look(if c == 2 { 3 } else { c })));
             });
         }
         // Other stats: StatsPopup's rows, in its order (the English of each STATS_ key).
@@ -538,10 +481,7 @@ fn spawn_stats_popup(mut commands: Commands, art: Option<Res<Art>>) {
             root.spawn(Node {
                 justify_content: JustifyContent::FlexEnd,
                 align_items: AlignItems::Center,
-                ..place(
-                    (width - 555.0, 45.0),
-                    (inner + 535.0 + (width - 555.0) / 2.0, y),
-                )
+                ..place((width - 555.0, 45.0), (inner + 535.0 + (width - 555.0) / 2.0, y))
             })
             .with_children(|t| {
                 t.spawn((crate::select::label_with(vh(26.0), "", value_look), part));
@@ -555,10 +495,7 @@ fn plain(size: f32, text: &str, look: crate::letters::TextLook) -> impl Bundle +
     (
         Text::new(text),
         look,
-        TextFont {
-            font_size: FontSize::Vh(size),
-            ..default()
-        },
+        TextFont { font_size: FontSize::Vh(size), ..default() },
         TextColor(Color::WHITE),
         TextLayout::justify(Justify::Center),
     )
@@ -595,17 +532,10 @@ fn show_stats_popup(
             StatText::TimePlayed => hours_minutes(stats.seconds_played),
             StatText::Medals => format!(
                 "{}/{}",
-                progress
-                    .as_ref()
-                    .map_or(0, |p| p.medals(&config.trial_tiers)),
+                progress.as_ref().map_or(0, |p| p.medals(&config.trial_tiers)),
                 config.trials.len() as u32 * config.trial_tiers.medals_per_trial
             ),
-            StatText::LocalMatches => stats
-                .records
-                .iter()
-                .map(|r| r.games)
-                .sum::<u32>()
-                .to_string(),
+            StatText::LocalMatches => stats.records.iter().map(|r| r.games).sum::<u32>().to_string(),
             StatText::Best(i) => board
                 .as_ref()
                 .and_then(|b| b.scores[i].first().copied())
@@ -616,14 +546,10 @@ fn show_stats_popup(
             // (SpellName); our curses don't combine yet, so those two stay unearned.
             StatText::SpellsUsed => format!("{}/19", stats.spells_used.len().min(17)),
             StatText::HighestWave => stats.highest_wave.to_string(),
-            StatText::FastestRace => {
-                stats
-                    .fastest_normal_race
-                    .map_or("--:--:--".to_string(), |t| {
-                        let cs = (t * 100.0).round() as u32;
-                        format!("{:02}:{:02}:{:02}", cs / 6000, cs / 100 % 60, cs % 100)
-                    })
-            }
+            StatText::FastestRace => stats.fastest_normal_race.map_or("--:--:--".to_string(), |t| {
+                let cs = (t * 100.0).round() as u32;
+                format!("{:02}:{:02}:{:02}", cs / 6000, cs / 100 % 60, cs % 100)
+            }),
         };
         if text.0 != words {
             text.0 = words;

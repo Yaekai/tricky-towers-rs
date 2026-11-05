@@ -7,8 +7,8 @@
 //! give none (docs/research/match-moments.md).
 
 use bevy::prelude::*;
-use bevy::ui::widget::NodeImageMode;
 use bevy::window::PrimaryWindow;
+use bevy::ui::widget::NodeImageMode;
 
 use crate::art::Art;
 use crate::config::{CupPanel, GameConfig};
@@ -25,11 +25,7 @@ impl Plugin for PopupPlugin {
             .add_systems(Startup, spawn_popup)
             .add_systems(
                 Update,
-                (
-                    time_popup,
-                    popup_input.run_if(screen_input_ready),
-                    show_popup,
-                )
+                (time_popup, popup_input.run_if(screen_input_ready), show_popup)
                     .chain()
                     .after(MenuSystems),
             );
@@ -173,22 +169,14 @@ const LOCAL_ITEMS_NEXT: [&str; 4] = ["Next match", "Rematch", "Select Mode", "Ma
 const MAX_ITEMS: usize = 4;
 
 /// The popup's items for this match.
-fn popup_items(
-    config: &GameConfig,
-    progress: Option<&TrialProgress>,
-    cup: &Cup,
-) -> &'static [&'static str] {
+fn popup_items(config: &GameConfig, progress: Option<&TrialProgress>, cup: &Cup) -> &'static [&'static str] {
     if let Some(trial) = config.trial {
         let beaten = config
             .trials
             .get(trial)
             .zip(progress)
             .is_some_and(|(t, p)| p.is_done(&t.name));
-        if beaten {
-            &TRIAL_ITEMS_NEXT
-        } else {
-            &TRIAL_ITEMS
-        }
+        if beaten { &TRIAL_ITEMS_NEXT } else { &TRIAL_ITEMS }
     } else if config.mode.is_endless() {
         &ENDLESS_ITEMS
     } else if cup.size.is_none() && cup.options.len() > 1 {
@@ -211,19 +199,13 @@ enum NextTrial {
 fn next_trial(config: &GameConfig, progress: &TrialProgress) -> NextTrial {
     let tiers = &config.trial_tiers;
     let medals = progress.medals(tiers);
-    let open = tiers
-        .tiers
-        .iter()
-        .filter(|(_, need)| medals >= *need)
-        .count();
+    let open = tiers.tiers.iter().filter(|(_, need)| medals >= *need).count();
     if open > crate::trials_menu::tiers_shown(progress, tiers) {
         return NextTrial::List;
     }
     match config.trial.map(|i| i + 1) {
         Some(next) if next == config.trials.len() => NextTrial::Credits,
-        Some(next) if next < config.trials.len() && tiers.is_open(next, medals) => {
-            NextTrial::Play(next)
-        }
+        Some(next) if next < config.trials.len() && tiers.is_open(next, medals) => NextTrial::Play(next),
         _ => NextTrial::List,
     }
 }
@@ -341,8 +323,7 @@ fn time_popup(
     popup.clock += time.delta_secs();
     // A Puzzle battle's popup waits for its count and the end timer after it.
     let counted = puzzle.as_ref().is_none_or(|p| {
-        p.end
-            .is_none_or(|end| p.since >= end + config.puzzle.count_end_wait)
+        p.end.is_none_or(|end| p.since >= end + config.puzzle.count_end_wait)
     });
     if !popup.shown
         && counted
@@ -413,9 +394,7 @@ fn popup_input(
         }
         *last_cursor = cursor;
         if let Some(i) = over
-            && mouse
-                .as_deref()
-                .is_some_and(|m| m.just_pressed(MouseButton::Left))
+            && mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left))
         {
             popup.selected = i;
             pick = true;
@@ -444,15 +423,9 @@ fn popup_input(
         // SingleLocalMatchFlowController._HandleNext: another of the picked pairs at random.
         "Next match" if cup.size.is_none() => {
             let current = cup.current;
-            let others: Vec<_> = cup
-                .options
-                .iter()
-                .copied()
-                .filter(|o| Some(*o) != current)
-                .collect();
+            let others: Vec<_> = cup.options.iter().copied().filter(|o| Some(*o) != current).collect();
             if !others.is_empty() {
-                let (mode, difficulty) =
-                    others[time.elapsed().as_nanos() as usize / 1000 % others.len()];
+                let (mode, difficulty) = others[time.elapsed().as_nanos() as usize / 1000 % others.len()];
                 config.mode = mode;
                 config.difficulty = Some(difficulty);
                 cup.current = Some((mode, difficulty));
@@ -461,10 +434,7 @@ fn popup_input(
             transition.play(false);
         }
         "Next" => {
-            match progress
-                .as_deref()
-                .map_or(NextTrial::List, |p| next_trial(&config, p))
-            {
+            match progress.as_deref().map_or(NextTrial::List, |p| next_trial(&config, p)) {
                 NextTrial::Play(next) => {
                     config.trial = Some(next);
                     config.difficulty = Some(crate::config::Difficulty::Normal);
@@ -528,12 +498,7 @@ fn show_popup(
     cup: Res<crate::cups::Cup>,
     art: Option<Res<Art>>,
     progress: Option<Res<TrialProgress>>,
-    mut texts: Query<(
-        &PopupWords,
-        &mut Text,
-        &mut TextColor,
-        &mut crate::letters::TextLook,
-    )>,
+    mut texts: Query<(&PopupWords, &mut Text, &mut TextColor, &mut crate::letters::TextLook)>,
 ) {
     let items = popup_items(&config, progress.as_deref(), &cup);
     for (item, mut text, mut color, mut look) in &mut texts {
@@ -560,8 +525,9 @@ fn show_popup(
     };
     let eased = 1.0 - (1.0 - t) * (1.0 - t);
     let bottom = px(-(height(items.len()) + SPILL.1) * (1.0 - eased));
-    let visible =
-        popup.shown && !popup.panel_up(&cup, &config.cup_panel) && popup.winner_since().is_none();
+    let visible = popup.shown
+        && !popup.panel_up(&cup, &config.cup_panel)
+        && popup.winner_since().is_none();
     for (mut v, mut node) in &mut root {
         v.set_if_neq(if visible {
             Visibility::Inherited
@@ -630,16 +596,9 @@ mod tests {
         let mut progress = TrialProgress::default();
         config.trial = Some(0);
         let cup = Cup::default();
-        assert_eq!(
-            popup_items(&config, Some(&progress), &cup),
-            &TRIAL_ITEMS[..],
-            "no Next before a win"
-        );
+        assert_eq!(popup_items(&config, Some(&progress), &cup), &TRIAL_ITEMS[..], "no Next before a win");
         progress.done.push(config.trials[0].name.clone());
-        assert_eq!(
-            popup_items(&config, Some(&progress), &cup),
-            &TRIAL_ITEMS_NEXT[..]
-        );
+        assert_eq!(popup_items(&config, Some(&progress), &cup), &TRIAL_ITEMS_NEXT[..]);
         assert_eq!(next_trial(&config, &progress), NextTrial::Play(1));
         // The tenth medal of the first tier opens the second: the list plays its unlock.
         config.trial = Some(9);
@@ -658,10 +617,7 @@ mod tests {
         let config = GameConfig::default();
         let mut cup = Cup::default();
         assert_eq!(popup_items(&config, None, &cup), &POPUP_ITEMS[..]);
-        cup.options = vec![
-            (ModeKind::Race, Difficulty::Easy),
-            (ModeKind::Puzzle, Difficulty::Easy),
-        ];
+        cup.options = vec![(ModeKind::Race, Difficulty::Easy), (ModeKind::Puzzle, Difficulty::Easy)];
         assert_eq!(popup_items(&config, None, &cup), &LOCAL_ITEMS_NEXT[..]);
     }
 }

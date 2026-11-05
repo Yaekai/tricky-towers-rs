@@ -67,14 +67,7 @@ impl Plugin for OffscreenPlugin {
 fn aim_cameras(
     mut commands: Commands,
     shots: Res<Shots>,
-    cameras: Query<
-        (
-            Entity,
-            Option<&RenderTarget>,
-            Has<crate::visuals::MainCamera>,
-        ),
-        With<Camera>,
-    >,
+    cameras: Query<(Entity, Option<&RenderTarget>, Has<crate::visuals::MainCamera>), With<Camera>>,
 ) {
     for (entity, target, main) in &cameras {
         if !matches!(target, Some(RenderTarget::Image(_))) {
@@ -145,32 +138,17 @@ mod tests {
             .init_resource::<Time<Virtual>>()
             .init_resource::<Match>()
             .insert_resource(Shots {
-                dir: PathBuf::new(),
-                times: vec![],
-                taken: 0,
-                target: Handle::default(),
-                elapsed: 0.0,
-                scripted: false,
+                dir: PathBuf::new(), times: vec![], taken: 0,
+                target: Handle::default(), elapsed: 0.0, scripted: false,
             })
             .add_systems(Update, take_shots);
         app.world_mut().resource_mut::<Time<Virtual>>().pause();
         let mut exits = MessageCursor::<AppExit>::default();
         app.update();
-        assert_eq!(
-            exits
-                .read(app.world().resource::<Messages<AppExit>>())
-                .count(),
-            0
-        );
-        app.world_mut()
-            .resource_mut::<Time<Real>>()
-            .advance_by(std::time::Duration::from_secs_f32(2.1));
+        assert_eq!(exits.read(app.world().resource::<Messages<AppExit>>()).count(), 0);
+        app.world_mut().resource_mut::<Time<Real>>().advance_by(std::time::Duration::from_secs_f32(2.1));
         app.update();
-        assert!(
-            exits
-                .read(app.world().resource::<Messages<AppExit>>())
-                .any(|exit| *exit == AppExit::Success)
-        );
+        assert!(exits.read(app.world().resource::<Messages<AppExit>>()).any(|exit| *exit == AppExit::Success));
         assert_eq!(app.world().resource::<Time>().elapsed_secs(), 0.0);
     }
 }

@@ -17,10 +17,7 @@ impl Plugin for OnlineLobbyPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<OnlineLobby>()
             .add_systems(Startup, (spawn_lobby, spawn_invite))
-            .add_systems(
-                Update,
-                (show_lobby, show_invite).after(crate::menu::MenuSystems),
-            );
+            .add_systems(Update, (show_lobby, show_invite).after(crate::menu::MenuSystems));
     }
 }
 
@@ -224,12 +221,11 @@ fn spawn_invite(mut commands: Commands, art: Option<Res<Art>>) {
         ));
     }
     root.with_children(|r| {
-        r.spawn(place((SCREEN.0, 46.0), (0.0, 0.0)))
-            .with_child(label_with(
-                46.0 / 10.8,
-                "Accepting Invite...",
-                crate::letters::TextLook::TITLE,
-            ));
+        r.spawn(place((SCREEN.0, 46.0), (0.0, 0.0))).with_child(label_with(
+            46.0 / 10.8,
+            "Accepting Invite...",
+            crate::letters::TextLook::TITLE,
+        ));
         if let Some(brick) = image("next_brick_default_J") {
             r.spawn((
                 ImageNode::new(brick),

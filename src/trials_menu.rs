@@ -115,13 +115,7 @@ pub struct TrialsMenu {
 /// ItemCompleted: the medal's scale keys (straight between them) and its fade in; at
 /// SPAWN_STARS the heavy landing and SFX_WINNER (0.15 s late) sound, and at
 /// SHOW_MEDAL_COMPLETE (1 s) it is done.
-const MEDAL_POP: [(f32, f32); 5] = [
-    (0.0, 0.5),
-    (0.1, 2.0),
-    (0.2, 2.0),
-    (0.333, 0.95),
-    (0.367, 1.0),
-];
+const MEDAL_POP: [(f32, f32); 5] = [(0.0, 0.5), (0.1, 2.0), (0.2, 2.0), (0.333, 0.95), (0.367, 1.0)];
 const MEDAL_FADE: f32 = 0.1;
 const MEDAL_STARS: f32 = 0.333;
 const MEDAL_DONE: f32 = 1.0;
@@ -334,24 +328,24 @@ pub(crate) fn spawn_trials_screen(
             if let Some(medal) = image("medal_large") {
                 root.spawn((ImageNode::new(medal), place(INFO_MEDAL.0, INFO_MEDAL.1)));
             }
-            root.spawn(place(INFO_TITLE.0, INFO_TITLE.1))
-                .with_children(|t| {
-                    t.spawn((
-                        label_with(vh(26.0), "MEDALS:", crate::letters::TextLook::OUTLINED),
-                        crate::letters::LetterSpacing(-1.0),
-                    ));
-                });
-            root.spawn(place(INFO_COUNT.0, INFO_COUNT.1))
-                .with_children(|t| {
-                    t.spawn((
-                        label_with(vh(46.0), "", crate::letters::TextLook::GOLD),
-                        TrialPart::MedalCount,
-                    ));
-                });
+            root.spawn(place(INFO_TITLE.0, INFO_TITLE.1)).with_children(|t| {
+                t.spawn((
+                    label_with(vh(26.0), "MEDALS:", crate::letters::TextLook::OUTLINED),
+                    crate::letters::LetterSpacing(-1.0),
+                ));
+            });
+            root.spawn(place(INFO_COUNT.0, INFO_COUNT.1)).with_children(|t| {
+                t.spawn((
+                    label_with(vh(46.0), "", crate::letters::TextLook::GOLD),
+                    TrialPart::MedalCount,
+                ));
+            });
             for right in [false, true] {
                 let x = if right { PAGE_ARROW.1 } else { -PAGE_ARROW.1 };
-                let mut arrow =
-                    root.spawn((place(PAGE_ARROW.0, (x, 0.0)), TrialPart::PageArrow(right)));
+                let mut arrow = root.spawn((
+                    place(PAGE_ARROW.0, (x, 0.0)),
+                    TrialPart::PageArrow(right),
+                ));
                 match image("menu_arrow") {
                     Some(art) => {
                         // The staged arrow points up; the original's point out sideways.
@@ -409,10 +403,7 @@ fn button_parts(
     // Each background prefab sits on the element's centre by its own pivot.
     let pivot = button_pivot(picture);
     let mut button = page.spawn((
-        place(
-            size,
-            (x + (0.5 - pivot.0) * size.0, y + (0.5 - pivot.1) * size.1),
-        ),
+        place(size, (x + (0.5 - pivot.0) * size.0, y + (0.5 - pivot.1) * size.1)),
         BackgroundColor(Color::srgba(0.3, 0.24, 0.55, 0.8)),
     ));
     if let Some(art) = image(picture) {
@@ -513,15 +504,11 @@ fn spawn_locked(
                 },
             ))
             .with_children(|t| {
-                t.spawn(label_with(
-                    vh(60.0),
-                    "LOCKED",
-                    crate::letters::TextLook::PINK_60,
-                ))
-                .insert((
-                    TextLayout::justify(Justify::Left),
-                    crate::letters::LetterSpacing(-1.0),
-                ));
+                t.spawn(label_with(vh(60.0), "LOCKED", crate::letters::TextLook::PINK_60))
+                    .insert((
+                        TextLayout::justify(Justify::Left),
+                        crate::letters::LetterSpacing(-1.0),
+                    ));
             });
             page.spawn(Node {
                 justify_content: JustifyContent::FlexEnd,
@@ -639,9 +626,7 @@ pub(crate) fn trials_input(
         });
         if let Some(i) = hit {
             menu.selected = base + i;
-            clicked = mouse
-                .as_deref()
-                .is_some_and(|m| m.just_pressed(MouseButton::Left));
+            clicked = mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left));
         }
     }
     if clicked || taps.key_pick || !taps.pad_pick.is_empty() {
@@ -745,10 +730,7 @@ pub(crate) fn show_trials_screen(
         let before = *t;
         *t += time.delta_secs();
         // AnimateLevelCompleteEffect rumbles 150/150 while the medal pops in.
-        if before <= 0.0
-            && *t > 0.0
-            && let Some(rumble) = rumble.as_mut()
-        {
+        if before <= 0.0 && *t > 0.0 && let Some(rumble) = rumble.as_mut() {
             let strength = 150.0 / 255.0;
             for gamepad in &pads {
                 rumble.write(bevy::input::gamepad::GamepadRumbleRequest::Add {
@@ -770,9 +752,10 @@ pub(crate) fn show_trials_screen(
             }
             // SPAWN_STARS: six pink stars burst from the medal (its SpawnStars, a unit 108
             // reference pixels on the 1080-tall screen).
-            let unit = screen_size.iter().next().map_or(108.0, |n| {
-                108.0 * n.size().y * n.inverse_scale_factor() / SCREEN.1
-            });
+            let unit = screen_size
+                .iter()
+                .next()
+                .map_or(108.0, |n| 108.0 * n.size().y * n.inverse_scale_factor() / SCREEN.1);
             let pink = Color::srgb_u8(255, 38, 188);
             let burst = crate::particles::UiBurst {
                 count: 6,
@@ -816,10 +799,7 @@ pub(crate) fn show_trials_screen(
         menu.face.1 += time.delta_secs();
     }
     for (face, mut node) in &mut faces {
-        let beaten = config
-            .trials
-            .get(face.0)
-            .is_some_and(|t| progress.is_done(&t.name));
+        let beaten = config.trials.get(face.0).is_some_and(|t| progress.is_done(&t.name));
         let rise = if beaten || face.0 != menu.face.0 {
             0.0
         } else {
@@ -906,10 +886,7 @@ pub(crate) fn show_trials_screen(
             },
             TrialPart::Corner(i) | TrialPart::Face(i) => i == menu.selected,
             TrialPart::Medal(i) => {
-                config
-                    .trials
-                    .get(i)
-                    .is_some_and(|t| progress.is_done(&t.name))
+                config.trials.get(i).is_some_and(|t| progress.is_done(&t.name))
                     && popping(i).is_none_or(|t| t >= 0.0)
             }
             TrialPart::PageArrow(right) => {

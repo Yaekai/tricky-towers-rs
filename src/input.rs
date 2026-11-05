@@ -63,26 +63,16 @@ fn player_for_slot(players: usize, slot: usize) -> usize {
 
 /// The people seated on Select Players, in player order, when they are the match's
 /// players (a local battle); None otherwise (single player, scripted matches).
-fn seated(
-    lobby: Option<&crate::select::Lobby>,
-    players: usize,
-) -> Option<Vec<crate::select::Seat>> {
+fn seated(lobby: Option<&crate::select::Lobby>, players: usize) -> Option<Vec<crate::select::Seat>> {
     let humans: Vec<_> = lobby?.seats.iter().copied().filter(|s| s.human()).collect();
     (players > 1 && humans.len() == players).then_some(humans)
 }
 
 /// The player a pad drives: its seat's player in a local battle (none if it didn't
 /// join), else by connection order.
-fn pad_player(
-    seats: Option<&[crate::select::Seat]>,
-    players: usize,
-    slot: usize,
-    pad: Entity,
-) -> Option<usize> {
+fn pad_player(seats: Option<&[crate::select::Seat]>, players: usize, slot: usize, pad: Entity) -> Option<usize> {
     match seats {
-        Some(seats) => seats
-            .iter()
-            .position(|s| *s == crate::select::Seat::Pad(pad)),
+        Some(seats) => seats.iter().position(|s| *s == crate::select::Seat::Pad(pad)),
         None => Some(player_for_slot(players, slot)),
     }
 }
@@ -121,11 +111,7 @@ fn rumble_losers(
             .map(|t| (t.index, look.roof_rumble, true)),
     );
     for (index, seconds, both) in wants {
-        let Some(player) = towers
-            .iter()
-            .find(|t| t.index == index)
-            .and_then(|t| t.player)
-        else {
+        let Some(player) = towers.iter().find(|t| t.index == index).and_then(|t| t.player) else {
             continue;
         };
         let pad = (0..pads.len())
@@ -136,10 +122,7 @@ fn rumble_losers(
             rumble.write(GamepadRumbleRequest::Add {
                 duration: std::time::Duration::from_secs_f32(seconds),
                 intensity: if both {
-                    GamepadRumbleIntensity {
-                        strong_motor: strength,
-                        weak_motor: strength,
-                    }
+                    GamepadRumbleIntensity { strong_motor: strength, weak_motor: strength }
                 } else {
                     GamepadRumbleIntensity::strong_motor(strength)
                 },
@@ -202,27 +185,12 @@ fn rumble_large_bricks(
     let big = GamepadRumbleIntensity::strong_motor(strength);
     for (tower, state) in &towers {
         // Steered and grown: a short buzz each frame keeps it going.
-        if state
-            .active
-            .and_then(|e| bricks.get(e).ok())
-            .is_some_and(|b| b.scale > 1.0)
-        {
+        if state.active.and_then(|e| bricks.get(e).ok()).is_some_and(|b| b.scale > 1.0) {
             buzz(tower, 0.05, big);
         }
         // A dark cast hanging the brick: both motors at half (DependantControllerRumbleEffect).
-        if state
-            .active
-            .and_then(|e| held.get(e).ok())
-            .is_some_and(|c| c.hold_rumble > 0.0)
-        {
-            buzz(
-                tower,
-                0.05,
-                GamepadRumbleIntensity {
-                    strong_motor: 0.5,
-                    weak_motor: 0.5,
-                },
-            );
+        if state.active.and_then(|e| held.get(e).ok()).is_some_and(|c| c.hold_rumble > 0.0) {
+            buzz(tower, 0.05, GamepadRumbleIntensity { strong_motor: 0.5, weak_motor: 0.5 });
         }
     }
     for brick in &placed {
@@ -265,10 +233,7 @@ fn read_keyboard(
     // In a local battle the keyboard drives the player whose seat it took.
     let players = towers.iter().filter(|(t, _)| t.human).count();
     let player = match seated(lobby.as_deref(), players) {
-        Some(seats) => match seats
-            .iter()
-            .position(|s| *s == crate::select::Seat::Keyboard)
-        {
+        Some(seats) => match seats.iter().position(|s| *s == crate::select::Seat::Keyboard) {
             Some(p) => p,
             None => return,
         },
@@ -278,10 +243,7 @@ fn read_keyboard(
     if keys.any_just_pressed(RESTART) {
         request.pending = true;
     }
-    let Some((_, mut input)) = towers
-        .iter_mut()
-        .find(|(tower, _)| tower.player == Some(player))
-    else {
+    let Some((_, mut input)) = towers.iter_mut().find(|(tower, _)| tower.player == Some(player)) else {
         return;
     };
     let key = |action| bindings.key(action);

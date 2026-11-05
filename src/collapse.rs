@@ -171,9 +171,7 @@ fn run_collapse(
                     // A sensor adds no mass, so the body keeps the mass it had (avian
                     // warns about massless bodies and they can turn to NaN).
                     if let Ok((mass, inertia)) = masses.get(brick) {
-                        commands
-                            .entity(brick)
-                            .insert((Mass(mass.value()), AngularInertia(inertia.value())));
+                        commands.entity(brick).insert((Mass(mass.value()), AngularInertia(inertia.value())));
                     }
                 }
                 let every = if state.status == TowerStatus::Out {

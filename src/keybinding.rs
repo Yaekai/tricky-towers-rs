@@ -303,11 +303,7 @@ const BUTTON_SLICE: [f32; 4] = [18.0, 71.0, 15.0, 16.0];
 /// The middle of row `i` (Reset's background for the last).
 fn row_y(i: usize) -> f32 {
     let top = CONTENT_Y + CONTENT.1 / 2.0 - ROW_STEP * i as f32;
-    if i < Action::ALL.len() {
-        top - ROW.1 / 2.0
-    } else {
-        top - RESET.1 / 2.0
-    }
+    if i < Action::ALL.len() { top - ROW.1 / 2.0 } else { top - RESET.1 / 2.0 }
 }
 
 /// The list's row under a point (screen centre origin, y up): an action or Reset (the last).
@@ -369,13 +365,10 @@ pub(crate) fn spawn_keybinding_popup(mut commands: Commands, art: Option<Res<Art
         .with_children(|t| {
             t.spawn(label_with(vh(HEAD_SIZE), "Action", ENZO_WHITE));
         });
-        page.spawn(place(
-            (KEY_BOX.0, 50.0),
-            (CONTENT.0 / 2.0 - KEY_RIGHT - KEY_BOX.0 / 2.0, head_y),
-        ))
-        .with_children(|t| {
-            t.spawn(label_with(vh(HEAD_SIZE), "Key", ENZO_WHITE));
-        });
+        page.spawn(place((KEY_BOX.0, 50.0), (CONTENT.0 / 2.0 - KEY_RIGHT - KEY_BOX.0 / 2.0, head_y)))
+            .with_children(|t| {
+                t.spawn(label_with(vh(HEAD_SIZE), "Key", ENZO_WHITE));
+            });
         for i in 0..ROWS {
             let y = row_y(i);
             let reset = i == Action::ALL.len();
@@ -414,17 +407,11 @@ pub(crate) fn spawn_keybinding_popup(mut commands: Commands, art: Option<Res<Art
                     edit.insert((sliced(back, [12.0; 4]), BackgroundColor(Color::NONE)));
                 }
                 edit.with_children(|b| {
-                    b.spawn((
-                        label_with(vh(KEY_EDIT_SIZE), "", ENZO_WHITE),
-                        BindPart::EditKey(i),
-                    ));
+                    b.spawn((label_with(vh(KEY_EDIT_SIZE), "", ENZO_WHITE), BindPart::EditKey(i)));
                 });
             }
             // ItemHighlight: corner centres 10 px out from the item's corners.
-            let frame = (
-                size.0 + 2.0 * CORNER_GAP + CORNER_SMALL.0,
-                size.1 + 2.0 * CORNER_GAP + CORNER_SMALL.1,
-            );
+            let frame = (size.0 + 2.0 * CORNER_GAP + CORNER_SMALL.0, size.1 + 2.0 * CORNER_GAP + CORNER_SMALL.1);
             match image("menu_corner_small") {
                 Some(corner) => {
                     corners(
@@ -540,9 +527,9 @@ pub(crate) fn show_keybinding_popup(
             _ => continue,
         };
         let words = if shows {
-            Action::ALL.get(i).map_or(String::new(), |a| {
-                cap_name(key_name(bindings.key(*a))).to_string()
-            })
+            Action::ALL
+                .get(i)
+                .map_or(String::new(), |a| cap_name(key_name(bindings.key(*a))).to_string())
         } else {
             String::new()
         };

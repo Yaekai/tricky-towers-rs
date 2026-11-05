@@ -88,30 +88,21 @@ fn decoration_look(
     if sprite.texture_atlas.is_some() || !matches!(sprite.image_mode, SpriteImageMode::Auto) {
         return None;
     }
-    let rect = sprite
-        .rect
-        .unwrap_or(Rect::from_corners(Vec2::ZERO, image_size));
+    let rect = sprite.rect.unwrap_or(Rect::from_corners(Vec2::ZERO, image_size));
     let size = sprite.custom_size.unwrap_or(rect.size());
     if size.min_element() <= 0.0 || rect.size().min_element() <= 0.0 {
         return None;
     }
     let lo = rect.min / image_size;
     let hi = rect.max / image_size;
-    let uv_min = Vec2::new(
-        if sprite.flip_x { hi.x } else { lo.x },
-        if sprite.flip_y { hi.y } else { lo.y },
-    );
-    let uv_max = Vec2::new(
-        if sprite.flip_x { lo.x } else { hi.x },
-        if sprite.flip_y { lo.y } else { hi.y },
-    );
+    let uv_min = Vec2::new(if sprite.flip_x { hi.x } else { lo.x }, if sprite.flip_y { hi.y } else { lo.y });
+    let uv_max = Vec2::new(if sprite.flip_x { lo.x } else { hi.x }, if sprite.flip_y { lo.y } else { hi.y });
     let look = DecorationLook {
         clip,
         tint: Vec4::from_array(sprite.color.to_linear().to_f32_array()),
         uv: Vec4::new(uv_min.x, uv_min.y, uv_max.x - uv_min.x, uv_max.y - uv_min.y),
     };
-    let transform =
-        Transform::from_translation((-anchor * size).extend(0.0)).with_scale(size.extend(1.0));
+    let transform = Transform::from_translation((-anchor * size).extend(0.0)).with_scale(size.extend(1.0));
     Some((transform, look))
 }
 
@@ -121,14 +112,7 @@ fn clip_decorations(
     config: Res<crate::config::GameConfig>,
     game: Res<crate::gameplay::Match>,
     towers: Query<&crate::gameplay::Tower>,
-    sprites: Query<(
-        Entity,
-        &Sprite,
-        &bevy::sprite::Anchor,
-        &LaneDecoration,
-        Option<&DecorationQuad>,
-        Option<&RenderLayers>,
-    )>,
+    sprites: Query<(Entity, &Sprite, &bevy::sprite::Anchor, &LaneDecoration, Option<&DecorationQuad>, Option<&RenderLayers>)>,
     mut quads: Query<(&mut Transform, &MeshMaterial2d<ClippedDecoration>), Without<LaneDecoration>>,
     images: Res<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -138,33 +122,22 @@ fn clip_decorations(
     let puzzle = game.mode.rules() == crate::config::ModeKind::Puzzle;
     let half = fixed_lane_half(&config, puzzle, towers.iter().count());
     for (entity, sprite, anchor, owner, quad, layers) in &sprites {
-        let current = half
-            .zip(towers.get(owner.0).ok())
-            .and_then(|(half, tower)| {
-                let origin = tower.origin_x;
-                let clip = Vec4::new(origin - half, origin + half, 0.0, 0.0);
-                decoration_look(
-                    sprite,
-                    anchor.0,
-                    images.get(&sprite.image)?.size_f32(),
-                    clip,
-                )
-            });
+        let current = half.zip(towers.get(owner.0).ok()).and_then(|(half, tower)| {
+            let origin = tower.origin_x;
+            let clip = Vec4::new(origin - half, origin + half, 0.0, 0.0);
+            decoration_look(sprite, anchor.0, images.get(&sprite.image)?.size_f32(), clip)
+        });
         let Some((transform, look)) = current else {
             if let Some(quad) = quad {
                 commands.entity(quad.0).despawn();
-                commands
-                    .entity(entity)
-                    .remove::<(DecorationQuad, RenderLayers)>();
+                commands.entity(entity).remove::<(DecorationQuad, RenderLayers)>();
             }
             continue;
         };
         if let Some(quad) = quad {
             if let Ok((mut place, material)) = quads.get_mut(quad.0) {
                 place.set_if_neq(transform);
-                if materials
-                    .get(&material.0)
-                    .is_some_and(|m| m.look != look || m.picture != sprite.image)
+                if materials.get(&material.0).is_some_and(|m| m.look != look || m.picture != sprite.image)
                     && let Some(mut m) = materials.get_mut(&material.0)
                 {
                     m.look = look;
@@ -173,24 +146,10 @@ fn clip_decorations(
             }
         } else if layers.is_none() {
             // Keep the source sprite for animation and tint. The quad inherits its transform and visibility.
-            let mesh = unit
-                .get_or_insert_with(|| meshes.add(Rectangle::new(1.0, 1.0)))
-                .clone();
-            let material = materials.add(ClippedDecoration {
-                look,
-                picture: sprite.image.clone(),
-            });
-            let quad = commands
-                .spawn((
-                    Mesh2d(mesh),
-                    MeshMaterial2d(material),
-                    transform,
-                    ChildOf(entity),
-                ))
-                .id();
-            commands
-                .entity(entity)
-                .insert((DecorationQuad(quad), RenderLayers::none()));
+            let mesh = unit.get_or_insert_with(|| meshes.add(Rectangle::new(1.0, 1.0))).clone();
+            let material = materials.add(ClippedDecoration { look, picture: sprite.image.clone() });
+            let quad = commands.spawn((Mesh2d(mesh), MeshMaterial2d(material), transform, ChildOf(entity))).id();
+            commands.entity(entity).insert((DecorationQuad(quad), RenderLayers::none()));
         }
     }
 }
@@ -1006,18 +965,10 @@ fn follow_bricks(
 ) {
     // The original turns the bricks' water on in Race (and the single-player race modes).
     let look = &config.water;
-    let on = game
-        .as_ref()
-        .is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Race);
-    let rgb =
-        |[r, g, b]: [u8; 3]| Vec4::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0);
+    let on = game.as_ref().is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Race);
+    let rgb = |[r, g, b]: [u8; 3]| Vec4::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0);
     let water = (
-        Vec4::new(
-            -config.cells(config.kill_depth),
-            if on { 1.0 } else { 0.0 },
-            config.cell_size,
-            0.0,
-        ),
+        Vec4::new(-config.cells(config.kill_depth), if on { 1.0 } else { 0.0 }, config.cell_size, 0.0),
         rgb(look.brick_line),
         rgb(look.brick_colour),
     );
@@ -1032,9 +983,7 @@ fn follow_bricks(
     // (`Lanes`). A lone tower's camera is the whole screen, so nothing is cut.
     // Puzzle battles give each tower its own camera and viewport (crate::lanes), which cut
     // it at its lane's edge, so the materials don't cut Puzzle.
-    let puzzle = game
-        .as_ref()
-        .is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Puzzle);
+    let puzzle = game.as_ref().is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Puzzle);
     let half = fixed_lane_half(&config, puzzle, towers.iter().count());
     let clip = |of: &ChildOf| {
         parents
@@ -1043,14 +992,12 @@ fn follow_bricks(
             .and_then(|brick| bricks.get(brick.parent()).ok())
             .and_then(|brick| towers.get(brick.tower).ok())
             .zip(half)
-            .map_or(Vec4::ZERO, |(t, half)| {
-                Vec4::new(t.origin_x - half, t.origin_x + half, 1.0, 0.0)
-            })
+            .map_or(Vec4::ZERO, |(t, half)| Vec4::new(t.origin_x - half, t.origin_x + half, 1.0, 0.0))
     };
     let tint = |of: &ChildOf| {
-        sprites.get(of.parent()).map_or(Vec4::ONE, |s| {
-            Vec4::from_array(s.color.to_linear().to_f32_array())
-        })
+        sprites
+            .get(of.parent())
+            .map_or(Vec4::ONE, |s| Vec4::from_array(s.color.to_linear().to_f32_array()))
     };
     if let Some(materials) = lit_materials.as_mut() {
         for (material, at, of) in &lit {
@@ -1058,23 +1005,18 @@ fn follow_bricks(
             let tint = tint(of);
             let flash = flash(of);
             let lane = clip(of);
-            let same = materials.get(&material.0).is_none_or(|m| {
-                (m.look.params.x - angle).abs() < 1e-3
-                    && m.look.tint == tint
-                    && m.look.water == water.0
-                    && m.look.params.w == flash
-                    && m.look.clip == lane
-            });
+            let same = materials
+                .get(&material.0)
+                .is_none_or(|m| {
+                    (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint && m.look.water == water.0
+                        && m.look.params.w == flash && m.look.clip == lane
+                });
             if !same && let Some(mut brick) = materials.get_mut(&material.0) {
                 brick.look.clip = lane;
                 brick.look.params.x = angle;
                 brick.look.params.w = flash;
                 brick.look.tint = tint;
-                (
-                    brick.look.water,
-                    brick.look.water_line,
-                    brick.look.water_colour,
-                ) = water;
+                (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
         }
     }
@@ -1084,23 +1026,18 @@ fn follow_bricks(
             let tint = tint(of);
             let flash = flash(of);
             let lane = clip(of);
-            let same = materials.get(&material.0).is_none_or(|m| {
-                (m.look.params.x - angle).abs() < 1e-3
-                    && m.look.tint == tint
-                    && m.look.water == water.0
-                    && m.look.params.w == flash
-                    && m.look.clip == lane
-            });
+            let same = materials
+                .get(&material.0)
+                .is_none_or(|m| {
+                    (m.look.params.x - angle).abs() < 1e-3 && m.look.tint == tint && m.look.water == water.0
+                        && m.look.params.w == flash && m.look.clip == lane
+                });
             if !same && let Some(mut brick) = materials.get_mut(&material.0) {
                 brick.look.clip = lane;
                 brick.look.params.x = angle;
                 brick.look.params.w = flash;
                 brick.look.tint = tint;
-                (
-                    brick.look.water,
-                    brick.look.water_line,
-                    brick.look.water_colour,
-                ) = water;
+                (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
         }
     }
@@ -1109,21 +1046,13 @@ fn follow_bricks(
             let tint = tint(of);
             let flash = flash(of);
             let lane = clip(of);
-            if materials.get(&material.0).is_some_and(|m| {
-                m.look.tint != tint
-                    || m.look.params.w != flash
-                    || m.look.water != water.0
-                    || m.look.clip != lane
-            }) && let Some(mut brick) = materials.get_mut(&material.0)
+            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.params.w != flash || m.look.water != water.0 || m.look.clip != lane)
+                && let Some(mut brick) = materials.get_mut(&material.0)
             {
                 brick.look.clip = lane;
                 brick.look.tint = tint;
                 brick.look.params.w = flash;
-                (
-                    brick.look.water,
-                    brick.look.water_line,
-                    brick.look.water_colour,
-                ) = water;
+                (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
         }
     }
@@ -1132,21 +1061,13 @@ fn follow_bricks(
             let tint = tint(of);
             let flash = flash(of);
             let lane = clip(of);
-            if materials.get(&material.0).is_some_and(|m| {
-                m.look.tint != tint
-                    || m.look.params.w != flash
-                    || m.look.water != water.0
-                    || m.look.clip != lane
-            }) && let Some(mut brick) = materials.get_mut(&material.0)
+            if materials.get(&material.0).is_some_and(|m| m.look.tint != tint || m.look.params.w != flash || m.look.water != water.0 || m.look.clip != lane)
+                && let Some(mut brick) = materials.get_mut(&material.0)
             {
                 brick.look.clip = lane;
                 brick.look.tint = tint;
                 brick.look.params.w = flash;
-                (
-                    brick.look.water,
-                    brick.look.water_line,
-                    brick.look.water_colour,
-                ) = water;
+                (brick.look.water, brick.look.water_line, brick.look.water_colour) = water;
             }
         }
     }
@@ -1226,29 +1147,28 @@ pub struct BrickMaterialPlugin;
 impl Plugin for BrickMaterialPlugin {
     fn build(&self, app: &mut App) {
         let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
-            DECORATION_SHADER.id(),
-            Shader::from_wgsl(DECORATION_WGSL, "clipped_decoration.wgsl"),
+            DECORATION_SHADER.id(), Shader::from_wgsl(DECORATION_WGSL, "clipped_decoration.wgsl"),
         );
-        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
-            GALAXY_SHADER.id(),
-            Shader::from_wgsl(GALAXY_WGSL, "galaxy_brick.wgsl"),
-        );
-        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
-            DIAMOND_SHADER.id(),
-            Shader::from_wgsl(DIAMOND_WGSL, "diamond_brick.wgsl"),
-        );
-        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
-            LIT_SHADER.id(),
-            Shader::from_wgsl(LIT_WGSL, "lit_brick.wgsl"),
-        );
-        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
-            HOLO_SHADER.id(),
-            Shader::from_wgsl(HOLO_WGSL, "hologram_brick.wgsl"),
-        );
-        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
-            ZAP_SHADER.id(),
-            Shader::from_wgsl(ZAP_WGSL, "zap_brick.wgsl"),
-        );
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(GALAXY_SHADER.id(), Shader::from_wgsl(GALAXY_WGSL, "galaxy_brick.wgsl"));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(DIAMOND_SHADER.id(), Shader::from_wgsl(DIAMOND_WGSL, "diamond_brick.wgsl"));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(LIT_SHADER.id(), Shader::from_wgsl(LIT_WGSL, "lit_brick.wgsl"));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(HOLO_SHADER.id(), Shader::from_wgsl(HOLO_WGSL, "hologram_brick.wgsl"));
+        let _ = app
+            .world_mut()
+            .resource_mut::<Assets<Shader>>()
+            .insert(ZAP_SHADER.id(), Shader::from_wgsl(ZAP_WGSL, "zap_brick.wgsl"));
         app.add_plugins((
             Material2dPlugin::<GalaxyBrick>::default(),
             Material2dPlugin::<DiamondBrick>::default(),
@@ -1258,14 +1178,11 @@ impl Plugin for BrickMaterialPlugin {
             Material2dPlugin::<ClippedDecoration>::default(),
         ))
         .add_systems(Update, follow_bricks)
-        .add_systems(
-            PostUpdate,
-            clip_decorations
-                .before(bevy::transform::TransformSystems::Propagate)
-                .before(bevy::asset::AssetEventSystems)
-                .before(VisibilitySystems::VisibilityPropagate)
-                .before(VisibilitySystems::CalculateBounds),
-        );
+        .add_systems(PostUpdate, clip_decorations
+            .before(bevy::transform::TransformSystems::Propagate)
+            .before(bevy::asset::AssetEventSystems)
+            .before(VisibilitySystems::VisibilityPropagate)
+            .before(VisibilitySystems::CalculateBounds));
     }
 }
 
@@ -1278,17 +1195,13 @@ mod tests {
     #[test]
     fn clipped_decoration_preserves_the_sprite_frame_flip_and_anchor() {
         let sprite = Sprite {
-            rect: Some(Rect::from_corners(
-                Vec2::new(8.0, 16.0),
-                Vec2::new(24.0, 32.0),
-            )),
+            rect: Some(Rect::from_corners(Vec2::new(8.0, 16.0), Vec2::new(24.0, 32.0))),
             custom_size: Some(Vec2::new(40.0, 20.0)),
             flip_x: true,
             ..default()
         };
         let clip = Vec4::new(-90.0, -20.0, 0.0, 0.0);
-        let (quad, look) =
-            decoration_look(&sprite, Vec2::new(0.25, -0.5), Vec2::splat(64.0), clip).unwrap();
+        let (quad, look) = decoration_look(&sprite, Vec2::new(0.25, -0.5), Vec2::splat(64.0), clip).unwrap();
         assert_eq!(quad.scale, Vec3::new(40.0, 20.0, 1.0));
         assert_eq!(quad.translation, Vec3::new(-10.0, 10.0, 0.0));
         assert_eq!(look.uv, Vec4::new(0.375, 0.25, -0.25, 0.25));
@@ -1302,46 +1215,24 @@ mod tests {
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<Mesh>>()
             .init_resource::<Assets<ClippedDecoration>>()
-            .insert_resource(Match {
-                mode: ModeKind::Race,
-                ..default()
-            })
+            .insert_resource(Match { mode: ModeKind::Race, ..default() })
             .add_systems(PostUpdate, clip_decorations);
-        let tower = |index, origin_x| Tower {
-            index,
-            origin_x,
-            human: true,
-            player: Some(index),
-        };
+        let tower = |index, origin_x| Tower { index, origin_x, human: true, player: Some(index) };
         let world = app.world_mut();
         world.spawn(tower(0, -100.0));
         let owner = world.spawn(tower(1, 100.0)).id();
         let picture = world.resource_mut::<Assets<Image>>().add(Image::default());
-        let sprite = world
-            .spawn((Sprite::from_image(picture), LaneDecoration(owner)))
-            .id();
+        let sprite = world.spawn((Sprite::from_image(picture), LaneDecoration(owner))).id();
         app.update();
         let world = app.world();
         let config = world.resource::<GameConfig>();
         let half = config.cells(config.lanes.width(2)) * 0.5;
         let quad = world.get::<DecorationQuad>(sprite).unwrap().0;
-        let material = world
-            .get::<MeshMaterial2d<ClippedDecoration>>(quad)
-            .unwrap();
-        assert_eq!(
-            world.get::<RenderLayers>(sprite),
-            Some(&RenderLayers::none())
-        );
+        let material = world.get::<MeshMaterial2d<ClippedDecoration>>(quad).unwrap();
+        assert_eq!(world.get::<RenderLayers>(sprite), Some(&RenderLayers::none()));
         assert_eq!(world.get::<ChildOf>(quad).unwrap().parent(), sprite);
-        assert_eq!(
-            world
-                .resource::<Assets<ClippedDecoration>>()
-                .get(&material.0)
-                .unwrap()
-                .look
-                .clip,
-            Vec4::new(100.0 - half, 100.0 + half, 0.0, 0.0)
-        );
+        assert_eq!(world.resource::<Assets<ClippedDecoration>>().get(&material.0).unwrap().look.clip,
+            Vec4::new(100.0 - half, 100.0 + half, 0.0, 0.0));
 
         app.world_mut().resource_mut::<Match>().mode = ModeKind::Puzzle;
         app.update();

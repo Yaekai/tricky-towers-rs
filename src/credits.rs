@@ -298,18 +298,10 @@ fn run_credits(
     if !transition.idle() {
         return;
     }
-    let down = keys
-        .as_ref()
-        .is_some_and(|k| k.any_pressed([KeyCode::ArrowDown, KeyCode::KeyS]))
-        || pads
-            .iter()
-            .any(|(_, p)| p.pressed(GamepadButton::DPadDown) || p.left_stick().y < 0.0);
-    let up = keys
-        .as_ref()
-        .is_some_and(|k| k.any_pressed([KeyCode::ArrowUp, KeyCode::KeyW]))
-        || pads
-            .iter()
-            .any(|(_, p)| p.pressed(GamepadButton::DPadUp) || p.left_stick().y > 0.0);
+    let down = keys.as_ref().is_some_and(|k| k.any_pressed([KeyCode::ArrowDown, KeyCode::KeyS]))
+        || pads.iter().any(|(_, p)| p.pressed(GamepadButton::DPadDown) || p.left_stick().y < 0.0);
+    let up = keys.as_ref().is_some_and(|k| k.any_pressed([KeyCode::ArrowUp, KeyCode::KeyW]))
+        || pads.iter().any(|(_, p)| p.pressed(GamepadButton::DPadUp) || p.left_stick().y > 0.0);
     let speed = if down {
         FAST
     } else if up {
@@ -321,25 +313,15 @@ fn run_credits(
     let taps = crate::select::read_taps(keys.as_deref(), &pads);
     // shortcut: Bevy has no standard touchpad button; add it when its device mapping is measured.
     let closing = taps.key_pick
-        || keys
-            .as_ref()
-            .is_some_and(|k| k.just_pressed(KeyCode::Escape))
-        || pads.iter().any(|(_, p)| {
-            p.any_just_pressed([
-                GamepadButton::South,
-                GamepadButton::East,
-                GamepadButton::North,
-                GamepadButton::West,
-                GamepadButton::Start,
-                GamepadButton::LeftTrigger,
-                GamepadButton::LeftTrigger2,
-                GamepadButton::RightTrigger,
-                GamepadButton::RightTrigger2,
-            ])
-        })
-        || mouse.as_ref().is_some_and(|m| {
-            m.any_just_pressed([MouseButton::Left, MouseButton::Right, MouseButton::Middle])
-        });
+        || keys.as_ref().is_some_and(|k| k.just_pressed(KeyCode::Escape))
+        || pads.iter().any(|(_, p)| p.any_just_pressed([
+            GamepadButton::South, GamepadButton::East, GamepadButton::North, GamepadButton::West,
+            GamepadButton::Start, GamepadButton::LeftTrigger, GamepadButton::LeftTrigger2,
+            GamepadButton::RightTrigger, GamepadButton::RightTrigger2,
+        ]))
+        || mouse.as_ref().is_some_and(|m| m.any_just_pressed([
+            MouseButton::Left, MouseButton::Right, MouseButton::Middle,
+        ]));
     let before = menu.time;
     menu.time = (menu.time + time.delta_secs() * speed).max(0.0);
     // The press that opens the popup belongs to the screen underneath it.
