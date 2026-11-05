@@ -82,7 +82,7 @@ fn aim_cameras(
 
 fn take_shots(
     mut commands: Commands,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     game: Res<Match>,
     mut shots: ResMut<Shots>,
     mut exit: MessageWriter<AppExit>,
@@ -120,5 +120,33 @@ fn take_script_pictures(
         commands
             .spawn(Screenshot::image(shots.target.clone()))
             .observe(save_to_disk(path));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::message::MessageCursor;
+
+    #[test]
+    fn an_offscreen_run_can_finish_while_virtual_time_is_paused() {
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<Time<Real>>()
+            .init_resource::<Time<Virtual>>()
+            .init_resource::<Match>()
+            .insert_resource(Shots {
+                dir: PathBuf::new(), times: vec![], taken: 0,
+                target: Handle::default(), elapsed: 0.0, scripted: false,
+            })
+            .add_systems(Update, take_shots);
+        app.world_mut().resource_mut::<Time<Virtual>>().pause();
+        let mut exits = MessageCursor::<AppExit>::default();
+        app.update();
+        assert_eq!(exits.read(app.world().resource::<Messages<AppExit>>()).count(), 0);
+        app.world_mut().resource_mut::<Time<Real>>().advance_by(std::time::Duration::from_secs_f32(2.1));
+        app.update();
+        assert!(exits.read(app.world().resource::<Messages<AppExit>>()).any(|exit| *exit == AppExit::Success));
+        assert_eq!(app.world().resource::<Time>().elapsed_secs(), 0.0);
     }
 }

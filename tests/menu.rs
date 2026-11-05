@@ -8,7 +8,7 @@ use bevy::time::TimeUpdateStrategy;
 use tricky_towers::TowerCorePlugin;
 use tricky_towers::config::{Difficulty, GameConfig, ModeKind};
 use tricky_towers::gameplay::{Match, Phase};
-use tricky_towers::menu::{MainMenu, MenuPlugin, MenuScreen};
+use tricky_towers::menu::{MainMenu, MenuPlugin, MenuScreen, PauseMenu};
 use tricky_towers::select::{Lobby, Part, Seat};
 
 fn app() -> App {
@@ -222,15 +222,16 @@ fn escape_pauses_and_the_pause_menu_resumes_retries_or_quits() {
     tap(&mut app, KeyCode::Escape);
     assert_eq!(
         (phase(&app), screen(&app)),
-        (Phase::Menu, MenuScreen::Pause)
+        (Phase::Playing, MenuScreen::Pause)
     );
     tap(&mut app, KeyCode::Enter);
-    assert_eq!(phase(&app), Phase::Menu, "no input while it fades in");
+    assert!(app.world().resource::<PauseMenu>().is_open(), "no input while it fades in");
     fade(&mut app);
     tap(&mut app, KeyCode::Enter);
-    assert_eq!(phase(&app), Phase::Menu, "the match waits for the fade out");
+    assert!(app.world().resource::<PauseMenu>().is_active(), "the match waits for the fade out");
     fade(&mut app);
     assert_eq!(phase(&app), Phase::Playing, "Resume");
+    assert!(!app.world().resource::<PauseMenu>().is_active());
 
     tap(&mut app, KeyCode::Escape);
     fade(&mut app);
@@ -258,6 +259,93 @@ fn escape_pauses_and_the_pause_menu_resumes_retries_or_quits() {
         Phase::Menu,
         "Esc on the menus doesn't resume"
     );
+}
+
+#[test]
+fn pause_preserves_the_scene_freezes_scaled_time_and_blocks_player_input() {
+    use tricky_towers::art::Art;
+    use tricky_towers::casts::CastsPlugin;
+    use tricky_towers::config::SpellKind;
+    use tricky_towers::game_info::{GameInfo, GameInfoPlugin};
+    use tricky_towers::gameplay::{Brick, PlayerInput, Tower, TowerState};
+    use tricky_towers::hud::HudPlugin;
+    use tricky_towers::input::KeyboardInputPlugin;
+    use tricky_towers::visuals::ViewSize;
+    use tricky_towers::wizards::WizardsPlugin;
+
+    for phase in [Phase::Playing, Phase::Intro] {
+        let mut app = app_with(|app| {
+            app.init_resource::<Art>()
+                .init_resource::<ViewSize>()
+                .add_plugins((KeyboardInputPlugin, WizardsPlugin, HudPlugin, CastsPlugin, GameInfoPlugin));
+        });
+        start(&mut app);
+        {
+            let world = app.world_mut();
+            for (tower, mut state) in world.query::<(&Tower, &mut TowerState)>().iter_mut(world) {
+                if tower.is_first_player() {
+                    state.light_spell = Some(SpellKind::Ivy);
+                }
+            }
+        }
+        app.update();
+        app.world_mut().resource_mut::<Match>().phase = phase;
+        tap(&mut app, KeyCode::Escape);
+        assert_eq!(app.world().resource::<Match>().phase, phase);
+        assert!(app.world().resource::<PauseMenu>().is_active());
+        let scaled = app.world().resource::<Time<Virtual>>().elapsed();
+        let real = app.world().resource::<Time<Real>>().elapsed();
+        let scene = |app: &mut App| {
+            let world = app.world_mut();
+            let mut entities: Vec<_> = world.query_filtered::<Entity, Or<(With<Sprite>, With<Node>)>>()
+                .iter(world).collect();
+            entities.sort();
+            entities
+        };
+        let entities = scene(&mut app);
+        let positions = |app: &mut App| {
+            let world = app.world_mut();
+            let mut positions: Vec<_> = world.query_filtered::<(Entity, &Transform), With<Brick>>()
+                .iter(world).map(|(entity, at)| (entity, *at)).collect();
+            positions.sort_by_key(|(entity, _)| *entity);
+            positions
+        };
+        let before = positions(&mut app);
+        assert!(app.world_mut().query::<&Sprite>().iter(app.world()).count() > 0, "spell cloud exists");
+        let pad = app.world_mut().spawn(Gamepad::default()).id();
+        app.world_mut().get_mut::<Gamepad>(pad).unwrap().digital_mut().press(GamepadButton::West);
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            for key in [KeyCode::ArrowRight, KeyCode::KeyJ, KeyCode::Tab] {
+                keys.press(key);
+            }
+        }
+        for _ in 0..100 {
+            app.update();
+        }
+        assert_eq!(app.world().resource::<Time<Virtual>>().elapsed(), scaled);
+        assert_eq!(app.world().resource::<Time>().elapsed(), scaled, "render globals use this clock");
+        assert!(app.world().resource::<Time<Real>>().elapsed() > real + Duration::from_secs(1));
+        assert_eq!(scene(&mut app), entities, "pause retains HUD and spell-cloud entities");
+        assert_eq!(positions(&mut app), before, "physics does not move during the pause");
+        assert!(!app.world().resource::<GameInfo>().open);
+        let world = app.world_mut();
+        for input in world.query::<&PlayerInput>().iter(world) {
+            assert!(!input.right_held && !input.cast_light_pressed && !input.rotate_pressed, "{input:?}");
+        }
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().reset_all();
+        app.world_mut().get_mut::<Gamepad>(pad).unwrap().digital_mut().reset_all();
+        tap(&mut app, KeyCode::Enter);
+        assert!(app.world().resource::<PauseMenu>().is_active(), "clock stays frozen during fade-out");
+        assert!(!app.world().resource::<PauseMenu>().is_open(), "audio/cursor restore when closing begins");
+        for _ in 0..24 {
+            app.update();
+        }
+        assert!(!app.world().resource::<PauseMenu>().is_active());
+        let resumed = app.world().resource::<Time<Virtual>>().elapsed();
+        assert!(resumed > scaled && resumed - scaled < Duration::from_millis(200), "no catch-up after pause");
+        assert_eq!(app.world().resource::<Match>().phase, phase);
+    }
 }
 
 #[test]

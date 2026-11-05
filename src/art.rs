@@ -404,9 +404,9 @@ impl Plugin for ArtPlugin {
                     light_bricks,
                     play_animations,
                     apply_font,
-                    (match_end_stingers, play_music, duck_music).chain(),
-                    play_sounds,
-                    menu_cursor_sound,
+                    (match_end_stingers, play_music, duck_music.after(crate::menu::MenuSystems)).chain(),
+                    play_sounds.after(crate::menu::MenuSystems),
+                    menu_cursor_sound.after(crate::menu::MenuSystems),
                     auto_rotate_sounds,
                     auto_build_loop,
                     stone_and_ice_sounds,
@@ -1027,17 +1027,17 @@ fn lead_countdown(
 /// 3, 2 and 1 (in 0.15 s), GameModePlayController brings it back over 0.5 s once no tower
 /// counts, and the pause menu holds it at 0.05.
 fn duck_music(
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     config: Res<crate::config::GameConfig>,
     game: Res<Match>,
-    screen: Option<Res<crate::menu::MenuScreen>>,
+    pause: Option<Res<crate::menu::PauseMenu>>,
     settings: Option<Res<crate::settings::Settings>>,
     towers: Query<(&Tower, &TowerState, Option<&crate::gameplay::TowerSkin>)>,
     mut sinks: Query<&mut bevy::audio::AudioSink, With<Music>>,
     mut share: Local<Option<f32>>,
 ) {
     use bevy::audio::AudioSinkPlayback;
-    let paused = screen.as_deref() == Some(&crate::menu::MenuScreen::Pause);
+    let paused = pause.is_some_and(|p| p.is_open());
     let target = if paused {
         0.05
     } else if game.phase == Phase::Playing {
@@ -1087,8 +1087,9 @@ fn menu_cursor_sound(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
     mut roll: Local<usize>,
+    pause: Option<Res<crate::menu::PauseMenu>>,
 ) {
-    if game.phase != Phase::Menu {
+    if game.phase != Phase::Menu && !pause.is_some_and(|p| p.is_open()) {
         return;
     }
     let taps = crate::select::read_taps(keys.as_deref(), &pads);
@@ -1116,8 +1117,10 @@ fn play_sounds(
     auto_built: Query<(), With<crate::gameplay::AutoBuilt>>,
     time: Res<Time>,
     mut heard: Local<Heard>,
+    pause: Option<Res<crate::menu::PauseMenu>>,
+    scaled: Option<Res<Time<Virtual>>>,
 ) {
-    if art.sounds.is_empty() {
+    if art.sounds.is_empty() || !crate::menu::presentation_running(pause, scaled) {
         return;
     }
     let dt = time.delta_secs();
@@ -1449,6 +1452,61 @@ fn auto_rotate_sounds(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pause_keys_play_navigation_sounds_without_playing_brick_control_sounds() {
+        let handle = |n: u128| {
+            Handle::<AudioSource>::Uuid(bevy::asset::uuid::Uuid::from_u128(n), Default::default())
+        };
+        let mut art = Art::default();
+        for n in 1..=4 {
+            art.sounds.insert(format!("sfx_menu_select_0{n}"), handle(1));
+        }
+        for (name, n) in [("sfx_rotate", 2), ("sfx_move", 3), ("sfx_nudge", 4)] {
+            art.sounds.insert(name.into(), handle(n));
+        }
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_secs_f32(1.0 / 64.0),
+            ))
+            .insert_resource(crate::config::GameConfig::default())
+            .insert_resource(art)
+            .insert_resource(crate::menu::PauseMenu { resume_to: Some(Phase::Playing), ..default() })
+            .init_resource::<ButtonInput<KeyCode>>()
+            .add_plugins(crate::TowerCorePlugin)
+            .add_systems(Update, (play_sounds, menu_cursor_sound).chain());
+        app.finish();
+        app.cleanup();
+        for _ in 0..10 {
+            app.update();
+        }
+        assert!(app.world_mut().query::<&ActiveBrick>().iter(app.world()).count() > 0);
+        let press = |app: &mut App, key| {
+            app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(key);
+            app.update();
+            app.world_mut().resource_mut::<ButtonInput<KeyCode>>().reset_all();
+            let world = app.world_mut();
+            let sounds: Vec<_> = world.query::<(Entity, &AudioPlayer)>().iter(world)
+                .map(|(e, p)| (e, p.0.id())).collect();
+            for &(entity, _) in &sounds {
+                world.despawn(entity);
+            }
+            sounds.into_iter().map(|(_, id)| id).collect::<Vec<_>>()
+        };
+        assert_eq!(press(&mut app, KeyCode::ArrowUp), vec![handle(1).id()]);
+        assert_eq!(press(&mut app, KeyCode::ArrowLeft), vec![handle(1).id()]);
+        assert!(press(&mut app, KeyCode::KeyU).is_empty());
+        app.world_mut().resource_mut::<crate::menu::PauseMenu>().closing = Some(("Resume", 0.0));
+        assert!(press(&mut app, KeyCode::ArrowUp).is_empty(), "fade-out still blocks match controls");
+        app.world_mut().resource_mut::<crate::menu::PauseMenu>().resume_to = None;
+        app.world_mut().resource_mut::<Time<Virtual>>().pause();
+        assert!(press(&mut app, KeyCode::ArrowUp).is_empty(), "the closing frame is still frozen");
+        app.world_mut().resource_mut::<Time<Virtual>>().unpause();
+        assert_eq!(press(&mut app, KeyCode::ArrowUp), vec![handle(2).id()]);
+        assert_eq!(press(&mut app, KeyCode::ArrowLeft), vec![handle(3).id()]);
+        assert_eq!(press(&mut app, KeyCode::KeyU), vec![handle(4).id()]);
+    }
 
     #[test]
     fn manifest_reads_layer_fields() {

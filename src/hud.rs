@@ -39,7 +39,8 @@ impl Plugin for HudPlugin {
             )
                 .chain()
                 .after(FramedCamera)
-                .after(crate::wizards::WizardBlinking),
+                .after(crate::wizards::WizardBlinking)
+                .run_if(crate::menu::presentation_running),
         );
     }
 }

@@ -44,7 +44,7 @@ impl Plugin for SettingsPlugin {
             .add_systems(Startup, crate::keybinding::spawn_keybinding_popup)
             .add_systems(Update, crate::keybinding::show_keybinding_popup)
             .add_systems(Startup, spawn_settings_screen)
-            .add_systems(Update, (apply_settings, read_screen_modes, pause_sfx))
+            .add_systems(Update, (apply_settings, read_screen_modes, pause_sfx.after(crate::menu::MenuSystems)))
             // Before the audio output (which runs after transform propagation) picks
             // new sounds up.
             .add_systems(
@@ -1101,8 +1101,6 @@ fn sfx_rules(
 /// play on.
 #[allow(clippy::type_complexity)]
 fn pause_sfx(
-    game: Res<crate::gameplay::Match>,
-    screen: Res<crate::menu::MenuScreen>,
     pause: Res<crate::menu::PauseMenu>,
     sinks: Query<
         (Entity, &AudioSink),
@@ -1110,9 +1108,7 @@ fn pause_sfx(
     >,
     mut held: Local<Option<Vec<Entity>>>,
 ) {
-    let paused = game.phase == crate::gameplay::Phase::Menu
-        && *screen == crate::menu::MenuScreen::Pause
-        && pause.closing.is_none();
+    let paused = pause.is_open();
     if paused && held.is_none() {
         let mut list = Vec::new();
         for (entity, sink) in &sinks {

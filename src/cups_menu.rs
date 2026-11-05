@@ -1773,6 +1773,10 @@ fn fly_winner(
         else {
             return;
         };
+        let mut poof_seed = (rig.to_bits() as u32) | 1;
+        crate::particles::brick_poof_on_layer(
+            &mut commands, art, WIN_UNIT, FLYER_SPAWN * WIN_UNIT, 21.0, &mut poof_seed, Some(&layer),
+        );
         pop(&mut commands);
         // It cheers as it comes in (ControllableWizard.Init).
         commands.entity(rig).queue(|mut e: EntityWorldMut| {
@@ -1780,14 +1784,14 @@ fn fly_winner(
                 w.act(crate::wizards::Clip::Cheer);
             }
         });
-        commands.entity(rig).insert(Flyer {
+        commands.entity(rig).insert((Flyer {
             at: FLYER_SPAWN,
             speed: Vec2::ZERO,
             facing_left: true,
             wizard,
             nudge: None,
             cast_at: None,
-        });
+        }, rig_transform(FLYER_SPAWN, true, 1.0, 20.0)));
         if cameras.is_empty() {
             // Over everything the main camera drew (its UI too), into the same picture.
             let (order, target, msaa) = main
@@ -1970,6 +1974,26 @@ fn rig_transform(at: Vec2, facing_left: bool, squash: f32, z: f32) -> Transform 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_cup_wizard_poof_is_on_the_popup_layer_at_its_spawn_position() {
+        let mut app = App::new();
+        app.init_resource::<Art>().add_systems(Startup, |mut commands: Commands, art: Res<Art>| {
+            let mut seed = 1;
+            crate::particles::brick_poof_on_layer(
+                &mut commands, &art, WIN_UNIT, FLYER_SPAWN * WIN_UNIT, 21.0, &mut seed,
+                Some(&bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER)),
+            );
+        });
+        app.update();
+        let world = app.world_mut();
+        let count = world.query::<(&Sprite, &Transform, &bevy::camera::visibility::RenderLayers)>()
+            .iter(world).inspect(|(_, at, layer)| {
+                assert_eq!(at.translation.truncate(), FLYER_SPAWN * WIN_UNIT);
+                assert_eq!(**layer, bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER));
+            }).count();
+        assert_eq!(count, 14, "one flash, eight puffs and five stars");
+    }
 
     #[test]
     fn the_flying_wizard_cast_waits_for_its_animation_and_cancels_if_interrupted() {

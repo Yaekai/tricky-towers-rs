@@ -83,7 +83,7 @@ differs, which keeps bots, replays and netplay simple. More in [`PLAN.md`](PLAN.
 | Trials (50 in 5 tiers) and tier unlock | 🟡 | checking against the original |
 | Endless Race / Survival / Puzzle | 🟡 | further play comparisons; obstacle blocks are implemented |
 | Backgrounds, weather and shaders | 🟡 | some sizes and colours still estimated |
-| In-match HUD and effects | 🟡 | pause presentation and remaining lane clipping |
+| In-match HUD and effects | 🟡 | pause text opacity transitions and remaining lane clipping |
 | Match end (WINNER!, collapse, Game Completed, cup winner) | 🟡 | timings still estimated |
 | Menus: start, title, players, modes, single player, endless, trials, settings, keybinding, stats, pause | 🟡 | small layout differences |
 | Explanation, Help and Credits popups | 🟡 | |

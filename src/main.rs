@@ -162,6 +162,9 @@ fn main() {
             }));
         }
     }
+    if value("--menu").as_deref() == Some("pause") {
+        config.start_in_menu = false;
+    }
     app.insert_resource(config).add_plugins((
         TowerCorePlugin,
         KeyboardInputPlugin,
@@ -234,7 +237,21 @@ fn main() {
             "help" => MenuScreen::Help,
             "start" => MenuScreen::Start,
             "title" => MenuScreen::Main,
-            "pause" => MenuScreen::Pause,
+            "pause" => {
+                // DEBUG-TOOL: let the first match frame build before freezing it.
+                app.add_systems(Last, |game: Res<tricky_towers::gameplay::Match>,
+                    time: Res<Time<Real>>, mut pause: ResMut<tricky_towers::menu::PauseMenu>,
+                    mut screen: ResMut<MenuScreen>, mut opened: Local<bool>| {
+                    if !*opened && game.round > 0 {
+                        *pause = tricky_towers::menu::PauseMenu {
+                            resume_to: Some(game.phase), opened: time.elapsed_secs(), ..default()
+                        };
+                        *screen = MenuScreen::Pause;
+                        *opened = true;
+                    }
+                });
+                MenuScreen::Pause
+            }
             _ => MenuScreen::Modes,
         };
         app.insert_resource(lobby).insert_resource(screen);

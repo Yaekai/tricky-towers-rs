@@ -3,7 +3,8 @@
 //! Debug commands: a small set of actions (start a mode, press a button for a tower, give
 //! or cast a spell, set lives, win or lose, take a picture, quit) that tests, script
 //! files and the debug panel all go through. Push a [`DebugCommand`] into
-//! [`DebugQueue`]; it runs at the start of the next fixed step, before gameplay.
+//! [`DebugQueue`]; gameplay commands run before the next fixed step. Menu taps,
+//! pictures and Quit run before the next frame, even while gameplay is paused.
 //!
 //! Script files (`--script file.ron`) are timed lists of commands, so a rare moment
 //! can be set up exactly and pictured offscreen:
@@ -17,8 +18,8 @@
 //! ]
 //! ```
 //!
-//! Headless-safe: no rendering or keyboard here. Pictures are taken by the offscreen
-//! layer (src/offscreen.rs) when it runs; otherwise `Picture` is ignored.
+//! Headless-safe: no rendering or keyboard device is needed. Menu taps write the
+//! optional button resource; pictures are taken by src/offscreen.rs when present.
 
 use bevy::app::AppExit;
 use bevy::prelude::*;
@@ -38,10 +39,12 @@ impl Plugin for DebugPlugin {
         app.init_resource::<DebugQueue>()
             .add_message::<DebugPicture>()
             .add_systems(
+                PreUpdate,
+                (run_script, apply_frame_commands).chain().after(bevy::input::InputSystems),
+            )
+            .add_systems(
                 FixedUpdate,
-                (run_script, apply_debug_commands)
-                    .chain()
-                    .before(GameplaySystems),
+                apply_debug_commands.before(GameplaySystems),
             );
     }
 }
@@ -149,7 +152,7 @@ pub enum DebugCommand {
     Quit,
 }
 
-/// Commands waiting for the next fixed step.
+/// Commands waiting for a frame (menu taps/pictures/Quit) or fixed gameplay step.
 #[derive(Resource, Debug, Default)]
 pub struct DebugQueue(pub Vec<DebugCommand>);
 
@@ -194,7 +197,7 @@ impl DebugScript {
 #[derive(Message, Clone, Debug)]
 pub struct DebugPicture(pub String);
 
-fn run_script(time: Res<Time>, script: Option<ResMut<DebugScript>>, mut queue: ResMut<DebugQueue>) {
+fn run_script(time: Res<Time<Real>>, script: Option<ResMut<DebugScript>>, mut queue: ResMut<DebugQueue>) {
     let Some(mut script) = script else {
         return;
     };
@@ -216,9 +219,6 @@ fn apply_debug_commands(
     mut game: ResMut<Match>,
     mut enemy: ResMut<EnemyCasts>,
     mut towers: Query<(&Tower, &mut TowerState, &mut PlayerInput)>,
-    mut pictures: MessageWriter<DebugPicture>,
-    mut exit: MessageWriter<AppExit>,
-    mut keyboard: Option<ResMut<ButtonInput<KeyCode>>>,
     mut cups: ResMut<crate::cups::Cup>,
     mut galaxy: Option<ResMut<crate::packs::GalaxyDebug>>,
     mut settings: Option<ResMut<crate::settings::Settings>>,
@@ -386,6 +386,22 @@ fn apply_debug_commands(
                     settings.language = name;
                 }
             }
+            command @ (DebugCommand::Tap { .. } | DebugCommand::Picture { .. } | DebugCommand::Quit) => {
+                queue.0.push(command);
+            }
+        }
+    }
+}
+
+/// Automation must keep working when pausing stops FixedUpdate.
+fn apply_frame_commands(
+    mut queue: ResMut<DebugQueue>,
+    mut pictures: MessageWriter<DebugPicture>,
+    mut exit: MessageWriter<AppExit>,
+    mut keyboard: Option<ResMut<ButtonInput<KeyCode>>>,
+) {
+    for command in std::mem::take(&mut queue.0) {
+        match command {
             DebugCommand::Tap { key } => {
                 let code = match key.as_str() {
                     "Enter" => KeyCode::Enter,
@@ -429,6 +445,7 @@ fn apply_debug_commands(
                 }
                 exit.write(AppExit::Success);
             }
+            command => queue.0.push(command),
         }
     }
 }

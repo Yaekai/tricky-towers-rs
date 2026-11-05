@@ -20,7 +20,7 @@ pub struct CastsPlugin;
 
 impl Plugin for CastsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.init_resource::<CameraShake>().add_systems(
             Update,
             (
                 start_casts,
@@ -40,7 +40,8 @@ impl Plugin for CastsPlugin {
                 lock_bricks,
             )
                 .chain()
-                .after(crate::wizards::WizardBlinking),
+                .after(crate::wizards::WizardBlinking)
+                .run_if(crate::menu::presentation_running),
         );
     }
 }

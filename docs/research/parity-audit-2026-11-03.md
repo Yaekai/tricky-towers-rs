@@ -50,15 +50,24 @@ by 0.1 seconds.
 Sources: ControllableWizard and WizardAnimationController; the staged CastSelf
 clip event timing.
 
+## Pause and cup appearance follow-up, 2026-11-04
+
+Pause now preserves the match phase and freezes virtual time before the engine's
+time update. Pause UI, audio restoration, the screen-clear fade and automation use
+real time. This retains the HUD/clouds and freezes shader globals as well as CPU
+animation and physics. Active pause lasts through fade-out; its open state ends
+when closing begins, restoring SFX/music and hiding the cursor at that point.
+Brick-control sounds and spell-button reactions are blocked during pause.
+
+The cup winner's immediate appearance poof is implemented on the popup camera's
+layer at its spawn position and scale, without applying it to nudge ghost clones.
+
 ## Confirmed work still outstanding
 
-- Pause stops scaled game time in the original. Rust currently pauses physics,
-  but presentation timers continue and the lower HUD/spell clouds are removed.
-  A complete fix must freeze the match while allowing pause-menu animation.
+- Pause's words and controls still need their original opacity transition;
+  the existing approximation fades the dark panel.
 - Cup standings opened with Game info fade in and out over 0.1 seconds; Rust
   currently changes their visibility immediately.
-- The cup winner's separate appearance poof is still missing; its sound is
-  already implemented.
 - The original clears through black both before and after a screen transition;
   Rust only implements the clear after the screen changes.
 - Lane clipping still omits brick decorations and Puzzle's per-tower framing.

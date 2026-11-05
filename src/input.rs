@@ -27,7 +27,9 @@ impl Plugin for KeyboardInputPlugin {
             )
             .add_systems(
                 Update,
-                (rumble_losers, rumble_large_bricks).run_if(resource_exists::<Messages<GamepadRumbleRequest>>),
+                (rumble_losers, rumble_large_bricks)
+                    .after(crate::menu::MenuSystems)
+                    .run_if(resource_exists::<Messages<GamepadRumbleRequest>>),
             );
     }
 }
@@ -85,7 +87,11 @@ fn rumble_losers(
     towers: Query<&Tower>,
     lobby: Option<Res<crate::select::Lobby>>,
     mut rumble: MessageWriter<GamepadRumbleRequest>,
+    pause: Option<Res<crate::menu::PauseMenu>>,
 ) {
+    if pause.is_some_and(|p| p.is_open()) {
+        return;
+    }
     let mut pads: Vec<Entity> = gamepads.iter().collect();
     pads.sort();
     let players = towers.iter().filter(|t| t.human).count();
@@ -141,12 +147,13 @@ fn rumble_large_bricks(
     placed: Query<&crate::gameplay::Brick, Added<crate::gameplay::Placed>>,
     lobby: Option<Res<crate::select::Lobby>>,
     mut rumble: MessageWriter<GamepadRumbleRequest>,
+    pause: Option<Res<crate::menu::PauseMenu>>,
 ) {
     let mut pads: Vec<Entity> = gamepads.iter().collect();
     if pads.is_empty() {
         return;
     }
-    if game.phase == crate::gameplay::Phase::Menu {
+    if game.phase == crate::gameplay::Phase::Menu || pause.is_some_and(|p| p.is_open()) {
         if !*stilled {
             *stilled = true;
             for &gamepad in &pads {
@@ -218,8 +225,9 @@ fn read_keyboard(
     mut request: ResMut<MatchRequest>,
     mut towers: Query<(&Tower, &mut PlayerInput)>,
     lobby: Option<Res<crate::select::Lobby>>,
+    pause: Option<Res<crate::menu::PauseMenu>>,
 ) {
-    if game.phase == Phase::Menu {
+    if game.phase == Phase::Menu || pause.is_some_and(|p| p.is_active()) {
         return;
     }
     // In a local battle the keyboard drives the player whose seat it took.
@@ -279,7 +287,12 @@ fn read_gamepads(
     mut towers: Query<(&Tower, &mut PlayerInput)>,
     mut last: Local<bevy::platform::collections::HashMap<Entity, PadState>>,
     lobby: Option<Res<crate::select::Lobby>>,
+    pause: Option<Res<crate::menu::PauseMenu>>,
 ) {
+    if pause.is_some_and(|p| p.is_active()) {
+        last.clear();
+        return;
+    }
     let mut pads: Vec<_> = gamepads.iter().collect();
     pads.sort_by_key(|(e, _)| *e);
     let players = towers.iter().filter(|(t, _)| t.human).count();

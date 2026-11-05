@@ -21,7 +21,8 @@ impl Plugin for WizardsPlugin {
             Update,
             (spawn_wizards, react_wizards, move_wizards, pose_wizards, swoosh_turns, orbit_bricks)
                 .chain()
-                .after(WizardBlinking),
+                .after(WizardBlinking)
+                .run_if(crate::menu::presentation_running),
         );
     }
 }

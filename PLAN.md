@@ -62,7 +62,7 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    collapse blasts and shakes, wizard and brick-pack skins, Race Pro rain and lightning, Puzzle
    sandstorm and eclipse, Survival's wave sky, spawn puffs and landing dust, the Single Player,
    Endless, Trials and Settings screens. Recent PC work includes silent offscreen checks of
-   every mode and the title screen. Remaining confirmed gaps include pause presentation,
+   every mode and the title screen. Remaining confirmed gaps include pause text opacity transitions,
    lane clipping of decorations, Puzzle's per-player framing and pre-change transition fades.
    Continue checking effects against the original and measuring the remaining `(?)` values.
 6. **Trials** (implemented, further comparisons needed): the original's 50 trials in 5 tiers opened by
