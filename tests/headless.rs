@@ -1252,27 +1252,64 @@ fn bubble_lifts_the_last_brick() {
 
 #[test]
 fn slow_sends_a_balloon_that_catches_the_brick_in_hand() {
-    use tricky_towers::gameplay::ActiveBrick;
+    use avian2d::prelude::Position;
     use tricky_towers::spells::BalloonOrb;
-    let mut config = fast_config();
-    config.mode = ModeKind::Race;
-    config.opponents = 1;
-    config.magic.enabled = true;
+    let config = GameConfig {
+        mode: ModeKind::Race,
+        players: 2,
+        opponents: 0,
+        ..default()
+    };
+    let cell = config.cell_size;
+    let acceleration = config.drop_acceleration;
     let mut app = headless_app(config);
     run_seconds(&mut app, 2.0, |_| {});
     cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Slow));
     // No brick is slowed at once: a balloon goes up after it.
     assert_eq!(count::<With<BalloonOrb>>(&mut app), 1);
-    let slowed = |app: &mut App| {
+    let target = {
         let world = app.world_mut();
         world
-            .query::<&ActiveBrick>()
+            .query::<(Entity, &Tower)>()
             .iter(world)
-            .any(|b| b.mods.slow)
+            .find(|(_, t)| t.index == 1)
+            .unwrap()
+            .0
     };
-    assert!(!slowed(&mut app));
-    assert!(run_until(&mut app, 10.0, |app| slowed(app)
-        || count::<With<BalloonOrb>>(app) == 0));
+    let brick = app.world().get::<TowerState>(target).unwrap().active.unwrap();
+    let control = |app: &App| {
+        app.world()
+            .get::<ActiveBrick>(brick)
+            .map(|c| (c.mods.slow, c.hold, c.hold_shake))
+    };
+    let y = |app: &App| app.world().get::<Position>(brick).unwrap().0.y / cell;
+    assert!(run_until(&mut app, 5.0, |app| count::<With<BalloonOrb>>(app) == 0));
+    let caught_at = y(&app);
+    let (slow, hold, shake) = control(&app).expect("the orb caught the original brick");
+    assert!(!slow && hold > 0.59 && shake > 0.29);
+    run_seconds(&mut app, 0.24, |_| {});
+    assert!(!control(&app).unwrap().0);
+    run_seconds(&mut app, 0.12, |_| {});
+    let (slow, hold, shake) = control(&app).unwrap();
+    assert!(slow && hold > 0.0 && shake == 0.0);
+    assert_eq!(y(&app), caught_at);
+    run_seconds(&mut app, 0.6, |_| {});
+    assert!(y(&app) < caught_at - 0.25);
+    let before = y(&app);
+    app.world_mut()
+        .get_mut::<PlayerInput>(target)
+        .unwrap()
+        .fast_fall_held = true;
+    let clock = app.world().resource::<Time<Fixed>>().elapsed();
+    assert!(run_until(&mut app, 0.1, |app| {
+        app.world().resource::<Time<Fixed>>().elapsed() > clock
+    }));
+    let dt = app.world().resource::<Time<Fixed>>().delta_secs();
+    let drop = (before - y(&app)) / dt;
+    assert!(
+        (drop - (1.0 + acceleration * dt)).abs() < 0.01,
+        "first Down step was {drop} cells/s"
+    );
 }
 
 #[test]

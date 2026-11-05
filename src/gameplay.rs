@@ -12,7 +12,7 @@ use avian2d::prelude::*;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
-use crate::config::{Curse, GameConfig, ModeKind, PieceDef, PuzzleFloor, SpellKind};
+use crate::config::{Curse, GameConfig, MagicRules, ModeKind, PieceDef, PuzzleFloor, SpellKind};
 
 pub struct GameplayPlugin;
 
@@ -26,6 +26,7 @@ impl Plugin for GameplayPlugin {
             .add_message::<RoofPlaced>()
             .add_message::<BrickNudged>()
             .add_message::<BrickRespawned>()
+            .add_message::<SlowBalloonCue>()
             .add_observer(put_in_tower_layer)
             .add_systems(FixedPreUpdate, layer_stragglers)
             .init_resource::<crate::spells::SpellLog>()
@@ -144,6 +145,13 @@ pub struct RoofPlaced {
 pub struct BrickNudged {
     pub brick: Entity,
     pub dir: f32,
+}
+
+/// The Slow balloon met a brick, attached to it or stretched on a Down press.
+#[derive(Message, Clone, Copy, Debug)]
+pub(crate) enum SlowBalloonCue {
+    Caught(Vec2),
+    Down,
 }
 
 /// A brick fell into the water and was lost, at this world point (pixels).
@@ -889,6 +897,8 @@ pub struct ActiveBrick {
     /// The balloon's cap on held-down falling, and whether down was held last step.
     slow_cap: f32,
     down_before: bool,
+    pub(crate) slow_attach_left: Option<f32>,
+    pub(crate) slow_inflate_left: f32,
     /// Seconds a refused turn (No Rotate) still shakes the brick; drawn by the
     /// visuals.
     pub refused: f32,
@@ -909,7 +919,7 @@ pub struct ActiveBrick {
 }
 
 impl ActiveBrick {
-    fn new(query_shape: Collider, mods: BrickMod) -> Self {
+    fn new(query_shape: Collider, mods: BrickMod, magic: &MagicRules) -> Self {
         Self {
             query_shape,
             drop_distance: None,
@@ -920,8 +930,10 @@ impl ActiveBrick {
             repeating: false,
             speed: 0.0,
             auto_rotate_timer: 0.0,
-            slow_cap: 0.0,
+            slow_cap: magic.slow_fast_fall_speed,
             down_before: false,
+            slow_attach_left: None,
+            slow_inflate_left: if mods.slow { magic.slow_inflate } else { 0.0 },
             refused: 0.0,
             picture_shake: 0.0,
             hold: 0.0,
@@ -1565,7 +1577,7 @@ fn spawn_next_brick(
                 brick,
                 ActiveBrick {
                     comebacks: respawn.map_or(0, |back| back.times),
-                    ..ActiveBrick::new(query_shape.clone(), modifier)
+                    ..ActiveBrick::new(query_shape.clone(), modifier, &config.magic)
                 },
                 RigidBody::Kinematic,
                 // While steered, the brick is its shrunk self.
@@ -1636,9 +1648,11 @@ fn control_active_brick(
     mut bricks: Query<(&mut ActiveBrick, &Brick, &Position, &Rotation)>,
     mut lost: MessageWriter<BrickLost>,
     mut nudged: MessageWriter<BrickNudged>,
+    mut balloon_cues: MessageWriter<SlowBalloonCue>,
 ) {
     let dt = time.delta_secs();
     let c = config.cell_size;
+    let magic = &config.magic;
     // DropSpeedController: the drop speed rises with the tallest tower still playing (its
     // dead-player share is never fed in the original); a Puzzle battle keeps one pace
     // (PuzzleGameModeFactory: no tower height), and Endless Race tops out.
@@ -1685,6 +1699,29 @@ fn control_active_brick(
             state.active = None;
             continue;
         };
+        let pressed_down = input.fast_fall_held && !control.down_before;
+        control.down_before = input.fast_fall_held;
+        if control.mods.slow {
+            if control.slow_inflate_left > 0.0 {
+                control.slow_inflate_left = (control.slow_inflate_left - dt).max(0.0);
+            } else if pressed_down {
+                control.slow_cap = magic.slow_fast_fall_speed;
+                balloon_cues.write(SlowBalloonCue::Down);
+            } else {
+                control.slow_cap = (control.slow_cap - magic.slow_fast_ease * dt).max(magic.slow_fast_floor);
+            }
+        }
+        if let Some(left) = control.slow_attach_left.as_mut() {
+            *left -= dt;
+            if *left <= f32::EPSILON {
+                control.slow_attach_left = None;
+                control.mods.slow = true;
+                control.slow_cap = magic.slow_fast_fall_speed;
+                control.slow_inflate_left = magic.slow_inflate;
+                control.speed = drop_speed;
+                balloon_cues.write(SlowBalloonCue::Down);
+            }
+        }
         // A curse wave just started: the brick rises near the top of the view
         // (eased in, passing through everything), hangs there, shakes the whole
         // time, and takes no input until it is let go.
@@ -1888,17 +1925,9 @@ fn control_active_brick(
 
         // Falling: holding down accelerates, letting go slows back to the drop speed.
         let base = drop_speed;
-        let magic = &config.magic;
-        let pressed = input.fast_fall_held && !control.down_before;
-        control.down_before = input.fast_fall_held;
         control.speed = if control.mods.slow {
-            // SlowBrickModifier: a press lets it fall up to 6 again, easing back to 3.
-            if pressed {
-                control.slow_cap = magic.slow_fast_fall_speed;
-            }
-            control.slow_cap = (control.slow_cap - magic.slow_fast_ease * dt).max(magic.slow_fast_floor);
             if input.fast_fall_held {
-                (control.speed.max(base) + config.drop_acceleration * dt).min(control.slow_cap)
+                (control.speed + config.drop_acceleration * dt).min(control.slow_cap)
             } else {
                 (control.speed - config.drop_deceleration * dt).max(base).min(magic.slow_fall_speed)
             }

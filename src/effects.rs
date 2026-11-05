@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use crate::art::Art;
 use crate::collapse::{CollapseEvent, CollapseKind};
 use crate::config::GameConfig;
-use crate::gameplay::{ActiveBrick, Brick, BrickLost};
+use crate::gameplay::{ActiveBrick, Brick, BrickLost, SlowBalloonCue};
 use crate::spells::Ghosted;
 use crate::visuals::FramedCamera;
 
@@ -21,6 +21,7 @@ impl Plugin for EffectsPlugin {
             (
                 float_balloons,
                 show_balloon_orbs,
+                balloon_cues,
                 attach_skulls,
                 fly_skulls,
                 splash,
@@ -48,6 +49,7 @@ impl Plugin for EffectsPlugin {
 struct Balloon {
     brick: Entity,
     string: Entity,
+    art_scale: Vec3,
 }
 
 /// How far above the brick's centre the balloon floats, in cells.
@@ -74,46 +76,71 @@ fn float_balloons(
             commands.entity(entity).despawn();
             continue;
         }
-        let top = brick.translation + Vec3::Y * c * BALLOON_LIFT;
+        let remaining = control.slow_inflate_left / config.magic.slow_inflate.max(f32::EPSILON);
+        let inflate = 1.0 - remaining.clamp(0.0, 1.0).powi(2);
+        let top = brick.translation + Vec3::Y * c * BALLOON_LIFT * inflate;
         transform.translation = top.with_z(5.0);
+        transform.scale = balloon.art_scale * inflate.max(0.0001);
         if let Ok((mut line, mut sprite)) = strings.get_mut(balloon.string) {
-            // A 3-pixel line from the brick up to the balloon.
             let from = brick.translation.truncate();
-            let to = top.truncate() - Vec2::Y * c * 0.5;
+            let to = top.truncate() - Vec2::Y * c * 0.5 * inflate;
             line.translation = ((from + to) * 0.5).extend(4.9);
-            sprite.custom_size = Some(Vec2::new(3.0, from.distance(to)));
+            sprite.custom_size = Some(Vec2::new(3.0 * inflate, from.distance(to)));
         }
     }
     let Some(image) = art.image("balloon") else {
         return;
     };
-    for (entity, control, _) in &bricks {
+    for (entity, control, brick) in &bricks {
         if !control.mods.slow || balloons.iter().any(|(_, b, _)| b.brick == entity) {
             continue;
         }
-        // The catch: SFX_BALLOON_COLLISION, then one of the balloon-down sounds.
-        let down = ["sfx_hit_balloon_01", "sfx_hit_balloon_02"][(entity.index_u32() % 2) as usize];
-        for name in ["sfx_brick_spawn", down] {
-            if let Some(sound) = art.sounds.get(name) {
-                commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
-            }
-        }
         let string = commands
             .spawn((
-                Sprite::from_color(Color::srgb(0.95, 0.95, 0.9), Vec2::new(3.0, 1.0)),
-                Transform::default(),
+                Sprite::from_color(Color::srgb(0.95, 0.95, 0.9), Vec2::ZERO),
+                Transform::from_translation(brick.translation.with_z(4.9)),
             ))
             .id();
-        let (sprite, anchor, transform) = sized(&art, "balloon", image.clone(), c);
+        let (sprite, anchor, art_transform) = sized(&art, "balloon", image.clone(), c);
         commands.spawn((
             Balloon {
                 brick: entity,
                 string,
+                art_scale: art_transform.scale,
             },
             sprite,
             anchor,
-            transform,
+            Transform::from_translation(brick.translation.with_z(5.0))
+                .with_scale(art_transform.scale * 0.0001),
         ));
+    }
+}
+
+fn balloon_cues(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    mut cues: MessageReader<SlowBalloonCue>,
+    mut seed: Local<u32>,
+) {
+    *seed = (*seed).max(1);
+    for cue in cues.read() {
+        let name = match *cue {
+            SlowBalloonCue::Caught(at) => {
+                crate::particles::brick_poof(&mut commands, &art, config.cell_size, at, &mut seed);
+                "sfx_brick_spawn"
+            }
+            SlowBalloonCue::Down => {
+                if crate::particles::roll(&mut seed) < 0.5 {
+                    "sfx_hit_balloon_01"
+                } else {
+                    "sfx_hit_balloon_02"
+                }
+            }
+        };
+        if let Some(sound) = art.sounds.get(name) {
+            commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
+        }
     }
 }
 

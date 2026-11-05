@@ -27,9 +27,13 @@ Plain-language notes from Max's installed copy. Units are brick cells.
 - **Bubble:** lifts the victim's last brick (not if vined or petrified) with an upward pull of
   21.5 × scale, easing to 18 over 1 s, then 17.5 (gravity is 18). It tilts 3 to 12°, and pops
   after 3 s or when a brick hits it. A bubbled brick does not count toward height.
-- **Slow:** a balloon rises from the tower top at 2.5 cells/s, following the brick's x. Once the
-  brick touches it, it moves sideways at most 1 cell/s and falls at 6 easing to 3; holding down
-  brings it back to 6. The balloon pops on landing.
+- **Slow:** a balloon starts two cells above the tower height and rises at 2.5 cells/s, following
+  the brick's x. A catch plays the collision sound and poof, freezes the brick and shakes it for
+  0.3 s. The tethered balloon then appears and grows over 0.4 s. Steering resumes 0.3 s after it
+  appears. Idle fall speed is capped at 1 cell/s, and sideways steps work as usual. Once the
+  balloon finishes growing, the held-Down cap falls from 6 to 3 cells/s at 8 cells/s². A new Down
+  press after inflation resets the cap and plays one of two sounds. The brick still accelerates
+  from its current speed. The balloon disappears on landing.
 - **Mist:** fog 5 cells tall at the tower top for about 15 s.
 - **Grassy:** grass grows over the last brick and every brick within 5 cells (looks only).
 - **Ghost:** up to 3 skulls grab the victim's last brick (not petrified or vined), carry it up and
