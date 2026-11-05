@@ -1267,6 +1267,9 @@ pub struct MagicRules {
     /// `no_rotate_jump` cells each way every frame (divided by the brick's scale).
     pub no_rotate_shake: f32,
     pub no_rotate_jump: f32,
+    /// Delay and pitch range for the chain sound on attachment and a new shake.
+    pub no_rotate_chain_delay: f32,
+    pub no_rotate_chain_pitch: (f32, f32),
     /// Shapes Mystery can turn a brick into, drawn from a bag.
     pub mystery_pieces: Vec<PieceDef>,
     /// Bubble lift as an upward acceleration in cells/s²: at the start, after
@@ -1494,6 +1497,8 @@ impl Default for MagicRules {
             auto_rotate_swing: (105.0, 0.45),
             no_rotate_shake: 0.3,
             no_rotate_jump: 0.1,
+            no_rotate_chain_delay: 0.08,
+            no_rotate_chain_pitch: (0.95, 1.05),
             mystery_pieces: default_mystery_pieces(),
             bubble_lift: (21.5, 18.0, 17.5),
             bubble_ease: 1.0,

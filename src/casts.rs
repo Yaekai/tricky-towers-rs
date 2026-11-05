@@ -31,7 +31,7 @@ impl Plugin for CastsPlugin {
                 stream_beams,
                 run_streams,
                 run_orbs,
-                run_lightning,
+                run_lightning.after(crate::cups_menu::CupFlyerMotion),
                 track_clouds,
                 animate_clouds,
                 flick_hints,
@@ -117,7 +117,7 @@ enum BeamKind {
 /// The lightning of a light cast, redrawn every frame from wizard to brick.
 #[derive(Component)]
 struct Lightning {
-    from: Vec2,
+    origin: BoltOrigin,
     to: Vec2,
     time: f32,
     segments: Vec<Entity>,
@@ -127,10 +127,17 @@ struct Lightning {
     layers: Option<bevy::camera::visibility::RenderLayers>,
 }
 
-/// A lightning bolt from `from` to `to` (pixels), drawn `cell` pixels a unit.
+/// Match bolts start at a fixed point. The cup winner's bolt follows its wizard.
+#[derive(Clone, Copy)]
+pub(crate) enum BoltOrigin {
+    Fixed(Vec2),
+    Wand(Entity, Vec2),
+}
+
+/// A lightning bolt to `to` (pixels), drawn `cell` pixels a unit.
 pub(crate) fn spawn_bolt(
     commands: &mut Commands,
-    from: Vec2,
+    origin: BoltOrigin,
     to: Vec2,
     cell: f32,
     layers: Option<bevy::camera::visibility::RenderLayers>,
@@ -138,7 +145,7 @@ pub(crate) fn spawn_bolt(
 ) {
     commands.spawn((
         Lightning {
-            from,
+            origin,
             to,
             time: -delay,
             segments: Vec::new(),
@@ -235,7 +242,7 @@ fn start_casts(
             let to = brick_at(caster_state, caster);
             // It strikes at the wizard's cast-self moment (WizardLightningEffect after
             // WizardCastSelfAnimationEffect).
-            spawn_bolt(&mut commands, from, to, config.cell_size, None, config.magic.cast_self);
+            spawn_bolt(&mut commands, BoltOrigin::Fixed(from), to, config.cell_size, None, config.magic.cast_self);
         }
     }
 }
@@ -1300,7 +1307,10 @@ fn run_lightning(
     config: Res<GameConfig>,
     art: Res<Art>,
     mut bolts: Query<(Entity, &mut Lightning)>,
-    mut pieces: Query<(&mut Transform, &mut Sprite), Without<Lightning>>,
+    mut transforms: ParamSet<(
+        Query<&Transform>,
+        Query<(&mut Transform, &mut Sprite), Without<Lightning>>,
+    )>,
 ) {
     let look = &config.casts;
     let image = art.image("cast_lightning");
@@ -1309,13 +1319,18 @@ fn run_lightning(
         if bolt.time < 0.0 {
             continue;
         }
-        if bolt.time >= look.lightning {
+        let from = match bolt.origin {
+            BoltOrigin::Fixed(at) => Some(at),
+            BoltOrigin::Wand(wizard, local) => transforms.p0().get(wizard).ok()
+                .map(|transform| transform.transform_point(local.extend(0.0)).truncate()),
+        };
+        let Some(from) = from.filter(|_| bolt.time < look.lightning) else {
             for &piece in &bolt.segments {
                 commands.entity(piece).despawn();
             }
             commands.entity(entity).despawn();
             continue;
-        }
+        };
         if bolt.segments.is_empty() {
             bolt.segments = (0..BOLT_PIECES)
                 .map(|_| {
@@ -1338,7 +1353,7 @@ fn run_lightning(
         }
         // The original's wobble: sin(phase + 5s) × amplitude × sin(πs) along the bolt, the
         // phase running 0 → -5 over the cast and the amplitude 0 → peak at 1/6 of it → 0.
-        let (from, to) = (bolt.from, bolt.to);
+        let to = bolt.to;
         let side = (to - from).perp().normalize_or(Vec2::X);
         let t = (bolt.time / look.lightning).clamp(0.0, 1.0);
         let phase = -5.0 * t;
@@ -1355,6 +1370,7 @@ fn run_lightning(
             from.lerp(to, s) + side * swing
         };
         let fade = 1.0 - bolt.time / look.lightning;
+        let mut pieces = transforms.p1();
         for (i, &piece) in bolt.segments.iter().enumerate() {
             let Ok((mut transform, mut sprite)) = pieces.get_mut(piece) else {
                 continue;
@@ -1818,6 +1834,8 @@ fn grow_large_bricks(
 #[derive(Component)]
 pub(crate) struct NoRotateLock {
     age: f32,
+    shaking: bool,
+    chain_in: Option<f32>,
 }
 
 /// The holder of a brick's lock pictures, and one of them (an index into its shape's parts).
@@ -1994,11 +2012,33 @@ fn lock_bricks(
         };
         let Some(mut lock) = lock else {
             if control.is_some_and(|c| c.mods.no_rotate) {
-                commands.entity(entity).insert(NoRotateLock { age: 0.0 });
+                commands.entity(entity).insert(NoRotateLock {
+                    age: 0.0,
+                    shaking: false,
+                    chain_in: Some(config.magic.no_rotate_chain_delay),
+                });
             }
             continue;
         };
         lock.age += dt;
+        if let Some(left) = lock.chain_in.as_mut() {
+            *left -= dt;
+            if *left <= f32::EPSILON {
+                lock.chain_in = None;
+                *seed = (*seed).max(1);
+                let choice = (crate::particles::roll(&mut seed) * 4.0) as u32 + 1;
+                let (low, high) = config.magic.no_rotate_chain_pitch;
+                let pitch = low + (high - low) * crate::particles::roll(&mut seed);
+                if let Some(handle) = art.sounds.get(&format!("sfx_chain_{choice}")) {
+                    commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN.with_speed(pitch)));
+                }
+            }
+        }
+        let shaking = control.is_some_and(|c| c.refused > 0.0);
+        if shaking && !lock.shaking && lock.chain_in.is_none() {
+            lock.chain_in = Some(config.magic.no_rotate_chain_delay);
+        }
+        lock.shaking = shaking;
         let Some(holder) = children.and_then(|c| c.iter().find(|c| holders.contains(*c))) else {
             // Not drawn yet, or the brick's pictures were just redrawn.
             commands.entity(entity).with_children(|b| {
@@ -2024,7 +2064,6 @@ fn lock_bricks(
         };
         // A refused turn shakes the lock about (in hand only).
         if let Ok(mut t) = holder_moves.get_mut(holder) {
-            let shaking = control.is_some_and(|c| c.refused > 0.0);
             let reach = LOCK_SHAKE * cell;
             let mut roll = || {
                 *seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345) | 1;
@@ -2083,6 +2122,37 @@ mod tests {
     use super::*;
     use crate::config::{Curse, ModeKind};
     use crate::gameplay::PlayerInput;
+
+    #[test]
+    fn the_cup_bolt_follows_its_wand_and_goes_with_the_wizard() {
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<Art>()
+            .init_resource::<GameConfig>()
+            .add_systems(Update, run_lightning);
+        let wizard = app.world_mut().spawn(Transform::default()).id();
+        let bolt = app.world_mut().spawn(Lightning {
+            origin: BoltOrigin::Wand(wizard, Vec2::X),
+            to: Vec2::new(140.0, 0.0),
+            time: 0.0,
+            segments: Vec::new(),
+            cell: 1.0,
+            layers: None,
+        }).id();
+        app.update();
+        app.update();
+        let first = app.world().get::<Lightning>(bolt).unwrap().segments[0];
+        let x = |app: &App| app.world().get::<Transform>(first).unwrap().translation.x;
+        let before = x(&app);
+        app.world_mut().get_mut::<Transform>(wizard).unwrap().translation.x += 10.0;
+        app.update();
+        assert!(x(&app) > before + 9.0);
+
+        app.world_mut().despawn(wizard);
+        app.update();
+        assert!(app.world().get_entity(bolt).is_err());
+        assert!(app.world().get_entity(first).is_err());
+    }
 
     fn app() -> App {
         let mut config = GameConfig {

@@ -128,6 +128,12 @@ pub struct LifeOrb {
     pub ascending: bool,
 }
 
+#[derive(Message)]
+pub(crate) struct LifeOrbEnded {
+    pub at: Vec2,
+    pub collected: bool,
+}
+
 /// FloatingSpellOrb: pushed (1, 25) while rising until it climbs at 4 cells/s, then
 /// (1, 10) until it sinks at 4, on top of gravity; leaves past 8 cells right. Its trigger
 /// circle is 1.2 cells across the middle (radius).
@@ -367,6 +373,7 @@ pub(crate) fn run_curse_waves(
             Has<Bubbled>,
             Has<Zapped>,
             Has<Ghosted>,
+            Has<BubbleFail>,
         ),
         Without<ActiveBrick>,
     >,
@@ -417,6 +424,7 @@ pub(crate) fn run_curse_waves(
                 tower,
                 &mut state,
                 &placed,
+                &mut Vec::new(),
             );
             state.last_placed = kept.filter(|&e| e != victim);
         }
@@ -741,6 +749,7 @@ pub(crate) fn land_casts(
             Has<Bubbled>,
             Has<Zapped>,
             Has<Ghosted>,
+            Has<BubbleFail>,
         ),
         Without<ActiveBrick>,
     >,
@@ -775,6 +784,8 @@ pub(crate) fn land_casts(
         }
         true
     });
+    // A bubble inserted this step is still deferred when the next cast picks a brick.
+    let mut bubble_targets = Vec::new();
     for cast in due {
         let target = cast.target;
         let Ok((_, tower, mut state)) = towers.get_mut(target) else {
@@ -836,7 +847,10 @@ pub(crate) fn land_casts(
                     );
                 }
             } else {
-                cast_on_tower(&mut commands, &config, spell, target, tower, &mut state, &placed);
+                cast_on_tower(
+                    &mut commands, &config, spell, target, tower, &mut state, &placed,
+                    &mut bubble_targets,
+                );
             }
         }
         // A curse keeps the brick hanging, shaking, through its post-cast delay (Bubble,
@@ -929,7 +943,7 @@ fn curse_bricks(
 }
 
 /// Spells that act on the tower rather than on a brick.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn cast_on_tower(
     commands: &mut Commands,
     config: &GameConfig,
@@ -949,9 +963,11 @@ fn cast_on_tower(
             Has<Bubbled>,
             Has<Zapped>,
             Has<Ghosted>,
+            Has<BubbleFail>,
         ),
         Without<ActiveBrick>,
     >,
+    bubble_targets: &mut Vec<Entity>,
 ) {
     let magic = &config.magic;
     let c = config.cell_size;
@@ -1055,12 +1071,17 @@ fn cast_on_tower(
             // BubbleEffect on the tower's last brick not already in a bubble (GetLastBrick
             // skipping Bubble and BubbleFail): a vined or stone brick only gets a bubble
             // that pops 0.7 s later (BubbleFailModifier); a loose one floats off.
-            let pick = latest.iter().map(|(_, b)| *b).find(|b| !b.7);
-            let loose = matches!(pick, Some((_, _, _, Some(RigidBody::Dynamic), false, false, ..)));
-            if let Some((entity, ..)) = pick.filter(|_| !loose) {
+            let Some((entity, _, _, body, stone, vined, ..)) = latest
+                .iter()
+                .map(|(_, b)| *b)
+                .find(|b| !b.7 && !b.10 && !bubble_targets.contains(&b.0))
+            else {
+                return;
+            };
+            bubble_targets.push(entity);
+            if body != Some(&RigidBody::Dynamic) || stone || vined {
                 commands.entity(entity).insert(BubbleFail { timer: BUBBLE_FAIL_SECONDS });
-            }
-            if let Some((entity, ..)) = pick.filter(|_| loose) {
+            } else {
                 let tilt = 3.0 + (state.random() % 900) as f32 / 100.0;
                 let sign = if state.random().is_multiple_of(2) {
                     1.0
@@ -1578,32 +1599,35 @@ pub(crate) fn collect_life_orbs(
     spatial: SpatialQuery,
     time: Res<Time>,
     mut orbs: Query<(Entity, &mut LifeOrb, &mut Transform)>,
-    bricks: Query<&Brick>,
+    bricks: Query<&Brick, Without<FloorBlock>>,
     homes: Query<&Tower>,
     mut towers: Query<&mut TowerState>,
+    mut ended: MessageWriter<LifeOrbEnded>,
 ) {
     let dt = time.delta_secs();
     let orb = Collider::circle(config.cell_size * ORB_RADIUS);
     for (entity, mut life, mut transform) in &mut orbs {
-        // FloatingSpellOrb.FixedUpdate: the push, gravity, and a tilt of 2 degrees per cell/s
-        // of climb.
+        // The force for this step uses the old direction. The switch and tilt use the
+        // velocity before physics integrates that force.
         let push = if life.ascending { ORB_PUSH_UP } else { ORB_PUSH_DOWN };
-        life.velocity += (push - Vec2::Y * config.gravity) * dt;
         if life.ascending && life.velocity.y > ORB_TURN_SPEED {
             life.ascending = false;
         } else if !life.ascending && life.velocity.y < -ORB_TURN_SPEED {
             life.ascending = true;
         }
-        transform.translation += (life.velocity * config.cell_size * dt).extend(0.0);
         transform.rotation = Quat::from_rotation_z((life.velocity.y * 2.0).to_radians());
+        life.velocity += (push - Vec2::Y * config.gravity) * dt;
+        transform.translation += (life.velocity * config.cell_size * dt).extend(0.0);
+        let at = transform.translation.truncate();
         let home = homes.get(life.tower).map_or(0.0, |t| t.origin_x);
-        if transform.translation.x - home > config.cells(ORB_GONE_X) {
+        if at.x - home > config.cells(ORB_GONE_X) {
+            ended.write(LifeOrbEnded { at, collected: false });
             commands.entity(entity).despawn();
             continue;
         }
         let hits = spatial.shape_intersections(
             &orb,
-            transform.translation.truncate(),
+            at,
             0.0,
             &SpatialQueryFilter::default(),
         );
@@ -1611,11 +1635,15 @@ pub(crate) fn collect_life_orbs(
             .iter()
             .any(|e| bricks.get(*e).is_ok_and(|b| b.tower == life.tower));
         if touched {
-            if let Ok(mut state) = towers.get_mut(life.tower)
+            let collected = if let Ok(mut state) = towers.get_mut(life.tower)
                 && let Some(lives) = state.lives.as_mut()
             {
                 *lives += 1;
-            }
+                true
+            } else {
+                false
+            };
+            ended.write(LifeOrbEnded { at, collected });
             commands.entity(entity).despawn();
         }
     }

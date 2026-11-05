@@ -1102,6 +1102,8 @@ fn extra_life_orb_gives_a_life() {
 
 #[test]
 fn extra_life_orb_bobs_and_drifts_right() {
+    use tricky_towers::spells::LifeOrb;
+
     let mut config = fast_config();
     config.magic.enabled = true;
     let mut app = headless_app(config);
@@ -1116,11 +1118,23 @@ fn extra_life_orb_bobs_and_drifts_right() {
             .ok()
     };
     let start = at(&mut app).expect("an orb appeared");
+    let entity = {
+        let world = app.world_mut();
+        world.query_filtered::<Entity, With<LifeOrb>>().single(world).unwrap()
+    };
+    let life = |app: &App| {
+        let orb = app.world().get::<LifeOrb>(entity).unwrap();
+        (orb.ascending, orb.velocity.y)
+    };
+    assert!(run_until(&mut app, 1.0, |app| life(app).1 > 4.0));
+    let (ascending, speed) = life(&app);
+    assert!(ascending, "the force step crossed 4 before the direction check");
+    assert!(run_until(&mut app, 0.1, |app| !life(app).0));
+    assert!(life(&app).1 > speed, "the switching step still pushes up");
     run_seconds(&mut app, 1.5, |_| {});
-    if let Some(now) = at(&mut app) {
-        assert!(now.x > start.x, "drifts right: {start} -> {now}");
-        assert!((now.y - start.y).abs() < 64.0 * 4.0, "bobs, doesn't fly off: {start} -> {now}");
-    }
+    let now = at(&mut app).expect("the orb should still be to the left of the tower");
+    assert!(now.x > start.x, "drifts right: {start} -> {now}");
+    assert!((now.y - start.y).abs() < 64.0 * 4.0, "bobs, doesn't fly off: {start} -> {now}");
 }
 
 #[test]
@@ -1248,6 +1262,40 @@ fn bubble_lifts_the_last_brick() {
         .count();
     // While the first bubble lasts, the second goes to another brick.
     assert!(!still || others == 1, "{still} {others}");
+}
+
+#[test]
+fn bubble_skips_failed_and_pending_targets() {
+    use tricky_towers::gameplay::Placed;
+    use tricky_towers::spells::{BubbleFail, EnemyCasts};
+
+    let mut config = fast_config();
+    config.mode = ModeKind::Race;
+    let mut app = headless_app(config);
+    assert!(run_until(&mut app, 20.0, |app| tower(app, 0).bricks_placed >= 3));
+    let world = app.world_mut();
+    let mut placed: Vec<_> = world
+        .query::<(Entity, &Placed)>()
+        .iter(world)
+        .map(|(entity, order)| (order.0, entity))
+        .collect();
+    placed.sort_by_key(|&(order, _)| order);
+    let bricks: Vec<_> = placed.iter().rev().take(3).map(|&(_, entity)| entity).collect();
+    assert_eq!(bricks.len(), 3);
+    for &entity in &bricks {
+        world.entity_mut(entity).insert(Stone);
+    }
+
+    let bubble = || Curse::new(&[SpellKind::Bubble], 1, None);
+    world.resource_mut::<EnemyCasts>().0.push(bubble());
+    run_seconds(&mut app, 0.2, |_| {});
+    app.world_mut().resource_mut::<EnemyCasts>().0.extend([bubble(), bubble()]);
+    assert!(run_until(&mut app, 2.0, |app| count::<With<BubbleFail>>(app) > 0));
+    assert!(app.world().get::<BubbleFail>(bricks[0]).is_some());
+    assert!(run_until(&mut app, 0.4, |app| count::<With<BubbleFail>>(app) == 3));
+    for entity in bricks {
+        assert!(app.world().get::<BubbleFail>(entity).is_some());
+    }
 }
 
 #[test]
@@ -2382,6 +2430,14 @@ fn no_rotate_refuses_the_turn_with_a_shake() {
         .get::<avian2d::prelude::Rotation>(active)
         .unwrap();
     assert_eq!(before.as_radians(), after.as_radians());
+
+    run_seconds(&mut app, 0.16, |_| {});
+    human_input(&mut app).rotate_ccw_pressed = true;
+    run_seconds(&mut app, 0.13, |_| {});
+    assert_eq!(app.world().get::<ActiveBrick>(active).unwrap().refused, 0.0);
+    human_input(&mut app).rotate_pressed = true;
+    run_seconds(&mut app, 0.05, |_| {});
+    assert!(app.world().get::<ActiveBrick>(active).unwrap().refused > 0.0);
 }
 
 #[test]
