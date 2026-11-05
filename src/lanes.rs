@@ -58,8 +58,8 @@ pub struct LaneView {
     /// Added to a point of this tower's to find where the main camera's full-screen view
     /// would show it on screen.
     pub shift: f32,
-    /// Its share of the screen, as fractions of the width: left edge and width.
-    pub rect: (f32, f32),
+    /// Its part of the screen, as fractions of the width and height (y down from the top).
+    pub rect: Rect,
 }
 
 impl LaneViews {
@@ -97,6 +97,32 @@ pub fn lane_rect(lanes: &crate::config::Lanes, i: usize, n: usize) -> (f32, f32)
         (lanes.margin + i as f32 * lanes.spacing(n)) / screen,
         width / screen,
     )
+}
+
+/// GamePositionHelper's 16:9 rectangle on a screen of `size` (any units): the original
+/// fits every tower's viewport into it. It tests `Screen.width / Screen.height` in whole
+/// numbers, so 2 or more (21:9) is pillarboxed to 16:9 in the middle, and anything else is
+/// letterboxed to the full width (16:9 itself fills the screen).
+pub fn screen_box(size: Vec2) -> Rect {
+    const RATIO: f32 = 16.0 / 9.0;
+    let (w, h) = (size.x.max(1.0), size.y.max(1.0));
+    if (w as u32) / (h as u32).max(1) >= 2 {
+        let bw = (h * RATIO).min(w);
+        Rect::new((w - bw) * 0.5, 0.0, (w + bw) * 0.5, h)
+    } else {
+        let bh = (w / RATIO).min(h);
+        Rect::new(0.0, (h - bh) * 0.5, w, (h + bh) * 0.5)
+    }
+}
+
+/// Lane `i` of `n` on a screen of `size`, as fractions of the screen (y down from the top):
+/// [`lane_rect`] inside the [`screen_box`].
+pub fn screen_rect(lanes: &crate::config::Lanes, i: usize, n: usize, size: Vec2) -> Rect {
+    let size = size.max(Vec2::ONE);
+    let b = screen_box(size);
+    let (left, width) = lane_rect(lanes, i, n);
+    let x0 = b.min.x + left * b.width();
+    Rect::new(x0 / size.x, b.min.y / size.y, (x0 + width * b.width()) / size.x, b.max.y / size.y)
 }
 
 /// Whether the match on now splits the screen into one camera per tower.
@@ -158,15 +184,15 @@ fn find_lane_views(
         .iter()
         .enumerate()
         .map(|(i, t)| {
-            let rect = lane_rect(&config.lanes, i, count);
+            let rect = screen_rect(&config.lanes, i, count, view.0);
             // The camera eases and shakes as one: each tower's sits as far from its tower
             // as the main camera does from the towers' middle.
             let centre_x = t.origin_x + (eye.translation.x - centre);
-            let middle = eye.translation.x + (rect.0 + rect.1 * 0.5 - 0.5) * width;
+            let middle = eye.translation.x + (rect.center().x - 0.5) * width;
             LaneView {
                 tower: t.index,
                 centre_x,
-                half_width: width * rect.1 * 0.5,
+                half_width: width * rect.width() * 0.5,
                 shift: middle - centre_x,
                 rect,
             }
@@ -299,12 +325,15 @@ fn follow_lanes(
     }
 }
 
-fn viewport(size: UVec2, (left, width): (f32, f32)) -> Viewport {
-    let x0 = (size.x as f32 * left).round() as u32;
-    let x1 = ((size.x as f32 * (left + width)).round() as u32).min(size.x);
+fn viewport(size: UVec2, rect: Rect) -> Viewport {
+    let (w, h) = (size.x as f32, size.y as f32);
+    let x0 = ((w * rect.min.x).round() as u32).min(size.x.saturating_sub(1));
+    let x1 = ((w * rect.max.x).round() as u32).min(size.x);
+    let y0 = ((h * rect.min.y).round() as u32).min(size.y.saturating_sub(1));
+    let y1 = ((h * rect.max.y).round() as u32).min(size.y);
     Viewport {
-        physical_position: UVec2::new(x0.min(size.x.saturating_sub(1)), 0),
-        physical_size: UVec2::new((x1.saturating_sub(x0)).max(1), size.y.max(1)),
+        physical_position: UVec2::new(x0, y0),
+        physical_size: UVec2::new(x1.saturating_sub(x0).max(1), y1.saturating_sub(y0).max(1)),
         ..default()
     }
 }
@@ -382,11 +411,29 @@ mod tests {
         let size = UVec2::new(1281, 720);
         let mut right = 0;
         for i in 0..4 {
-            let v = viewport(size, lane_rect(&lanes, i, 4));
+            let v = viewport(size, screen_rect(&lanes, i, 4, size.as_vec2()));
             assert!(v.physical_position.x >= right);
             right = v.physical_position.x + v.physical_size.x;
             assert!(right <= size.x);
         }
+    }
+
+    #[test]
+    fn other_screens_fit_the_lanes_in_a_16_9_box() {
+        // 16:9 fills the screen; 21:9 is pillarboxed; 5:4 and 16:10 are letterboxed.
+        let full = screen_box(Vec2::new(1920.0, 1080.0));
+        assert_eq!(full, Rect::new(0.0, 0.0, 1920.0, 1080.0));
+        let wide = screen_box(Vec2::new(3440.0, 1440.0));
+        assert!((wide.width() - 2560.0).abs() < 0.5 && (wide.min.x - 440.0).abs() < 0.5);
+        let square = screen_box(Vec2::new(1280.0, 1024.0));
+        assert!((square.height() - 720.0).abs() < 0.5 && (square.min.y - 152.0).abs() < 0.5);
+        let tall = screen_box(Vec2::new(1920.0, 1200.0));
+        assert!((tall.height() - 1080.0).abs() < 0.5);
+        // The lanes keep their 16:9 shapes inside it.
+        let lanes = crate::config::Lanes::default();
+        let a = screen_rect(&lanes, 0, 2, Vec2::new(1920.0, 1080.0));
+        let b = screen_rect(&lanes, 0, 2, Vec2::new(3440.0, 1440.0));
+        assert!((a.width() * 1920.0 / 1080.0 - b.width() * 3440.0 / 1440.0).abs() < 1e-3);
     }
 
     #[test]
@@ -397,7 +444,7 @@ mod tests {
                 centre_x: 10.0,
                 half_width: 5.0,
                 shift: 3.5,
-                rect: (0.5, 0.5),
+                rect: Rect::new(0.5, 0.0, 1.0, 1.0),
             }],
         };
         let p = Vec2::new(2.0, 7.0);
@@ -454,17 +501,17 @@ mod tests {
             assert_eq!(views.lanes.len(), 2);
             let width = 1280.0 * scale;
             for (i, view) in views.lanes.iter().enumerate() {
-                let rect = lane_rect(&lanes, i, 2);
+                let rect = screen_rect(&lanes, i, 2, Vec2::new(1280.0, 720.0));
                 // The tower's origin, through its own camera, at its rectangle's middle.
                 let origin = if i == 0 { -17.0 * c } else { 17.0 * c };
                 assert!((view.centre_x - origin).abs() < 1e-3);
                 let on_screen = (views.to_main(i, Vec2::new(origin, 0.0)).x / width + 0.5) * 1280.0;
-                let middle = (rect.0 + rect.1 * 0.5) * 1280.0;
+                let middle = rect.center().x * 1280.0;
                 assert!(
                     (on_screen - middle).abs() < 0.01,
                     "scale {scale}: {on_screen} vs {middle}"
                 );
-                assert!((view.half_width - width * rect.1 * 0.5).abs() < 1e-3);
+                assert!((view.half_width - width * rect.width() * 0.5).abs() < 1e-3);
             }
             last = Some(views);
         }

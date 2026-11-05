@@ -506,6 +506,7 @@ fn animate_lights(
     grab: Option<Res<crate::post::GrabTarget>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut spots: Option<ResMut<Assets<crate::post::SpotOverlay>>>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
     let Ok((eye, Projection::Orthographic(ortho))) = camera.single() else {
         return;
@@ -560,8 +561,8 @@ fn animate_lights(
             sprite.color = sprite.color.with_alpha(light.alpha * fade);
         }
         transform.translation.x = if strip.screen {
-            // The whole-screen strip follows the camera.
-            eye.translation.x
+            // The whole-screen strip follows the camera (a split screen's: its tower's).
+            lanes.as_ref().and_then(|l| l.view(tower.index)).map_or(eye.translation.x, |v| v.centre_x)
         } else {
             tower.origin_x + config.cells(strip.from * strip.side)
         };
