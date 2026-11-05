@@ -3378,6 +3378,17 @@ pub struct StartLook {
     /// Seconds before the prompt shows, and its blink: seconds on, seconds off.
     pub prompt_after: f32,
     pub blink: (f32, f32),
+    /// Rumble's finish event, the faster prompt blink, and the pad's duration/strength.
+    pub rumble_end: f32,
+    pub rumble_blink: f32,
+    pub rumble_pad: (f32, f32),
+    /// Rumble's root position in logo units and its angle in degrees, with curve tangents.
+    pub rumble_x: Vec<(f32, f32, f32, f32)>,
+    pub rumble_y: Vec<(f32, f32, f32, f32)>,
+    pub rumble_tilt: Vec<(f32, f32, f32, f32)>,
+    /// Rubble's common end time and drop distance, with a start time for each piece.
+    pub rumble_debris: (f32, f32),
+    pub rumble_debris_after: [f32; 16],
     /// The MoveIn clip's sound events (StartStateController): when, and which sounds.
     pub sounds: Vec<(f32, Vec<String>)>,
 }
@@ -3396,6 +3407,14 @@ impl Default for StartLook {
             plant_grow: [vec![(0.0, 0.0, 0.0, 0.0), (0.8654, 0.0, 0.0, 0.0), (1.038, 1.0, -25.26, 0.0)], vec![(0.0, 0.0, 0.0, 0.0), (1.058, 0.0, 0.0, 0.0), (1.135, 0.8267, 14.95, 14.95), (1.231, 1.0, -21.57, 0.0)], vec![(0.0, 0.0, 0.0, 0.0), (1.154, 0.0, 0.0, 0.0), (1.231, 0.7331, 3.161, 0.0), (1.346, 1.0, -20.64, 0.0)], vec![(0.0, 0.0, 0.0, 0.0), (1.058, 0.0, 0.0, 0.0), (1.135, 0.9824, 17.38, 17.38), (1.231, 1.0, -29.77, 0.0)]],
             prompt_after: 2.62,
             blink: (0.5, 0.5),
+            rumble_end: 1.0,
+            rumble_blink: 0.075,
+            rumble_pad: (0.3, 1.0),
+            rumble_x: vec![(0.0, 0.0, 0.0, -12.0), (0.033333335, -0.4, -6.75, -6.75), (0.06666667, -0.45, 5.1, 5.1), (0.1, -0.06, -3.6, -3.6), (0.13333334, -0.69, -13.60447, -13.60447), (0.16666667, -0.96696484, 10.35, 10.35), (0.2, 0.0, 17.95448, 17.95447), (0.23333333, 0.23, -6.0, -6.0), (0.26666668, -0.4, -10.2, -10.2), (0.3, -0.45, 5.1, 5.1), (0.33333334, -0.06, -3.6, -3.6), (0.36666667, -0.69, -13.60447, -13.60447), (0.4, -0.96696484, 10.35, 10.35), (0.43333334, 0.0, 14.50448, 0.0)],
+            rumble_y: vec![(0.0, 0.0, 0.0, 12.0), (0.033333335, 0.4, -1.8, -1.8), (0.06666667, -0.12, -5.25, -5.25), (0.1, 0.05, -4.05, -4.05), (0.13333334, -0.39, -5.25, -5.25), (0.16666667, -0.3, 5.85, 5.85), (0.2, 0.0, 1.05, 1.05), (0.23333333, -0.23, 6.0, 6.0), (0.26666668, 0.4, 1.65, 1.65), (0.3, -0.12, -5.25, -5.25), (0.33333334, 0.05, -4.05, -4.05), (0.36666667, -0.39, -5.25, -5.25), (0.4, -0.3, 5.85, 5.85), (0.43333334, 0.0, 4.5, 0.0)],
+            rumble_tilt: vec![(0.0, 0.0, 0.0, -10.0), (0.1, -1.0, 8.125, 8.125), (0.16666667, 0.75, 5.625, 5.625), (0.26666668, -0.75, -1.25, -1.25), (0.36666667, 0.5, 3.75, 3.75), (0.46666667, 0.0, -5.0, 0.0)],
+            rumble_debris: (0.73333335, 26.14),
+            rumble_debris_after: [0.11666667, 0.15, 0.0, 0.016666668, 0.2, 0.0, 0.21666667, 0.13333334, 0.11666667, 0.18333334, 0.1, 0.016666668, 0.13333334, 0.16666667, 0.2, 0.1],
             // SWOOSH, FALLING_BRICK, three GRASS_GROW and BRICK_LAND.
             sounds: vec![
                 (0.0962, vec!["sfx_swoosh".into()]),
@@ -3422,6 +3441,8 @@ pub struct MenuLook {
     /// Seconds the pause menu fades in (before it takes input) and out (before Resume,
     /// Retry or Quit happen): PauseMenu's DOFade.
     pub pause_fade: f32,
+    /// Seconds to cover or reveal a screen (TransitionEffect, real time).
+    pub transition_fade: f32,
 }
 
 impl Default for MenuLook {
@@ -3430,6 +3451,7 @@ impl Default for MenuLook {
             ray_turns: vec![(180.0, 2.0), (-90.0, 2.0)],
             corner_pulse: (5.0, 1.0),
             pause_fade: 0.3,
+            transition_fade: 0.076831,
         }
     }
 }

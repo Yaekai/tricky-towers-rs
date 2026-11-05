@@ -163,8 +163,11 @@ fn toggle_game_info(
     game: Res<Match>,
     mut info: ResMut<GameInfo>,
     pause: Option<Res<crate::menu::PauseMenu>>,
+    transition: Option<Res<crate::menu::ScreenTransition>>,
 ) {
-    if game.phase != Phase::Playing || pause.is_some_and(|p| p.is_active()) {
+    if game.phase != Phase::Playing || pause.is_some_and(|p| p.is_active())
+        || transition.is_some_and(|t| !t.idle())
+    {
         info.open = false;
         return;
     }

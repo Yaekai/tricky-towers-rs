@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::art::Music;
 use crate::letters::TextLook;
 use crate::gameplay::{Match, Phase};
-use crate::menu::MenuScreen;
+use crate::menu::{MenuScreen, ScreenTransition};
 use crate::select::{
     CORNER_SMALL, SCREEN, corners, label, label_with, place, read_taps, shown, sliced, spawn_page,
 };
@@ -721,7 +721,8 @@ pub(crate) fn settings_input(
     mouse: Option<Res<ButtonInput<MouseButton>>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     game: Res<Match>,
-    mut screen: ResMut<MenuScreen>,
+    screen: Res<MenuScreen>,
+    mut transition: ResMut<ScreenTransition>,
     mut menu: ResMut<SettingsMenu>,
     mut settings: ResMut<Settings>,
     mut binds: ResMut<crate::keybinding::KeybindingMenu>,
@@ -804,7 +805,7 @@ pub(crate) fn settings_input(
         return;
     }
     if !taps.pad_back.is_empty() {
-        *screen = MenuScreen::Main;
+        transition.menu(MenuScreen::Main);
         return;
     }
     let bumper = |button| pads.iter().any(|(_, pad)| pad.just_pressed(button));

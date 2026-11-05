@@ -7,10 +7,8 @@ below include tasks already completed in October.
 
 ## Confirmed remaining implementation work
 
-1. **Transitions:** implement the 0.077-second fade to black before changing
-   screens; clearing from black afterward is already implemented. The start
-   screen still skips its pre-title Rumble clip. Pause text and controls need
-   their opacity transition.
+1. **Pause presentation:** fade the text, selection bar and controls panel
+   with the existing pause overlay.
 2. **Lane cameras/clipping:** brick materials and the drop guide are clipped, but
    decorations and Puzzle's widening per-player views remain incomplete.
 3. **Trial 9 physics:** keep the temporary 0.3 laser slack until the stack-height

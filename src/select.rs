@@ -10,8 +10,8 @@ use bevy::window::PrimaryWindow;
 
 use crate::art::Art;
 use crate::config::{BrickPack, Difficulty, GameConfig, ModeKind, WIZARD_COUNT};
-use crate::gameplay::{MAX_TOWERS, Match, MatchRequest, Phase};
-use crate::menu::MenuScreen;
+use crate::gameplay::{MAX_TOWERS, Match, Phase};
+use crate::menu::{MenuScreen, ScreenTransition};
 
 /// Who sits in a player select seat.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -997,7 +997,8 @@ pub(crate) fn players_input(
     mouse: Option<Res<ButtonInput<MouseButton>>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     game: Res<Match>,
-    mut screen: ResMut<MenuScreen>,
+    screen: Res<MenuScreen>,
+    mut transition: ResMut<ScreenTransition>,
     mut lobby: ResMut<Lobby>,
     mut config: ResMut<GameConfig>,
     art: Option<Res<Art>>,
@@ -1070,7 +1071,7 @@ pub(crate) fn players_input(
         if let Some(seat) = lobby.seats.iter().position(|s| *s == Seat::Pad(pad)) {
             step_back_seat(&mut lobby, seat);
         } else if !lobby.seats.iter().any(|s| s.human()) {
-            *screen = MenuScreen::Main;
+            transition.menu(MenuScreen::Main);
             return;
         }
     }
@@ -1129,7 +1130,7 @@ pub(crate) fn players_input(
         config.skins = lobby.tower_skins();
         lobby.mode = lobby.mode.min(lobby.modes().len() - 1);
         lobby.column = 0;
-        *screen = MenuScreen::Modes;
+        transition.menu(MenuScreen::Modes);
     }
 }
 
@@ -1145,10 +1146,10 @@ pub(crate) fn modes_input(
     windows: Query<&Window, With<PrimaryWindow>>,
     time: Res<Time>,
     game: Res<Match>,
-    mut screen: ResMut<MenuScreen>,
+    screen: Res<MenuScreen>,
     mut lobby: ResMut<Lobby>,
     mut config: ResMut<GameConfig>,
-    mut request: ResMut<MatchRequest>,
+    mut transition: ResMut<ScreenTransition>,
     mut cup: ResMut<crate::cups::Cup>,
     mut last_cursor: Local<Option<Vec2>>,
 ) {
@@ -1194,7 +1195,7 @@ pub(crate) fn modes_input(
         *last_cursor = cursor;
     }
     if !taps.pad_back.is_empty() {
-        step_back(&mut lobby, &mut screen);
+        step_back(&mut lobby, &mut transition);
         return;
     }
     if taps.left {
@@ -1261,20 +1262,20 @@ pub(crate) fn modes_input(
     cup.current = config.difficulty.map(|d| (config.mode, d));
     cup.options = options;
     cup.begin();
-    request.pending = true;
+    transition.play(false);
 }
 
 /// Esc or B on Select Mode: from the difficulty back to the mode, then back a
 /// screen (player select, or the title for Single Player).
-pub(crate) fn step_back(lobby: &mut Lobby, screen: &mut MenuScreen) {
+pub(crate) fn step_back(lobby: &mut Lobby, transition: &mut ScreenTransition) {
     if lobby.column > 0 {
         lobby.column -= 1;
     } else {
-        *screen = if lobby.single {
+        transition.menu(if lobby.single {
             MenuScreen::Main
         } else {
             MenuScreen::Players
-        };
+        });
     }
 }
 
