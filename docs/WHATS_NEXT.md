@@ -58,8 +58,13 @@ supersedes the older working notes below.
      centre but is as wide as the screen allows around it. Ours draw those modes
      with one full-screen camera and size their HUD from the full height.
    - 125% scaling and window resizing need a windowed check by Max (offscreen runs
-     always render at 1x). Also still to check: the BrickClipper Forcefield on
-     Puzzle cuts, and whether a shake should move only its own lane.
+     always render at 1x). Also still to check: whether a shake should move only its
+     own lane.
+   - *Forcefield on Puzzle cuts.* Puzzle battles keep AbstractGameMode's brick effects
+     (BrickClipper in GAME and ROOF), and BrickClipper measures against its own tower's
+     ZoomableCamera edges. So a split Puzzle screen now draws the Forcefield at each
+     lane camera's edges (`LaneViews` centre_x ± half_width, `particles::clip_fields`);
+     a Puzzle trial and solo Puzzle still draw none.
    Fixed 2026-11-05: a Puzzle battle's WINNER! now follows the count alone, so a
    debug `Win` no longer adds a second one.
 2. **Reproduce the Trial 9 stack-height mismatch.** Replay the same placements

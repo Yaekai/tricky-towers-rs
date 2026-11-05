@@ -1163,6 +1163,7 @@ fn clip_fields(
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut adds: Option<ResMut<Assets<crate::scene_material::AdditiveSprite>>>,
     mut quad: Local<Option<Handle<Mesh>>>,
+    lane_views: Option<Res<crate::lanes::LaneViews>>,
 ) {
     if *seed == 0 {
         *seed = 0x2F6B_1C9D;
@@ -1173,8 +1174,14 @@ fn clip_fields(
         .map(|m| quad.get_or_insert_with(|| m.add(Rectangle::new(1.0, 1.0))).clone());
     let mut add = quad.zip(adds.as_deref_mut());
     let c = config.cell_size;
-    // ponytail: not in Puzzle, whose lanes aren't cut (brick_material::follow_bricks).
-    let lanes = if game.mode.rules() == ModeKind::Puzzle { 1 } else { towers.iter().count() };
+    // A split Puzzle screen cuts each tower at its own camera's edges (BrickClipper reads
+    // the tower's ZoomableCamera); unsplit Puzzle (a trial, solo) isn't cut.
+    let split = lane_views.as_deref().filter(|l| l.split());
+    let lanes = if game.mode.rules() == ModeKind::Puzzle && split.is_none() {
+        1
+    } else {
+        towers.iter().count()
+    };
     // AbstractGameMode adds it in the GAME and ROOF states; a lone tower's camera is the
     // whole screen.
     let on = lanes > 1
@@ -1190,7 +1197,10 @@ fn clip_fields(
             let Ok((tower, _)) = towers.get(brick.tower) else {
                 continue;
             };
-            let (left_edge, right_edge) = (tower.origin_x - half, tower.origin_x + half);
+            let (left_edge, right_edge) = match split.and_then(|l| l.view(tower.index)) {
+                Some(v) => (v.centre_x - v.half_width, v.centre_x + v.half_width),
+                None => (tower.origin_x - half, tower.origin_x + half),
+            };
             let x = at.translation.x;
             // maxDistanceFromCenter first, then the brick's own width about its position.
             let reach = 2.237 * brick.scale * c;
