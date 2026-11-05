@@ -94,7 +94,9 @@ struct SpotOverlay {
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let p = textureSample(picture, picture_sampler, mesh.uv);
     let a = linear_to_srgb(p.rgb) * material.colour.rgb;
-    let uv = (mesh.position.xy - view.viewport.xy) / view.viewport.zw;
+    // Over the whole picture, not the camera's viewport: a split-screen lane's camera
+    // draws into part of it, the grab is all of it.
+    let uv = mesh.position.xy / vec2<f32>(textureDimensions(grab));
     let b = linear_to_srgb(textureSample(grab, grab_sampler, uv).rgb);
     let low = 2.0 * a * b;
     let high = vec3(1.0) - 2.0 * (vec3(1.0) - a) * (vec3(1.0) - b);
@@ -149,7 +151,9 @@ struct GuideOverlay {
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
-    let uv = (mesh.position.xy - view.viewport.xy) / view.viewport.zw;
+    // Over the whole picture, not the camera's viewport: a split-screen lane's camera
+    // draws into part of it, the grab is all of it.
+    let uv = mesh.position.xy / vec2<f32>(textureDimensions(grab));
     let b = linear_to_srgb(textureSample(grab, grab_sampler, uv).rgb);
     let a = material.tint.rgb;
     let low = 2.0 * a * b;
@@ -191,7 +195,9 @@ fn noise(p: vec2<f32>) -> f32 {
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
-    let uv = (mesh.position.xy - view.viewport.xy) / view.viewport.zw;
+    // Over the whole picture, not the camera's viewport: a split-screen lane's camera
+    // draws into part of it, the grab is all of it.
+    let uv = mesh.position.xy / vec2<f32>(textureDimensions(grab));
     // The original's screen coordinates run up from the bottom.
     let up = vec2(uv.x, 1.0 - uv.y);
     let t = globals.time;
@@ -229,7 +235,7 @@ struct BeamLane {
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
-    let screen = (mesh.position.xy - view.viewport.xy) / view.viewport.zw;
+    let screen = mesh.position.xy / vec2<f32>(textureDimensions(grab));
     // Unity's grab coordinates run up from the bottom; its _Time.z is twice the time.
     let up = 1.0 - screen.y;
     let p = up * vec3(6.238, 12.476, 18.714) + vec3(4.0 * globals.time);

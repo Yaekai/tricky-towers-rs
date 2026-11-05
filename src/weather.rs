@@ -397,7 +397,8 @@ fn set_up_weather(
         ] {
             if let Some(sand) = art.image(name) {
                 let alpha = if front { 1.0 } else { weather.sand_alpha };
-                commands.entity(camera).with_child((
+                let mut strip = commands.spawn((
+                    ChildOf(camera),
                     Weather,
                     SandStrip { front },
                     Sprite {
@@ -407,6 +408,9 @@ fn set_up_weather(
                     },
                     Transform::from_xyz(0.0, 0.0, z),
                 ));
+                if front {
+                    strip.insert(crate::lanes::FrontScene);
+                }
             }
         }
         for (band, &(front, picture, ..)) in weather.sandstorm_bands.iter().enumerate() {
@@ -426,7 +430,8 @@ fn set_up_weather(
             // sit low, so they only cover the floor's foot).
             let z = if front { 401.0 } else { -600.0 } + index as f32;
             for copy in 0..2 {
-                commands.entity(camera).with_child((
+                let mut layer = commands.spawn((
+                    ChildOf(camera),
                     Weather,
                     SandLayer {
                         band,
@@ -441,6 +446,9 @@ fn set_up_weather(
                     },
                     Transform::from_xyz(0.0, 0.0, z),
                 ));
+                if front {
+                    layer.insert(crate::lanes::FrontScene);
+                }
             }
         }
     }

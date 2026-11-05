@@ -26,6 +26,7 @@ impl Plugin for VisualsPlugin {
             .init_resource::<MenuScene>()
             .init_resource::<SceneState>()
             .init_resource::<ViewClimb>()
+            .add_plugins(crate::lanes::LanesPlugin)
             .add_systems(Startup, setup_scene)
             .add_systems(
                 Update,
@@ -1736,7 +1737,7 @@ struct SceneState {
 }
 
 /// The render layer only the scene's layers are on, shown alone while the menus are up.
-const SCENE_LAYER: usize = 1;
+pub(crate) const SCENE_LAYER: usize = 1;
 
 fn track_menu_scene(
     mut commands: Commands,
@@ -3672,7 +3673,8 @@ fn frame_towers(
         let share = if config.trial.is_some() {
             2.0 / 3.0
         } else {
-            1.0 / lanes.max(1) as f32
+            // Each tower's camera owns its fixed screen rectangle (GamePositionHelper).
+            crate::lanes::lane_rect(&config.lanes, 0, lanes).1
         };
         let aspect = window.x * share / window.y.max(1.0);
         let height = ((widest + 2.0).max(10.0) / aspect.max(0.01)).max(40.0);

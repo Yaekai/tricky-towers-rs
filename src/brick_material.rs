@@ -981,8 +981,8 @@ fn follow_bricks(
     };
     // The lane each tower's camera shows: its share of the screen around its centre
     // (`Lanes`). A lone tower's camera is the whole screen, so nothing is cut.
-    // ponytail: Puzzle's WidthTowerCamera widens each lane to fit its tower, which one camera
-    // over fixed lanes can't follow, so Puzzle isn't cut.
+    // Puzzle battles give each tower its own camera and viewport (crate::lanes), which cut
+    // it at its lane's edge, so the materials don't cut Puzzle.
     let puzzle = game.as_ref().is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Puzzle);
     let half = fixed_lane_half(&config, puzzle, towers.iter().count());
     let clip = |of: &ChildOf| {

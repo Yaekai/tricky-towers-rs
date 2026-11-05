@@ -67,15 +67,17 @@ impl Plugin for OffscreenPlugin {
 fn aim_cameras(
     mut commands: Commands,
     shots: Res<Shots>,
-    cameras: Query<(Entity, Option<&RenderTarget>), With<Camera>>,
+    cameras: Query<(Entity, Option<&RenderTarget>, Has<crate::visuals::MainCamera>), With<Camera>>,
 ) {
-    for (entity, target) in &cameras {
+    for (entity, target, main) in &cameras {
         if !matches!(target, Some(RenderTarget::Image(_))) {
-            // With no window, the UI needs telling which camera to draw on.
-            commands.entity(entity).insert((
-                RenderTarget::Image(shots.target.clone().into()),
-                IsDefaultUiCamera,
-            ));
+            let mut camera = commands.entity(entity);
+            camera.insert(RenderTarget::Image(shots.target.clone().into()));
+            // With no window, the UI needs telling which camera to draw on: the main one
+            // (last while a Puzzle battle splits the screen, so the UI stays on top).
+            if main {
+                camera.insert(IsDefaultUiCamera);
+            }
         }
     }
 }

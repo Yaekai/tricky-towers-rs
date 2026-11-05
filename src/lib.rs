@@ -33,6 +33,7 @@ pub mod hud;
 pub mod input;
 pub mod intro;
 pub mod keybinding;
+pub mod lanes;
 pub mod letters;
 pub mod menu;
 pub mod mods;

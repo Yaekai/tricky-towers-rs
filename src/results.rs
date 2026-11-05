@@ -591,7 +591,9 @@ fn animate_banners(
     scores: Query<&PuzzleScore>,
     art: Res<Art>,
     mut seed: Local<u32>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
+    let lanes = lanes.as_deref().cloned().unwrap_or_default();
     let Ok((camera, eye, projection)) = camera.single() else {
         return;
     };
@@ -661,7 +663,8 @@ fn animate_banners(
         } else {
             config.cells(state.height.max(0.0) + look.winner_above + drop)
         };
-        let Ok(at) = camera.world_to_viewport(eye, Vec3::new(tower.origin_x, world_y, 0.0)) else {
+        let x = tower.origin_x + lanes.shift(tower.index);
+        let Ok(at) = camera.world_to_viewport(eye, Vec3::new(x, world_y, 0.0)) else {
             continue;
         };
         centre_on(&mut node, computed, at, view.0, 1.4);
@@ -993,7 +996,9 @@ fn place_puzzle_scores(
         &mut UiTransform,
         &mut Visibility,
     )>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
+    let lanes = lanes.as_deref().cloned().unwrap_or_default();
     let Ok((camera, eye)) = camera.single() else {
         return;
     };
@@ -1021,14 +1026,14 @@ fn place_puzzle_scores(
                 };
                 // Unity's +z turn is anticlockwise; Bevy's UI turns clockwise for positive angles.
                 transform.rotation = Rot2::degrees(-tip);
-                camera.world_to_viewport(eye, Vec3::new(tower.origin_x, y, 0.0))
+                camera.world_to_viewport(eye, Vec3::new(tower.origin_x + lanes.shift(tower.index), y, 0.0))
             }
             // The 3-2-1 over its own tower's top (CountDownEffect; measured on Max's Puzzle
             // clip, 7.6 cells over the top brick).
             None => {
                 transform.rotation = Rot2::IDENTITY;
                 let y = config.cells(state.height.max(0.0) + config.moments.countdown_above);
-                camera.world_to_viewport(eye, Vec3::new(tower.origin_x, y, 0.0))
+                camera.world_to_viewport(eye, Vec3::new(tower.origin_x + lanes.shift(tower.index), y, 0.0))
             }
         };
         let Ok(at) = at else {

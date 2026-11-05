@@ -674,7 +674,9 @@ fn place_items(
     mut items: Query<(&HudItem, &mut Node, &ComputedNode, Option<&crate::letters::MirroredBy>)>,
     twins: Query<&ComputedNode, Without<HudItem>>,
     game: Res<Match>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
+    let lanes = lanes.as_deref().cloned().unwrap_or_default();
     let Ok((camera, eye)) = camera.single() else {
         return;
     };
@@ -682,7 +684,9 @@ fn place_items(
     let eye = &eye;
     let look = &config.hud;
     let solo = towers.iter().count() == 1;
-    let screen = |p: Vec2| camera.world_to_viewport(eye, p.extend(0.0)).ok();
+    // A split screen's tower is seen by its own camera: move its points to where the
+    // main camera's view would show them.
+    let screen = |index: usize, p: Vec2| camera.world_to_viewport(eye, lanes.to_main(index, p).extend(0.0)).ok();
     for (item, mut node, computed, mirrored) in &mut items {
         let Ok((tower, state)) = towers.get(item.tower) else {
             continue;
@@ -702,7 +706,7 @@ fn place_items(
             .unwrap_or_else(|| wizard_point(&config, solo, tower, state));
         let card_h = look.card_height * view.0.y;
         let card_w = card_h * look.card_aspect;
-        let column = screen(Vec2::new(tower.origin_x, 0.0)).map(|p| p.x);
+        let column = screen(tower.index, Vec2::new(tower.origin_x, 0.0)).map(|p| p.x);
         let card_x = column.map(|x| x - look.card_left * view.0.x);
         // Centre of the item on screen.
         let at = match item.kind {
@@ -716,8 +720,8 @@ fn place_items(
                 card_x.map(|x| Vec2::new(x + card_w * 0.375, card_h * 0.891))
             }
             Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.403, card_h * 0.903)),
-            Kind::Place => screen(wizard - Vec2::Y * config.cells(look.place_below)),
-            Kind::Hearts => screen(wizard - Vec2::Y * config.cells(look.heart_below)),
+            Kind::Place => screen(tower.index, wizard - Vec2::Y * config.cells(look.place_below)),
+            Kind::Hearts => screen(tower.index, wizard - Vec2::Y * config.cells(look.heart_below)),
         };
         let Some(at) = at else {
             continue;
@@ -843,7 +847,9 @@ fn find_hearts(
     items: Query<&HudItem>,
     slots: Query<(&HeartSlot, &ChildOf, &UiGlobalTransform, &ComputedNode)>,
     camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
+    let lanes = lanes.as_deref().cloned().unwrap_or_default();
     spots.0.clear();
     let Ok((camera, eye)) = camera.single() else {
         return;
@@ -854,7 +860,7 @@ fn find_hearts(
         };
         let screen = at.translation * node.inverse_scale_factor();
         if let Ok(world) = camera.viewport_to_world_2d(eye, screen) {
-            spots.0.insert((index, slot.0), world);
+            spots.0.insert((index, slot.0), lanes.from_main(index, world));
         }
     }
 }
