@@ -7,16 +7,14 @@ below include tasks already completed in October.
 
 ## Confirmed remaining implementation work
 
-1. **Pause presentation:** fade the text, selection bar and controls panel
-   with the existing pause overlay.
-2. **Lane cameras/clipping:** brick materials and the drop guide are clipped, but
+1. **Lane cameras/clipping:** brick materials and the drop guide are clipped, but
    decorations and Puzzle's widening per-player views remain incomplete.
-3. **Trial 9 physics:** keep the temporary 0.3 laser slack until the stack-height
+2. **Trial 9 physics:** keep the temporary 0.3 laser slack until the stack-height
    discrepancy below is explained. Do not replace evidence with another guess.
-4. **Online and Shop:** initial Online Battle menus exist; real matchmaking,
+3. **Online and Shop:** initial Online Battle menus exist; real matchmaking,
    network play and connected lobby/invite behavior are not implemented. The
    Shop is still unimplemented under the current plan.
-5. **Verification:** remaining estimated values, language overflow, Windows
+4. **Verification:** remaining estimated values, language overflow, Windows
    display scaling and physical controller mappings need focused comparisons.
    The PlayStation touchpad Credits-close action has no reliable Bevy mapping.
 
@@ -118,14 +116,14 @@ indicator) and AcceptOnlineInvite need online play to show anything.
 The Shop. XP and wizard levels exist as data only, since the original
 gives XP only online.
 
-## Lane clipping in battles (done 2026-10-24)
+## Lane clipping in battles (started 2026-10-24)
 The original gives each tower its own camera over its share of the screen, so a brick past a
 lane's edge is cut off there and BrickClipper puts the Forcefield (BRICK_CLIP_PARTICLE: stars,
 streaks and dots) on the cut. Ours cuts the brick materials and the drop guide at the lane
 (`clip` in `brick_material`, `Lanes` widths) and draws the Forcefield (`particles::clip_fields`).
-Left: decorations and other sprites on a brick (vines, snow, bubbles) aren't cut; Puzzle isn't cut
-at all (its WidthTowerCamera widens each lane to fit its tower); the stars and streaks are drawn
-alpha-blended, not additive.
+Left: decorations and other sprites on a brick (vines, snow, bubbles) still cross lane edges.
+Puzzle's WidthTowerCamera widens each lane to fit its tower, which the shared camera has yet to
+model. The Forcefield already uses additive materials for its stars and streaks.
 
 ## Next up: single-player intro and Endless Race end (2026-10-23)
 Trials and Endless runs have the original's intro (timings, the wizard's moves, the HUD

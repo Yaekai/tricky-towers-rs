@@ -9,7 +9,7 @@ use crate::art::Art;
 use crate::config::{GameConfig, keyed};
 use crate::cups::Cup;
 use crate::gameplay::{MAX_TOWERS, Tower, TowerSkin};
-use crate::letters::TextLook;
+use crate::letters::{TextLook, UiOpacity};
 use crate::popup::{Popup, px};
 use crate::select::{SCREEN, label_with, shown};
 
@@ -89,8 +89,7 @@ const SLOTS: usize = 18;
 #[derive(Component, Clone, Copy, PartialEq)]
 enum Part {
     Root,
-    Panel { fallback: bool },
-    Bar { fallback: bool },
+    Panel,
     /// The panel's picture (PlayerInfo: gph_popupBackgroundPanel, 9-sliced), sized
     /// (target - 1) * 47 + 420 by rows * 98 + 180 and centred 102 px above the middle.
     Frame,
@@ -136,8 +135,8 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
     let p = &config.cup_panel;
     let bar_y = p.bar_top - p.panel_top;
     let frame = art.as_ref().and_then(|a| a.image("menu_leaderboard_panel"));
-    // The picture draws both the panel and the title bar.
-    let fallback = frame.is_none();
+    // With the picture, it draws the panel and its title bar.
+    let fill = |c| if frame.is_some() { Color::NONE } else { rgb(c) };
     commands
         .spawn((
             Node {
@@ -150,6 +149,7 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
             GlobalZIndex(22),
             Visibility::Hidden,
             Part::Root,
+            UiOpacity(0.0),
         ))
         .with_children(|root| {
             if let Some(frame) = frame.clone() {
@@ -169,7 +169,8 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                     height: px(p.panel_height),
                     ..default()
                 },
-                Part::Panel { fallback },
+                BackgroundColor(fill(p.panel_colour)),
+                Part::Panel,
             ))
             .with_children(|panel| {
                 panel.spawn((
@@ -177,7 +178,7 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                         width: Val::Percent(100.0),
                         ..at(0.0, bar_y, p.panel_width, p.bar_height)
                     },
-                    Part::Bar { fallback },
+                    BackgroundColor(fill(p.bar_colour)),
                     children![(
                         label_with(
                             p.title_size,
@@ -347,9 +348,9 @@ fn set_box(node: &mut Node, x: f32, y: f32, w: f32, h: f32) {
     }
 }
 
-fn set_image(node: &mut ImageNode, image: Option<Handle<Image>>, opacity: f32) {
+fn set_image(node: &mut ImageNode, image: Option<Handle<Image>>) {
     let (image, color) = match image {
-        Some(image) => (image, Color::WHITE.with_alpha(opacity)),
+        Some(image) => (image, Color::WHITE),
         None => (node.image.clone(), Color::NONE),
     };
     if node.image != image {
@@ -401,8 +402,9 @@ fn show_cup_panel(
         &mut Visibility,
         Option<&mut ImageNode>,
         Option<&mut BackgroundColor>,
+        Option<&mut UiOpacity>,
     )>,
-    mut texts: Query<(&Part, &mut Text, &mut TextColor)>,
+    mut texts: Query<(&Part, &mut Text)>,
     grey: Option<ResMut<crate::post::GreyTarget>>,
     info: Option<Res<crate::game_info::GameInfo>>,
     pause: Option<Res<crate::menu::PauseMenu>>,
@@ -469,22 +471,16 @@ fn show_cup_panel(
     // Medals from earlier matches are there at once; the latest match's fill in.
     let shown_medals = |t: usize| shown_medals(&cup, &fill, since, t);
 
-    for (part, mut node, mut visibility, image_node, colour) in &mut nodes {
-        if *part == Part::Root {
+    for (part, mut node, mut visibility, image_node, colour, fade) in &mut nodes {
+        if let Some(mut fade) = fade {
             visibility.set_if_neq(shown(up));
+            fade.set_if_neq(UiOpacity(opacity));
         }
         if !up {
             continue;
         }
-        let mut fill = match *part {
-            Part::Root => rgb(p.dim_colour).with_alpha(p.dim),
-            Part::Panel { fallback: true } => rgb(p.panel_colour),
-            Part::Bar { fallback: true } => rgb(p.bar_colour),
-            Part::Row(_) => rgb(p.row_colour),
-            _ => Color::NONE,
-        };
         match *part {
-            Part::Panel { .. } => {
+            Part::Panel => {
                 let (top, height) = (px(p.panel_top + drop), px(p.panel_height + grow));
                 let (margin, width) = (
                     px(p.panel_left - SCREEN.0 / 2.0 - wide / 2.0),
@@ -498,11 +494,6 @@ fn show_cup_panel(
                 }
             }
             Part::Frame => {
-                if let Some(mut frame) = image_node
-                    && frame.color.alpha() != opacity
-                {
-                    frame.color.set_alpha(opacity);
-                }
                 let width = (target as f32 - 1.0).max(0.0) * p.slot_pitch + 420.0;
                 // It follows the white panel (31 px over it, 75 px taller: Max's two-row clip),
                 // so a third and fourth row grow it downwards with the rows.
@@ -545,7 +536,7 @@ fn show_cup_panel(
                     (node.left, node.margin.left, node.top, node.width, node.height) = want;
                 }
                 if let Some(mut deco) = image_node {
-                    set_image(&mut deco, image(name), opacity);
+                    set_image(&mut deco, image(name));
                     // The leaves carry a -1 scale on the right; the left end flips the cup.
                     let flip = right == leaves;
                     if deco.flip_x != flip {
@@ -570,7 +561,6 @@ fn show_cup_panel(
                             4..=7 => image(&format!("menu_game_info_wizard_animal0{}", w - 3)),
                             _ => image(&format!("menu_game_info_wizard_indie0{}", w - 7)),
                         }),
-                        opacity,
                     );
                 }
             }
@@ -586,7 +576,7 @@ fn show_cup_panel(
                     .map(|place| place.min(3));
                 let x = p.slot_left - p.row_left + k as f32 * pitch;
                 let y = (p.row_height - cell) / 2.0;
-                let (picture, slot_fill) = match medal {
+                let (picture, fill) = match medal {
                     Some(place) => {
                         let (w, h) = p.medal_size;
                         set_box(&mut node, x + (cell - w) / 2.0, y + (cell - h) / 2.0, w, h);
@@ -613,9 +603,13 @@ fn show_cup_panel(
                     node.border_radius = round;
                 }
                 if let Some(mut slot) = image_node {
-                    set_image(&mut slot, picture, opacity);
+                    set_image(&mut slot, picture);
                 }
-                fill = slot_fill;
+                if let Some(mut colour) = colour
+                    && colour.0 != fill
+                {
+                    colour.0 = fill;
+                }
             }
             Part::Trophy(i) => {
                 let on = filled && winner.is_some() && order.get(i).copied() == winner;
@@ -635,7 +629,7 @@ fn show_cup_panel(
                     let picture = small
                         .and_then(|(name, ..)| image(name))
                         .or_else(|| size.and_then(|s| image(&s.trophy)));
-                    set_image(&mut trophy, picture, opacity);
+                    set_image(&mut trophy, picture);
                 }
             }
             Part::Continue => {
@@ -647,17 +641,11 @@ fn show_cup_panel(
             }
             _ => {}
         }
-        if let Some(mut colour) = colour {
-            colour.set_if_neq(BackgroundColor(fill.with_alpha(fill.alpha() * opacity)));
-        }
     }
     if !up {
         return;
     }
-    for (part, mut text, mut colour) in &mut texts {
-        if colour.0.alpha() != opacity {
-            colour.0.set_alpha(opacity);
-        }
+    for (part, mut text) in &mut texts {
         let words = match *part {
             Part::Title => size.map(|s| s.name.to_uppercase()),
             // Cleared once the trophy comes (ShowWinner).
@@ -1040,7 +1028,7 @@ fn show_cup_winner(
                 );
                 if let Some(mut picture) = image_node {
                     let name = cup.rules(&config.cups).map(|s| s.trophy.clone());
-                    set_image(&mut picture, name.and_then(|n| image(&n)), 1.0);
+                    set_image(&mut picture, name.and_then(|n| image(&n)));
                 }
             }
             Win::Deco(right) => {
@@ -1083,7 +1071,7 @@ fn show_cup_winner(
                     ) = want;
                 }
                 if let Some(mut deco) = image_node {
-                    set_image(&mut deco, image(name), 1.0);
+                    set_image(&mut deco, image(name));
                     if deco.flip_x != !right {
                         deco.flip_x = !right;
                     }
@@ -2039,7 +2027,8 @@ mod tests {
             .init_resource::<Cup>()
             .init_resource::<Popup>()
             .add_systems(Startup, spawn_cup_panel)
-            .add_systems(Update, show_cup_panel);
+            .add_systems(Update, show_cup_panel)
+            .add_systems(PostUpdate, crate::letters::apply_ui_opacity);
         app.world_mut().resource_mut::<Cup>().size = Some(0);
         let tick = |app: &mut App, seconds: f32| {
             app.world_mut().resource_mut::<Time<Real>>().advance_by(Duration::from_secs_f32(seconds));
@@ -2053,7 +2042,7 @@ mod tests {
         tick(&mut app, 0.0);
         let root = part(&mut app, Part::Root);
         let title = part(&mut app, Part::Title);
-        let panel = part(&mut app, Part::Panel { fallback: true });
+        let panel = part(&mut app, Part::Panel);
         let continue_button = part(&mut app, Part::Continue);
         let p = &app.world().resource::<GameConfig>().cup_panel;
         let (dim, half) = (p.dim, p.peek_fade * 0.5);

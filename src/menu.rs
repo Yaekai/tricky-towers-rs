@@ -9,6 +9,7 @@ use bevy::ecs::hierarchy::ChildSpawnerCommands;
 use crate::art::Art;
 use crate::config::GameConfig;
 use crate::gameplay::{Match, MatchRequest, Phase};
+use crate::letters::{LetterSystems, UiOpacity, apply_ui_opacity};
 use crate::select::{
     Lobby, modes_input, players_input, show_select_screens, spawn_select_screens, step_back,
 };
@@ -30,6 +31,7 @@ impl Plugin for MenuPlugin {
             crate::navbar::NavBarPlugin,
             crate::confirm::ConfirmPlugin,
         ))
+        .add_systems(PostUpdate, apply_ui_opacity.after(LetterSystems).before(bevy::asset::AssetEventSystems))
         .init_resource::<MenuScreen>()
         .init_resource::<ScreenTransition>()
         .init_resource::<MainMenu>()
@@ -705,6 +707,7 @@ fn spawn_pause_menu(
             GlobalZIndex(12),
             Visibility::Hidden,
             PauseRoot,
+            UiOpacity(0.0),
         ))
         .with_children(|root| {
             let defaults = crate::keybinding::KeyBindings::default();
@@ -892,7 +895,7 @@ fn show_pause_menu(
     pause: Res<PauseMenu>,
     time: Res<Time<Real>>,
     config: Res<GameConfig>,
-    mut root: Query<(&mut Visibility, &mut BackgroundColor), With<PauseRoot>>,
+    mut root: Query<(&mut Visibility, &mut UiOpacity), With<PauseRoot>>,
     mut bars: Query<(&PauseBar, Option<&mut ImageNode>, &mut BackgroundColor), Without<PauseRoot>>,
     mut words: Query<(
         &PauseWords,
@@ -961,18 +964,14 @@ fn show_pause_menu(
     }
     *was_shown = greyed;
     // The popup fades in and out over `pause_fade` (its CanvasGroup's DOFade).
-    // ponytail: only the dark panel fades; the words and the controls panel would need a
-    // group alpha through the letter materials, so they show and go at once.
-    let alpha = 0.95 * pause.shown(time.elapsed_secs(), config.menu.pause_fade);
-    for (mut v, mut colour) in &mut root {
+    let opacity = if shown { pause.shown(time.elapsed_secs(), config.menu.pause_fade) } else { 0.0 };
+    for (mut v, mut fade) in &mut root {
         v.set_if_neq(if shown {
             Visibility::Inherited
         } else {
             Visibility::Hidden
         });
-        if (colour.0.alpha() - alpha).abs() > 1e-3 {
-            colour.0.set_alpha(alpha);
-        }
+        fade.set_if_neq(UiOpacity(opacity));
     }
     for (bar, image, mut colour) in &mut bars {
         let picked = bar.0 == pause.selected;

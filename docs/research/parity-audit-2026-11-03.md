@@ -88,11 +88,22 @@ the wait, and a pointer click goes directly to the title transition.
 Sources: AbstractBricksStateController, TransitionEffect, StartStateController,
 the Rumble clip and the Start scene from the local install.
 
+## Full pause menu fade, 2026-11-05
+
+The original's PauseMenu applies its 0.3-second real-time fade to the entire
+popup. The dark overlay, text, selection bar and controls now fade together.
+The same UI opacity path handles the in-match cup standings. Fading glyphs
+reuse a private material, leaving the shared font cache unchanged.
+
 ## Confirmed work still outstanding
 
-- Pause's words and controls still need their original opacity transition;
-  the existing approximation fades the dark panel.
-- Lane clipping still omits brick decorations and Puzzle's per-tower framing.
+- Lane clipping still omits brick decorations. Puzzle's cameras use the same
+  widest tower across the match. The required view width is the larger of 10
+  cells and the widest tower plus 2. Dividing by the lane aspect ratio gives
+  the height, with a 40-cell minimum and the bottom on the floor. The Rust
+  camera already follows that sizing rule. Each original camera is centred in
+  its own viewport, so its scene stays centred and clips at its own screen edge
+  as the width grows (PuzzleGameMode, WidthTowerCamera, AbstractGameController).
 
 These remain implementation gaps, rather than claims that the whole game now
 matches the original. Trial 9's existing physics discrepancy is separately

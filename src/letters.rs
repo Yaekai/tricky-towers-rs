@@ -34,6 +34,7 @@ struct SdfLetter {
     // BEVEL_ON (x above 0): y the material's weight plus its bevel offset, z the bevel's
     // width (outline width + bevel width).
     bevel: vec4<f32>,
+    opacity: f32,
 };
 
 // The bevel every BEVEL_ON Enzo material shares (MilkyWhite*, White): bevel 0.4, clamp
@@ -100,7 +101,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         rgb = rgb + material.glow.rgb * k;
         alpha = max(alpha, k);
     }
-    return vec4(rgb, alpha);
+    return vec4(rgb, alpha) * material.opacity;
 }
 "#;
 
@@ -124,6 +125,7 @@ pub struct SdfLook {
     pub glow: Vec4,
     pub glow_shape: Vec4,
     pub bevel: Vec4,
+    pub opacity: f32,
 }
 
 impl bevy::ui_render::prelude::UiMaterial for SdfLetter {
@@ -347,12 +349,97 @@ impl Plugin for LettersPlugin {
                 draw_letters,
             )
                 .chain()
+                .in_set(LetterSystems)
                 .before(bevy::ui::UiSystems::Prepare)
                 // UiSystems::Stack isn't chained with the others: letters drawn after it had
                 // no place in the stack for a frame and showed under everything (the count
                 // flashed behind its card).
                 .before(bevy::ui::UiSystems::Stack),
         );
+    }
+}
+
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct LetterSystems;
+
+/// Opacity of a UI subtree, including letter-sheet glyphs.
+#[derive(Component, PartialEq)]
+pub(crate) struct UiOpacity(pub f32);
+
+#[derive(Default, Component)]
+pub(crate) struct FadedUi {
+    background: Option<(Color, Color)>,
+    image: Option<(Color, Color)>,
+    text: Option<(Color, Color)>,
+    letter: Option<AssetId<SdfLetter>>,
+}
+
+fn faded_color(current: Color, state: &mut Option<(Color, Color)>, opacity: f32) -> Color {
+    let base = state.filter(|(_, applied)| *applied == current).map_or(current, |(base, _)| base);
+    let applied = base.with_alpha(base.alpha() * opacity);
+    *state = Some((base, applied));
+    applied
+}
+
+#[allow(clippy::type_complexity)]
+pub(crate) fn apply_ui_opacity(
+    mut commands: Commands,
+    roots: Query<(Entity, Ref<UiOpacity>)>,
+    children: Query<&Children>,
+    mut glyphs: Option<ResMut<Assets<SdfLetter>>>,
+    mut nodes: Query<(
+        Option<&mut BackgroundColor>,
+        Option<&mut ImageNode>,
+        Option<&mut TextColor>,
+        Has<MirroredBy>,
+        Option<&mut bevy::ui_render::prelude::MaterialNode<SdfLetter>>,
+        Option<&mut FadedUi>,
+    )>,
+) {
+    for (root, opacity) in &roots {
+        if matches!(opacity.0, 0.0 | 1.0) && !opacity.is_changed() {
+            continue;
+        }
+        for entity in std::iter::once(root).chain(children.iter_descendants(root)) {
+            let Ok((background, image, text, mirrored, letter, state)) = nodes.get_mut(entity) else {
+                continue;
+            };
+            let mut new = FadedUi::default();
+            let mut state = state;
+            let style = state.as_deref_mut().unwrap_or(&mut new);
+            if let Some(mut background) = background {
+                let color = faded_color(background.0, &mut style.background, opacity.0);
+                background.set_if_neq(BackgroundColor(color));
+            }
+            if let Some(mut image) = image {
+                let color = faded_color(image.color, &mut style.image, opacity.0);
+                if image.color != color {
+                    image.color = color;
+                }
+            }
+            if let Some(mut text) = text {
+                // The mirror draws its own glyphs. Fading the source would rebuild them.
+                let color = faded_color(text.0, &mut style.text, if mirrored { 1.0 } else { opacity.0 });
+                text.set_if_neq(TextColor(color));
+            }
+            if let (Some(mut letter), Some(glyphs)) = (letter, glyphs.as_deref_mut()) {
+                if style.letter == Some(letter.0.id()) {
+                    if glyphs.get(&letter.0).is_some_and(|g| g.look.opacity != opacity.0)
+                        && let Some(mut glyph) = glyphs.get_mut(&letter.0)
+                    {
+                        glyph.look.opacity = opacity.0;
+                    }
+                } else if opacity.0 < 1.0 && let Some(mut glyph) = glyphs.get(&letter.0).cloned() {
+                    // The cache owns the original material; give the fading glyph its own copy.
+                    glyph.look.opacity = opacity.0;
+                    letter.0 = glyphs.add(glyph);
+                    style.letter = Some(letter.0.id());
+                }
+            }
+            if state.is_none() {
+                commands.entity(entity).insert(new);
+            }
+        }
     }
 }
 
@@ -1057,6 +1144,7 @@ fn spawn_line(
                                 glow,
                                 glow_shape,
                                 bevel,
+                                opacity: 1.0,
                             };
                             let key: Vec<u32> = [look.color, look.rect, look.edge, look.low, look.face, look.glow, look.glow_shape, look.bevel]
                                 .iter()
@@ -1160,6 +1248,43 @@ fn spawn_line(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_ui_fade_reuses_its_private_glyph_material_and_restores_base_colours() {
+        use super::*;
+        use bevy::ui_render::prelude::MaterialNode;
+
+        let mut app = App::new();
+        app.init_resource::<Assets<SdfLetter>>().add_systems(PostUpdate, apply_ui_opacity);
+        let shared = app.world_mut().resource_mut::<Assets<SdfLetter>>().add(SdfLetter {
+            look: SdfLook {
+                color: Vec4::ONE, rect: Vec4::ZERO, edge: Vec4::ZERO, low: Vec4::ZERO,
+                face: Vec4::ZERO, glow: Vec4::ZERO, glow_shape: Vec4::ZERO,
+                bevel: Vec4::ZERO, opacity: 1.0,
+            },
+            field: Handle::default(),
+        });
+        let root = app.world_mut().spawn(UiOpacity(0.5)).id();
+        let original = Color::srgba(0.1, 0.2, 0.3, 0.8);
+        let glyph = app.world_mut().spawn((MaterialNode(shared.clone()), ChildOf(root))).id();
+        let picture = app.world_mut().spawn((
+            ImageNode { color: original, ..default() }, ChildOf(root),
+        )).id();
+        app.update();
+        let private = app.world().get::<MaterialNode<SdfLetter>>(glyph).unwrap().0.clone();
+        assert_ne!(private, shared);
+        for opacity in [0.25, 1.0] {
+            app.world_mut().get_mut::<UiOpacity>(root).unwrap().0 = opacity;
+            app.update();
+            let world = app.world();
+            let glyphs = world.resource::<Assets<SdfLetter>>();
+            assert_eq!(world.get::<MaterialNode<SdfLetter>>(glyph).unwrap().0, private);
+            assert_eq!(glyphs.get(&private).unwrap().look.opacity, opacity);
+            assert_eq!(glyphs.get(&shared).unwrap().look.opacity, 1.0);
+            assert_eq!(world.get::<ImageNode>(picture).unwrap().color, original.with_alpha(0.8 * opacity));
+        }
+    }
+
     #[test]
     fn arabic_lines_reverse_with_their_brackets_kept() {
         assert_eq!(super::reverse_text("ab [cd] {ef}"), "{ef} [cd] ba");
