@@ -21,7 +21,7 @@ supersedes the older working notes below.
    Puzzle trial, solo Endless Puzzle, Race and Survival look unchanged. Wide stacks
    only zoom past ~30 cells (2 seats), ~19 (3) or ~13 (4) at 16:9, so the pass
    zoomed with a local test config (Puzzle laser 30, `large_scale` 4). Still open:
-   - *Neighbours bleed in when zoomed out.* A lane camera sees `lane width x scale`
+   - Fixed 2026-11-05 (towers 400 cells apart in Puzzle battles, `gameplay::PUZZLE_BATTLE_SPACING`; every tower draws its copy of the laser): *Neighbours bleed in when zoomed out.* A lane camera sees `lane width x scale`
      around its tower, but towers are only one lane spacing apart, so past a scale
      of about 1 + gap/lane width a wide neighbour's bricks show at the next lane's
      edge (seen with 4 seats). The original culls by layer instead: each tower's
@@ -29,7 +29,7 @@ supersedes the older working notes below.
      only that (`AbstractGameController` 257-284; spell collectors on
      `TowerBackground<n>`). Ours needs a render layer per tower on everything a tower
      owns (`lanes::follow_lanes` puts every lane camera on layer 0).
-   - *16:9 rectangle.* The original fits every tower viewport into a 16:9 rectangle
+   - Fixed 2026-11-05 for Puzzle battles (`lanes::screen_box`); Race and Survival still use the full screen: *16:9 rectangle.* The original fits every tower viewport into a 16:9 rectangle
      (`GamePositionHelper._Initialize` / `ModifyGamePositionForRatio`), testing
      `Screen.width / Screen.height` with integer division: 3440x1440 (2) is
      pillarboxed to the middle 2560 px; 1280x1024 and 16:10 (1) are letterboxed to

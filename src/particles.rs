@@ -661,6 +661,7 @@ fn lost_bricks(
     camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
     mut lost: MessageReader<BrickLost>,
     towers: Query<(&Tower, &TowerState)>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
     // The heart a lost life empties: the one at the lives now left.
     let lives: std::collections::HashMap<usize, u32> =
@@ -677,11 +678,16 @@ fn lost_bricks(
         let mut seed = (brick.at.x.to_bits() ^ (n as u32 * 7919)) | 1;
         // Where it left the screen: 2 cells in from the side, 0.3 up from the bottom.
         let half = size * 0.5;
+        // A split Puzzle screen's tower is seen by its own camera: its lane's edges.
+        let (mid, half_x) = lanes
+            .as_ref()
+            .and_then(|l| l.view(brick.tower))
+            .map_or((centre.x, half.x), |v| (v.centre_x, v.half_width));
         let edge = Vec2::new(
             brick
                 .at
                 .x
-                .clamp(centre.x - half.x + 2.0 * c, centre.x + half.x - 2.0 * c),
+                .clamp(mid - half_x + 2.0 * c, (mid + half_x - 2.0 * c).max(mid - half_x + 2.0 * c)),
             brick.at.y.max(centre.y - half.y + 0.3 * c),
         );
         // Race listens to none of the lost-brick triggers: only the splash.

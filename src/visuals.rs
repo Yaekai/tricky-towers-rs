@@ -3207,12 +3207,10 @@ fn dress_platforms(
                 ));
                 // A battle's Puzzle laser rests as the plain (off) laser; the bright one
                 // only sweeps in at the start (PuzzleMultiplayerLaserLayer).
-                // PuzzleMultiplayerLaserLayer is one laser for everyone: only the first tower's
-                // copy draws it (each copy is a whole screen wide; stacked, their glows
-                // doubled up).
-                let battle_laser = name == "laser"
-                    && !trial_laser
-                    && tower_index.get(platform.tower).is_ok_and(|t| t.index == 0);
+                // PuzzleMultiplayerLaserLayer is one laser for everyone. Each tower's camera
+                // sees only its own world (crate::lanes), so every tower draws a copy; they
+                // all sweep and flash together.
+                let battle_laser = name == "laser" && !trial_laser;
                 let other_laser = name == "laser" && !trial_laser && !battle_laser;
                 let rest = if battle_laser && art.image("fx_laser_off").is_some() {
                     "fx_laser_off"
@@ -3676,7 +3674,14 @@ fn frame_towers(
             // Each tower's camera owns its fixed screen rectangle (GamePositionHelper).
             crate::lanes::lane_rect(&config.lanes, 0, lanes).1
         };
-        let aspect = window.x * share / window.y.max(1.0);
+        // A Puzzle battle's lanes sit in GamePositionHelper's 16:9 box.
+        let split = config.trial.is_none() && lanes > 1;
+        let screen = if split {
+            crate::lanes::screen_box(window).size()
+        } else {
+            window
+        };
+        let aspect = screen.x * share / screen.y.max(1.0);
         let height = ((widest + 2.0).max(10.0) / aspect.max(0.01)).max(40.0);
         (floor + height, floor)
     } else {
@@ -3694,7 +3699,13 @@ fn frame_towers(
         (top + lift, bottom + lift)
     };
     let height = config.cells(top - bottom);
-    let scale = (height / window.y.max(1.0)).max(0.01);
+    // A split Puzzle battle's cameras show it in GamePositionHelper's 16:9 box.
+    let shown = if game.mode.rules() == ModeKind::Puzzle && config.trial.is_none() && lanes > 1 {
+        crate::lanes::screen_box(window).height()
+    } else {
+        window.y
+    };
+    let scale = (height / shown.max(1.0)).max(0.01);
     // Trials split the screen around its centre; otherwise centre the lanes.
     let x = if config.trial.is_some() {
         0.0

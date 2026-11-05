@@ -268,6 +268,10 @@ pub struct MatchRequest {
 }
 
 /// One tower: a platform and the bricks stacked on it.
+/// Cells between Puzzle battle towers in the world. Not a value of the original's: only
+/// far enough that no lane camera, however far it zooms out, shows a neighbour.
+pub const PUZZLE_BATTLE_SPACING: f32 = 400.0;
+
 #[derive(Component, Debug, Clone)]
 pub struct Tower {
     pub index: usize,
@@ -1217,7 +1221,13 @@ fn start_match(
     let c = config.cell_size;
     for index in 0..count {
         // The screen is shared out into equal lanes, wider with fewer towers.
-        let spacing = config.lanes.spacing(count);
+        let mut spacing = config.lanes.spacing(count);
+        if config.mode.rules() == ModeKind::Puzzle && config.trial.is_none() && count > 1 {
+            // Each Puzzle tower has its own camera (crate::lanes), and the original's draws
+            // only its own tower's layer. Ours keep the towers far enough apart that a
+            // zoomed-out lane camera never reaches its neighbour.
+            spacing = PUZZLE_BATTLE_SPACING;
+        }
         let mut origin_x = config.cells(spacing) * (index as f32 - (count - 1) as f32 * 0.5);
         if config.trial.is_some() {
             // A trial splits the screen with the enemy wizard's lane on the right;
