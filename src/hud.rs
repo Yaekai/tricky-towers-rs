@@ -708,18 +708,21 @@ fn place_items(
         let card_w = card_h * look.card_aspect;
         let column = screen(tower.index, Vec2::new(tower.origin_x, 0.0)).map(|p| p.x);
         let card_x = column.map(|x| x - look.card_left * view.0.x);
+        // Each tower's HUD is anchored to its own viewport (AbstractHUD), which a split
+        // screen fits in the 16:9 box: letterboxed, the cards hang from the box's top.
+        let top = if lanes.split() { crate::lanes::screen_box(view.0).min.y } else { 0.0 };
         // Centre of the item on screen.
         let at = match item.kind {
-            Kind::Card => card_x.map(|x| Vec2::new(x, card_h * 0.5)),
+            Kind::Card => card_x.map(|x| Vec2::new(x, top + card_h * 0.5)),
             // Over the card's lower-left corner: BricksView's label sits 50.8 px left of
             // and 91.2 px under the 126 x 101 card's top middle (NextBrickView), as Max's
             // Survival clip shows.
             // Endless Puzzle's bricks left sit over the card's lower-right corner instead
             // (BricksLeftView: 47.2 px right of the card's middle, 90 px down).
             Kind::Count if game.mode == ModeKind::EndlessPuzzle => {
-                card_x.map(|x| Vec2::new(x + card_w * 0.375, card_h * 0.891))
+                card_x.map(|x| Vec2::new(x + card_w * 0.375, top + card_h * 0.891))
             }
-            Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.403, card_h * 0.903)),
+            Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.403, top + card_h * 0.903)),
             Kind::Place => screen(tower.index, wizard - Vec2::Y * config.cells(look.place_below)),
             Kind::Hearts => screen(tower.index, wizard - Vec2::Y * config.cells(look.heart_below)),
         };
