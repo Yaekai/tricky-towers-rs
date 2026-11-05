@@ -327,6 +327,7 @@ fn decorate_bricks(
                     let size = (max - min + Vec2::ONE) * c;
                     let center = (min + max) * 0.5 * c;
                     brick_entity.with_child((
+                        crate::brick_material::LaneDecoration(brick.tower),
                         Lights {
                             offset: roll(&mut seed) * 3.0,
                         },
@@ -376,6 +377,7 @@ fn decorate_bricks(
                     let full = Vec3::new(flip, 1.0, 1.0);
                     let delay = roll(&mut seed) * 0.3;
                     brick_entity.with_child((
+                        crate::brick_material::LaneDecoration(brick.tower),
                         Snow { time: -delay, full },
                         Sprite {
                             image: pick,
@@ -426,6 +428,7 @@ fn decorate_bricks(
                         None => {
                             brick_entity.with_child((
                                 HalloweenFade(from),
+                                crate::brick_material::LaneDecoration(brick.tower),
                                 Sprite {
                                     image: look,
                                     color: clear,
@@ -465,6 +468,7 @@ fn decorate_bricks(
                     let cell = cells[(roll(&mut seed) * cells.len() as f32) as usize % cells.len()];
                     let tilt = between(&mut seed, -15.0, 15.0);
                     brick_entity.with_child((
+                        crate::brick_material::LaneDecoration(brick.tower),
                         Pulse {
                             wait: between(&mut seed, 5.0, 15.0),
                             time: -1.0,

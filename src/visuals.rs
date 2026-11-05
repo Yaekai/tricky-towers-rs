@@ -1098,6 +1098,7 @@ pub(crate) fn dress_bricks(
                             )),
                         }
                         .id();
+                        child.entity(id).insert(crate::brick_material::LaneDecoration(brick.tower));
                         if art.is_animation(name) {
                             child.entity(id).insert(Animated::new(name));
                         }
@@ -1183,7 +1184,7 @@ pub(crate) fn dress_bricks(
                             if let Some(sound) = sound {
                                 holder.insert(EdgeSound(sound));
                             }
-                            holder.with_child((sprite, anchor, transform));
+                            holder.with_child((sprite, anchor, transform, crate::brick_material::LaneDecoration(brick.tower)));
                         });
                     }
                 }
@@ -1220,7 +1221,7 @@ pub(crate) fn dress_bricks(
                                 EdgeDelay { show_at },
                                 EdgeGrow { start: show_at },
                             ));
-                            piece.with_child((sprite, anchor, transform));
+                            piece.with_child((sprite, anchor, transform, crate::brick_material::LaneDecoration(brick.tower)));
                             // Flowers turn and eggs pulse after a random 5 to 15 s.
                             if name.contains("flower") {
                                 piece.insert(FlowerTurn {
@@ -1355,6 +1356,7 @@ fn dress_bubbles(
         };
         commands.entity(entity).with_child((
             BubbleSprite,
+            crate::brick_material::LaneDecoration(brick.tower),
             Sprite {
                 image,
                 custom_size: Some(Vec2::splat(size)),

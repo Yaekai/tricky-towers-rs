@@ -10,10 +10,149 @@
 //! which keeps the light fixed in the world.
 
 use bevy::asset::uuid_handle;
+use bevy::camera::visibility::{RenderLayers, VisibilitySystems};
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
 use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin};
+
+const DECORATION_SHADER: Handle<Shader> = uuid_handle!("68bb8140-7021-40bf-b58e-2fb6e07cedf9");
+
+const DECORATION_WGSL: &str = r#"
+#import bevy_sprite::mesh2d_vertex_output::VertexOutput
+
+struct Decoration {
+    clip: vec4<f32>,
+    tint: vec4<f32>,
+    uv: vec4<f32>,
+};
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: Decoration;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var picture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var picture_sampler: sampler;
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let uv = material.uv.xy + mesh.uv * material.uv.zw;
+    let colour = textureSample(picture, picture_sampler, uv) * material.tint;
+    if mesh.world_position.x < material.clip.x || mesh.world_position.x > material.clip.y {
+        discard;
+    }
+    return colour;
+}
+"#;
+
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+struct ClippedDecoration {
+    #[uniform(0)]
+    look: DecorationLook,
+    #[texture(1)]
+    #[sampler(2)]
+    picture: Handle<Image>,
+}
+
+#[derive(ShaderType, Clone, Copy, PartialEq)]
+struct DecorationLook {
+    clip: Vec4,
+    tint: Vec4,
+    uv: Vec4,
+}
+
+impl Material2d for ClippedDecoration {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(DECORATION_SHADER)
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
+/// A decoration that belongs to a tower's world and is cut by its camera.
+#[derive(Component)]
+pub(crate) struct LaneDecoration(pub Entity);
+
+#[derive(Component)]
+struct DecorationQuad(Entity);
+
+fn fixed_lane_half(config: &crate::config::GameConfig, puzzle: bool, lanes: usize) -> Option<f32> {
+    (!puzzle && lanes > 1).then(|| config.cells(config.lanes.width(lanes)) * 0.5)
+}
+
+fn decoration_look(
+    sprite: &Sprite,
+    anchor: Vec2,
+    image_size: Vec2,
+    clip: Vec4,
+) -> Option<(Transform, DecorationLook)> {
+    if sprite.texture_atlas.is_some() || !matches!(sprite.image_mode, SpriteImageMode::Auto) {
+        return None;
+    }
+    let rect = sprite.rect.unwrap_or(Rect::from_corners(Vec2::ZERO, image_size));
+    let size = sprite.custom_size.unwrap_or(rect.size());
+    if size.min_element() <= 0.0 || rect.size().min_element() <= 0.0 {
+        return None;
+    }
+    let lo = rect.min / image_size;
+    let hi = rect.max / image_size;
+    let uv_min = Vec2::new(if sprite.flip_x { hi.x } else { lo.x }, if sprite.flip_y { hi.y } else { lo.y });
+    let uv_max = Vec2::new(if sprite.flip_x { lo.x } else { hi.x }, if sprite.flip_y { lo.y } else { hi.y });
+    let look = DecorationLook {
+        clip,
+        tint: Vec4::from_array(sprite.color.to_linear().to_f32_array()),
+        uv: Vec4::new(uv_min.x, uv_min.y, uv_max.x - uv_min.x, uv_max.y - uv_min.y),
+    };
+    let transform = Transform::from_translation((-anchor * size).extend(0.0)).with_scale(size.extend(1.0));
+    Some((transform, look))
+}
+
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn clip_decorations(
+    mut commands: Commands,
+    config: Res<crate::config::GameConfig>,
+    game: Res<crate::gameplay::Match>,
+    towers: Query<&crate::gameplay::Tower>,
+    sprites: Query<(Entity, &Sprite, &bevy::sprite::Anchor, &LaneDecoration, Option<&DecorationQuad>, Option<&RenderLayers>)>,
+    mut quads: Query<(&mut Transform, &MeshMaterial2d<ClippedDecoration>), Without<LaneDecoration>>,
+    images: Res<Assets<Image>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ClippedDecoration>>,
+    mut unit: Local<Option<Handle<Mesh>>>,
+) {
+    let puzzle = game.mode.rules() == crate::config::ModeKind::Puzzle;
+    let half = fixed_lane_half(&config, puzzle, towers.iter().count());
+    for (entity, sprite, anchor, owner, quad, layers) in &sprites {
+        let current = half.zip(towers.get(owner.0).ok()).and_then(|(half, tower)| {
+            let origin = tower.origin_x;
+            let clip = Vec4::new(origin - half, origin + half, 0.0, 0.0);
+            decoration_look(sprite, anchor.0, images.get(&sprite.image)?.size_f32(), clip)
+        });
+        let Some((transform, look)) = current else {
+            if let Some(quad) = quad {
+                commands.entity(quad.0).despawn();
+                commands.entity(entity).remove::<(DecorationQuad, RenderLayers)>();
+            }
+            continue;
+        };
+        if let Some(quad) = quad {
+            if let Ok((mut place, material)) = quads.get_mut(quad.0) {
+                place.set_if_neq(transform);
+                if materials.get(&material.0).is_some_and(|m| m.look != look || m.picture != sprite.image)
+                    && let Some(mut m) = materials.get_mut(&material.0)
+                {
+                    m.look = look;
+                    m.picture = sprite.image.clone();
+                }
+            }
+        } else if layers.is_none() {
+            // Keep the source sprite for animation and tint. The quad inherits its transform and visibility.
+            let mesh = unit.get_or_insert_with(|| meshes.add(Rectangle::new(1.0, 1.0))).clone();
+            let material = materials.add(ClippedDecoration { look, picture: sprite.image.clone() });
+            let quad = commands.spawn((Mesh2d(mesh), MeshMaterial2d(material), transform, ChildOf(entity))).id();
+            commands.entity(entity).insert((DecorationQuad(quad), RenderLayers::none()));
+        }
+    }
+}
 
 const GALAXY_SHADER: Handle<Shader> = uuid_handle!("5b0c8f8e-2a4e-4c1e-9a61-3f1b7a2d9c04");
 
@@ -845,16 +984,15 @@ fn follow_bricks(
     // ponytail: Puzzle's WidthTowerCamera widens each lane to fit its tower, which one camera
     // over fixed lanes can't follow, so Puzzle isn't cut.
     let puzzle = game.as_ref().is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Puzzle);
-    let lanes = if puzzle { 1 } else { towers.iter().count() };
-    let half = config.cells(config.lanes.width(lanes)) * 0.5;
+    let half = fixed_lane_half(&config, puzzle, towers.iter().count());
     let clip = |of: &ChildOf| {
         parents
             .get(of.parent())
             .ok()
             .and_then(|brick| bricks.get(brick.parent()).ok())
             .and_then(|brick| towers.get(brick.tower).ok())
-            .filter(|_| lanes > 1)
-            .map_or(Vec4::ZERO, |t| Vec4::new(t.origin_x - half, t.origin_x + half, 1.0, 0.0))
+            .zip(half)
+            .map_or(Vec4::ZERO, |(t, half)| Vec4::new(t.origin_x - half, t.origin_x + half, 1.0, 0.0))
     };
     let tint = |of: &ChildOf| {
         sprites
@@ -1008,6 +1146,9 @@ pub struct BrickMaterialPlugin;
 
 impl Plugin for BrickMaterialPlugin {
     fn build(&self, app: &mut App) {
+        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
+            DECORATION_SHADER.id(), Shader::from_wgsl(DECORATION_WGSL, "clipped_decoration.wgsl"),
+        );
         let _ = app
             .world_mut()
             .resource_mut::<Assets<Shader>>()
@@ -1034,7 +1175,69 @@ impl Plugin for BrickMaterialPlugin {
             Material2dPlugin::<LitBrick>::default(),
             Material2dPlugin::<HologramBrick>::default(),
             Material2dPlugin::<ZapBrick>::default(),
+            Material2dPlugin::<ClippedDecoration>::default(),
         ))
-        .add_systems(Update, follow_bricks);
+        .add_systems(Update, follow_bricks)
+        .add_systems(PostUpdate, clip_decorations
+            .before(bevy::transform::TransformSystems::Propagate)
+            .before(bevy::asset::AssetEventSystems)
+            .before(VisibilitySystems::VisibilityPropagate)
+            .before(VisibilitySystems::CalculateBounds));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{GameConfig, ModeKind};
+    use crate::gameplay::{Match, Tower};
+
+    #[test]
+    fn clipped_decoration_preserves_the_sprite_frame_flip_and_anchor() {
+        let sprite = Sprite {
+            rect: Some(Rect::from_corners(Vec2::new(8.0, 16.0), Vec2::new(24.0, 32.0))),
+            custom_size: Some(Vec2::new(40.0, 20.0)),
+            flip_x: true,
+            ..default()
+        };
+        let clip = Vec4::new(-90.0, -20.0, 0.0, 0.0);
+        let (quad, look) = decoration_look(&sprite, Vec2::new(0.25, -0.5), Vec2::splat(64.0), clip).unwrap();
+        assert_eq!(quad.scale, Vec3::new(40.0, 20.0, 1.0));
+        assert_eq!(quad.translation, Vec3::new(-10.0, 10.0, 0.0));
+        assert_eq!(look.uv, Vec4::new(0.375, 0.25, -0.25, 0.25));
+        assert_eq!(look.clip, clip);
+    }
+
+    #[test]
+    fn a_decoration_uses_its_owners_lane_and_returns_to_a_sprite_in_puzzle() {
+        let mut app = App::new();
+        app.init_resource::<GameConfig>()
+            .init_resource::<Assets<Image>>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<ClippedDecoration>>()
+            .insert_resource(Match { mode: ModeKind::Race, ..default() })
+            .add_systems(PostUpdate, clip_decorations);
+        let tower = |index, origin_x| Tower { index, origin_x, human: true, player: Some(index) };
+        let world = app.world_mut();
+        world.spawn(tower(0, -100.0));
+        let owner = world.spawn(tower(1, 100.0)).id();
+        let picture = world.resource_mut::<Assets<Image>>().add(Image::default());
+        let sprite = world.spawn((Sprite::from_image(picture), LaneDecoration(owner))).id();
+        app.update();
+        let world = app.world();
+        let config = world.resource::<GameConfig>();
+        let half = config.cells(config.lanes.width(2)) * 0.5;
+        let quad = world.get::<DecorationQuad>(sprite).unwrap().0;
+        let material = world.get::<MeshMaterial2d<ClippedDecoration>>(quad).unwrap();
+        assert_eq!(world.get::<RenderLayers>(sprite), Some(&RenderLayers::none()));
+        assert_eq!(world.get::<ChildOf>(quad).unwrap().parent(), sprite);
+        assert_eq!(world.resource::<Assets<ClippedDecoration>>().get(&material.0).unwrap().look.clip,
+            Vec4::new(100.0 - half, 100.0 + half, 0.0, 0.0));
+
+        app.world_mut().resource_mut::<Match>().mode = ModeKind::Puzzle;
+        app.update();
+        assert!(app.world().get_entity(quad).is_err());
+        assert!(app.world().get::<Sprite>(sprite).is_some());
+        assert!(app.world().get::<RenderLayers>(sprite).is_none());
     }
 }

@@ -97,7 +97,8 @@ reuse a private material, leaving the shared font cache unchanged.
 
 ## Confirmed work still outstanding
 
-- Lane clipping still omits brick decorations. Puzzle's cameras use the same
+- Race and Survival now cut attached decorations at the brick's lane bounds.
+  Puzzle's cameras use the same
   widest tower across the match. The required view width is the larger of 10
   cells and the widest tower plus 2. Dividing by the lane aspect ratio gives
   the height, with a 40-cell minimum and the bottom on the floor. The Rust
