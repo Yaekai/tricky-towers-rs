@@ -95,9 +95,10 @@ supersedes the older working notes below.
    Then resolve the remaining `(?)` values in `casts`, `moments` and cup timing
    from clips or repeatable measurements. Use [PC tasks](pc-tasks.md) as evidence
    and a queue for measurements.
-4. **Run a focused display, text and controller pass.** Check Pause, Settings,
-   Select Players, Trials and results at 125% Windows scaling and 21:9. Cover long
-   Russian strings, Arabic layout and Japanese confirm/back glyphs. Verify Start
+4. **Run a focused display, text and controller pass.** Pause now fits its
+   translated selection bars and uses their measured bounds for the mouse.
+   Check Settings, Select Players, Trials and results at 125% Windows scaling
+   and 21:9. Cover long Russian strings, Arabic layout and Japanese confirm/back glyphs. Verify Start
    and Large rumble and the pause audio mix on hardware when a hands-on session
    is available. The PlayStation touchpad Credits-close mapping remains open.
    Measure frame times in a four-player decorated match to check the clip pass.
