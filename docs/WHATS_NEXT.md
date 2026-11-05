@@ -78,7 +78,10 @@ supersedes the older working notes below.
    and rotations for `SP_10` and record each brick's settled position and top.
    Use the existing `trial brick over laser` diagnostic and compare the first
    divergence with the original. The observed stack reached 2.47 cells against
-   the 2.20 laser. Floor geometry and the laser rule have already been checked.
+   the 2.20 laser. A tilted-brick regression reproduces that 0.27 difference
+   from the compound collider's enclosing rectangle. Height and zap checks now
+   union the constituent bounds. A headless replay from a published solution
+   clears without slack. The input sequence from the 2.47-cell run remains open.
    Keep `puzzle.trial_laser_slack` at 0.3 until the same stack clears the original
    threshold with a demonstrated fix. Rerun stacking, Ivy and cup regressions.
 3. **Compare spell and results timing in play.** Check Slow, Bubble on a stuck

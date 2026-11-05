@@ -517,6 +517,106 @@ fn a_base_rise_that_lifts_a_brick_onto_the_line_ends_the_round() {
 }
 
 #[test]
+fn trial_9_laser_ignores_the_empty_corner_of_a_tilted_brick() {
+    use avian2d::prelude::*;
+
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.trial = config.trials.iter().position(|trial| trial.name == "SP_10");
+    assert!(config.trial.is_some());
+    config.puzzle.trial_laser_slack = 0.0;
+    let mut app = headless_app(config);
+    let world = app.world_mut();
+    let (owner, tower_info) = world.query::<(Entity, &Tower)>().iter(world).next().unwrap();
+    let origin = tower_info.origin_x;
+    let config = world.resource::<GameConfig>();
+    let cell = config.cell_size;
+    let piece = config.pieces.iter().position(|piece| piece.name == "T").unwrap();
+    let brick = Brick {
+        tower: owner,
+        piece,
+        cells: config.pieces[piece].centered_cells(),
+        color: Color::WHITE,
+        scale: 1.0,
+        mass: 1.0,
+        ice: false,
+    };
+    let (collider, density) = tricky_towers::gameplay::brick_body(config, &brick);
+    let angle = std::f32::consts::PI + 0.27_f32.asin();
+    let rotation = Rotation::radians(angle);
+    let y = 2.47 * cell - collider.aabb(Vec2::ZERO, rotation).max.y;
+    let pose = |y: f32| {
+        Transform::from_xyz(origin, y, 0.0).with_rotation(Quat::from_rotation_z(angle))
+    };
+    let entity = world
+        .spawn((brick, RigidBody::Static, collider, density, pose(y)))
+        .id();
+    run_seconds(&mut app, 0.06, |_| {});
+    let state = tower(&mut app, 0);
+    assert!((state.height - 2.20).abs() < 1e-3, "height was {}", state.height);
+    assert_eq!(state.status, TowerStatus::Building);
+
+    let higher = y + 0.12 * cell;
+    app.world_mut()
+        .entity_mut(entity)
+        .insert((Position(Vec2::new(origin, higher)), pose(higher)));
+    run_seconds(&mut app, 0.06, |_| {});
+    assert_eq!(tower(&mut app, 0).status, TowerStatus::Out);
+}
+
+#[test]
+fn trial_9_guide_route_clears_without_slack() {
+    let mut config = GameConfig::from_ron(include_str!("../assets/config/game.ron")).unwrap();
+    config.mode = ModeKind::Puzzle;
+    config.trial = config.trials.iter().position(|trial| trial.name == "SP_10");
+    config.opponents = 0;
+    config.players = 1;
+    config.puzzle.trial_laser_slack = 0.0;
+    let mut app = headless_app(config);
+    // The guide's solved stack, expressed as half-cell taps and quarter turns.
+    let moves = [
+        ("T", 3_i32, 1),
+        ("J", -5, 1),
+        ("L", 5, -1),
+        ("I", 0, 1),
+        ("L", -1, -1),
+        ("O", -1, 0),
+    ];
+    for (i, (name, steps, turn)) in moves.into_iter().enumerate() {
+        assert!(run_until(&mut app, 10.0, |app| tower(app, 0).active.is_some()), "waiting for {name}");
+        let entity = tower(&mut app, 0).active.unwrap();
+        let piece = app.world().get::<Brick>(entity).unwrap().piece;
+        assert_eq!(app.world().resource::<GameConfig>().pieces[piece].name, name);
+        // Give the first brick time to start falling before sending its turn.
+        run_seconds(&mut app, 1.0, |_| {});
+        {
+            let mut input = human_input(&mut app);
+            input.rotate_ccw_pressed = turn > 0;
+            input.rotate_pressed = turn < 0;
+        }
+        run_seconds(&mut app, 0.04, |_| {});
+        for _ in 0..steps.abs() {
+            {
+                let mut input = human_input(&mut app);
+                input.left_pressed = steps < 0;
+                input.right_pressed = steps > 0;
+            }
+            run_seconds(&mut app, 0.04, |_| {});
+        }
+        assert!(
+            run_until(&mut app, 18.0, |app| {
+                let state = tower(app, 0);
+                state.bricks_placed > i as u32 || state.status == TowerStatus::Out
+            }),
+            "{name} did not land"
+        );
+        run_seconds(&mut app, 0.75, |_| {});
+        assert_ne!(tower(&mut app, 0).status, TowerStatus::Out, "after {name}");
+    }
+    assert!(run_until(&mut app, 10.0, |app| tower(app, 0).status == TowerStatus::Won));
+}
+
+#[test]
 fn puzzle_fails_when_crossing_the_line() {
     let mut config = fast_config();
     config.mode = ModeKind::Puzzle;

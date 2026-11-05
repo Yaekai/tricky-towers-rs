@@ -7,6 +7,7 @@
 //! only difference is who writes its [`PlayerInput`].
 
 use avian2d::dynamics::solver::islands::WakeBody;
+use avian2d::parry::{bounding_volume::BoundingVolume, math::Pose};
 use avian2d::prelude::*;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
@@ -1074,6 +1075,22 @@ pub fn brick_body(config: &GameConfig, brick: &Brick) -> (Collider, ColliderDens
         brick_collider(&brick.cells, cell, fill),
         ColliderDensity(config.brick_mass * brick.mass / area.max(f32::EPSILON)),
     )
+}
+
+fn brick_bounds(collider: &Collider, position: Vec2, rotation: Rotation) -> ColliderAabb {
+    let shape = collider.shape_scaled();
+    let Some(compound) = shape.as_compound() else {
+        return collider.aabb(position, rotation);
+    };
+    // Unity unions the world bounds of the individual boxes. Rotating the enclosing
+    // local rectangle can put an empty corner of a tilted brick above the laser.
+    let pose = Pose::new(position, rotation.as_radians());
+    compound
+        .shapes()
+        .iter()
+        .map(|(part_pose, part)| part.compute_aabb(&(pose * *part_pose)))
+        .reduce(|bounds, part| bounds.merged(&part))
+        .map_or(ColliderAabb::INVALID, |bounds| ColliderAabb { min: bounds.mins, max: bounds.maxs })
 }
 
 /// The shrunk shape a steered brick uses.
@@ -2183,9 +2200,7 @@ fn track_towers(
         let Ok((_, tower, mut state)) = towers.get_mut(brick.tower) else {
             continue;
         };
-        // Tight bounds like Unity's collider.bounds: ColliderAabb is padded by the
-        // speculative margin while a brick moves (the trial 9 laser 0.27 over).
-        let aabb = collider.aabb(position.0, *rotation);
+        let aabb = brick_bounds(collider, position.0, *rotation);
         // A lost brick of an Ivy cluster is counted once the cluster lets go.
         let gone = if by_view {
             let at = Vec2::new(position.0.x - tower.origin_x, position.0.y) / config.cell_size;
@@ -2348,7 +2363,7 @@ fn zap_over_laser(
     game: Res<Match>,
     towers: Query<&TowerState>,
     bricks: Query<
-        (Entity, &Brick, &ColliderAabb),
+        (Entity, &Brick, &Collider, &Position, &Rotation),
         (
             Without<ActiveBrick>,
             Without<FloorBlock>,
@@ -2360,7 +2375,7 @@ fn zap_over_laser(
     if !battle && game.mode != ModeKind::EndlessPuzzle {
         return;
     }
-    for (entity, brick, aabb) in &bricks {
+    for (entity, brick, collider, position, rotation) in &bricks {
         let Ok(state) = towers.get(brick.tower) else {
             continue;
         };
@@ -2369,9 +2384,11 @@ fn zap_over_laser(
         } else {
             state.hold_timer > 0.0
         };
-        if crossed
-            && aabb.max.y / config.cell_size > state.laser(&config) + 0.05
-        {
+        if !crossed {
+            continue;
+        }
+        let top = brick_bounds(collider, position.0, *rotation).max.y / config.cell_size;
+        if top > state.laser(&config) + 0.05 {
             commands.entity(entity).insert(crate::spells::Zapped {
                 timer: config.puzzle.zap_seconds,
                 length: config.puzzle.zap_seconds,
