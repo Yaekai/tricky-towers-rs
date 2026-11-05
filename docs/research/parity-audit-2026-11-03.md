@@ -62,14 +62,23 @@ Brick-control sounds and spell-button reactions are blocked during pause.
 The cup winner's immediate appearance poof is implemented on the popup camera's
 layer at its spawn position and scale, without applying it to nudge ghost clones.
 
+## In-match cup standings, 2026-11-05
+
+The Game Info standings fade the popup's full UI in and out over 0.1 seconds of
+unscaled time with the project's default out-quad easing. The panel stays in
+place, with medals already filled and no Continue button. It is hidden when the
+fade-out completes. The between-match results keep their own slide and medal fill.
+
+Sources: TournamentCurrentScorePopup and DOTweenSettings from the local install.
+
 ## Confirmed work still outstanding
 
 - Pause's words and controls still need their original opacity transition;
   the existing approximation fades the dark panel.
-- Cup standings opened with Game info fade in and out over 0.1 seconds; Rust
-  currently changes their visibility immediately.
 - The original clears through black both before and after a screen transition;
-  Rust only implements the clear after the screen changes.
+  Rust only implements the clear after the screen changes. The original's
+  state controller starts the fade on leaving a state and waits for its
+  completion before changing state (AbstractBricksStateController).
 - Lane clipping still omits brick decorations and Puzzle's per-tower framing.
 
 These remain implementation gaps, rather than claims that the whole game now
