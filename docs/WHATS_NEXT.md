@@ -17,6 +17,10 @@ supersedes the older working notes below.
    a staged-art pass on the PC with a real wide stack (decorations, heat haze, front
    sand, drop guide), window resizing and 125% scaling, the BrickClipper Forcefield on
    Puzzle cuts, Puzzle trials, and whether a shake should move only its own lane.
+   PC checks are queued in [PC tasks](pc-tasks.md). Separate bug, seen in a
+   placeholder capture: after a script's forced `Win(tower: 0)` in a two-seat Puzzle
+   round, WINNER! showed over both lanes. Check how the count and the forced win
+   interact (`results::start_moments`, `PuzzleCountClock`).
 2. **Reproduce the Trial 9 stack-height mismatch.** Replay the same placements
    and rotations for `SP_10` and record each brick's settled position and top.
    Use the existing `trial brick over laser` diagnostic and compare the first

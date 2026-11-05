@@ -92,6 +92,22 @@ frontend and test-writer suggestions.
    can decide.
 
 ## Queued
+- **Puzzle split-screen checks (2026-11-05, after PR #167; headless and silent only).** Build with
+  `cargo build --locked -j 1`, then run offscreen scripts on the staged art (`--script <file>
+  --offscreen <scratch dir>`, no window, no sound). Keep the pictures out of Git and shared output.
+  Write the results as plain notes in docs/WHATS_NEXT.md item 1.
+  1. *Wide stack:* a two-seat Puzzle battle (`Start(mode: Puzzle, players: Some(2), opponents: Some(0))`).
+     Tower 0 drops straight. Tower 1 is steered so its settled bricks reach well past the
+     10-cell minimum (alternate short `Hold Left/Right` with `Drop` held, plus `Curse(spells: [Large])`).
+     Take `Picture`s before and after it widens. Check that each tower stays in the middle of its own
+     rectangle, the wide tower's bricks and decorations stop at its own lane's edge, the laser lines
+     match across the lanes, the heat haze, front sand and drop guide still line up, and the HUD
+     cards, hearts and score stay over their own tower. Then do the same with 3 and 4 seats.
+  2. *Sizes and scaling:* the same script at `--size 1920x1080`, `--size 3440x1440` and `--size 1280x1024`.
+     Then, if the build can be given a scale factor without opening a window, at 125% too.
+     If it can't, note that the 125% run needs a windowed check by Max. Don't open a window yourself.
+  Also, as a regression check: a Puzzle trial (Trial 9 keeps `trial_laser_slack` 0.3), solo Endless
+  Puzzle, and a Race and Survival battle should look the same as before #167.
 - **Next: the rest of Max's screenshot comparison** (docs/research/compare-2026-10-06.md; lines
   without ✓ are open; Max's pictures are in `research\screenshotsbymax` on his new PC, never commit
   them). Left after PRs #62-94: the race trial clock's orange outline (world text has none). The Endless screen is done, Endless Puzzle's red eclipse staged as `background_endless_puzzle_N` and `sky_endless_puzzle` (its 2 s tween in at the intro and the sun's eclipse colour #FF641F aren't done; the menu doesn't show the sun). Merge only when `cargo test` passes.
