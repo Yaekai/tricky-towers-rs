@@ -37,6 +37,13 @@ supersedes the older working notes below.
      `lanes::viewport`, the aspect in `visuals::frame_towers`), so at 5:4 each lane
      is narrower in world space, the wizards are cut at the lane's right edge, and
      the DRAW! banners are wider than their lanes and touch each other.
+   - *HUD in the box.* Each battle HUD (the next-brick card and its count) is built
+     with its tower's viewport, the one GamePositionHelper fits in the 16:9 box, and
+     its root is anchored to that rectangle's corners (`AbstractHUD`, the modes'
+     `_CreateHud`). So when letterboxed the cards hang from the box's top, not the
+     screen's: done for split Puzzle screens (`hud::place_items`). Still open: the
+     card's size and its offset from the tower follow the original's canvas scaler
+     (not read yet); ours scale them with the full screen's height and width.
    - 125% scaling and window resizing need a windowed check by Max (offscreen runs
      always render at 1x). Also still to check: the BrickClipper Forcefield on
      Puzzle cuts, and whether a shake should move only its own lane.
