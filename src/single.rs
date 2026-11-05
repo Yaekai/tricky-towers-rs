@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::art::Art;
 use crate::config::{Difficulty, GameConfig, ModeKind};
-use crate::gameplay::{Match, MatchRequest, Phase, Tower, TowerState};
-use crate::menu::MenuScreen;
+use crate::gameplay::{Match, Phase, Tower, TowerState};
+use crate::menu::{MenuScreen, ScreenTransition};
 use crate::select::{
     CORNER_SMALL, PACK_PANEL, PANEL_SLICE, SEAT_PANEL, WIZARDS, corners, label, place, read_taps,
     shown, sliced, spawn_page, spawn_page_lifted,
@@ -997,7 +997,8 @@ pub(crate) fn single_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
     game: Res<Match>,
-    mut screen: ResMut<MenuScreen>,
+    screen: Res<MenuScreen>,
+    mut transition: ResMut<ScreenTransition>,
     mut menu: ResMut<SingleMenu>,
     mut config: ResMut<GameConfig>,
     art: Option<Res<Art>>,
@@ -1019,7 +1020,7 @@ pub(crate) fn single_input(
     let taps = read_taps(keys.as_deref(), &pads);
     if !taps.pad_back.is_empty() {
         if !step_back(&mut menu) {
-            *screen = MenuScreen::Main;
+            transition.menu(MenuScreen::Main);
         }
         return;
     }
@@ -1080,7 +1081,7 @@ pub(crate) fn single_input(
     // (no online play); Play with friends opens it inviting.
     if pick && menu.online {
         lobby.invite = menu.selected == 2;
-        *screen = MenuScreen::Lobby;
+        transition.menu(MenuScreen::Lobby);
         if let Some(sound) = art.as_ref().and_then(|a| a.sounds.get("sfx_start_game_v2")) {
             commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
         }
@@ -1090,9 +1091,9 @@ pub(crate) fn single_input(
         match LIST[menu.selected].0 {
             "Endless" => {
                 menu.endless = 0;
-                *screen = MenuScreen::Endless;
+                transition.menu(MenuScreen::Endless);
             }
-            _ => *screen = MenuScreen::Trials,
+            _ => transition.menu(MenuScreen::Trials),
         }
     }
 }
@@ -1116,10 +1117,10 @@ pub(crate) fn endless_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
     game: Res<Match>,
-    mut screen: ResMut<MenuScreen>,
+    screen: Res<MenuScreen>,
     mut menu: ResMut<SingleMenu>,
     mut config: ResMut<GameConfig>,
-    mut request: ResMut<MatchRequest>,
+    mut transition: ResMut<ScreenTransition>,
     mut cup: ResMut<crate::cups::Cup>,
     mouse: Option<Res<ButtonInput<MouseButton>>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
@@ -1129,7 +1130,7 @@ pub(crate) fn endless_input(
     }
     let taps = read_taps(keys.as_deref(), &pads);
     if !taps.pad_back.is_empty() {
-        *screen = MenuScreen::Single;
+        transition.menu(MenuScreen::Single);
         return;
     }
     let count = ENDLESS_ORDER.len();
@@ -1171,7 +1172,7 @@ pub(crate) fn endless_input(
     config.trial = None;
     // An Endless run is never part of a cup.
     *cup = default();
-    request.pending = true;
+    transition.play(false);
 }
 
 #[allow(clippy::type_complexity)]

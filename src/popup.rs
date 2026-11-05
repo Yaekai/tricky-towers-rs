@@ -13,8 +13,8 @@ use bevy::ui::widget::NodeImageMode;
 use crate::art::Art;
 use crate::config::{CupPanel, GameConfig};
 use crate::cups::Cup;
-use crate::gameplay::{Match, MatchRequest, Phase};
-use crate::menu::{MenuScreen, MenuSystems};
+use crate::gameplay::{Match, Phase};
+use crate::menu::{MenuScreen, MenuSystems, ScreenTransition, screen_input_ready};
 use crate::trials::TrialProgress;
 
 pub struct PopupPlugin;
@@ -25,7 +25,7 @@ impl Plugin for PopupPlugin {
             .add_systems(Startup, spawn_popup)
             .add_systems(
                 Update,
-                (time_popup, popup_input, show_popup)
+                (time_popup, popup_input.run_if(screen_input_ready), show_popup)
                     .chain()
                     .after(MenuSystems),
             );
@@ -348,9 +348,8 @@ fn popup_input(
     time: Res<Time>,
     mut config: ResMut<GameConfig>,
     mut popup: ResMut<Popup>,
-    mut game: ResMut<Match>,
-    mut screen: ResMut<MenuScreen>,
-    mut request: ResMut<MatchRequest>,
+    game: Res<Match>,
+    mut transition: ResMut<ScreenTransition>,
     mut cup: ResMut<crate::cups::Cup>,
     progress: Option<Res<TrialProgress>>,
     mut trials_menu: Option<ResMut<crate::trials_menu::TrialsMenu>>,
@@ -365,10 +364,7 @@ fn popup_input(
     if let Some(since) = popup.winner_since() {
         let p = &config.cup_panel;
         if since >= p.winner_close + p.winner_fade {
-            game.phase = Phase::Menu;
-            *screen = MenuScreen::Modes;
-            popup.shown = false;
-            popup.winner_at = None;
+            transition.menu(MenuScreen::Modes);
         }
         return;
     }
@@ -435,8 +431,7 @@ fn popup_input(
                 cup.current = Some((mode, difficulty));
                 cup.show_title = true;
             }
-            request.retry = false;
-            request.pending = true;
+            transition.play(false);
         }
         "Next" => {
             match progress.as_deref().map_or(NextTrial::List, |p| next_trial(&config, p)) {
@@ -446,50 +441,46 @@ fn popup_input(
                     if let Some(menu) = trials_menu.as_mut() {
                         menu.selected = next;
                     }
-                    request.retry = false;
-                    request.pending = true;
+                    transition.play(false);
                 }
                 NextTrial::List => {
-                    game.phase = Phase::Menu;
-                    *screen = MenuScreen::Trials;
+                    transition.menu(MenuScreen::Trials);
                 }
                 NextTrial::Credits => {
                     credits.open = true;
                     credits.time = 0.0;
                     credits.after_trial = true;
+                    popup.shown = false;
                 }
             }
         }
         "Main menu" => {
-            game.phase = Phase::Menu;
-            *screen = MenuScreen::Main;
+            transition.menu(MenuScreen::Main);
         }
         "Select Mode" | "Select Trial" | "Back to menu" => {
-            game.phase = Phase::Menu;
-            *screen = if config.trial.is_some() {
+            transition.menu(if config.trial.is_some() {
                 MenuScreen::Trials
             } else if config.mode.is_endless() {
                 MenuScreen::Endless
             } else {
                 MenuScreen::Modes
-            };
+            });
         }
         _ => {
             // Next match carries on a running cup; after its last match (or with
             // no cup) Rematch starts the same again from scratch.
-            if !cup.in_progress() {
+            let retry = !cup.in_progress();
+            if retry {
                 cup.begin();
-                request.retry = true;
             } else if let Some((mode, difficulty)) =
                 cup.next_match(time.elapsed().as_nanos() as usize / 1000)
             {
                 config.mode = mode;
                 config.difficulty = Some(difficulty);
             }
-            request.pending = true;
+            transition.play(retry);
         }
     }
-    popup.shown = false;
 }
 
 #[allow(clippy::type_complexity)]

@@ -71,14 +71,27 @@ fade-out completes. The between-match results keep their own slide and medal fil
 
 Sources: TournamentCurrentScorePopup and DOTweenSettings from the local install.
 
+## Screen transitions and start animation, 2026-11-05
+
+The original's state controller leaves the old screen in place until the
+overlay reaches black. Each fade takes 0.076831 seconds of real time with the
+default out-quad easing. Rust commits queued navigation at black and keeps the
+cover up while the new match waits for its fixed-step initialization. Popups
+such as Help and match explanations stay on their own animation paths.
+
+Pressing Continue before the logo settles skips the entrance. Once settled,
+Continue plays Rumble, a one-second clip with a shaking logo, staggered falling
+rubble, and 0.075-second prompt blinking. The controller that started it gets
+a 0.3-second full-strength pulse on its strong motor. Another Continue skips
+the wait, and a pointer click goes directly to the title transition.
+
+Sources: AbstractBricksStateController, TransitionEffect, StartStateController,
+the Rumble clip and the Start scene from the local install.
+
 ## Confirmed work still outstanding
 
 - Pause's words and controls still need their original opacity transition;
   the existing approximation fades the dark panel.
-- The original clears through black both before and after a screen transition;
-  Rust only implements the clear after the screen changes. The original's
-  state controller starts the fade on leaving a state and waits for its
-  completion before changing state (AbstractBricksStateController).
 - Lane clipping still omits brick decorations and Puzzle's per-tower framing.
 
 These remain implementation gaps, rather than claims that the whole game now

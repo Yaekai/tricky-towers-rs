@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::gameplay::{Match, Phase};
-use crate::menu::MenuScreen;
+use crate::menu::{MenuScreen, ScreenTransition};
 use crate::select::shown;
 
 pub struct CreditsPlugin;
@@ -269,8 +269,9 @@ fn run_credits(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     mouse: Option<Res<ButtonInput<MouseButton>>>,
     pads: Query<(Entity, &Gamepad)>,
-    mut game: ResMut<Match>,
-    mut screen: ResMut<MenuScreen>,
+    game: Res<Match>,
+    screen: Res<MenuScreen>,
+    mut transition: ResMut<ScreenTransition>,
     mut menu: ResMut<CreditsMenu>,
     mut root: Query<&mut Visibility, With<CreditsRoot>>,
     mut content: Query<(&CreditsContent, &mut Node)>,
@@ -292,6 +293,9 @@ fn run_credits(
     }
     if !menu.open {
         menu.time = 0.0;
+        return;
+    }
+    if !transition.idle() {
         return;
     }
     let down = keys.as_ref().is_some_and(|k| k.any_pressed([KeyCode::ArrowDown, KeyCode::KeyS]))
@@ -322,12 +326,11 @@ fn run_credits(
     menu.time = (menu.time + time.delta_secs() * speed).max(0.0);
     // The press that opens the popup belongs to the screen underneath it.
     if (closing && !just_opened) || (before >= DELAY + SCROLL) {
-        menu.open = false;
-        *was_open = false;
         if menu.after_trial {
-            menu.after_trial = false;
-            game.phase = Phase::Menu;
-            *screen = MenuScreen::Start;
+            transition.menu(MenuScreen::Start);
+        } else {
+            menu.open = false;
+            *was_open = false;
         }
         return;
     }

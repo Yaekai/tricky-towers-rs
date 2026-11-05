@@ -31,6 +31,7 @@ impl Plugin for MenuPlugin {
             crate::confirm::ConfirmPlugin,
         ))
         .init_resource::<MenuScreen>()
+        .init_resource::<ScreenTransition>()
         .init_resource::<MainMenu>()
         .init_resource::<PauseMenu>()
         .init_resource::<StartClock>()
@@ -40,7 +41,8 @@ impl Plugin for MenuPlugin {
         .init_resource::<crate::visuals::MenuLook>()
         .init_resource::<crate::trials_menu::TrialsMenu>()
         .add_systems(First, pause_match_clock.before(bevy::time::TimeSystems))
-        .add_systems(Update, (black_transitions, show_cursor.after(MenuSystems)))
+        .add_systems(PreUpdate, advance_screen_transition)
+        .add_systems(Update, (black_transitions, show_cursor).after(MenuSystems))
         .add_systems(
             Startup,
             (
@@ -58,26 +60,14 @@ impl Plugin for MenuPlugin {
             (
                 // Each screen reads its keys before the screen that leads to it,
                 // so one press never acts on two screens.
-                menu_escape,
-                modes_input,
-                players_input,
-                endless_input,
-                crate::trials_menu::trials_input,
-                single_input,
-                crate::settings::settings_input,
-                main_menu_input,
-                start_input,
-                pause_input,
-                show_start_screen,
-                show_select_screens,
-                show_single_screens,
-                show_carousel,
-                show_list_ribbon,
-                crate::trials_menu::show_trials_screen,
-                crate::settings::show_settings_screen,
-                show_pause_menu,
-                show_main_menu,
-                spin_tile_rays,
+                (menu_escape, modes_input, players_input, endless_input,
+                    crate::trials_menu::trials_input, single_input, crate::settings::settings_input,
+                    main_menu_input, start_input, pause_input)
+                    .chain().distributive_run_if(screen_input_ready),
+                (show_start_screen, show_select_screens, show_single_screens, show_carousel,
+                    show_list_ribbon, crate::trials_menu::show_trials_screen,
+                    crate::settings::show_settings_screen, show_pause_menu, show_main_menu, spin_tile_rays)
+                    .chain(),
             )
                 .chain()
                 .in_set(MenuSystems),
@@ -93,6 +83,7 @@ fn menu_escape(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     mut game: ResMut<Match>,
     mut screen: ResMut<MenuScreen>,
+    mut transition: ResMut<ScreenTransition>,
     mut pause: ResMut<PauseMenu>,
     mut lobby: ResMut<Lobby>,
     mut binds: ResMut<crate::keybinding::KeybindingMenu>,
@@ -132,23 +123,22 @@ fn menu_escape(
                 .is_some_and(|seat| crate::select::step_back_seat(&mut lobby, seat)) => {}
         (Phase::Over, _) | (Phase::Menu, MenuScreen::Players) => {
             pause.resume_to = None;
-            game.phase = Phase::Menu;
-            *screen = MenuScreen::Main;
+            transition.menu(MenuScreen::Main);
         }
-        (Phase::Menu, MenuScreen::Modes) => step_back(&mut lobby, &mut screen),
+        (Phase::Menu, MenuScreen::Modes) => step_back(&mut lobby, &mut transition),
         // Back on Single Player undoes the last choice first.
         (Phase::Menu, MenuScreen::Single) => {
             if !crate::single::step_back(&mut single) {
-                *screen = MenuScreen::Main;
+                transition.menu(MenuScreen::Main);
             }
         }
-        (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => *screen = MenuScreen::Single,
+        (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => transition.menu(MenuScreen::Single),
         (Phase::Menu, MenuScreen::Help) => *screen = MenuScreen::Main,
         // Back leaves the lobby for the Online Battle screen.
-        (Phase::Menu, MenuScreen::Lobby | MenuScreen::Invite) => *screen = MenuScreen::Single,
+        (Phase::Menu, MenuScreen::Lobby | MenuScreen::Invite) => transition.menu(MenuScreen::Single),
         // The exit popup takes the input while it is up (its own input layer).
         (Phase::Menu, MenuScreen::Main) if confirm.open => {}
-        (Phase::Menu, MenuScreen::Main) => *screen = MenuScreen::Start,
+        (Phase::Menu, MenuScreen::Main) => transition.menu(MenuScreen::Start),
         // The explanation popup waits for Continue.
         (Phase::Menu, MenuScreen::Explain) => {}
         // A popup over Settings closes first.
@@ -158,7 +148,7 @@ fn menu_escape(
             } else if stats.open {
                 stats.open = false;
             } else if !crate::keybinding::keybinding_escape(&mut binds) {
-                *screen = MenuScreen::Main;
+                transition.menu(MenuScreen::Main);
             }
         }
         (Phase::Menu, MenuScreen::Start) => {}
@@ -202,19 +192,88 @@ pub enum MenuScreen {
     Invite,
 }
 
-/// The black screen of a change of screen (TransitionEffect): every menu screen and the
-/// match load behind it; it clears in 0.077 s (DOFade, out-quad). Popups (pause, the
-/// explanations, help) don't.
-// ponytail: the original also fades to black over 0.077 s before the change; ours changes at
-// once, so only the clearing shows.
+pub(crate) enum Destination {
+    Menu(MenuScreen),
+    Match { retry: bool },
+}
+
+/// Fade out the current screen, commit the change at black, then fade in the destination.
+#[derive(Resource, Default)]
+pub(crate) enum ScreenTransition {
+    #[default]
+    Idle,
+    Cover(Destination, f32),
+    Load(u64),
+    Reveal(f32),
+}
+
+impl ScreenTransition {
+    pub(crate) fn menu(&mut self, screen: MenuScreen) {
+        *self = Self::Cover(Destination::Menu(screen), 0.0);
+    }
+
+    pub(crate) fn play(&mut self, retry: bool) {
+        *self = Self::Cover(Destination::Match { retry }, 0.0);
+    }
+
+    pub(crate) fn idle(&self) -> bool {
+        matches!(self, Self::Idle)
+    }
+}
+
+pub(crate) fn screen_input_ready(transition: Res<ScreenTransition>) -> bool {
+    transition.idle()
+}
+
+fn advance_screen_transition(
+    time: Res<Time<Real>>,
+    config: Res<GameConfig>,
+    mut transition: ResMut<ScreenTransition>,
+    mut game: ResMut<Match>,
+    mut screen: ResMut<MenuScreen>,
+    mut request: ResMut<MatchRequest>,
+) {
+    let dt = time.delta_secs();
+    let duration = config.menu.transition_fade;
+    match &mut *transition {
+        ScreenTransition::Idle => {}
+        ScreenTransition::Cover(destination, elapsed) => {
+            *elapsed += dt;
+            if *elapsed >= duration {
+                *transition = match *destination {
+                    Destination::Menu(to) => {
+                        game.phase = Phase::Menu;
+                        *screen = to;
+                        ScreenTransition::Reveal(0.0)
+                    }
+                    Destination::Match { retry } => {
+                        *request = MatchRequest { pending: true, retry };
+                        ScreenTransition::Load(game.round)
+                    }
+                };
+            }
+        }
+        ScreenTransition::Load(round) => {
+            if game.round != *round {
+                *transition = ScreenTransition::Reveal(0.0);
+            }
+        }
+        ScreenTransition::Reveal(elapsed) => {
+            *elapsed += dt;
+            if *elapsed >= duration {
+                *transition = ScreenTransition::Idle;
+            }
+        }
+    }
+}
+
+/// The existing clear on direct/debug loads, plus the overlay for normal navigation.
 #[derive(Component)]
 struct BlackScreen(f32);
 
-const TRANSITION_TIME: f32 = 0.076831;
-
 fn spawn_black_screen(mut commands: Commands) {
     commands.spawn((
-        BlackScreen(TRANSITION_TIME),
+        BlackScreen(f32::INFINITY),
         Node {
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),
@@ -229,6 +288,8 @@ fn spawn_black_screen(mut commands: Commands) {
 
 fn black_transitions(
     time: Res<Time<Real>>,
+    config: Res<GameConfig>,
+    transition: Res<ScreenTransition>,
     screen: Res<MenuScreen>,
     game: Res<Match>,
     mut last: Local<Option<(MenuScreen, bool)>>,
@@ -245,13 +306,21 @@ fn black_transitions(
         None => false,
     };
     *last = Some(now);
+    let duration = config.menu.transition_fade;
+    let remaining = |elapsed: f32| (1.0 - elapsed / duration.max(f32::EPSILON)).max(0.0).powi(2);
     for (mut fade, mut color) in &mut black {
-        if changed {
+        if !transition.idle() {
+            fade.0 = f32::INFINITY;
+        } else if changed {
             fade.0 = 0.0;
         }
         fade.0 += time.delta_secs();
-        let k = (fade.0 / TRANSITION_TIME).min(1.0);
-        let alpha = 1.0 - (1.0 - (1.0 - k) * (1.0 - k));
+        let alpha = match *transition {
+            ScreenTransition::Idle => remaining(fade.0),
+            ScreenTransition::Cover(_, elapsed) => 1.0 - remaining(elapsed),
+            ScreenTransition::Load(_) => 1.0,
+            ScreenTransition::Reveal(elapsed) => remaining(elapsed),
+        };
         if color.0.alpha() != alpha {
             color.0.set_alpha(alpha);
         }
@@ -305,10 +374,13 @@ impl PauseMenu {
 /// Freeze scaled world time, leaving the pause menu's Real clock running.
 fn pause_match_clock(
     pause: Res<PauseMenu>,
+    transition: Res<ScreenTransition>,
+    game: Res<Match>,
     mut time: ResMut<Time<Virtual>>,
     mut inputs: Query<&mut crate::gameplay::PlayerInput>,
 ) {
-    if pause.is_active() {
+    if pause.is_active() || (matches!(*transition, ScreenTransition::Cover(..))
+        && matches!(game.phase, Phase::Playing | Phase::Intro)) {
         time.pause();
         for mut input in &mut inputs {
             *input = default();
@@ -713,7 +785,7 @@ fn pause_input(
     mut game: ResMut<Match>,
     mut screen: ResMut<MenuScreen>,
     mut pause: ResMut<PauseMenu>,
-    mut request: ResMut<MatchRequest>,
+    mut transition: ResMut<ScreenTransition>,
     cup: Option<Res<crate::cups::Cup>>,
     mut last_cursor: Local<Option<Vec2>>,
     time: Res<Time<Real>>,
@@ -746,19 +818,17 @@ fn pause_input(
             }
             "Retry" => {
                 pause.resume_to = None;
-                request.pending = true;
-                request.retry = true;
+                transition.play(true);
             }
             _ => {
                 pause.resume_to = None;
-                game.phase = Phase::Menu;
-                *screen = if config.trial.is_some() {
+                transition.menu(if config.trial.is_some() {
                     MenuScreen::Trials
                 } else if config.mode.is_endless() {
                     MenuScreen::Endless
                 } else {
                     MenuScreen::Modes
-                };
+                });
             }
         }
         return;
@@ -1432,6 +1502,7 @@ pub(crate) fn main_menu_input(
     gamepads: Query<&Gamepad>,
     game: Res<Match>,
     mut screen: ResMut<MenuScreen>,
+    mut transition: ResMut<ScreenTransition>,
     mut menu: ResMut<MainMenu>,
     mut lobby: ResMut<Lobby>,
     mut single: ResMut<SingleMenu>,
@@ -1501,14 +1572,14 @@ pub(crate) fn main_menu_input(
     match TILES[menu.selected].key {
         "local" => {
             lobby.single = false;
-            *screen = MenuScreen::Players;
+            transition.menu(MenuScreen::Players);
         }
         "single" | "online" => {
             single.online = TILES[menu.selected].key == "online";
-            *screen = MenuScreen::Single;
+            transition.menu(MenuScreen::Single);
         }
         "settings" => {
-            *screen = MenuScreen::Settings;
+            transition.menu(MenuScreen::Settings);
         }
         "help" => {
             *screen = MenuScreen::Help;
@@ -1616,17 +1687,68 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<Time>()
             .init_resource::<Time<Real>>()
+            .init_resource::<GameConfig>()
+            .init_resource::<ScreenTransition>()
             .insert_resource(Match { phase: Phase::Intro, ..default() })
             .insert_resource(MenuScreen::Pause)
             .add_systems(Update, black_transitions);
         let cover = app.world_mut().spawn((BlackScreen(0.0), BackgroundColor(Color::BLACK))).id();
         app.update();
         assert_eq!(app.world().get::<BackgroundColor>(cover).unwrap().0.alpha(), 1.0);
+        let fade = app.world().resource::<GameConfig>().menu.transition_fade;
         app.world_mut().resource_mut::<Time<Real>>()
-            .advance_by(std::time::Duration::from_secs_f32(TRANSITION_TIME * 2.0));
+            .advance_by(std::time::Duration::from_secs_f32(fade * 2.0));
         app.update();
         assert_eq!(app.world().resource::<Time>().elapsed_secs(), 0.0);
         assert_eq!(app.world().get::<BackgroundColor>(cover).unwrap().0.alpha(), 0.0);
+    }
+
+    #[test]
+    fn changes_commit_only_at_black_and_match_load_holds_the_cover() {
+        let mut app = App::new();
+        app.init_resource::<GameConfig>()
+            .init_resource::<Time<Real>>()
+            .init_resource::<ScreenTransition>()
+            .init_resource::<Match>()
+            .init_resource::<MatchRequest>()
+            .insert_resource(MenuScreen::Main)
+            .add_systems(PreUpdate, advance_screen_transition)
+            .add_systems(Update, black_transitions);
+        let black = app.world_mut().spawn((BlackScreen(f32::INFINITY), BackgroundColor(Color::NONE))).id();
+        let alpha = |app: &App| app.world().get::<BackgroundColor>(black).unwrap().0.alpha();
+        let half = app.world().resource::<GameConfig>().menu.transition_fade * 0.5;
+        let tick = |app: &mut App, dt| {
+            app.world_mut().resource_mut::<Time<Real>>().advance_by(std::time::Duration::from_secs_f32(dt));
+            app.update();
+        };
+        app.world_mut().resource_mut::<ScreenTransition>().menu(MenuScreen::Modes);
+        tick(&mut app, half);
+        assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
+        assert!((alpha(&app) - 0.75).abs() < 1e-5);
+        tick(&mut app, half * 1.01);
+        assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Modes);
+        assert_eq!(alpha(&app), 1.0);
+        tick(&mut app, half);
+        assert!((alpha(&app) - 0.25).abs() < 1e-5);
+        tick(&mut app, half * 1.01);
+        assert_eq!(alpha(&app), 0.0);
+
+        app.world_mut().resource_mut::<ScreenTransition>().play(true);
+        tick(&mut app, half);
+        assert!(!app.world().resource::<MatchRequest>().pending);
+        tick(&mut app, half * 1.01);
+        assert!(app.world().resource::<MatchRequest>().pending && app.world().resource::<MatchRequest>().retry);
+        tick(&mut app, 1.0);
+        assert_eq!(alpha(&app), 1.0);
+        {
+            let mut game = app.world_mut().resource_mut::<Match>();
+            game.round += 1;
+            game.phase = Phase::Intro;
+        }
+        tick(&mut app, half);
+        assert_eq!(alpha(&app), 1.0);
+        tick(&mut app, half);
+        assert!((alpha(&app) - 0.25).abs() < 1e-5);
     }
 
     #[test]

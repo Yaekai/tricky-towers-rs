@@ -3,12 +3,13 @@
 //! from the original (docs/research/menus.md, "Start screen"), in pixels of a
 //! 1920×1080 screen; the logo pieces are pictures at 26 px a unit.
 
+use bevy::input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::config::{curve, GameConfig, StartLook};
 use crate::gameplay::{Match, Phase};
-use crate::menu::MenuScreen;
+use crate::menu::{MenuScreen, ScreenTransition};
 use crate::select::{place, shown};
 
 /// Pixels a unit of the logo's layout, at 1080 high.
@@ -40,14 +41,14 @@ pub(crate) struct StartPrompt;
 enum PieceKind {
     Logo,
     Brick,
-    Debris,
+    Debris(usize),
     Plant(usize),
 }
 
 /// One picture of the logo, placed in units from the logo's centre.
 #[derive(Component)]
 pub(crate) struct LogoPiece {
-    image: Handle<Image>,
+    image: Option<Handle<Image>>,
     at: Vec2,
     scale: f32,
     kind: PieceKind,
@@ -56,9 +57,14 @@ pub(crate) struct LogoPiece {
     pivot_y: f32,
 }
 
-/// Seconds the start screen has been up.
 #[derive(Resource, Default)]
-pub(crate) struct StartClock(pub f32);
+pub(crate) struct StartClock {
+    intro: f32,
+    heard: usize,
+    rumble_at: Option<f32>,
+    blink: f32,
+    prompt_hidden: bool,
+}
 
 pub(crate) fn spawn_start_screen(
     mut commands: Commands,
@@ -93,11 +99,11 @@ pub(crate) fn spawn_start_screen(
                 format!("logo_debris_{}", i + 1),
                 *at,
                 1.0,
-                PieceKind::Debris,
+                PieceKind::Debris(i),
             ));
         }
-        for &(at, scale) in SMALL_DEBRIS {
-            pieces.push(("logo_debris_8".into(), at, scale, PieceKind::Debris));
+        for (i, &(at, scale)) in SMALL_DEBRIS.iter().enumerate() {
+            pieces.push(("logo_debris_8".into(), at, scale, PieceKind::Debris(DEBRIS.len() + i)));
         }
     } else {
         pieces.push(("logo".into(), LOGO, 1.0, PieceKind::Logo));
@@ -122,7 +128,7 @@ pub(crate) fn spawn_start_screen(
                 UiTransform::default(),
                 Visibility::Hidden,
                 LogoPiece {
-                    image: picture,
+                    image: Some(picture),
                     at,
                     scale,
                     kind,
@@ -131,7 +137,9 @@ pub(crate) fn spawn_start_screen(
             ));
         }
         if !any {
-            root.spawn(place((1920.0, 200.0), (0.0, 182.0)))
+            root.spawn((place((1920.0, 200.0), (0.0, 182.0)), LogoPiece {
+                image: None, at: LOGO, scale: 1.0, kind: PieceKind::Logo, pivot_y: 0.5,
+            }))
                 .with_child((
                     Text::new("Tricky Towers"),
                     TextFont {
@@ -219,14 +227,20 @@ const SMALL_DEBRIS: &[(Vec2, f32)] = &[
     (Vec2::new(-9.77, 0.94), 0.736),
 ];
 
-/// Enter, Space, A or Start goes on to the title tiles.
+/// Continue can skip MoveIn, then plays Rumble, then skips it on a second press.
 pub(crate) fn start_input(
     mut commands: Commands,
     keys: Option<Res<ButtonInput<KeyCode>>>,
-    gamepads: Query<&Gamepad>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
+    gamepads: Query<(Entity, &Gamepad)>,
     game: Res<Match>,
     art: Option<Res<Art>>,
-    mut screen: ResMut<MenuScreen>,
+    config: Res<GameConfig>,
+    time: Res<Time>,
+    screen: Res<MenuScreen>,
+    mut transition: ResMut<ScreenTransition>,
+    mut clock: ResMut<StartClock>,
+    mut rumble: Option<ResMut<Messages<GamepadRumbleRequest>>>,
 ) {
     if game.phase != Phase::Menu || *screen != MenuScreen::Start {
         return;
@@ -234,18 +248,39 @@ pub(crate) fn start_input(
     let key = keys.is_some_and(|k| {
         k.any_just_pressed([KeyCode::Enter, KeyCode::Space, KeyCode::NumpadEnter])
     });
-    let pad = gamepads
-        .iter()
-        .any(|p| p.any_just_pressed([crate::input::continue_back(p).0, GamepadButton::Start]));
-    if key || pad {
-        // StartStateController plays the start sounds with the logo's rumble.
-        // ponytail: goes on at once; the Rumble clip before the title isn't played.
-        for name in ["sfx_start_game_v2", "sfx_brick_heavy", "sfx_menu_crumble"] {
-            if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
-                commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
-            }
+    let pad = gamepads.iter().find_map(|(entity, p)| {
+        p.any_just_pressed([crate::input::continue_back(p).0, GamepadButton::Start]).then_some(entity)
+    });
+    let look = &config.start;
+    let now = time.elapsed_secs();
+    let pressed = key || pad.is_some();
+    if mouse.is_some_and(|m| m.just_pressed(MouseButton::Left))
+        || clock.rumble_at.is_some_and(|at| pressed || now - at >= look.rumble_end)
+    {
+        transition.menu(MenuScreen::Main);
+        return;
+    }
+    if !pressed {
+        return;
+    }
+    if clock.intro < look.prompt_after {
+        clock.intro = look.prompt_after;
+        clock.heard = look.sounds.len();
+        return;
+    }
+    clock.rumble_at = Some(now);
+    if let (Some(gamepad), Some(rumble)) = (pad, rumble.as_mut()) {
+        let (seconds, strength) = look.rumble_pad;
+        rumble.write(GamepadRumbleRequest::Add {
+            gamepad,
+            duration: std::time::Duration::from_secs_f32(seconds.max(0.0)),
+            intensity: GamepadRumbleIntensity::strong_motor(strength),
+        });
+    }
+    for name in ["sfx_start_game_v2", "sfx_brick_heavy", "sfx_menu_crumble"] {
+        if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
+            commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
         }
-        *screen = MenuScreen::Main;
     }
 }
 
@@ -265,7 +300,6 @@ pub(crate) fn show_start_screen(
         (Without<StartPrompt>, Without<LogoPiece>),
     >,
     mut prompt_bar: Query<&mut Node, (With<StartPrompt>, Without<PromptPart>, Without<LogoPiece>)>,
-    mut heard: Local<usize>,
     mut root: Query<&mut Visibility, With<StartRoot>>,
     mut prompt: Query<&mut Visibility, (With<StartPrompt>, Without<StartRoot>)>,
     mut pieces: Query<
@@ -328,41 +362,52 @@ pub(crate) fn show_start_screen(
         v.set_if_neq(shown(on));
     }
     if !on {
-        clock.0 = 0.0;
-        *heard = 0;
+        *clock = StartClock::default();
         return;
     }
-    clock.0 += time.delta_secs();
-    let t = clock.0;
+    clock.intro += time.delta_secs();
+    let t = clock.intro;
     let look: &StartLook = &config.start;
+    let rumble = clock.rumble_at.map(|at| time.elapsed_secs() - at);
     let fall = look.brick_y.first().map_or(0.0, |k| k.0);
     // The clip's sound events, each once.
-    while let Some((_, names)) = look.sounds.get(*heard).filter(|(at, _)| t >= *at) {
-        *heard += 1;
+    while let Some((_, names)) = look.sounds.get(clock.heard).filter(|(at, _)| t >= *at) {
+        clock.heard += 1;
         for name in names {
             if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
                 commands.spawn((AudioPlayer(handle.clone()), PlaybackSettings::DESPAWN));
             }
         }
     }
-    let drop = curve(&look.drop, t);
-    // MoveIn tilts the whole LogoContainer about its origin.
-    let tilt = curve(&look.tilt, t);
+    let (offset, tilt) = match rumble {
+        Some(at) => (Vec2::new(curve(&look.rumble_x, at), curve(&look.rumble_y, at)), curve(&look.rumble_tilt, at)),
+        None => (Vec2::new(0.0, curve(&look.drop, t)), curve(&look.tilt, t)),
+    };
     let turn = Rot2::degrees(tilt);
-    let centre = Vec2::new(0.0, look.logo_y + drop * UNIT);
+    let centre = Vec2::new(0.0, look.logo_y) + offset * UNIT;
     for (piece, mut node, mut transform, mut visibility) in &mut pieces {
-        let Some(mut size) = images
-            .as_ref()
-            .and_then(|all| all.get(&piece.image))
-            .map(|i| i.size_f32() * piece.scale)
-        else {
-            visibility.set_if_neq(Visibility::Hidden);
-            continue;
+        let mut size = match &piece.image {
+            Some(image) => {
+                let Some(image) = images.as_ref().and_then(|all| all.get(image)) else {
+                    visibility.set_if_neq(Visibility::Hidden);
+                    continue;
+                };
+                image.size_f32() * piece.scale
+            }
+            None => Vec2::new(1920.0, 200.0),
         };
         let mut at = piece.at;
         match piece.kind {
-            PieceKind::Debris => {
-                at.y += curve(&look.debris_hop, t);
+            PieceKind::Debris(i) => {
+                if let Some(elapsed) = rumble {
+                    let (end, drop) = look.rumble_debris;
+                    let start = look.rumble_debris_after[i];
+                    let k = ((elapsed - start) / (end - start).max(f32::EPSILON)).clamp(0.0, 1.0);
+                    // The two drop keys have flat tangents.
+                    at.y -= drop * k * k * (3.0 - 2.0 * k);
+                } else {
+                    at.y += curve(&look.debris_hop, t);
+                }
                 size *= curve(&look.debris_pop, t);
             }
             PieceKind::Brick => {
@@ -393,11 +438,17 @@ pub(crate) fn show_start_screen(
         visibility.set_if_neq(Visibility::Inherited);
     }
     // The prompt shows once the logo is in place and blinks on and off.
-    let (on_for, off_for) = look.blink;
-    let cycle = (on_for + off_for).max(0.01);
-    let lit = t >= look.prompt_after && (t - look.prompt_after) % cycle < on_for;
+    let ready = t >= look.prompt_after;
+    if ready {
+        let interval = if rumble.is_some() { look.rumble_blink } else if clock.prompt_hidden { look.blink.1 } else { look.blink.0 };
+        clock.blink += time.delta_secs();
+        if interval > 0.0 && clock.blink >= interval {
+            clock.blink = 0.0;
+            clock.prompt_hidden = !clock.prompt_hidden;
+        }
+    }
     for mut v in &mut prompt {
-        v.set_if_neq(shown(lit));
+        v.set_if_neq(shown(ready && !clock.prompt_hidden));
     }
 }
 

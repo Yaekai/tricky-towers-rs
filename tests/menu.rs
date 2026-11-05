@@ -34,12 +34,18 @@ fn app_with(extra: impl FnOnce(&mut App)) -> App {
     app.update();
     // Past "Press Enter to start" to the title tiles.
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Start);
+    tap(&mut app, KeyCode::Enter); // skip MoveIn
+    tap(&mut app, KeyCode::Enter); // play Rumble
     tap(&mut app, KeyCode::Enter);
     assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
     app
 }
 
 fn tap(app: &mut App, key: KeyCode) {
+    tap_frames(app, key, 13);
+}
+
+fn tap_frames(app: &mut App, key: KeyCode, settle: usize) {
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
         .press(key);
@@ -47,9 +53,39 @@ fn tap(app: &mut App, key: KeyCode) {
     let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
     keys.release(key);
     keys.clear();
-    for _ in 0..3 {
+    for _ in 0..settle {
         app.update();
     }
+}
+
+#[test]
+fn start_press_skips_move_in_then_the_pad_rumbles_before_the_title() {
+    use bevy::ecs::message::MessageCursor;
+    use bevy::input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
+
+    let mut app = app_with(|app| { app.add_message::<GamepadRumbleRequest>(); });
+    *app.world_mut().resource_mut::<MenuScreen>() = MenuScreen::Start;
+    app.update();
+    tap(&mut app, KeyCode::Enter);
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Start, "the early press only settles the logo");
+    let pad = app.world_mut().spawn(Gamepad::default()).id();
+    app.world_mut().get_mut::<Gamepad>(pad).unwrap().digital_mut().press(GamepadButton::South);
+    app.update();
+    app.world_mut().get_mut::<Gamepad>(pad).unwrap().digital_mut().reset_all();
+    let messages = app.world().resource::<Messages<GamepadRumbleRequest>>();
+    assert!(MessageCursor::default().read(messages).any(|message| matches!(message,
+        GamepadRumbleRequest::Add { gamepad, duration, intensity }
+        if *gamepad == pad && *duration == Duration::from_secs_f32(0.3)
+            && *intensity == GamepadRumbleIntensity::strong_motor(1.0)
+    )));
+    for _ in 0..48 {
+        app.update();
+    }
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Start, "the rumble lasts one second");
+    for _ in 0..32 {
+        app.update();
+    }
+    assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
 }
 
 /// Local Battle, join with the keyboard, on to the modes, take the first mode,
@@ -335,7 +371,7 @@ fn pause_preserves_the_scene_freezes_scaled_time_and_blocks_player_input() {
         }
         app.world_mut().resource_mut::<ButtonInput<KeyCode>>().reset_all();
         app.world_mut().get_mut::<Gamepad>(pad).unwrap().digital_mut().reset_all();
-        tap(&mut app, KeyCode::Enter);
+        tap_frames(&mut app, KeyCode::Enter, 3);
         assert!(app.world().resource::<PauseMenu>().is_active(), "clock stays frozen during fade-out");
         assert!(!app.world().resource::<PauseMenu>().is_open(), "audio/cursor restore when closing begins");
         for _ in 0..24 {
@@ -441,7 +477,9 @@ fn final_trial_next_opens_credits_and_closing_returns_to_start() {
             tap(&mut app, key);
         } else {
             app.world_mut().resource_mut::<CreditsMenu>().time = 60.5;
-            app.update();
+            for _ in 0..13 {
+                app.update();
+            }
         }
         assert!(!app.world().resource::<CreditsMenu>().open);
         assert_eq!(app.world().resource::<Match>().phase, Phase::Menu);
@@ -484,9 +522,9 @@ fn credits_scrolls_with_menu_directions_and_closes_on_pad_buttons_or_mouse() {
     tap(&mut app, KeyCode::ArrowLeft);
     assert!(app.world().resource::<CreditsMenu>().open);
     app.world_mut().resource_mut::<CreditsMenu>().time = 10.0;
-    tap(&mut app, KeyCode::KeyS);
+    tap_frames(&mut app, KeyCode::KeyS, 3);
     assert!(app.world().resource::<CreditsMenu>().time > 10.1);
-    tap(&mut app, KeyCode::KeyW);
+    tap_frames(&mut app, KeyCode::KeyW, 3);
     assert!(app.world().resource::<CreditsMenu>().time < 10.1);
     let before = app.world().resource::<CreditsMenu>().time;
     app.world_mut().get_mut::<Gamepad>(pad).unwrap().digital_mut().press(GamepadButton::DPadDown);

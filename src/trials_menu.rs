@@ -17,8 +17,8 @@ use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::config::{Difficulty, GameConfig, ModeKind};
-use crate::gameplay::{Match, MatchRequest, Phase};
-use crate::menu::MenuScreen;
+use crate::gameplay::{Match, Phase};
+use crate::menu::{MenuScreen, ScreenTransition};
 use crate::select::{
     CORNER_SMALL, SCREEN, corners, label, label_with, place, read_taps, shown, spawn_page,
 };
@@ -572,10 +572,10 @@ pub(crate) fn trials_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     pads: Query<(Entity, &Gamepad)>,
     game: Res<Match>,
-    mut screen: ResMut<MenuScreen>,
+    screen: Res<MenuScreen>,
     mut menu: ResMut<TrialsMenu>,
     mut config: ResMut<GameConfig>,
-    mut request: ResMut<MatchRequest>,
+    mut transition: ResMut<ScreenTransition>,
     progress: Res<TrialProgress>,
     mut cup: ResMut<crate::cups::Cup>,
     mouse: Option<Res<ButtonInput<MouseButton>>>,
@@ -590,7 +590,7 @@ pub(crate) fn trials_input(
     }
     let taps = read_taps(keys.as_deref(), &pads);
     if !taps.pad_back.is_empty() {
-        *screen = MenuScreen::Single;
+        transition.menu(MenuScreen::Single);
         return;
     }
     let count = config.trials.len();
@@ -641,7 +641,7 @@ pub(crate) fn trials_input(
         config.difficulty = Some(Difficulty::Normal);
         // A trial is never part of a cup (a finished cup's panel showed after it).
         *cup = default();
-        request.pending = true;
+        transition.play(false);
         menu.from_trial = true;
     }
 }
