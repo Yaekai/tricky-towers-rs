@@ -11,15 +11,14 @@ below include tasks already completed in October.
    screens; clearing from black afterward is already implemented. The start
    screen still skips its pre-title Rumble clip. Pause text and controls need
    their opacity transition.
-2. **Cup presentation:** fade the Game-info standings in/out over 0.1 seconds.
-3. **Lane cameras/clipping:** brick materials and the drop guide are clipped, but
+2. **Lane cameras/clipping:** brick materials and the drop guide are clipped, but
    decorations and Puzzle's widening per-player views remain incomplete.
-4. **Trial 9 physics:** keep the temporary 0.3 laser slack until the stack-height
+3. **Trial 9 physics:** keep the temporary 0.3 laser slack until the stack-height
    discrepancy below is explained. Do not replace evidence with another guess.
-5. **Online and Shop:** initial Online Battle menus exist; real matchmaking,
+4. **Online and Shop:** initial Online Battle menus exist; real matchmaking,
    network play and connected lobby/invite behavior are not implemented. The
    Shop is still unimplemented under the current plan.
-6. **Verification:** remaining estimated values, language overflow, Windows
+5. **Verification:** remaining estimated values, language overflow, Windows
    display scaling and physical controller mappings need focused comparisons.
    The PlayStation touchpad Credits-close action has no reliable Bevy mapping.
 

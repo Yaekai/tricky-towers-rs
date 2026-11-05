@@ -2382,6 +2382,8 @@ pub struct CupPanel {
     /// clip a sky of 213 grey goes to 38, which is 0.975 in linear light.
     pub dim_colour: (u8, u8, u8),
     pub dim: f32,
+    /// Game Info standings fade, in unscaled seconds (TournamentCurrentScorePopup).
+    pub peek_fade: f32,
     /// The blue bar across the top: its top edge (above the panel) and height.
     pub bar_top: f32,
     pub bar_height: f32,
@@ -2479,6 +2481,7 @@ impl Default for CupPanel {
             panel_colour: (220, 227, 253),
             dim_colour: (8, 5, 24),
             dim: 0.975,
+            peek_fade: 0.1,
             bar_top: 254.0,
             bar_height: 18.0,
             bar_colour: (90, 113, 217),

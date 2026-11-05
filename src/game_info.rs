@@ -20,9 +20,13 @@ impl Plugin for GameInfoPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameInfo>()
             .add_systems(Startup, spawn_game_info)
-            .add_systems(Update, (toggle_game_info, show_game_info).chain().after(crate::menu::MenuSystems));
+            .add_systems(Update, (toggle_game_info, show_game_info).chain().in_set(GameInfoSystems)
+                .after(crate::menu::MenuSystems));
     }
 }
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct GameInfoSystems;
 
 /// Whether the popup is open.
 #[derive(Resource, Debug, Default)]
