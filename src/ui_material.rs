@@ -98,7 +98,10 @@ impl Plugin for MenuMaterialPlugin {
             );
             app.add_plugins(UiMaterialPlugin::<TurningPicture>::default());
         }
-        app.add_systems(PostUpdate, stretch_pictures.before(bevy::ui::UiSystems::Prepare));
+        app.add_systems(
+            PostUpdate,
+            stretch_pictures.before(bevy::ui::UiSystems::Prepare),
+        );
     }
 }
 

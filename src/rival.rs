@@ -165,7 +165,14 @@ fn pop_in(
                 {
                     if piece.0 > pop.shown {
                         let at = at.translation().truncate();
-                        crate::particles::small_poof(&mut commands, &art, config.cell_size, at, 30.0, &mut seed);
+                        crate::particles::small_poof(
+                            &mut commands,
+                            &art,
+                            config.cell_size,
+                            at,
+                            30.0,
+                            &mut seed,
+                        );
                     }
                     *visible = Visibility::Inherited;
                 }
@@ -377,10 +384,17 @@ fn bob_column(
     intro: Option<Res<crate::intro::IntroClock>>,
     game: Res<crate::gameplay::Match>,
     mut images: ResMut<Assets<Image>>,
-    camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<PuzzleColumn>)>,
+    camera: Query<
+        (&Transform, &Projection),
+        (With<crate::visuals::MainCamera>, Without<PuzzleColumn>),
+    >,
     mut columns: Query<
         (&mut PuzzleColumn, &mut Transform),
-        (Without<ColumnBrick>, Without<ColumnBeam>, Without<crate::visuals::MainCamera>),
+        (
+            Without<ColumnBrick>,
+            Without<ColumnBeam>,
+            Without<crate::visuals::MainCamera>,
+        ),
     >,
     mut bricks: Query<
         (&ColumnBrick, &mut Transform),
@@ -409,7 +423,10 @@ fn bob_column(
     let view = view.map_or(Vec2::new(1280.0, 720.0), |v| v.0) * zoom;
     // PuzzleWizardHUD shows once a trial's intro has the wizard's spell out
     // (EnemyWizardHUDShowEffect), at once on a Retry.
-    let waiting = !game.retry && intro.and_then(|c| c.0).is_some_and(|t| t < config.intro.single_cast);
+    let waiting = !game.retry
+        && intro
+            .and_then(|c| c.0)
+            .is_some_and(|t| t < config.intro.single_cast);
     let dt = if waiting { 0.0 } else { time.delta_secs() };
     // Every column hangs from the lowest view bottom and they share one clock.
     let mut clock = None;

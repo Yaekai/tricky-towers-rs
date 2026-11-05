@@ -9,7 +9,7 @@
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::config::{curve, keyed, Difficulty, GameConfig, IntroPlan, ModeKind};
+use crate::config::{Difficulty, GameConfig, IntroPlan, ModeKind, curve, keyed};
 use crate::cups::Cup;
 use crate::gameplay::{IntroOn, Match, Phase};
 use crate::letters::TextLook;
@@ -85,9 +85,9 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
     let look = &config.intro;
     let image = |name: &str| art.as_deref().and_then(|a| a.image(name));
     let outlined = TextLook {
-    low: None,
-    outline_edge: 0.0,
-    bevel: false,
+        low: None,
+        outline_edge: 0.0,
+        bevel: false,
         body: false,
         face: None,
         outline: TextLook::OUTLINED.outline,
@@ -106,7 +106,10 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
             TextColor(GOLD),
             TextLayout::justify(Justify::Center),
             look,
-            crate::letters::AutoSize { min: 18.0 / 10.8, width: f32::MAX },
+            crate::letters::AutoSize {
+                min: 18.0 / 10.8,
+                width: f32::MAX,
+            },
         )
     };
     for d in 0..3 {
@@ -191,7 +194,12 @@ fn spawn_intro(mut commands: Commands, config: Res<GameConfig>, art: Option<Res<
             // The words' bottom sits `title_bottom` below the band's centre.
             for (part, size, bottom, face) in [
                 (Part::Words(d), 160.0, look.title_bottom, TextLook::GOLD),
-                (Part::Overtime(d), 46.0, look.overtime_bottom, TextLook::GOLD_75),
+                (
+                    Part::Overtime(d),
+                    46.0,
+                    look.overtime_bottom,
+                    TextLook::GOLD_75,
+                ),
             ] {
                 band.spawn((
                     Node {
@@ -397,7 +405,12 @@ fn show_title(
     )>,
     mut images: Query<&mut ImageNode>,
     kids: Query<&Children>,
-    mut words: Query<(&Part, &mut Text, &mut TextColor, &mut crate::letters::AutoSize)>,
+    mut words: Query<(
+        &Part,
+        &mut Text,
+        &mut TextColor,
+        &mut crate::letters::AutoSize,
+    )>,
 ) {
     let look = &config.intro;
     let d = intro.difficulty;

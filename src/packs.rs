@@ -307,7 +307,10 @@ fn decorate_bricks(
         };
         // Only the seven normal shapes, in their own look. Galaxy, Diamond and Hologram draw
         // iced bricks themselves (their shaders' ICE_ON); the other packs' ice is in visuals.
-        let own_ice = matches!(skin.pack, BrickPack::Galaxy | BrickPack::Diamond | BrickPack::Hologram);
+        let own_ice = matches!(
+            skin.pack,
+            BrickPack::Galaxy | BrickPack::Diamond | BrickPack::Hologram
+        );
         if brick.piece >= config.pieces.len() || stone || (brick.ice && !own_ice) {
             continue;
         }
@@ -359,7 +362,9 @@ fn decorate_bricks(
                 // gets snow on what is now its top, turned to stand up.
                 let edges: Vec<(Vec2, Vec2)> = cells
                     .iter()
-                    .flat_map(|&cell| [Vec2::Y, Vec2::X, Vec2::NEG_Y, Vec2::NEG_X].map(|d| (cell, d)))
+                    .flat_map(|&cell| {
+                        [Vec2::Y, Vec2::X, Vec2::NEG_Y, Vec2::NEG_X].map(|d| (cell, d))
+                    })
                     .filter(|&(cell, d)| !cells.iter().any(|&o| (o - cell - d).length() < 0.1))
                     .filter(|&(_, d)| {
                         let world = Vec2::from_angle(turned).rotate(d);
@@ -372,7 +377,7 @@ fn decorate_bricks(
                     }
                     let (pick, size, pivot) = snows
                         [(roll(&mut seed) * snows.len() as f32) as usize % snows.len()]
-                        .clone();
+                    .clone();
                     let flip = if roll(&mut seed) < 0.5 { 1.0 } else { -1.0 };
                     let full = Vec3::new(flip, 1.0, 1.0);
                     let delay = roll(&mut seed) * 0.3;
@@ -502,11 +507,22 @@ fn decorate_bricks(
                 let max = cells.iter().fold(Vec2::MIN, |a, &b| a.max(b));
                 let size = (max - min + Vec2::ONE) * c;
                 let center = (min + max) * 0.5 * c;
-                if let Some((mesh, material)) = meshes.as_mut().zip(holo_bricks.as_mut()).and_then(
-                    |(meshes, holo_bricks)| {
-                        crate::brick_material::hologram_brick(&art, &key, size, c, brick.ice, meshes, holo_bricks)
-                    },
-                ) {
+                if let Some((mesh, material)) =
+                    meshes
+                        .as_mut()
+                        .zip(holo_bricks.as_mut())
+                        .and_then(|(meshes, holo_bricks)| {
+                            crate::brick_material::hologram_brick(
+                                &art,
+                                &key,
+                                size,
+                                c,
+                                brick.ice,
+                                meshes,
+                                holo_bricks,
+                            )
+                        })
+                {
                     // An unplaced brick's glitch never comes.
                     let glitch = Glitch {
                         wait: if placed { 0.0 } else { f32::INFINITY },
@@ -808,7 +824,10 @@ fn pulse_decorations(time: Res<Time>, mut items: Query<(&mut Pulse, &mut Transfo
 /// draws the flicker, the torn rows, the bright bands and the outline from it.
 fn glitch_holograms(
     time: Res<Time>,
-    mut quads: Query<(&mut Glitch, &MeshMaterial2d<crate::brick_material::HologramBrick>)>,
+    mut quads: Query<(
+        &mut Glitch,
+        &MeshMaterial2d<crate::brick_material::HologramBrick>,
+    )>,
     mut materials: Option<ResMut<Assets<crate::brick_material::HologramBrick>>>,
 ) {
     let Some(materials) = materials.as_mut() else {
@@ -833,7 +852,9 @@ fn glitch_holograms(
         } else {
             0.0
         };
-        if materials.get(&material.0).is_some_and(|m| m.look.params.y != amount)
+        if materials
+            .get(&material.0)
+            .is_some_and(|m| m.look.params.y != amount)
             && let Some(mut brick) = materials.get_mut(&material.0)
         {
             brick.look.params.y = amount;

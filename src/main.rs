@@ -113,21 +113,23 @@ fn main() {
     }
     let mut app = App::new();
     if let Some(out) = asset_log_path {
-        app.add_systems(
-            Last,
-            move |mut exits: MessageReader<bevy::app::AppExit>| {
-                if exits.read().next().is_some()
-                    && let Some(path) = Some(&out)
-                    && let Ok(mut used) = tricky_towers::art::USED.lock()
-                    && let Some(set) = used.take()
-                {
-                    let mut names: Vec<_> = set.into_iter().collect();
-                    names.sort();
-                    let _ = std::fs::write(path, names.join("
-"));
-                }
-            },
-        );
+        app.add_systems(Last, move |mut exits: MessageReader<bevy::app::AppExit>| {
+            if exits.read().next().is_some()
+                && let Some(path) = Some(&out)
+                && let Ok(mut used) = tricky_towers::art::USED.lock()
+                && let Some(set) = used.take()
+            {
+                let mut names: Vec<_> = set.into_iter().collect();
+                names.sort();
+                let _ = std::fs::write(
+                    path,
+                    names.join(
+                        "
+",
+                    ),
+                );
+            }
+        });
     }
     // Original art and sound from your own install, if extracted (see docs/art-layout.md).
     tricky_towers::art::register_source(&mut app);
@@ -239,17 +241,24 @@ fn main() {
             "title" => MenuScreen::Main,
             "pause" => {
                 // DEBUG-TOOL: let the first match frame build before freezing it.
-                app.add_systems(Last, |game: Res<tricky_towers::gameplay::Match>,
-                    time: Res<Time<Real>>, mut pause: ResMut<tricky_towers::menu::PauseMenu>,
-                    mut screen: ResMut<MenuScreen>, mut opened: Local<bool>| {
-                    if !*opened && game.round > 0 {
-                        *pause = tricky_towers::menu::PauseMenu {
-                            resume_to: Some(game.phase), opened: time.elapsed_secs(), ..default()
-                        };
-                        *screen = MenuScreen::Pause;
-                        *opened = true;
-                    }
-                });
+                app.add_systems(
+                    Last,
+                    |game: Res<tricky_towers::gameplay::Match>,
+                     time: Res<Time<Real>>,
+                     mut pause: ResMut<tricky_towers::menu::PauseMenu>,
+                     mut screen: ResMut<MenuScreen>,
+                     mut opened: Local<bool>| {
+                        if !*opened && game.round > 0 {
+                            *pause = tricky_towers::menu::PauseMenu {
+                                resume_to: Some(game.phase),
+                                opened: time.elapsed_secs(),
+                                ..default()
+                            };
+                            *screen = MenuScreen::Pause;
+                            *opened = true;
+                        }
+                    },
+                );
                 MenuScreen::Pause
             }
             _ => MenuScreen::Modes,

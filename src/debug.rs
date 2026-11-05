@@ -27,8 +27,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{Curse, Difficulty, GameConfig, ModeKind, SpellKind};
 use crate::gameplay::{
-    Brick, GameplaySystems, Match, MatchRequest, PlayerInput, Placed, Tower, TowerSkin,
-    TowerState, TowerStatus, brick_body, piece_def,
+    Brick, GameplaySystems, Match, MatchRequest, Placed, PlayerInput, Tower, TowerSkin, TowerState,
+    TowerStatus, brick_body, piece_def,
 };
 use crate::spells::EnemyCasts;
 
@@ -40,12 +40,11 @@ impl Plugin for DebugPlugin {
             .add_message::<DebugPicture>()
             .add_systems(
                 PreUpdate,
-                (run_script, apply_frame_commands).chain().after(bevy::input::InputSystems),
+                (run_script, apply_frame_commands)
+                    .chain()
+                    .after(bevy::input::InputSystems),
             )
-            .add_systems(
-                FixedUpdate,
-                apply_debug_commands.before(GameplaySystems),
-            );
+            .add_systems(FixedUpdate, apply_debug_commands.before(GameplaySystems));
     }
 }
 
@@ -197,7 +196,11 @@ impl DebugScript {
 #[derive(Message, Clone, Debug)]
 pub struct DebugPicture(pub String);
 
-fn run_script(time: Res<Time<Real>>, script: Option<ResMut<DebugScript>>, mut queue: ResMut<DebugQueue>) {
+fn run_script(
+    time: Res<Time<Real>>,
+    script: Option<ResMut<DebugScript>>,
+    mut queue: ResMut<DebugQueue>,
+) {
     let Some(mut script) = script else {
         return;
     };
@@ -248,7 +251,9 @@ fn apply_debug_commands(
                 config.mode = mode;
                 config.trial = trial;
                 if let Some(pack) = pack {
-                    config.skins = (0..crate::gameplay::MAX_TOWERS).map(|i| (i, pack)).collect();
+                    config.skins = (0..crate::gameplay::MAX_TOWERS)
+                        .map(|i| (i, pack))
+                        .collect();
                 }
                 if let Some(wizards) = wizards {
                     let packs: Vec<_> = config.skins.iter().map(|s| s.1).collect();
@@ -386,7 +391,9 @@ fn apply_debug_commands(
                     settings.language = name;
                 }
             }
-            command @ (DebugCommand::Tap { .. } | DebugCommand::Picture { .. } | DebugCommand::Quit) => {
+            command @ (DebugCommand::Tap { .. }
+            | DebugCommand::Picture { .. }
+            | DebugCommand::Quit) => {
                 queue.0.push(command);
             }
         }
@@ -440,8 +447,13 @@ fn apply_frame_commands(
                 {
                     let mut names: Vec<_> = set.into_iter().collect();
                     names.sort();
-                    let _ = std::fs::write(path, names.join("
-"));
+                    let _ = std::fs::write(
+                        path,
+                        names.join(
+                            "
+",
+                        ),
+                    );
                 }
                 exit.write(AppExit::Success);
             }

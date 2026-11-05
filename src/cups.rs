@@ -73,8 +73,16 @@ impl Cup {
     }
 
     /// Sets the pairs a cup plays and the first one (CupMatchFlowController).
-    pub fn play(&mut self, options: Vec<(ModeKind, Difficulty)>, first: Option<(ModeKind, Difficulty)>) {
-        self.pool = options.iter().copied().filter(|&o| Some(o) != first).collect();
+    pub fn play(
+        &mut self,
+        options: Vec<(ModeKind, Difficulty)>,
+        first: Option<(ModeKind, Difficulty)>,
+    ) {
+        self.pool = options
+            .iter()
+            .copied()
+            .filter(|&o| Some(o) != first)
+            .collect();
         self.options = options;
         self.current = first;
     }
@@ -97,7 +105,11 @@ impl Cup {
         let mut set_aside = Vec::new();
         let put_aside = |pool: &mut Vec<(ModeKind, Difficulty)>, aside: &mut Vec<_>| {
             if any {
-                aside.extend(pool.iter().copied().filter(|p: &(ModeKind, Difficulty)| p.0 == current.0));
+                aside.extend(
+                    pool.iter()
+                        .copied()
+                        .filter(|p: &(ModeKind, Difficulty)| p.0 == current.0),
+                );
                 pool.retain(|p| p.0 != current.0);
             } else {
                 pool.retain(|&p| p != current);
@@ -123,7 +135,10 @@ impl Cup {
     /// The most medals any player earned in the latest match.
     pub fn fresh(&self) -> usize {
         (0..self.medals.len())
-            .map(|t| self.shown(t).saturating_sub(self.before.get(t).copied().unwrap_or(0)))
+            .map(|t| {
+                self.shown(t)
+                    .saturating_sub(self.before.get(t).copied().unwrap_or(0))
+            })
             .max()
             .unwrap_or(0)
     }
@@ -144,7 +159,9 @@ impl Cup {
         let mut times = vec![Vec::new(); self.medals.len()];
         let mut at = start;
         for t in self.panel_order() {
-            let fresh = self.shown(t).saturating_sub(self.before.get(t).copied().unwrap_or(0));
+            let fresh = self
+                .shown(t)
+                .saturating_sub(self.before.get(t).copied().unwrap_or(0));
             for _ in 0..fresh {
                 times[t].push(at);
                 at += step;
@@ -162,7 +179,10 @@ impl Cup {
     /// The place (0 = first, 3 = the empty medal) of tower `t`'s `k`th medal shown.
     pub fn medal(&self, t: usize, k: usize) -> Option<usize> {
         let medals = self.medals.get(t)?;
-        medals.get(k).copied().or((k == medals.len() && self.stray == Some(t)).then_some(3))
+        medals
+            .get(k)
+            .copied()
+            .or((k == medals.len() && self.stray == Some(t)).then_some(3))
     }
 
     /// True while a cup has matches left to play.
@@ -179,7 +199,12 @@ impl Cup {
 
     /// Adds one match's result with each tower's place (0 = first; towers tied on the
     /// match's value share a place, as MultiPlayerGameModePlayController's ranks do).
-    pub fn add_match_places(&mut self, rules: &CupRules, order: &[usize], places: &[usize]) -> bool {
+    pub fn add_match_places(
+        &mut self,
+        rules: &CupRules,
+        order: &[usize],
+        places: &[usize],
+    ) -> bool {
         let Some(size) = self.rules(rules).cloned() else {
             return false;
         };
@@ -293,7 +318,11 @@ fn score_cup(
     let order = placings(&game, &all);
     // A Puzzle round ranks by bricks, so towers with as many bricks share a place.
     let places: Vec<usize> = if game.mode.rules() == ModeKind::Puzzle {
-        let bricks = |t: usize| all.iter().find(|(i, _)| *i == t).map_or(0, |(_, s)| s.bricks_placed);
+        let bricks = |t: usize| {
+            all.iter()
+                .find(|(i, _)| *i == t)
+                .map_or(0, |(_, s)| s.bricks_placed)
+        };
         order
             .iter()
             .map(|&t| order.iter().filter(|&&o| bricks(o) > bricks(t)).count())
@@ -348,7 +377,11 @@ mod tests {
         let silver = rules.points[1] as usize;
         assert_eq!(times[1].len(), gold);
         assert_eq!(times[1][0], 1.0, "the leader's row starts after the wait");
-        assert_eq!(times[0][0], 1.0 + 0.25 * gold as f32 + 0.75, "the next row after the leader's");
+        assert_eq!(
+            times[0][0],
+            1.0 + 0.25 * gold as f32 + 0.75,
+            "the next row after the leader's"
+        );
         assert_eq!(end, 1.0 + 0.25 * (gold + silver) as f32 + 1.5);
     }
 
@@ -434,7 +467,10 @@ mod tests {
             last = mode;
         }
         // One pair: the same match again, no title.
-        cup.play(vec![(Puzzle, Difficulty::Easy)], Some((Puzzle, Difficulty::Easy)));
+        cup.play(
+            vec![(Puzzle, Difficulty::Easy)],
+            Some((Puzzle, Difficulty::Easy)),
+        );
         assert_eq!(cup.next_match(3), Some((Puzzle, Difficulty::Easy)));
         assert!(!cup.show_title);
     }

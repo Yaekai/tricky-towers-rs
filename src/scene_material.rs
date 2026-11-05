@@ -333,8 +333,18 @@ fn run_perspective_clouds(
     view: Res<crate::visuals::ViewSize>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PerspectiveClouds>>,
-    camera: Query<(Entity, &Projection, &Transform), (With<crate::visuals::MainCamera>, Without<CloudQuad>)>,
-    mut quad: Query<(&MeshMaterial2d<PerspectiveClouds>, &mut Transform, &mut Visibility), With<CloudQuad>>,
+    camera: Query<
+        (Entity, &Projection, &Transform),
+        (With<crate::visuals::MainCamera>, Without<CloudQuad>),
+    >,
+    mut quad: Query<
+        (
+            &MeshMaterial2d<PerspectiveClouds>,
+            &mut Transform,
+            &mut Visibility,
+        ),
+        With<CloudQuad>,
+    >,
     mut speed: Local<Option<f32>>,
 ) {
     use crate::config::ModeKind;
@@ -373,7 +383,11 @@ fn run_perspective_clouds(
         ));
         return;
     };
-    visibility.set_if_neq(if shown { Visibility::Inherited } else { Visibility::Hidden });
+    visibility.set_if_neq(if shown {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    });
     if !shown {
         *speed = None;
         return;
@@ -386,7 +400,9 @@ fn run_perspective_clouds(
     transform.scale = (view.0 * scale).extend(1.0);
     let dt = time.delta_secs();
     let s = speed.get_or_insert(1.0);
-    let pacer = (!in_menus).then(|| towers.iter().next().map(|t| t.pacer_speed)).flatten();
+    let pacer = (!in_menus)
+        .then(|| towers.iter().next().map(|t| t.pacer_speed))
+        .flatten();
     if let Some(pacer) = pacer {
         *s += (pacer / 0.5 - *s) * dt.min(1.0);
     }
@@ -564,7 +580,9 @@ impl Material2d for AdditiveSprite {
         _layout: &bevy::mesh::MeshVertexBufferLayoutRef,
         _key: bevy::sprite_render::Material2dKey<Self>,
     ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
-        use bevy::render::render_resource::{BlendComponent, BlendFactor, BlendOperation, BlendState};
+        use bevy::render::render_resource::{
+            BlendComponent, BlendFactor, BlendOperation, BlendState,
+        };
         if let Some(target) = descriptor
             .fragment
             .as_mut()
@@ -592,14 +610,14 @@ impl Plugin for SceneMaterialPlugin {
             ISLAND_SHADER.id(),
             Shader::from_wgsl(ISLAND_WGSL, "island_wave.wgsl"),
         );
-        let _ = app
-            .world_mut()
-            .resource_mut::<Assets<Shader>>()
-            .insert(WATER_SHADER.id(), Shader::from_wgsl(WATER_WGSL, "flag_wave.wgsl"));
-        let _ = app
-            .world_mut()
-            .resource_mut::<Assets<Shader>>()
-            .insert(FLAG_SHADER.id(), Shader::from_wgsl(FLAG_WGSL, "checkpoint_flag.wgsl"));
+        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
+            WATER_SHADER.id(),
+            Shader::from_wgsl(WATER_WGSL, "flag_wave.wgsl"),
+        );
+        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
+            FLAG_SHADER.id(),
+            Shader::from_wgsl(FLAG_WGSL, "checkpoint_flag.wgsl"),
+        );
         app.add_plugins((
             Material2dPlugin::<IslandWave>::default(),
             Material2dPlugin::<FlagWave>::default(),
@@ -609,22 +627,22 @@ impl Plugin for SceneMaterialPlugin {
             Material2dPlugin::<AdditiveSprite>::default(),
             Material2dPlugin::<ScrollBeam>::default(),
         ));
-        let _ = app
-            .world_mut()
-            .resource_mut::<Assets<Shader>>()
-            .insert(ADDITIVE_SHADER.id(), Shader::from_wgsl(ADDITIVE_WGSL, "additive_sprite.wgsl"));
-        let _ = app
-            .world_mut()
-            .resource_mut::<Assets<Shader>>()
-            .insert(SCROLL_SHADER.id(), Shader::from_wgsl(SCROLL_WGSL, "scroll_beam.wgsl"));
-        let _ = app
-            .world_mut()
-            .resource_mut::<Assets<Shader>>()
-            .insert(SUN_SHADER.id(), Shader::from_wgsl(SUN_WGSL, "endless_sun.wgsl"));
-        let _ = app
-            .world_mut()
-            .resource_mut::<Assets<Shader>>()
-            .insert(CLOUDS_SHADER.id(), Shader::from_wgsl(CLOUDS_WGSL, "perspective_clouds.wgsl"));
+        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
+            ADDITIVE_SHADER.id(),
+            Shader::from_wgsl(ADDITIVE_WGSL, "additive_sprite.wgsl"),
+        );
+        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
+            SCROLL_SHADER.id(),
+            Shader::from_wgsl(SCROLL_WGSL, "scroll_beam.wgsl"),
+        );
+        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
+            SUN_SHADER.id(),
+            Shader::from_wgsl(SUN_WGSL, "endless_sun.wgsl"),
+        );
+        let _ = app.world_mut().resource_mut::<Assets<Shader>>().insert(
+            CLOUDS_SHADER.id(),
+            Shader::from_wgsl(CLOUDS_WGSL, "perspective_clouds.wgsl"),
+        );
         app.add_systems(Update, run_perspective_clouds);
     }
 }

@@ -18,8 +18,17 @@ pub struct CupsMenuPlugin;
 impl Plugin for CupsMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (spawn_cup_panel, spawn_cup_winner))
-            .add_systems(Update, (show_cup_panel.after(crate::game_info::GameInfoSystems),
-                show_cup_winner, celebrate, fly_winner, play_cast_sounds).chain())
+            .add_systems(
+                Update,
+                (
+                    show_cup_panel.after(crate::game_info::GameInfoSystems),
+                    show_cup_winner,
+                    celebrate,
+                    fly_winner,
+                    play_cast_sounds,
+                )
+                    .chain(),
+            )
             .add_systems(Update, (medal_sounds, pop_overtime, shake_rows));
     }
 }
@@ -48,7 +57,9 @@ fn pop_overtime(
         let y = OVERTIME_IN
             .windows(2)
             .find(|w| t <= w[1].0)
-            .map_or(1.0, |w| w[0].1 + (w[1].1 - w[0].1) * (t - w[0].0) / (w[1].0 - w[0].0));
+            .map_or(1.0, |w| {
+                w[0].1 + (w[1].1 - w[0].1) * (t - w[0].0) / (w[1].0 - w[0].0)
+            });
         transform.scale = Vec2::new(1.0, y);
         if t >= OVERTIME_IN[3].0 {
             commands.entity(entity).remove::<OvertimePop>();
@@ -60,9 +71,18 @@ fn pop_overtime(
 #[derive(Component)]
 struct RowShake(f32);
 
-const SHAKE_ITEM: [(f32, f32, f32); 4] = [(0.0, 1.0, -1.0), (0.033, -1.0, 1.0), (0.067, -1.0, -1.0), (0.1, 1.0, -1.0)];
+const SHAKE_ITEM: [(f32, f32, f32); 4] = [
+    (0.0, 1.0, -1.0),
+    (0.033, -1.0, 1.0),
+    (0.067, -1.0, -1.0),
+    (0.1, 1.0, -1.0),
+];
 
-fn shake_rows(mut commands: Commands, time: Res<Time>, mut rows: Query<(Entity, &mut RowShake, &mut UiTransform)>) {
+fn shake_rows(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut rows: Query<(Entity, &mut RowShake, &mut UiTransform)>,
+) {
     for (entity, mut shake, mut transform) in &mut rows {
         shake.0 += time.delta_secs();
         let t = shake.0;
@@ -71,7 +91,10 @@ fn shake_rows(mut commands: Commands, time: Res<Time>, mut rows: Query<(Entity, 
             .find(|w| t <= w[1].0)
             .map_or((0.0, 0.0), |w| {
                 let k = (t - w[0].0) / (w[1].0 - w[0].0);
-                (w[0].1 + (w[1].1 - w[0].1) * k, w[0].2 + (w[1].2 - w[0].2) * k)
+                (
+                    w[0].1 + (w[1].1 - w[0].1) * k,
+                    w[0].2 + (w[1].2 - w[0].2) * k,
+                )
             });
         // Reference pixels on the 1080-tall screen; UI y runs down.
         transform.translation = Val2::new(Val::Vh(x / 10.8), Val::Vh(-y / 10.8));
@@ -227,7 +250,10 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                                 children![(
                                     Text::new(""),
                                     name_look,
-                                    TextFont { font_size: FontSize::Vh(p.name_size), ..default() },
+                                    TextFont {
+                                        font_size: FontSize::Vh(p.name_size),
+                                        ..default()
+                                    },
                                     TextColor(Color::WHITE),
                                     TextLayout::justify(Justify::Center),
                                     Part::Name(i)
@@ -261,8 +287,15 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                             row.spawn((
                                 Node {
                                     left: Val::Auto,
-                                    right: px(p.row_left + p.row_width - p.trophy_x - p.trophy_size / 2.0),
-                                    ..at(0.0, (p.row_height - p.trophy_size) / 2.0, p.trophy_size, p.trophy_size)
+                                    right: px(p.row_left + p.row_width
+                                        - p.trophy_x
+                                        - p.trophy_size / 2.0),
+                                    ..at(
+                                        0.0,
+                                        (p.row_height - p.trophy_size) / 2.0,
+                                        p.trophy_size,
+                                        p.trophy_size,
+                                    )
                                 },
                                 blank(),
                                 Visibility::Hidden,
@@ -272,7 +305,9 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                             row.spawn((
                                 Node {
                                     left: Val::Auto,
-                                    right: px(p.row_left + p.row_width - p.trophy_x - p.trophy_size / 2.0),
+                                    right: px(p.row_left + p.row_width
+                                        - p.trophy_x
+                                        - p.trophy_size / 2.0),
                                     ..at(0.0, 0.0, p.trophy_size, p.row_height)
                                 },
                                 children![(
@@ -326,11 +361,7 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                         },
                     ));
                 }
-                c.spawn(label_with(
-                    p.continue_size,
-                    "Continue",
-                    TextLook::GOLD,
-                ));
+                c.spawn(label_with(p.continue_size, "Continue", TextLook::GOLD));
             });
         });
 }
@@ -379,7 +410,11 @@ impl PeekFade {
             self.elapsed = (self.elapsed + dt).min(duration);
         }
         let target = if open { 1.0 } else { 0.0 };
-        let remaining = if duration > 0.0 { 1.0 - self.elapsed / duration } else { 0.0 };
+        let remaining = if duration > 0.0 {
+            1.0 - self.elapsed / duration
+        } else {
+            0.0
+        };
         self.opacity = target + (self.from - target) * remaining * remaining;
         self.opacity
     }
@@ -450,7 +485,11 @@ fn show_cup_panel(
     };
     let size = cup.rules(&config.cups);
     let target = size.map_or(0, |s| s.target as usize).min(SLOTS);
-    let since = if peek { f32::MAX / 4.0 } else { popup.since_shown() };
+    let since = if peek {
+        f32::MAX / 4.0
+    } else {
+        popup.since_shown()
+    };
     let grow = order.len().saturating_sub(2) as f32 * p.row_pitch;
     // A bigger cup is wider by a slot per point past the Tiny Cup's 6, on both sides.
     let wide = (target as f32 - 6.0) * p.slot_pitch;
@@ -505,8 +544,21 @@ fn show_cup_panel(
                     px(width),
                     px(height),
                 );
-                if (node.left, node.margin.left, node.top, node.width, node.height) != want {
-                    (node.left, node.margin.left, node.top, node.width, node.height) = want;
+                if (
+                    node.left,
+                    node.margin.left,
+                    node.top,
+                    node.width,
+                    node.height,
+                ) != want
+                {
+                    (
+                        node.left,
+                        node.margin.left,
+                        node.top,
+                        node.width,
+                        node.height,
+                    ) = want;
                 }
             }
             Part::Deco(right, leaves) => {
@@ -532,8 +584,21 @@ fn show_cup_panel(
                     px(size.0),
                     px(size.1),
                 );
-                if (node.left, node.margin.left, node.top, node.width, node.height) != want {
-                    (node.left, node.margin.left, node.top, node.width, node.height) = want;
+                if (
+                    node.left,
+                    node.margin.left,
+                    node.top,
+                    node.width,
+                    node.height,
+                ) != want
+                {
+                    (
+                        node.left,
+                        node.margin.left,
+                        node.top,
+                        node.width,
+                        node.height,
+                    ) = want;
                 }
                 if let Some(mut deco) = image_node {
                     set_image(&mut deco, image(name));
@@ -598,7 +663,11 @@ fn show_cup_panel(
                     }
                 };
                 // Only an empty slot's dot is round: a medal keeps its whole picture.
-                let round = if medal.is_some() { BorderRadius::ZERO } else { BorderRadius::MAX };
+                let round = if medal.is_some() {
+                    BorderRadius::ZERO
+                } else {
+                    BorderRadius::MAX
+                };
                 if node.border_radius != round {
                     node.border_radius = round;
                 }
@@ -652,7 +721,11 @@ fn show_cup_panel(
             Part::Extra(i) => order.get(i).map(|&t| {
                 let extra = shown_medals(t).saturating_sub(target);
                 let trophy = filled && winner == Some(t);
-                if extra > 0 && !trophy { format!("+{extra}") } else { String::new() }
+                if extra > 0 && !trophy {
+                    format!("+{extra}")
+                } else {
+                    String::new()
+                }
             }),
             Part::Name(i) => tower(i).map(|(t, _)| match t.player {
                 Some(n) => format!("Player {}", n + 1),
@@ -1162,13 +1235,21 @@ const WHITE: &[[u8; 3]] = &[[255, 255, 255]];
 const ROCKET_RED: &[[u8; 3]] = &[[251, 41, 80]];
 const ROCKET_BLUE: &[[u8; 3]] = &[[99, 255, 242]];
 /// The trail's size and alpha over its 0.8 s (SizeModule x 0.5, ColorModule).
-const TRAIL_SIZE: &[(f32, f32, f32, f32)] =
-    &[(0.0, 0.6313, 0.0, 0.0), (0.6195, 0.1162, 0.0927, 0.0927), (0.7752, 0.2677, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0)];
+const TRAIL_SIZE: &[(f32, f32, f32, f32)] = &[
+    (0.0, 0.6313, 0.0, 0.0),
+    (0.6195, 0.1162, 0.0927, 0.0927),
+    (0.7752, 0.2677, 0.0, 0.0),
+    (1.0, 0.0, 0.0, 0.0),
+];
 const TRAIL_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.78, 1.0), (1.0, 0.0)];
 /// The bursting stars (FireWorksEndParticle01/02): size, alpha and the colours they run
 /// through (their ColorModule's keys, taken as evenly spaced).
-const STAR_SIZE: &[(f32, f32, f32, f32)] =
-    &[(0.0, 1.0, 0.0, 0.0), (0.6138, 0.6943, 0.0927, 0.0927), (0.7752, 1.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0)];
+const STAR_SIZE: &[(f32, f32, f32, f32)] = &[
+    (0.0, 1.0, 0.0, 0.0),
+    (0.6138, 0.6943, 0.0927, 0.0927),
+    (0.7752, 1.0, 0.0, 0.0),
+    (1.0, 0.0, 0.0, 0.0),
+];
 const STAR_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.856, 1.0), (1.0, 0.0)];
 const STAR_COLOURS: &[[u8; 3]] = &[
     [255, 38, 188],
@@ -1180,8 +1261,11 @@ const STAR_COLOURS: &[[u8; 3]] = &[
 /// The flash (Explosion, 0.07 s) and the ring (Shockwave: grows to 40 x its 0.1, fading by
 /// a fifth of its second).
 const FLASH_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.5, 0.55)];
-const RING_SIZE: &[(f32, f32, f32, f32)] =
-    &[(0.0, 0.0, 2.78, 2.78), (0.2503, 0.8517, 0.4494, 0.4494), (0.9971, 1.0, 0.035, 0.035)];
+const RING_SIZE: &[(f32, f32, f32, f32)] = &[
+    (0.0, 0.0, 2.78, 2.78),
+    (0.2503, 0.8517, 0.4494, 0.4494),
+    (0.9971, 1.0, 0.035, 0.035),
+];
 const RING_ALPHA: &[(f32, f32)] = &[(0.0, 1.0), (0.118, 0.03), (0.2, 0.0)];
 const STEADY: &[(f32, f32)] = &[(0.0, 1.0)];
 const STEADY_SIZE: &[(f32, f32, f32, f32)] = &[(0.0, 1.0, 0.0, 0.0)];
@@ -1527,11 +1611,19 @@ fn celebrate(
         );
         // Square frames side by side: show this one's slice of the sheet.
         if let Some((count, cycles)) = spark.frames
-            && let Some(size) = images.as_ref().and_then(|i| i.get(&picture.image)).map(|i| i.size_f32())
+            && let Some(size) = images
+                .as_ref()
+                .and_then(|i| i.get(&picture.image))
+                .map(|i| i.size_f32())
         {
             let frame = ((t * cycles).fract() * count as f32) as u32 % count.max(1);
             let w = size.x / count as f32;
-            let want = Some(Rect::new(w * frame as f32, 0.0, w * (frame + 1) as f32, size.y));
+            let want = Some(Rect::new(
+                w * frame as f32,
+                0.0,
+                w * (frame + 1) as f32,
+                size.y,
+            ));
             if picture.rect != want {
                 picture.rect = want;
             }
@@ -1561,7 +1653,9 @@ struct Flyer {
 
 impl Flyer {
     fn cast_ready(&mut self, now: f32, clip: crate::wizards::Clip, delay: f32) -> bool {
-        let Some(start) = self.cast_at else { return false };
+        let Some(start) = self.cast_at else {
+            return false;
+        };
         if clip != crate::wizards::Clip::CastSelf {
             self.cast_at = None;
             return false;
@@ -1581,10 +1675,16 @@ struct FlyerCastSound {
     sound: Handle<AudioSource>,
 }
 
-fn play_cast_sounds(mut commands: Commands, time: Res<Time>, sounds: Query<(Entity, &FlyerCastSound)>) {
+fn play_cast_sounds(
+    mut commands: Commands,
+    time: Res<Time>,
+    sounds: Query<(Entity, &FlyerCastSound)>,
+) {
     for (entity, sound) in &sounds {
         if time.elapsed_secs() >= sound.at {
-            commands.entity(entity).insert((AudioPlayer(sound.sound.clone()), PlaybackSettings::DESPAWN))
+            commands
+                .entity(entity)
+                .insert((AudioPlayer(sound.sound.clone()), PlaybackSettings::DESPAWN))
                 .remove::<FlyerCastSound>();
         }
     }
@@ -1607,7 +1707,9 @@ const GHOSTS: usize = 8;
 /// pop starts (`Cup::fill_times`).
 fn shown_medals(cup: &crate::cups::Cup, fill: &[Vec<f32>], since: f32, t: usize) -> usize {
     let before = cup.before.get(t).copied().unwrap_or(0);
-    let started = fill.get(t).map_or(0, |times| times.iter().filter(|&&at| since >= at).count());
+    let started = fill
+        .get(t)
+        .map_or(0, |times| times.iter().filter(|&&at| since >= at).count());
     cup.shown(t).min(before + started)
 }
 
@@ -1640,7 +1742,9 @@ fn medal_sounds(
     let (fill, _) = cup.fill_times(p.fill_start, p.fill_step, p.fill_row_gap);
     let towers = cup.medals.len();
     if heard.len() != towers {
-        *heard = (0..towers).map(|t| cup.before.get(t).copied().unwrap_or(0)).collect();
+        *heard = (0..towers)
+            .map(|t| cup.before.get(t).copied().unwrap_or(0))
+            .collect();
     }
     for t in 0..towers {
         let now = shown_medals(&cup, &fill, since, t);
@@ -1648,17 +1752,24 @@ fn medal_sounds(
             // The medal's SpawnStars burst as it lands (only those inside the target land
             // as pictures): four stars in its colours, three pale ones for the empty medal.
             let k = heard[t];
-            let target = cup.rules(&config.cups).map_or(0, |s| s.target as usize).min(SLOTS);
+            let target = cup
+                .rules(&config.cups)
+                .map_or(0, |s| s.target as usize)
+                .min(SLOTS);
             let row = cup.panel_order().iter().position(|&o| o == t);
             // ShakeResultsItemEffect: the row shakes a pixel with each medal that lands.
             if k < target
-                && let Some((entity, _)) = rows.iter().find(|(_, part)| Some(**part) == row.map(Part::Row))
+                && let Some((entity, _)) = rows
+                    .iter()
+                    .find(|(_, part)| Some(**part) == row.map(Part::Row))
             {
                 commands.entity(entity).insert(RowShake(0.0));
             }
             if k < target
                 && let Some(art) = art.as_deref()
-                && let Some((_, at, node)) = slots.iter().find(|(part, ..)| Some(**part) == row.map(|r| Part::Slot(r, k)))
+                && let Some((_, at, node)) = slots
+                    .iter()
+                    .find(|(part, ..)| Some(**part) == row.map(|r| Part::Slot(r, k)))
             {
                 let scale = node.inverse_scale_factor();
                 // The slot's centre stays put whether it shows a dot or the medal.
@@ -1667,7 +1778,9 @@ fn medal_sounds(
                 let row_height = slots
                     .iter()
                     .find(|(part, ..)| Some(**part) == row.map(Part::Row))
-                    .map_or(p.row_height, |(_, _, n)| n.size().y * n.inverse_scale_factor());
+                    .map_or(p.row_height, |(_, _, n)| {
+                        n.size().y * n.inverse_scale_factor()
+                    });
                 let unit = 108.0 * row_height / p.row_height.max(1.0);
                 let rgb = |r: u8, g: u8, b: u8| Color::srgb_u8(r, g, b);
                 let (count, colours, dampen, fade) = match cup.medal(t, k) {
@@ -1815,7 +1928,13 @@ fn fly_winner(
         };
         let mut poof_seed = (rig.to_bits() as u32) | 1;
         crate::particles::brick_poof_on_layer(
-            &mut commands, art, WIN_UNIT, FLYER_SPAWN * WIN_UNIT, 21.0, &mut poof_seed, Some(&layer),
+            &mut commands,
+            art,
+            WIN_UNIT,
+            FLYER_SPAWN * WIN_UNIT,
+            21.0,
+            &mut poof_seed,
+            Some(&layer),
         );
         pop(&mut commands);
         // It cheers as it comes in (ControllableWizard.Init).
@@ -1824,14 +1943,17 @@ fn fly_winner(
                 w.act(crate::wizards::Clip::Cheer);
             }
         });
-        commands.entity(rig).insert((Flyer {
-            at: FLYER_SPAWN,
-            speed: Vec2::ZERO,
-            facing_left: true,
-            wizard,
-            nudge: None,
-            cast_at: None,
-        }, rig_transform(FLYER_SPAWN, true, 1.0, 20.0)));
+        commands.entity(rig).insert((
+            Flyer {
+                at: FLYER_SPAWN,
+                speed: Vec2::ZERO,
+                facing_left: true,
+                wizard,
+                nudge: None,
+                cast_at: None,
+            },
+            rig_transform(FLYER_SPAWN, true, 1.0, 20.0),
+        ));
         if cameras.is_empty() {
             // Over everything the main camera drew (its UI too), into the same picture.
             let (order, target, msaa) = main
@@ -1980,8 +2102,14 @@ fn fly_winner(
         if flyer.cast_ready(now, rig.clip, config.magic.cast_self) {
             // ControllableWizard's animation event uses the wand where the wizard is now.
             let face = if flyer.facing_left { 1.0 } else { -1.0 };
-            let spot = config.casts.cast_spots.get(flyer.wizard).map_or(FLYER_WAND, |s| Vec2::new(s.1.0, s.1.1));
-            let wand = transform.transform_point((spot * WIN_UNIT).extend(0.0)).truncate();
+            let spot = config
+                .casts
+                .cast_spots
+                .get(flyer.wizard)
+                .map_or(FLYER_WAND, |s| Vec2::new(s.1.0, s.1.1));
+            let wand = transform
+                .transform_point((spot * WIN_UNIT).extend(0.0))
+                .truncate();
             let to = Vec2::new(-18.0 * face, roll() * 30.0 - 15.0);
             crate::casts::spawn_bolt(
                 &mut commands,
@@ -1991,8 +2119,16 @@ fn fly_winner(
                 Some(layer.clone()),
                 0.0,
             );
-            let name = if roll() < 0.5 { "sfx_cast_light" } else { "sfx_cast_lightning_level_02" };
-            if let Some(sound) = art.sounds.get(name).or_else(|| art.sounds.get("sfx_cast_light")) {
+            let name = if roll() < 0.5 {
+                "sfx_cast_light"
+            } else {
+                "sfx_cast_lightning_level_02"
+            };
+            if let Some(sound) = art
+                .sounds
+                .get(name)
+                .or_else(|| art.sounds.get("sfx_cast_light"))
+            {
                 commands.spawn(FlyerCastSound {
                     at: now + config.cup_panel.winner_cast_sound_delay,
                     sound: sound.clone(),
@@ -2031,13 +2167,18 @@ mod tests {
             .add_systems(PostUpdate, crate::letters::apply_ui_opacity);
         app.world_mut().resource_mut::<Cup>().size = Some(0);
         let tick = |app: &mut App, seconds: f32| {
-            app.world_mut().resource_mut::<Time<Real>>().advance_by(Duration::from_secs_f32(seconds));
+            app.world_mut()
+                .resource_mut::<Time<Real>>()
+                .advance_by(Duration::from_secs_f32(seconds));
             app.update();
         };
         let part = |app: &mut App, want: Part| {
             let world = app.world_mut();
-            world.query::<(Entity, &Part)>().iter(world)
-                .find_map(|(entity, part)| (*part == want).then_some(entity)).unwrap()
+            world
+                .query::<(Entity, &Part)>()
+                .iter(world)
+                .find_map(|(entity, part)| (*part == want).then_some(entity))
+                .unwrap()
         };
         tick(&mut app, 0.0);
         let root = part(&mut app, Part::Root);
@@ -2048,28 +2189,45 @@ mod tests {
         let (dim, half) = (p.dim, p.peek_fade * 0.5);
         let check = |app: &App, opacity: f32| {
             let world = app.world();
-            assert!((world.get::<BackgroundColor>(root).unwrap().0.alpha() - dim * opacity).abs() < 1e-5);
-            assert!((world.get::<BackgroundColor>(panel).unwrap().0.alpha() - opacity).abs() < 1e-5);
+            assert!(
+                (world.get::<BackgroundColor>(root).unwrap().0.alpha() - dim * opacity).abs()
+                    < 1e-5
+            );
+            assert!(
+                (world.get::<BackgroundColor>(panel).unwrap().0.alpha() - opacity).abs() < 1e-5
+            );
             assert!((world.get::<TextColor>(title).unwrap().0.alpha() - opacity).abs() < 1e-5);
         };
 
         app.world_mut().resource_mut::<GameInfo>().open = true;
         tick(&mut app, 0.0);
-        assert_eq!(app.world().get::<Visibility>(root), Some(&Visibility::Inherited));
+        assert_eq!(
+            app.world().get::<Visibility>(root),
+            Some(&Visibility::Inherited)
+        );
         check(&app, 0.0);
         tick(&mut app, half);
         check(&app, 0.75);
         tick(&mut app, half);
         check(&app, 1.0);
-        assert_eq!(app.world().get::<Visibility>(continue_button), Some(&Visibility::Hidden));
+        assert_eq!(
+            app.world().get::<Visibility>(continue_button),
+            Some(&Visibility::Hidden)
+        );
 
         app.world_mut().resource_mut::<GameInfo>().open = false;
         tick(&mut app, 0.0);
         tick(&mut app, half);
         check(&app, 0.25);
-        assert_eq!(app.world().get::<Visibility>(root), Some(&Visibility::Inherited));
+        assert_eq!(
+            app.world().get::<Visibility>(root),
+            Some(&Visibility::Inherited)
+        );
         tick(&mut app, half);
-        assert_eq!(app.world().get::<Visibility>(root), Some(&Visibility::Hidden));
+        assert_eq!(
+            app.world().get::<Visibility>(root),
+            Some(&Visibility::Hidden)
+        );
 
         app.world_mut().resource_mut::<GameInfo>().open = true;
         tick(&mut app, 0.0);
@@ -2082,20 +2240,32 @@ mod tests {
     #[test]
     fn the_cup_wizard_poof_is_on_the_popup_layer_at_its_spawn_position() {
         let mut app = App::new();
-        app.init_resource::<Art>().add_systems(Startup, |mut commands: Commands, art: Res<Art>| {
-            let mut seed = 1;
-            crate::particles::brick_poof_on_layer(
-                &mut commands, &art, WIN_UNIT, FLYER_SPAWN * WIN_UNIT, 21.0, &mut seed,
-                Some(&bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER)),
-            );
-        });
+        app.init_resource::<Art>()
+            .add_systems(Startup, |mut commands: Commands, art: Res<Art>| {
+                let mut seed = 1;
+                crate::particles::brick_poof_on_layer(
+                    &mut commands,
+                    &art,
+                    WIN_UNIT,
+                    FLYER_SPAWN * WIN_UNIT,
+                    21.0,
+                    &mut seed,
+                    Some(&bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER)),
+                );
+            });
         app.update();
         let world = app.world_mut();
-        let count = world.query::<(&Sprite, &Transform, &bevy::camera::visibility::RenderLayers)>()
-            .iter(world).inspect(|(_, at, layer)| {
+        let count = world
+            .query::<(&Sprite, &Transform, &bevy::camera::visibility::RenderLayers)>()
+            .iter(world)
+            .inspect(|(_, at, layer)| {
                 assert_eq!(at.translation.truncate(), FLYER_SPAWN * WIN_UNIT);
-                assert_eq!(**layer, bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER));
-            }).count();
+                assert_eq!(
+                    **layer,
+                    bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER)
+                );
+            })
+            .count();
         assert_eq!(count, 14, "one flash, eight puffs and five stars");
     }
 
@@ -2103,36 +2273,63 @@ mod tests {
     fn the_flying_wizard_cast_waits_for_its_animation_and_cancels_if_interrupted() {
         use crate::wizards::Clip;
         let mut flyer = Flyer {
-            at: Vec2::ZERO, speed: Vec2::ZERO, facing_left: true, wizard: 0,
-            nudge: None, cast_at: Some(0.0),
+            at: Vec2::ZERO,
+            speed: Vec2::ZERO,
+            facing_left: true,
+            wizard: 0,
+            nudge: None,
+            cast_at: Some(0.0),
         };
         let delay = GameConfig::default().magic.cast_self;
         assert!(!flyer.cast_ready(0.0, Clip::CastSelf, delay));
         assert!(!flyer.cast_ready(delay / 2.0, Clip::CastSelf, delay));
         assert!(flyer.cast_ready(delay, Clip::CastSelf, delay));
-        assert!(!flyer.cast_ready(delay + 1.0, Clip::CastSelf, delay), "one bolt per cast");
+        assert!(
+            !flyer.cast_ready(delay + 1.0, Clip::CastSelf, delay),
+            "one bolt per cast"
+        );
         flyer.cast_at = Some(0.0);
         assert!(!flyer.cast_ready(delay / 2.0, Clip::Cheer, delay));
-        assert!(!flyer.cast_ready(delay, Clip::CastSelf, delay), "an interrupted cast stays cancelled");
+        assert!(
+            !flyer.cast_ready(delay, Clip::CastSelf, delay),
+            "an interrupted cast stays cancelled"
+        );
     }
 
     #[test]
     fn the_flying_wizard_cast_sound_waits_after_the_bolt_and_plays_once() {
         let delay = GameConfig::default().cup_panel.winner_cast_sound_delay;
         let mut app = App::new();
-        app.init_resource::<Time>().add_systems(Update, play_cast_sounds);
-        let sound = app.world_mut().spawn(FlyerCastSound { at: delay, sound: Handle::default() }).id();
+        app.init_resource::<Time>()
+            .add_systems(Update, play_cast_sounds);
+        let sound = app
+            .world_mut()
+            .spawn(FlyerCastSound {
+                at: delay,
+                sound: Handle::default(),
+            })
+            .id();
         app.update();
         assert!(app.world().get::<AudioPlayer>(sound).is_none());
-        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(delay / 2.0));
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_secs_f32(delay / 2.0));
         app.update();
         assert!(app.world().get::<AudioPlayer>(sound).is_none());
-        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(delay));
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_secs_f32(delay));
         app.update();
         assert!(app.world().get::<AudioPlayer>(sound).is_some());
         assert!(app.world().get::<FlyerCastSound>(sound).is_none());
         app.update();
-        assert_eq!(app.world_mut().query::<&AudioPlayer>().iter(app.world()).count(), 1);
+        assert_eq!(
+            app.world_mut()
+                .query::<&AudioPlayer>()
+                .iter(app.world())
+                .count(),
+            1
+        );
     }
 
     #[test]

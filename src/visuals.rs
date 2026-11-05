@@ -26,6 +26,7 @@ impl Plugin for VisualsPlugin {
             .init_resource::<MenuScene>()
             .init_resource::<SceneState>()
             .init_resource::<ViewClimb>()
+            .add_plugins(crate::lanes::LanesPlugin)
             .add_systems(Startup, setup_scene)
             .add_systems(
                 Update,
@@ -58,7 +59,14 @@ impl Plugin for VisualsPlugin {
             .add_systems(Update, sweep_lasers)
             .add_systems(Update, place_pillar_bases.after(frame_towers))
             .add_systems(Update, drop_stars.before(twinkle_stars))
-            .add_systems(Update, (dress_tower_pieces, show_vines.before(dress_bricks), wave_finish_tiles))
+            .add_systems(
+                Update,
+                (
+                    dress_tower_pieces,
+                    show_vines.before(dress_bricks),
+                    wave_finish_tiles,
+                ),
+            )
             .add_systems(
                 Update,
                 (
@@ -278,7 +286,10 @@ fn drop_stars(
 fn twinkle_stars(
     time: Res<Time>,
     mut next: Local<(f32, u32)>,
-    mut stars: Query<(&mut Star, &mut Transform, &GlobalTransform), Without<crate::visuals::MainCamera>>,
+    mut stars: Query<
+        (&mut Star, &mut Transform, &GlobalTransform),
+        Without<crate::visuals::MainCamera>,
+    >,
 ) {
     let dt = time.delta_secs();
     let count = stars.iter().count() as u32;
@@ -370,7 +381,12 @@ fn track_view_size(
             }
             _ => camera.logical_viewport_size(),
         })
-        .or_else(|| windows.single().ok().map(|w| Vec2::new(w.width(), w.height())));
+        .or_else(|| {
+            windows
+                .single()
+                .ok()
+                .map(|w| Vec2::new(w.width(), w.height()))
+        });
     if let Some(size) = size
         && view.0 != size
     {
@@ -534,7 +550,10 @@ struct Strip {
 fn art_strip(art: &Art, name: &str, cell: f32, width: f32, at: Vec3) -> Option<impl Bundle> {
     let (sprite, anchor, transform) = art_sprite(art, name, cell)?;
     Some((
-        Strip { width, height: None },
+        Strip {
+            width,
+            height: None,
+        },
         sprite,
         anchor,
         transform.with_translation(at),
@@ -542,10 +561,20 @@ fn art_strip(art: &Art, name: &str, cell: f32, width: f32, at: Vec3) -> Option<i
 }
 
 /// An art strip drawn `height` world units tall (a quad the original stretched).
-fn art_strip_tall(art: &Art, name: &str, cell: f32, width: f32, height: f32, at: Vec3) -> Option<impl Bundle> {
+fn art_strip_tall(
+    art: &Art,
+    name: &str,
+    cell: f32,
+    width: f32,
+    height: f32,
+    at: Vec3,
+) -> Option<impl Bundle> {
     let (sprite, anchor, transform) = art_sprite(art, name, cell)?;
     Some((
-        Strip { width, height: Some(height) },
+        Strip {
+            width,
+            height: Some(height),
+        },
         sprite,
         anchor,
         transform.with_translation(at),
@@ -651,7 +680,9 @@ fn fit_strips(images: Res<Assets<Image>>, mut strips: Query<(&Strip, &mut Sprite
         }
         let size = image.size_f32();
         let scale = transform.scale.x.max(f32::EPSILON);
-        let height = strip.height.map_or(size.y, |h| h / transform.scale.y.max(f32::EPSILON));
+        let height = strip
+            .height
+            .map_or(size.y, |h| h / transform.scale.y.max(f32::EPSILON));
         sprite.custom_size = Some(Vec2::new(strip.width / scale, height));
         // A stretched quad (the Puzzle laser: its picture spans the whole quad once) isn't
         // tiled; the other strips repeat their picture along.
@@ -704,10 +735,17 @@ fn dress_floor(
         let mut node = commands.entity(entity);
         // Its pictures are children, so it needs visibility of its own.
         node.despawn_children().insert(Visibility::default());
-        if matches!(block.part, FloorPart::Column(_) | FloorPart::Pillar | FloorPart::Wide) {
+        if matches!(
+            block.part,
+            FloorPart::Column(_) | FloorPart::Pillar | FloorPart::Wide
+        ) {
             // Pivot on the top-left, a hair left of and above the block's corner (two cells
             // wide for the wide piece).
-            let left = if block.part == FloorPart::Wide { -1.0 } else { -0.5 };
+            let left = if block.part == FloorPart::Wide {
+                -1.0
+            } else {
+                -0.5
+            };
             transform.translation = Vec3::new(c * (left - 0.03), c * (half + 0.03), 0.0);
         }
         node.with_child((sprite, anchor, transform));
@@ -746,7 +784,11 @@ struct EggPulse {
     x_first: bool,
 }
 
-fn grow_edges(mut commands: Commands, time: Res<Time>, mut grows: Query<(Entity, &EdgeGrow, &mut Transform)>) {
+fn grow_edges(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut grows: Query<(Entity, &EdgeGrow, &mut Transform)>,
+) {
     let now = time.elapsed_secs();
     for (entity, grow, mut transform) in &mut grows {
         let t = now - grow.start;
@@ -789,7 +831,11 @@ fn pulse_eggs(time: Res<Time>, mut eggs: Query<(Entity, &mut EggPulse, &mut Tran
         }
         let squeeze = (t / 0.1).min(1.0);
         let spring = ((t - 0.1) / 1.0).clamp(0.0, 1.0);
-        let k = if t < 0.1 { 1.0 - 0.2 * squeeze } else { 0.8 + 0.2 * elastic(spring) };
+        let k = if t < 0.1 {
+            1.0 - 0.2 * squeeze
+        } else {
+            0.8 + 0.2 * elastic(spring)
+        };
         let (x, y) = if egg.x_first {
             (k, if t < 0.1 { 1.0 } else { k })
         } else {
@@ -813,7 +859,13 @@ fn turn_flowers(time: Res<Time>, mut flowers: Query<(Entity, &mut FlowerTurn, &m
         let c = 1.70158;
         x * x * ((c + 1.0) * x - c)
     };
-    let ease_out_expo = |x: f32| if x >= 1.0 { 1.0 } else { 1.0 - 2f32.powf(-10.0 * x) };
+    let ease_out_expo = |x: f32| {
+        if x >= 1.0 {
+            1.0
+        } else {
+            1.0 - 2f32.powf(-10.0 * x)
+        }
+    };
     for (entity, mut flower, mut transform) in &mut flowers {
         let t = now - flower.start;
         if t > 2.0 {
@@ -919,7 +971,10 @@ pub(crate) fn dress_bricks(
             && !own_material
             && pack != crate::config::BrickPack::default()
             && brick.piece < config.pieces.len()
-            && art.entries.get(&pack.brick_art(&def.name)).is_some_and(|e| e.light.is_some());
+            && art
+                .entries
+                .get(&pack.brick_art(&def.name))
+                .is_some_and(|e| e.light.is_some());
         // A normal brick takes its tower's brick pack art (default when not staged);
         // stone and ice keep their own looks.
         let key = if brick.piece < config.pieces.len() {
@@ -939,15 +994,13 @@ pub(crate) fn dress_bricks(
             (false, ..) => (None, brick.color),
             // Petrified: iced too has its own look (_PETRIFIED_ICE_PACK), and the Puzzle
             // desert its sandy stone (_PETRIFIED_DESERT_PACK, worldId 2).
-            (true, true, ice) => match (ice
-                .then(|| variant("stone_ice"))
-                .flatten())
-            .or_else(|| {
-                (config.mode.look() == ModeKind::Puzzle)
-                    .then(|| art.image(&format!("desert_stone_{}", def.name)))
-                    .flatten()
-            })
-            .or_else(|| variant("stone"))
+            (true, true, ice) => match (ice.then(|| variant("stone_ice")).flatten())
+                .or_else(|| {
+                    (config.mode.look() == ModeKind::Puzzle)
+                        .then(|| art.image(&format!("desert_stone_{}", def.name)))
+                        .flatten()
+                })
+                .or_else(|| variant("stone"))
             {
                 Some(image) => (Some(image), Color::WHITE),
                 None => (art.image(&key), Color::WHITE.mix(&STONE, 0.75)),
@@ -983,7 +1036,9 @@ pub(crate) fn dress_bricks(
         .unwrap_or_default();
         let vine_art = art.image(&vine_name).filter(|_| art_drawn && vined);
         // Grassy grows grass and moss on the brick's top edges (below), not over it.
-        let grass_art = art.image("grass_large_1").is_none()
+        let grass_art = art
+            .image("grass_large_1")
+            .is_none()
             .then(|| art.image("grass_overlay").filter(|_| art_drawn && grassy))
             .flatten();
         if vined && vine_art.is_none() {
@@ -1025,12 +1080,22 @@ pub(crate) fn dress_bricks(
                     .then_some(())
                     .and(meshes.as_mut().zip(lit_bricks.as_mut()))
                     .and_then(|(meshes, lit_bricks)| {
-                        crate::brick_material::lit_brick(&art, &key, size, color, ice_on, meshes, lit_bricks)
+                        crate::brick_material::lit_brick(
+                            &art, &key, size, color, ice_on, meshes, lit_bricks,
+                        )
                     });
                 match lit {
                     _ if own_material => {}
                     Some((mesh, material)) => {
-                        crate::brick_material::spawn_quad(&mut entity, at, color, CellSprite, (), mesh, material);
+                        crate::brick_material::spawn_quad(
+                            &mut entity,
+                            at,
+                            color,
+                            CellSprite,
+                            (),
+                            mesh,
+                            material,
+                        );
                     }
                     None => {
                         entity.with_child((
@@ -1086,7 +1151,8 @@ pub(crate) fn dress_bricks(
                             Some((_, anchor, scale)) => child.spawn((
                                 Sprite::from_image(overlay),
                                 anchor,
-                                Transform::from_translation(center.extend(z)).with_scale(scale.scale),
+                                Transform::from_translation(center.extend(z))
+                                    .with_scale(scale.scale),
                             )),
                             None => child.spawn((
                                 Sprite {
@@ -1098,7 +1164,9 @@ pub(crate) fn dress_bricks(
                             )),
                         }
                         .id();
-                        child.entity(id).insert(crate::brick_material::LaneDecoration(brick.tower));
+                        child
+                            .entity(id)
+                            .insert(crate::brick_material::LaneDecoration(brick.tower));
                         if art.is_animation(name) {
                             child.entity(id).insert(Animated::new(name));
                         }
@@ -1141,12 +1209,22 @@ pub(crate) fn dress_bricks(
                                     Color::srgb_u8(35, 146, 124),
                                 ][(roll(salt + 2) * 3.0) as usize % 3]
                             };
-                            petrified.push((format!("grass_tuft_{}", n.min(7)), at, 0.5 + roll(salt + 3) * 0.3, colour));
+                            petrified.push((
+                                format!("grass_tuft_{}", n.min(7)),
+                                at,
+                                0.5 + roll(salt + 3) * 0.3,
+                                colour,
+                            ));
                         }
                         if roll(salt + 4) < 0.5 {
                             let n = 1 + (roll(salt + 5) * 3.0) as usize;
                             let name = if desert { "moss_desert" } else { "moss" };
-                            petrified.push((format!("{name}_{}", n.min(3)), at, 0.2 + roll(salt + 6) * 0.3, Color::WHITE));
+                            petrified.push((
+                                format!("{name}_{}", n.min(3)),
+                                at,
+                                0.2 + roll(salt + 6) * 0.3,
+                                Color::WHITE,
+                            ));
                         }
                     }
                 }
@@ -1158,18 +1236,32 @@ pub(crate) fn dress_bricks(
                         let at = (top + Vec2::Y * 0.5) * cell;
                         let salt = 900 + i as u64 * 13;
                         let n = 1 + (roll(salt) * 4.0) as usize;
-                        petrified.push((format!("grass_large_{}", n.min(4)), at, g.delay + 0.5 + roll(salt + 1) * 0.3, Color::WHITE));
+                        petrified.push((
+                            format!("grass_large_{}", n.min(4)),
+                            at,
+                            g.delay + 0.5 + roll(salt + 1) * 0.3,
+                            Color::WHITE,
+                        ));
                         if roll(salt + 2) < 0.5 {
                             let n = 1 + (roll(salt + 3) * 6.0) as usize;
-                            petrified.push((format!("moss_large_{}", n.min(6)), at, g.delay + 0.2 + roll(salt + 4) * 0.3, Color::WHITE));
+                            petrified.push((
+                                format!("moss_large_{}", n.min(6)),
+                                at,
+                                g.delay + 0.2 + roll(salt + 4) * 0.3,
+                                Color::WHITE,
+                            ));
                         }
                     }
                 }
                 for (name, at, wait, colour) in petrified {
                     let sound = (first_grass && name.starts_with("grass_large")).then(|| {
                         first_grass = false;
-                        ["sfx_grass_grow_01", "sfx_grass_grow_02", "sfx_grass_grow_03", "sfx_grass_grow_04"]
-                            [(roll(77) * 4.0) as usize % 4]
+                        [
+                            "sfx_grass_grow_01",
+                            "sfx_grass_grow_02",
+                            "sfx_grass_grow_03",
+                            "sfx_grass_grow_04",
+                        ][(roll(77) * 4.0) as usize % 4]
                     });
                     if let Some((mut sprite, anchor, transform)) = art_sprite(&art, &name, cell) {
                         sprite.color = colour;
@@ -1184,7 +1276,12 @@ pub(crate) fn dress_bricks(
                             if let Some(sound) = sound {
                                 holder.insert(EdgeSound(sound));
                             }
-                            holder.with_child((sprite, anchor, transform, crate::brick_material::LaneDecoration(brick.tower)));
+                            holder.with_child((
+                                sprite,
+                                anchor,
+                                transform,
+                                crate::brick_material::LaneDecoration(brick.tower),
+                            ));
                         });
                     }
                 }
@@ -1194,15 +1291,27 @@ pub(crate) fn dress_bricks(
                         let salt = 100 + i as u64 * 7;
                         if roll(salt) < 0.25 {
                             let n = 1 + (roll(salt + 1) * 3.0) as usize;
-                            picks.push((format!("fx_grass_easter_var0{}", n.min(3)), (top + Vec2::Y * 0.5) * cell, 0.2));
+                            picks.push((
+                                format!("fx_grass_easter_var0{}", n.min(3)),
+                                (top + Vec2::Y * 0.5) * cell,
+                                0.2,
+                            ));
                         }
                     }
                     for (i, &at) in brick.cells.iter().enumerate() {
                         let salt = 300 + i as u64 * 7;
                         if roll(salt) < 0.4 {
                             let n = 1 + (roll(salt + 1) * 8.0) as usize;
-                            let kind = if roll(salt + 2) < 0.5 { "flower" } else { "egg" };
-                            picks.push((format!("brick_easter_decorations_{kind}0{}", n.min(8)), at * cell, 0.3));
+                            let kind = if roll(salt + 2) < 0.5 {
+                                "flower"
+                            } else {
+                                "egg"
+                            };
+                            picks.push((
+                                format!("brick_easter_decorations_{kind}0{}", n.min(8)),
+                                at * cell,
+                                0.3,
+                            ));
                         }
                     }
                 }
@@ -1221,7 +1330,12 @@ pub(crate) fn dress_bricks(
                                 EdgeDelay { show_at },
                                 EdgeGrow { start: show_at },
                             ));
-                            piece.with_child((sprite, anchor, transform, crate::brick_material::LaneDecoration(brick.tower)));
+                            piece.with_child((
+                                sprite,
+                                anchor,
+                                transform,
+                                crate::brick_material::LaneDecoration(brick.tower),
+                            ));
                             // Flowers turn and eggs pulse after a random 5 to 15 s.
                             if name.contains("flower") {
                                 piece.insert(FlowerTurn {
@@ -1301,16 +1415,18 @@ fn dress_tower_pieces(
     pieces: Query<(Entity, &crate::spells::TowerPiece), Added<crate::spells::TowerPiece>>,
 ) {
     for (entity, piece) in &pieces {
-        let Some(shape) = config.magic.minibase_pieces.get(piece.0) else { continue };
-        let Some((sprite, anchor, transform)) = art_sprite(&art, &shape.picture, config.cell_size) else {
+        let Some(shape) = config.magic.minibase_pieces.get(piece.0) else {
+            continue;
+        };
+        let Some((sprite, anchor, transform)) = art_sprite(&art, &shape.picture, config.cell_size)
+        else {
             continue;
         };
         let at = Vec2::new(shape.graphic.0, shape.graphic.1) * config.cell_size;
-        commands.entity(entity).insert(Visibility::default()).with_child((
-            sprite,
-            anchor,
-            transform.with_translation(at.extend(0.0)),
-        ));
+        commands
+            .entity(entity)
+            .insert(Visibility::default())
+            .with_child((sprite, anchor, transform.with_translation(at.extend(0.0))));
     }
 }
 
@@ -1323,7 +1439,10 @@ fn dress_bubbles(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
-    bricks: Query<(Entity, &Brick, Option<&Children>), Or<(With<Bubbled>, With<crate::spells::BubbleFail>)>>,
+    bricks: Query<
+        (Entity, &Brick, Option<&Children>),
+        Or<(With<Bubbled>, With<crate::spells::BubbleFail>)>,
+    >,
     mut popped: RemovedComponents<Bubbled>,
     mut failed: RemovedComponents<crate::spells::BubbleFail>,
     children: Query<&Children>,
@@ -1376,7 +1495,10 @@ fn dress_bubbles(
                 commands.entity(child).despawn();
                 had = true;
                 if let (Ok(at), Ok(brick)) = (globals.get(child), shapes.get(entity)) {
-                    let max = brick.cells.iter().fold(0.0f32, |a, b| a.max(b.abs().max_element()));
+                    let max = brick
+                        .cells
+                        .iter()
+                        .fold(0.0f32, |a, b| a.max(b.abs().max_element()));
                     // Its size across in cells, not counting Large (width / scale).
                     let across = (max * 2.0 + 1.0).round() as u32;
                     let mut seed = entity.index_u32() | 1;
@@ -1410,7 +1532,10 @@ fn wobble_bubbles(
         };
         let t = bubble.age;
         let scale = if t < 2.0 {
-            Vec2::new(1.0 + ((t * 20.0).sin() + 1.0) * 0.025, 1.0 + ((t * 10.0).sin() + 1.0) * 0.025)
+            Vec2::new(
+                1.0 + ((t * 20.0).sin() + 1.0) * 0.025,
+                1.0 + ((t * 10.0).sin() + 1.0) * 0.025,
+            )
         } else {
             let phase = ((t - 2.0) * 6.0) % 2.0;
             let k = if phase < 1.0 { phase } else { 2.0 - phase };
@@ -1736,7 +1861,7 @@ struct SceneState {
 }
 
 /// The render layer only the scene's layers are on, shown alone while the menus are up.
-const SCENE_LAYER: usize = 1;
+pub(crate) const SCENE_LAYER: usize = 1;
 
 fn track_menu_scene(
     mut commands: Commands,
@@ -1786,7 +1911,10 @@ fn show_scene_in_menus(
     for entity in &layers {
         commands
             .entity(entity)
-            .insert(bevy::camera::visibility::RenderLayers::from_layers(&[0, SCENE_LAYER]));
+            .insert(bevy::camera::visibility::RenderLayers::from_layers(&[
+                0,
+                SCENE_LAYER,
+            ]));
     }
 }
 
@@ -1844,7 +1972,10 @@ fn ripple_water(
         let (width, units) = match strip {
             Some(strip) => {
                 let scale = transform.scale.x.max(f32::EPSILON);
-                (strip.width / scale, strip.width / config.cell_size.max(0.01))
+                (
+                    strip.width / scale,
+                    strip.width / config.cell_size.max(0.01),
+                )
             }
             None => (
                 size.x,
@@ -1887,7 +2018,11 @@ struct IslandQuad {
 /// BobbingIsland's _BobAmount does) and its layer's tint.
 fn wave_islands(
     layers: Query<(&ScreenLayer, &Sprite)>,
-    quads: Query<(&MeshMaterial2d<crate::scene_material::IslandWave>, &IslandQuad, &ChildOf)>,
+    quads: Query<(
+        &MeshMaterial2d<crate::scene_material::IslandWave>,
+        &IslandQuad,
+        &ChildOf,
+    )>,
     mut materials: Option<ResMut<Assets<crate::scene_material::IslandWave>>>,
 ) {
     let Some(materials) = materials.as_mut() else {
@@ -1936,7 +2071,11 @@ fn head_bob(name: &str) -> Option<HeadBob> {
         12 => (0.144, 3.017, 6.0),
         _ => return None,
     };
-    Some(HeadBob { reach, peak, period })
+    Some(HeadBob {
+        reach,
+        peak,
+        period,
+    })
 }
 
 fn bob_heads(time: Res<Time>, mut heads: Query<(&HeadBob, &mut ScreenLayer)>) {
@@ -1972,7 +2111,11 @@ fn bob_islands(
                 seed ^= seed << 5;
                 (seed % 10_000) as f32 / 10_000.0
             };
-            let up = if bob.length == 0.0 { roll() < 0.5 } else { bob.to < 0.0 };
+            let up = if bob.length == 0.0 {
+                roll() < 0.5
+            } else {
+                bob.to < 0.0
+            };
             let distance = scene.bob.0 + (scene.bob.1 - scene.bob.0) * roll();
             let length = scene.bob_time.0 + (scene.bob_time.1 - scene.bob_time.0) * roll();
             bob.seed = seed;
@@ -1982,7 +2125,11 @@ fn bob_islands(
             bob.time = 0.0;
         }
         let x = (bob.time / bob.length).clamp(0.0, 1.0);
-        let eased = if x < 0.5 { 2.0 * x * x } else { 1.0 - (-2.0 * x + 2.0).powi(2) / 2.0 };
+        let eased = if x < 0.5 {
+            2.0 * x * x
+        } else {
+            1.0 - (-2.0 * x + 2.0).powi(2) / 2.0
+        };
         layer.lift = bob.from + (bob.to - bob.from) * eased;
         lifts.push((entity, layer.lift));
     }
@@ -1997,10 +2144,15 @@ fn bob_islands(
 #[derive(Component)]
 struct BandPulse;
 
-fn pulse_band(time: Res<Time>, config: Res<GameConfig>, mut bands: Query<&mut Sprite, With<BandPulse>>) {
+fn pulse_band(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    mut bands: Query<&mut Sprite, With<BandPulse>>,
+) {
     let scene = &config.race_scene;
     let alpha = scene.band_alpha
-        + scene.band_swing * (time.elapsed_secs() * std::f32::consts::TAU / scene.band_period.max(0.01)).sin();
+        + scene.band_swing
+            * (time.elapsed_secs() * std::f32::consts::TAU / scene.band_period.max(0.01)).sin();
     for mut sprite in &mut bands {
         sprite.color.set_alpha(alpha);
     }
@@ -2037,8 +2189,14 @@ fn run_waves(
     let view = view_size.0 * ortho.scale;
     let unit = view.y / config.hud.camera_height.max(0.01);
     let across = view.x / unit.max(0.0001);
-    let ppu = art.entries.get(&scene.wave).and_then(|e| e.pixels_per_unit).unwrap_or(26.0);
-    if state.race && let Some(image) = art.image(&scene.wave) {
+    let ppu = art
+        .entries
+        .get(&scene.wave)
+        .and_then(|e| e.pixels_per_unit)
+        .unwrap_or(26.0);
+    if state.race
+        && let Some(image) = art.image(&scene.wave)
+    {
         state.wave_clock += time.delta_secs();
         if state.wave_clock > scene.wave_every {
             state.wave_clock = 0.0;
@@ -2053,15 +2211,28 @@ fn run_waves(
                 let n = roll();
                 let scale = row.scale.1 - n * (row.scale.1 - row.scale.0);
                 let at = Vec2::new(roll() * across, row.y + n * row.height);
-                let (r, g, b) = if state.look == "endless" { scene.wave_tint_endless } else { scene.wave_tint };
+                let (r, g, b) = if state.look == "endless" {
+                    scene.wave_tint_endless
+                } else {
+                    scene.wave_tint
+                };
                 let z = match (row.front, state.look) {
                     (true, _) => row.z,
                     (false, "race_pro") => -900.0 + scene.wave_pro_z,
                     _ => -900.0 + row.z,
                 };
                 commands.spawn((
-                    SceneWave { at, scale, parallax: row.parallax, age: 0.0 },
-                    Sprite { image: image.clone(), color: Color::srgba(r, g, b, 0.0), ..default() },
+                    SceneWave {
+                        at,
+                        scale,
+                        parallax: row.parallax,
+                        age: 0.0,
+                    },
+                    Sprite {
+                        image: image.clone(),
+                        color: Color::srgba(r, g, b, 0.0),
+                        ..default()
+                    },
                     Anchor::BOTTOM_CENTER,
                     Transform::from_xyz(0.0, 0.0, z).with_scale(Vec3::ZERO),
                     ChildOf(camera),
@@ -2084,14 +2255,21 @@ fn run_waves(
         }
         let (rise, fall) = (out_quad(t / half), out_quad((t - half) / half));
         let (alpha, squash) = if t < half {
-            (rise, scene.wave_squash.0 + (scene.wave_squash.1 - scene.wave_squash.0) * rise)
+            (
+                rise,
+                scene.wave_squash.0 + (scene.wave_squash.1 - scene.wave_squash.0) * rise,
+            )
         } else {
-            (1.0 - fall, scene.wave_squash.1 - (scene.wave_squash.1 - scene.wave_squash.0) * fall)
+            (
+                1.0 - fall,
+                scene.wave_squash.1 - (scene.wave_squash.1 - scene.wave_squash.0) * fall,
+            )
         };
         sprite.color.set_alpha(alpha);
         let x = wave.at.x + scene.wave_drift * wave.scale * out_quad(t / scene.wave_time);
         transform.translation.x = (x - across * 0.5) * unit;
-        transform.translation.y = -view.y * 0.5 + wave.at.y * unit - state.climb * wave.parallax * unit;
+        transform.translation.y =
+            -view.y * 0.5 + wave.at.y * unit - state.climb * wave.parallax * unit;
         let size = unit / ppu * wave.scale;
         transform.scale = Vec3::new(size, size * squash, 1.0);
     }
@@ -2124,7 +2302,11 @@ fn place_horizon(
     bands: Query<(&WaterBand, &Sprite, &Children), Without<Horizon>>,
     mut lines: Query<(&mut Sprite, &mut Transform), With<Horizon>>,
 ) {
-    let ppu = art.entries.get("race_waterline").and_then(|e| e.pixels_per_unit).unwrap_or(26.0);
+    let ppu = art
+        .entries
+        .get("race_waterline")
+        .and_then(|e| e.pixels_per_unit)
+        .unwrap_or(26.0);
     for (band, sprite, children) in &bands {
         let Some(size) = sprite.custom_size else {
             continue;
@@ -2275,7 +2457,10 @@ fn spawn_backgrounds(
                 if let Some(plain) = art.entries.get("sky_puzzle") {
                     commands.entity(camera).with_child((
                         Sky,
-                        EclipseFade { from: Color::WHITE, to: Color::WHITE.with_alpha(0.0) },
+                        EclipseFade {
+                            from: Color::WHITE,
+                            to: Color::WHITE.with_alpha(0.0),
+                        },
                         Sprite::from_image(images.add(gradient_image(&plain.colors()))),
                         Transform::from_xyz(0.0, 0.0, -949.5),
                     ));
@@ -2298,7 +2483,8 @@ fn spawn_backgrounds(
     // Endless Race's strip is its own magenta water (RaceForeground's endless WaterLayer,
     // Max's Endless clip); the menus keep the blue one.
     let strip_art = if mode == ModeKind::Endless && in_match {
-        art.image("bg_race_foreground_water_endless").or_else(|| art.image("water"))
+        art.image("bg_race_foreground_water_endless")
+            .or_else(|| art.image("water"))
     } else {
         art.image("water")
     };
@@ -2389,7 +2575,11 @@ fn spawn_backgrounds(
         ));
     }
     if let (Some(look), Some(image)) = (island_look, art.image(&scene.band)) {
-        let ppu = art.entries.get(&scene.band).and_then(|e| e.pixels_per_unit).unwrap_or(26.0);
+        let ppu = art
+            .entries
+            .get(&scene.band)
+            .and_then(|e| e.pixels_per_unit)
+            .unwrap_or(26.0);
         let (r, g, b) = match look {
             "race_pro" => scene.band_tint_pro,
             "endless" => scene.band_tint_endless,
@@ -2413,7 +2603,11 @@ fn spawn_backgrounds(
             },
             BandPulse,
             WaveLook::Keep,
-            Sprite { image, color: Color::srgba(r, g, b, scene.band_alpha), ..default() },
+            Sprite {
+                image,
+                color: Color::srgba(r, g, b, scene.band_alpha),
+                ..default()
+            },
             Transform::from_xyz(0.0, 0.0, -900.0 + scene.band_z),
             ChildOf(camera),
         ));
@@ -2438,7 +2632,9 @@ fn spawn_backgrounds(
         let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
         let tint = entry
             .tint
-            .map_or(Color::WHITE, |(r, g, b)| Color::srgb(r / 255.0, g / 255.0, b / 255.0))
+            .map_or(Color::WHITE, |(r, g, b)| {
+                Color::srgb(r / 255.0, g / 255.0, b / 255.0)
+            })
             .with_alpha(entry.opacity.unwrap_or(1.0));
         let base = (
             Sprite {
@@ -2447,11 +2643,7 @@ fn spawn_backgrounds(
                 ..default()
             },
             Anchor(Vec2::new(px - 0.5, py - 0.5)),
-            Transform::from_xyz(
-                0.0,
-                0.0,
-                layer_z(&art, name, order),
-            ),
+            Transform::from_xyz(0.0, 0.0, layer_z(&art, name, order)),
         );
         match (entry.screen, entry.position) {
             (Some((ax, ay)), position) => {
@@ -2493,7 +2685,10 @@ fn spawn_backgrounds(
                     Some(_) => {
                         let k = scene.island_scale;
                         ScreenLayer {
-                            position: Vec2::new(x * k, scene.island_root + (y - scene.island_root) * k),
+                            position: Vec2::new(
+                                x * k,
+                                scene.island_root + (y - scene.island_root) * k,
+                            ),
                             scale: screen_layer.scale * k,
                             ..screen_layer
                         }
@@ -2502,13 +2697,21 @@ fn spawn_backgrounds(
                 };
                 let line = island.and_then(|i| {
                     let image = art.image(&scene.waterline)?;
-                    let ppu = art.entries.get(&scene.waterline)?.pixels_per_unit.unwrap_or(26.0);
+                    let ppu = art
+                        .entries
+                        .get(&scene.waterline)?
+                        .pixels_per_unit
+                        .unwrap_or(26.0);
                     let k = scene.island_scale;
                     let (line_at, line_size) = i
                         .endless_line
                         .filter(|_| endless_look)
                         .unwrap_or((i.line_at, i.line_size));
-                    let (r, g, b) = if endless_look { scene.endless_line_tint } else { i.line_tint };
+                    let (r, g, b) = if endless_look {
+                        scene.endless_line_tint
+                    } else {
+                        i.line_tint
+                    };
                     Some((
                         ScreenLayer {
                             position: screen_layer.position + Vec2::new(line_at.0, line_at.1) * k,
@@ -2516,7 +2719,11 @@ fn spawn_backgrounds(
                             squash: Vec2::new(line_size.0, line_size.1),
                             ..screen_layer.clone()
                         },
-                        Sprite { image, color: Color::srgb(r, g, b), ..default() },
+                        Sprite {
+                            image,
+                            color: Color::srgb(r, g, b),
+                            ..default()
+                        },
                         Transform::from_xyz(0.0, 0.0, -900.0 + i.line_z),
                     ))
                 });
@@ -2527,7 +2734,9 @@ fn spawn_backgrounds(
                         to: 0.0,
                         length: 0.0,
                         time: 0.0,
-                        seed: 0x9E37_79B9 ^ (order as u32 + 1).wrapping_mul(2_654_435_761) ^ name.len() as u32,
+                        seed: 0x9E37_79B9
+                            ^ (order as u32 + 1).wrapping_mul(2_654_435_761)
+                            ^ name.len() as u32,
                     });
                 }
                 // Its picture is drawn by the island material under the (empty) sprite, which
@@ -2536,7 +2745,8 @@ fn spawn_backgrounds(
                     (island, meshes.as_mut(), islands.as_mut())
                     && let Some(size) = images.get(&art.images[name]).map(|i| i.size_f32())
                 {
-                    let height = size.y / entry.pixels_per_unit.unwrap_or(26.0).max(1.0) * scene.island_scale;
+                    let height = size.y / entry.pixels_per_unit.unwrap_or(26.0).max(1.0)
+                        * scene.island_scale;
                     let tint = Vec4::from_array(tint.to_linear().to_f32_array());
                     let material = islands.add(crate::scene_material::IslandWave {
                         look: crate::scene_material::IslandLook {
@@ -2585,24 +2795,41 @@ fn spawn_backgrounds(
                         ChildOf(island_entity),
                     ));
                     if eclipse {
-                        outline.insert(EclipseFade { from: Color::WHITE.with_alpha(0.0), to: Color::WHITE });
+                        outline.insert(EclipseFade {
+                            from: Color::WHITE.with_alpha(0.0),
+                            to: Color::WHITE,
+                        });
                     }
                 }
                 let mut layer = commands.entity(island_entity);
-                if let Some(start) = eclipse.then(|| art.entries.get(&format!("{name}_start"))).flatten() {
+                if let Some(start) = eclipse
+                    .then(|| art.entries.get(&format!("{name}_start")))
+                    .flatten()
+                {
                     let from = start
                         .tint
-                        .map_or(Color::WHITE, |(r, g, b)| Color::srgb(r / 255.0, g / 255.0, b / 255.0))
+                        .map_or(Color::WHITE, |(r, g, b)| {
+                            Color::srgb(r / 255.0, g / 255.0, b / 255.0)
+                        })
                         .with_alpha(start.opacity.unwrap_or(1.0));
-                    match art.image(&format!("{name}_start")).filter(|_| start.mask.is_some()) {
+                    match art
+                        .image(&format!("{name}_start"))
+                        .filter(|_| start.mask.is_some())
+                    {
                         // A ruin: its copy in the start colours fades out over it.
                         Some(image) => {
                             layer.with_child((
-                                EclipseFade { from: Color::WHITE, to: Color::WHITE.with_alpha(0.0) },
+                                EclipseFade {
+                                    from: Color::WHITE,
+                                    to: Color::WHITE.with_alpha(0.0),
+                                },
                                 Sprite { image, ..default() },
                                 anchor,
                                 Transform::from_xyz(0.0, 0.0, 0.01),
-                                bevy::camera::visibility::RenderLayers::from_layers(&[0, SCENE_LAYER]),
+                                bevy::camera::visibility::RenderLayers::from_layers(&[
+                                    0,
+                                    SCENE_LAYER,
+                                ]),
                             ));
                         }
                         // A sky strip: its tint tweens.
@@ -2670,7 +2897,10 @@ fn spawn_race_clouds(
                     continue;
                 };
                 let ppu = entry.pixels_per_unit.unwrap_or(26.0).max(1.0);
-                let size = images.get(&image).map_or(Vec2::splat(260.0), |i| i.size_f32()) / ppu;
+                let size = images
+                    .get(&image)
+                    .map_or(Vec2::splat(260.0), |i| i.size_f32())
+                    / ppu;
                 commands.spawn((
                     ScreenLayer {
                         anchor: Vec2::new(x, y),
@@ -2702,8 +2932,14 @@ fn fit_backgrounds(
     time: Res<Time>,
     view_size: Res<ViewSize>,
     images: Res<Assets<Image>>,
-    camera: Query<(&Projection, &Transform), (With<crate::visuals::MainCamera>, Without<Background>)>,
-    mut layers: Query<(&Sprite, &mut Transform), (With<Background>, Without<crate::visuals::MainCamera>)>,
+    camera: Query<
+        (&Projection, &Transform),
+        (With<crate::visuals::MainCamera>, Without<Background>),
+    >,
+    mut layers: Query<
+        (&Sprite, &mut Transform),
+        (With<Background>, Without<crate::visuals::MainCamera>),
+    >,
     mut sky: Query<
         &mut Sprite,
         (
@@ -2721,7 +2957,11 @@ fn fit_backgrounds(
             &Sprite,
             Option<&mut Falling>,
         ),
-        (Without<Background>, Without<crate::visuals::MainCamera>, Without<Sky>),
+        (
+            Without<Background>,
+            Without<crate::visuals::MainCamera>,
+            Without<Sky>,
+        ),
     >,
     mut bands: Query<
         (&WaterBand, &mut Sprite, &mut Transform),
@@ -3021,9 +3261,33 @@ fn dress_trial_floor(
 /// end scale and alpha at 0.8 s (House01WaterRippleAnim: out over 1 s from alpha 0.5, then
 /// gone until the 2.017 s loop comes round).
 const HOUSE_WATERLINES: [(&str, f32, f32, f32, f32, (f32, f32), f32); 3] = [
-    ("bg_race_waterline01", 0.98, -9.0, -9.0, -9.43, (1.3, 0.9), 0.329),
-    ("bg_race_waterline02", 3.637, -8.739, -8.79, -9.08, (1.5625, 0.6125), 0.355),
-    ("bg_race_waterline03", -0.903, -8.667, -8.72, -9.01, (1.15, 0.65), 0.372),
+    (
+        "bg_race_waterline01",
+        0.98,
+        -9.0,
+        -9.0,
+        -9.43,
+        (1.3, 0.9),
+        0.329,
+    ),
+    (
+        "bg_race_waterline02",
+        3.637,
+        -8.739,
+        -8.79,
+        -9.08,
+        (1.5625, 0.6125),
+        0.355,
+    ),
+    (
+        "bg_race_waterline03",
+        -0.903,
+        -8.667,
+        -8.72,
+        -9.01,
+        (1.15, 0.65),
+        0.372,
+    ),
 ];
 const HOUSE_WATER_TINT: (f32, f32, f32) = (0.7216, 0.7294, 0.9137);
 const HOUSE_RIPPLE_LOOP: f32 = 2.0167;
@@ -3035,16 +3299,31 @@ struct HouseRipple(usize, Vec3);
 fn spawn_house_water(parent: &mut ChildSpawnerCommands, art: &Art, reflection: &str, c: f32) {
     let top = c * 0.5;
     if let Some((sprite, anchor, transform)) = art_sprite(art, reflection, c) {
-        parent.spawn((sprite, anchor, transform.with_translation(Vec3::new(0.18 * c, top - 9.72 * c, -0.1))));
+        parent.spawn((
+            sprite,
+            anchor,
+            transform.with_translation(Vec3::new(0.18 * c, top - 9.72 * c, -0.1)),
+        ));
     }
     let (r, g, b) = HOUSE_WATER_TINT;
     for (i, &(name, x, y, ..)) in HOUSE_WATERLINES.iter().enumerate() {
-        let Some((mut sprite, anchor, transform)) = art_sprite(art, name, c) else { continue };
+        let Some((mut sprite, anchor, transform)) = art_sprite(art, name, c) else {
+            continue;
+        };
         sprite.color = Color::srgb(r, g, b);
-        parent.spawn((sprite.clone(), anchor, transform.with_translation(Vec3::new(x * c, top + y * c, 0.1))));
+        parent.spawn((
+            sprite.clone(),
+            anchor,
+            transform.with_translation(Vec3::new(x * c, top + y * c, 0.1)),
+        ));
         sprite.color = Color::srgba(r, g, b, 0.0);
         let scale = transform.scale;
-        parent.spawn((sprite, anchor, transform.with_translation(Vec3::new(x * c, top + y * c, 0.11)), HouseRipple(i, scale)));
+        parent.spawn((
+            sprite,
+            anchor,
+            transform.with_translation(Vec3::new(x * c, top + y * c, 0.11)),
+            HouseRipple(i, scale),
+        ));
     }
 }
 
@@ -3163,7 +3442,10 @@ fn dress_platforms(
             // tiles drawn darker and their grids out of step.
             let first = tower_index.get(platform.tower).is_ok_and(|t| t.index == 0);
             let race_span = if first {
-                (config.cells(config.lanes.screen_width), -placed.translation.x)
+                (
+                    config.cells(config.lanes.screen_width),
+                    -placed.translation.x,
+                )
             } else {
                 (0.0, 0.0)
             };
@@ -3219,7 +3501,10 @@ fn dress_platforms(
                     name
                 };
                 let (off_h, on_h) = config.puzzle.laser_heights;
-                if battle_laser && let Some(bright) = art_strip_tall(&art, name, c, line_width, config.cells(on_h), Vec3::ZERO) {
+                if battle_laser
+                    && let Some(bright) =
+                        art_strip_tall(&art, name, c, line_width, config.cells(on_h), Vec3::ZERO)
+                {
                     line.with_children(|line| {
                         line.spawn((
                             LaserSweep {
@@ -3235,14 +3520,28 @@ fn dress_platforms(
                     });
                 }
                 let rest_strip = if battle_laser {
-                    art_strip_tall(&art, rest, c, line_width, config.cells(off_h), Vec3::X * line_x)
-                        .map(|strip| line.with_child((strip, LaserRest)).id())
+                    art_strip_tall(
+                        &art,
+                        rest,
+                        c,
+                        line_width,
+                        config.cells(off_h),
+                        Vec3::X * line_x,
+                    )
+                    .map(|strip| line.with_child((strip, LaserRest)).id())
                 } else if other_laser {
                     Some(line.id())
                 } else if trial_laser && name == "laser" {
                     // A Puzzle trial's laser is on all the time (PuzzleSinglePlayerLaserLayer).
-                    art_strip_tall(&art, rest, c, line_width, config.cells(config.puzzle.trial_laser_height), Vec3::X * line_x)
-                        .map(|strip| line.with_child(strip).id())
+                    art_strip_tall(
+                        &art,
+                        rest,
+                        c,
+                        line_width,
+                        config.cells(config.puzzle.trial_laser_height),
+                        Vec3::X * line_x,
+                    )
+                    .map(|strip| line.with_child(strip).id())
                 } else if name == "finish_line" {
                     // FinishFlag: tiles 1.2 cells apart at 0.7 alpha, each one bobbing on the
                     // Custom/FinishLine wave (`wave_finish_tiles`).
@@ -3253,17 +3552,21 @@ fn dress_platforms(
                         let x = line_x - line_width * 0.5 + step * (i as f32 + 0.5);
                         if let Some((mut sprite, anchor, transform)) = art_sprite(&art, rest, c) {
                             sprite.color = Color::WHITE.with_alpha(0.7);
-                            any = Some(line.with_child((
-                                sprite,
-                                anchor,
-                                transform.with_translation(Vec3::new(x, 0.0, 0.0)),
-                                FinishTile,
-                            )).id());
+                            any = Some(
+                                line.with_child((
+                                    sprite,
+                                    anchor,
+                                    transform.with_translation(Vec3::new(x, 0.0, 0.0)),
+                                    FinishTile,
+                                ))
+                                .id(),
+                            );
                         }
                     }
                     any
                 } else {
-                    art_strip(&art, rest, c, line_width, Vec3::X * line_x).map(|strip| line.with_child(strip).id())
+                    art_strip(&art, rest, c, line_width, Vec3::X * line_x)
+                        .map(|strip| line.with_child(strip).id())
                 };
                 if rest_strip.is_none() && !other_laser {
                     line.with_child((
@@ -3300,24 +3603,36 @@ fn dress_platforms(
                 // the ball): the pink top 5.2 under it, six column tiles from 9.08 down every
                 // 3.2, each picture at its own size; and at the view's bottom the
                 // PUZZLE_LASER_PILAR base of grassy floor columns and two cacti (`PillarBase`).
-                if name == "laser"
-                    && config.trial.is_some()
-                    && art.image("fx_laserball").is_some()
+                if name == "laser" && config.trial.is_some() && art.image("fx_laserball").is_some()
                 {
                     let x = ball_x;
-                    let piece = |key: &str, at: Vec2, z: f32, flip: bool, l: &mut EntityCommands| {
-                        if let Some((sprite, anchor, mut transform)) = art_sprite(&art, key, c) {
-                            transform.translation = Vec3::new(x + at.x * c, at.y * c, z);
-                            if flip {
-                                transform.scale.x = -transform.scale.x;
+                    let piece =
+                        |key: &str, at: Vec2, z: f32, flip: bool, l: &mut EntityCommands| {
+                            if let Some((sprite, anchor, mut transform)) = art_sprite(&art, key, c)
+                            {
+                                transform.translation = Vec3::new(x + at.x * c, at.y * c, z);
+                                if flip {
+                                    transform.scale.x = -transform.scale.x;
+                                }
+                                l.with_child((sprite, anchor, transform));
                             }
-                            l.with_child((sprite, anchor, transform));
-                        }
-                    };
+                        };
                     for y in [-9.08, -12.28, -15.48, -18.66, -21.86, -25.06] {
-                        piece("fx_laser_pillar_tile", Vec2::new(0.0, y), -0.2, false, &mut line);
+                        piece(
+                            "fx_laser_pillar_tile",
+                            Vec2::new(0.0, y),
+                            -0.2,
+                            false,
+                            &mut line,
+                        );
                     }
-                    piece("fx_laser_pillar_top", Vec2::new(0.0, -5.2), -0.1, false, &mut line);
+                    piece(
+                        "fx_laser_pillar_top",
+                        Vec2::new(0.0, -5.2),
+                        -0.1,
+                        false,
+                        &mut line,
+                    );
                     piece("fx_laserball", Vec2::ZERO, 0.6, false, &mut line);
                     let mut parts = Vec::new();
                     for (key, at, z, flip) in [
@@ -3338,7 +3653,11 @@ fn dress_platforms(
                     }
                     let base = line
                         .commands()
-                        .spawn((PillarBase, Transform::from_xyz(x, 0.0, -0.3), Visibility::default()))
+                        .spawn((
+                            PillarBase,
+                            Transform::from_xyz(x, 0.0, -0.3),
+                            Visibility::default(),
+                        ))
                         .with_children(|b| {
                             for part in parts {
                                 b.spawn(part);
@@ -3423,7 +3742,12 @@ fn dress_platforms(
                     let entry = art.entries.get(name)?;
                     let size = images.get(&image)?.size_f32();
                     let (px, py) = entry.pivot.unwrap_or((0.5, 0.5));
-                    Some((image, size, Vec2::new(px - 0.5, py - 0.5), c / entry.pixels_per_unit.unwrap_or(26.0)))
+                    Some((
+                        image,
+                        size,
+                        Vec2::new(px - 0.5, py - 0.5),
+                        c / entry.pixels_per_unit.unwrap_or(26.0),
+                    ))
                 };
                 if game.mode == ModeKind::Endless
                     && let (Some(pole), Some(flag), Some(meshes), Some(flags)) = (
@@ -3445,7 +3769,10 @@ fn dress_platforms(
                         let (at, turn) = if side < 0.0 {
                             (Vec2::new(scene.flag_at.0, scene.flag_at.1), 0.0)
                         } else {
-                            (Vec2::new(scene.flag_right_x, scene.flag_at.1), std::f32::consts::PI)
+                            (
+                                Vec2::new(scene.flag_right_x, scene.flag_at.1),
+                                std::f32::consts::PI,
+                            )
                         };
                         line.with_children(|line| {
                             line.spawn((
@@ -3468,7 +3795,9 @@ fn dress_platforms(
                                 .with_child((
                                     Mesh2d(mesh),
                                     MeshMaterial2d(material),
-                                    Transform::from_translation((-flag_anchor * flag_size).extend(0.0)),
+                                    Transform::from_translation(
+                                        (-flag_anchor * flag_size).extend(0.0),
+                                    ),
                                 ));
                             });
                         });
@@ -3517,7 +3846,10 @@ fn update_drop_guide(
     grab: Option<Res<crate::post::GrabTarget>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut materials: Option<ResMut<Assets<crate::post::GuideOverlay>>>,
-    camera: Query<(&Transform, &Projection), (With<crate::visuals::MainCamera>, Without<DropGuide>)>,
+    camera: Query<
+        (&Transform, &Projection),
+        (With<crate::visuals::MainCamera>, Without<DropGuide>),
+    >,
     towers: Query<(Entity, &TowerState, &Tower)>,
     bricks: Query<(&ActiveBrick, &Brick, &Transform), Without<DropGuide>>,
     mut guides: Query<(
@@ -3550,7 +3882,11 @@ fn update_drop_guide(
         if guides.iter().any(|(_, g, ..)| g.tower == tower) {
             continue;
         }
-        let place = (DropGuide { tower }, Transform::from_xyz(0.0, 0.0, -2.0), Visibility::Hidden);
+        let place = (
+            DropGuide { tower },
+            Transform::from_xyz(0.0, 0.0, -2.0),
+            Visibility::Hidden,
+        );
         match (meshes.as_mut(), materials.as_mut(), grab.as_ref()) {
             (Some(meshes), Some(materials), Some(grab)) => {
                 commands.spawn((
@@ -3580,8 +3916,16 @@ fn update_drop_guide(
     let bottom = (eye.translation.y - half).max(-config.cells(below));
     // The guide is in its tower's world, so its lane's camera cuts it at the lane's edges
     // (`brick_material`'s clip); a lone tower's camera is the whole screen.
-    let lanes = if game.mode.rules() == ModeKind::Puzzle { 1 } else { towers.iter().count() };
-    let lane_half = if lanes > 1 { config.cells(config.lanes.width(lanes)) * 0.5 } else { f32::MAX };
+    let lanes = if game.mode.rules() == ModeKind::Puzzle {
+        1
+    } else {
+        towers.iter().count()
+    };
+    let lane_half = if lanes > 1 {
+        config.cells(config.lanes.width(lanes)) * 0.5
+    } else {
+        f32::MAX
+    };
     for (_, guide, mut transform, mut visibility, material) in &mut guides {
         let origin = towers.get(guide.tower).map_or(0.0, |(_, _, t)| t.origin_x);
         let active = towers
@@ -3672,7 +4016,8 @@ fn frame_towers(
         let share = if config.trial.is_some() {
             2.0 / 3.0
         } else {
-            1.0 / lanes.max(1) as f32
+            // Each tower's camera owns its fixed screen rectangle (GamePositionHelper).
+            crate::lanes::lane_rect(&config.lanes, 0, lanes).1
         };
         let aspect = window.x * share / window.y.max(1.0);
         let height = ((widest + 2.0).max(10.0) / aspect.max(0.01)).max(40.0);
@@ -3863,9 +4208,19 @@ fn show_trial_clock(
     view: Res<ViewSize>,
     camera: Query<(&Camera, &GlobalTransform, &Projection), With<MainCamera>>,
     mut sprites: Query<(&TrialClock, &mut Sprite, &mut Transform)>,
-    mut anchors: Query<(&TrialClock, &mut Transform, &GlobalTransform), (With<ClockAnchor>, Without<Sprite>)>,
+    mut anchors: Query<
+        (&TrialClock, &mut Transform, &GlobalTransform),
+        (With<ClockAnchor>, Without<Sprite>),
+    >,
     mut labels: Query<
-        (Entity, &mut Text, &mut TextFont, &mut crate::letters::TextLook, &mut Node, &ComputedNode),
+        (
+            Entity,
+            &mut Text,
+            &mut TextFont,
+            &mut crate::letters::TextLook,
+            &mut Node,
+            &ComputedNode,
+        ),
         With<ClockLabel>,
     >,
 ) {
@@ -3996,8 +4351,13 @@ fn collect_lines(
     }
     let c = config.cell_size;
     for (entity, tower, state) in &towers {
-        let was = seen.get(&entity).copied().unwrap_or((state.lines_reached, 0.0));
-        let line_y = state.spell_line.map_or(was.1, |h| config.cells(h) + c * 0.5);
+        let was = seen
+            .get(&entity)
+            .copied()
+            .unwrap_or((state.lines_reached, 0.0));
+        let line_y = state
+            .spell_line
+            .map_or(was.1, |h| config.cells(h) + c * 0.5);
         seen.insert(entity, (state.lines_reached, line_y));
         if state.lines_reached != was.0 + 1 {
             continue;
@@ -4015,21 +4375,39 @@ fn collect_lines(
         };
         let one = met + Vec2::new(if second.is_some() { -2.0 } else { 0.0 }, 5.0) * c;
         let two = met + Vec2::new(2.0, 5.0) * c;
-        for ((spell, dark), at) in [first.map(|s| (s, one)), second.map(|s| (s, two))].into_iter().flatten() {
-            let back = if dark { "spell_cloud" } else { "spell_slot_light" };
+        for ((spell, dark), at) in [first.map(|s| (s, one)), second.map(|s| (s, two))]
+            .into_iter()
+            .flatten()
+        {
+            let back = if dark {
+                "spell_cloud"
+            } else {
+                "spell_slot_light"
+            };
             let size = config.cells(config.casts.cloud_size);
             let mut icon = commands.spawn((
-                LineIcon { tower: entity, dark, age: 0.0, from: at },
+                LineIcon {
+                    tower: entity,
+                    dark,
+                    age: 0.0,
+                    from: at,
+                },
                 Transform::from_translation(at.extend(470.0)).with_scale(Vec3::ZERO),
                 Visibility::default(),
             ));
             if let Some(image) = art.image(back) {
                 icon.with_child((
-                    Sprite { image, custom_size: Some(Vec2::splat(size)), ..default() },
+                    Sprite {
+                        image,
+                        custom_size: Some(Vec2::splat(size)),
+                        ..default()
+                    },
                     Transform::default(),
                 ));
             }
-            if let Some((sprite, anchor, transform)) = art_sprite(&art, &format!("spell_icon_{spell:?}"), c) {
+            if let Some((sprite, anchor, transform)) =
+                art_sprite(&art, &format!("spell_icon_{spell:?}"), c)
+            {
                 icon.with_child((sprite, anchor, transform.with_translation(Vec3::Z * 0.1)));
             }
         }
@@ -4040,7 +4418,11 @@ fn collect_lines(
             let Ok((sprite, at)) = diamonds.get(child) else {
                 continue;
             };
-            let target = if i % 2 == 0 && second.is_some() { two } else { one };
+            let target = if i % 2 == 0 && second.is_some() {
+                two
+            } else {
+                one
+            };
             let angle = crate::particles::roll(&mut seed) * std::f32::consts::TAU;
             commands.spawn((
                 LinePiece {
@@ -4051,10 +4433,18 @@ fn collect_lines(
                     speed: (30.0 + 10.0 * crate::particles::roll(&mut seed)) * c,
                     way: Vec2::from_angle(angle),
                     pull: 0.0,
-                    spin: if crate::particles::roll(&mut seed) < 0.5 { 1.0 } else { -1.0 },
+                    spin: if crate::particles::roll(&mut seed) < 0.5 {
+                        1.0
+                    } else {
+                        -1.0
+                    },
                     hue: i as f32,
                 },
-                Sprite { image: sprite.image.clone(), custom_size: sprite.custom_size, ..default() },
+                Sprite {
+                    image: sprite.image.clone(),
+                    custom_size: sprite.custom_size,
+                    ..default()
+                },
                 Transform::from_translation(at.translation().truncate().extend(469.0)),
             ));
         }
@@ -4068,7 +4458,12 @@ fn fly_line_pieces(
     mut pieces: Query<(Entity, &mut LinePiece, &mut Transform, &mut Sprite)>,
 ) {
     let dt = time.delta_secs();
-    let colors: Vec<Color> = config.hud.line_colors.iter().map(|&[r, g, b]| Color::srgb_u8(r, g, b)).collect();
+    let colors: Vec<Color> = config
+        .hud
+        .line_colors
+        .iter()
+        .map(|&[r, g, b]| Color::srgb_u8(r, g, b))
+        .collect();
     for (entity, mut piece, mut transform, mut sprite) in &mut pieces {
         transform.rotate_z(piece.spin * 1080f32.to_radians() * dt);
         piece.hue += 50.0 * dt;
@@ -4097,7 +4492,11 @@ fn fly_line_pieces(
             - std::f32::consts::PI;
         let step = Vec2::from_angle(from + turn * piece.pull) * piece.speed * dt;
         piece.pull = 1.0 - (1.0 - piece.pull) * 0.7f32.powf(dt * 60.0);
-        let step = if step.length_squared() > gap.length_squared() { gap } else { step };
+        let step = if step.length_squared() > gap.length_squared() {
+            gap
+        } else {
+            step
+        };
         transform.translation += step.extend(0.0);
     }
 }
@@ -4115,7 +4514,8 @@ fn fly_line_icons(
             continue;
         }
         if t < 1.0 {
-            transform.scale = Vec3::splat(1.5 * EaseFunction::BackOut.sample_clamped((t - 0.4) / 0.3));
+            transform.scale =
+                Vec3::splat(1.5 * EaseFunction::BackOut.sample_clamped((t - 0.4) / 0.3));
             continue;
         }
         let k = (t - 1.0) / 0.3;
@@ -4141,8 +4541,14 @@ fn update_lines(
     art: Res<Art>,
     mut lines: Query<(&SpellLine, &Children, &mut Transform, &mut Visibility), Without<FinishLine>>,
     mut finish: Query<(&FinishLine, &ChildOf, &mut Transform, &mut Visibility), Without<SpellLine>>,
-    raised: Query<(&crate::gameplay::Raised, &Transform), (Without<FinishLine>, Without<SpellLine>)>,
-    mut diamonds: Query<(&mut Sprite, &Transform), (With<SpellDiamond>, Without<SpellLine>, Without<FinishLine>)>,
+    raised: Query<
+        (&crate::gameplay::Raised, &Transform),
+        (Without<FinishLine>, Without<SpellLine>),
+    >,
+    mut diamonds: Query<
+        (&mut Sprite, &Transform),
+        (With<SpellDiamond>, Without<SpellLine>, Without<FinishLine>),
+    >,
     time: Res<Time>,
 ) {
     let c = config.cell_size;
@@ -4225,7 +4631,10 @@ fn update_mist(
     towers: Query<&TowerState>,
     platforms: Query<(Entity, &Platform, Option<&Children>)>,
     mut banks: Query<(Entity, &mut MistBank, &Transform)>,
-    mut puffs: Query<(Entity, &ChildOf, &mut MistPuff, &mut Sprite, &mut Transform), Without<MistBank>>,
+    mut puffs: Query<
+        (Entity, &ChildOf, &mut MistPuff, &mut Sprite, &mut Transform),
+        Without<MistBank>,
+    >,
     mut last: Local<std::collections::HashMap<Entity, f32>>,
     mut seed: Local<u32>,
 ) {
@@ -4248,9 +4657,14 @@ fn update_mist(
             .filter_map(|&c| banks.get(c).ok())
             .map(|(_, _, t)| t.translation.y)
             .fold(f32::MIN, f32::max);
-        let y = (config.cells(state.height) + config.cell_size * 0.5).max(highest + config.cells(MIST_HEIGHT));
+        let y = (config.cells(state.height) + config.cell_size * 0.5)
+            .max(highest + config.cells(MIST_HEIGHT));
         commands.spawn((
-            MistBank { age: 0.0, fade: 1.0, due: 0.0 },
+            MistBank {
+                age: 0.0,
+                fade: 1.0,
+                due: 0.0,
+            },
             Transform::from_xyz(0.0, y, 5.0),
             Visibility::default(),
             ChildOf(platform),
@@ -4274,7 +4688,11 @@ fn update_mist(
             state.due += 1.0 / MIST_RATE;
             let (a, b) = (MIST_COLOURS[0], MIST_COLOURS[1]);
             let t = roll();
-            let colour = Color::srgb(a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t, a.2 + (b.2 - a.2) * t);
+            let colour = Color::srgb(
+                a.0 + (b.0 - a.0) * t,
+                a.1 + (b.1 - a.1) * t,
+                a.2 + (b.2 - a.2) * t,
+            );
             let dy = (roll() - 0.5) * MIST_HEIGHT;
             commands.spawn((
                 MistPuff { age: 0.0, colour },
@@ -4307,7 +4725,9 @@ fn update_mist(
         let alpha = MIST_ALPHA
             .windows(2)
             .find(|k| life <= k[1].0)
-            .map_or(0.0, |k| k[0].1 + (k[1].1 - k[0].1) * (life - k[0].0) / (k[1].0 - k[0].0));
+            .map_or(0.0, |k| {
+                k[0].1 + (k[1].1 - k[0].1) * (life - k[0].0) / (k[1].0 - k[0].0)
+            });
         sprite.color = state.colour.with_alpha(alpha * bank.fade);
     }
 }

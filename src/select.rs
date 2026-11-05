@@ -83,7 +83,6 @@ impl ModePick {
         }
     }
 
-
     /// Its name's place across the tile and face colour (ModeItem01-04 and their
     /// EnzoBlack<Mode> materials; Random is milky white).
     fn label(self) -> (f32, Option<Color>) {
@@ -416,7 +415,10 @@ pub(crate) fn shop_hint(page: &mut ChildSpawnerCommands, art: Option<&Art>) {
         column_gap: Val::Vh(12.0 / SCREEN.1 * 100.0),
         ..place(
             SHOP_HINT,
-            (-SCREEN.0 / 2.0 + 30.0 + SHOP_HINT.0 / 2.0, -SCREEN.1 / 2.0 + 50.0 + SHOP_HINT.1 / 2.0),
+            (
+                -SCREEN.0 / 2.0 + 30.0 + SHOP_HINT.0 / 2.0,
+                -SCREEN.1 / 2.0 + 50.0 + SHOP_HINT.1 / 2.0,
+            ),
         )
     })
     .with_children(|row| {
@@ -512,7 +514,12 @@ pub(crate) fn spawn_page(commands: &mut Commands, art: Option<&Art>, title: &str
 
 /// [`spawn_page`] with the header raised by `lift` px (OnlinePlayerSelect moves it up 55
 /// and hides its title).
-pub(crate) fn spawn_page_lifted(commands: &mut Commands, art: Option<&Art>, title: &str, lift: f32) -> Entity {
+pub(crate) fn spawn_page_lifted(
+    commands: &mut Commands,
+    art: Option<&Art>,
+    title: &str,
+    lift: f32,
+) -> Entity {
     let mut page = commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -526,17 +533,24 @@ pub(crate) fn spawn_page_lifted(commands: &mut Commands, art: Option<&Art>, titl
     page.with_children(|page| {
         let back = (HEADER.0, HEADER.1 + HEADER_BACK_EXTRA);
         let mut bar = page.spawn((
-            place(back, (0.0, (SCREEN.1 - HEADER.1 + HEADER_BACK_EXTRA) / 2.0 + lift)),
+            place(
+                back,
+                (0.0, (SCREEN.1 - HEADER.1 + HEADER_BACK_EXTRA) / 2.0 + lift),
+            ),
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.45)),
         ));
         if let Some(art) = art.and_then(|a| a.image("menu_header")) {
             bar.insert((sliced(art, HEADER_SLICE), BackgroundColor(Color::NONE)));
         }
-        page.spawn(place(HEADER, (0.0, (SCREEN.1 - HEADER.1) / 2.0))).with_children(|h| {
-            // 60 px, as the scenes' header titles (ModeSelect, PlayerSelect).
-            // The scenes' header titles space -1.
-            h.spawn((label_with(60.0 / 10.8, title, crate::letters::TextLook::TITLE), crate::letters::LetterSpacing(-1.0)));
-        });
+        page.spawn(place(HEADER, (0.0, (SCREEN.1 - HEADER.1) / 2.0)))
+            .with_children(|h| {
+                // 60 px, as the scenes' header titles (ModeSelect, PlayerSelect).
+                // The scenes' header titles space -1.
+                h.spawn((
+                    label_with(60.0 / 10.8, title, crate::letters::TextLook::TITLE),
+                    crate::letters::LetterSpacing(-1.0),
+                ));
+            });
     });
     page.id()
 }
@@ -587,7 +601,13 @@ pub(crate) fn spawn_select_screens(
             .with_children(|clip| {
                 for layer in 0..5 {
                     if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
-                        turning_rays(clip, &mut turning, rays, SEAT_RAYS_CLIP, Part::SeatRays(seat, layer));
+                        turning_rays(
+                            clip,
+                            &mut turning,
+                            rays,
+                            SEAT_RAYS_CLIP,
+                            Part::SeatRays(seat, layer),
+                        );
                     }
                 }
             });
@@ -628,7 +648,11 @@ pub(crate) fn spawn_select_screens(
                     // round button was stretched to the space bar's box).
                     crate::ui_material::KeepShape,
                 ));
-                p.spawn((label_with(3.6, "", crate::letters::TextLook::TITLE), JOIN_FIT, Part::SeatJoin(seat)));
+                p.spawn((
+                    label_with(3.6, "", crate::letters::TextLook::TITLE),
+                    JOIN_FIT,
+                    Part::SeatJoin(seat),
+                ));
             });
             if let Some(arrow) = image("menu_arrow_small") {
                 for (row, y) in [(0, SEAT_Y), (1, PACK_PANEL.1)] {
@@ -662,7 +686,14 @@ pub(crate) fn spawn_select_screens(
                 // Only the panel a player is choosing on has corners.
                 // They stand 20 px out from the panel's edges (Max's Select Players clip).
                 let out = |(w, h): (f32, f32)| (w + 2.0 * FOCUS_OUT, h + 2.0 * FOCUS_OUT);
-                corners(page, &corner, out(SEAT_PANEL), at, CORNER_SMALL, Part::SeatFocus(seat, 0));
+                corners(
+                    page,
+                    &corner,
+                    out(SEAT_PANEL),
+                    at,
+                    CORNER_SMALL,
+                    Part::SeatFocus(seat, 0),
+                );
                 corners(
                     page,
                     &corner,
@@ -685,7 +716,10 @@ pub(crate) fn spawn_select_screens(
             .with_children(|clip| {
                 if let Some(back) = image("menu_player_select_background_selected") {
                     // The 332 x 283 seat panel, centred, so only its middle shows.
-                    let share = (SEAT_PANEL.0 / PACK_RAYS_CLIP.0, SEAT_PANEL.1 / PACK_RAYS_CLIP.1);
+                    let share = (
+                        SEAT_PANEL.0 / PACK_RAYS_CLIP.0,
+                        SEAT_PANEL.1 / PACK_RAYS_CLIP.1,
+                    );
                     clip.spawn((
                         sliced(back, [PANEL_SLICE; 4]),
                         Node {
@@ -700,7 +734,13 @@ pub(crate) fn spawn_select_screens(
                 }
                 for layer in 0..5 {
                     if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
-                        turning_rays(clip, &mut turning, rays, PACK_RAYS_CLIP, Part::PackRay(seat, layer));
+                        turning_rays(
+                            clip,
+                            &mut turning,
+                            rays,
+                            PACK_RAYS_CLIP,
+                            Part::PackRay(seat, layer),
+                        );
                     }
                 }
             });
@@ -744,7 +784,10 @@ pub(crate) fn spawn_select_screens(
             page.spawn((place((CUP_NAME_LINE, 100.0), (COLUMN_X[2], y)), ZIndex(1)))
                 .with_children(|n| {
                     // EnzoBlackMilkyWhiteOutline60 and EnzoBlackMilkyWhite26 (CupItem).
-                    n.spawn((label_with(size / 10.8, "", crate::letters::TextLook::TITLE), part));
+                    n.spawn((
+                        label_with(size / 10.8, "", crate::letters::TextLook::TITLE),
+                        part,
+                    ));
                 });
         }
         for (column, &x) in COLUMN_X.iter().enumerate() {
@@ -762,14 +805,26 @@ pub(crate) fn spawn_select_screens(
                     let at = (0.0, -(side as f32) * ITEM_PITCH - wy);
                     let in_window = |size: (f32, f32), at: (f32, f32)| Node {
                         position_type: PositionType::Absolute,
-                        left: Val::Percent((window.0 / 2.0 + at.0 - size.0 / 2.0) / window.0 * 100.0),
-                        top: Val::Percent((window.1 / 2.0 - at.1 - size.1 / 2.0) / window.1 * 100.0),
+                        left: Val::Percent(
+                            (window.0 / 2.0 + at.0 - size.0 / 2.0) / window.0 * 100.0,
+                        ),
+                        top: Val::Percent(
+                            (window.1 / 2.0 - at.1 - size.1 / 2.0) / window.1 * 100.0,
+                        ),
                         width: Val::Percent(size.0 / window.0 * 100.0),
                         height: Val::Percent(size.1 / window.1 * 100.0),
                         ..default()
                     };
-                    w.spawn((ImageNode::default(), in_window(ITEM_CARD, at), Part::NeighbourBack(column, side)));
-                    w.spawn((ImageNode::default(), in_window(ITEM_CARD, at), Part::NeighbourPicture(column, side)));
+                    w.spawn((
+                        ImageNode::default(),
+                        in_window(ITEM_CARD, at),
+                        Part::NeighbourBack(column, side),
+                    ));
+                    w.spawn((
+                        ImageNode::default(),
+                        in_window(ITEM_CARD, at),
+                        Part::NeighbourPicture(column, side),
+                    ));
                 }
             });
             // The name on the tile, 95 px under its middle, 60 px (DifficultyItem: milky
@@ -820,16 +875,20 @@ pub(crate) fn spawn_select_screens(
                         None => crate::letters::TextLook::TITLE,
                     };
                     page.spawn(place((400.0, 100.0), (x + dx, TILE_NAME_Y)))
-                    .with_children(|n| {
-                        // ModeItem names space -1, SURVIVAL -2.
-                        let spacing = if pick.name().eq_ignore_ascii_case("survival") { -2.0 } else { -1.0 };
-                        n.spawn((
-                            label_with(60.0 / 10.8, pick.name(), look),
-                            crate::letters::LetterSpacing(spacing),
-                            Visibility::Hidden,
-                            Part::ModeName(i),
-                        ));
-                    });
+                        .with_children(|n| {
+                            // ModeItem names space -1, SURVIVAL -2.
+                            let spacing = if pick.name().eq_ignore_ascii_case("survival") {
+                                -2.0
+                            } else {
+                                -1.0
+                            };
+                            n.spawn((
+                                label_with(60.0 / 10.8, pick.name(), look),
+                                crate::letters::LetterSpacing(spacing),
+                                Visibility::Hidden,
+                                Part::ModeName(i),
+                            ));
+                        });
                 }
             }
             for up in [true, false] {
@@ -1356,21 +1415,24 @@ pub(crate) fn show_select_screens(
     let difficulty = DifficultyPick::ALL[lobby.difficulty.min(DifficultyPick::ALL.len() - 1)];
     let t = time.elapsed_secs();
     // A turning layer's turn now.
-    let mut turn_layer = |layer: usize, transform: Option<Mut<UiTransform>>, picture: Option<&MaterialNode<crate::ui_material::TurningPicture>>| {
-        if let Some(&(degrees, seconds)) = config.menu.ray_turns.get(layer) {
-            let turn = Rot2::degrees(degrees * (t / seconds.max(0.01)).fract());
-            match (picture, turning.as_mut()) {
-                (Some(picture), Some(turning)) => {
-                    crate::ui_material::set_turn(turning, &picture.0, turn.as_radians())
-                }
-                _ => {
-                    if let Some(mut transform) = transform {
-                        transform.rotation = turn;
+    let mut turn_layer =
+        |layer: usize,
+         transform: Option<Mut<UiTransform>>,
+         picture: Option<&MaterialNode<crate::ui_material::TurningPicture>>| {
+            if let Some(&(degrees, seconds)) = config.menu.ray_turns.get(layer) {
+                let turn = Rot2::degrees(degrees * (t / seconds.max(0.01)).fract());
+                match (picture, turning.as_mut()) {
+                    (Some(picture), Some(turning)) => {
+                        crate::ui_material::set_turn(turning, &picture.0, turn.as_radians())
+                    }
+                    _ => {
+                        if let Some(mut transform) = transform {
+                            transform.rotation = turn;
+                        }
                     }
                 }
             }
-        }
-    };
+        };
     // Each device not yet seated offers a join prompt on an empty seat, pads first, then the
     // keyboard; the other empty seats ask for a controller (PlayerSlotComponent).
     let mut prompts: Vec<&'static str> = Vec::new();
@@ -1383,12 +1445,16 @@ pub(crate) fn show_select_screens(
         prompts.push("menu_key_space");
     }
     let join_glyph = |seat: usize| {
-        let empty_before = lobby.seats[..seat].iter().filter(|s| **s == Seat::Empty).count();
+        let empty_before = lobby.seats[..seat]
+            .iter()
+            .filter(|s| **s == Seat::Empty)
+            .count();
         prompts.get(empty_before).copied()
     };
     let seated = |seat: usize| lobby.seats[seat] != Seat::Empty;
     // The character is ready (orange, awake) once confirmed (CharacterScrollPanelItemRenderer).
-    let ready = |seat: usize| seated(seat) && (!lobby.seats[seat].human() || lobby.confirmed[seat][0]);
+    let ready =
+        |seat: usize| seated(seat) && (!lobby.seats[seat].human() || lobby.confirmed[seat][0]);
     // The row a seated person is choosing on, if any.
     let choosing = |seat: usize| {
         let row = lobby.skin_row[seat].min(1);
@@ -1396,7 +1462,11 @@ pub(crate) fn show_select_screens(
     };
     // Each column slides to its new item over 0.3 s, out-quad (ScrollPanelComponent): `slide`
     // is how far the items still are from their places, in items, signed by the direction.
-    let counts = [modes.len(), DifficultyPick::ALL.len(), CUP_PICTURES.len().min(config.cups.sizes.len() + 1)];
+    let counts = [
+        modes.len(),
+        DifficultyPick::ALL.len(),
+        CUP_PICTURES.len().min(config.cups.sizes.len() + 1),
+    ];
     let indexes = [lobby.mode, lobby.difficulty, cup_item];
     let mut slide = [0.0f32; 3];
     // The screen opens with every column at rest.
@@ -1409,7 +1479,11 @@ pub(crate) fn show_select_screens(
             *since = SCROLL_SECONDS;
         } else if *last != indexes[c] {
             let n = counts[c].max(1);
-            *dir = if indexes[c] == (*last + 1) % n { 1.0 } else { -1.0 };
+            *dir = if indexes[c] == (*last + 1) % n {
+                1.0
+            } else {
+                -1.0
+            };
             *last = indexes[c];
             *since = 0.0;
         } else {
@@ -1424,28 +1498,34 @@ pub(crate) fn show_select_screens(
     // (ModeSelectScrollPanelItemRenderer.SetVisibility: alpha 1 - 2 x the distance); the item
     // before, `dir` back, shows too while it leaves.
     let dirs: [f32; 3] = std::array::from_fn(|c| scroll[c].2);
-    let before = |c: usize, at: usize| (at as i32 - dirs[c] as i32).rem_euclid(counts[c].max(1) as i32) as usize;
-    let fade = |d: f32, transform: Option<Mut<UiTransform>>, color: Option<Mut<TextColor>>| -> bool {
-        let alpha = (1.0 - 2.0 * d.abs()).clamp(0.0, 1.0);
-        if let Some(mut transform) = transform {
-            let want = Val2::new(Val::Vh(0.0), Val::Vh(d * ITEM_PITCH / 10.8));
-            if transform.translation != want {
-                transform.translation = want;
-            }
-        }
-        if let Some(mut color) = color
-            && color.0.alpha() != alpha
-        {
-            color.0.set_alpha(alpha);
-        }
-        alpha > 0.0
+    let before = |c: usize, at: usize| {
+        (at as i32 - dirs[c] as i32).rem_euclid(counts[c].max(1) as i32) as usize
     };
+    let fade =
+        |d: f32, transform: Option<Mut<UiTransform>>, color: Option<Mut<TextColor>>| -> bool {
+            let alpha = (1.0 - 2.0 * d.abs()).clamp(0.0, 1.0);
+            if let Some(mut transform) = transform {
+                let want = Val2::new(Val::Vh(0.0), Val::Vh(d * ITEM_PITCH / 10.8));
+                if transform.translation != want {
+                    transform.translation = want;
+                }
+            }
+            if let Some(mut color) = color
+                && color.0.alpha() != alpha
+            {
+                color.0.set_alpha(alpha);
+            }
+            alpha > 0.0
+        };
     // A pack card pops when confirmed: 1.1 wide back to 1 over 0.6 s, out-elastic
     // (BrickPackScrollPanelItemRenderer.SetReady).
     for seat in 0..MAX_TOWERS {
-        pops[seat] = lobby.confirmed[seat][1].then(|| pops[seat].map_or(0.0, |t| t + time.delta_secs()));
+        pops[seat] =
+            lobby.confirmed[seat][1].then(|| pops[seat].map_or(0.0, |t| t + time.delta_secs()));
     }
-    for (part, mut v, mut node, image_node, transform, text, picture, font, spacing, color) in &mut parts {
+    for (part, mut v, mut node, image_node, transform, text, picture, font, spacing, color) in
+        &mut parts
+    {
         let want = match *part {
             Part::SeatIdle(seat) => !ready(seat),
             Part::SeatTaken(seat) => ready(seat),
@@ -1454,7 +1534,9 @@ pub(crate) fn show_select_screens(
                 turn_layer(layer, transform, picture);
                 ready(seat)
             }
-            Part::SeatArrow(seat, row, _) | Part::SeatFocus(seat, row) => choosing(seat) == Some(row),
+            Part::SeatArrow(seat, row, _) | Part::SeatFocus(seat, row) => {
+                choosing(seat) == Some(row)
+            }
             Part::SeatJoinGlyph(seat) => {
                 match (join_glyph(seat).and_then(|g| image(g)), image_node) {
                     (Some(handle), Some(mut img)) if lobby.seats[seat] == Seat::Empty => {
@@ -1463,11 +1545,12 @@ pub(crate) fn show_select_screens(
                         }
                         // The picture sits on the label's first (empty) line, which rises as
                         // the translated label takes more lines (the block stays centred).
-                        let (lines, line) = art
-                            .as_deref()
-                            .map_or((2, 0.0), |art| crate::letters::translated_lines(art, "\nTO JOIN", 3.6, &JOIN_FIT));
+                        let (lines, line) = art.as_deref().map_or((2, 0.0), |art| {
+                            crate::letters::translated_lines(art, "\nTO JOIN", 3.6, &JOIN_FIT)
+                        });
                         let y = JOIN_GLYPH_Y + lines.saturating_sub(2) as f32 * line * 10.8 / 2.0;
-                        let top = Val::Percent(50.0 - (y + JOIN_GLYPH.1 / 2.0) / SEAT_PANEL.1 * 100.0);
+                        let top =
+                            Val::Percent(50.0 - (y + JOIN_GLYPH.1 / 2.0) / SEAT_PANEL.1 * 100.0);
                         if node.top != top {
                             node.top = top;
                         }
@@ -1509,7 +1592,8 @@ pub(crate) fn show_select_screens(
                 };
 
                 if let Some(mut t) = transform {
-                    let pop = pops[seat].map_or(0.0, |t| 1.0 - crate::packs::out_elastic((t / 0.6).min(1.0)));
+                    let pop = pops[seat]
+                        .map_or(0.0, |t| 1.0 - crate::packs::out_elastic((t / 0.6).min(1.0)));
                     let want = Vec2::new(1.0 + 0.1 * pop, 1.0);
                     if t.scale != want {
                         t.scale = want;
@@ -1565,11 +1649,13 @@ pub(crate) fn show_select_screens(
             Part::CupNamePrev | Part::CupTargetPrev if slide[2] == 0.0 => false,
             Part::CupName | Part::CupTarget | Part::CupNamePrev | Part::CupTargetPrev => {
                 let leaving = matches!(*part, Part::CupNamePrev | Part::CupTargetPrev);
-                let item = if leaving { before(2, cup_item) } else { cup_item };
+                let item = if leaving {
+                    before(2, cup_item)
+                } else {
+                    cup_item
+                };
                 let is_name = matches!(*part, Part::CupName | Part::CupNamePrev);
-                let size = item
-                    .checked_sub(1)
-                    .and_then(|i| config.cups.sizes.get(i));
+                let size = item.checked_sub(1).and_then(|i| config.cups.sizes.get(i));
                 let words = match (is_name, size) {
                     (true, Some(size)) => size.name.to_uppercase(),
                     (true, None) => "SINGLE MATCH".to_string(),
@@ -1577,9 +1663,7 @@ pub(crate) fn show_select_screens(
                     (false, None) => String::new(),
                 };
                 // The name auto-sizes (TMP, 60 down to 18) to fit its 400 px line.
-                if is_name
-                    && let (Some(art), Some(mut font)) = (art.as_ref(), font)
-                {
+                if is_name && let (Some(art), Some(mut font)) = (art.as_ref(), font) {
                     let wide = crate::letters::translated_width(art, &words, CUP_NAME_SIZE);
                     let size = if wide > CUP_NAME_LINE {
                         (CUP_NAME_SIZE * CUP_NAME_LINE / wide).max(18.0)
@@ -1596,28 +1680,41 @@ pub(crate) fn show_select_screens(
                 {
                     text.0 = words;
                 }
-                fade(slide[2] - if leaving { dirs[2] } else { 0.0 }, transform, color)
+                fade(
+                    slide[2] - if leaving { dirs[2] } else { 0.0 },
+                    transform,
+                    color,
+                )
             }
             Part::ColumnName(2) => false,
             Part::ColumnNamePrev if slide[1] == 0.0 => false,
             Part::ColumnName(_) | Part::ColumnNamePrev => {
                 let leaving = *part == Part::ColumnNamePrev;
                 let shown = if leaving {
-                    DifficultyPick::ALL[before(1, lobby.difficulty).min(DifficultyPick::ALL.len() - 1)]
+                    DifficultyPick::ALL
+                        [before(1, lobby.difficulty).min(DifficultyPick::ALL.len() - 1)]
                 } else {
                     difficulty
                 };
                 let name = shown.name().to_uppercase();
                 // DifficultyItem03 (SPECIAL) spaces -2, the others -1.
                 if let Some(mut spacing) = spacing {
-                    spacing.set_if_neq(crate::letters::LetterSpacing(if name == "SPECIAL" { -2.0 } else { -1.0 }));
+                    spacing.set_if_neq(crate::letters::LetterSpacing(if name == "SPECIAL" {
+                        -2.0
+                    } else {
+                        -1.0
+                    }));
                 }
                 if let Some(mut text) = text
                     && text.0 != name
                 {
                     text.0 = name;
                 }
-                fade(slide[1] - if leaving { dirs[1] } else { 0.0 }, transform, color)
+                fade(
+                    slide[1] - if leaving { dirs[1] } else { 0.0 },
+                    transform,
+                    color,
+                )
             }
             Part::MagicSlot(_) | Part::MagicIcon(_) if !named(1) => false,
             Part::MagicSlot(slot) | Part::MagicIcon(slot) => {
@@ -1628,7 +1725,11 @@ pub(crate) fn show_select_screens(
                 };
                 let name = match (difficulty, *part) {
                     (DifficultyPick::Random, _) => None,
-                    (_, Part::MagicSlot(_)) => Some(if slot == 0 { "spell_slot_light" } else { "spell_slot_dark" }),
+                    (_, Part::MagicSlot(_)) => Some(if slot == 0 {
+                        "spell_slot_light"
+                    } else {
+                        "spell_slot_dark"
+                    }),
                     (DifficultyPick::Set(d), _) => crate::explain::slots(kind, d)[slot],
                 };
                 match (name.and_then(|n| image(n)), image_node) {
@@ -1676,16 +1777,30 @@ pub(crate) fn show_select_screens(
                         DIFFICULTY_BACK.1,
                     ),
                     (1, false) => DifficultyPick::ALL[k].picture(),
-                    (_, true) => ("menu_difficulty_background", DIFFICULTY_BACK.0, DIFFICULTY_BACK.1),
+                    (_, true) => (
+                        "menu_difficulty_background",
+                        DIFFICULTY_BACK.0,
+                        DIFFICULTY_BACK.1,
+                    ),
                     (_, false) => CUP_PICTURES[k],
                 };
                 let (window, wy) = WINDOW;
-                let at = (offset.0, offset.1 - (side as f32 + slide[column]) * ITEM_PITCH - wy);
+                let at = (
+                    offset.0,
+                    offset.1 - (side as f32 + slide[column]) * ITEM_PITCH - wy,
+                );
                 node.left = Val::Percent((window.0 / 2.0 + at.0 - size.0 / 2.0) / window.0 * 100.0);
                 node.top = Val::Percent((window.1 / 2.0 - at.1 - size.1 / 2.0) / window.1 * 100.0);
                 node.width = Val::Percent(size.0 / window.0 * 100.0);
                 node.height = Val::Percent(size.1 / window.1 * 100.0);
-                match (image(name).or_else(|| (column == 1 && back).then(|| image("menu_difficulty_background")).flatten()), image_node) {
+                match (
+                    image(name).or_else(|| {
+                        (column == 1 && back)
+                            .then(|| image("menu_difficulty_background"))
+                            .flatten()
+                    }),
+                    image_node,
+                ) {
                     (Some(handle), Some(mut img)) => {
                         if img.image != handle {
                             img.image = handle;
@@ -1853,5 +1968,9 @@ fn pad_join_glyph(pads: &Query<(Entity, &Gamepad)>, pad: Entity) -> &'static str
         .ok()
         .and_then(|(_, p)| p.vendor_id())
         .is_some_and(|v| v == 0x054C);
-    if playstation { "menu_pad_cross" } else { "menu_pad_a" }
+    if playstation {
+        "menu_pad_cross"
+    } else {
+        "menu_pad_a"
+    }
 }

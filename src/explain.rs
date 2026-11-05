@@ -251,7 +251,10 @@ fn spawn_explain(
             };
             root.spawn((node, Part::Buttons)).with_children(|b| {
                 // MenuItemYellow / MenuItemRed space -1.
-                b.spawn(text(46.0, crate::letters::TextLook::GOLD)).insert((Text::new(words.to_uppercase()), crate::letters::LetterSpacing(-1.0)));
+                b.spawn(text(46.0, crate::letters::TextLook::GOLD)).insert((
+                    Text::new(words.to_uppercase()),
+                    crate::letters::LetterSpacing(-1.0),
+                ));
             });
         }
     });
@@ -309,7 +312,10 @@ fn spawn_controls(
             };
             root.spawn(node).with_children(|b| {
                 // MenuItemYellow / MenuItemRed space -1.
-                b.spawn(text(46.0, crate::letters::TextLook::GOLD)).insert((Text::new(words.to_uppercase()), crate::letters::LetterSpacing(-1.0)));
+                b.spawn(text(46.0, crate::letters::TextLook::GOLD)).insert((
+                    Text::new(words.to_uppercase()),
+                    crate::letters::LetterSpacing(-1.0),
+                ));
             });
         }
     });

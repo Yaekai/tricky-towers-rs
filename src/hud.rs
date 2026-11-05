@@ -22,7 +22,8 @@ pub struct HudPlugin;
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HeartSpots>();
-        app.add_systems(Startup, spawn_scores).add_systems(Update, show_scores);
+        app.add_systems(Startup, spawn_scores)
+            .add_systems(Update, show_scores);
         app.add_systems(
             Update,
             (
@@ -169,7 +170,10 @@ fn wanted(
             // from its own bag, once per two counted (AnimateBrickCountEffect), then
             // lands on the real next brick.
             let flip = count_up.filter(|_| intro).map(|counted| {
-                let mut flips = BrickBag::new(config.seed ^ (tower as u64 + 1) * 0x9E37, config.pieces.len());
+                let mut flips = BrickBag::new(
+                    config.seed ^ (tower as u64 + 1) * 0x9E37,
+                    config.pieces.len(),
+                );
                 (0..=counted / 2).map(|_| flips.draw()).last().unwrap_or(0)
             });
             match bag {
@@ -208,7 +212,9 @@ fn wanted(
         }
         // A Puzzle trial's bricks left to place (BricksLeftView beside the next card).
         Kind::Count
-            if game.mode == ModeKind::Puzzle && config.trial.is_some() && game.phase != Phase::Menu =>
+            if game.mode == ModeKind::Puzzle
+                && config.trial.is_some()
+                && game.phase != Phase::Menu =>
         {
             if state.status == TowerStatus::Out || game.phase == Phase::Over {
                 Shows::Nothing
@@ -310,7 +316,9 @@ fn fill_items(
             tower.index,
         );
         let blink_hidden = matches!(item.kind, Kind::Place | Kind::Hearts)
-            && blinks.as_ref().is_some_and(|b| b.hidden(item.tower, &config.wizards));
+            && blinks
+                .as_ref()
+                .is_some_and(|b| b.hidden(item.tower, &config.wizards));
         visibility.set_if_neq(if shows == Shows::Nothing || blink_hidden {
             Visibility::Hidden
         } else {
@@ -329,8 +337,16 @@ fn fill_items(
             && before.parse::<u32>().is_ok()
             && !popping.contains(entity)
         {
-            let big = if game.mode == ModeKind::Survival { 1.8 } else { 1.3 };
-            let way = if (time.elapsed_secs() * 1000.0) as u32 % 2 == 0 { 1.0 } else { -1.0 };
+            let big = if game.mode == ModeKind::Survival {
+                1.8
+            } else {
+                1.3
+            };
+            let way = if (time.elapsed_secs() * 1000.0) as u32 % 2 == 0 {
+                1.0
+            } else {
+                -1.0
+            };
             commands.entity(entity).insert(CountPop(0.0, way, big));
         }
         let mut node = commands.entity(entity);
@@ -350,7 +366,15 @@ fn fill_items(
             Some(Shows::Hearts(lives, _)) => Some(lives),
             _ => None,
         };
-        let mut layout = build(&mut node, &config.hud, &config, &art, &shows, height, filled_before);
+        let mut layout = build(
+            &mut node,
+            &config.hud,
+            &config,
+            &art,
+            &shows,
+            height,
+            filled_before,
+        );
         // The plain text stays hidden behind its letter twin: a replaced Node would show it
         // for a frame (the count flashed in the wrong letters and under the card).
         if twin {
@@ -410,7 +434,13 @@ fn build(
             let i = (*place).min(3);
             let face = rgb(look.place_faces[i]);
             let parts = [
-                (look.place_number, (place + 1).to_string(), JustifyContent::FlexEnd, 0.0, 0.0),
+                (
+                    look.place_number,
+                    (place + 1).to_string(),
+                    JustifyContent::FlexEnd,
+                    0.0,
+                    0.0,
+                ),
                 (
                     look.place_suffix,
                     ["ST", "ND", "RD", "TH"][i].to_string(),
@@ -420,7 +450,9 @@ fn build(
                 ),
             ];
             node.with_children(|root| {
-                for (k, ([x, y, w, h, size], words, justify, edge, spacing)) in parts.into_iter().enumerate() {
+                for (k, ([x, y, w, h, size], words, justify, edge, spacing)) in
+                    parts.into_iter().enumerate()
+                {
                     root.spawn((
                         RankBox(k == 1),
                         Node {
@@ -492,8 +524,16 @@ fn build(
                                 (image.clone(), Color::WHITE, Vec2::splat(size))
                             } else {
                                 match &lost {
-                                    Some(cross) => (cross.clone(), Color::WHITE, Vec2::new(25.0, 24.0) / 29.0 * size),
-                                    None => (image.clone(), Color::srgba(0.2, 0.2, 0.25, 0.6), Vec2::splat(size)),
+                                    Some(cross) => (
+                                        cross.clone(),
+                                        Color::WHITE,
+                                        Vec2::new(25.0, 24.0) / 29.0 * size,
+                                    ),
+                                    None => (
+                                        image.clone(),
+                                        Color::srgba(0.2, 0.2, 0.25, 0.6),
+                                        Vec2::splat(size),
+                                    ),
                                 }
                             };
                             let mut slot = row.spawn((
@@ -502,7 +542,11 @@ fn build(
                                     width: Val::Px(size),
                                     height: Val::Px(size),
                                     margin: UiRect {
-                                        left: Val::Px(if i % 3 == 0 { 0.0 } else { (1.3 * cell - size).max(0.0) }),
+                                        left: Val::Px(if i % 3 == 0 {
+                                            0.0
+                                        } else {
+                                            (1.3 * cell - size).max(0.0)
+                                        }),
                                         top: Val::Px(if i % 2 == 1 { 0.5 * cell } else { 0.0 }),
                                         ..default()
                                     },
@@ -526,8 +570,13 @@ fn build(
                                 Some(before) if i >= before => Some(HEART_POP_WAIT),
                                 _ => None,
                             };
-                            if i < *lives && let Some(delay) = delay {
-                                heart.insert(HeartPop { wait: delay, time: 0.0 });
+                            if i < *lives
+                                && let Some(delay) = delay
+                            {
+                                heart.insert(HeartPop {
+                                    wait: delay,
+                                    time: 0.0,
+                                });
                             }
                         }
                     });
@@ -549,7 +598,11 @@ fn build(
             let card_h = look.card_height * height;
             let card_w = card_h * look.card_aspect;
             let card_art = art.image("next_card");
-            let bar = if card_art.is_some() { 0.0 } else { card_h * look.card_bar };
+            let bar = if card_art.is_some() {
+                0.0
+            } else {
+                card_h * look.card_bar
+            };
             match card_art.clone() {
                 Some(image) => {
                     node.insert(ImageNode::new(image));
@@ -671,10 +724,17 @@ fn place_items(
     camera: Query<(&Camera, &Transform), With<crate::visuals::MainCamera>>,
     towers: Query<(&Tower, &TowerState)>,
     wizards: Query<(&Wizard, &Transform), Without<crate::visuals::MainCamera>>,
-    mut items: Query<(&HudItem, &mut Node, &ComputedNode, Option<&crate::letters::MirroredBy>)>,
+    mut items: Query<(
+        &HudItem,
+        &mut Node,
+        &ComputedNode,
+        Option<&crate::letters::MirroredBy>,
+    )>,
     twins: Query<&ComputedNode, Without<HudItem>>,
     game: Res<Match>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
+    let lanes = lanes.as_deref().cloned().unwrap_or_default();
     let Ok((camera, eye)) = camera.single() else {
         return;
     };
@@ -682,13 +742,21 @@ fn place_items(
     let eye = &eye;
     let look = &config.hud;
     let solo = towers.iter().count() == 1;
-    let screen = |p: Vec2| camera.world_to_viewport(eye, p.extend(0.0)).ok();
+    // A split screen's tower is seen by its own camera: move its points to where the
+    // main camera's view would show them.
+    let screen = |index: usize, p: Vec2| {
+        camera
+            .world_to_viewport(eye, lanes.to_main(index, p).extend(0.0))
+            .ok()
+    };
     for (item, mut node, computed, mirrored) in &mut items {
         let Ok((tower, state)) = towers.get(item.tower) else {
             continue;
         };
         // A letter-drawn label's own node is hidden (size 0): centre it by its twin's size.
-        let computed = mirrored.and_then(|m| twins.get(m.0).ok()).unwrap_or(computed);
+        let computed = mirrored
+            .and_then(|m| twins.get(m.0).ok())
+            .unwrap_or(computed);
         let size = computed.size() * computed.inverse_scale_factor();
         // While its letters are laid out again (a frame after the text changes) the twin has
         // no size yet: centring on that dropped the label half its height for a frame.
@@ -702,7 +770,7 @@ fn place_items(
             .unwrap_or_else(|| wizard_point(&config, solo, tower, state));
         let card_h = look.card_height * view.0.y;
         let card_w = card_h * look.card_aspect;
-        let column = screen(Vec2::new(tower.origin_x, 0.0)).map(|p| p.x);
+        let column = screen(tower.index, Vec2::new(tower.origin_x, 0.0)).map(|p| p.x);
         let card_x = column.map(|x| x - look.card_left * view.0.x);
         // Centre of the item on screen.
         let at = match item.kind {
@@ -716,8 +784,14 @@ fn place_items(
                 card_x.map(|x| Vec2::new(x + card_w * 0.375, card_h * 0.891))
             }
             Kind::Count => card_x.map(|x| Vec2::new(x - card_w * 0.403, card_h * 0.903)),
-            Kind::Place => screen(wizard - Vec2::Y * config.cells(look.place_below)),
-            Kind::Hearts => screen(wizard - Vec2::Y * config.cells(look.heart_below)),
+            Kind::Place => screen(
+                tower.index,
+                wizard - Vec2::Y * config.cells(look.place_below),
+            ),
+            Kind::Hearts => screen(
+                tower.index,
+                wizard - Vec2::Y * config.cells(look.heart_below),
+            ),
         };
         let Some(at) = at else {
             continue;
@@ -843,18 +917,27 @@ fn find_hearts(
     items: Query<&HudItem>,
     slots: Query<(&HeartSlot, &ChildOf, &UiGlobalTransform, &ComputedNode)>,
     camera: Query<(&Camera, &GlobalTransform), With<crate::visuals::MainCamera>>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
+    let lanes = lanes.as_deref().cloned().unwrap_or_default();
     spots.0.clear();
     let Ok((camera, eye)) = camera.single() else {
         return;
     };
     for (slot, parent, at, node) in &slots {
-        let Some(index) = items.get(parent.parent()).ok().and_then(|i| towers.get(i.tower).ok()).map(|t| t.index) else {
+        let Some(index) = items
+            .get(parent.parent())
+            .ok()
+            .and_then(|i| towers.get(i.tower).ok())
+            .map(|t| t.index)
+        else {
             continue;
         };
         let screen = at.translation * node.inverse_scale_factor();
         if let Ok(world) = camera.viewport_to_world_2d(eye, screen) {
-            spots.0.insert((index, slot.0), world);
+            spots
+                .0
+                .insert((index, slot.0), lanes.from_main(index, world));
         }
     }
 }
@@ -917,20 +1000,34 @@ fn blink_last_heart(
     towers: Query<&TowerState>,
     items: Query<&HudItem>,
     slots: Query<(Entity, &HeartSlot, &ChildOf)>,
-    mut blinks: Query<(Entity, &mut HeartBlink, &ChildOf, &mut UiTransform, &mut ImageNode)>,
+    mut blinks: Query<(
+        Entity,
+        &mut HeartBlink,
+        &ChildOf,
+        &mut UiTransform,
+        &mut ImageNode,
+    )>,
 ) {
     let wants = |slot_parent: Entity| -> bool {
-        let Ok(item) = items.get(slot_parent) else { return false };
-        let Ok(state) = towers.get(item.tower) else { return false };
+        let Ok(item) = items.get(slot_parent) else {
+            return false;
+        };
+        let Ok(state) = towers.get(item.tower) else {
+            return false;
+        };
         game.phase == Phase::Playing && state.lives == Some(1) && state.invincible <= 0.0
     };
     for (entity, mut blink, parent, mut transform, mut image) in &mut blinks {
-        let still = slots.get(parent.parent()).is_ok_and(|(_, _, item)| wants(item.parent()));
+        let still = slots
+            .get(parent.parent())
+            .is_ok_and(|(_, _, item)| wants(item.parent()));
         if !still {
             commands.entity(entity).despawn();
             continue;
         }
-        if blink.0 == 0.0 && let Some(sound) = art.sounds.get("sfx_last_heart_v2") {
+        if blink.0 == 0.0
+            && let Some(sound) = art.sounds.get("sfx_last_heart_v2")
+        {
             commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
         }
         blink.0 += time.delta_secs();
@@ -945,7 +1042,9 @@ fn blink_last_heart(
         if heart.0 != 0 || !wants(item.parent()) || blinks.iter().any(|b| b.2.parent() == slot) {
             continue;
         }
-        let Some(image) = art.image("heart") else { continue };
+        let Some(image) = art.image("heart") else {
+            continue;
+        };
         commands.entity(slot).with_child((
             HeartBlink(0.0),
             ImageNode::new(image),
@@ -1139,9 +1238,17 @@ fn pop_ranks(
                 continue;
             };
             let (x, y, turn) = if part.0 {
-                (&RANK_SUFFIX_SCALE_X, &RANK_SUFFIX_SCALE_Y, &RANK_SUFFIX_TURN[..])
+                (
+                    &RANK_SUFFIX_SCALE_X,
+                    &RANK_SUFFIX_SCALE_Y,
+                    &RANK_SUFFIX_TURN[..],
+                )
             } else {
-                (&RANK_NUMBER_SCALE_X, &RANK_NUMBER_SCALE_Y, &RANK_NUMBER_TURN[..])
+                (
+                    &RANK_NUMBER_SCALE_X,
+                    &RANK_NUMBER_SCALE_Y,
+                    &RANK_NUMBER_TURN[..],
+                )
             };
             *transform = if done {
                 UiTransform::default()
@@ -1218,10 +1325,19 @@ fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
                 ));
             }
             // SCORE: (EnzoBlackMilkyWhiteOutline46 at 64) ends 342 px left of the middle.
-            root.spawn(to_right(hud_box(960.0 - 342.0 - 268.4, 0.3, 268.4, 80.0, true)))
-                .with_children(|b| {
-                    b.spawn((label_with(64.0 / 10.8, "SCORE:", TextLook::TITLE), crate::letters::LetterSpacing(-2.0)));
-                });
+            root.spawn(to_right(hud_box(
+                960.0 - 342.0 - 268.4,
+                0.3,
+                268.4,
+                80.0,
+                true,
+            )))
+            .with_children(|b| {
+                b.spawn((
+                    label_with(64.0 / 10.8, "SCORE:", TextLook::TITLE),
+                    crate::letters::LetterSpacing(-2.0),
+                ));
+            });
             // The score (EnzoBlackGold75) centred 253.5 px left of the middle.
             root.spawn(hud_box(
                 960.0 - 253.5 - 100.0,
@@ -1239,10 +1355,19 @@ fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
             });
             // PERSONAL BEST: (26) ends 32 px from the right edge; the best (EnzoBlackGold60)
             // centred 91 px from it.
-            root.spawn(to_right(hud_box(1920.0 - 32.0 - 268.3, -5.0, 268.3, 50.0, false)))
-                .with_children(|b| {
-                    b.spawn((label_with(26.0 / 10.8, "PERSONAL BEST:", TextLook::TITLE), crate::letters::LetterSpacing(-2.0)));
-                });
+            root.spawn(to_right(hud_box(
+                1920.0 - 32.0 - 268.3,
+                -5.0,
+                268.3,
+                50.0,
+                false,
+            )))
+            .with_children(|b| {
+                b.spawn((
+                    label_with(26.0 / 10.8, "PERSONAL BEST:", TextLook::TITLE),
+                    crate::letters::LetterSpacing(-2.0),
+                ));
+            });
             root.spawn(hud_box(
                 1920.0 - 91.0 - 100.0,
                 64.5 - 50.0,
@@ -1259,7 +1384,13 @@ fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
             });
             // NEW HIGHSCORE! (EnzoBlackRed46) ends 20 px from the right edge, 130.9 px down.
             root.spawn((
-                to_right(hud_box(1920.0 - 20.0 - 400.0, 130.9 - 23.0, 400.0, 46.0, false)),
+                to_right(hud_box(
+                    1920.0 - 20.0 - 400.0,
+                    130.9 - 23.0,
+                    400.0,
+                    46.0,
+                    false,
+                )),
                 Visibility::Hidden,
                 ScorePart::NewHigh,
             ))
@@ -1287,13 +1418,20 @@ fn show_scores(
     let on = index.is_some() && game.phase != Phase::Menu;
     // The best before this run, and how long FINISH has been in (it comes once the roof is
     // done; NEW HIGHSCORE! shows at the end of its move in, SinglePlayerLeaderboardBask).
-    let board_best = |i: usize| board.as_ref().and_then(|b| b.scores[i].first().copied()).unwrap_or(0);
+    let board_best = |i: usize| {
+        board
+            .as_ref()
+            .and_then(|b| b.scores[i].first().copied())
+            .unwrap_or(0)
+    };
     if before.0 != game.round || game.phase == Phase::Playing {
         *before = (game.round, index.map_or(0, board_best), 0.0);
     }
     // Endless Puzzle gets no roof (PuzzleRoofController), so FINISH comes at once.
     let roofs_done = game.mode == ModeKind::EndlessPuzzle
-        || towers.iter().all(|(_, s)| s.roof == crate::gameplay::RoofStage::Done);
+        || towers
+            .iter()
+            .all(|(_, s)| s.roof == crate::gameplay::RoofStage::Done);
     if game.phase == Phase::Over && roofs_done {
         before.2 += time.delta_secs();
     }
@@ -1321,7 +1459,11 @@ fn show_scores(
     let new_high = score > before.1 && before.2 >= move_in;
     for (part, mut visibility) in &mut parts {
         if *part == ScorePart::NewHigh {
-            visibility.set_if_neq(if new_high { Visibility::Inherited } else { Visibility::Hidden });
+            visibility.set_if_neq(if new_high {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            });
         }
     }
     for (part, mut text) in &mut texts {
@@ -1342,32 +1484,61 @@ mod tests {
 
     #[test]
     fn invincibility_blinks_hearts_but_keeps_the_next_card_visible() {
-        let config = GameConfig { mode: ModeKind::Survival, ..default() };
+        let config = GameConfig {
+            mode: ModeKind::Survival,
+            ..default()
+        };
         let state = TowerState::new(&config, 1);
         let bag = BrickBag::new(1, config.pieces.len());
         let mut app = App::new();
         app.insert_resource(config)
-            .insert_resource(Match { phase: Phase::Playing, mode: ModeKind::Survival, ..default() })
+            .insert_resource(Match {
+                phase: Phase::Playing,
+                mode: ModeKind::Survival,
+                ..default()
+            })
             .insert_resource(Time::<()>::default())
             .init_resource::<Art>()
             .init_resource::<crate::spells::SpellLog>()
             .init_resource::<ViewSize>()
             .add_plugins((crate::wizards::WizardsPlugin, HudPlugin));
-        let tower = app.world_mut().spawn((
-            Tower { index: 0, origin_x: 0.0, human: true, player: Some(0) }, state, bag,
-        )).id();
+        let tower = app
+            .world_mut()
+            .spawn((
+                Tower {
+                    index: 0,
+                    origin_x: 0.0,
+                    human: true,
+                    player: Some(0),
+                },
+                state,
+                bag,
+            ))
+            .id();
         app.update();
-        app.world_mut().get_mut::<TowerState>(tower).unwrap().invincible = 1.5;
+        app.world_mut()
+            .get_mut::<TowerState>(tower)
+            .unwrap()
+            .invincible = 1.5;
         app.update();
-        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(0.06));
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_secs_f32(0.06));
         app.update();
         let visible = |app: &mut App, kind| {
-            *app.world_mut().query::<(&HudItem, &Visibility)>().iter(app.world())
-                .find(|(item, _)| item.kind == kind).unwrap().1
+            *app.world_mut()
+                .query::<(&HudItem, &Visibility)>()
+                .iter(app.world())
+                .find(|(item, _)| item.kind == kind)
+                .unwrap()
+                .1
         };
         assert_eq!(visible(&mut app, Kind::Hearts), Visibility::Hidden);
         assert_eq!(visible(&mut app, Kind::Card), Visibility::Inherited);
-        app.world_mut().get_mut::<TowerState>(tower).unwrap().invincible = 0.0;
+        app.world_mut()
+            .get_mut::<TowerState>(tower)
+            .unwrap()
+            .invincible = 0.0;
         app.update();
         assert_eq!(visible(&mut app, Kind::Hearts), Visibility::Inherited);
     }

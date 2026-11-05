@@ -55,7 +55,14 @@ fn wave_mist_edges(
     view_size: Res<ViewSize>,
     mix: Res<WaveMix>,
     camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
-    mut edges: Query<(&SurvivalMist, &MeshMaterial2d<crate::scene_material::FlagWave>, &mut Transform), Without<crate::visuals::MainCamera>>,
+    mut edges: Query<
+        (
+            &SurvivalMist,
+            &MeshMaterial2d<crate::scene_material::FlagWave>,
+            &mut Transform,
+        ),
+        Without<crate::visuals::MainCamera>,
+    >,
     mut waves: Option<ResMut<Assets<crate::scene_material::FlagWave>>>,
     front: Res<ForegroundMist>,
 ) {
@@ -84,13 +91,23 @@ fn run_endless_sun(
     intro: Option<Res<crate::intro::EclipseIn>>,
     view_size: Res<ViewSize>,
     camera: Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
-    mut quads: Query<(&MeshMaterial2d<crate::scene_material::EndlessSun>, &mut Transform), (With<EndlessSunQuad>, Without<crate::visuals::MainCamera>)>,
+    mut quads: Query<
+        (
+            &MeshMaterial2d<crate::scene_material::EndlessSun>,
+            &mut Transform,
+        ),
+        (With<EndlessSunQuad>, Without<crate::visuals::MainCamera>),
+    >,
     mut suns: Option<ResMut<Assets<crate::scene_material::EndlessSun>>>,
 ) {
     let (_, size) = view(&camera, view_size.0);
     let unit = size.y / 41.54;
     let t = crate::visuals::eclipse_progress(&game, intro.as_deref());
-    let amount = if t >= 1.0 { 1.0 } else { 1.0 - 2f32.powf(-10.0 * t) };
+    let amount = if t >= 1.0 {
+        1.0
+    } else {
+        1.0 - 2f32.powf(-10.0 * t)
+    };
     for (material, mut transform) in &mut quads {
         transform.translation.x = 0.0;
         transform.translation.y = 9.35 * unit;
@@ -104,7 +121,13 @@ fn run_endless_sun(
 /// Puts the weather on both render layers, so it shows behind the menus too.
 fn show_weather_in_menus(
     mut commands: Commands,
-    added: Query<Entity, (Added<Weather>, Without<bevy::camera::visibility::RenderLayers>)>,
+    added: Query<
+        Entity,
+        (
+            Added<Weather>,
+            Without<bevy::camera::visibility::RenderLayers>,
+        ),
+    >,
 ) {
     for entity in &added {
         commands
@@ -175,7 +198,11 @@ struct SurvivalMist {
 impl SurvivalMist {
     /// Its top as a share of the view: the front mist follows `ForegroundMist`.
     fn top(&self, front: &ForegroundMist) -> f32 {
-        if self.top == FRONT_MIST { front.0 } else { self.top }
+        if self.top == FRONT_MIST {
+            front.0
+        } else {
+            self.top
+        }
     }
 }
 
@@ -220,8 +247,13 @@ fn sink_front_mist(
 ) {
     let (eye, size) = view(&camera, view_size.0);
     let bottom = eye.y - size.y * 0.5;
-    let playing = towers.iter().filter(|s| s.status == crate::gameplay::TowerStatus::Building);
-    let lowest = playing.map(|s| s.height).reduce(f32::min).or_else(|| towers.iter().map(|s| s.height).reduce(f32::min));
+    let playing = towers
+        .iter()
+        .filter(|s| s.status == crate::gameplay::TowerStatus::Building);
+    let lowest = playing
+        .map(|s| s.height)
+        .reduce(f32::min)
+        .or_else(|| towers.iter().map(|s| s.height).reduce(f32::min));
     let mut target = FRONT_MIST;
     if let Some(lowest) = lowest {
         let line = config.cells(lowest - FRONT_MIST_UNDER);
@@ -281,7 +313,10 @@ fn rgba(c: [u8; 3], a: f32) -> Color {
 }
 
 /// The camera's position and the size of what it sees, in world units.
-fn view(camera: &Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>, size: Vec2) -> (Vec2, Vec2) {
+fn view(
+    camera: &Query<(&Transform, &Projection), With<crate::visuals::MainCamera>>,
+    size: Vec2,
+) -> (Vec2, Vec2) {
     match camera.single() {
         Ok((transform, Projection::Orthographic(ortho))) => {
             (transform.translation.truncate(), size * ortho.scale)
@@ -345,7 +380,9 @@ fn set_up_weather(
         for (color, top, squash, z, x_offset) in SURVIVAL_MISTS {
             let color = Color::srgb_u8(color[0], color[1], color[2]);
             // The edge waves along its top (a FlagWave quad, sized by `fit_weather`).
-            if let (Some(image), Some(meshes), Some(waves)) = (edge.clone(), meshes.as_mut(), waves.as_mut()) {
+            if let (Some(image), Some(meshes), Some(waves)) =
+                (edge.clone(), meshes.as_mut(), waves.as_mut())
+            {
                 commands.entity(camera).with_child((
                     Weather,
                     SurvivalMist {
@@ -397,7 +434,8 @@ fn set_up_weather(
         ] {
             if let Some(sand) = art.image(name) {
                 let alpha = if front { 1.0 } else { weather.sand_alpha };
-                commands.entity(camera).with_child((
+                let mut strip = commands.spawn((
+                    ChildOf(camera),
                     Weather,
                     SandStrip { front },
                     Sprite {
@@ -407,10 +445,16 @@ fn set_up_weather(
                     },
                     Transform::from_xyz(0.0, 0.0, z),
                 ));
+                if front {
+                    strip.insert(crate::lanes::FrontScene);
+                }
             }
         }
         for (band, &(front, picture, ..)) in weather.sandstorm_bands.iter().enumerate() {
-            let name = format!("sandstorm_{}_{picture}", if front { "front" } else { "back" });
+            let name = format!(
+                "sandstorm_{}_{picture}",
+                if front { "front" } else { "back" }
+            );
             let Some(image) = art.image(&name) else {
                 continue;
             };
@@ -426,7 +470,8 @@ fn set_up_weather(
             // sit low, so they only cover the floor's foot).
             let z = if front { 401.0 } else { -600.0 } + index as f32;
             for copy in 0..2 {
-                commands.entity(camera).with_child((
+                let mut layer = commands.spawn((
+                    ChildOf(camera),
                     Weather,
                     SandLayer {
                         band,
@@ -441,6 +486,9 @@ fn set_up_weather(
                     },
                     Transform::from_xyz(0.0, 0.0, z),
                 ));
+                if front {
+                    layer.insert(crate::lanes::FrontScene);
+                }
             }
         }
     }
@@ -459,7 +507,11 @@ fn set_up_weather(
     // Endless Puzzle has its own sun (DesertEndlessSun): a moon slides over it during the
     // intro, leaving an orange crescent; no corona.
     if look.1 == Some("endless_puzzle")
-        && let (Some(ramp), Some(meshes), Some(suns)) = (art.image("eclipse_gradient"), meshes.as_mut(), suns.as_mut())
+        && let (Some(ramp), Some(meshes), Some(suns)) = (
+            art.image("eclipse_gradient"),
+            meshes.as_mut(),
+            suns.as_mut(),
+        )
     {
         commands.spawn((
             Weather,
@@ -613,7 +665,9 @@ fn lightning(
     // 0.2 s, DOTween's default out-quad), longer than the screen flash's 0.1 s.
     let since = state.since_strike.map(|t| t + dt);
     state.since_strike = since;
-    let k = since.map_or(1.0, |t| (t / config.weather.lightning_islands.max(0.001)).min(1.0));
+    let k = since.map_or(1.0, |t| {
+        (t / config.weather.lightning_islands.max(0.001)).min(1.0)
+    });
     flash.0 = (1.0 - k) * (1.0 - k);
     let stormy = state.look.is_some_and(|l| l.1 == Some("race_pro") && l.2);
     if !stormy || game.phase != Phase::Playing {
@@ -636,7 +690,10 @@ fn lightning(
     let (flash_alpha, flash_fade) = weather.lightning_flash;
     state.since_strike = Some(0.0);
     // One of the three thunder strikes (LIGHTNING_STRIKE_01..03).
-    if let Some(thunder) = art.sounds.get(&format!("sfx_thunder_{}", 1 + (roll(&mut seed) * 3.0) as usize % 3)) {
+    if let Some(thunder) = art.sounds.get(&format!(
+        "sfx_thunder_{}",
+        1 + (roll(&mut seed) * 3.0) as usize % 3
+    )) {
         commands.spawn((AudioPlayer(thunder.clone()), PlaybackSettings::DESPAWN));
     }
     commands.entity(camera).with_child((
@@ -703,7 +760,10 @@ fn lightning(
                 p.x += (roll(&mut seed) * 2.0 - 1.0) * c;
             }
             points.push(p);
-            if i == 3 && bolts + stack.len() < weather.lightning_branches as usize && roll(&mut seed) > 0.2 {
+            if i == 3
+                && bolts + stack.len() < weather.lightning_branches as usize
+                && roll(&mut seed) > 0.2
+            {
                 stack.push((p, to + Vec2::X * (roll(&mut seed) * 40.0 - 20.0) * c));
             }
         }
@@ -726,7 +786,10 @@ fn fit_weather(
         Query<(&SandLayer, &mut Sprite, &mut Transform), Without<crate::visuals::MainCamera>>,
         Query<
             (&mut Sprite, &mut Transform, Has<DesertSun>),
-            (Or<(With<EclipseSun>, With<DesertSun>)>, Without<crate::visuals::MainCamera>),
+            (
+                Or<(With<EclipseSun>, With<DesertSun>)>,
+                Without<crate::visuals::MainCamera>,
+            ),
         >,
         Query<(&CoronaRay, &mut Sprite, &mut Transform), Without<crate::visuals::MainCamera>>,
         Query<(&SurvivalMist, &mut Sprite, &mut Transform), Without<crate::visuals::MainCamera>>,
@@ -802,7 +865,8 @@ fn fit_weather(
         let (low, high, rate) = part.fade;
         let swing = ((t * rate * std::f32::consts::TAU).sin() + 1.0) / 2.0;
         let [r, g, b] = part.tint;
-        sprite.color = Color::srgba_u8(r, g, b, 255).with_alpha((low + swing * (high - low)) * sun_alpha);
+        sprite.color =
+            Color::srgba_u8(r, g, b, 255).with_alpha((low + swing * (high - low)) * sun_alpha);
     }
 }
 
@@ -838,7 +902,11 @@ fn survival_wave_sky(
     // DOTween's default out-quad on the way in and on the way back (SurvivalBackground's
     // 1 s curse-mode tween).
     let p = state.wave_mix;
-    mix.0 = if wave { 1.0 - (1.0 - p) * (1.0 - p) } else { p * p };
+    mix.0 = if wave {
+        1.0 - (1.0 - p) * (1.0 - p)
+    } else {
+        p * p
+    };
     // Redraw only while the colours are moving.
     if mix.0 == state.wave_drawn {
         return;

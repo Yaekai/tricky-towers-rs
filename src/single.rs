@@ -245,10 +245,15 @@ pub(crate) struct SingleRay(usize);
 pub(crate) fn turn_single_rays(
     time: Res<Time>,
     config: Res<GameConfig>,
-    rays: Query<(&SingleRay, &MaterialNode<crate::ui_material::TurningPicture>)>,
+    rays: Query<(
+        &SingleRay,
+        &MaterialNode<crate::ui_material::TurningPicture>,
+    )>,
     mut turning: Option<ResMut<Assets<crate::ui_material::TurningPicture>>>,
 ) {
-    let Some(turning) = turning.as_mut() else { return };
+    let Some(turning) = turning.as_mut() else {
+        return;
+    };
     let t = time.elapsed_secs();
     for (ray, picture) in &rays {
         if let Some(&(degrees, seconds)) = config.menu.ray_turns.get(ray.0) {
@@ -456,254 +461,292 @@ pub(crate) fn spawn_single_screens(
     let image = |name: &str| art.and_then(|a| a.image(name));
 
     for online in [false, true] {
-    let seat_y = seat_y(online);
-    let list_top = if online { ONLINE_LIST_TOP } else { LIST_TOP };
-    let single = if online {
-        spawn_page_lifted(&mut commands, art, "", ONLINE_HEADER_LIFT)
-    } else {
-        spawn_page(&mut commands, art, "Single Player")
-    };
-    commands.entity(single).insert(SingleRoot(online));
-    commands.entity(single).with_children(|page| {
-        crate::select::shop_hint(page, art);
-        // Player 1's seat: grey while the wizard is being chosen, orange once it is.
-        let at = (0.0, seat_y);
-        let mut grey = page.spawn((place(SEAT_PANEL, at), BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3))));
-        if let Some(art) = image("menu_player_select_background_deselected") {
-            grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
-        }
-        // PlayerReady (CharacterNN prefabs): the orange background and five turning sunrays in
-        // a 327 x 267 mask, then the dark frame. PlayerWaiting has no frame, so the frame (whose
-        // middle is a faint red) only shows once the wizard is picked.
-        let seat_clip = (327.0, 267.0);
-        page.spawn((
-            Node {
-                overflow: Overflow::clip(),
-                ..place(seat_clip, at)
-            },
-            BackgroundColor(Color::srgba(1.0, 0.8, 0.3, 0.35)),
-            Item::SeatReady,
-        ))
-        .with_children(|c| {
-            if let Some(back) = image("menu_player_select_background_selected") {
-                c.spawn((
-                    sliced(back, [PANEL_SLICE; 4]),
-                    Node {
-                        position_type: PositionType::Absolute,
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        ..default()
-                    },
-                ));
+        let seat_y = seat_y(online);
+        let list_top = if online { ONLINE_LIST_TOP } else { LIST_TOP };
+        let single = if online {
+            spawn_page_lifted(&mut commands, art, "", ONLINE_HEADER_LIFT)
+        } else {
+            spawn_page(&mut commands, art, "Single Player")
+        };
+        commands.entity(single).insert(SingleRoot(online));
+        commands.entity(single).with_children(|page| {
+            crate::select::shop_hint(page, art);
+            // Player 1's seat: grey while the wizard is being chosen, orange once it is.
+            let at = (0.0, seat_y);
+            let mut grey = page.spawn((
+                place(SEAT_PANEL, at),
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
+            ));
+            if let Some(art) = image("menu_player_select_background_deselected") {
+                grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
             }
-            for layer in 0..5 {
-                if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
-                    crate::select::turning_rays(c, &mut turning, rays, seat_clip, SingleRay(layer));
-                }
-            }
-        });
-        if let Some(outline) = image("menu_player_select_outline") {
-            page.spawn((sliced(outline, [PANEL_SLICE; 4]), place(SEAT_PANEL, at), Item::SeatReady));
-        }
-        let (offset, size) = WIZARDS[0][1];
-        page.spawn((
-            ImageNode::default(),
-            place(size, (offset.0, seat_y + offset.1)),
-            Carousel(0),
-        ));
-        for slot in -1..=1 {
-            let scale = if slot == 0 { 1.0 } else { NEIGHBOUR_SCALE };
+            // PlayerReady (CharacterNN prefabs): the orange background and five turning sunrays in
+            // a 327 x 267 mask, then the dark frame. PlayerWaiting has no frame, so the frame (whose
+            // middle is a faint red) only shows once the wizard is picked.
+            let seat_clip = (327.0, 267.0);
             page.spawn((
-                ImageNode::default(),
-                place(
-                    (260.0 * scale, 80.0 * scale),
-                    (NEIGHBOUR_X * slot as f32, seat_y + 189.0 * scale),
-                ),
-                CarouselLogo(slot),
-                Visibility::Hidden,
-            ));
-        }
-        // The neighbours on grey panels, two each side, seen through the screen mask.
-        // Cut at the fade's outer end, the far ones see-through for the fade they sit in.
-        masked(page, WIZARD_MASK.0 - WIZARD_MASK.1, |page| {
-            for side in [-2.0f32, -1.0, 1.0, 2.0] {
-                let x = NEIGHBOUR_X * side;
-                let panel = (
-                    SEAT_PANEL.0 * NEIGHBOUR_SCALE,
-                    SEAT_PANEL.1 * NEIGHBOUR_SCALE,
-                );
-                // The far ones sit about a quarter of the way into the fade.
-                let alpha = if side.abs() > 1.0 { FAR_ALPHA } else { 1.0 };
-                let mut grey = page.spawn((
-                    place(panel, (x, seat_y)),
-                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
-                ));
-                if let Some(art) = image("menu_player_select_background_deselected") {
-                    let mut back = sliced(art, [PANEL_SLICE; 4]);
-                    back.color = Color::WHITE.with_alpha(alpha);
-                    grey.insert((back, BackgroundColor(Color::NONE)));
-                }
-                let small = (size.0 * NEIGHBOUR_SCALE, size.1 * NEIGHBOUR_SCALE);
-                page.spawn((
-                    ImageNode {
-                        color: Color::WHITE.with_alpha(alpha),
-                        ..default()
-                    },
-                    place(small, (x + offset.0 * NEIGHBOUR_SCALE, seat_y + offset.1)),
-                    Carousel(side as i32),
-                ));
-            }
-        });
-        // The corners and arrows on the row being chosen (ScrollPanelComponent shows its
-        // arrows only while enabled), 200 px either side of the middle.
-        let out = |(w, h): (f32, f32)| (w + 2.0 * FOCUS_OUT + CORNER_SMALL.0, h + 2.0 * FOCUS_OUT + CORNER_SMALL.1);
-        for (row, size, y) in [(0u8, SEAT_PANEL, seat_y), (1, PACK_PANEL.0, seat_y - PACK_BELOW_SEAT)] {
-            if let Some(corner) = image("menu_corner_small") {
-                corners(page, &corner, out(size), (0.0, y), CORNER_SMALL, Item::RowFocus(row));
-            }
-            if let Some(arrow) = image("menu_arrow_small") {
-                for flip_x in [true, false] {
-                    let side = if flip_x { -1.0 } else { 1.0 };
-                    page.spawn((
-                        ImageNode {
-                            image: arrow.clone(),
-                            flip_x,
-                            ..default()
-                        },
-                        place(crate::select::SEAT_ARROW, (side * ROW_ARROW_X, y)),
-                        Item::RowFocus(row),
-                        // SPArrowIdle: 200 to 210 px out.
-                        crate::select::ArrowBob(Vec2::new(side * 10.0, 0.0)),
-                    ));
-                }
-            }
-        }
-        // The pack panel's neighbours (its own scroll panel), grey, with the packs
-        // before and after the picked one, cut by their narrower screen mask.
-        // Cut half way down the fade.
-        masked(page, PACK_MASK.0 - PACK_MASK.1 / 2.0, |page| {
-            for side in [-1i32, 1] {
-                let mut grey = page.spawn((
-                    place(PACK_PANEL.0, (NEIGHBOUR_X * side as f32, seat_y - PACK_BELOW_SEAT)),
-                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
-                ));
-                if let Some(art) = image("menu_player_select_background_deselected") {
-                    grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
-                }
-                grey.with_children(|p| {
-                    p.spawn((
-                        ImageNode::default(),
-                        pack_graphic(),
-                        PackCard(side),
-                        Visibility::Hidden,
-                    ));
-                });
-            }
-        });
-        // The brick pack panel under the seat, picked (its item's Selected: the orange
-        // panel and turning rays cut to 327 x 95, then the dark frame); no name plate.
-        let pack_at = (0.0, seat_y - PACK_BELOW_SEAT);
-        let clip = (PACK_PANEL.0.0 - 5.0, PACK_PANEL.0.1 - 5.0);
-        let mut grey = page.spawn((place(PACK_PANEL.0, pack_at), BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3))));
-        if let Some(art) = image("menu_player_select_background_deselected") {
-            grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
-        }
-        page.spawn((
-            Node {
-                overflow: Overflow::clip(),
-                ..place(clip, pack_at)
-            },
-            BackgroundColor(Color::srgba(1.0, 0.8, 0.3, 0.35)),
-            Item::PackReady,
-        ))
-        .with_children(|c| {
-            if let Some(back) = image("menu_player_select_background_selected") {
-                c.spawn((
-                    sliced(back, [PANEL_SLICE; 4]),
-                    Node {
-                        position_type: PositionType::Absolute,
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        ..default()
-                    },
-                ));
-            }
-            for layer in 0..5 {
-                if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
-                    crate::select::turning_rays(c, &mut turning, rays, clip, SingleRay(layer));
-                }
-            }
-        });
-        if let Some(outline) = image("menu_player_select_outline") {
-            page.spawn((sliced(outline, [PANEL_SLICE; 4]), place(PACK_PANEL.0, pack_at), Item::PackReady));
-        }
-        let mut pack = page.spawn(place(PACK_PANEL.0, pack_at));
-        // The picked brick pack's card on it, as on Select Players.
-        pack.with_children(|p| {
-            p.spawn((
-                ImageNode::default(),
-                pack_graphic(),
-                PackCard(0),
-                Visibility::Hidden,
-            ));
-        });
-        let button = image("menu_button_background");
-        let band = image("menu_button_cup_background");
-        let corner = image("menu_corner_small");
-        for (index, (name, _)) in list(online).iter().enumerate() {
-            let y = list_top - LIST_STEP * index as f32;
-            let mut node = page.spawn((
-                place(LIST_BUTTON, (0.0, y)),
-                BackgroundColor(LIST_COLOR),
-                Item::ListButton(index),
-            ));
-            if let Some(art) = &button {
-                node.insert((
-                    sliced(art.clone(), BUTTON_SLICE),
-                    BackgroundColor(Color::NONE),
-                ));
-            }
-            // The picked button carries the red ribbon across it, a little wider
-            // (Max's screenshots of the original).
-            if let Some(band) = &band {
-                node.with_children(|b| {
-                    b.spawn((
-                        sliced(band.clone(), [26.0, 26.0, 0.0, 0.0]),
+                Node {
+                    overflow: Overflow::clip(),
+                    ..place(seat_clip, at)
+                },
+                BackgroundColor(Color::srgba(1.0, 0.8, 0.3, 0.35)),
+                Item::SeatReady,
+            ))
+            .with_children(|c| {
+                if let Some(back) = image("menu_player_select_background_selected") {
+                    c.spawn((
+                        sliced(back, [PANEL_SLICE; 4]),
                         Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Percent(-3.0),
-                            width: Val::Percent(106.0),
-                            top: Val::Percent((1.0 - CUP_BAND / LIST_BUTTON.1) * 50.0),
-                            height: Val::Percent(CUP_BAND / LIST_BUTTON.1 * 100.0),
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
                             ..default()
                         },
-                        ListRibbon(index),
-                        Visibility::Hidden,
                     ));
-                });
-            }
-            node.with_children(|b| {
-                let size = LIST_LOOKS.get(index).map_or(32.0, |l| l.1);
-                b.spawn((label(size / 10.8, name), Item::ListText(index)));
+                }
+                for layer in 0..5 {
+                    if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
+                        crate::select::turning_rays(
+                            c,
+                            &mut turning,
+                            rays,
+                            seat_clip,
+                            SingleRay(layer),
+                        );
+                    }
+                }
             });
-            if let Some(corner) = &corner {
-                let frame = (
-                    LIST_BUTTON.0 + 2.0 * CORNER_GAP,
-                    LIST_BUTTON.1 + 2.0 * CORNER_GAP,
-                );
-                corners(
-                    page,
-                    corner,
-                    frame,
-                    (0.0, y),
-                    CORNER_SMALL,
-                    Item::ListCorner(index),
-                );
+            if let Some(outline) = image("menu_player_select_outline") {
+                page.spawn((
+                    sliced(outline, [PANEL_SLICE; 4]),
+                    place(SEAT_PANEL, at),
+                    Item::SeatReady,
+                ));
             }
-        }
-        if online {
-            rank_plate(page, &image);
-        }
+            let (offset, size) = WIZARDS[0][1];
+            page.spawn((
+                ImageNode::default(),
+                place(size, (offset.0, seat_y + offset.1)),
+                Carousel(0),
+            ));
+            for slot in -1..=1 {
+                let scale = if slot == 0 { 1.0 } else { NEIGHBOUR_SCALE };
+                page.spawn((
+                    ImageNode::default(),
+                    place(
+                        (260.0 * scale, 80.0 * scale),
+                        (NEIGHBOUR_X * slot as f32, seat_y + 189.0 * scale),
+                    ),
+                    CarouselLogo(slot),
+                    Visibility::Hidden,
+                ));
+            }
+            // The neighbours on grey panels, two each side, seen through the screen mask.
+            // Cut at the fade's outer end, the far ones see-through for the fade they sit in.
+            masked(page, WIZARD_MASK.0 - WIZARD_MASK.1, |page| {
+                for side in [-2.0f32, -1.0, 1.0, 2.0] {
+                    let x = NEIGHBOUR_X * side;
+                    let panel = (
+                        SEAT_PANEL.0 * NEIGHBOUR_SCALE,
+                        SEAT_PANEL.1 * NEIGHBOUR_SCALE,
+                    );
+                    // The far ones sit about a quarter of the way into the fade.
+                    let alpha = if side.abs() > 1.0 { FAR_ALPHA } else { 1.0 };
+                    let mut grey = page.spawn((
+                        place(panel, (x, seat_y)),
+                        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
+                    ));
+                    if let Some(art) = image("menu_player_select_background_deselected") {
+                        let mut back = sliced(art, [PANEL_SLICE; 4]);
+                        back.color = Color::WHITE.with_alpha(alpha);
+                        grey.insert((back, BackgroundColor(Color::NONE)));
+                    }
+                    let small = (size.0 * NEIGHBOUR_SCALE, size.1 * NEIGHBOUR_SCALE);
+                    page.spawn((
+                        ImageNode {
+                            color: Color::WHITE.with_alpha(alpha),
+                            ..default()
+                        },
+                        place(small, (x + offset.0 * NEIGHBOUR_SCALE, seat_y + offset.1)),
+                        Carousel(side as i32),
+                    ));
+                }
+            });
+            // The corners and arrows on the row being chosen (ScrollPanelComponent shows its
+            // arrows only while enabled), 200 px either side of the middle.
+            let out = |(w, h): (f32, f32)| {
+                (
+                    w + 2.0 * FOCUS_OUT + CORNER_SMALL.0,
+                    h + 2.0 * FOCUS_OUT + CORNER_SMALL.1,
+                )
+            };
+            for (row, size, y) in [
+                (0u8, SEAT_PANEL, seat_y),
+                (1, PACK_PANEL.0, seat_y - PACK_BELOW_SEAT),
+            ] {
+                if let Some(corner) = image("menu_corner_small") {
+                    corners(
+                        page,
+                        &corner,
+                        out(size),
+                        (0.0, y),
+                        CORNER_SMALL,
+                        Item::RowFocus(row),
+                    );
+                }
+                if let Some(arrow) = image("menu_arrow_small") {
+                    for flip_x in [true, false] {
+                        let side = if flip_x { -1.0 } else { 1.0 };
+                        page.spawn((
+                            ImageNode {
+                                image: arrow.clone(),
+                                flip_x,
+                                ..default()
+                            },
+                            place(crate::select::SEAT_ARROW, (side * ROW_ARROW_X, y)),
+                            Item::RowFocus(row),
+                            // SPArrowIdle: 200 to 210 px out.
+                            crate::select::ArrowBob(Vec2::new(side * 10.0, 0.0)),
+                        ));
+                    }
+                }
+            }
+            // The pack panel's neighbours (its own scroll panel), grey, with the packs
+            // before and after the picked one, cut by their narrower screen mask.
+            // Cut half way down the fade.
+            masked(page, PACK_MASK.0 - PACK_MASK.1 / 2.0, |page| {
+                for side in [-1i32, 1] {
+                    let mut grey = page.spawn((
+                        place(
+                            PACK_PANEL.0,
+                            (NEIGHBOUR_X * side as f32, seat_y - PACK_BELOW_SEAT),
+                        ),
+                        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
+                    ));
+                    if let Some(art) = image("menu_player_select_background_deselected") {
+                        grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+                    }
+                    grey.with_children(|p| {
+                        p.spawn((
+                            ImageNode::default(),
+                            pack_graphic(),
+                            PackCard(side),
+                            Visibility::Hidden,
+                        ));
+                    });
+                }
+            });
+            // The brick pack panel under the seat, picked (its item's Selected: the orange
+            // panel and turning rays cut to 327 x 95, then the dark frame); no name plate.
+            let pack_at = (0.0, seat_y - PACK_BELOW_SEAT);
+            let clip = (PACK_PANEL.0.0 - 5.0, PACK_PANEL.0.1 - 5.0);
+            let mut grey = page.spawn((
+                place(PACK_PANEL.0, pack_at),
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
+            ));
+            if let Some(art) = image("menu_player_select_background_deselected") {
+                grey.insert((sliced(art, [PANEL_SLICE; 4]), BackgroundColor(Color::NONE)));
+            }
+            page.spawn((
+                Node {
+                    overflow: Overflow::clip(),
+                    ..place(clip, pack_at)
+                },
+                BackgroundColor(Color::srgba(1.0, 0.8, 0.3, 0.35)),
+                Item::PackReady,
+            ))
+            .with_children(|c| {
+                if let Some(back) = image("menu_player_select_background_selected") {
+                    c.spawn((
+                        sliced(back, [PANEL_SLICE; 4]),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            ..default()
+                        },
+                    ));
+                }
+                for layer in 0..5 {
+                    if let Some(rays) = image(&format!("menu_sunrays_{}", layer + 1)) {
+                        crate::select::turning_rays(c, &mut turning, rays, clip, SingleRay(layer));
+                    }
+                }
+            });
+            if let Some(outline) = image("menu_player_select_outline") {
+                page.spawn((
+                    sliced(outline, [PANEL_SLICE; 4]),
+                    place(PACK_PANEL.0, pack_at),
+                    Item::PackReady,
+                ));
+            }
+            let mut pack = page.spawn(place(PACK_PANEL.0, pack_at));
+            // The picked brick pack's card on it, as on Select Players.
+            pack.with_children(|p| {
+                p.spawn((
+                    ImageNode::default(),
+                    pack_graphic(),
+                    PackCard(0),
+                    Visibility::Hidden,
+                ));
+            });
+            let button = image("menu_button_background");
+            let band = image("menu_button_cup_background");
+            let corner = image("menu_corner_small");
+            for (index, (name, _)) in list(online).iter().enumerate() {
+                let y = list_top - LIST_STEP * index as f32;
+                let mut node = page.spawn((
+                    place(LIST_BUTTON, (0.0, y)),
+                    BackgroundColor(LIST_COLOR),
+                    Item::ListButton(index),
+                ));
+                if let Some(art) = &button {
+                    node.insert((
+                        sliced(art.clone(), BUTTON_SLICE),
+                        BackgroundColor(Color::NONE),
+                    ));
+                }
+                // The picked button carries the red ribbon across it, a little wider
+                // (Max's screenshots of the original).
+                if let Some(band) = &band {
+                    node.with_children(|b| {
+                        b.spawn((
+                            sliced(band.clone(), [26.0, 26.0, 0.0, 0.0]),
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: Val::Percent(-3.0),
+                                width: Val::Percent(106.0),
+                                top: Val::Percent((1.0 - CUP_BAND / LIST_BUTTON.1) * 50.0),
+                                height: Val::Percent(CUP_BAND / LIST_BUTTON.1 * 100.0),
+                                ..default()
+                            },
+                            ListRibbon(index),
+                            Visibility::Hidden,
+                        ));
+                    });
+                }
+                node.with_children(|b| {
+                    let size = LIST_LOOKS.get(index).map_or(32.0, |l| l.1);
+                    b.spawn((label(size / 10.8, name), Item::ListText(index)));
+                });
+                if let Some(corner) = &corner {
+                    let frame = (
+                        LIST_BUTTON.0 + 2.0 * CORNER_GAP,
+                        LIST_BUTTON.1 + 2.0 * CORNER_GAP,
+                    );
+                    corners(
+                        page,
+                        corner,
+                        frame,
+                        (0.0, y),
+                        CORNER_SMALL,
+                        Item::ListCorner(index),
+                    );
+                }
+            }
+            if online {
+                rank_plate(page, &image);
+            }
         });
     }
 
@@ -784,13 +827,23 @@ fn rank_plate(page: &mut ChildSpawnerCommands, image: &dyn Fn(&str) -> Option<Ha
     if let Some(back) = image("menu_rank_bar_background") {
         bar.insert(sliced(back, [12.0, 12.0, 14.0, 14.0]));
     }
-    page.spawn(place((600.0, 106.0), (0.0, top + 5.0))).with_children(|t| {
-        t.spawn(crate::select::label_with(46.0 / 10.8, PLAYER_NAME, crate::letters::TextLook::GOLD));
-    });
+    page.spawn(place((600.0, 106.0), (0.0, top + 5.0)))
+        .with_children(|t| {
+            t.spawn(crate::select::label_with(
+                46.0 / 10.8,
+                PLAYER_NAME,
+                crate::letters::TextLook::GOLD,
+            ));
+        });
     let rank = crate::config::XpRules::default().names[0].to_uppercase();
-    page.spawn(place((331.0, 45.0), (0.0, top - 40.0))).with_children(|t| {
-        t.spawn(crate::select::label_with(26.0 / 10.8, &rank, LIST_LOOKS[0].0));
-    });
+    page.spawn(place((331.0, 45.0), (0.0, top - 40.0)))
+        .with_children(|t| {
+            t.spawn(crate::select::label_with(
+                26.0 / 10.8,
+                &rank,
+                LIST_LOOKS[0].0,
+            ));
+        });
 }
 
 /// A point on the leaderboard panel, in pixels from its top-left (y down), as
@@ -1026,7 +1079,11 @@ pub(crate) fn single_input(
     }
     // Left/Right turn the wizards' carousel, or the brick packs'; the pick plays as tower 1.
     if taps.left || taps.right {
-        let (wizard, pack) = config.skins.first().copied().unwrap_or((menu.wizard, Default::default()));
+        let (wizard, pack) = config
+            .skins
+            .first()
+            .copied()
+            .unwrap_or((menu.wizard, Default::default()));
         match menu.step {
             0 => {
                 let step = if taps.right { 1 } else { CAROUSEL_WIZARDS - 1 };
@@ -1037,7 +1094,11 @@ pub(crate) fn single_input(
                 let packs = crate::select::available_packs(art.as_deref());
                 let count = packs.len().max(1);
                 let at = packs.iter().position(|p| *p == pack).unwrap_or(0);
-                let next = if taps.right { (at + 1) % count } else { (at + count - 1) % count };
+                let next = if taps.right {
+                    (at + 1) % count
+                } else {
+                    (at + count - 1) % count
+                };
                 if let Some(&pack) = packs.get(next) {
                     config.skins = vec![(wizard, pack)];
                     menu.set_changed();
@@ -1054,13 +1115,20 @@ pub(crate) fn single_input(
     {
         let y = 540.0 - c.y / window.height() * 1080.0;
         let x = c.x / window.width() * 1920.0 - 960.0;
-        let top = if menu.online { ONLINE_LIST_TOP } else { LIST_TOP };
+        let top = if menu.online {
+            ONLINE_LIST_TOP
+        } else {
+            LIST_TOP
+        };
         let row = (0..list(menu.online).len()).find(|&i| {
-            x.abs() <= LIST_BUTTON.0 / 2.0 && (y - (top - LIST_STEP * i as f32)).abs() <= LIST_BUTTON.1 / 2.0
+            x.abs() <= LIST_BUTTON.0 / 2.0
+                && (y - (top - LIST_STEP * i as f32)).abs() <= LIST_BUTTON.1 / 2.0
         });
         if let Some(i) = row {
             menu.selected = i;
-            pick |= mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left));
+            pick |= mouse
+                .as_deref()
+                .is_some_and(|m| m.just_pressed(MouseButton::Left));
         }
     }
     if taps.up {
@@ -1157,7 +1225,9 @@ pub(crate) fn endless_input(
         });
         if let Some(r) = hit {
             menu.endless = ENDLESS_ORDER[r];
-            clicked = mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left));
+            clicked = mouse
+                .as_deref()
+                .is_some_and(|m| m.just_pressed(MouseButton::Left));
         }
     }
     if !(clicked || taps.key_pick || !taps.pad_pick.is_empty()) || !ENDLESS[menu.endless].built {
@@ -1218,7 +1288,8 @@ pub(crate) fn show_single_screens(
             crate::select::ModePick::Mode(mode) => mode,
             crate::select::ModePick::Random => ModeKind::Race,
         };
-        let special = crate::select::DifficultyPick::ALL[lobby.difficulty % crate::select::DifficultyPick::ALL.len()]
+        let special = crate::select::DifficultyPick::ALL
+            [lobby.difficulty % crate::select::DifficultyPick::ALL.len()]
             == crate::select::DifficultyPick::Set(Difficulty::Pro);
         Some((mode, special))
     } else {
@@ -1299,7 +1370,9 @@ pub(crate) fn show_single_screens(
         }
         let words = match *item {
             Item::ListText(i) => {
-                let Some(&(name, built)) = list(menu.online).get(i) else { continue };
+                let Some(&(name, built)) = list(menu.online).get(i) else {
+                    continue;
+                };
                 if let Some(mut c) = text_colour {
                     let want = if menu.step == 2 && menu.selected == i {
                         Color::srgb(1.0, 0.85, 0.3)
@@ -1446,7 +1519,13 @@ pub(crate) fn show_carousel(
             Some(image) => {
                 node.image = image;
                 let (offset, size) = WIZARDS[wizard.min(WIZARDS.len() - 1)][awake as usize];
-                let want = place(size, (NEIGHBOUR_X * slot.0 as f32 + offset.0, seat_y(menu.online) + offset.1));
+                let want = place(
+                    size,
+                    (
+                        NEIGHBOUR_X * slot.0 as f32 + offset.0,
+                        seat_y(menu.online) + offset.1,
+                    ),
+                );
                 layout.left = want.left;
                 layout.top = want.top;
                 layout.width = want.width;

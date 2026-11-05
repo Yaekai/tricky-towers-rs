@@ -116,7 +116,15 @@ fn burst(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32, b
     burst_on_layer(commands, art, c, at, seed, b, None);
 }
 
-fn burst_on_layer(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32, b: Burst, layers: Option<&bevy::camera::visibility::RenderLayers>) {
+fn burst_on_layer(
+    commands: &mut Commands,
+    art: &Art,
+    c: f32,
+    at: Vec2,
+    seed: &mut u32,
+    b: Burst,
+    layers: Option<&bevy::camera::visibility::RenderLayers>,
+) {
     let image = art
         .image(b.image)
         .or_else(|| art.image("mist_puff"))
@@ -177,12 +185,27 @@ pub(crate) fn brick_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, s
 }
 
 /// The same poof over another object's render depth (the wizard's appearance).
-pub(crate) fn brick_poof_at(commands: &mut Commands, art: &Art, c: f32, at: Vec2, z: f32, seed: &mut u32) {
+pub(crate) fn brick_poof_at(
+    commands: &mut Commands,
+    art: &Art,
+    c: f32,
+    at: Vec2,
+    z: f32,
+    seed: &mut u32,
+) {
     brick_poof_on_layer(commands, art, c, at, z, seed, None);
 }
 
 /// The cup winner's poof uses the popup camera's layer and pixel scale.
-pub(crate) fn brick_poof_on_layer(commands: &mut Commands, art: &Art, c: f32, at: Vec2, z: f32, seed: &mut u32, layers: Option<&bevy::camera::visibility::RenderLayers>) {
+pub(crate) fn brick_poof_on_layer(
+    commands: &mut Commands,
+    art: &Art,
+    c: f32,
+    at: Vec2,
+    z: f32,
+    seed: &mut u32,
+    layers: Option<&bevy::camera::visibility::RenderLayers>,
+) {
     {
         burst_on_layer(
             commands,
@@ -298,14 +321,26 @@ enum Emit {
 const WHITE_KEYS: &[(f32, [f32; 3])] = &[(0.0, [255.0, 255.0, 255.0])];
 const FLAT: &[(f32, f32)] = &[(0.0, 1.0), (1.0, 1.0)];
 
-fn spawn_shaped(commands: &mut Commands, art: &Art, c: f32, at: Vec2, from: &Emit, z: f32, kind: &ShapedKind, seed: &mut u32) {
+fn spawn_shaped(
+    commands: &mut Commands,
+    art: &Art,
+    c: f32,
+    at: Vec2,
+    from: &Emit,
+    z: f32,
+    kind: &ShapedKind,
+    seed: &mut u32,
+) {
     let Some(image) = art.image(kind.image) else {
         return;
     };
     let between = |(a, b): (f32, f32), k: f32| a + (b - a) * k;
     for _ in 0..kind.count {
         let (place, way) = match *from {
-            Emit::Point => (Vec2::ZERO, Vec2::from_angle(roll(seed) * std::f32::consts::TAU)),
+            Emit::Point => (
+                Vec2::ZERO,
+                Vec2::from_angle(roll(seed) * std::f32::consts::TAU),
+            ),
             Emit::Ring(r) => {
                 let way = Vec2::from_angle(roll(seed) * std::f32::consts::TAU);
                 (way * r, way)
@@ -320,7 +355,11 @@ fn spawn_shaped(commands: &mut Commands, art: &Art, c: f32, at: Vec2, from: &Emi
                 life: between(kind.life, roll(seed)),
                 size,
                 clamp: (kind.clamp.0 * c, kind.clamp.1),
-                spin: if kind.spin { (roll(seed) * 2.0 - 1.0) * std::f32::consts::TAU } else { 0.0 },
+                spin: if kind.spin {
+                    (roll(seed) * 2.0 - 1.0) * std::f32::consts::TAU
+                } else {
+                    0.0
+                },
                 sizes: kind.sizes,
                 colours: kind.colours,
                 alpha: kind.alpha,
@@ -341,14 +380,19 @@ fn keyed(keys: &[(f32, f32)], t: f32) -> f32 {
     keys.windows(2)
         .find(|w| t <= w[1].0)
         .map_or(keys[keys.len() - 1].1, |w| {
-            w[0].1 + (w[1].1 - w[0].1) * ((t - w[0].0) / (w[1].0 - w[0].0).max(1e-4)).clamp(0.0, 1.0)
+            w[0].1
+                + (w[1].1 - w[0].1) * ((t - w[0].0) / (w[1].0 - w[0].0).max(1e-4)).clamp(0.0, 1.0)
         })
 }
 
 fn gradient(keys: &[(f32, [f32; 3])], t: f32) -> [f32; 3] {
     std::array::from_fn(|i| {
         let points: Vec<(f32, f32)> = keys.iter().map(|k| (k.0, k.1[i] / 255.0)).collect();
-        if points.len() == 1 { points[0].1 } else { keyed(&points, t) }
+        if points.len() == 1 {
+            points[0].1
+        } else {
+            keyed(&points, t)
+        }
     })
 }
 
@@ -386,7 +430,14 @@ fn move_shaped(
 /// from a ring of radius 1.73, 2.73 or 3.73 cells, flying out at 15 to 120 cells/s slowed to
 /// 0.2 (dampen 0.6), 0.15 to 0.3 cells, mint to white, for 0.5 to 1 s, growing to 0.9 by 11%
 /// of their life, full at 87% and gone at the end.
-pub(crate) fn bubble_pop(commands: &mut Commands, art: &Art, c: f32, at: Vec2, across: u32, seed: &mut u32) {
+pub(crate) fn bubble_pop(
+    commands: &mut Commands,
+    art: &Art,
+    c: f32,
+    at: Vec2,
+    across: u32,
+    seed: &mut u32,
+) {
     const GROW: &[(f32, f32)] = &[(0.0, 0.0), (0.11, 0.898), (0.87, 1.0), (1.0, 0.0)];
     const MINT: &[(f32, [f32; 3])] = &[(0.0, [201.0, 255.0, 241.0])];
     const PALE: &[(f32, [f32; 3])] = &[(0.0, [253.0, 253.0, 255.0])];
@@ -400,7 +451,8 @@ pub(crate) fn bubble_pop(commands: &mut Commands, art: &Art, c: f32, at: Vec2, a
         spin: false,
         sizes: (GROW, GROW),
         colours: (MINT, PALE),
-        alpha: FLAT, drift: 0.0,
+        alpha: FLAT,
+        drift: 0.0,
     };
     let radius = across.clamp(2, 4) as f32 - 0.27;
     spawn_shaped(commands, art, c, at, &Emit::Ring(radius), 30.0, &kind, seed);
@@ -428,32 +480,95 @@ pub(crate) fn destroy_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2,
     const OUT_A: &[(f32, f32)] = &[(0.0, 1.0), (0.671, 0.764), (1.0, 0.0)];
     const OUT_B: &[(f32, f32)] = &[(0.0, 0.905), (0.665, 0.489), (1.0, 0.0)];
     let kinds = [
-        (Emit::Point, ShapedKind {
-            image: "explosion_flash", count: 1, life: (0.15, 0.15), speed: (0.0, 0.0), size: (4.0, 4.0),
-            clamp: (f32::MAX, 0.0), spin: false, sizes: (FLAT, FLAT), colours: (FLASH, FLASH), alpha: HALF_FADE, drift: 0.0,
-        }),
-        (Emit::Edge(4.26), ShapedKind {
-            image: "cast_droplet", count: 8, life: (1.0, 2.0), speed: (20.0, 80.0), size: (0.3, 0.8),
-            clamp: (2.0, 0.15), spin: true, sizes: (UP_A, UP_B), colours: (WHITE_KEYS, WHITE_KEYS), alpha: UP_FADE, drift: 0.0,
-        }),
-        (Emit::Edge(4.3), ShapedKind {
-            image: "spark_star", count: 5, life: (1.0, 2.0), speed: (20.0, 200.0), size: (0.3, 0.5),
-            clamp: (3.0, 0.3), spin: true, sizes: (STAR, STAR),
-            colours: (&WINNER_STAR_COLOURS[0], &WINNER_STAR_COLOURS[1]), alpha: LATE_FADE, drift: 0.0,
-        }),
-        (Emit::Point, ShapedKind {
-            image: "cast_droplet", count: 8, life: (0.5, 0.5), speed: (50.0, 100.0), size: (0.5, 1.0),
-            clamp: (0.5, 0.28), spin: true, sizes: (OUT_A, OUT_B), colours: (WHITE_KEYS, WHITE_KEYS), alpha: LATE_FADE, drift: 0.0,
-        }),
+        (
+            Emit::Point,
+            ShapedKind {
+                image: "explosion_flash",
+                count: 1,
+                life: (0.15, 0.15),
+                speed: (0.0, 0.0),
+                size: (4.0, 4.0),
+                clamp: (f32::MAX, 0.0),
+                spin: false,
+                sizes: (FLAT, FLAT),
+                colours: (FLASH, FLASH),
+                alpha: HALF_FADE,
+                drift: 0.0,
+            },
+        ),
+        (
+            Emit::Edge(4.26),
+            ShapedKind {
+                image: "cast_droplet",
+                count: 8,
+                life: (1.0, 2.0),
+                speed: (20.0, 80.0),
+                size: (0.3, 0.8),
+                clamp: (2.0, 0.15),
+                spin: true,
+                sizes: (UP_A, UP_B),
+                colours: (WHITE_KEYS, WHITE_KEYS),
+                alpha: UP_FADE,
+                drift: 0.0,
+            },
+        ),
+        (
+            Emit::Edge(4.3),
+            ShapedKind {
+                image: "spark_star",
+                count: 5,
+                life: (1.0, 2.0),
+                speed: (20.0, 200.0),
+                size: (0.3, 0.5),
+                clamp: (3.0, 0.3),
+                spin: true,
+                sizes: (STAR, STAR),
+                colours: (&WINNER_STAR_COLOURS[0], &WINNER_STAR_COLOURS[1]),
+                alpha: LATE_FADE,
+                drift: 0.0,
+            },
+        ),
+        (
+            Emit::Point,
+            ShapedKind {
+                image: "cast_droplet",
+                count: 8,
+                life: (0.5, 0.5),
+                speed: (50.0, 100.0),
+                size: (0.5, 1.0),
+                clamp: (0.5, 0.28),
+                spin: true,
+                sizes: (OUT_A, OUT_B),
+                colours: (WHITE_KEYS, WHITE_KEYS),
+                alpha: LATE_FADE,
+                drift: 0.0,
+            },
+        ),
     ];
     for (i, (from, kind)) in kinds.iter().enumerate() {
-        spawn_shaped(commands, art, c, at, from, 30.0 + i as f32 * 0.01, kind, seed);
+        spawn_shaped(
+            commands,
+            art,
+            c,
+            at,
+            from,
+            30.0 + i as f32 * 0.01,
+            kind,
+            seed,
+        );
     }
 }
 
 /// BRICK_SPAWN_POOF_SMALL (SpawnPoofSmall): a size 3 flash for 0.07 s and five white clouds
 /// at 20 to 40 cells/s (Limit Velocity 0.5, dampen 0.28), 0.8 to 1.4 cells, 0.5 s.
-pub(crate) fn small_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, z: f32, seed: &mut u32) {
+pub(crate) fn small_poof(
+    commands: &mut Commands,
+    art: &Art,
+    c: f32,
+    at: Vec2,
+    z: f32,
+    seed: &mut u32,
+) {
     burst(
         commands,
         art,
@@ -539,7 +654,12 @@ fn landing_dust(
     let c = config.cell_size;
     due.extend(placed.iter().map(|e| (e, 0)));
     for roof in roofs.read() {
-        due.extend(roof_pieces.iter().filter(|(_, r)| r.tower == roof.tower).map(|(e, _)| (e, 0)));
+        due.extend(
+            roof_pieces
+                .iter()
+                .filter(|(_, r)| r.tower == roof.tower)
+                .map(|(e, _)| (e, 0)),
+        );
     }
     let mut ready = Vec::new();
     due.retain_mut(|(entity, frames)| {
@@ -555,21 +675,32 @@ fn landing_dust(
         let Ok((collider, position, rotation, layers)) = bodies.get(entity) else {
             continue;
         };
-        let filter = SpatialQueryFilter::from_mask(layers.memberships).with_excluded_entities([entity]);
+        let filter =
+            SpatialQueryFilter::from_mask(layers.memberships).with_excluded_entities([entity]);
         // Each box's world bounds (Collider2D.bounds).
         let shape = collider.shape_scaled();
-        let parts: Vec<(Vec2, f32, avian2d::parry::shape::SharedShape)> = match shape.as_compound() {
+        let parts: Vec<(Vec2, f32, avian2d::parry::shape::SharedShape)> = match shape.as_compound()
+        {
             Some(compound) => compound
                 .shapes()
                 .iter()
-                .map(|(iso, part)| (Vec2::new(iso.translation.x, iso.translation.y), iso.rotation.angle(), part.clone()))
+                .map(|(iso, part)| {
+                    (
+                        Vec2::new(iso.translation.x, iso.translation.y),
+                        iso.rotation.angle(),
+                        part.clone(),
+                    )
+                })
                 .collect(),
             None => vec![(Vec2::ZERO, 0.0, shape.clone())],
         };
         let mut seed = (entity.to_bits() as u32).wrapping_mul(7919) | 1;
         for (offset, angle, part) in parts {
             let local = part.compute_local_aabb();
-            let (lo, hi) = (Vec2::new(local.mins.x, local.mins.y), Vec2::new(local.maxs.x, local.maxs.y));
+            let (lo, hi) = (
+                Vec2::new(local.mins.x, local.mins.y),
+                Vec2::new(local.maxs.x, local.maxs.y),
+            );
             let turn = Rot2::radians(angle);
             let corners = [lo, Vec2::new(hi.x, lo.y), hi, Vec2::new(lo.x, hi.y)]
                 .map(|p| position.0 + *rotation * (offset + turn * p));
@@ -582,7 +713,16 @@ fn landing_dust(
                 if let Some(hit) = spatial.cast_ray(from, Dir2::NEG_Y, 0.3 * c, true, &filter) {
                     hit_once = true;
                     let at = from - Vec2::Y * hit.distance;
-                    spawn_shaped(&mut commands, &art, c, at, &Emit::Ring(0.1), 7.0, &kind, &mut seed);
+                    spawn_shaped(
+                        &mut commands,
+                        &art,
+                        c,
+                        at,
+                        &Emit::Ring(0.1),
+                        7.0,
+                        &kind,
+                        &mut seed,
+                    );
                 }
                 x += if hit_once { 0.5 * c } else { 0.1 * c };
             }
@@ -610,7 +750,11 @@ fn gravel(
         _ => return,
     };
     // ROOF_PLACED sheds gravel too (its GravelEffect).
-    let towers: Vec<Entity> = placed.iter().map(|b| b.tower).chain(roofs.read().map(|r| r.tower)).collect();
+    let towers: Vec<Entity> = placed
+        .iter()
+        .map(|b| b.tower)
+        .chain(roofs.read().map(|r| r.tower))
+        .collect();
     for tower in towers {
         for (entity, transform, stone) in &stones {
             let at = transform.translation.truncate();
@@ -663,8 +807,10 @@ fn lost_bricks(
     towers: Query<(&Tower, &TowerState)>,
 ) {
     // The heart a lost life empties: the one at the lives now left.
-    let lives: std::collections::HashMap<usize, u32> =
-        towers.iter().filter_map(|(t, s)| Some((t.index, s.lives?))).collect();
+    let lives: std::collections::HashMap<usize, u32> = towers
+        .iter()
+        .filter_map(|(t, s)| Some((t.index, s.lives?)))
+        .collect();
     let c = config.cell_size;
     let (centre, size) = match camera.single() {
         Ok((t, Projection::Orthographic(o))) => (t.translation.truncate(), view_size.0 * o.scale),
@@ -737,7 +883,15 @@ fn lost_bricks(
             // BRICK_LOST: the small mist (BrickLostMistSmall) for every brick.
             for (speed, size, gravity, color, count, spread, z) in [
                 (30.0, 0.8, 2.0, Color::WHITE, 8, 1.2, 9.1),
-                (15.0, 4.0, 0.5, Color::srgba(0.94, 0.91, 1.0, 0.7), 6, 1.6, 9.0),
+                (
+                    15.0,
+                    4.0,
+                    0.5,
+                    Color::srgba(0.94, 0.91, 1.0, 0.7),
+                    6,
+                    1.6,
+                    9.0,
+                ),
             ] {
                 burst(
                     &mut commands,
@@ -916,7 +1070,9 @@ fn spin_crosses(
         cross.time += time.delta_secs();
         let t = cross.time;
         // With a heart to go to it is gone when it gets there.
-        let target = cross.heart.and_then(|h| hearts.0.get(&(cross.tower, h)).copied());
+        let target = cross
+            .heart
+            .and_then(|h| hearts.0.get(&(cross.tower, h)).copied());
         if t >= 1.2 || (target.is_some() && t >= 0.8) {
             commands.entity(entity).despawn();
             continue;
@@ -935,7 +1091,8 @@ fn spin_crosses(
         }
         // A full turn eased in after 0.2 s, its side's way, shrinking to 30% over 0.8 s.
         let spin = ((t - 0.2) / 0.8).clamp(0.0, 1.0);
-        transform.rotation = Quat::from_rotation_z(cross.side * std::f32::consts::TAU * spin * spin);
+        transform.rotation =
+            Quat::from_rotation_z(cross.side * std::f32::consts::TAU * spin * spin);
         let scale = 1.0 - 0.7 * (t / 0.8).min(1.0);
         if let Some(size) = sprite.custom_size.as_mut() {
             *size = size.normalize_or_zero() * cross.size * scale * std::f32::consts::SQRT_2;
@@ -996,7 +1153,9 @@ fn wave_messages(
         let size = |name: &str| {
             art.entries.get(name).and_then(|e| {
                 let ppu = e.pixels_per_unit.unwrap_or(100.0).max(1.0);
-                art.image(name).and_then(|h| images.as_ref().and_then(|i| i.get(&h))).map(|i| i.size_f32() / ppu)
+                art.image(name)
+                    .and_then(|h| images.as_ref().and_then(|i| i.get(&h)))
+                    .map(|i| i.size_f32() / ppu)
             })
         };
         let text_vh = config.moments.banner_cells * 42.0 / 32.75 * cell;
@@ -1013,8 +1172,14 @@ fn wave_messages(
             GlobalZIndex(10),
         ));
         root.with_children(|row| {
-            let cloud = |row: &mut ChildSpawnerCommands, name: &str, x: f32, y: f32, drift: Option<usize>| {
-                let (Some(image), Some(s)) = (art.image(name), size(name)) else { return };
+            let cloud = |row: &mut ChildSpawnerCommands,
+                         name: &str,
+                         x: f32,
+                         y: f32,
+                         drift: Option<usize>| {
+                let (Some(image), Some(s)) = (art.image(name), size(name)) else {
+                    return;
+                };
                 let mut node = row.spawn((ImageNode::new(image), place(x, y, s.x, s.y)));
                 if let Some(i) = drift {
                     node.insert((WaveCloud(i), UiTransform::default()));
@@ -1022,10 +1187,17 @@ fn wave_messages(
             };
             cloud(row, "wave_cloud_4", -6.16, 7.5, None);
             cloud(row, "wave_cloud_3", 2.99, 6.21, None);
-            for (words, x, y) in [("WAVE".to_string(), -6.16 + 1.93, 7.5 + 1.18), (number.to_string(), 3.0 + 2.09, 6.09 + 1.19)] {
+            for (words, x, y) in [
+                ("WAVE".to_string(), -6.16 + 1.93, 7.5 + 1.18),
+                (number.to_string(), 3.0 + 2.09, 6.09 + 1.19),
+            ] {
                 for back in [true, false] {
                     let tone = crate::results::Tone::Red;
-                    let (look, drop, tall) = if back { (tone.back(), 0.21, 1.11) } else { (tone.front(), 0.0, 1.0) };
+                    let (look, drop, tall) = if back {
+                        (tone.back(), 0.21, 1.11)
+                    } else {
+                        (tone.front(), 0.0, 1.0)
+                    };
                     row.spawn(place(x, y - drop, 12.0, 4.0)).with_child((
                         Text::new(words.clone()),
                         // WaveMessage spaces -1.
@@ -1054,7 +1226,13 @@ fn fade_wave_messages(
     time: Res<Time>,
     game: Res<Match>,
     config: Res<GameConfig>,
-    mut messages: Query<(Entity, &mut WaveMessage, &mut UiTransform, &mut Visibility, &Children)>,
+    mut messages: Query<(
+        Entity,
+        &mut WaveMessage,
+        &mut UiTransform,
+        &mut Visibility,
+        &Children,
+    )>,
     mut clouds: Query<(&WaveCloud, &mut UiTransform), Without<WaveMessage>>,
 ) {
     let moments = &config.moments;
@@ -1162,13 +1340,18 @@ fn clip_fields(
         *seed = 0x2F6B_1C9D;
     }
     // The stars and streaks are added onto the screen (Particles/Additive, tint 0.5 x 2).
-    let quad = meshes
-        .as_mut()
-        .map(|m| quad.get_or_insert_with(|| m.add(Rectangle::new(1.0, 1.0))).clone());
+    let quad = meshes.as_mut().map(|m| {
+        quad.get_or_insert_with(|| m.add(Rectangle::new(1.0, 1.0)))
+            .clone()
+    });
     let mut add = quad.zip(adds.as_deref_mut());
     let c = config.cell_size;
     // ponytail: not in Puzzle, whose lanes aren't cut (brick_material::follow_bricks).
-    let lanes = if game.mode.rules() == ModeKind::Puzzle { 1 } else { towers.iter().count() };
+    let lanes = if game.mode.rules() == ModeKind::Puzzle {
+        1
+    } else {
+        towers.iter().count()
+    };
     // AbstractGameMode adds it in the GAME and ROOF states; a lone tower's camera is the
     // whole screen.
     let on = lanes > 1
@@ -1284,7 +1467,10 @@ fn spawn_clip_spark(
     cut: (Vec2, f32, f32),
     age: f32,
     seed: &mut u32,
-    add: &mut Option<(Handle<Mesh>, &mut Assets<crate::scene_material::AdditiveSprite>)>,
+    add: &mut Option<(
+        Handle<Mesh>,
+        &mut Assets<crate::scene_material::AdditiveSprite>,
+    )>,
 ) {
     let (at, side, height) = cut;
     let (_, _, speed, size, picture) = CLIP_LAYERS[layer];
@@ -1345,7 +1531,10 @@ fn spawn_clip_spark(
             commands.spawn((
                 spark,
                 Mesh2d(quad.clone()),
-                MeshMaterial2d(adds.add(crate::scene_material::AdditiveSprite { tint, picture: sprite.image })),
+                MeshMaterial2d(adds.add(crate::scene_material::AdditiveSprite {
+                    tint,
+                    picture: sprite.image,
+                })),
                 transform.with_scale(scale.extend(1.0)),
             ));
         }
@@ -1514,7 +1703,10 @@ fn move_winner_stars(
         transform.translation += (star.velocity * dt).extend(0.0);
         transform.rotate_z(star.spin * dt);
         sprite.custom_size = Some(Vec2::splat(star.size * along(&WINNER_STAR_SIZE, t)));
-        let (a, b) = (colour(&WINNER_STAR_COLOURS[0], t), colour(&WINNER_STAR_COLOURS[1], t));
+        let (a, b) = (
+            colour(&WINNER_STAR_COLOURS[0], t),
+            colour(&WINNER_STAR_COLOURS[1], t),
+        );
         let rgb: [f32; 3] = std::array::from_fn(|i| a[i] + (b[i] - a[i]) * star.mix);
         let alpha = if t < WINNER_STAR_FADE {
             1.0
@@ -1554,8 +1746,17 @@ pub(crate) struct UiStar {
 
 /// Bursts `b` from a 0.29-unit circle's edge round `at` (logical pixels, `unit` pixels a
 /// unit), each star flying outward; drawn over the popups.
-pub(crate) fn ui_burst(commands: &mut Commands, art: &Art, at: Vec2, unit: f32, b: &UiBurst, seed: &mut u32) {
-    let Some(image) = art.image("spark_star") else { return };
+pub(crate) fn ui_burst(
+    commands: &mut Commands,
+    art: &Art,
+    at: Vec2,
+    unit: f32,
+    b: &UiBurst,
+    seed: &mut u32,
+) {
+    let Some(image) = art.image("spark_star") else {
+        return;
+    };
     for _ in 0..b.count {
         let angle = roll(seed) * std::f32::consts::TAU;
         let dir = Vec2::from_angle(angle);
@@ -1593,7 +1794,13 @@ pub(crate) fn ui_burst(commands: &mut Commands, art: &Art, at: Vec2, unit: f32, 
 fn move_ui_stars(
     mut commands: Commands,
     time: Res<Time>,
-    mut stars: Query<(Entity, &mut UiStar, &mut Node, &mut ImageNode, &mut UiTransform)>,
+    mut stars: Query<(
+        Entity,
+        &mut UiStar,
+        &mut Node,
+        &mut ImageNode,
+        &mut UiTransform,
+    )>,
 ) {
     let dt = time.delta_secs();
     for (entity, mut star, mut node, mut image, mut transform) in &mut stars {
@@ -1613,14 +1820,22 @@ fn move_ui_stars(
         let step = star.velocity * dt;
         star.at += step;
         star.turn += star.spin * dt;
-        let scale = if k < 0.688 { 1.0 } else { 1.0 - (k - 0.688) / (1.0 - 0.688) };
+        let scale = if k < 0.688 {
+            1.0
+        } else {
+            1.0 - (k - 0.688) / (1.0 - 0.688)
+        };
         let size = star.size * scale;
         node.left = Val::Px(star.at.x - size / 2.0);
         node.top = Val::Px(star.at.y - size / 2.0);
         node.width = Val::Px(size);
         node.height = Val::Px(size);
         transform.rotation = Rot2::radians(star.turn);
-        let alpha = if k < fade_from { 1.0 } else { 1.0 - (k - fade_from) / (1.0 - fade_from) };
+        let alpha = if k < fade_from {
+            1.0
+        } else {
+            1.0 - (k - fade_from) / (1.0 - fade_from)
+        };
         image.color = from.mix(&to, k).with_alpha(alpha);
     }
 }

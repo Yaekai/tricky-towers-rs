@@ -7,7 +7,7 @@ use bevy::input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::config::{curve, GameConfig, StartLook};
+use crate::config::{GameConfig, StartLook, curve};
 use crate::gameplay::{Match, Phase};
 use crate::menu::{MenuScreen, ScreenTransition};
 use crate::select::{place, shown};
@@ -66,10 +66,7 @@ pub(crate) struct StartClock {
     prompt_hidden: bool,
 }
 
-pub(crate) fn spawn_start_screen(
-    mut commands: Commands,
-    art: Option<Res<Art>>,
-) {
+pub(crate) fn spawn_start_screen(mut commands: Commands, art: Option<Res<Art>>) {
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
     let mut root = commands.spawn((
         Node {
@@ -91,7 +88,12 @@ pub(crate) fn spawn_start_screen(
         // is hidden by the letters it lands on.
         pieces.push(("logo_brick".into(), BRICK, 1.0, PieceKind::Brick));
         for (i, at) in PLANTS.iter().enumerate() {
-            pieces.push((format!("logo_plants_{}", i + 1), *at, 1.0, PieceKind::Plant(i)));
+            pieces.push((
+                format!("logo_plants_{}", i + 1),
+                *at,
+                1.0,
+                PieceKind::Plant(i),
+            ));
         }
         pieces.push(("logo_plain".into(), LOGO, 1.0, PieceKind::Logo));
         for (i, at) in DEBRIS.iter().enumerate() {
@@ -103,7 +105,12 @@ pub(crate) fn spawn_start_screen(
             ));
         }
         for (i, &(at, scale)) in SMALL_DEBRIS.iter().enumerate() {
-            pieces.push(("logo_debris_8".into(), at, scale, PieceKind::Debris(DEBRIS.len() + i)));
+            pieces.push((
+                "logo_debris_8".into(),
+                at,
+                scale,
+                PieceKind::Debris(DEBRIS.len() + i),
+            ));
         }
     } else {
         pieces.push(("logo".into(), LOGO, 1.0, PieceKind::Logo));
@@ -137,17 +144,24 @@ pub(crate) fn spawn_start_screen(
             ));
         }
         if !any {
-            root.spawn((place((1920.0, 200.0), (0.0, 182.0)), LogoPiece {
-                image: None, at: LOGO, scale: 1.0, kind: PieceKind::Logo, pivot_y: 0.5,
-            }))
-                .with_child((
-                    Text::new("Tricky Towers"),
-                    TextFont {
-                        font_size: FontSize::Vh(12.0),
-                        ..default()
-                    },
-                    TextColor(Color::WHITE),
-                ));
+            root.spawn((
+                place((1920.0, 200.0), (0.0, 182.0)),
+                LogoPiece {
+                    image: None,
+                    at: LOGO,
+                    scale: 1.0,
+                    kind: PieceKind::Logo,
+                    pivot_y: 0.5,
+                },
+            ))
+            .with_child((
+                Text::new("Tricky Towers"),
+                TextFont {
+                    font_size: FontSize::Vh(12.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
         }
         // The prompt (StartMessage): "PRESS [key] TO START" in EnzoBlackGold46 on the
         // bar with the brick ends, as wide as its words and key plus 64 px a side
@@ -162,7 +176,10 @@ pub(crate) fn spawn_start_screen(
             bar.insert(crate::select::sliced(back, [77.0, 79.0, 0.0, 0.0]));
         }
         bar.with_children(|b| {
-            for (part, words) in [(PromptPart::Before, "PRESS"), (PromptPart::After, "TO START")] {
+            for (part, words) in [
+                (PromptPart::Before, "PRESS"),
+                (PromptPart::After, "TO START"),
+            ] {
                 b.spawn((
                     Node {
                         position_type: PositionType::Absolute,
@@ -249,13 +266,16 @@ pub(crate) fn start_input(
         k.any_just_pressed([KeyCode::Enter, KeyCode::Space, KeyCode::NumpadEnter])
     });
     let pad = gamepads.iter().find_map(|(entity, p)| {
-        p.any_just_pressed([crate::input::continue_back(p).0, GamepadButton::Start]).then_some(entity)
+        p.any_just_pressed([crate::input::continue_back(p).0, GamepadButton::Start])
+            .then_some(entity)
     });
     let look = &config.start;
     let now = time.elapsed_secs();
     let pressed = key || pad.is_some();
     if mouse.is_some_and(|m| m.just_pressed(MouseButton::Left))
-        || clock.rumble_at.is_some_and(|at| pressed || now - at >= look.rumble_end)
+        || clock
+            .rumble_at
+            .is_some_and(|at| pressed || now - at >= look.rumble_end)
     {
         transition.menu(MenuScreen::Main);
         return;
@@ -304,7 +324,11 @@ pub(crate) fn show_start_screen(
     mut prompt: Query<&mut Visibility, (With<StartPrompt>, Without<StartRoot>)>,
     mut pieces: Query<
         (&LogoPiece, &mut Node, &mut UiTransform, &mut Visibility),
-        (Without<StartRoot>, Without<StartPrompt>, Without<PromptPart>),
+        (
+            Without<StartRoot>,
+            Without<StartPrompt>,
+            Without<PromptPart>,
+        ),
     >,
 ) {
     let on = game.phase == Phase::Menu && *screen == MenuScreen::Start;
@@ -322,7 +346,9 @@ pub(crate) fn show_start_screen(
         let key_w = key_image
             .as_ref()
             .and_then(|h| images.as_ref()?.get(h))
-            .map_or(PROMPT_KEY, |i| PROMPT_KEY * i.width() as f32 / i.height().max(1) as f32);
+            .map_or(PROMPT_KEY, |i| {
+                PROMPT_KEY * i.width() as f32 / i.height().max(1) as f32
+            });
         let before = crate::letters::translated_width(art, "PRESS", PROMPT_SIZE);
         let after = crate::letters::translated_width(art, "TO START", PROMPT_SIZE);
         let inner = before + PROMPT_GAP + key_w + PROMPT_GAP + after;
@@ -380,7 +406,10 @@ pub(crate) fn show_start_screen(
         }
     }
     let (offset, tilt) = match rumble {
-        Some(at) => (Vec2::new(curve(&look.rumble_x, at), curve(&look.rumble_y, at)), curve(&look.rumble_tilt, at)),
+        Some(at) => (
+            Vec2::new(curve(&look.rumble_x, at), curve(&look.rumble_y, at)),
+            curve(&look.rumble_tilt, at),
+        ),
         None => (Vec2::new(0.0, curve(&look.drop, t)), curve(&look.tilt, t)),
     };
     let turn = Rot2::degrees(tilt);
@@ -440,7 +469,13 @@ pub(crate) fn show_start_screen(
     // The prompt shows once the logo is in place and blinks on and off.
     let ready = t >= look.prompt_after;
     if ready {
-        let interval = if rumble.is_some() { look.rumble_blink } else if clock.prompt_hidden { look.blink.1 } else { look.blink.0 };
+        let interval = if rumble.is_some() {
+            look.rumble_blink
+        } else if clock.prompt_hidden {
+            look.blink.1
+        } else {
+            look.blink.0
+        };
         clock.blink += time.delta_secs();
         if interval > 0.0 && clock.blink >= interval {
             clock.blink = 0.0;
@@ -451,4 +486,3 @@ pub(crate) fn show_start_screen(
         v.set_if_neq(shown(ready && !clock.prompt_hidden));
     }
 }
-

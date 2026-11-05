@@ -60,7 +60,15 @@ fn wizard_spot(
     solo: bool,
     wizards: &Query<(&Wizard, &GlobalTransform)>,
 ) -> (Vec2, bool) {
-    wizard_spot_at(config, tower_entity, tower, state, solo, wizards, Vec2::ZERO)
+    wizard_spot_at(
+        config,
+        tower_entity,
+        tower,
+        state,
+        solo,
+        wizards,
+        Vec2::ZERO,
+    )
 }
 
 /// `wizard_spot`, moved by `offset` units in the wizard's own frame (its wand).
@@ -198,8 +206,17 @@ fn start_casts(
         // Each wizard has its own beam (the original's BEAM_<wizard>).
         let wizard = skins.get(caster_entity).map_or(caster.index, |s| s.wizard);
         // The beam and the lightning start at the wand (SpellCastContainer).
-        let spots = config.casts.cast_spots.get(wizard).copied().unwrap_or_default();
-        let wand = if cast.spell.is_dark() { spots.0 } else { spots.1 };
+        let spots = config
+            .casts
+            .cast_spots
+            .get(wizard)
+            .copied()
+            .unwrap_or_default();
+        let wand = if cast.spell.is_dark() {
+            spots.0
+        } else {
+            spots.1
+        };
         let (from, _) = wizard_spot_at(
             &config,
             caster_entity,
@@ -235,7 +252,14 @@ fn start_casts(
             let to = brick_at(caster_state, caster);
             // It strikes at the wizard's cast-self moment (WizardLightningEffect after
             // WizardCastSelfAnimationEffect).
-            spawn_bolt(&mut commands, from, to, config.cell_size, None, config.magic.cast_self);
+            spawn_bolt(
+                &mut commands,
+                from,
+                to,
+                config.cell_size,
+                None,
+                config.magic.cast_self,
+            );
         }
     }
 }
@@ -296,7 +320,13 @@ fn spawn_beam(
                     lane_x,
                     time: 0.0,
                 },
-                SkinBeam { look, built: false, spark_in: 0.0, owed: 0.0, seed },
+                SkinBeam {
+                    look,
+                    built: false,
+                    spark_in: 0.0,
+                    owed: 0.0,
+                    seed,
+                },
                 sprite,
                 Transform::from_translation(foot.extend(16.0)),
             ))
@@ -387,7 +417,10 @@ fn spawn_victim_beams(
     // and 04 have none).
     if wizard < 2 {
         // BeamDownIn switches the Sparks on 0.2 s in.
-        commands.spawn(SparkBurst { foot, time: -config.casts.dark_fall - 0.2 });
+        commands.spawn(SparkBurst {
+            foot,
+            time: -config.casts.dark_fall - 0.2,
+        });
     }
     let lane = spawn_beam(commands, config, art, BeamKind::Lane, foot, lane_x, wizard);
     commands
@@ -447,7 +480,9 @@ fn burst_down_sparks(
             continue;
         }
         commands.entity(entity).despawn();
-        let Some(image) = art.image("spark_star") else { continue };
+        let Some(image) = art.image("spark_star") else {
+            continue;
+        };
         for _ in 0..DOWN_SPARKS {
             let x = (skin_roll(&mut seed) * 4.0 - 2.0) * c;
             let speed = (10.0 + 390.0 * skin_roll(&mut seed)) * c;
@@ -456,7 +491,12 @@ fn burst_down_sparks(
             let mut sprite = Sprite::from_image(image.clone());
             sprite.custom_size = Some(Vec2::splat(size * 0.9));
             commands.spawn((
-                DownSpark { velocity: Vec2::Y * speed, spin, size, age: 0.0 },
+                DownSpark {
+                    velocity: Vec2::Y * speed,
+                    spin,
+                    size,
+                    age: 0.0,
+                },
                 sprite,
                 Transform::from_translation((burst.foot + Vec2::X * x).extend(16.6)),
             ));
@@ -490,7 +530,11 @@ fn burst_down_sparks(
             Some(i) => {
                 let ((t0, a), (t1, b)) = (DOWN_SPARK_COLOURS[i - 1], DOWN_SPARK_COLOURS[i]);
                 let f = (k - t0) / (t1 - t0);
-                [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]
+                [
+                    a[0] + (b[0] - a[0]) * f,
+                    a[1] + (b[1] - a[1]) * f,
+                    a[2] + (b[2] - a[2]) * f,
+                ]
             }
         };
         sprite.color = Color::srgb(colour[0], colour[1], colour[2]);
@@ -967,7 +1011,13 @@ fn run_skin_beams(
     time: Res<Time>,
     config: Res<GameConfig>,
     art: Res<Art>,
-    mut beams: Query<(Entity, &mut Beam, &mut SkinBeam, &mut Visibility, Option<&mut DelayedBy>)>,
+    mut beams: Query<(
+        Entity,
+        &mut Beam,
+        &mut SkinBeam,
+        &mut Visibility,
+        Option<&mut DelayedBy>,
+    )>,
     mut parts: Query<
         (
             &SkinPart,
@@ -1020,7 +1070,12 @@ fn run_skin_beams(
                             Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
                             MeshMaterial2d(looks.add(crate::scene_material::ScrollBeam {
                                 tint: tint(rgb),
-                                scroll: Vec4::new(look.length * look.repeat_per_cell, 0.0, 0.0, 0.0),
+                                scroll: Vec4::new(
+                                    look.length * look.repeat_per_cell,
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                ),
                                 picture: image,
                             })),
                             Transform::from_xyz(0.0, 0.0, 0.01 * i as f32).with_scale(Vec3::ZERO),
@@ -1060,7 +1115,11 @@ fn run_skin_beams(
         }
         beam.time += dt;
         let t = beam.time;
-        let last = if down { config.casts.beam_down.1 } else { config.casts.beam_up.1 };
+        let last = if down {
+            config.casts.beam_down.1
+        } else {
+            config.casts.beam_up.1
+        };
         // The original destroys the beam outright when its cast is done.
         if t >= last {
             commands.entity(entity).despawn();
@@ -1086,7 +1145,11 @@ fn run_skin_beams(
             )
         };
         let height = look.length * sy / 0.5;
-        let centre = if down { look.length - height * 0.5 } else { height * 0.5 };
+        let centre = if down {
+            look.length - height * 0.5
+        } else {
+            height * 0.5
+        };
         for (part, parent, mut transform, sprite, material) in &mut parts {
             if parent.parent() != entity {
                 continue;
@@ -1111,11 +1174,20 @@ fn run_skin_beams(
                 }
                 SkinPart::Circle(base) => {
                     let (times, alphas, scales) = look.circle;
-                    let keys = |v: (f32, f32, f32)| [(times.0, v.0), (times.1, v.1), (times.2, v.2)];
+                    let keys =
+                        |v: (f32, f32, f32)| [(times.0, v.0), (times.1, v.1), (times.2, v.2)];
                     let on = t >= times.0;
-                    transform.scale = Vec3::splat(if on { base * keyed_lerp(&keys(scales), t) } else { 0.0 });
+                    transform.scale = Vec3::splat(if on {
+                        base * keyed_lerp(&keys(scales), t)
+                    } else {
+                        0.0
+                    });
                     if let Some(mut sprite) = sprite {
-                        sprite.color.set_alpha(if on { keyed_lerp(&keys(alphas), t) } else { 0.0 });
+                        sprite.color.set_alpha(if on {
+                            keyed_lerp(&keys(alphas), t)
+                        } else {
+                            0.0
+                        });
                     }
                 }
             }
@@ -1143,7 +1215,9 @@ fn run_skin_beams(
                             sprite,
                             anchor,
                             Transform::from_xyz(0.0, 0.0, 0.04)
-                                .with_rotation(Quat::from_rotation_z(skin_roll(&mut seed) * std::f32::consts::TAU))
+                                .with_rotation(Quat::from_rotation_z(
+                                    skin_roll(&mut seed) * std::f32::consts::TAU,
+                                ))
                                 .with_scale(Vec3::ZERO),
                         ))
                         .id();
@@ -1163,7 +1237,12 @@ fn run_skin_beams(
                 let cream = Color::srgb(1.0, 0.988, 0.875);
                 let tint = Color::WHITE.mix(&cream, skin_roll(&mut seed));
                 let sprite = match art.image("spark_star") {
-                    Some(image) => Sprite { image, color: tint, custom_size: Some(Vec2::splat(size * c)), ..default() },
+                    Some(image) => Sprite {
+                        image,
+                        color: tint,
+                        custom_size: Some(Vec2::splat(size * c)),
+                        ..default()
+                    },
                     None => Sprite::from_color(tint, Vec2::splat(size * c)),
                 };
                 let star = commands
@@ -1196,7 +1275,11 @@ fn run_skin_beams(
         } else {
             1.0 - (1.0 - ((k - 1.0) * std::f32::consts::FRAC_PI_2).cos())
         };
-        transform.scale = Vec3::new(state.base * spark_scale_x, state.base * state.height * y, 1.0);
+        transform.scale = Vec3::new(
+            state.base * spark_scale_x,
+            state.base * state.height * y,
+            1.0,
+        );
     }
     let (_, _, limit, dampen, life, _) = look.particles;
     for (star, mut state, mut transform) in &mut stars {
@@ -1493,7 +1576,11 @@ fn spawn_cloud(
     let size = config.cells(look.cloud_size);
     // WizardSpellView: LightSpellBG (the white backing) for a light spell, DarkSpellBG for a
     // dark one.
-    let back = if dark { "spell_cloud" } else { "spell_slot_light" };
+    let back = if dark {
+        "spell_cloud"
+    } else {
+        "spell_slot_light"
+    };
     let cloud = match art.image(back) {
         Some(image) => Sprite {
             image,
@@ -1601,8 +1688,17 @@ fn animate_clouds(
     config: Res<GameConfig>,
     towers: Query<(Entity, &Tower, &TowerState)>,
     wizards: Query<(&Wizard, &GlobalTransform)>,
-    mut clouds: Query<(Entity, &mut SpellCloud, &mut Transform, Option<&Children>, &mut Visibility)>,
-    mut parts: Query<&mut Visibility, (Or<(With<CloudIcon>, With<ButtonHint>)>, Without<SpellCloud>)>,
+    mut clouds: Query<(
+        Entity,
+        &mut SpellCloud,
+        &mut Transform,
+        Option<&Children>,
+        &mut Visibility,
+    )>,
+    mut parts: Query<
+        &mut Visibility,
+        (Or<(With<CloudIcon>, With<ButtonHint>)>, Without<SpellCloud>),
+    >,
     hints: Query<(), With<ButtonHint>>,
     mut icons: Query<&mut Sprite, With<CloudIcon>>,
     blinks: Option<Res<crate::wizards::WizardBlinks>>,
@@ -1615,11 +1711,16 @@ fn animate_clouds(
             commands.entity(entity).despawn();
             continue;
         };
-        visibility.set_if_neq(if blinks.as_ref().is_some_and(|b| b.hidden(tower_entity, &config.wizards)) {
-            Visibility::Hidden
-        } else {
-            Visibility::Inherited
-        });
+        visibility.set_if_neq(
+            if blinks
+                .as_ref()
+                .is_some_and(|b| b.hidden(tower_entity, &config.wizards))
+            {
+                Visibility::Hidden
+            } else {
+                Visibility::Inherited
+            },
+        );
         cloud.time += dt;
         cloud.age += dt;
         let (at, flip) = wizard_spot(&config, tower_entity, tower, state, solo, &wizards);
@@ -1750,7 +1851,11 @@ fn grow_large_bricks(
                 commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
             }
             if let Some(sound) = art.sounds.get("sfx_rumble") {
-                commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::LOOP, LargeRumble(entity)));
+                commands.spawn((
+                    AudioPlayer(sound.clone()),
+                    PlaybackSettings::LOOP,
+                    LargeRumble(entity),
+                ));
             }
         } else if brick.scale < entry.1 - 1e-4 {
             *entry = (brick.scale, brick.scale, 1.0);
@@ -2071,7 +2176,10 @@ mod tests {
     fn a_picked_up_spell_blinks_five_times_then_stays() {
         use super::pickup_alpha;
         assert_eq!(pickup_alpha(0.1), 1.0);
-        assert!(pickup_alpha(0.15 + 0.15) < 0.01, "dark half way through the first blink");
+        assert!(
+            pickup_alpha(0.15 + 0.15) < 0.01,
+            "dark half way through the first blink"
+        );
         assert!((pickup_alpha(0.15 + 0.3) - 1.0).abs() < 1e-3);
         assert_eq!(pickup_alpha(2.0), 1.0);
     }
@@ -2099,7 +2207,11 @@ mod tests {
             .insert_resource(config)
             .init_resource::<Art>()
             .init_resource::<CameraShake>()
-            .add_plugins((crate::TowerCorePlugin, CastsPlugin, crate::wizards::WizardsPlugin));
+            .add_plugins((
+                crate::TowerCorePlugin,
+                CastsPlugin,
+                crate::wizards::WizardsPlugin,
+            ));
         app.finish();
         app.cleanup();
         for _ in 0..10 {
@@ -2208,13 +2320,19 @@ mod tests {
         }
         step(&mut app, 1);
         let shown = |app: &mut App| {
-            app.world_mut().query_filtered::<&Visibility, With<SpellCloud>>()
-                .single(app.world()).copied().unwrap()
+            app.world_mut()
+                .query_filtered::<&Visibility, With<SpellCloud>>()
+                .single(app.world())
+                .copied()
+                .unwrap()
         };
         assert_eq!(shown(&mut app), Visibility::Inherited);
         step(&mut app, 4);
         assert_eq!(shown(&mut app), Visibility::Hidden);
-        app.world_mut().get_mut::<TowerState>(tower).unwrap().invincible = 0.0;
+        app.world_mut()
+            .get_mut::<TowerState>(tower)
+            .unwrap()
+            .invincible = 0.0;
         step(&mut app, 1);
         assert_eq!(shown(&mut app), Visibility::Inherited);
     }

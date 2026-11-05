@@ -132,7 +132,9 @@ fn show_balloon_orbs(
         commands.entity(entity).insert(Visibility::default());
         if let Some(image) = art.image("balloon") {
             let (sprite, anchor, picture) = sized(&art, "balloon", image, config.cell_size);
-            commands.entity(entity).with_child((sprite, anchor, picture));
+            commands
+                .entity(entity)
+                .with_child((sprite, anchor, picture));
         }
         if let Some(sound) = art.sounds.get("sfx_spawn_balloon") {
             commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
@@ -141,8 +143,12 @@ fn show_balloon_orbs(
     let t = time.elapsed_secs();
     for (orb, mut transform) in &mut orbs {
         transform.scale = match orb.leaving {
-            Some(left) => Vec3::splat((1.0 - crate::packs::in_back((left / 0.5).min(1.0))).max(0.001)),
-            None if orb.age < 0.5 => Vec3::splat(crate::packs::out_elastic(orb.age / 0.5).max(0.0001)),
+            Some(left) => {
+                Vec3::splat((1.0 - crate::packs::in_back((left / 0.5).min(1.0))).max(0.001))
+            }
+            None if orb.age < 0.5 => {
+                Vec3::splat(crate::packs::out_elastic(orb.age / 0.5).max(0.0001))
+            }
             None => Vec3::new(
                 1.0 + ((t * 10.0).sin() + 1.0) * 0.05,
                 1.0 + ((t * 5.0).sin() + 1.0) * 0.05,
@@ -290,9 +296,15 @@ fn splash(
 ) {
     let look = &config.splash;
     // Every drop is the same disc, scaled, in its own pale blue.
-    let disc = drop_look.get_or_insert_with(|| meshes.add(Circle::new(0.5))).clone();
+    let disc = drop_look
+        .get_or_insert_with(|| meshes.add(Circle::new(0.5)))
+        .clone();
     let between = |(a, b): ((f32, f32, f32), (f32, f32, f32)), t: f32| {
-        Color::srgb(a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t, a.2 + (b.2 - a.2) * t)
+        Color::srgb(
+            a.0 + (b.0 - a.0) * t,
+            a.1 + (b.1 - a.1) * t,
+            a.2 + (b.2 - a.2) * t,
+        )
     };
     for (n, brick) in lost.read().enumerate() {
         let mut seed = (time.elapsed_secs() * 1000.0) as u32 ^ (n as u32 * 7919) | 1;
@@ -499,7 +511,9 @@ fn rumble_base_moves(
             commands.spawn((
                 AudioPlayer(sound.clone()),
                 PlaybackSettings::LOOP,
-                Rumble { left: config.puzzle.base_rise_time },
+                Rumble {
+                    left: config.puzzle.base_rise_time,
+                },
             ));
         }
         heard.retain(|h| h.0 != tower);
@@ -536,7 +550,11 @@ fn show_collapse(
                 // (BrickDisappearEffect): a flash, puffs of smoke and falling debris.
                 let blast = &look.explosion;
                 let at = at.extend(7.0);
-                let spawn = |commands: &mut Commands, name: &str, part: Particle, size: f32, seed: &mut u32| {
+                let spawn = |commands: &mut Commands,
+                             name: &str,
+                             part: Particle,
+                             size: f32,
+                             seed: &mut u32| {
                     let Some(image) = art.image(name) else { return };
                     let turn = roll(seed) * std::f32::consts::TAU;
                     commands.spawn((
@@ -549,8 +567,17 @@ fn show_collapse(
                         Transform::from_translation(at).with_rotation(Quat::from_rotation_z(turn)),
                     ));
                 };
-                let flash = Particle { life: blast.flash.1, ..default() };
-                spawn(&mut commands, "explosion_flash", flash, blast.flash.0 * c, &mut seed);
+                let flash = Particle {
+                    life: blast.flash.1,
+                    ..default()
+                };
+                spawn(
+                    &mut commands,
+                    "explosion_flash",
+                    flash,
+                    blast.flash.0 * c,
+                    &mut seed,
+                );
                 for _ in 0..blast.puffs.0 {
                     let way = Vec2::from_angle(roll(&mut seed) * std::f32::consts::TAU);
                     let part = Particle {
@@ -699,8 +726,14 @@ fn shake_for_bricks(
         return;
     }
     for brick in &placed {
-        let Some(tower) = index(brick.tower) else { continue };
-        kick(tower, PLACED_SHAKE, if brick.scale > 1.0 { 2.0 } else { 1.0 });
+        let Some(tower) = index(brick.tower) else {
+            continue;
+        };
+        kick(
+            tower,
+            PLACED_SHAKE,
+            if brick.scale > 1.0 { 2.0 } else { 1.0 },
+        );
     }
     for tower in lost {
         kick(tower, LOST_SHAKE, 1.0);
@@ -729,7 +762,13 @@ struct TrailCopy {
 
 impl TrailCopy {
     fn new(lit: Option<Handle<crate::brick_material::LitBrick>>) -> Self {
-        Self { time: 0.0, lit, alpha: TRAIL_ALPHA, fade: TRAIL_FADE, follow: None }
+        Self {
+            time: 0.0,
+            lit,
+            alpha: TRAIL_ALPHA,
+            fade: TRAIL_FADE,
+            follow: None,
+        }
     }
 }
 
@@ -739,8 +778,15 @@ fn fast_trails(
     time: Res<Time>,
     mut since: Local<f32>,
     bricks: Query<(&ActiveBrick, &Children)>,
-    parts: Query<(&GlobalTransform, &Sprite, Option<&Children>), (With<crate::visuals::CellSprite>, Without<TrailCopy>)>,
-    quads: Query<(&GlobalTransform, &Mesh2d, &MeshMaterial2d<crate::brick_material::LitBrick>)>,
+    parts: Query<
+        (&GlobalTransform, &Sprite, Option<&Children>),
+        (With<crate::visuals::CellSprite>, Without<TrailCopy>),
+    >,
+    quads: Query<(
+        &GlobalTransform,
+        &Mesh2d,
+        &MeshMaterial2d<crate::brick_material::LitBrick>,
+    )>,
     mut copies: Query<(Entity, &mut TrailCopy, Option<&mut Sprite>, &mut Transform)>,
     followed: Query<&GlobalTransform, (With<ActiveBrick>, Without<TrailCopy>)>,
     mut lits: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
@@ -794,9 +840,17 @@ fn fast_trails(
                 sprite.color.set_alpha(TRAIL_ALPHA);
                 commands.spawn((TrailCopy::new(None), sprite, behind(at)));
             }
-            for (at, mesh, material) in kids.into_iter().flatten().filter_map(|k| quads.get(*k).ok()) {
-                let Some(lits) = lits.as_deref_mut() else { continue };
-                let Some(mut look) = lits.get(&material.0).cloned() else { continue };
+            for (at, mesh, material) in kids
+                .into_iter()
+                .flatten()
+                .filter_map(|k| quads.get(*k).ok())
+            {
+                let Some(lits) = lits.as_deref_mut() else {
+                    continue;
+                };
+                let Some(mut look) = lits.get(&material.0).cloned() else {
+                    continue;
+                };
                 look.look.tint.w = TRAIL_ALPHA;
                 let handle = lits.add(look);
                 commands.spawn((
@@ -831,8 +885,15 @@ fn nudge_trails(
     config: Res<GameConfig>,
     mut nudges: MessageReader<crate::gameplay::BrickNudged>,
     bricks: Query<(&GlobalTransform, &Children)>,
-    parts: Query<(&GlobalTransform, &Sprite, Option<&Children>), (With<crate::visuals::CellSprite>, Without<TrailCopy>)>,
-    quads: Query<(&GlobalTransform, &Mesh2d, &MeshMaterial2d<crate::brick_material::LitBrick>)>,
+    parts: Query<
+        (&GlobalTransform, &Sprite, Option<&Children>),
+        (With<crate::visuals::CellSprite>, Without<TrailCopy>),
+    >,
+    quads: Query<(
+        &GlobalTransform,
+        &Mesh2d,
+        &MeshMaterial2d<crate::brick_material::LitBrick>,
+    )>,
     mut tips: Query<(Entity, &mut NudgeTip, &Children)>,
     mut pictures: Query<&mut Transform, With<crate::visuals::CellSprite>>,
     mut lits: Option<ResMut<Assets<crate::brick_material::LitBrick>>>,
@@ -880,17 +941,32 @@ fn nudge_trails(
                     sprite.color.set_alpha(alpha);
                     commands.spawn((copy(None), sprite, place(at)));
                 }
-                for (at, mesh, material) in kids.into_iter().flatten().filter_map(|k| quads.get(*k).ok()) {
-                    let Some(lits) = lits.as_deref_mut() else { continue };
-                    let Some(mut look) = lits.get(&material.0).cloned() else { continue };
+                for (at, mesh, material) in kids
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|k| quads.get(*k).ok())
+                {
+                    let Some(lits) = lits.as_deref_mut() else {
+                        continue;
+                    };
+                    let Some(mut look) = lits.get(&material.0).cloned() else {
+                        continue;
+                    };
                     look.look.tint.w = alpha;
                     let handle = lits.add(look);
-                    commands.spawn((copy(Some(handle.clone())), mesh.clone(), MeshMaterial2d(handle), place(at)));
+                    commands.spawn((
+                        copy(Some(handle.clone())),
+                        mesh.clone(),
+                        MeshMaterial2d(handle),
+                        place(at),
+                    ));
                 }
             }
         }
         // It tips against the way it went (the original turns a rightward nudge -25 degrees).
-        commands.entity(nudge.brick).insert(NudgeTip(-nudge.dir * NUDGE_TIP, 0.0));
+        commands
+            .entity(nudge.brick)
+            .insert(NudgeTip(-nudge.dir * NUDGE_TIP, 0.0));
     }
 }
 
@@ -930,11 +1006,14 @@ fn trail_mesh(length: f32, curve: f32, left: f32) -> Mesh {
         let n = k * 2;
         index.extend([n, n + 2, n + 1, n + 1, n + 2, n + 3]);
     }
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, at)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uv)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colour)
-        .with_inserted_indices(Indices::U32(index))
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, at)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uv)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colour)
+    .with_inserted_indices(Indices::U32(index))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -954,11 +1033,21 @@ fn respawn_trails(
     };
     let unit = config.cell_size;
     for back in respawned.read() {
-        let Some(image) = art.image("respawn_trail") else { continue };
-        let material = materials.add(ColorMaterial { texture: Some(image), ..default() });
+        let Some(image) = art.image("respawn_trail") else {
+            continue;
+        };
+        let material = materials.add(ColorMaterial {
+            texture: Some(image),
+            ..default()
+        });
         for curve in TRAIL_CURVES {
             commands.spawn((
-                RespawnTrail { brick: back.brick, from: back.from, time: RESPAWN_TRAIL_TIME, curve },
+                RespawnTrail {
+                    brick: back.brick,
+                    from: back.from,
+                    time: RESPAWN_TRAIL_TIME,
+                    curve,
+                },
                 Mesh2d(meshes.add(trail_mesh(1.0, curve, RESPAWN_TRAIL_TIME))),
                 MeshMaterial2d(material.clone()),
                 Transform::from_translation(back.from.extend(8.0)).with_scale(Vec3::splat(unit)),
@@ -986,7 +1075,10 @@ fn respawn_trails(
 }
 
 /// Takes last frame's shake off the camera before it is framed again.
-fn unshake_camera(shake: Res<CameraShake>, mut camera: Query<&mut Transform, With<crate::visuals::MainCamera>>) {
+fn unshake_camera(
+    shake: Res<CameraShake>,
+    mut camera: Query<&mut Transform, With<crate::visuals::MainCamera>>,
+) {
     if let Ok(mut transform) = camera.single_mut() {
         transform.translation -= shake.applied.extend(0.0);
     }
@@ -1015,7 +1107,10 @@ fn shake_camera(
     let jump = |reach: Vec2, seed: &mut u32| {
         Vec2::new(roll(seed) * 2.0 - 1.0, roll(seed) * 2.0 - 1.0) * reach
     };
-    let mut offset = shake.kicks.last().map_or(Vec2::ZERO, |&(reach, _)| jump(reach, &mut seed));
+    let mut offset = shake
+        .kicks
+        .last()
+        .map_or(Vec2::ZERO, |&(reach, _)| jump(reach, &mut seed));
     let mut lanes = [Vec2::ZERO; 4];
     for (lane, slot) in lanes.iter_mut().enumerate() {
         if let Some(&(_, reach, _)) = shake.lane_kicks.iter().rev().find(|k| k.0 == lane) {
@@ -1126,7 +1221,6 @@ fn rand_seed() -> u64 {
     r
 }
 
-
 #[cfg(test)]
 mod tests {
     #[test]
@@ -1135,7 +1229,9 @@ mod tests {
         let alphas = |left: f32| -> Vec<f32> {
             let mesh = super::trail_mesh(4.0, 0.3, left);
             match mesh.attribute(bevy::prelude::Mesh::ATTRIBUTE_COLOR) {
-                Some(VertexAttributeValues::Float32x4(c)) => c.iter().step_by(2).map(|c| c[3]).collect(),
+                Some(VertexAttributeValues::Float32x4(c)) => {
+                    c.iter().step_by(2).map(|c| c[3]).collect()
+                }
                 _ => panic!("no colours"),
             }
         };

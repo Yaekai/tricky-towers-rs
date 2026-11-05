@@ -2,9 +2,9 @@
 //! Player, ...), the pause menu, and the way between them and the player and
 //! mode select screens (src/select.rs).
 
+use bevy::ecs::hierarchy::ChildSpawnerCommands;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use bevy::ecs::hierarchy::ChildSpawnerCommands;
 
 use crate::art::Art;
 use crate::config::GameConfig;
@@ -31,7 +31,12 @@ impl Plugin for MenuPlugin {
             crate::navbar::NavBarPlugin,
             crate::confirm::ConfirmPlugin,
         ))
-        .add_systems(PostUpdate, apply_ui_opacity.after(LetterSystems).before(bevy::asset::AssetEventSystems))
+        .add_systems(
+            PostUpdate,
+            apply_ui_opacity
+                .after(LetterSystems)
+                .before(bevy::asset::AssetEventSystems),
+        )
         .init_resource::<MenuScreen>()
         .init_resource::<ScreenTransition>()
         .init_resource::<MainMenu>()
@@ -62,13 +67,32 @@ impl Plugin for MenuPlugin {
             (
                 // Each screen reads its keys before the screen that leads to it,
                 // so one press never acts on two screens.
-                (menu_escape, modes_input, players_input, endless_input,
-                    crate::trials_menu::trials_input, single_input, crate::settings::settings_input,
-                    main_menu_input, start_input, pause_input)
-                    .chain().distributive_run_if(screen_input_ready),
-                (show_start_screen, show_select_screens, show_single_screens, show_carousel,
-                    show_list_ribbon, crate::trials_menu::show_trials_screen,
-                    crate::settings::show_settings_screen, show_pause_menu, show_main_menu, spin_tile_rays)
+                (
+                    menu_escape,
+                    modes_input,
+                    players_input,
+                    endless_input,
+                    crate::trials_menu::trials_input,
+                    single_input,
+                    crate::settings::settings_input,
+                    main_menu_input,
+                    start_input,
+                    pause_input,
+                )
+                    .chain()
+                    .distributive_run_if(screen_input_ready),
+                (
+                    show_start_screen,
+                    show_select_screens,
+                    show_single_screens,
+                    show_carousel,
+                    show_list_ribbon,
+                    crate::trials_menu::show_trials_screen,
+                    crate::settings::show_settings_screen,
+                    show_pause_menu,
+                    show_main_menu,
+                    spin_tile_rays,
+                )
                     .chain(),
             )
                 .chain()
@@ -134,10 +158,14 @@ fn menu_escape(
                 transition.menu(MenuScreen::Main);
             }
         }
-        (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => transition.menu(MenuScreen::Single),
+        (Phase::Menu, MenuScreen::Endless | MenuScreen::Trials) => {
+            transition.menu(MenuScreen::Single)
+        }
         (Phase::Menu, MenuScreen::Help) => *screen = MenuScreen::Main,
         // Back leaves the lobby for the Online Battle screen.
-        (Phase::Menu, MenuScreen::Lobby | MenuScreen::Invite) => transition.menu(MenuScreen::Single),
+        (Phase::Menu, MenuScreen::Lobby | MenuScreen::Invite) => {
+            transition.menu(MenuScreen::Single)
+        }
         // The exit popup takes the input while it is up (its own input layer).
         (Phase::Menu, MenuScreen::Main) if confirm.open => {}
         (Phase::Menu, MenuScreen::Main) => transition.menu(MenuScreen::Start),
@@ -249,7 +277,10 @@ fn advance_screen_transition(
                         ScreenTransition::Reveal(0.0)
                     }
                     Destination::Match { retry } => {
-                        *request = MatchRequest { pending: true, retry };
+                        *request = MatchRequest {
+                            pending: true,
+                            retry,
+                        };
                         ScreenTransition::Load(game.round)
                     }
                 };
@@ -297,7 +328,12 @@ fn black_transitions(
     mut last: Local<Option<(MenuScreen, bool)>>,
     mut black: Query<(&mut BlackScreen, &mut BackgroundColor)>,
 ) {
-    let popup = |s: MenuScreen| matches!(s, MenuScreen::Pause | MenuScreen::Explain | MenuScreen::Help);
+    let popup = |s: MenuScreen| {
+        matches!(
+            s,
+            MenuScreen::Pause | MenuScreen::Explain | MenuScreen::Help
+        )
+    };
     let in_match = game.phase != Phase::Menu;
     let now = (*screen, in_match);
     let changed = match *last {
@@ -309,7 +345,11 @@ fn black_transitions(
     };
     *last = Some(now);
     let duration = config.menu.transition_fade;
-    let remaining = |elapsed: f32| (1.0 - elapsed / duration.max(f32::EPSILON)).max(0.0).powi(2);
+    let remaining = |elapsed: f32| {
+        (1.0 - elapsed / duration.max(f32::EPSILON))
+            .max(0.0)
+            .powi(2)
+    };
     for (mut fade, mut color) in &mut black {
         if !transition.idle() {
             fade.0 = f32::INFINITY;
@@ -381,8 +421,10 @@ fn pause_match_clock(
     mut time: ResMut<Time<Virtual>>,
     mut inputs: Query<&mut crate::gameplay::PlayerInput>,
 ) {
-    if pause.is_active() || (matches!(*transition, ScreenTransition::Cover(..))
-        && matches!(game.phase, Phase::Playing | Phase::Intro)) {
+    if pause.is_active()
+        || (matches!(*transition, ScreenTransition::Cover(..))
+            && matches!(game.phase, Phase::Playing | Phase::Intro))
+    {
         time.pause();
         for mut input in &mut inputs {
             *input = default();
@@ -406,7 +448,10 @@ pub const PAUSE_OPTIONS: [&str; 3] = ["Resume", "Retry", "Quit"];
 /// allowRetry), so Quit moves up into its place.
 pub fn pause_options(cup: Option<&crate::cups::Cup>) -> Vec<&'static str> {
     let retry = !cup.is_some_and(|c| c.in_progress());
-    PAUSE_OPTIONS.into_iter().filter(|o| retry || *o != "Retry").collect()
+    PAUSE_OPTIONS
+        .into_iter()
+        .filter(|o| retry || *o != "Retry")
+        .collect()
 }
 
 #[derive(Component)]
@@ -474,7 +519,6 @@ const CONTROLS_SECTIONS: [(f32, f32, &str, &[KeyCap]); 5] = {
         (704.0, 100.0, "Dark Magic", &[(DarkMagic, (0.0, -10.0), 0)]),
     ]
 };
-
 
 /// The keyboard controls panel centred at `centre` (px from the top-left), or at
 /// the pause screen's place.
@@ -585,7 +629,8 @@ pub(crate) fn spawn_controls_panel(
                 });
                 let half = (w - 2.0 * CONTROLS_INSET) / 2.0;
                 for &(action, (dx, dy), arrow) in caps {
-                    let name = crate::keybinding::cap_name(crate::keybinding::key_name(keys.key(action)));
+                    let name =
+                        crate::keybinding::cap_name(crate::keybinding::key_name(keys.key(action)));
                     s.spawn(Node {
                         position_type: PositionType::Absolute,
                         left: px(half + dx - 50.0),
@@ -796,7 +841,8 @@ fn pause_input(
 ) {
     let now = time.elapsed_secs();
     // Start on any pad pauses, as Esc does.
-    if !pause.is_active() && matches!(game.phase, Phase::Playing | Phase::Intro)
+    if !pause.is_active()
+        && matches!(game.phase, Phase::Playing | Phase::Intro)
         && gamepads
             .iter()
             .any(|pad| pad.just_pressed(GamepadButton::Start))
@@ -863,7 +909,9 @@ fn pause_input(
         }
         *last_cursor = cursor;
         if let Some(i) = over
-            && mouse.as_deref().is_some_and(|m| m.just_pressed(MouseButton::Left))
+            && mouse
+                .as_deref()
+                .is_some_and(|m| m.just_pressed(MouseButton::Left))
         {
             pause.selected = i;
             pick = true;
@@ -964,7 +1012,11 @@ fn show_pause_menu(
     }
     *was_shown = greyed;
     // The popup fades in and out over `pause_fade` (its CanvasGroup's DOFade).
-    let opacity = if shown { pause.shown(time.elapsed_secs(), config.menu.pause_fade) } else { 0.0 };
+    let opacity = if shown {
+        pause.shown(time.elapsed_secs(), config.menu.pause_fade)
+    } else {
+        0.0
+    };
     for (mut v, mut fade) in &mut root {
         v.set_if_neq(if shown {
             Visibility::Inherited
@@ -1226,7 +1278,9 @@ fn spawn_main_menu(
                     match image(&format!("menu_tile_{key}_deselected")) {
                         // QuitButton's pictures are 9-sliced (borders left, right, top,
                         // bottom); stretched, its 48 px picture's dark border grew 42% taller.
-                        Some(art) if key == "quit" => back.insert(crate::select::sliced(art, [34.0, 30.0, 15.0, 14.0])),
+                        Some(art) if key == "quit" => {
+                            back.insert(crate::select::sliced(art, [34.0, 30.0, 15.0, 14.0]))
+                        }
                         Some(art) => back.insert(ImageNode::new(art)),
                         None => back.insert(BackgroundColor(Color::srgb(
                             0.35 + r * 0.15,
@@ -1392,7 +1446,11 @@ fn spawn_main_menu(
                     // (EnzoBlackMilkyWhiteOutline46); each sits in its own box, since letter
                     // text hides with its parent.
                     let label_box = 60.0;
-                    let px = if small && tile.key != "shop" { 36.0 } else { 46.0 };
+                    let px = if small && tile.key != "shop" {
+                        36.0
+                    } else {
+                        46.0
+                    };
                     for picked in [false, true] {
                         let look = if picked {
                             crate::letters::TextLook::GOLD
@@ -1462,9 +1520,8 @@ fn pause_row_at(cursor: Vec2, window: Vec2) -> Option<usize> {
     if (p.x - 480.0).abs() > 120.0 {
         return None;
     }
-    (0..PAUSE_OPTIONS.len()).find(|&i| {
-        (p.y - (PAUSE_ITEMS_Y - PAUSE_ROW.0 * i as f32)).abs() <= PAUSE_BAR / 2.0
-    })
+    (0..PAUSE_OPTIONS.len())
+        .find(|&i| (p.y - (PAUSE_ITEMS_Y - PAUSE_ROW.0 * i as f32)).abs() <= PAUSE_BAR / 2.0)
 }
 
 /// The tile from `from` in direction `dir`: the nearest one ahead, with
@@ -1688,18 +1745,31 @@ mod tests {
             .init_resource::<Time<Real>>()
             .init_resource::<GameConfig>()
             .init_resource::<ScreenTransition>()
-            .insert_resource(Match { phase: Phase::Intro, ..default() })
+            .insert_resource(Match {
+                phase: Phase::Intro,
+                ..default()
+            })
             .insert_resource(MenuScreen::Pause)
             .add_systems(Update, black_transitions);
-        let cover = app.world_mut().spawn((BlackScreen(0.0), BackgroundColor(Color::BLACK))).id();
+        let cover = app
+            .world_mut()
+            .spawn((BlackScreen(0.0), BackgroundColor(Color::BLACK)))
+            .id();
         app.update();
-        assert_eq!(app.world().get::<BackgroundColor>(cover).unwrap().0.alpha(), 1.0);
+        assert_eq!(
+            app.world().get::<BackgroundColor>(cover).unwrap().0.alpha(),
+            1.0
+        );
         let fade = app.world().resource::<GameConfig>().menu.transition_fade;
-        app.world_mut().resource_mut::<Time<Real>>()
+        app.world_mut()
+            .resource_mut::<Time<Real>>()
             .advance_by(std::time::Duration::from_secs_f32(fade * 2.0));
         app.update();
         assert_eq!(app.world().resource::<Time>().elapsed_secs(), 0.0);
-        assert_eq!(app.world().get::<BackgroundColor>(cover).unwrap().0.alpha(), 0.0);
+        assert_eq!(
+            app.world().get::<BackgroundColor>(cover).unwrap().0.alpha(),
+            0.0
+        );
     }
 
     #[test]
@@ -1713,14 +1783,21 @@ mod tests {
             .insert_resource(MenuScreen::Main)
             .add_systems(PreUpdate, advance_screen_transition)
             .add_systems(Update, black_transitions);
-        let black = app.world_mut().spawn((BlackScreen(f32::INFINITY), BackgroundColor(Color::NONE))).id();
+        let black = app
+            .world_mut()
+            .spawn((BlackScreen(f32::INFINITY), BackgroundColor(Color::NONE)))
+            .id();
         let alpha = |app: &App| app.world().get::<BackgroundColor>(black).unwrap().0.alpha();
         let half = app.world().resource::<GameConfig>().menu.transition_fade * 0.5;
         let tick = |app: &mut App, dt| {
-            app.world_mut().resource_mut::<Time<Real>>().advance_by(std::time::Duration::from_secs_f32(dt));
+            app.world_mut()
+                .resource_mut::<Time<Real>>()
+                .advance_by(std::time::Duration::from_secs_f32(dt));
             app.update();
         };
-        app.world_mut().resource_mut::<ScreenTransition>().menu(MenuScreen::Modes);
+        app.world_mut()
+            .resource_mut::<ScreenTransition>()
+            .menu(MenuScreen::Modes);
         tick(&mut app, half);
         assert_eq!(*app.world().resource::<MenuScreen>(), MenuScreen::Main);
         assert!((alpha(&app) - 0.75).abs() < 1e-5);
@@ -1732,11 +1809,16 @@ mod tests {
         tick(&mut app, half * 1.01);
         assert_eq!(alpha(&app), 0.0);
 
-        app.world_mut().resource_mut::<ScreenTransition>().play(true);
+        app.world_mut()
+            .resource_mut::<ScreenTransition>()
+            .play(true);
         tick(&mut app, half);
         assert!(!app.world().resource::<MatchRequest>().pending);
         tick(&mut app, half * 1.01);
-        assert!(app.world().resource::<MatchRequest>().pending && app.world().resource::<MatchRequest>().retry);
+        assert!(
+            app.world().resource::<MatchRequest>().pending
+                && app.world().resource::<MatchRequest>().retry
+        );
         tick(&mut app, 1.0);
         assert_eq!(alpha(&app), 1.0);
         {
