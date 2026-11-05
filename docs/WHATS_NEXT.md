@@ -1,26 +1,48 @@
 # What's next
 
-Start with the [2026-11-04 handoff](handoff-2026-11-04.md) and the
-[current behavior audit](research/parity-audit-2026-11-03.md). The audit records the
-November implementation batch and its local evidence. The older working notes
-below include tasks already completed in October.
+Start with the [Claude handover](handoff-2026-11-05-claude.md) and the
+[behavior audit](research/parity-audit-2026-11-03.md). The ordered list here
+supersedes the older working notes below.
 
-## Confirmed remaining implementation work
+## Active backlog
 
-1. **Lane cameras/clipping:** shared Race and Survival lanes cut brick materials,
-   the drop guide and attached decorations. Puzzle still needs its own centered
-   viewports as towers widen.
-2. **Trial 9 physics:** keep the temporary 0.3 laser slack until the stack-height
-   discrepancy below is explained. Do not replace evidence with another guess.
-3. **Online and Shop:** initial Online Battle menus exist; real matchmaking,
-   network play and connected lobby/invite behavior are not implemented. The
-   Shop is still unimplemented under the current plan.
-4. **Verification:** remaining estimated values, language overflow, Windows
-   display scaling and physical controller mappings need focused comparisons.
-   The PlayStation touchpad Credits-close action has no reliable Bevy mapping.
+1. **Give multiplayer Puzzle fixed, centered viewports.** Claude started this
+   in the cloud from `bee6196`. Verify its first slice in a two-seat local battle.
+   Use the original's margins and gaps to define stable screen
+   rectangles. Keep the widest-tower zoom and each lane's projected center and
+   clip edges in agreement as the camera pulls back. Trace `visuals::frame_towers`,
+   `hud::place_items`, `post::follow_grab`, the laser and the foreground sand
+   before splitting the draw. Verify that a wide stack leaves each tower and its
+   HUD centered, a decoration stops at its own edge, and the laser stays shared.
+   Then cover three and four seats, window resizing and 125% scaling. Regression
+   check Puzzle trials, solo Endless Puzzle and the Race/Survival lane cuts.
+2. **Reproduce the Trial 9 stack-height mismatch.** Replay the same placements
+   and rotations for `SP_10` and record each brick's settled position and top.
+   Use the existing `trial brick over laser` diagnostic and compare the first
+   divergence with the original. The observed stack reached 2.47 cells against
+   the 2.20 laser. Floor geometry and the laser rule have already been checked.
+   Keep `puzzle.trial_laser_slack` at 0.3 until the same stack clears the original
+   threshold with a demonstrated fix. Rerun stacking, Ivy and cup regressions.
+3. **Compare spell and results timing in play.** Check Slow, Bubble on a stuck
+   brick, Extra Life, No Rotate, and the cup winner's cast against the original.
+   Record the trigger, delay and outcome for each difference before editing.
+   Then resolve the remaining `(?)` values in `casts`, `moments` and cup timing
+   from clips or repeatable measurements. Use [PC tasks](pc-tasks.md) as evidence
+   and a queue for measurements.
+4. **Run a focused display, text and controller pass.** Check Pause, Settings,
+   Select Players, Trials and results at 125% Windows scaling and 21:9. Cover long
+   Russian strings, Arabic layout and Japanese confirm/back glyphs. Verify Start
+   and Large rumble and the pause audio mix on hardware when a hands-on session
+   is available. The PlayStation touchpad Credits-close mapping remains open.
+   Measure frame times in a four-player decorated match to check the clip pass.
+5. **Close the offline release checklist after the parity checks.** Audit
+   `DEBUG-TOOL` entries and the release build with [the checklist](release-checklist.md).
+   Carry forward the existing decision about AI seats and mod tooling, or record
+   it as a release decision if still open. List any remaining measured gaps.
 
-The spell pipeline, Endless Puzzle obstacles, iced brick-pack shaders and final
-trial Credits should not be restarted from the historical descriptions below.
+Online Battle's connected lobby, invites, matchmaking and network play are a
+separate workstream. The initial menus exist. The Shop is outside the current
+plan. Treat older suggestions for those areas as historical notes.
 
 ## Historical working notes
 
