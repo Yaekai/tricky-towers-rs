@@ -11,7 +11,8 @@ can inspect and resume a paused match:
   restart a match (unset fields keep the current config).
 - `Press(tower: 0, key: CastDark)`: press a button for a tower once. Keys: `Left`, `Right`,
   `NudgeLeft`, `NudgeRight`, `RotateRight`, `RotateLeft`, `Drop`, `CastLight`, `CastDark`.
-- `Hold(tower: 0, key: Left, on: true)`: hold or let go of `Left`, `Right` or `Drop`.
+- `Hold(tower: 0, key: Left, on: true)`: hold or let go of `Left`, `Right` or `Drop` (kept on
+  over the keyboard and pads until let go or the next `Start`).
 - `GiveLight(tower: 0, spell: Ivy)`, `GiveDark(tower: 0, spells: [Large, Ice])`.
 - `Curse(spells: [Mystery])`: curse every tower at once, like a trial's enemy wizard.
 - `SetLives(tower: 0, lives: 1)`, `Win(tower: 0)`, `Lose(tower: 1)`.

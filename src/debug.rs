@@ -223,6 +223,9 @@ fn apply_debug_commands(
     mut galaxy: Option<ResMut<crate::packs::GalaxyDebug>>,
     mut settings: Option<ResMut<crate::settings::Settings>>,
     mut commands: Commands,
+    // `Hold`s still on. The keyboard and pad readers rewrite the held flags every frame,
+    // so a script's holds are put back before each fixed step.
+    mut held: Local<Vec<(usize, Key)>>,
 ) {
     // The tower with this index, as (state, input).
     macro_rules! tower {
@@ -245,6 +248,7 @@ fn apply_debug_commands(
                 pack,
                 wizards,
             } => {
+                held.clear();
                 config.mode = mode;
                 config.trial = trial;
                 if let Some(pack) = pack {
@@ -337,6 +341,10 @@ fn apply_debug_commands(
                 key,
                 on,
             } => {
+                held.retain(|h| *h != (index, key));
+                if on && matches!(key, Key::Left | Key::Right | Key::Drop) {
+                    held.push((index, key));
+                }
                 if let Some((_, mut input)) = tower!(index) {
                     match key {
                         Key::Left => input.left_held = on,
@@ -388,6 +396,15 @@ fn apply_debug_commands(
             }
             command @ (DebugCommand::Tap { .. } | DebugCommand::Picture { .. } | DebugCommand::Quit) => {
                 queue.0.push(command);
+            }
+        }
+    }
+    for &(index, key) in held.iter() {
+        if let Some((_, mut input)) = tower!(index) {
+            match key {
+                Key::Left => input.left_held = true,
+                Key::Right => input.right_held = true,
+                _ => input.fast_fall_held = true,
             }
         }
     }
