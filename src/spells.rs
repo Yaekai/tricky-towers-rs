@@ -1503,14 +1503,13 @@ pub struct BalloonOrb {
 
 /// HomingBalloonOrb: 2.5 cells/s up, x eased towards the brick at 1 a second, active once
 /// its 0.5 s pop-in is over, gone 0.5 s after it starts leaving; its trigger circle sits
-/// 1.1 cells up with a 1.05 radius. The catch holds the brick 0.6 s, shaking the first 0.3.
+/// 1.1 cells up with a 1.05 radius.
 const BALLOON_RISE: f32 = 2.5;
 const BALLOON_EASE: f32 = 1.0;
 const BALLOON_POP_IN: f32 = 0.5;
 const BALLOON_LEAVE: f32 = 0.5;
 const BALLOON_MARGIN: f32 = 8.0;
 const BALLOON_REACH: (Vec2, f32) = (Vec2::new(0.03, 1.1), 1.05);
-const BALLOON_HOLD: (f32, f32) = (0.6, 0.3);
 
 #[allow(clippy::type_complexity)]
 pub(crate) fn home_balloons(
@@ -1521,6 +1520,7 @@ pub(crate) fn home_balloons(
     mut orbs: Query<(Entity, &mut BalloonOrb, &mut Transform), Without<ActiveBrick>>,
     states: Query<&TowerState>,
     mut active: Query<(&mut ActiveBrick, &Position)>,
+    mut cues: MessageWriter<crate::gameplay::SlowBalloonCue>,
 ) {
     let dt = time.delta_secs();
     let c = config.cell_size;
@@ -1556,9 +1556,11 @@ pub(crate) fn home_balloons(
         if let Some((b, _)) = touched
             && let Ok((mut control, _)) = active.get_mut(b)
         {
-            control.mods.slow = true;
-            control.hold = BALLOON_HOLD.0;
-            control.hold_shake = BALLOON_HOLD.1;
+            let magic = &config.magic;
+            control.slow_attach_left = Some(magic.slow_catch_shake);
+            control.hold = control.hold.max(magic.slow_catch_shake + magic.slow_catch_hold);
+            control.hold_shake = control.hold_shake.max(magic.slow_catch_shake);
+            cues.write(crate::gameplay::SlowBalloonCue::Caught(transform.translation.truncate()));
             commands.entity(entity).despawn();
             continue;
         }

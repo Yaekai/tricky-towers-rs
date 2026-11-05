@@ -1276,12 +1276,17 @@ pub struct MagicRules {
     pub bubble_seconds: f32,
     /// Balloon (SlowBrickModifier): the most it falls without holding down (maxBrickSpeed);
     /// held down it speeds up as usual but no faster than a cap that starts at
-    /// `slow_fast_fall_speed` on each press and eases down by `slow_fast_ease` a second to
+    /// `slow_fast_fall_speed` on each press after inflation and eases down by `slow_fast_ease` a second to
     /// `slow_fast_floor` (cells/s). Sideways it moves as usual.
     pub slow_fall_speed: f32,
     pub slow_fast_fall_speed: f32,
     pub slow_fast_floor: f32,
     pub slow_fast_ease: f32,
+    /// Time shaking before the balloon attaches, then time held with the balloon attached.
+    pub slow_catch_shake: f32,
+    pub slow_catch_hold: f32,
+    /// Time the attached balloon takes to inflate before the drop cap starts easing.
+    pub slow_inflate: f32,
     pub mist_seconds: f32,
     /// Height of the fog over the tower top, in cells.
     pub mist_height: f32,
@@ -1497,6 +1502,9 @@ impl Default for MagicRules {
             slow_fast_fall_speed: 6.0,
             slow_fast_floor: 3.0,
             slow_fast_ease: 8.0,
+            slow_catch_shake: 0.3,
+            slow_catch_hold: 0.3,
+            slow_inflate: 0.4,
             mist_seconds: 15.0,
             mist_height: 5.0,
             grassy_radius: 5.0,

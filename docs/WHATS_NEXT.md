@@ -84,9 +84,11 @@ supersedes the older working notes below.
    clears without slack. The input sequence from the 2.47-cell run remains open.
    Keep `puzzle.trial_laser_slack` at 0.3 until the same stack clears the original
    threshold with a demonstrated fix. Rerun stacking, Ivy and cup regressions.
-3. **Compare spell and results timing in play.** Check Slow, Bubble on a stuck
-   brick, Extra Life, No Rotate, and the cup winner's cast against the original.
-   Record the trigger, delay and outcome for each difference before editing.
+3. **Compare spell and results timing in play.** Slow's catch, attachment,
+   release and first Down step now have a headless replay. Check the homing
+   orb's pop-in trigger, tether motion, Bubble on a stuck brick, Extra Life,
+   No Rotate, and the cup winner's cast against the original. Record the trigger, delay and outcome
+   for each difference before editing.
    Then resolve the remaining `(?)` values in `casts`, `moments` and cup timing
    from clips or repeatable measurements. Use [PC tasks](pc-tasks.md) as evidence
    and a queue for measurements.
