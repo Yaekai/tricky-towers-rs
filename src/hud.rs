@@ -266,6 +266,7 @@ fn fill_items(
     popping: Query<(), With<CountPop>>,
     mut steady: Local<HashMap<usize, (Option<usize>, Option<usize>, f32)>>,
     blinks: Option<Res<crate::wizards::WizardBlinks>>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
     let order: Vec<(usize, TowerState)> = towers
         .iter()
@@ -274,7 +275,14 @@ fn fill_items(
         .collect();
     let refs: Vec<(usize, &TowerState)> = order.iter().map(|(i, s)| (*i, s)).collect();
     let places = placings(&game, &refs);
-    let height = view.0.y.max(1.0);
+    // The HUD canvas scales by Expand from 1920x1080: a split screen's 16:9 box (see
+    // place_items).
+    let height = if lanes.is_some_and(|l| l.split()) {
+        crate::lanes::screen_box(view.0).height()
+    } else {
+        view.0.y
+    }
+    .max(1.0);
     for (entity, mut item, mut visibility, twin, old) in &mut items {
         let Ok((tower, state, bag, skin)) = towers.get_mut(item.tower) else {
             continue;
@@ -704,13 +712,20 @@ fn place_items(
             .find(|(w, _)| !w.enemy() && w.tower() == item.tower)
             .map(|(_, t)| t.translation.truncate())
             .unwrap_or_else(|| wizard_point(&config, solo, tower, state));
-        let card_h = look.card_height * view.0.y;
+        // Each tower's HUD is anchored to its own viewport (AbstractHUD), which a split
+        // screen fits in the 16:9 box, and the HUD canvas scales by Expand from 1920x1080
+        // (the smaller of width/1920 and height/1080): the box's size. Letterboxed, the
+        // cards hang from the box's top.
+        let frame = if lanes.split() {
+            crate::lanes::screen_box(view.0)
+        } else {
+            Rect::from_corners(Vec2::ZERO, view.0)
+        };
+        let top = frame.min.y;
+        let card_h = look.card_height * frame.height();
         let card_w = card_h * look.card_aspect;
         let column = screen(tower.index, Vec2::new(tower.origin_x, 0.0)).map(|p| p.x);
-        let card_x = column.map(|x| x - look.card_left * view.0.x);
-        // Each tower's HUD is anchored to its own viewport (AbstractHUD), which a split
-        // screen fits in the 16:9 box: letterboxed, the cards hang from the box's top.
-        let top = if lanes.split() { crate::lanes::screen_box(view.0).min.y } else { 0.0 };
+        let card_x = column.map(|x| x - look.card_left * frame.width());
         // Centre of the item on screen.
         let at = match item.kind {
             Kind::Card => card_x.map(|x| Vec2::new(x, top + card_h * 0.5)),
