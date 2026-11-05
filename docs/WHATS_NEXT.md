@@ -13,12 +13,35 @@ supersedes the older working notes below.
    rectangle's aspect; HUD, hearts, scores and banners add `LaneViews::shift`; grab
    shaders sample by whole-picture UV. Checked in the cloud with placeholder art for
    two, three and four seats, pause and results, plus unchanged Survival and solo
-   Endless Puzzle, and a test that each tower stays centred as the zoom widens. Left:
-   a staged-art pass on the PC with a real wide stack (decorations, heat haze, front
-   sand, drop guide), window resizing and 125% scaling, the BrickClipper Forcefield on
-   Puzzle cuts, Puzzle trials, and whether a shake should move only its own lane.
-   PC checks are queued in [PC tasks](pc-tasks.md). Fixed 2026-11-05: a Puzzle
-   battle's WINNER! now follows the count alone, so a debug `Win` no longer adds a second one.
+   Endless Puzzle, and a test that each tower stays centred as the zoom widens.
+   PC pass with staged art (2026-11-05, offscreen, 2-4 seats, 1280x720, 1920x1080,
+   3440x1440, 1280x1024): each tower stays in the middle of its lane as the view zooms
+   out; lasers sit at one height in every lane; the drop guide, front sand and heat
+   haze line up; next-brick cards, counters and banners sit over their own tower; the
+   Puzzle trial, solo Endless Puzzle, Race and Survival look unchanged. Wide stacks
+   only zoom past ~30 cells (2 seats), ~19 (3) or ~13 (4) at 16:9, so the pass
+   zoomed with a local test config (Puzzle laser 30, `large_scale` 4). Still open:
+   - *Neighbours bleed in when zoomed out.* A lane camera sees `lane width x scale`
+     around its tower, but towers are only one lane spacing apart, so past a scale
+     of about 1 + gap/lane width a wide neighbour's bricks show at the next lane's
+     edge (seen with 4 seats). The original culls by layer instead: each tower's
+     world, bricks and camera sit on their own `Tower<n>` layer and its camera draws
+     only that (`AbstractGameController` 257-284; spell collectors on
+     `TowerBackground<n>`). Ours needs a render layer per tower on everything a tower
+     owns (`lanes::follow_lanes` puts every lane camera on layer 0).
+   - *16:9 rectangle.* The original fits every tower viewport into a 16:9 rectangle
+     (`GamePositionHelper._Initialize` / `ModifyGamePositionForRatio`), testing
+     `Screen.width / Screen.height` with integer division: 3440x1440 (2) is
+     pillarboxed to the middle 2560 px; 1280x1024 and 16:10 (1) are letterboxed to
+     width / 1.78. Ours always uses the full width and height (`lanes::lane_rect`,
+     `lanes::viewport`, the aspect in `visuals::frame_towers`), so at 5:4 each lane
+     is narrower in world space, the wizards are cut at the lane's right edge, and
+     the DRAW! banners are wider than their lanes and touch each other.
+   - 125% scaling and window resizing need a windowed check by Max (offscreen runs
+     always render at 1x). Also still to check: the BrickClipper Forcefield on
+     Puzzle cuts, and whether a shake should move only its own lane.
+   Fixed 2026-11-05: a Puzzle battle's WINNER! now follows the count alone, so a
+   debug `Win` no longer adds a second one.
 2. **Reproduce the Trial 9 stack-height mismatch.** Replay the same placements
    and rotations for `SP_10` and record each brick's settled position and top.
    Use the existing `trial brick over laser` diagnostic and compare the first
