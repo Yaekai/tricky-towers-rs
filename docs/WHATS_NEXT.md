@@ -1,6 +1,7 @@
 # What's next
 
-Start with the [Claude handover](handoff-2026-11-05-claude.md) and the
+Start with the [ChatGPT handover](handoff-2026-11-05-chatgpt.md) (newest; the
+[Claude handover](handoff-2026-11-05-claude.md) before it) and the
 [behavior audit](research/parity-audit-2026-11-03.md). The ordered list here
 supersedes the older working notes below.
 
