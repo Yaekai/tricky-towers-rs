@@ -106,6 +106,23 @@ reuse a private material, leaving the shared font cache unchanged.
   its own viewport, so its scene stays centred and clips at its own screen edge
   as the width grows (PuzzleGameMode, WidthTowerCamera, AbstractGameController).
 
-These remain implementation gaps, rather than claims that the whole game now
-matches the original. Trial 9's existing physics discrepancy is separately
-documented in `docs/WHATS_NEXT.md`.
+## Trial 9 bounds measurement, 2026-11-05
+
+The original's Brick updates its bounds by taking the minimum and maximum of
+each collider's world-space bounds. The default Avian/Parry bounds for a compound
+shape rotate its enclosing local rectangle. That rectangle includes empty
+corners and can report a false top for a tilted T, J or L.
+
+A headless Trial 9 fixture places a tilted T with a conservative top of 2.47
+cells and an actual top of 2.20. The trial stays open, then fails when the same
+brick is moved high enough for its actual shape to reach the laser. Tower
+measurements and Puzzle zaps now use the bounds of the individual shapes.
+
+A second headless test uses the published solution's placements and the stock
+trial config with slack set to zero. From the centre of the floor, the six
+placements use half-cell taps of 3, -5, 5, 0, -1 and -1. The turns are left,
+left, right, left, right and none. This route clears on both the old and new
+height calculation. The tilted-brick fixture fails on the old calculation at
+2.47 cells. The input sequence from the earlier 2.47-cell run remains unverified,
+and the shipped trial slack stays at 0.3 cells.
+[All puzzle solutions in one picture.](https://www.speedrun.com/tricky_towers/guides/ciy29)
