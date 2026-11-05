@@ -1090,7 +1090,7 @@ pub fn brick_body(config: &GameConfig, brick: &Brick) -> (Collider, ColliderDens
     )
 }
 
-fn brick_bounds(collider: &Collider, position: Vec2, rotation: Rotation) -> ColliderAabb {
+pub(crate) fn brick_bounds(collider: &Collider, position: Vec2, rotation: Rotation) -> ColliderAabb {
     let shape = collider.shape_scaled();
     let Some(compound) = shape.as_compound() else {
         return collider.aabb(position, rotation);

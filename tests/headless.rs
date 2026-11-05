@@ -1299,6 +1299,58 @@ fn bubble_skips_failed_and_pending_targets() {
 }
 
 #[test]
+fn the_grassy_bubble_shell_pops_before_the_bricks_touch() {
+    use avian2d::prelude::*;
+    use tricky_towers::gameplay::{Placed, brick_body};
+    use tricky_towers::spells::{Bubbled, EnemyCasts, Grassy};
+
+    for grassy in [false, true] {
+        let mut config = fast_config();
+        config.mode = ModeKind::Race;
+        let c = config.cell_size;
+        let piece = config.pieces.iter().position(|p| p.name == "O").unwrap();
+        let cells = config.pieces[piece].centered_cells();
+        let mut app = headless_app(config);
+        wait_for_next_brick(&mut app);
+        let active = tower(&mut app, 0).active.unwrap();
+        let world = app.world_mut();
+        let owner = world.get::<Brick>(active).unwrap().tower;
+        let origin = world.get::<Tower>(owner).unwrap().origin_x;
+        let brick = Brick {
+            tower: owner, piece, cells, color: Color::WHITE, scale: 1.0, mass: 1.0, ice: false,
+        };
+        let (collider, density) = brick_body(world.resource::<GameConfig>(), &brick);
+        let mut target = world.spawn((
+            brick, collider, density, Placed(u32::MAX), RigidBody::Dynamic, GravityScale(0.0),
+            Transform::from_xyz(origin, 6.0 * c, 0.0),
+        ));
+        if grassy {
+            target.insert(Grassy { delay: 0.0 });
+        }
+        let target = target.id();
+        let at = Vec2::new(origin, 9.0 * c);
+        world.entity_mut(active).insert((Position(at), Transform::from_translation(at.extend(0.0))));
+        world.get_mut::<ActiveBrick>(active).unwrap().hold = 1.0;
+        run_seconds(&mut app, 0.1, |_| {});
+        let position = |app: &App, entity| app.world().get::<Position>(entity).unwrap().0;
+        let gap = position(&app, active).y - position(&app, target).y;
+        assert!((gap / c - 3.0).abs() < 0.01, "the trigger fixture gap was {}", gap / c);
+        app.world_mut().resource_mut::<EnemyCasts>().0.push(Curse::new(&[SpellKind::Bubble], 1, None));
+        run_seconds(&mut app, 0.06, |_| {});
+        assert_eq!(
+            app.world().get::<Bubbled>(target).is_none(),
+            grassy,
+            "grassy={grassy}, positions {:?} and {:?}, casts {:?}",
+            position(&app, active) / c,
+            position(&app, target) / c,
+            log(&app)
+        );
+        let target_y = app.world().get::<Position>(target).unwrap().0.y;
+        assert!(at.y - target_y > c * 2.8, "the two bricks never touched");
+    }
+}
+
+#[test]
 fn slow_sends_a_balloon_that_catches_the_brick_in_hand() {
     use avian2d::prelude::Position;
     use tricky_towers::spells::BalloonOrb;
@@ -1358,6 +1410,35 @@ fn slow_sends_a_balloon_that_catches_the_brick_in_hand() {
         (drop - (1.0 + acceleration * dt)).abs() < 0.01,
         "first Down step was {drop} cells/s"
     );
+}
+
+#[test]
+fn slow_orb_can_catch_a_brick_while_growing() {
+    use avian2d::prelude::Position;
+    use tricky_towers::spells::BalloonOrb;
+
+    let mut app = headless_app(GameConfig {
+        mode: ModeKind::Race,
+        ..default()
+    });
+    run_seconds(&mut app, 0.3, |_| {});
+    let active = tower(&mut app, 0).active.unwrap();
+    let world = app.world_mut();
+    let tower = world.get::<Brick>(active).unwrap().tower;
+    let brick = world.get::<Position>(active).unwrap().0;
+    let c = world.resource::<GameConfig>().cell_size;
+    let orb = world.spawn((
+        BalloonOrb { tower, age: 0.0, leaving: None },
+        Transform::from_translation((brick - Vec2::Y * c * 2.35).extend(0.0)),
+    )).id();
+    let clock = app.world().resource::<Time<Fixed>>().elapsed();
+    assert!(run_until(&mut app, 0.1, |app| {
+        app.world().resource::<Time<Fixed>>().elapsed() > clock
+    }));
+    assert!(app.world().get::<BalloonOrb>(orb).is_some(), "the tiny orb is out of reach");
+    assert!(run_until(&mut app, 0.25, |app| app.world().get_entity(orb).is_err()));
+    let control = app.world().get::<ActiveBrick>(active).unwrap();
+    assert!(control.hold > 0.0 && !control.mods.slow, "the orb caught the brick during pop-in");
 }
 
 #[test]

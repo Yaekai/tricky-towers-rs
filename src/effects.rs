@@ -165,18 +165,15 @@ fn life_orb_cues(
     }
 }
 
-/// Slow's homing balloon on its way to the brick: it pops in (OutElastic over 0.5 s, with
-/// SFX_SPAWN_BALLOON), wobbles (HomingBalloonOrb: 1 + 0.05 (sin 10t + 1) across,
-/// 1 + 0.05 (sin 5t + 1) up), and shrinks away (InBack 0.5 s) if it gives up.
+/// Slow's homing balloon uses the scale animated with its trigger in the core loop.
 fn show_balloon_orbs(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
-    time: Res<Time>,
-    added: Query<Entity, Added<crate::spells::BalloonOrb>>,
-    mut orbs: Query<(&crate::spells::BalloonOrb, &mut Transform)>,
+    mut added: Query<(Entity, &mut Transform), Added<crate::spells::BalloonOrb>>,
 ) {
-    for entity in &added {
+    for (entity, mut transform) in &mut added {
+        transform.translation.z = 5.0;
         commands.entity(entity).insert(Visibility::default());
         if let Some(image) = art.image("balloon") {
             let (sprite, anchor, picture) = sized(&art, "balloon", image, config.cell_size);
@@ -185,19 +182,6 @@ fn show_balloon_orbs(
         if let Some(sound) = art.sounds.get("sfx_spawn_balloon") {
             commands.spawn((AudioPlayer::new(sound.clone()), PlaybackSettings::DESPAWN));
         }
-    }
-    let t = time.elapsed_secs();
-    for (orb, mut transform) in &mut orbs {
-        transform.scale = match orb.leaving {
-            Some(left) => Vec3::splat((1.0 - crate::packs::in_back((left / 0.5).min(1.0))).max(0.001)),
-            None if orb.age < 0.5 => Vec3::splat(crate::packs::out_elastic(orb.age / 0.5).max(0.0001)),
-            None => Vec3::new(
-                1.0 + ((t * 10.0).sin() + 1.0) * 0.05,
-                1.0 + ((t * 5.0).sin() + 1.0) * 0.05,
-                1.0,
-            ),
-        };
-        transform.translation.z = 5.0;
     }
 }
 

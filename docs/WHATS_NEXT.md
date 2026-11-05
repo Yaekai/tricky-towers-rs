@@ -87,9 +87,10 @@ supersedes the older working notes below.
 3. **Compare spell and results timing in play.** The headless tests cover Slow's
    catch and release, Bubble's targeting of stuck bricks, Extra Life's motion
    and pickup, and No Rotate's fixed shake window. The cup winner's bolt now
-   follows the wand and only the winning seat can fly the wizard. Check Slow's
-   pop-in trigger and tether motion, Bubble's lift on grassy bricks, and the
-   cup wizard's animated wand position and voice timing against the original.
+   follows the wand and only the winning seat can fly the wizard. Slow can catch
+   during its pop-in. The headless Bubble fixture checks that a grassy shell
+   can pop before the bricks touch. Check Slow's tether motion and the cup
+   wizard's animated wand position and voice timing against the original.
    Record the trigger, delay and outcome for each difference before editing.
    Then resolve the remaining `(?)` values in `casts`, `moments` and cup timing
    from clips or repeatable measurements. Use [PC tasks](pc-tasks.md) as evidence

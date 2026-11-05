@@ -14,7 +14,7 @@ use crate::config::{
 };
 use crate::gameplay::{
     ActiveBrick, Brick, BrickMod, FloorBlock, Match, Phase, Placed, PlayerInput, Tower, TowerState,
-    TowerStatus, brick_body, brick_collider, piece_def,
+    TowerStatus, brick_body, brick_bounds, brick_collider, piece_def,
 };
 
 /// Bricks held together by Ivy: one rigid body whose children are the bricks.
@@ -62,12 +62,42 @@ pub struct Bubbled {
     /// 1 s, then 20 more that way over 2 s (in-quad); the angle it started at (radians).
     pub tilt: f32,
     start: Option<f32>,
+    pub(crate) appearance: BubbleAppearance,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct BubbleAppearance {
+    pub size: usize,
+    pub variant: usize,
+    pub scale: f32,
 }
 
 impl Bubbled {
     /// Which way the bubble turns (+1 anticlockwise).
     pub fn dir(&self) -> f32 {
         self.tilt.signum()
+    }
+
+    pub(crate) fn shell_scale(&self) -> Vec2 {
+        let base = self.appearance.scale;
+        let age = self.age;
+        if age < 2.0 {
+            return Vec2::new(base + ((age * 20.0).sin() + 1.0) * 0.025,
+                base + ((age * 10.0).sin() + 1.0) * 0.025);
+        }
+        let elapsed = (age - 2.0) * 6.0;
+        let phase = elapsed % 2.0;
+        let high = base + 0.2;
+        let (start, end, fraction) = if phase < 1.0 {
+            (if elapsed < 1.0 { base } else { 1.0 }, high, phase)
+        } else {
+            (high, 1.0, phase - 1.0)
+        };
+        Vec2::splat(start + (end - start) * (1.0 - (1.0 - fraction).powi(2)))
+    }
+
+    pub(crate) fn shell_turn(&self) -> f32 {
+        50.0 * self.dir() * (self.age / 3.0).min(1.0)
     }
 }
 
@@ -374,6 +404,9 @@ pub(crate) fn run_curse_waves(
             Has<Zapped>,
             Has<Ghosted>,
             Has<BubbleFail>,
+            &Rotation,
+            Option<&Collider>,
+            Has<Grassy>,
         ),
         Without<ActiveBrick>,
     >,
@@ -750,6 +783,9 @@ pub(crate) fn land_casts(
             Has<Zapped>,
             Has<Ghosted>,
             Has<BubbleFail>,
+            &Rotation,
+            Option<&Collider>,
+            Has<Grassy>,
         ),
         Without<ActiveBrick>,
     >,
@@ -964,6 +1000,9 @@ fn cast_on_tower(
             Has<Zapped>,
             Has<Ghosted>,
             Has<BubbleFail>,
+            &Rotation,
+            Option<&Collider>,
+            Has<Grassy>,
         ),
         Without<ActiveBrick>,
     >,
@@ -1071,7 +1110,7 @@ fn cast_on_tower(
             // BubbleEffect on the tower's last brick not already in a bubble (GetLastBrick
             // skipping Bubble and BubbleFail): a vined or stone brick only gets a bubble
             // that pops 0.7 s later (BubbleFailModifier); a loose one floats off.
-            let Some((entity, _, _, body, stone, vined, ..)) = latest
+            let Some((entity, brick, _, body, stone, vined, _, _, _, _, _, rotation, collider, grassy)) = latest
                 .iter()
                 .map(|(_, b)| *b)
                 .find(|b| !b.7 && !b.10 && !bubble_targets.contains(&b.0))
@@ -1079,8 +1118,19 @@ fn cast_on_tower(
                 return;
             };
             bubble_targets.push(entity);
-            if body != Some(&RigidBody::Dynamic) || stone || vined {
-                commands.entity(entity).insert(BubbleFail { timer: BUBBLE_FAIL_SECONDS });
+            let loose = body == Some(&RigidBody::Dynamic) && !stone && !vined;
+            let size = collider.map_or(2, |collider| {
+                let bounds = brick_bounds(collider, Vec2::ZERO, *rotation);
+                let width = (bounds.max - bounds.min).max_element() / config.cells(brick.scale);
+                (width.round() as usize).clamp(2, 4)
+            });
+            let appearance = BubbleAppearance {
+                size,
+                variant: (entity.index_u32() % 2) as usize + 1,
+                scale: if loose && grassy { magic.bubble_grassy_scale } else { 1.0 },
+            };
+            if !loose {
+                commands.entity(entity).insert(BubbleFail { timer: BUBBLE_FAIL_SECONDS, appearance });
             } else {
                 let tilt = 3.0 + (state.random() % 900) as f32 / 100.0;
                 let sign = if state.random().is_multiple_of(2) {
@@ -1094,6 +1144,7 @@ fn cast_on_tower(
                         touching: None,
                         tilt: tilt * sign,
                         start: None,
+                        appearance,
                     },
                     GravityScale(1.0),
                     SleepingDisabled,
@@ -1398,6 +1449,7 @@ pub(crate) fn zap_bricks(
 #[derive(Component, Debug)]
 pub struct BubbleFail {
     pub timer: f32,
+    pub(crate) appearance: BubbleAppearance,
 }
 
 /// BubbleFailModifier's time out.
@@ -1405,18 +1457,23 @@ const BUBBLE_FAIL_SECONDS: f32 = 0.7;
 
 /// Lifts bubbled bricks, easing the pull, and pops the bubble when time is up
 /// or another brick hits it.
+#[allow(clippy::type_complexity)]
 pub(crate) fn float_bubbles(
     mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
+    spatial: SpatialQuery,
     mut bubbles: Query<(
         Entity,
         &mut Bubbled,
         &mut GravityScale,
         Option<&CollidingEntities>,
-        &mut Rotation,
+        &Rotation,
         &mut AngularVelocity,
+        &Brick,
+        &Position,
     )>,
+    active: Query<&Brick, With<ActiveBrick>>,
     mut fails: Query<(Entity, &mut BubbleFail)>,
 ) {
     for (entity, mut fail) in &mut fails {
@@ -1427,7 +1484,7 @@ pub(crate) fn float_bubbles(
     }
     let magic = &config.magic;
     let (start, eased, rest) = magic.bubble_lift;
-    for (entity, mut bubble, mut gravity, colliding, mut rotation, mut spin) in &mut bubbles {
+    for (entity, mut bubble, mut gravity, colliding, rotation, mut spin, brick, at) in &mut bubbles {
         bubble.age += time.delta_secs();
         // The turn is set outright, as the original's tween sets the brick's rotation.
         let from = *bubble.start.get_or_insert(rotation.as_radians());
@@ -1438,14 +1495,22 @@ pub(crate) fn float_bubbles(
             let k = ((t - 1.0) / 2.0).min(1.0);
             bubble.tilt + 20.0 * bubble.dir() * k * k
         };
-        *rotation = Rotation::radians(from + turn.to_radians());
+        commands.entity(entity).insert(Rotation::radians(from + turn.to_radians()));
         spin.0 = 0.0;
         let now: Vec<Entity> = colliding
             .map(|c| c.iter().copied().collect())
             .unwrap_or_default();
         let touching = bubble.touching.get_or_insert_with(|| now.clone());
         let hit = now.iter().any(|e| !touching.contains(e));
-        if bubble.age >= magic.bubble_seconds || hit {
+        let appearance = bubble.appearance;
+        let (radius, offset) = magic.bubble_trigger[appearance.size - 2][appearance.variant - 1];
+        let scale = bubble.shell_scale() * config.cells(brick.scale);
+        let shell_rotation = Rotation::radians(from + bubble.shell_turn().to_radians());
+        let centre = at.0 + shell_rotation * (Vec2::Y * offset * scale.y);
+        let trigger = Collider::circle(radius * scale.max_element());
+        let stomped = spatial.shape_intersections(&trigger, centre, 0.0, &SpatialQueryFilter::default())
+            .iter().any(|&hit| active.get(hit).is_ok_and(|other| other.tower == brick.tower));
+        if bubble.age >= magic.bubble_seconds || hit || stomped {
             commands
                 .entity(entity)
                 .remove::<(Bubbled, SleepingDisabled)>()
@@ -1517,18 +1582,16 @@ pub(crate) fn carry_ghosts(
 #[derive(Component, Debug)]
 pub struct BalloonOrb {
     pub tower: Entity,
-    /// Seconds since it appeared, and since it started to leave (shrinking away).
+    /// Seconds since it appeared.
     pub age: f32,
-    pub leaving: Option<f32>,
+    /// Seconds since it started to leave, and its scale at that moment.
+    pub leaving: Option<(f32, Vec2)>,
 }
 
-/// HomingBalloonOrb: 2.5 cells/s up, x eased towards the brick at 1 a second, active once
-/// its 0.5 s pop-in is over, gone 0.5 s after it starts leaving; its trigger circle sits
-/// 1.1 cells up with a 1.05 radius.
+/// HomingBalloonOrb rises at 2.5 cells/s and eases towards the brick's x at 1 a second.
+/// Its trigger circle sits 1.1 cells up with a 1.05 radius before scaling.
 const BALLOON_RISE: f32 = 2.5;
 const BALLOON_EASE: f32 = 1.0;
-const BALLOON_POP_IN: f32 = 0.5;
-const BALLOON_LEAVE: f32 = 0.5;
 const BALLOON_MARGIN: f32 = 8.0;
 const BALLOON_REACH: (Vec2, f32) = (Vec2::new(0.03, 1.1), 1.05);
 
@@ -1545,15 +1608,25 @@ pub(crate) fn home_balloons(
 ) {
     let dt = time.delta_secs();
     let c = config.cell_size;
+    let magic = &config.magic;
     for (entity, mut orb, mut transform) in &mut orbs {
         orb.age += dt;
-        if let Some(left) = orb.leaving.as_mut() {
+        let scale = if let Some((left, initial)) = orb.leaving.as_mut() {
             *left += dt;
-            if *left >= BALLOON_LEAVE {
+            if *left >= magic.slow_orb_shrink {
                 commands.entity(entity).despawn();
+                continue;
             }
-            continue;
-        }
+            let t = EaseFunction::BackIn.sample_clamped(*left / magic.slow_orb_shrink);
+            initial.lerp(Vec2::splat(0.001), t)
+        } else if orb.age < magic.slow_orb_pop_in {
+            let t = EaseFunction::ElasticOut.sample_clamped(orb.age / magic.slow_orb_pop_in);
+            Vec2::splat(0.0001 + 0.9999 * t)
+        } else {
+            let now = time.elapsed_secs();
+            Vec2::new(1.0 + ((now * 10.0).sin() + 1.0) * 0.05, 1.0 + ((now * 5.0).sin() + 1.0) * 0.05)
+        };
+        transform.scale = scale.extend(1.0);
         let Ok(state) = states.get(orb.tower) else {
             commands.entity(entity).despawn();
             continue;
@@ -1564,20 +1637,19 @@ pub(crate) fn home_balloons(
             let x = transform.translation.x;
             transform.translation.x = x + (at.x - x) * (dt * BALLOON_EASE).min(1.0);
         }
-        if orb.age < BALLOON_POP_IN {
-            continue;
-        }
+        // The trigger follows the animated scale, including while the orb is appearing.
+        // A Unity circle uses the larger axis for its radius.
         let (offset, radius) = BALLOON_REACH;
-        let centre = transform.translation.truncate() + offset * c;
+        let centre = transform.translation.truncate() + offset * scale * c;
+        let trigger = Collider::circle(radius * scale.max_element() * c);
         let touched = brick.filter(|(b, _)| {
             spatial
-                .shape_intersections(&Collider::circle(radius * c), centre, 0.0, &SpatialQueryFilter::default())
+                .shape_intersections(&trigger, centre, 0.0, &SpatialQueryFilter::default())
                 .contains(b)
         });
         if let Some((b, _)) = touched
             && let Ok((mut control, _)) = active.get_mut(b)
         {
-            let magic = &config.magic;
             control.slow_attach_left = Some(magic.slow_catch_shake);
             control.hold = control.hold.max(magic.slow_catch_shake + magic.slow_catch_hold);
             control.hold_shake = control.hold_shake.max(magic.slow_catch_shake);
@@ -1586,8 +1658,10 @@ pub(crate) fn home_balloons(
             continue;
         }
         let spawn = config.cells(state.stack_top + config.spawn_gap);
-        if transform.translation.y >= spawn - config.cells(BALLOON_MARGIN) {
-            orb.leaving = Some(0.0);
+        if orb.leaving.is_none() && orb.age >= magic.slow_orb_pop_in
+            && transform.translation.y >= spawn - config.cells(BALLOON_MARGIN)
+        {
+            orb.leaving = Some((0.0, scale));
         }
     }
 }
