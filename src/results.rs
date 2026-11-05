@@ -304,7 +304,10 @@ fn start_moments(
         return;
     }
     for (entity, tower, state) in &towers {
-        let won = state.status == TowerStatus::Won || (over && game.winner == Some(tower.index));
+        // A Puzzle battle's winner is the count's alone (judge_match ignores a tower's own
+        // Won there), so a tower marked Won some other way (the debug Win) doesn't say it too.
+        let battle = game.mode.rules() == ModeKind::Puzzle && config.trial.is_none() && towers.iter().count() > 1;
+        let won = (!battle && state.status == TowerStatus::Won) || (over && game.winner == Some(tower.index));
         // A drawn Puzzle round: every tower with the most bricks says DRAW! (DrawMessage: font 40
         // against WINNER!'s 32.75, bronze, no sunrays) and gets the winner's light.
         let drew = puzzle.tied.contains(&entity);

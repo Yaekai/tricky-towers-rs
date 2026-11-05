@@ -40,10 +40,8 @@ supersedes the older working notes below.
    - 125% scaling and window resizing need a windowed check by Max (offscreen runs
      always render at 1x). Also still to check: the BrickClipper Forcefield on
      Puzzle cuts, and whether a shake should move only its own lane.
-   PC checks are queued in [PC tasks](pc-tasks.md). Separate bug, seen in a
-   placeholder capture: after a script's forced `Win(tower: 0)` in a two-seat Puzzle
-   round, WINNER! showed over both lanes. Check how the count and the forced win
-   interact (`results::start_moments`, `PuzzleCountClock`).
+   Fixed 2026-11-05: a Puzzle battle's WINNER! now follows the count alone, so a
+   debug `Win` no longer adds a second one.
 2. **Reproduce the Trial 9 stack-height mismatch.** Replay the same placements
    and rotations for `SP_10` and record each brick's settled position and top.
    Use the existing `trial brick over laser` diagnostic and compare the first
