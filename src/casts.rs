@@ -1756,7 +1756,9 @@ fn grow_large_bricks(
             .or_insert((brick.scale, brick.scale, 1.0));
         // A bigger brick than last seen: start growing from the old size.
         if brick.scale > entry.1 + 1e-4 {
-            *entry = (entry.1, brick.scale, 0.0);
+            let (from, to, progress) = *entry;
+            let displayed = to - (to - from) * (1.0 - progress).powi(2);
+            *entry = (displayed, brick.scale, 0.0);
             if !shake.held.iter().any(|h| h.0 == entity) {
                 shake.held.push((entity, config.cells(look.large_shake)));
             }
@@ -1787,7 +1789,7 @@ fn grow_large_bricks(
         }
         let progress = (progress + dt / look.large_grow.max(0.001)).min(1.0);
         entry.2 = progress;
-        let factor = (from + (to - from) * progress) / to;
+        let factor = (to - (to - from) * (1.0 - progress).powi(2)) / to;
         // A refused turn makes the picture jump like a wave's lift, smaller on a
         // big brick (the original's shake modifier).
         let jump = if control.picture_shake > 0.0 {

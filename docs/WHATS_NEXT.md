@@ -90,8 +90,9 @@ supersedes the older working notes below.
    follows the wand and only the winning seat can fly the wizard. Slow can catch
    during its pop-in. The headless Bubble fixture checks that a grassy shell
    can pop before the bricks touch. Slow's tether now stretches and reels back
-   on Down, and the cup winner plays its cheer on entrance. Check Slow's resize
-   tween and the cup wizard's animated wand position and input voice timing.
+   on Down. Large now grows the balloon without jumping the tether length.
+   The cup winner plays its cheer on entrance. Check the cup wizard's animated
+   wand position and input voice timing.
    Record the trigger, delay and outcome for each difference before editing.
    Then resolve the remaining `(?)` values in `casts`, `moments` and cup timing
    from clips or repeatable measurements. Use [PC tasks](pc-tasks.md) as evidence

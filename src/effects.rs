@@ -3,13 +3,12 @@
 //! of a brick lost in the water, and the blasts, shakes and sounds of a losing
 //! tower falling apart.
 
-use avian2d::prelude::Rotation;
 use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::collapse::{CollapseEvent, CollapseKind};
 use crate::config::GameConfig;
-use crate::gameplay::{ActiveBrick, Brick, BrickLost, SlowBalloonCue, brick_bounds, brick_collider};
+use crate::gameplay::{ActiveBrick, Brick, BrickLost, SlowBalloonCue};
 use crate::spells::{Ghosted, LifeOrb, LifeOrbEnded};
 use crate::visuals::FramedCamera;
 
@@ -51,14 +50,6 @@ struct Balloon {
     brick: Entity,
     string: Entity,
     art_scale: Vec3,
-    shape: (usize, f32),
-    rest: f32,
-}
-
-fn balloon_rest(brick: &Brick, rotation: Rotation) -> f32 {
-    let collider = brick_collider(&brick.cells, brick.scale, 1.0);
-    let bounds = brick_bounds(&collider, Vec2::ZERO, rotation);
-    (bounds.max - bounds.min).max_element()
 }
 
 #[allow(clippy::type_complexity)]
@@ -66,30 +57,21 @@ fn float_balloons(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
-    bricks: Query<(Entity, &ActiveBrick, &Brick, &Rotation, &Transform), Without<Balloon>>,
-    mut balloons: Query<(Entity, &mut Balloon, &mut Transform), Without<ActiveBrick>>,
+    bricks: Query<(Entity, &ActiveBrick, &Transform), Without<Balloon>>,
+    mut balloons: Query<(Entity, &Balloon, &mut Transform), Without<ActiveBrick>>,
     mut strings: Query<(&mut Transform, &mut Sprite), (Without<Balloon>, Without<ActiveBrick>)>,
 ) {
     let c = config.cell_size;
-    for (entity, mut balloon, mut transform) in &mut balloons {
-        let Ok((_, control, brick, rotation, at)) = bricks.get(balloon.brick) else {
+    for (entity, balloon, mut transform) in &mut balloons {
+        let attached = bricks.get(balloon.brick).ok().and_then(|(_, control, at)| {
+            control.slow_balloon().map(|(distance, size)| (at, distance, size))
+        });
+        let Some((at, distance, size)) = attached else {
             commands.entity(balloon.string).despawn();
             commands.entity(entity).despawn();
             continue;
         };
-        if !control.mods.slow {
-            commands.entity(balloon.string).despawn();
-            commands.entity(entity).despawn();
-            continue;
-        }
-        if balloon.shape != (brick.piece, brick.scale) {
-            balloon.shape = (brick.piece, brick.scale);
-            balloon.rest = balloon_rest(brick, *rotation);
-        }
-        let remaining = control.slow_inflate_left / config.magic.slow_inflate.max(f32::EPSILON);
-        let inflate = 1.0 - remaining.clamp(0.0, 1.0).powi(2);
-        let distance = c * (balloon.rest * inflate + control.slow_tether_extension);
-        let size = (1.0 + control.mods.large as f32) * inflate;
+        let distance = c * distance;
         let top = at.translation + Vec3::Y * distance;
         transform.translation = top.with_z(5.0);
         transform.scale = balloon.art_scale * size.max(0.0001);
@@ -102,8 +84,8 @@ fn float_balloons(
     let Some(image) = art.image("balloon") else {
         return;
     };
-    for (entity, control, brick, rotation, at) in &bricks {
-        if !control.mods.slow || balloons.iter().any(|(_, b, _)| b.brick == entity) {
+    for (entity, control, at) in &bricks {
+        if control.slow_balloon().is_none() || balloons.iter().any(|(_, b, _)| b.brick == entity) {
             continue;
         }
         let string = commands
@@ -118,8 +100,6 @@ fn float_balloons(
                 brick: entity,
                 string,
                 art_scale: art_transform.scale,
-                shape: (brick.piece, brick.scale),
-                rest: balloon_rest(brick, *rotation),
             },
             sprite,
             anchor,

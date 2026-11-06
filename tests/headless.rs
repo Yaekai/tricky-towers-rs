@@ -1395,6 +1395,8 @@ fn slow_sends_a_balloon_that_catches_the_brick_in_hand() {
     assert_eq!(y(&app), caught_at);
     run_seconds(&mut app, 0.6, |_| {});
     assert!(y(&app) < caught_at - 0.25);
+    let balloon = |app: &App| app.world().get::<ActiveBrick>(brick).unwrap().slow_balloon().unwrap();
+    let (rest, _) = balloon(&app);
     let before = y(&app);
     app.world_mut()
         .get_mut::<PlayerInput>(target)
@@ -1410,13 +1412,32 @@ fn slow_sends_a_balloon_that_catches_the_brick_in_hand() {
         (drop - (1.0 + acceleration * dt)).abs() < 0.01,
         "first Down step was {drop} cells/s"
     );
-    let extension = |app: &App| app.world().get::<ActiveBrick>(brick).unwrap().slow_tether_extension;
+    let extension = |app: &App| balloon(app).0 - rest;
     assert!((extension(&app) - 5.0 * dt).abs() < 0.001);
     run_seconds(&mut app, 1.0, |_| {});
     assert!((2.0..2.1).contains(&extension(&app)), "extended by {} cells", extension(&app));
     app.world_mut().get_mut::<PlayerInput>(target).unwrap().fast_fall_held = false;
     run_seconds(&mut app, 0.25, |_| {});
     assert_eq!(extension(&app), 0.0);
+
+    app.world_mut().get_mut::<Position>(brick).unwrap().0.y += 16.0 * cell;
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Large));
+    assert_eq!(app.world().get::<ActiveBrick>(brick).unwrap().mods.large, 1);
+    assert_eq!(balloon(&app), (rest, 1.0));
+    run_seconds(&mut app, 0.15, |_| {});
+    let (distance, size) = balloon(&app);
+    assert_eq!(distance, rest);
+    assert!((size - 1.75).abs() < 0.08, "halfway scale was {size}");
+    run_seconds(&mut app, 0.2, |_| {});
+    assert_eq!(balloon(&app), (rest, 2.0));
+
+    let new_rest = rest * app.world().get::<Brick>(brick).unwrap().scale;
+    app.world_mut().get_mut::<PlayerInput>(target).unwrap().fast_fall_held = true;
+    run_seconds(&mut app, 3.0, |_| {});
+    assert!((new_rest + 2.0..new_rest + 2.1).contains(&balloon(&app).0));
+    app.world_mut().get_mut::<PlayerInput>(target).unwrap().fast_fall_held = false;
+    run_seconds(&mut app, 0.25, |_| {});
+    assert_eq!(balloon(&app), (new_rest, 2.0));
 }
 
 #[test]

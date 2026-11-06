@@ -899,10 +899,7 @@ pub struct ActiveBrick {
     slow_cap: f32,
     down_before: bool,
     pub(crate) slow_attach_left: Option<f32>,
-    pub(crate) slow_inflate_left: f32,
-    /// How far the balloon has moved past its resting distance, in cells.
-    pub slow_tether_extension: f32,
-    slow_tether_growing: bool,
+    slow_tether: Option<SlowTether>,
     /// Seconds a refused turn (No Rotate) still shakes the brick; drawn by the
     /// visuals.
     pub refused: f32,
@@ -937,15 +934,82 @@ impl ActiveBrick {
             slow_cap: magic.slow_fast_fall_speed,
             down_before: false,
             slow_attach_left: None,
-            slow_inflate_left: if mods.slow { magic.slow_inflate } else { 0.0 },
-            slow_tether_extension: 0.0,
-            slow_tether_growing: false,
+            slow_tether: None,
             refused: 0.0,
             picture_shake: 0.0,
             hold: 0.0,
             hold_shake: 0.0,
             hold_rumble: 0.0,
             rise: None,
+        }
+    }
+
+    /// The attached balloon's distance in cells and its scale.
+    pub fn slow_balloon(&self) -> Option<(f32, f32)> {
+        self.slow_tether.as_ref().map(|tether| (tether.distance, tether.size()))
+    }
+}
+
+#[derive(Debug)]
+struct SlowTether {
+    shape: (usize, f32),
+    rest: f32,
+    distance: f32,
+    inflate_rest: f32,
+    inflate_left: f32,
+    size_from: f32,
+    size_to: f32,
+    size_left: f32,
+    size_duration: f32,
+    growing: bool,
+}
+
+impl SlowTether {
+    fn rest_for(brick: &Brick, rotation: Rotation) -> f32 {
+        let collider = brick_collider(&brick.cells, brick.scale, 1.0);
+        let bounds = brick_bounds(&collider, Vec2::ZERO, rotation);
+        (bounds.max - bounds.min).max_element()
+    }
+
+    fn new(brick: &Brick, rotation: Rotation, size: f32, inflate: f32) -> Self {
+        let rest = Self::rest_for(brick, rotation);
+        Self {
+            shape: (brick.piece, brick.scale),
+            rest,
+            distance: if inflate > 0.0 { 0.0 } else { rest },
+            inflate_rest: rest,
+            inflate_left: inflate,
+            size_from: 0.0,
+            size_to: size,
+            size_left: inflate,
+            size_duration: inflate,
+            growing: false,
+        }
+    }
+
+    fn size(&self) -> f32 {
+        let left = self.size_left / self.size_duration.max(f32::EPSILON);
+        self.size_to - (self.size_to - self.size_from) * left.powi(2)
+    }
+
+    fn animate(&mut self, brick: &Brick, rotation: Rotation, size: f32, config: &GameConfig, dt: f32) {
+        if size != self.size_to {
+            self.size_from = self.size();
+            self.size_to = size;
+            self.size_duration = config.casts.large_grow;
+            self.size_left = self.size_duration;
+        }
+        self.size_left = (self.size_left - dt).max(0.0);
+        if self.inflate_left > 0.0 {
+            self.inflate_left = (self.inflate_left - dt).max(0.0);
+            let left = self.inflate_left / config.magic.slow_inflate.max(f32::EPSILON);
+            self.distance = self.inflate_rest * (1.0 - left.powi(2));
+        }
+        let shape = (brick.piece, brick.scale);
+        // Large changes the limit at the end of the scale tween, keeping the current length.
+        if self.shape != shape && (self.size_left == 0.0 || self.shape.1 == brick.scale) {
+            self.shape = shape;
+            self.rest = Self::rest_for(brick, rotation);
         }
     }
 }
@@ -1708,16 +1772,20 @@ fn control_active_brick(
         let pressed_down = input.fast_fall_held && !control.down_before;
         control.down_before = input.fast_fall_held;
         if control.mods.slow {
+            let size = 1.0 + control.mods.large as f32;
+            let tether = control.slow_tether.get_or_insert_with(|| {
+                SlowTether::new(brick, *rotation, size, magic.slow_inflate)
+            });
             if !input.fast_fall_held {
-                control.slow_tether_growing = false;
+                tether.growing = false;
             }
-            if control.slow_inflate_left > 0.0 {
-                control.slow_inflate_left = (control.slow_inflate_left - dt).max(0.0);
-            } else if pressed_down {
+            let inflated = tether.inflate_left == 0.0;
+            tether.animate(brick, *rotation, size, &config, dt);
+            if inflated && pressed_down {
+                tether.growing = true;
                 control.slow_cap = magic.slow_fast_fall_speed;
-                control.slow_tether_growing = true;
                 balloon_cues.write(SlowBalloonCue::Down);
-            } else {
+            } else if inflated {
                 control.slow_cap = (control.slow_cap - magic.slow_fast_ease * dt).max(magic.slow_fast_floor);
             }
         }
@@ -1727,9 +1795,8 @@ fn control_active_brick(
                 control.slow_attach_left = None;
                 control.mods.slow = true;
                 control.slow_cap = magic.slow_fast_fall_speed;
-                control.slow_inflate_left = magic.slow_inflate;
-                control.slow_tether_extension = 0.0;
-                control.slow_tether_growing = false;
+                let size = 1.0 + control.mods.large as f32;
+                control.slow_tether = Some(SlowTether::new(brick, *rotation, size, magic.slow_inflate));
                 control.speed = drop_speed;
                 balloon_cues.write(SlowBalloonCue::Down);
             }
@@ -1784,13 +1851,16 @@ fn control_active_brick(
             commands.entity(entity).insert(LinearVelocity::ZERO);
             continue;
         }
-        if control.mods.slow && control.slow_inflate_left == 0.0 {
-            if control.slow_tether_growing {
-                control.slow_tether_growing = control.slow_tether_extension < magic.slow_tether_limit;
-                control.slow_tether_extension += (control.slow_cap - magic.slow_fall_speed) * dt;
-            } else if !input.fast_fall_held {
-                control.slow_tether_extension =
-                    (control.slow_tether_extension - magic.slow_tether_return * dt).max(0.0);
+        let slow_stretch = control.slow_cap - magic.slow_fall_speed;
+        if let Some(tether) = control.slow_tether.as_mut()
+            && tether.inflate_left == 0.0
+            && tether.size_left == 0.0
+        {
+            if tether.growing {
+                tether.growing = tether.distance < tether.rest + magic.slow_tether_limit;
+                tether.distance += slow_stretch * dt;
+            } else if !input.fast_fall_held && tether.distance > tether.rest {
+                tether.distance = (tether.distance - magic.slow_tether_return * dt).max(tether.rest);
             }
         }
         let (mut position, mut rotation) = (*position, *rotation);
