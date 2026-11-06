@@ -191,8 +191,8 @@ indicator) and AcceptOnlineInvite need online play to show anything.
    (its wand spot is a guess).
 4. Compare the remaining untouched clips (Max's recordings 2 to 4, 6 to 11, 14 to 19) screen
    by screen, starting with the longest unseen ones, and fix what differs.
-5. Compare the cup winner's fade-out overlay and the timing of its input-triggered
-   voice lines with the original.
+5. The cup winner's close fades the picture and the music together with out-quad
+   easing. Compare the timing of its input-triggered voice lines with the original.
 6. Concrete (Petrify) on a loaded tower and the roof's Survival hitbox, played by hand with a
    friend, since offscreen runs only prove the code paths.
 7. (Laser question answered: the original's multiplayer laser layer keeps its height fixed; only the base rises per lost brick, as we do.) Puzzle: the base rise trigger, checked against Max's Puzzle

@@ -66,6 +66,9 @@ layer at its spawn position and scale, without applying it to nudge ghost clones
 The winner's entrance plays the displayed wizard's cheer voice when its first
 cheer starts. The original registers the cheer audio listener before initializing
 the controllable wizard, which enters Cheer during initialization.
+When the local cup winner popup closes, the black overlay and the win music
+fade together over three seconds using the default out-quad easing. The original
+uses the same duration for the two tweens, and its DOTween settings set the easing.
 
 ## In-match cup standings, 2026-11-05
 

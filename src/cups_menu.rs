@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::config::{GameConfig, keyed};
+use crate::config::{CupPanel, GameConfig, keyed};
 use crate::cups::Cup;
 use crate::gameplay::{MAX_TOWERS, Tower, TowerSkin};
 use crate::letters::{TextLook, UiOpacity};
@@ -910,6 +910,12 @@ pub fn winner_trophy_in(cup: &Cup, config: &GameConfig) -> f32 {
     at + config.cup_panel.winner_trophy_grow.1
 }
 
+/// Opacity of the black overlay. The win music fades by the same fraction.
+pub(crate) fn winner_fade(since: f32, panel: &CupPanel) -> f32 {
+    let progress = ((since - panel.winner_close) / panel.winner_fade.max(0.001)).clamp(0.0, 1.0);
+    1.0 - (1.0 - progress).powi(2)
+}
+
 /// The cup winner's medal counts: fourths, bronze, silver and gold (one per point earned,
 /// so a win counts 3, as the original's label does).
 fn winner_amounts(cup: &Cup) -> [u32; 4] {
@@ -979,9 +985,8 @@ fn show_cup_winner(
             }
             Win::Fade => {
                 // Closing fades the screen to black (TOURNAMENT_FADE_OUT_OVERLAY).
-                let k = ((t - p.winner_close) / p.winner_fade.max(0.001)).clamp(0.0, 1.0);
                 if let Some(mut background) = background {
-                    let want = Color::BLACK.with_alpha(k);
+                    let want = Color::BLACK.with_alpha(winner_fade(t, p));
                     if background.0 != want {
                         background.0 = want;
                     }
@@ -2160,6 +2165,14 @@ mod tests {
         assert!(app.world().get::<FlyerCastSound>(sound).is_none());
         app.update();
         assert_eq!(app.world_mut().query::<&AudioPlayer>().iter(app.world()).count(), 1);
+    }
+
+    #[test]
+    fn the_cup_winner_fade_uses_out_quad_over_the_close_window() {
+        let panel = CupPanel::default();
+        assert_eq!(winner_fade(panel.winner_close - 1.0, &panel), 0.0);
+        assert_eq!(winner_fade(panel.winner_close + panel.winner_fade / 2.0, &panel), 0.75);
+        assert_eq!(winner_fade(panel.winner_close + panel.winner_fade, &panel), 1.0);
     }
 
     #[test]
