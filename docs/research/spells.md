@@ -43,6 +43,10 @@ Plain-language notes from Max's installed copy. Units are brick cells.
   from its current speed. The tether rests at the wider of the brick's width and height. Down
   extends it by the difference between the current Down cap and idle fall speed until it reaches
   two extra cells. Releasing Down reels it back at 10 cells/s. The balloon disappears on landing.
+  When Large lands, the balloon grows from its current size to one plus the number of Large
+  curses in 0.3 s with out-quad easing, the same timing as the brick's growth. Down movement of
+  the tether pauses during this tween. When it finishes, the wider dimension of the enlarged
+  brick sets the new resting distance and limit, while the tether keeps its current length.
 - **Mist:** fog 5 cells tall at the tower top for about 15 s.
 - **Grassy:** grass grows over the last brick and every brick within 5 cells (looks only).
 - **Ghost:** up to 3 skulls grab the victim's last brick (not petrified or vined), carry it up and
