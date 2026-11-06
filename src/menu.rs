@@ -422,6 +422,7 @@ const PAUSE_TITLE_Y: f32 = 260.0;
 const PAUSE_ITEMS_Y: f32 = 120.0;
 const PAUSE_ROW: (f32, f32) = (60.0, 30.0);
 const PAUSE_BAR: f32 = 28.0;
+const PAUSE_BAR_PADDING: f32 = 35.0;
 /// The picked option is yellow, the others pink (Max's screenshots).
 const PAUSE_PICKED: Color = Color::srgb(1.0, 0.85, 0.25);
 const PAUSE_OTHER: Color = Color::srgb(1.0, 0.31, 0.55);
@@ -729,7 +730,7 @@ fn spawn_pause_menu(
             },))
                 .with_children(|t| {
                     // EnzoBlackBlueBlackOutline: a dark face with a pale blue outline.
-                    t.spawn(text(
+                    t.spawn((text(
                         75.0,
                         "Game Paused",
                         crate::letters::TextLook {
@@ -741,36 +742,47 @@ fn spawn_pause_menu(
                             outline_edge: 0.5 - 0.3 * 0.8333 / 2.0,
                             bevel: false,
                         },
-                    ));
+                    ), crate::letters::AutoSize {
+                        min: 64.0 / 10.8,
+                        width: PAUSE_COLUMN.1 / 10.8,
+                    }));
                 });
             for (i, option) in PAUSE_OPTIONS.iter().enumerate() {
                 let y = PAUSE_ITEMS_Y - PAUSE_ROW.0 * i as f32;
-                let mut row = root.spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: px(PAUSE_COLUMN.0 + PAUSE_COLUMN.1 / 2.0 - 120.0),
-                        width: px(240.0),
-                        top: top(y, PAUSE_BAR),
-                        height: px(PAUSE_BAR),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BackgroundColor(Color::NONE),
-                    PauseBar(i),
-                ));
-                if let Some(bar) = &bar {
-                    let mut node = sliced(bar.clone(), BAR_SLICE);
-                    node.color = Color::NONE;
-                    row.insert(node);
-                }
-                row.with_children(|r| {
-                    r.spawn((
-                        text(PAUSE_ROW.1, option, crate::letters::TextLook::OUTLINED),
-                        PauseWords(i),
-                        // PopupListItem's words space -1.
-                        crate::letters::LetterSpacing(-1.0),
+                root.spawn(Node {
+                    position_type: PositionType::Absolute,
+                    left: px(PAUSE_COLUMN.0),
+                    width: px(PAUSE_COLUMN.1),
+                    top: top(y, PAUSE_BAR),
+                    height: px(PAUSE_BAR),
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                }).with_children(|row| {
+                    // PopupListItem centres a bar sized from the label and 35 px on each side.
+                    let mut item = row.spawn((
+                        Node {
+                            height: px(PAUSE_BAR),
+                            padding: UiRect::horizontal(px(PAUSE_BAR_PADDING)),
+                            align_items: AlignItems::Center,
+                            flex_shrink: 0.0,
+                            ..default()
+                        },
+                        BackgroundColor(Color::NONE),
+                        PauseBar(i),
                     ));
+                    if let Some(bar) = &bar {
+                        let mut node = sliced(bar.clone(), BAR_SLICE);
+                        node.color = Color::NONE;
+                        node.visual_box = bevy::ui::VisualBox::PaddingBox;
+                        item.insert(node);
+                    }
+                    item.with_children(|r| {
+                        r.spawn((
+                            text(PAUSE_ROW.1, option, crate::letters::TextLook::OUTLINED),
+                            PauseWords(i),
+                            crate::letters::LetterSpacing(-1.0),
+                        ));
+                    });
                 });
             }
         });
@@ -785,6 +797,7 @@ fn pause_input(
     gamepads: Query<&Gamepad>,
     mouse: Option<Res<ButtonInput<MouseButton>>>,
     windows: Query<&Window, With<PrimaryWindow>>,
+    rows: Query<(&PauseBar, &ComputedNode, &UiGlobalTransform)>,
     mut game: ResMut<Match>,
     mut screen: ResMut<MenuScreen>,
     mut pause: ResMut<PauseMenu>,
@@ -852,10 +865,10 @@ fn pause_input(
     }
     // The mouse: an option under the cursor is selected as it moves, and a click picks it.
     if let Ok(window) = windows.single() {
-        let cursor = window.cursor_position();
-        let over = cursor
-            .and_then(|c| pause_row_at(c, window.size()))
-            .filter(|&i| i < count);
+        let cursor = window.physical_cursor_position();
+        let over = cursor.and_then(|cursor| rows.iter().find_map(|(bar, node, at)| {
+            (bar.0 < count && node.contains_point(*at, cursor)).then_some(bar.0)
+        }));
         if let Some(i) = over
             && cursor != *last_cursor
         {
@@ -1453,20 +1466,6 @@ fn tile_at(cursor: Vec2, window: Vec2) -> Option<usize> {
     })
 }
 
-/// The pause option under a cursor (top-left origin) in a window `window` big.
-fn pause_row_at(cursor: Vec2, window: Vec2) -> Option<usize> {
-    let p = Vec2::new(
-        cursor.x / window.x * 1920.0 - 960.0,
-        540.0 - cursor.y / window.y * 1080.0,
-    );
-    if (p.x - 480.0).abs() > 120.0 {
-        return None;
-    }
-    (0..PAUSE_OPTIONS.len()).find(|&i| {
-        (p.y - (PAUSE_ITEMS_Y - PAUSE_ROW.0 * i as f32)).abs() <= PAUSE_BAR / 2.0
-    })
-}
-
 /// The tile from `from` in direction `dir`: the nearest one ahead, with
 /// sideways distance counting double. Tiles more sideways than ahead (twice
 /// over) don't count, so Up from Local Battle stays put.
@@ -1680,6 +1679,33 @@ fn spin_tile_rays(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pause_mouse_uses_the_rendered_bar_at_high_dpi() {
+        let mut app = App::new();
+        app.init_resource::<GameConfig>()
+            .init_resource::<Match>()
+            .init_resource::<ScreenTransition>()
+            .init_resource::<Time<Real>>()
+            .insert_resource(MenuScreen::Pause)
+            .insert_resource(PauseMenu { resume_to: Some(Phase::Playing), ..default() })
+            .add_systems(Update, pause_input);
+        app.world_mut().resource_mut::<Time<Real>>().advance_by(std::time::Duration::from_secs(1));
+        let centre = Vec2::new(2480.0, 810.0);
+        let mut window = Window {
+            resolution: bevy::window::WindowResolution::new(3440, 1440).with_scale_factor_override(1.25),
+            ..default()
+        };
+        window.set_physical_cursor_position(Some((centre + Vec2::X * 220.0).as_dvec2()));
+        app.world_mut().spawn((PrimaryWindow, window));
+        app.world_mut().spawn((
+            PauseBar(1),
+            ComputedNode { size: Vec2::new(480.0, 40.0), ..default() },
+            UiGlobalTransform::from(bevy::math::Affine2::from_translation(centre)),
+        ));
+        app.update();
+        assert_eq!(app.world().resource::<PauseMenu>().selected, 1);
+    }
 
     #[test]
     fn an_intro_load_fade_finishes_while_match_time_is_paused() {

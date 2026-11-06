@@ -80,9 +80,11 @@ stars are shown at the start of a match, not here.
 
 ## Pause
 A full-screen dark overlay (0.016, 0.012, 0.035 at 90%) with a panel (0.031, 0.020, 0.094 at
-85%). "Game Paused" sits 480 px in from the left at +260; Resume, Retry and Quit are below
-it from +120, each on a 30-high row with `menu_item_selected` (28 high, 9-sliced) behind the
-picked one. The panel's size and the row pitch (60 px here) are guesses.
+85%). "Game Paused" sits 480 px right of centre and 260 px up. The title fits one line in an
+840 px box, reducing 75 px type down to 64 px if needed. Resume, Retry and Quit sit below it.
+The selected 28 px bar fits the translated label with 35 px of padding on each side. The
+Rust pause menu uses that bar's rendered bounds for mouse input, including at high DPI.
+The panel's size and the row pitch (60 px here) are guesses.
 
 ## End of a match
 The "Game Completed" popup is not centred. It slides up from below in 0.25 s (ease out quad)
