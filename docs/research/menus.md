@@ -91,7 +91,8 @@ The "Game Completed" popup is not centred. It slides up from below in 0.25 s (ea
 into the bottom-right corner: content 610 wide × (60 per item + 70) high, the
 `popup_background` panel (9-sliced, top border 198, bottom 6) reaching 120 px past the right
 edge and 100 px below the bottom. Items are right-aligned labels (465×30, 40 px in from the
-right), 60 px apart, with `menu_item_selected` (24 high, 30 px in, as wide as the words)
+right), 60 px apart, with `menu_item_selected` (24 high, 30 px in, fitted to the displayed
+label with 15 px left and 10 px right padding)
 behind the picked one. Local items: "Next match" (only when more than one mode was picked),
 "Rematch", "Select Mode", "Main menu". There's no place line, and WINNER! stays visible
 beside it. It opens once every loser's tower has collapsed, about 4 to 5 s after the end
