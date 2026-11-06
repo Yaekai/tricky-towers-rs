@@ -1421,8 +1421,10 @@ fn slow_sends_a_balloon_that_catches_the_brick_in_hand() {
     assert_eq!(extension(&app), 0.0);
 
     app.world_mut().get_mut::<Position>(brick).unwrap().0.y += 16.0 * cell;
-    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Large));
-    assert_eq!(app.world().get::<ActiveBrick>(brick).unwrap().mods.large, 1);
+    your_tower_mut(&mut app).dark_spell = Some(Curse::new(&[SpellKind::Large], 1, None));
+    human_input(&mut app).cast_dark_pressed = true;
+    assert!(run_until(&mut app, 2.0, |app| app.world().get::<ActiveBrick>(brick)
+        .is_some_and(|control| control.mods.large == 1)));
     assert_eq!(balloon(&app), (rest, 1.0));
     run_seconds(&mut app, 0.15, |_| {});
     let (distance, size) = balloon(&app);
