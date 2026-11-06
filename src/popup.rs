@@ -76,22 +76,6 @@ impl Popup {
     }
 }
 
-/// The popup item under a cursor (top-left origin) in a window `window` big: its labels
-/// sit 40 px in from the right edge, `ROW` apart below the header.
-fn popup_row_at(cursor: Vec2, window: Vec2, count: usize) -> Option<usize> {
-    let x = cursor.x / window.x * 1920.0;
-    let y = cursor.y / window.y * 1080.0;
-    let right = 1920.0 - x;
-    if !(LABEL_RIGHT..=LABEL_RIGHT + LABEL.0).contains(&right) {
-        return None;
-    }
-    let top = 1080.0 - height(count);
-    (0..count).find(|&i| {
-        let centre = top + ITEMS_TOP + ROW * i as f32 + ROW / 2.0;
-        (y - centre).abs() <= ROW / 2.0
-    })
-}
-
 /// "1st Place" to "4th Place".
 pub fn place_name(place: usize) -> String {
     let suffix = match place {
@@ -113,7 +97,6 @@ const HEADER: f32 = 70.0;
 const ITEMS_TOP: f32 = 49.0;
 const ROW: f32 = 60.0;
 const SPILL: (f32, f32) = (120.0, 100.0);
-const LABEL: (f32, f32) = (465.0, 30.0);
 const LABEL_RIGHT: f32 = 40.0;
 const BAR_HEIGHT: f32 = 24.0;
 const BAR_RIGHT: f32 = 30.0;
@@ -245,13 +228,13 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
         let bar = image("menu_item_selected");
         for i in 0..MAX_ITEMS {
             let item = POPUP_ITEMS.get(i).copied().unwrap_or("");
-            let top = ITEMS_TOP + ROW * i as f32 + (ROW - LABEL.1) / 2.0;
+            let top = ITEMS_TOP + ROW * i as f32 + (ROW - BAR_HEIGHT) / 2.0;
             // The bar sits behind the label, as wide as the label's words.
             let mut row = root.spawn((
                 Node {
                     position_type: PositionType::Absolute,
                     right: px(BAR_RIGHT),
-                    top: px(top + (LABEL.1 - BAR_HEIGHT) / 2.0),
+                    top: px(top),
                     height: px(BAR_HEIGHT),
                     padding: UiRect::new(px(BAR_LEFT_PAD), px(LABEL_RIGHT - BAR_RIGHT), px(0.0), px(0.0)),
                     align_items: AlignItems::Center,
@@ -340,12 +323,16 @@ fn time_popup(
 /// Up/Down (or the d-pad) pick an item, Enter or A takes it. Rematch plays the
 /// same mode again, Select Mode goes back to the mode tiles (or the Endless
 /// screen after Endless Race), Main menu to the title tiles.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn popup_input(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     gamepads: Query<&Gamepad>,
     mouse: Option<Res<ButtonInput<MouseButton>>>,
     windows: Query<&Window, With<PrimaryWindow>>,
+    targets: Query<
+        (Option<&PopupBar>, &ComputedNode, &UiGlobalTransform),
+        Or<(With<PopupBar>, With<crate::cups_menu::CupContinue>)>,
+    >,
     time: Res<Time>,
     mut config: ResMut<GameConfig>,
     mut popup: ResMut<Popup>,
@@ -371,6 +358,7 @@ fn popup_input(
     }
     let items = popup_items(&config, progress.as_deref(), &cup);
     let count = items.len();
+    let panel_up = popup.panel_up(&cup, &config.cup_panel);
     let (mut up, mut down, mut pick) = (false, false, false);
     if let Some(keys) = keys {
         // DEBUG-TOOL: not in the original; remove before the final build (docs/release-checklist.md).
@@ -386,8 +374,17 @@ fn popup_input(
     }
     // The mouse: an item under the cursor is selected as it moves, and a click picks it.
     if let Ok(window) = windows.single() {
-        let cursor = window.cursor_position();
-        let over = cursor.and_then(|c| popup_row_at(c, window.size(), count));
+        let cursor = window.physical_cursor_position();
+        let over = cursor.and_then(|cursor| targets.iter().find_map(|(bar, node, at)| {
+            if !node.contains_point(*at, cursor) {
+                return None;
+            }
+            match (panel_up, bar) {
+                (true, None) => Some(0),
+                (false, Some(bar)) if bar.0 < count => Some(bar.0),
+                _ => None,
+            }
+        }));
         if let Some(i) = over
             && cursor != *last_cursor
         {
@@ -401,7 +398,7 @@ fn popup_input(
             pick = true;
         }
     }
-    if popup.panel_up(&cup, &config.cup_panel) {
+    if panel_up {
         // CONTINUE takes an unfinished cup on, or opens a decided cup's winner popup.
         up = false;
         down = false;
@@ -575,6 +572,52 @@ fn show_popup(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn results_mouse_hits_the_visible_target_at_high_dpi() {
+        let mut app = App::new();
+        app.init_resource::<GameConfig>()
+            .init_resource::<ScreenTransition>()
+            .init_resource::<Cup>()
+            .init_resource::<Time>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .init_resource::<crate::credits::CreditsMenu>()
+            .insert_resource(Match { phase: Phase::Over, ..default() })
+            .insert_resource(Popup { shown: true, clock: 20.0, ..default() })
+            .add_systems(Update, popup_input);
+        let mut window = Window {
+            resolution: bevy::window::WindowResolution::new(3440, 1440).with_scale_factor_override(1.25),
+            ..default()
+        };
+        window.set_physical_cursor_position(Some(Vec2::new(3385.0, 1280.0).as_dvec2()));
+        let window = app.world_mut().spawn((PrimaryWindow, window)).id();
+        let layout = |centre, size| (
+            ComputedNode { size, ..default() },
+            UiGlobalTransform::from(bevy::math::Affine2::from_translation(centre)),
+        );
+        app.world_mut().spawn((PopupBar(1), layout(Vec2::new(3200.0, 1280.0), Vec2::new(400.0, 32.0))));
+        let continue_at = Vec2::new(1720.0, 1200.0);
+        app.world_mut().spawn((crate::cups_menu::CupContinue, layout(continue_at, Vec2::new(240.0, 48.0))));
+        app.update();
+        assert_eq!(app.world().resource::<Popup>().selected, 1);
+
+        let mut cup = app.world_mut().resource_mut::<Cup>();
+        cup.size = Some(0);
+        cup.standings = Some(vec![0]);
+        let click = |app: &mut App| {
+            let mut mouse = app.world_mut().resource_mut::<ButtonInput<MouseButton>>();
+            mouse.reset_all();
+            mouse.press(MouseButton::Left);
+        };
+        click(&mut app);
+        app.update();
+        assert!(app.world().resource::<Popup>().winner_since().is_none());
+        app.world_mut().get_mut::<Window>(window).unwrap()
+            .set_physical_cursor_position(Some(continue_at.as_dvec2()));
+        click(&mut app);
+        app.update();
+        assert!(app.world().resource::<Popup>().winner_since().is_some());
+    }
 
     #[test]
     fn next_goes_on_in_an_open_tier_and_back_to_the_list_when_a_tier_opens() {

@@ -18,6 +18,10 @@ pub struct CupsMenuPlugin;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct CupFlyerMotion;
 
+/// The clickable Continue node on the between-match standings.
+#[derive(Component)]
+pub(crate) struct CupContinue;
+
 impl Plugin for CupsMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (spawn_cup_panel, spawn_cup_winner))
@@ -310,6 +314,7 @@ fn spawn_cup_panel(mut commands: Commands, config: Res<GameConfig>, art: Option<
                 },
                 Visibility::Hidden,
                 Part::Continue,
+                CupContinue,
             ))
             .with_children(|c| {
                 if let Some(bar) = bar {
