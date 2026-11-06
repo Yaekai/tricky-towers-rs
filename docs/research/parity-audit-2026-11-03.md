@@ -69,6 +69,8 @@ the controllable wizard, which enters Cheer during initialization.
 When the local cup winner popup closes, the black overlay and the win music
 fade together over three seconds using the default out-quad easing. The original
 uses the same duration for the two tweens, and its DOTween settings set the easing.
+The overlay sorts above the confetti and fireworks, as it does on the original's
+Transitions layer.
 
 ## In-match cup standings, 2026-11-05
 

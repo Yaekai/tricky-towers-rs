@@ -864,6 +864,8 @@ fn spawn_cup_winner(mut commands: Commands, config: Res<GameConfig>, art: Option
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
+                // The original's transition layer covers the confetti and fireworks.
+                ZIndex(6),
                 Win::Fade,
             ));
         });
