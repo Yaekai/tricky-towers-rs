@@ -1,7 +1,7 @@
 //! DEBUG-TOOL: frame-time probe, not part of the game (docs/release-checklist.md).
 //! `cargo test --release --test perf -- --ignored --nocapture` prints the CPU time
 //! of one 60 fps frame per mode with four AI towers, for the core loop alone
-//! (physics, rules, AI) and for the whole game minus the GPU (visuals, HUD, text).
+//! and for the CPU work of the visuals, HUD, text and decoration clipping.
 
 use std::time::{Duration, Instant};
 
@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use tricky_towers::TowerCorePlugin;
-use tricky_towers::config::{DEFAULT_CONFIG_PATH, Difficulty, GameConfig, ModeKind};
+use tricky_towers::config::{BrickPack, DEFAULT_CONFIG_PATH, Difficulty, GameConfig, ModeKind};
 use tricky_towers::gameplay::{AiControlled, Brick, Match, MatchRequest, Phase, Tower};
 
 const FRAME: f32 = 1.0 / 60.0;
@@ -27,6 +27,12 @@ fn config(mode: ModeKind) -> GameConfig {
     config.players = 1;
     config.opponents = 3;
     config.seed = 4242;
+    config.skins = vec![
+        (0, BrickPack::Christmas),
+        (1, BrickPack::Halloween),
+        (2, BrickPack::Spring),
+        (3, BrickPack::Galaxy),
+    ];
     config
 }
 
@@ -40,6 +46,7 @@ fn core_app(config: GameConfig) -> App {
 
 fn full_app(config: GameConfig) -> App {
     let mut app = App::new();
+    tricky_towers::art::register_source(&mut app);
     app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
@@ -56,7 +63,8 @@ fn full_app(config: GameConfig) -> App {
                 ..default()
             })
             .disable::<bevy::winit::WinitPlugin>()
-            .disable::<bevy::audio::AudioPlugin>(),
+            .disable::<bevy::audio::AudioPlugin>()
+            .disable::<bevy::gilrs::GilrsPlugin>(),
     )
     .insert_resource(tricky_towers::art::Silent)
     .insert_resource(config)
@@ -75,7 +83,8 @@ fn full_app(config: GameConfig) -> App {
         tricky_towers::weather::WeatherPlugin,
         tricky_towers::particles::ParticlesPlugin,
         tricky_towers::hud::HudPlugin,
-    ));
+    ))
+    .add_plugins(tricky_towers::brick_material::BrickMaterialPlugin);
     app
 }
 
