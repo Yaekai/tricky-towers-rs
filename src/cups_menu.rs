@@ -1805,13 +1805,18 @@ fn fly_winner(
         return;
     }
     let Some(art) = art.as_deref() else { return };
+    if *seed == 0 {
+        *seed = 0x2545_f491;
+    }
+    let mut roll = || crate::particles::roll(&mut seed);
     let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
     let winning_tower = towers.iter().find(|(t, _)| Some(t.index) == winner);
     if flyers.is_empty() {
         let wizard = winning_tower
             .map_or(0, |(t, skin)| skin.map_or(t.index, |s| s.wizard));
-        let Some(rig) =
+        let Some((rig, wizard)) =
             crate::wizards::spawn_free_wizard(&mut commands, art, wizard, WIN_UNIT, layer.clone())
+                .map(|rig| (rig, wizard))
                 .or_else(|| {
                     crate::wizards::spawn_free_wizard(
                         &mut commands,
@@ -1820,6 +1825,7 @@ fn fly_winner(
                         WIN_UNIT,
                         layer.clone(),
                     )
+                    .map(|rig| (rig, 0))
                 })
         else {
             return;
@@ -1835,6 +1841,7 @@ fn fly_winner(
                 w.act(crate::wizards::Clip::Cheer);
             }
         });
+        say(&mut commands, art, wizard, "cheer", roll());
         commands.entity(rig).insert((Flyer {
             at: FLYER_SPAWN,
             speed: Vec2::ZERO,
@@ -1926,10 +1933,6 @@ fn fly_winner(
     } else {
         None
     };
-    if *seed == 0 {
-        *seed = 0x2545_f491;
-    }
-    let mut roll = || crate::particles::roll(&mut seed);
     let now = time.elapsed_secs();
     for (entity, mut flyer, mut transform, mut rig) in &mut flyers {
         for (on, kind, clip) in [

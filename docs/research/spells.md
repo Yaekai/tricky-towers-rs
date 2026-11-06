@@ -40,7 +40,9 @@ Plain-language notes from Max's installed copy. Units are brick cells.
   appears. Idle fall speed is capped at 1 cell/s, and sideways steps work as usual. Once the
   balloon finishes growing, the held-Down cap falls from 6 to 3 cells/s at 8 cells/s². A new Down
   press after inflation resets the cap and plays one of two sounds. The brick still accelerates
-  from its current speed. The balloon disappears on landing.
+  from its current speed. The tether rests at the wider of the brick's width and height. Down
+  extends it by the difference between the current Down cap and idle fall speed until it reaches
+  two extra cells. Releasing Down reels it back at 10 cells/s. The balloon disappears on landing.
 - **Mist:** fog 5 cells tall at the tower top for about 15 s.
 - **Grassy:** grass grows over the last brick and every brick within 5 cells (looks only).
 - **Ghost:** up to 3 skulls grab the victim's last brick (not petrified or vined), carry it up and

@@ -1410,6 +1410,13 @@ fn slow_sends_a_balloon_that_catches_the_brick_in_hand() {
         (drop - (1.0 + acceleration * dt)).abs() < 0.01,
         "first Down step was {drop} cells/s"
     );
+    let extension = |app: &App| app.world().get::<ActiveBrick>(brick).unwrap().slow_tether_extension;
+    assert!((extension(&app) - 5.0 * dt).abs() < 0.001);
+    run_seconds(&mut app, 1.0, |_| {});
+    assert!((2.0..2.1).contains(&extension(&app)), "extended by {} cells", extension(&app));
+    app.world_mut().get_mut::<PlayerInput>(target).unwrap().fast_fall_held = false;
+    run_seconds(&mut app, 0.25, |_| {});
+    assert_eq!(extension(&app), 0.0);
 }
 
 #[test]

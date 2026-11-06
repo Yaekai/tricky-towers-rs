@@ -1293,6 +1293,9 @@ pub struct MagicRules {
     pub slow_catch_hold: f32,
     /// Time the attached balloon takes to inflate before the drop cap starts easing.
     pub slow_inflate: f32,
+    /// Extra tether length while Down is held, and catch-up speed on release (cells and cells/s).
+    pub slow_tether_limit: f32,
+    pub slow_tether_return: f32,
     /// The homing orb's scale-in and scale-out durations.
     pub slow_orb_pop_in: f32,
     pub slow_orb_shrink: f32,
@@ -1522,6 +1525,8 @@ impl Default for MagicRules {
             slow_catch_shake: 0.3,
             slow_catch_hold: 0.3,
             slow_inflate: 0.4,
+            slow_tether_limit: 2.0,
+            slow_tether_return: 10.0,
             slow_orb_pop_in: 0.5,
             slow_orb_shrink: 0.5,
             mist_seconds: 15.0,

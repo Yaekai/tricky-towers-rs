@@ -63,6 +63,9 @@ Brick-control sounds and spell-button reactions are blocked during pause.
 
 The cup winner's immediate appearance poof is implemented on the popup camera's
 layer at its spawn position and scale, without applying it to nudge ghost clones.
+The winner's entrance plays the displayed wizard's cheer voice when its first
+cheer starts. The original registers the cheer audio listener before initializing
+the controllable wizard, which enters Cheer during initialization.
 
 ## In-match cup standings, 2026-11-05
 

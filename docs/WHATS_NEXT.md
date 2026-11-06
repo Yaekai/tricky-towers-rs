@@ -89,8 +89,9 @@ supersedes the older working notes below.
    and pickup, and No Rotate's fixed shake window. The cup winner's bolt now
    follows the wand and only the winning seat can fly the wizard. Slow can catch
    during its pop-in. The headless Bubble fixture checks that a grassy shell
-   can pop before the bricks touch. Check Slow's tether motion and the cup
-   wizard's animated wand position and voice timing against the original.
+   can pop before the bricks touch. Slow's tether now stretches and reels back
+   on Down, and the cup winner plays its cheer on entrance. Check Slow's resize
+   tween and the cup wizard's animated wand position and input voice timing.
    Record the trigger, delay and outcome for each difference before editing.
    Then resolve the remaining `(?)` values in `casts`, `moments` and cup timing
    from clips or repeatable measurements. Use [PC tasks](pc-tasks.md) as evidence
@@ -190,8 +191,8 @@ indicator) and AcceptOnlineInvite need online play to show anything.
    (its wand spot is a guess).
 4. Compare the remaining untouched clips (Max's recordings 2 to 4, 6 to 11, 14 to 19) screen
    by screen, starting with the longest unseen ones, and fix what differs.
-5. The cup winner's remaining pieces: the fade-out overlay and the `WIZARD_*_AUDIO` triggers
-   checked against the original's timings.
+5. Compare the cup winner's fade-out overlay and the timing of its input-triggered
+   voice lines with the original.
 6. Concrete (Petrify) on a loaded tower and the roof's Survival hitbox, played by hand with a
    friend, since offscreen runs only prove the code paths.
 7. (Laser question answered: the original's multiplayer laser layer keeps its height fixed; only the base rises per lost brick, as we do.) Puzzle: the base rise trigger, checked against Max's Puzzle

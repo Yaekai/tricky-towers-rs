@@ -900,6 +900,9 @@ pub struct ActiveBrick {
     down_before: bool,
     pub(crate) slow_attach_left: Option<f32>,
     pub(crate) slow_inflate_left: f32,
+    /// How far the balloon has moved past its resting distance, in cells.
+    pub slow_tether_extension: f32,
+    slow_tether_growing: bool,
     /// Seconds a refused turn (No Rotate) still shakes the brick; drawn by the
     /// visuals.
     pub refused: f32,
@@ -935,6 +938,8 @@ impl ActiveBrick {
             down_before: false,
             slow_attach_left: None,
             slow_inflate_left: if mods.slow { magic.slow_inflate } else { 0.0 },
+            slow_tether_extension: 0.0,
+            slow_tether_growing: false,
             refused: 0.0,
             picture_shake: 0.0,
             hold: 0.0,
@@ -1703,10 +1708,14 @@ fn control_active_brick(
         let pressed_down = input.fast_fall_held && !control.down_before;
         control.down_before = input.fast_fall_held;
         if control.mods.slow {
+            if !input.fast_fall_held {
+                control.slow_tether_growing = false;
+            }
             if control.slow_inflate_left > 0.0 {
                 control.slow_inflate_left = (control.slow_inflate_left - dt).max(0.0);
             } else if pressed_down {
                 control.slow_cap = magic.slow_fast_fall_speed;
+                control.slow_tether_growing = true;
                 balloon_cues.write(SlowBalloonCue::Down);
             } else {
                 control.slow_cap = (control.slow_cap - magic.slow_fast_ease * dt).max(magic.slow_fast_floor);
@@ -1719,6 +1728,8 @@ fn control_active_brick(
                 control.mods.slow = true;
                 control.slow_cap = magic.slow_fast_fall_speed;
                 control.slow_inflate_left = magic.slow_inflate;
+                control.slow_tether_extension = 0.0;
+                control.slow_tether_growing = false;
                 control.speed = drop_speed;
                 balloon_cues.write(SlowBalloonCue::Down);
             }
@@ -1772,6 +1783,15 @@ fn control_active_brick(
             };
             commands.entity(entity).insert(LinearVelocity::ZERO);
             continue;
+        }
+        if control.mods.slow && control.slow_inflate_left == 0.0 {
+            if control.slow_tether_growing {
+                control.slow_tether_growing = control.slow_tether_extension < magic.slow_tether_limit;
+                control.slow_tether_extension += (control.slow_cap - magic.slow_fall_speed) * dt;
+            } else if !input.fast_fall_held {
+                control.slow_tether_extension =
+                    (control.slow_tether_extension - magic.slow_tether_return * dt).max(0.0);
+            }
         }
         let (mut position, mut rotation) = (*position, *rotation);
         let shape = control.query_shape.clone();

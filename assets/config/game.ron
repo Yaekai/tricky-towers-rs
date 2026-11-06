@@ -1716,6 +1716,8 @@
         slow_catch_shake: 0.3,
         slow_catch_hold: 0.3,
         slow_inflate: 0.4,
+        slow_tether_limit: 2.0,
+        slow_tether_return: 10.0,
         slow_orb_pop_in: 0.5,
         slow_orb_shrink: 0.5,
         mist_seconds: 15.0,
