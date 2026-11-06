@@ -1031,6 +1031,7 @@ fn duck_music(
     config: Res<crate::config::GameConfig>,
     game: Res<Match>,
     pause: Option<Res<crate::menu::PauseMenu>>,
+    popup: Option<Res<crate::popup::Popup>>,
     settings: Option<Res<crate::settings::Settings>>,
     towers: Query<(&Tower, &TowerState, Option<&crate::gameplay::TowerSkin>)>,
     mut sinks: Query<&mut bevy::audio::AudioSink, With<Music>>,
@@ -1054,7 +1055,10 @@ fn duck_music(
     let rate = if target < *now { 1.0 / 0.15 } else { 1.0 / 0.5 };
     let step = rate * time.delta_secs();
     *now = if target < *now { (*now - step).max(target) } else { (*now + step).min(target) };
-    let volume = settings.as_ref().map_or(1.0, |s| s.music) * *now;
+    let cup_fade = popup
+        .and_then(|popup| popup.winner_since())
+        .map_or(0.0, |since| crate::cups_menu::winner_fade(since, &config.cup_panel));
+    let volume = settings.as_ref().map_or(1.0, |s| s.music) * *now * (1.0 - cup_fade);
     for mut sink in &mut sinks {
         if (sink.volume().to_linear() - volume).abs() > 1e-3 {
             sink.set_volume(bevy::audio::Volume::Linear(volume));

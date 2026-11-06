@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 use crate::art::Art;
-use crate::config::{GameConfig, keyed};
+use crate::config::{CupPanel, GameConfig, keyed};
 use crate::cups::Cup;
 use crate::gameplay::{MAX_TOWERS, Tower, TowerSkin};
 use crate::letters::{TextLook, UiOpacity};
@@ -864,6 +864,8 @@ fn spawn_cup_winner(mut commands: Commands, config: Res<GameConfig>, art: Option
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
+                // The original's transition layer covers the confetti and fireworks.
+                ZIndex(6),
                 Win::Fade,
             ));
         });
@@ -908,6 +910,12 @@ pub fn winner_counts(
 pub fn winner_trophy_in(cup: &Cup, config: &GameConfig) -> f32 {
     let (_, _, at) = winner_counts(0.0, winner_amounts(cup), &config.cup_panel);
     at + config.cup_panel.winner_trophy_grow.1
+}
+
+/// Opacity of the black overlay. The win music fades by the same fraction.
+pub(crate) fn winner_fade(since: f32, panel: &CupPanel) -> f32 {
+    let progress = ((since - panel.winner_close) / panel.winner_fade.max(0.001)).clamp(0.0, 1.0);
+    1.0 - (1.0 - progress).powi(2)
 }
 
 /// The cup winner's medal counts: fourths, bronze, silver and gold (one per point earned,
@@ -979,9 +987,8 @@ fn show_cup_winner(
             }
             Win::Fade => {
                 // Closing fades the screen to black (TOURNAMENT_FADE_OUT_OVERLAY).
-                let k = ((t - p.winner_close) / p.winner_fade.max(0.001)).clamp(0.0, 1.0);
                 if let Some(mut background) = background {
-                    let want = Color::BLACK.with_alpha(k);
+                    let want = Color::BLACK.with_alpha(winner_fade(t, p));
                     if background.0 != want {
                         background.0 = want;
                     }
@@ -1805,13 +1812,18 @@ fn fly_winner(
         return;
     }
     let Some(art) = art.as_deref() else { return };
+    if *seed == 0 {
+        *seed = 0x2545_f491;
+    }
+    let mut roll = || crate::particles::roll(&mut seed);
     let winner = cup.standings.as_ref().and_then(|s| s.first().copied());
     let winning_tower = towers.iter().find(|(t, _)| Some(t.index) == winner);
     if flyers.is_empty() {
         let wizard = winning_tower
             .map_or(0, |(t, skin)| skin.map_or(t.index, |s| s.wizard));
-        let Some(rig) =
+        let Some((rig, wizard)) =
             crate::wizards::spawn_free_wizard(&mut commands, art, wizard, WIN_UNIT, layer.clone())
+                .map(|rig| (rig, wizard))
                 .or_else(|| {
                     crate::wizards::spawn_free_wizard(
                         &mut commands,
@@ -1820,6 +1832,7 @@ fn fly_winner(
                         WIN_UNIT,
                         layer.clone(),
                     )
+                    .map(|rig| (rig, 0))
                 })
         else {
             return;
@@ -1835,6 +1848,7 @@ fn fly_winner(
                 w.act(crate::wizards::Clip::Cheer);
             }
         });
+        say(&mut commands, art, wizard, "cheer", roll());
         commands.entity(rig).insert((Flyer {
             at: FLYER_SPAWN,
             speed: Vec2::ZERO,
@@ -1926,10 +1940,6 @@ fn fly_winner(
     } else {
         None
     };
-    if *seed == 0 {
-        *seed = 0x2545_f491;
-    }
-    let mut roll = || crate::particles::roll(&mut seed);
     let now = time.elapsed_secs();
     for (entity, mut flyer, mut transform, mut rig) in &mut flyers {
         for (on, kind, clip) in [
@@ -2157,6 +2167,14 @@ mod tests {
         assert!(app.world().get::<FlyerCastSound>(sound).is_none());
         app.update();
         assert_eq!(app.world_mut().query::<&AudioPlayer>().iter(app.world()).count(), 1);
+    }
+
+    #[test]
+    fn the_cup_winner_fade_uses_out_quad_over_the_close_window() {
+        let panel = CupPanel::default();
+        assert_eq!(winner_fade(panel.winner_close - 1.0, &panel), 0.0);
+        assert_eq!(winner_fade(panel.winner_close + panel.winner_fade / 2.0, &panel), 0.75);
+        assert_eq!(winner_fade(panel.winner_close + panel.winner_fade, &panel), 1.0);
     }
 
     #[test]
