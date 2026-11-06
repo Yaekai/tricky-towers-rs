@@ -117,6 +117,7 @@ const LABEL: (f32, f32) = (465.0, 30.0);
 const LABEL_RIGHT: f32 = 40.0;
 const BAR_HEIGHT: f32 = 24.0;
 const BAR_RIGHT: f32 = 30.0;
+const BAR_LEFT_PAD: f32 = 15.0;
 /// 9-slice borders (left, right, top, bottom) of the panel and the bar.
 const PANEL_SLICE: [f32; 4] = [0.0, 0.0, 198.0, 6.0];
 pub(crate) const BAR_SLICE: [f32; 4] = [16.0, 5.0, 0.0, 0.0];
@@ -252,8 +253,7 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
                     right: px(BAR_RIGHT),
                     top: px(top + (LABEL.1 - BAR_HEIGHT) / 2.0),
                     height: px(BAR_HEIGHT),
-                    max_width: px(LABEL.0 + (LABEL_RIGHT - BAR_RIGHT)),
-                    padding: UiRect::new(px(24.0), px(LABEL_RIGHT - BAR_RIGHT), px(0.0), px(0.0)),
+                    padding: UiRect::new(px(BAR_LEFT_PAD), px(LABEL_RIGHT - BAR_RIGHT), px(0.0), px(0.0)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::FlexEnd,
                     overflow: Overflow::visible(),
@@ -265,6 +265,7 @@ fn spawn_popup(mut commands: Commands, art: Option<Res<Art>>) {
             if let Some(bar) = &bar {
                 let mut node = sliced(bar.clone(), BAR_SLICE);
                 node.color = Color::NONE;
+                node.visual_box = bevy::ui::VisualBox::PaddingBox;
                 row.insert(node);
             }
             row.with_children(|r| {
@@ -493,10 +494,8 @@ fn show_popup(
         Option<&mut ImageNode>,
         &mut BackgroundColor,
         &mut Visibility,
-        &mut Node,
     )>,
     cup: Res<crate::cups::Cup>,
-    art: Option<Res<Art>>,
     progress: Option<Res<TrialProgress>>,
     mut texts: Query<(&PopupWords, &mut Text, &mut TextColor, &mut crate::letters::TextLook)>,
 ) {
@@ -545,19 +544,7 @@ fn show_popup(
     if !visible {
         return;
     }
-    for (bar, image, mut colour, mut shown, mut node) in &mut bars {
-        // The bar is as wide as its words (the label's content-size fit) and the padding;
-        // the words are drawn by their letter twin, which gives the row no width of its own.
-        let words = items.get(bar.0).copied().unwrap_or("");
-        if let Some(art) = art.as_deref() {
-            let wide = crate::letters::line_width(art, &words.to_uppercase(), 40.0);
-            if wide > 0.0 {
-                let width = px(wide + 24.0 + (LABEL_RIGHT - BAR_RIGHT));
-                if node.width != width {
-                    node.width = width;
-                }
-            }
-        }
+    for (bar, image, mut colour, mut shown) in &mut bars {
         shown.set_if_neq(if bar.0 >= items.len() {
             Visibility::Hidden
         } else {
