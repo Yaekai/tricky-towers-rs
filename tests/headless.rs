@@ -1011,7 +1011,10 @@ fn cast_now(app: &mut App, light: SpellKind, dark: Option<SpellKind>) {
         input.cast_light_pressed = true;
     }
     // Let one fixed step run, then the cast land (a dark one with its curse orb).
-    run_seconds(app, 0.03, |_| {});
+    let before = app.world().resource::<Time<Fixed>>().elapsed();
+    assert!(run_until(app, 0.1, |app| {
+        app.world().resource::<Time<Fixed>>().elapsed() > before
+    }));
     wait_for_casts(app);
 }
 
@@ -1183,16 +1186,34 @@ fn auto_build_places_stone_bricks_by_itself() {
 
 #[test]
 fn large_grows_the_brick_in_hand() {
+    use avian2d::prelude::*;
     let mut config = fast_config();
     config.mode = ModeKind::Race;
     config.opponents = 1;
     config.magic.enabled = true;
     let mut app = headless_app(config);
     run_seconds(&mut app, 0.1, |_| {});
-    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Large));
-    // The curse lands on wizard 1's brick in hand.
     let theirs = tower(&mut app, 1).active.unwrap();
-    assert_eq!(app.world().get::<Brick>(theirs).unwrap().scale, 2.0);
+    let width = |app: &App| {
+        let collider = app.world().get::<Collider>(theirs).unwrap();
+        let bounds = collider.aabb(Vec2::ZERO, Rotation::IDENTITY);
+        bounds.max.x - bounds.min.x
+    };
+    let initial_width = width(&app);
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Large));
+    let scale = |app: &App| app.world().get::<Brick>(theirs).unwrap().scale;
+    assert!((1.0..1.2).contains(&scale(&app)), "the collision shape grows over time");
+    run_seconds(&mut app, 0.12, |_| {});
+    assert!((1.6..1.9).contains(&scale(&app)));
+    assert!((width(&app) / initial_width - scale(&app)).abs() < 0.001);
+
+    // A second curse starts at the size the first one has reached.
+    let before = scale(&app);
+    cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Large));
+    assert!((before..before + 0.2).contains(&scale(&app)));
+    run_seconds(&mut app, 0.4, |_| {});
+    assert_eq!(scale(&app), 2.5);
+    assert!((width(&app) / initial_width - 2.5).abs() < 0.001);
 }
 
 #[test]
@@ -2847,9 +2868,10 @@ fn two_large_curses_stack_to_2_5() {
     run_seconds(&mut app, 0.1, |_| {});
     cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Large));
     let brick = tower(&mut app, 1).active.unwrap();
+    run_seconds(&mut app, 0.4, |_| {});
     assert_eq!(app.world().get::<Brick>(brick).unwrap().scale, 2.0);
     cast_now(&mut app, SpellKind::Ivy, Some(SpellKind::Large));
-    run_seconds(&mut app, 0.1, |_| {});
+    run_seconds(&mut app, 0.4, |_| {});
     assert_eq!(tower(&mut app, 1).active, Some(brick));
     let world = app.world();
     assert_eq!(world.get::<Brick>(brick).unwrap().scale, 2.5);

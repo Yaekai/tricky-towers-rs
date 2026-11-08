@@ -91,6 +91,7 @@ supersedes the older working notes below.
    during its pop-in. The headless Bubble fixture checks that a grassy shell
    can pop before the bricks touch. Slow's tether now stretches and reels back
    on Down. Large now grows the balloon without jumping the tether length.
+   Large's headless size and collision shape now grow with its picture over 0.3 s.
    The cup winner plays its cheer on entrance. Check the cup wizard's animated
    wand position and input voice timing.
    Record the trigger, delay and outcome for each difference before editing.

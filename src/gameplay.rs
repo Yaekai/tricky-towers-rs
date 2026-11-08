@@ -888,6 +888,8 @@ pub struct ActiveBrick {
     pub mods: BrickMod,
     /// Set when a spell changed the brick's shape or size while it was steered.
     pub reshape: bool,
+    /// Large's scale tween, from its current size to the new size, with elapsed seconds.
+    pub(crate) large_growth: Option<(f32, f32, f32)>,
     /// Times this brick has already come back after being lost.
     pub comebacks: u32,
     repeat_timer: f32,
@@ -926,6 +928,7 @@ impl ActiveBrick {
             drop_distance: None,
             mods,
             reshape: false,
+            large_growth: None,
             comebacks: 0,
             repeat_timer: 0.0,
             repeating: false,

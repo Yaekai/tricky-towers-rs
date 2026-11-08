@@ -951,8 +951,7 @@ fn curse_bricks(
             brick.set_changed();
         }
         if effect.large > 0 {
-            brick.scale = control.mods.scale(config);
-            control.reshape = true;
+            control.large_growth = Some((brick.scale, control.mods.scale(config), 0.0));
         }
         if effect.mystery
             && let Some(shape) = state.draw_mystery(config.magic.mystery_pieces.len())
@@ -1192,20 +1191,31 @@ fn cast_on_tower(
 }
 
 /// Rebuilds the shape of steered bricks a spell made larger or turned into a
-/// Mystery shape, lifting them clear if they grew into something.
+/// Updates Large's size and rebuilds changed shapes, lifting them clear of overlaps.
 pub(crate) fn reshape_active_bricks(
     mut commands: Commands,
+    time: Res<Time>,
     config: Res<GameConfig>,
+    game: Res<Match>,
     spatial: SpatialQuery,
-    mut bricks: Query<(Entity, &mut ActiveBrick, &Brick, &Position, &Rotation)>,
+    mut bricks: Query<(Entity, &mut ActiveBrick, &mut Brick, &Position, &Rotation)>,
     layers: Query<&CollisionLayers>,
 ) {
-    for (entity, mut control, brick, position, rotation) in &mut bricks {
+    for (entity, mut control, mut brick, position, rotation) in &mut bricks {
+        if game.phase == Phase::Playing
+            && let Some((from, to, elapsed)) = control.large_growth
+        {
+            let elapsed = elapsed + time.delta_secs();
+            let progress = (elapsed / config.casts.large_grow.max(0.001)).min(1.0);
+            brick.scale = to - (to - from) * (1.0 - progress).powi(2);
+            control.large_growth = (progress < 1.0).then_some((from, to, elapsed));
+            control.reshape = true;
+        }
         if !std::mem::take(&mut control.reshape) {
             continue;
         }
-        let shape = crate::gameplay::steer_shape(&config, brick);
-        let (_, density) = brick_body(&config, brick);
+        let shape = crate::gameplay::steer_shape(&config, &brick);
+        let (_, density) = brick_body(&config, &brick);
         let filter = SpatialQueryFilter::from_mask(
             layers.get(entity).map_or(LayerMask::ALL, |l| l.memberships),
         )

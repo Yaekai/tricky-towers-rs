@@ -35,7 +35,7 @@ impl Plugin for CastsPlugin {
                 track_clouds,
                 animate_clouds,
                 flick_hints,
-                grow_large_bricks,
+                shake_active_bricks,
                 quiet_large_rumbles,
                 lock_bricks,
             )
@@ -1731,11 +1731,9 @@ fn quiet_large_rumbles(
     }
 }
 
-/// Grows the brick in hand when Large makes it bigger: its cells are drawn at
-/// the new size at once, so they are scaled down to the old size and eased up.
-/// Also shakes it while No Rotate refuses a turn.
+/// Sounds for each new Large curse, and the held brick's refused-turn or spell shake.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
-fn grow_large_bricks(
+fn shake_active_bricks(
     time: Res<Time>,
     config: Res<GameConfig>,
     art: Res<Art>,
@@ -1743,22 +1741,16 @@ fn grow_large_bricks(
     mut shake: ResMut<CameraShake>,
     bricks: Query<(Entity, &Brick, &ActiveBrick, Option<&Children>)>,
     mut cells: Query<(&mut Transform, Option<&GrowBase>), Without<Brick>>,
-    mut sizes: Local<HashMap<Entity, (f32, f32, f32)>>,
+    mut large_counts: Local<HashMap<Entity, u32>>,
     mut shook: Local<bevy::platform::collections::HashSet<Entity>>,
 ) {
     let look = &config.casts;
-    let dt = time.delta_secs();
-    sizes.retain(|entity, _| bricks.contains(*entity));
+    large_counts.retain(|entity, _| bricks.contains(*entity));
     shook.retain(|entity| bricks.contains(*entity));
     for (entity, brick, control, children) in &bricks {
-        let entry = sizes
-            .entry(entity)
-            .or_insert((brick.scale, brick.scale, 1.0));
-        // A bigger brick than last seen: start growing from the old size.
-        if brick.scale > entry.1 + 1e-4 {
-            let (from, to, progress) = *entry;
-            let displayed = to - (to - from) * (1.0 - progress).powi(2);
-            *entry = (displayed, brick.scale, 0.0);
+        let entry = large_counts.entry(entity).or_insert(control.mods.large);
+        if control.mods.large > *entry {
+            *entry = control.mods.large;
             if !shake.held.iter().any(|h| h.0 == entity) {
                 shake.held.push((entity, config.cells(look.large_shake)));
             }
@@ -1770,10 +1762,7 @@ fn grow_large_bricks(
             if let Some(sound) = art.sounds.get("sfx_rumble") {
                 commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::LOOP, LargeRumble(entity)));
             }
-        } else if brick.scale < entry.1 - 1e-4 {
-            *entry = (brick.scale, brick.scale, 1.0);
         }
-        let (from, to, progress) = *entry;
         // No Rotate refusing a turn shakes the brick sideways; a curse wave's lift
         // makes its picture jump about.
         let shaking = control.refused > 0.0 || control.picture_shake > 0.0;
@@ -1782,14 +1771,9 @@ fn grow_large_bricks(
         } else {
             shook.remove(&entity)
         };
-        // Only touch the cells while a grow or shake runs (the last step puts them
-        // back).
-        if progress >= 1.0 && !shaking && !was_shaking {
+        if !shaking && !was_shaking {
             continue;
         }
-        let progress = (progress + dt / look.large_grow.max(0.001)).min(1.0);
-        entry.2 = progress;
-        let factor = (to - (to - from) * (1.0 - progress).powi(2)) / to;
         // A refused turn makes the picture jump like a wave's lift, smaller on a
         // big brick (the original's shake modifier).
         let jump = if control.picture_shake > 0.0 {
@@ -1824,9 +1808,8 @@ fn grow_large_bricks(
                     *transform
                 }
             };
-            transform.translation =
-                (base.translation.truncate() * factor + wobble).extend(base.translation.z);
-            transform.scale = base.scale * factor;
+            transform.translation = (base.translation.truncate() + wobble).extend(base.translation.z);
+            transform.scale = base.scale;
         }
     }
 }

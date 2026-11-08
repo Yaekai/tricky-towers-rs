@@ -18,6 +18,8 @@ Plain-language notes from Max's installed copy. Units are brick cells.
 
 ## Dark
 - **Large:** the current brick grows to 2× over 0.3 s (+0.5 for each extra Large).
+  Its collision shape grows with the picture throughout this interval using out-quad easing.
+  A new Large cast during the growth starts at the current size.
 - **Fast:** for the next 5 bricks, the fall speed is at least the drop speed + 7.5.
 - **Ice:** the next 4 bricks have friction 0.06 (normal is 0.4).
 - **No-rotate:** turning is blocked. The first refused turn shakes the brick for 0.3 s. More
