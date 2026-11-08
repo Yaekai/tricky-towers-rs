@@ -299,6 +299,10 @@ const WHITE_KEYS: &[(f32, [f32; 3])] = &[(0.0, [255.0, 255.0, 255.0])];
 const FLAT: &[(f32, f32)] = &[(0.0, 1.0), (1.0, 1.0)];
 
 fn spawn_shaped(commands: &mut Commands, art: &Art, c: f32, at: Vec2, from: &Emit, z: f32, kind: &ShapedKind, seed: &mut u32) {
+    spawn_shaped_on_layer(commands, art, c, at, from, z, kind, seed, None);
+}
+
+fn spawn_shaped_on_layer(commands: &mut Commands, art: &Art, c: f32, at: Vec2, from: &Emit, z: f32, kind: &ShapedKind, seed: &mut u32, layers: Option<&bevy::camera::visibility::RenderLayers>) {
     let Some(image) = art.image(kind.image) else {
         return;
     };
@@ -313,7 +317,7 @@ fn spawn_shaped(commands: &mut Commands, art: &Art, c: f32, at: Vec2, from: &Emi
             Emit::Edge(length) => (Vec2::X * (roll(seed) - 0.5) * length, Vec2::Y),
         };
         let size = between(kind.size, roll(seed)) * c;
-        commands.spawn((
+        let mut particle = commands.spawn((
             Shaped {
                 velocity: way * between(kind.speed, roll(seed)) * c,
                 age: 0.0,
@@ -334,6 +338,9 @@ fn spawn_shaped(commands: &mut Commands, art: &Art, c: f32, at: Vec2, from: &Emi
             },
             Transform::from_translation((at + place * c).extend(z)),
         ));
+        if let Some(layers) = layers {
+            particle.insert(layers.clone());
+        }
     }
 }
 
@@ -412,6 +419,10 @@ pub(crate) fn bubble_pop(commands: &mut Commands, art: &Art, c: f32, at: Vec2, a
 /// 4.3-cell edge (20-200, slowed to 3) for 1-2 s; 8 white discs out of the middle (50-100,
 /// slowed to 0.5) for 0.5 s. Sizes and fades are the prefab's curves.
 pub(crate) fn destroy_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32) {
+    destroy_poof_on_layer(commands, art, c, at, seed, None);
+}
+
+pub(crate) fn destroy_poof_on_layer(commands: &mut Commands, art: &Art, c: f32, at: Vec2, seed: &mut u32, layers: Option<&bevy::camera::visibility::RenderLayers>) {
     const FLASH: &[(f32, [f32; 3])] = &[
         (0.33, [255.0, 255.0, 255.0]),
         (0.34, [115.0, 255.0, 88.0]),
@@ -447,7 +458,7 @@ pub(crate) fn destroy_poof(commands: &mut Commands, art: &Art, c: f32, at: Vec2,
         }),
     ];
     for (i, (from, kind)) in kinds.iter().enumerate() {
-        spawn_shaped(commands, art, c, at, from, 30.0 + i as f32 * 0.01, kind, seed);
+        spawn_shaped_on_layer(commands, art, c, at, from, 30.0 + i as f32 * 0.01, kind, seed, layers);
     }
 }
 

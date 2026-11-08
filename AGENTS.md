@@ -427,3 +427,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-08 (Codex): Large now grows its collision shape and rendered brick together over 0.3 s. Overlapping casts restart from the current size. The headless cast helper waits for the next fixed step before checking pending casts.
 - 2026-11-08 (Codex): brick density now preserves initial mass multiplied by scale, including Mystery shapes and Ivy members. Added a headless physics check across normal, small and enlarged shapes.
 - 2026-11-08 (Codex): refreshed the README front page with the playable offline features, recent measured fixes, remaining parity and hardware checks, and the scope of Online Battle and Shop.
+- 2026-11-08 (Codex): the cup winner's exit emits the shared destruction poof on its own camera layer. The camera remains through the fade, which now covers its particles and the underlying UI together.
