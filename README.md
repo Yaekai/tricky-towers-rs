@@ -91,8 +91,7 @@ remaining work is tracked in [WHATS_NEXT](docs/WHATS_NEXT.md), with observations
 | Trials | All 50 trials across five tiers, fixed brick orders, enemy curses, rival towers, floors, medals and tier unlocks | Reproduce the exact earlier Trial 9 input sequence and compare remaining trials |
 | Controls and physics | Fixed-step shared gameplay for every tower, rotation, nudges, accelerated drop, bases, Ivy clusters and per-part bounds | Further stacking and collision comparisons |
 | Spells | All 17 spell kinds, compound curses, award rules and per-difficulty behavior | Remaining measured timings and estimated values |
-| Puzzle cameras and HUD | A centered viewport per tower, aspect-ratio fitting, lane clipping, HUD placement and independent camera shakes | Windows scaling and resize checks on hardware |
-| Race and Survival cameras | Tower following, end framing, HUD and decoration clipping | Apply the original's fitted battle viewports and HUD anchoring at other aspect ratios |
+| Battle cameras and HUD | Centered viewports for Race, Survival and Puzzle, aspect-ratio fitting, lane clipping, HUD placement and independent camera shakes. Wider background cameras draw the wizards and spell clouds | Remaining background comparisons, Windows scaling and resize checks on hardware |
 | Wizards | All 14 characters, animated parts, reactions, per-character voices and controller hints | Animated wand positions, input voice timing and remaining pose comparisons |
 | Brick packs | All eight packs, their effects, masks and material variants | Further visual comparisons |
 | Backgrounds and effects | Mode-specific layers, weather, water, wind, flashes, curse skies, splashes and spell effects | Remaining sizes, colors and timings marked `(?)` |
@@ -107,6 +106,8 @@ Recent work has closed several specific gaps.
 
 - Multiplayer Puzzle now keeps every tower centered in its own lane as the camera zooms.
   Captures cover two to four seats at 16:9, 21:9 and 5:4, including HUD, lasers and results.
+  Race and Survival now use the same fitted viewport and HUD path, with wider background
+  cameras for wizards, spell clouds and collected spell effects.
 - Tilted brick bounds and Puzzle zaps now measure the individual collider parts. A Trial 9
   regression reproduces the old false 2.47-cell top and measures 2.20 after the fix. A known
   six-brick solution clears with zero extra slack. The shipped 0.3-cell allowance stays until
@@ -124,7 +125,7 @@ Recent work has closed several specific gaps.
   its entrance plays the character's cheer, and its exit emits the wizard destruction burst.
   Its close fades music and the picture together, including the exit particles.
 
-The next priorities are Race and Survival viewport parity, the remaining Trial 9 reproduction,
+The next priorities are remaining camera comparisons, the earlier Trial 9 reproduction,
 spell and cup presentation comparisons, and a display, audio and controller pass on hardware.
 The release pass also needs to resolve the remaining `(?)` values and review development tools.
 

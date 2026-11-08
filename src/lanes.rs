@@ -1,11 +1,9 @@
-//! Puzzle battles' split screen. The original gives each tower its own camera
-//! (PuzzleGameMode, WidthTowerCamera) centred in its own share of the screen, all zoomed
-//! out together to fit the widest tower; the background has its own camera behind them
-//! and DesertForeground's sand its own in front. Ours does the same while a Puzzle battle
-//! is on: a back camera draws the scene full screen, one camera per tower draws the game
+//! Battles' split screen. Each tower has a camera centred in its own share of the screen.
+//! Puzzle fits the widest tower, while Race and Survival share the height framing.
+//! A back camera draws the scene full screen, one camera per tower draws the game
 //! world in that tower's viewport (so a wide tower is cut at its own lane's edge), and the
-//! main camera, now last, draws the foreground and the UI over them. Every other mode keeps
-//! the one main camera.
+//! main camera, now last, draws the foreground and the UI over them. Solo modes and trials
+//! keep the one main camera.
 //!
 //! Screen positions worked out from the main camera (HUD, scores, banners) add the
 //! tower's [`LaneViews::shift`] to a point first, so they land where its own camera
@@ -15,7 +13,7 @@ use bevy::camera::visibility::{RenderLayers, VisibilitySystems};
 use bevy::camera::{ClearColorConfig, RenderTarget, Viewport};
 use bevy::prelude::*;
 
-use crate::config::{GameConfig, ModeKind};
+use crate::config::GameConfig;
 use crate::gameplay::{Match, Phase, Tower};
 use crate::visuals::{FramedCamera, MainCamera, MenuScene, SCENE_LAYER, ViewSize};
 
@@ -28,6 +26,25 @@ pub(crate) const FRONT_LAYER: usize = 4;
 /// A scene piece drawn over the towers (the desert's front sand and sandstorm).
 #[derive(Component)]
 pub struct FrontScene;
+
+/// The shared Race finish flag, drawn behind the individual tower viewports.
+#[derive(Component)]
+pub(crate) struct SharedBattleLine;
+
+/// Wizards, spell clouds and collectors use the tower's wider background camera.
+#[derive(Component)]
+pub(crate) struct TowerBackdrop(pub Entity);
+
+const TOWER_BACKDROP_LAYER: usize = 10;
+
+#[derive(Component)]
+struct BackdropCamera(usize);
+
+fn backdrop_rect(rect: Rect) -> Rect {
+    let centre = rect.center().x;
+    let half = centre.min(1.0 - centre);
+    Rect::new(centre - half, rect.min.y, centre + half, rect.max.y)
+}
 
 /// One tower's camera while the screen is split: its tower's index.
 #[derive(Component)]
@@ -127,7 +144,7 @@ pub fn screen_rect(lanes: &crate::config::Lanes, i: usize, n: usize, size: Vec2)
 
 /// Whether the match on now splits the screen into one camera per tower.
 pub fn splits(config: &GameConfig, game: &Match, towers: usize, menu: bool) -> bool {
-    game.mode.rules() == ModeKind::Puzzle
+    !game.mode.is_endless()
         && config.trial.is_none()
         && towers > 1
         && !menu
@@ -235,6 +252,10 @@ fn follow_lanes(
         (Entity, &mut Projection),
         (With<BackCamera>, Without<MainCamera>, Without<LaneCamera>),
     >,
+    mut backdrops: Query<
+        (Entity, &BackdropCamera, &mut Camera, &mut Transform, &mut Projection),
+        (Without<MainCamera>, Without<LaneCamera>, Without<BackCamera>),
+    >,
     shake: Option<Res<crate::effects::CameraShake>>,
 ) {
     // Each tower's camera shakes alone (the original's shakes move that tower's camera
@@ -245,13 +266,16 @@ fn follow_lanes(
         return;
     };
     if !lanes.split() {
-        if lane_cameras.is_empty() && back.is_empty() {
+        if lane_cameras.is_empty() && back.is_empty() && backdrops.is_empty() {
             return;
         }
         for (entity, ..) in &lane_cameras {
             commands.entity(entity).despawn();
         }
         for (entity, _) in &back {
+            commands.entity(entity).despawn();
+        }
+        for (entity, ..) in &backdrops {
             commands.entity(entity).despawn();
         }
         camera.order = 0;
@@ -261,8 +285,8 @@ fn follow_lanes(
         return;
     }
     let count = lanes.lanes.len();
-    if camera.order != count as isize + 1 {
-        camera.order = count as isize + 1;
+    if camera.order != count as isize * 2 + 1 {
+        camera.order = count as isize * 2 + 1;
         camera.clear_color = ClearColorConfig::None;
         commands
             .entity(eye)
@@ -305,7 +329,7 @@ fn follow_lanes(
         transform.translation = Vec3::new(view.centre_x + o.x, at.translation.y + o.y, at.translation.z);
         transform.rotation = at.rotation;
         *p = projection.clone();
-        lane_camera.order = 1 + i as isize;
+        lane_camera.order = count as isize + 1 + i as isize;
         lane_camera.viewport = size.map(|s| viewport(s, view.rect));
     }
     for (i, view) in lanes.lanes.iter().enumerate() {
@@ -315,7 +339,7 @@ fn follow_lanes(
         let mut lane = commands.spawn((
             Camera2d,
             Camera {
-                order: 1 + i as isize,
+                order: count as isize + 1 + i as isize,
                 clear_color: ClearColorConfig::None,
                 viewport: size.map(|s| viewport(s, view.rect)),
                 ..default()
@@ -331,6 +355,40 @@ fn follow_lanes(
         ));
         if let Some(target) = target {
             lane.insert(target.clone());
+        }
+    }
+    let mut seen = [false; crate::gameplay::MAX_TOWERS];
+    for (entity, backdrop, mut camera, mut transform, mut p) in &mut backdrops {
+        let Some((i, view)) = lanes.lanes.iter().enumerate().find(|(_, v)| v.tower == backdrop.0) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        seen[i] = true;
+        transform.translation = Vec3::new(view.centre_x, at.translation.y + off(view.tower).y, at.translation.z);
+        transform.rotation = at.rotation;
+        *p = projection.clone();
+        camera.order = 1 + i as isize;
+        camera.viewport = size.map(|s| viewport(s, backdrop_rect(view.rect)));
+    }
+    for (i, view) in lanes.lanes.iter().enumerate() {
+        if seen[i] {
+            continue;
+        }
+        let mut backdrop = commands.spawn((
+            Camera2d,
+            Camera {
+                order: 1 + i as isize,
+                clear_color: ClearColorConfig::None,
+                viewport: size.map(|s| viewport(s, backdrop_rect(view.rect))),
+                ..default()
+            },
+            projection.clone(),
+            Transform::from_xyz(view.centre_x, at.translation.y + off(view.tower).y, at.translation.z),
+            RenderLayers::layer(TOWER_BACKDROP_LAYER + view.tower),
+            BackdropCamera(view.tower),
+        ));
+        if let Some(target) = target {
+            backdrop.insert(target.clone());
         }
     }
 }
@@ -364,6 +422,9 @@ fn relayer_scene(
         Has<Relayered>,
     )>,
     moved: Query<(Entity, &Relayered)>,
+    shared_lines: Query<Entity, With<SharedBattleLine>>,
+    backdrops: Query<(Entity, &TowerBackdrop)>,
+    towers: Query<&Tower>,
 ) {
     if !lanes.split() {
         for (entity, original) in &moved {
@@ -397,11 +458,46 @@ fn relayer_scene(
         };
         commands.entity(entity).insert((new, Relayered(own)));
     }
+    for line in &shared_lines {
+        for entity in children.iter_descendants(line) {
+            let Ok((layers, _, _, done)) = pieces.get(entity) else { continue };
+            if !done {
+                commands.entity(entity).insert((RenderLayers::layer(BACK_LAYER), Relayered(layers.cloned())));
+            }
+        }
+    }
+    for (root, backdrop) in &backdrops {
+        let Ok(tower) = towers.get(backdrop.0) else { continue };
+        for entity in std::iter::once(root).chain(children.iter_descendants(root)) {
+            let Ok((layers, _, _, done)) = pieces.get(entity) else { continue };
+            if !done {
+                commands.entity(entity).insert((
+                    RenderLayers::layer(TOWER_BACKDROP_LAYER + tower.index),
+                    Relayered(layers.cloned()),
+                ));
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::ModeKind;
+
+    #[test]
+    fn backdrop_view_keeps_its_lane_centre_and_uses_the_available_screen_width() {
+        for (lane, expected) in [
+            (Rect::new(0.1, 0.2, 0.3, 0.8), Rect::new(0.0, 0.2, 0.4, 0.8)),
+            (Rect::new(0.4, 0.2, 0.6, 0.8), Rect::new(0.0, 0.2, 1.0, 0.8)),
+            (Rect::new(0.7, 0.2, 0.9, 0.8), Rect::new(0.6, 0.2, 1.0, 0.8)),
+        ] {
+            let wider = backdrop_rect(lane);
+            assert!((wider.min - expected.min).length() < 1e-6);
+            assert!((wider.max - expected.max).length() < 1e-6);
+            assert_eq!(wider.center(), lane.center());
+        }
+    }
 
     #[test]
     fn lanes_keep_the_original_margins_and_gaps() {
@@ -466,9 +562,21 @@ mod tests {
     /// camera still puts its tower in the middle of its own fixed screen rectangle.
     #[test]
     fn each_tower_stays_centred_in_its_rectangle_as_the_view_widens() {
+        for mode in [ModeKind::Race, ModeKind::Survival, ModeKind::Puzzle] {
+            for (count, size) in [
+                (2, Vec2::new(1280.0, 720.0)),
+                (3, Vec2::new(1720.0, 720.0)),
+                (4, Vec2::new(1280.0, 1024.0)),
+            ] {
+                check_centres(mode, count, size);
+            }
+        }
+    }
+
+    fn check_centres(mode: ModeKind, count: usize, size: Vec2) {
         let mut app = App::new();
         let config = GameConfig {
-            mode: ModeKind::Puzzle,
+            mode,
             ..default()
         };
         let c = config.cell_size;
@@ -476,14 +584,17 @@ mod tests {
         app.insert_resource(config)
             .insert_resource(Match {
                 phase: Phase::Playing,
-                mode: ModeKind::Puzzle,
+                mode,
                 ..default()
             })
             .init_resource::<MenuScene>()
-            .insert_resource(ViewSize(Vec2::new(1280.0, 720.0)))
+            .insert_resource(ViewSize(size))
             .init_resource::<LaneViews>()
             .add_systems(Update, find_lane_views);
-        for (index, x) in [(0, -17.0 * c), (1, 17.0 * c)] {
+        let origins: Vec<_> = (0..count).map(|i| {
+            (i as f32 - (count - 1) as f32 * 0.5) * crate::gameplay::BATTLE_TOWER_SPACING * c
+        }).collect();
+        for (index, &x) in origins.iter().enumerate() {
             app.world_mut().spawn(Tower {
                 index,
                 origin_x: x,
@@ -508,15 +619,15 @@ mod tests {
             }
             app.update();
             let views = app.world().resource::<LaneViews>().clone();
-            assert_eq!(views.lanes.len(), 2);
-            let width = 1280.0 * scale;
+            assert_eq!(views.lanes.len(), count);
+            let width = size.x * scale;
             for (i, view) in views.lanes.iter().enumerate() {
-                let rect = screen_rect(&lanes, i, 2, Vec2::new(1280.0, 720.0));
+                let rect = screen_rect(&lanes, i, count, size);
                 // The tower's origin, through its own camera, at its rectangle's middle.
-                let origin = if i == 0 { -17.0 * c } else { 17.0 * c };
+                let origin = origins[i];
                 assert!((view.centre_x - origin).abs() < 1e-3);
-                let on_screen = (views.to_main(i, Vec2::new(origin, 0.0)).x / width + 0.5) * 1280.0;
-                let middle = rect.center().x * 1280.0;
+                let on_screen = (views.to_main(i, Vec2::new(origin, 0.0)).x / width + 0.5) * size.x;
+                let middle = rect.center().x * size.x;
                 assert!(
                     (on_screen - middle).abs() < 0.01,
                     "scale {scale}: {on_screen} vs {middle}"

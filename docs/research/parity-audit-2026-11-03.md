@@ -110,6 +110,14 @@ reuse a private material, leaving the shared font cache unchanged.
 
 ## Confirmed work still outstanding
 
+The 2026-11-08 battle camera pass extends the fitted viewports to Race and Survival.
+Each tower's wider background camera draws its wizard, clouds and spell collectors.
+Its rectangle keeps the world viewport's centre and vertical bounds and extends
+horizontally to the nearest screen edge in both directions, as AbstractGameController
+sets its MirrorCamera. The shared Race flag draws behind the tower viewports.
+The scene's units and the HUD use the fitted battle rectangle. Foreground mirror
+behavior and the hardware display checks still need comparison.
+
 - Race and Survival now cut attached decorations at the brick's lane bounds.
   Puzzle's cameras use the same
   widest tower across the match. The required view width is the larger of 10

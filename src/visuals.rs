@@ -2730,6 +2730,7 @@ fn fit_backgrounds(
     mut view_climb: ResMut<ViewClimb>,
     config: Res<GameConfig>,
     game: Res<Match>,
+    towers: Query<&Tower>,
 ) {
     let Ok((Projection::Orthographic(ortho), camera)) = camera.single() else {
         return;
@@ -2747,6 +2748,11 @@ fn fit_backgrounds(
     for mut sprite in &mut sky {
         sprite.custom_size = Some(view);
     }
+    let view = if crate::lanes::splits(&config, &game, towers.iter().count(), menu_scene.0) {
+        crate::lanes::screen_box(window).size() * ortho.scale
+    } else {
+        view
+    };
     // How far the camera has climbed above the lowest it has been this match.
     // It counts from where the camera sits when play starts (BackgroundLayer keeps the
     // camera's first bottom): the menus and the intro's sweep don't count.
@@ -3196,6 +3202,9 @@ fn dress_platforms(
                     Transform::from_xyz(0.0, config.cells(height) + c * 0.5, -1.0),
                     Visibility::default(),
                 ));
+                if name == "finish_line" && lanes > 1 && config.trial.is_none() {
+                    line.insert(crate::lanes::SharedBattleLine);
+                }
                 // A battle's Puzzle laser rests as the plain (off) laser; the bright one
                 // only sweeps in at the start (PuzzleMultiplayerLaserLayer).
                 // PuzzleMultiplayerLaserLayer is one laser for everyone. Each tower's camera
@@ -3401,6 +3410,7 @@ fn dress_platforms(
                     SpellLine {
                         tower: platform.tower,
                     },
+                    crate::lanes::TowerBackdrop(platform.tower),
                     Transform::from_xyz(0.0, 0.0, -1.5),
                     Visibility::Hidden,
                 ));
@@ -3503,6 +3513,7 @@ fn update_drop_guide(
     mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
+    lane_views: Option<Res<crate::lanes::LaneViews>>,
     view: Res<ViewSize>,
     grab: Option<Res<crate::post::GrabTarget>>,
     mut meshes: Option<ResMut<Assets<Mesh>>>,
@@ -3570,7 +3581,8 @@ fn update_drop_guide(
     let bottom = (eye.translation.y - half).max(-config.cells(below));
     // The guide is in its tower's world, so its lane's camera cuts it at the lane's edges
     // (`brick_material`'s clip); a lone tower's camera is the whole screen.
-    let lanes = if game.mode.rules() == ModeKind::Puzzle { 1 } else { towers.iter().count() };
+    let camera_clips = game.mode.rules() == ModeKind::Puzzle || lane_views.is_some_and(|views| views.split());
+    let lanes = if camera_clips { 1 } else { towers.iter().count() };
     let lane_half = if lanes > 1 { config.cells(config.lanes.width(lanes)) * 0.5 } else { f32::MAX };
     for (_, guide, mut transform, mut visibility, material) in &mut guides {
         let origin = towers.get(guide.tower).map_or(0.0, |(_, _, t)| t.origin_x);
@@ -3650,9 +3662,7 @@ fn frame_towers(
         max_x = max_x.max(lane.origin_x);
         lanes += 1;
     }
-    // The original gives each tower its own camera over its share of the screen,
-    // all with the same top and bottom; one camera over the screen-split lanes
-    // does the same. Cells under the base top it may show: the floor's height.
+    // Every battle camera shares the top and bottom, with its own fixed screen rectangle.
     let floor = -config.camera_floor();
     let look = &config.hud;
     let (top, bottom) = if game.mode.rules() == ModeKind::Puzzle {
@@ -3690,8 +3700,7 @@ fn frame_towers(
         (top + lift, bottom + lift)
     };
     let height = config.cells(top - bottom);
-    // A split Puzzle battle's cameras show it in GamePositionHelper's 16:9 box.
-    let shown = if game.mode.rules() == ModeKind::Puzzle && config.trial.is_none() && lanes > 1 {
+    let shown = if !game.mode.is_endless() && config.trial.is_none() && lanes > 1 {
         crate::lanes::screen_box(window).height()
     } else {
         window.y
@@ -4024,6 +4033,7 @@ fn collect_lines(
             let size = config.cells(config.casts.cloud_size);
             let mut icon = commands.spawn((
                 LineIcon { tower: entity, dark, age: 0.0, from: at },
+                crate::lanes::TowerBackdrop(entity),
                 Transform::from_translation(at.extend(470.0)).with_scale(Vec3::ZERO),
                 Visibility::default(),
             ));
@@ -4058,6 +4068,7 @@ fn collect_lines(
                     spin: if crate::particles::roll(&mut seed) < 0.5 { 1.0 } else { -1.0 },
                     hue: i as f32,
                 },
+                crate::lanes::TowerBackdrop(entity),
                 Sprite { image: sprite.image.clone(), custom_size: sprite.custom_size, ..default() },
                 Transform::from_translation(at.translation().truncate().extend(469.0)),
             ));
