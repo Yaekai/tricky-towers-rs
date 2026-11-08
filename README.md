@@ -25,6 +25,11 @@ be easy to mod.
 
 *All pictures use the built-in placeholder shapes, not the original's art.*
 
+The offline game is playable, including local battles and cups, all 50 trials, and the
+three Endless modes. Work is now focused on comparing the remaining physics, camera,
+spell and menu details with the original. The [progress report](#current-progress)
+below covers the current build and the remaining work.
+
 ## What you need
 | | |
 |---|---|
@@ -69,34 +74,62 @@ tests/                              headless gameplay and menu tests
 Every tower, human or bot, runs through the same systems; only the writer of its `PlayerInput`
 differs, which keeps bots, replays and netplay simple. More in [`PLAN.md`](PLAN.md).
 
-## Status
-✅ matches the original · 🟡 in, with gaps listed · ❌ not done
+## Current progress
 
-| Area | | Left to reach 1:1 |
+Updated 8 November 2026.
+
+The playable offline features are implemented. Comparisons with the original continue
+through headless regressions, local measurements and silent offscreen captures. The
+remaining work is tracked in [WHATS_NEXT](docs/WHATS_NEXT.md), with observations in the
+[behavior audit](docs/research/parity-audit-2026-11-03.md) and [research notes](docs/research/).
+
+| Area | Implemented | Remaining work |
 |---|---|---|
-| Controls, physics, drop speeds | ✅ | |
-| Race, Survival, Puzzle at Easy / Normal / Special | ✅ | |
-| Spells (17) and how they're awarded | 🟡 | further timing and effect comparisons |
-| Local multiplayer (1-4 players) and local cups | ✅ | |
-| Wizards (14), animations and voices | 🟡 | remaining presentation comparisons |
-| Brick packs (8) | 🟡 | further visual comparisons |
-| Trials (50 in 5 tiers) and tier unlock | 🟡 | checking against the original |
-| Endless Race / Survival / Puzzle | 🟡 | further play comparisons; obstacle blocks are implemented |
-| Backgrounds, weather and shaders | 🟡 | some sizes and colours still estimated |
-| In-match HUD and effects | 🟡 | Puzzle's per-player framing and clipping |
-| Match end (WINNER!, collapse, Game Completed, cup winner) | 🟡 | timings still estimated |
-| Menus: start, title, players, modes, single player, endless, trials, settings, keybinding, stats, pause | 🟡 | small layout differences |
-| Explanation, Help and Credits popups | 🟡 | |
-| Text in the original's 19 languages | 🟡 | from the original's language files; long words can still overflow |
-| Values still estimated | 🟡 | remaining `(?)` values in `src/` |
-| Online battle menus | 🟡 | initial screens exist; connected flows and online play remain |
-| Shop | ❌ | not planned |
+| Local battles | Race, Survival and Puzzle at Easy, Normal and Special, with up to four towers | Further match comparisons and hardware controller checks |
+| Local cups | Tiny, Big and Super cups, standings, overtime, random match choices and the winner popup | Remaining animation, voice and effect timing comparisons |
+| Endless | Race pacer and checkpoints, Survival curse waves, Puzzle levels and obstacles, saved leaderboards | Further long-run comparisons |
+| Trials | All 50 trials across five tiers, fixed brick orders, enemy curses, rival towers, floors, medals and tier unlocks | Reproduce the exact earlier Trial 9 input sequence and compare remaining trials |
+| Controls and physics | Fixed-step shared gameplay for every tower, rotation, nudges, accelerated drop, bases, Ivy clusters and per-part bounds | Further stacking and collision comparisons |
+| Spells | All 17 spell kinds, compound curses, award rules and per-difficulty behavior | Remaining measured timings and estimated values |
+| Puzzle cameras and HUD | A centered viewport per tower, aspect-ratio fitting, lane clipping, HUD placement and independent camera shakes | Windows scaling and resize checks on hardware |
+| Race and Survival cameras | Tower following, end framing, HUD and decoration clipping | Apply the original's fitted battle viewports and HUD anchoring at other aspect ratios |
+| Wizards | All 14 characters, animated parts, reactions, per-character voices and controller hints | Animated wand positions, input voice timing and remaining pose comparisons |
+| Brick packs | All eight packs, their effects, masks and material variants | Further visual comparisons |
+| Backgrounds and effects | Mode-specific layers, weather, water, wind, flashes, curse skies, splashes and spell effects | Remaining sizes, colors and timings marked `(?)` |
+| Match results | Finish countdowns, roofs, collapse, winner and loser effects, trial results and cup celebrations | Remaining effect and timing comparisons |
+| Front end | Start and title screens, player and mode selection, single player, Endless and trial menus, pause, explanations, Help and Credits | Remaining layout details and controller glyph checks |
+| Settings and saves | Audio and display options, key rebinding, stats, trial progress and Endless scores | Hardware checks for audio mixing, rumble and display changes |
+| Languages | The original's 19 languages loaded from the player's install, with translated Pause and results bars and rendered mouse hit targets | Remaining overflow, glyph and hardware scaling checks |
+| Online Battle | Initial menu screens | Connected lobby, invites, matchmaking and network play are a separate workstream |
+| Shop | Outside the current plan | |
 
-Not in the original, kept as extras: AI wizards in local battles, the `mods/` folder and the
-debug tools (F1 panel, F3 readout, scripted runs), listed in
-[`docs/release-checklist.md`](docs/release-checklist.md).
+Recent work has closed several specific gaps.
 
-What's left, in more detail: [`docs/WHATS_NEXT.md`](docs/WHATS_NEXT.md).
+- Multiplayer Puzzle now keeps every tower centered in its own lane as the camera zooms.
+  Captures cover two to four seats at 16:9, 21:9 and 5:4, including HUD, lasers and results.
+- Tilted brick bounds and Puzzle zaps now measure the individual collider parts. A Trial 9
+  regression reproduces the old false 2.47-cell top and measures 2.20 after the fix. A known
+  six-brick solution clears with zero extra slack. The shipped 0.3-cell allowance stays until
+  the earlier reported input sequence is reproduced against the original.
+- Slow now follows the measured catch, shake, inflation, stretch and release sequence.
+  Large resizes its balloon and grows the brick's collision shape with its picture.
+  Enlarged bricks also gain mass in proportion to their scale.
+  Bubble's trigger includes its grassy shell, Extra Life follows its pickup path, and
+  No Rotate uses the fixed refusal shake and delayed chain sounds.
+- Pause freezes gameplay, animation and shader time through its fade. Screen changes commit
+  under the black transition. The final trial leads into Credits and back to the Start screen.
+- Pause and Game Completed selection bars fit translated text, and mouse input follows
+  the displayed bounds. Front-end captures include Russian, Arabic and Japanese at 21:9.
+- The cup winner takes input from the winning seat, its bolt follows the moving wand anchor,
+  its entrance plays the character's cheer, and its close fades music and the picture together.
+
+The next priorities are Race and Survival viewport parity, the remaining Trial 9 reproduction,
+spell and cup presentation comparisons, and a display, audio and controller pass on hardware.
+The release pass also needs to resolve the remaining `(?)` values and review development tools.
+
+AI opponents in local battles, config and art mods, and the F1/F3 and scripted development
+tools are project additions. Their release decisions are tracked in the
+[release checklist](docs/release-checklist.md).
 
 ## More docs
 - [`PLAN.md`](PLAN.md): goal, approach, architecture and milestones.
