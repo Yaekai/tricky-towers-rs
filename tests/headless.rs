@@ -1217,6 +1217,42 @@ fn large_grows_the_brick_in_hand() {
 }
 
 #[test]
+fn brick_mass_scales_with_size_for_normal_and_mystery_shapes() {
+    use avian2d::prelude::*;
+    use tricky_towers::gameplay::{brick_body, piece_def};
+
+    let config = fast_config();
+    let mut app = headless_app(config.clone());
+    let owner = app.world_mut().query_filtered::<Entity, With<Tower>>().iter(app.world()).next().unwrap();
+    let mut samples = Vec::new();
+    for piece in [0, config.pieces.len()] {
+        let def = piece_def(&config, piece);
+        for scale in [0.5, 1.0, 2.0, 2.5] {
+            let brick = Brick {
+                tower: owner,
+                piece,
+                cells: def.centered_cells(),
+                color: Color::WHITE,
+                scale,
+                mass: def.mass,
+                ice: false,
+            };
+            let (body, density) = brick_body(&config, &brick);
+            let entity = app.world_mut().spawn((
+                brick, body, density, RigidBody::Dynamic, GravityScale(0.0),
+                Transform::from_xyz(samples.len() as f32 * 10.0 * config.cell_size, 20.0 * config.cell_size, 0.0),
+            )).id();
+            samples.push((entity, config.brick_mass * def.mass * scale));
+        }
+    }
+    run_seconds(&mut app, 0.1, |_| {});
+    for (entity, expected) in samples {
+        let actual = app.world().get::<ComputedMass>(entity).unwrap().value();
+        assert!((actual - expected).abs() < 0.001, "mass {actual}, expected {expected}");
+    }
+}
+
+#[test]
 fn mystery_reshapes_the_brick_in_hand() {
     let mut config = fast_config();
     config.mode = ModeKind::Race;
