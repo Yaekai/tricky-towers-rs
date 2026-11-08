@@ -26,7 +26,7 @@ supersedes the older working notes below.
    Puzzle trial, solo Endless Puzzle, Race and Survival look unchanged. Wide stacks
    only zoom past ~30 cells (2 seats), ~19 (3) or ~13 (4) at 16:9, so the pass
    zoomed with a local test config (Puzzle laser 30, `large_scale` 4). Still open:
-   - Fixed 2026-11-05 for Puzzle, extended to Race and Survival 2026-11-08 (towers 400 cells apart, `gameplay::BATTLE_TOWER_SPACING`; each Puzzle tower draws its laser): *Neighbours bleed in when zoomed out.* A lane camera sees `lane width x scale`
+   - Fixed 2026-11-05 for Puzzle, extended to Race and Survival 2026-11-08 (towers 400 cells apart, `gameplay::BATTLE_TOWER_SPACING`): *Neighbours bleed in when zoomed out.* A lane camera sees `lane width x scale`
      around its tower, but towers are only one lane spacing apart, so past a scale
      of about 1 + gap/lane width a wide neighbour's bricks show at the next lane's
      edge (seen with 4 seats). The original culls by layer instead: each tower's

@@ -27,7 +27,7 @@ pub(crate) const FRONT_LAYER: usize = 4;
 #[derive(Component)]
 pub struct FrontScene;
 
-/// The shared Race finish flag, drawn behind the individual tower viewports.
+/// The shared Race flag or Puzzle laser, behind the individual tower viewports.
 #[derive(Component)]
 pub(crate) struct SharedBattleLine;
 

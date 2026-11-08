@@ -108,6 +108,7 @@ Recent work has closed several specific gaps.
   Captures cover two to four seats at 16:9, 21:9 and 5:4, including HUD, lasers and results.
   Race and Survival now use the same fitted viewport and HUD path, with wider background
   cameras for wizards, spell clouds and collected spell effects.
+  Puzzle's shared background laser spans the spaces between the viewports.
 - Tilted brick bounds and Puzzle zaps now measure the individual collider parts. A Trial 9
   regression reproduces the old false 2.47-cell top and measures 2.20 after the fix. A known
   six-brick solution clears with zero extra slack. The shipped 0.3-cell allowance stays until

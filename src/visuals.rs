@@ -3194,24 +3194,27 @@ fn dress_platforms(
                 _ => None,
             };
             if let Some((height, name, color)) = line {
+                let shared_laser = name == "laser" && game.mode == ModeKind::Puzzle
+                    && config.trial.is_none() && lanes > 1;
                 // The platform's centre is half a cell below its top.
                 let mut line = parent.spawn((
                     FinishLine {
                         tower: platform.tower,
                     },
-                    Transform::from_xyz(0.0, config.cells(height) + c * 0.5, -1.0),
+                    Transform::from_xyz(
+                        if shared_laser && first { -placed.translation.x } else { 0.0 },
+                        config.cells(height) + c * 0.5, -1.0,
+                    ),
                     Visibility::default(),
                 ));
-                if name == "finish_line" && lanes > 1 && config.trial.is_none() {
+                if (name == "finish_line" && lanes > 1 && config.trial.is_none()) || (shared_laser && first) {
                     line.insert(crate::lanes::SharedBattleLine);
                 }
                 // A battle's Puzzle laser rests as the plain (off) laser; the bright one
                 // only sweeps in at the start (PuzzleMultiplayerLaserLayer).
-                // PuzzleMultiplayerLaserLayer is one laser for everyone. Each tower's camera
-                // sees only its own world (crate::lanes), so every tower draws a copy; they
-                // all sweep and flash together.
-                let battle_laser = name == "laser" && !trial_laser;
-                let other_laser = name == "laser" && !trial_laser && !battle_laser;
+                // The battle's single background laser spans the spaces between viewports.
+                let battle_laser = name == "laser" && !trial_laser && (!shared_laser || first);
+                let other_laser = shared_laser && !first;
                 let rest = if battle_laser && art.image("fx_laser_off").is_some() {
                     "fx_laser_off"
                 } else {

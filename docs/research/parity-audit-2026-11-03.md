@@ -117,6 +117,9 @@ horizontally to the nearest screen edge in both directions, as AbstractGameContr
 sets its MirrorCamera. The shared Race flag draws behind the tower viewports.
 The scene's units and the HUD use the fitted battle rectangle. Foreground mirror
 behavior and the hardware display checks still need comparison.
+PuzzleMultiplayerLaserLayer draws one laser behind the towers. A capture with four
+viewports exposed the gaps between Rust's per-lane copies. The laser now uses the
+shared background pass and flashes when any tower goes out over it.
 
 - Race and Survival now cut attached decorations at the brick's lane bounds.
   Puzzle's cameras use the same

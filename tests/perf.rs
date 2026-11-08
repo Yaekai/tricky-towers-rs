@@ -73,7 +73,6 @@ fn full_app(config: GameConfig) -> App {
         tricky_towers::input::KeyboardInputPlugin,
         tricky_towers::menu::MenuPlugin,
         tricky_towers::visuals::VisualsPlugin,
-        tricky_towers::lanes::LanesPlugin,
         tricky_towers::art::ArtPlugin,
         tricky_towers::letters::LettersPlugin,
         tricky_towers::wizards::WizardsPlugin,
