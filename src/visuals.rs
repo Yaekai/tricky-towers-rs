@@ -574,6 +574,8 @@ fn sweep_lasers(
     config: Res<GameConfig>,
     laser: Option<Res<crate::intro::LaserIn>>,
     towers: Query<&TowerState>,
+    view: Res<ViewSize>,
+    camera: Query<&Projection, With<MainCamera>>,
     mut bright: Query<(&mut LaserSweep, &mut Transform, &mut Visibility)>,
     mut rest: Query<&mut Visibility, (With<LaserRest>, Without<LaserSweep>)>,
 ) {
@@ -592,7 +594,14 @@ fn sweep_lasers(
         });
     }
     let endless = config.mode == crate::config::ModeKind::EndlessPuzzle;
+    let shared = config.mode == ModeKind::Puzzle && config.trial.is_none() && towers.iter().count() > 1;
+    let shared_width = match camera.single() {
+        Ok(Projection::Orthographic(ortho)) if shared => Some(view.0.x * ortho.scale),
+        _ => None,
+    };
     for (mut sweep, mut transform, mut visibility) in &mut bright {
+        let width = shared_width.unwrap_or(sweep.width);
+        let width_scale = width / sweep.width.max(0.001);
         let state = towers.get(sweep.tower).ok();
         if endless {
             // EndlessPuzzleGameModePlayController flashes the laser (AnimateZap) at every
@@ -621,7 +630,7 @@ fn sweep_lasers(
         if let Some(flash) = sweep.flash.filter(|&f| f < 1.0) {
             visibility.set_if_neq(Visibility::Inherited);
             transform.translation.x = 0.0;
-            transform.scale = Vec3::new(1.0, (2.0 * (1.0 - out_quad(flash))).max(0.001), 1.0);
+            transform.scale = Vec3::new(width_scale, (2.0 * (1.0 - out_quad(flash))).max(0.001), 1.0);
             continue;
         }
         let Some(t) = t.filter(|&t| t >= 0.0) else {
@@ -631,13 +640,13 @@ fn sweep_lasers(
         visibility.set_if_neq(Visibility::Inherited);
         let (x, w, h) = if t < look.laser_sweep {
             let k = out_quad(t / look.laser_sweep.max(0.01));
-            (sweep.width * 0.5 * (1.0 - k), k, 2.5 + (1.0 - 2.5) * k)
+            (width * 0.5 * (1.0 - k), k, 2.5 + (1.0 - 2.5) * k)
         } else {
             let k = out_quad((t - look.laser_sweep) / look.laser_fade.max(0.01));
             (0.0, 1.0, 1.0 - k)
         };
         transform.translation.x = x;
-        transform.scale = Vec3::new(w.max(0.001), h.max(0.001), 1.0);
+        transform.scale = Vec3::new(w.max(0.001) * width_scale, h.max(0.001), 1.0);
     }
 }
 
@@ -4334,6 +4343,42 @@ fn update_mist(
 mod tests {
     use super::top_cells;
     use bevy::prelude::Vec2;
+
+    #[test]
+    fn shared_puzzle_laser_sweeps_from_the_screen_edge_and_flashes_at_full_width() {
+        use super::{GameConfig, LaserSweep, MainCamera, ModeKind, TowerState, ViewSize, sweep_lasers};
+        use bevy::prelude::*;
+
+        let config = GameConfig { mode: ModeKind::Puzzle, ..default() };
+        let strip_width = config.cells(200.0);
+        let mut app = App::new();
+        app.insert_resource(config.clone())
+            .init_resource::<Time>()
+            .insert_resource(ViewSize(Vec2::new(1280.0, 720.0)))
+            .insert_resource(crate::intro::LaserIn(Some(config.intro.laser_sweep * 0.5)))
+            .add_systems(Update, sweep_lasers);
+        let tower = app.world_mut().spawn(TowerState::new(&config, 1)).id();
+        app.world_mut().spawn(TowerState::new(&config, 2));
+        app.world_mut().spawn((MainCamera, Projection::Orthographic(OrthographicProjection::default_2d())));
+        let beam = app.world_mut().spawn((
+            LaserSweep { width: strip_width, tower, flash: None, seen: (0, false) },
+            Transform::default(), Visibility::Hidden,
+        )).id();
+        for width in [1280.0, 1920.0] {
+            app.world_mut().resource_mut::<ViewSize>().0.x = width;
+            app.update();
+            let at = app.world().get::<Transform>(beam).unwrap();
+            let drawn = strip_width * at.scale.x;
+            assert!((drawn - width * 0.75).abs() < 0.001);
+            assert!((at.translation.x + drawn * 0.5 - width * 0.5).abs() < 0.001);
+        }
+        app.world_mut().resource_mut::<crate::intro::LaserIn>().0 = None;
+        app.world_mut().get_mut::<TowerState>(tower).unwrap().status = crate::gameplay::TowerStatus::Out;
+        app.update();
+        let at = app.world().get::<Transform>(beam).unwrap();
+        assert!((strip_width * at.scale.x - 1920.0).abs() < 0.001);
+        assert_eq!(at.scale.y, 2.0);
+    }
 
     #[test]
     fn top_cells_are_the_ones_with_nothing_above() {
