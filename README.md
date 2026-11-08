@@ -121,7 +121,8 @@ Recent work has closed several specific gaps.
 - Pause and Game Completed selection bars fit translated text, and mouse input follows
   the displayed bounds. Front-end captures include Russian, Arabic and Japanese at 21:9.
 - The cup winner takes input from the winning seat, its bolt follows the moving wand anchor,
-  its entrance plays the character's cheer, and its close fades music and the picture together.
+  its entrance plays the character's cheer, and its exit emits the wizard destruction burst.
+  Its close fades music and the picture together, including the exit particles.
 
 The next priorities are Race and Survival viewport parity, the remaining Trial 9 reproduction,
 spell and cup presentation comparisons, and a display, audio and controller pass on hardware.

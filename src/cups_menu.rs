@@ -856,19 +856,19 @@ fn spawn_cup_winner(mut commands: Commands, config: Res<GameConfig>, art: Option
                 }
                 t.spawn((at(0.0, 0.0, 0.0, 0.0), blank(), Win::Cup));
             });
-            root.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    ..default()
-                },
-                BackgroundColor(Color::NONE),
-                // The original's transition layer covers the confetti and fireworks.
-                ZIndex(6),
-                Win::Fade,
-            ));
         });
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::NONE),
+        GlobalZIndex(24),
+        Visibility::Hidden,
+        Win::Fade,
+    ));
 }
 
 /// The cup winner popup's medal counts `t` seconds after it opened: each count shown and its
@@ -945,13 +945,16 @@ fn show_cup_winner(
     popup: Res<Popup>,
     art: Option<Res<Art>>,
     towers: Query<&Tower>,
+    flyer_cameras: Query<Entity, With<FlyerCamera>>,
     mut nodes: Query<(
+        Entity,
         &Win,
         &mut Node,
         &mut Visibility,
         Option<&mut ImageNode>,
         Option<&mut BackgroundColor>,
         Option<&mut UiTransform>,
+        Option<&UiTargetCamera>,
     )>,
     mut texts: Query<(&Win, &mut Text)>,
     mut sounded: Local<bool>,
@@ -980,13 +983,22 @@ fn show_cup_winner(
     let image = |name: &str| art.as_ref().and_then(|a| a.image(name));
     let size = cup.size.unwrap_or(0).min(WIN_TROPHIES.len() - 1);
     let (trophy_size, trophy_drop, rays_size) = WIN_TROPHIES[size];
-    for (part, mut node, mut visibility, image_node, background, transform) in &mut nodes {
+    for (entity, part, mut node, mut visibility, image_node, background, transform, target) in &mut nodes {
         match *part {
             Win::Root => {
                 visibility.set_if_neq(shown_if(since.is_some()));
             }
             Win::Fade => {
-                // Closing fades the screen to black (TOURNAMENT_FADE_OUT_OVERLAY).
+                visibility.set_if_neq(shown_if(since.is_some()));
+                // The original's overlay covers the wizard camera and its exit particles too.
+                let camera = flyer_cameras.iter().next();
+                if camera != target.map(|target| target.0) {
+                    if let Some(camera) = camera {
+                        commands.entity(entity).insert(UiTargetCamera(camera));
+                    } else {
+                        commands.entity(entity).remove::<UiTargetCamera>();
+                    }
+                }
                 if let Some(mut background) = background {
                     let want = Color::BLACK.with_alpha(winner_fade(t, p));
                     if background.0 != want {
@@ -1796,18 +1808,26 @@ fn fly_winner(
     };
     let layer = bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER);
     if !up {
-        for (entity, ..) in &flyers {
+        for (entity, flyer, ..) in &flyers {
             // Closing pops it away; leaving the screen otherwise just clears it.
             if since.is_some() {
                 pop(&mut commands);
+                if let Some(art) = art.as_deref() {
+                    let mut seed = entity.to_bits() as u32 | 1;
+                    crate::particles::destroy_poof_on_layer(
+                        &mut commands, art, WIN_UNIT, flyer.at * WIN_UNIT, &mut seed, Some(&layer),
+                    );
+                }
             }
             commands.entity(entity).despawn();
         }
         for (entity, ..) in &ghosts {
             commands.entity(entity).despawn();
         }
-        for camera in &cameras {
-            commands.entity(camera).despawn();
+        if since.is_none() {
+            for camera in &cameras {
+                commands.entity(camera).despawn();
+            }
         }
         return;
     }
@@ -2131,6 +2151,31 @@ mod tests {
                 assert_eq!(**layer, bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER));
             }).count();
         assert_eq!(count, 14, "one flash, eight puffs and five stars");
+    }
+
+    #[test]
+    fn the_cup_wizard_exit_poof_uses_its_camera_layer_and_size() {
+        let mut art = Art::default();
+        for name in ["explosion_flash", "cast_droplet", "spark_star"] {
+            art.images.insert(name.into(), Handle::default());
+        }
+        let mut app = App::new();
+        app.insert_resource(art).add_systems(Startup, |mut commands: Commands, art: Res<Art>| {
+            let mut seed = 1;
+            crate::particles::destroy_poof_on_layer(
+                &mut commands, &art, WIN_UNIT, FLYER_SPAWN * WIN_UNIT, &mut seed,
+                Some(&bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER)),
+            );
+        });
+        app.update();
+        let world = app.world_mut();
+        let count = world.query::<(&Sprite, &Transform, &bevy::camera::visibility::RenderLayers)>()
+            .iter(world).inspect(|(_, at, layer)| {
+                assert!((at.translation.y - FLYER_SPAWN.y * WIN_UNIT).abs() < 0.001);
+                assert!((at.translation.x - FLYER_SPAWN.x * WIN_UNIT).abs() <= 2.15 * WIN_UNIT);
+                assert_eq!(**layer, bevy::camera::visibility::RenderLayers::layer(FLYER_LAYER));
+            }).count();
+        assert_eq!(count, 22, "one flash, sixteen discs and five stars");
     }
 
     #[test]

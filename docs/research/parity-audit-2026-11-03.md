@@ -71,6 +71,9 @@ fade together over three seconds using the default out-quad easing. The original
 uses the same duration for the two tweens, and its DOTween settings set the easing.
 The overlay sorts above the confetti and fireworks, as it does on the original's
 Transitions layer.
+The controllable winner's exit also emits the normal wizard destruction burst at
+its current position on the popup camera's layer. That camera stays alive through
+the closing fade, and the fade covers its particles as well as the underlying UI.
 
 ## In-match cup standings, 2026-11-05
 
