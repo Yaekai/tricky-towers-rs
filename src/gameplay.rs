@@ -888,6 +888,8 @@ pub struct ActiveBrick {
     pub mods: BrickMod,
     /// Set when a spell changed the brick's shape or size while it was steered.
     pub reshape: bool,
+    /// Large's scale tween, from its current size to the new size, with elapsed seconds.
+    pub(crate) large_growth: Option<(f32, f32, f32)>,
     /// Times this brick has already come back after being lost.
     pub comebacks: u32,
     repeat_timer: f32,
@@ -926,6 +928,7 @@ impl ActiveBrick {
             drop_distance: None,
             mods,
             reshape: false,
+            large_growth: None,
             comebacks: 0,
             repeat_timer: 0.0,
             repeating: false,
@@ -1147,7 +1150,7 @@ pub fn brick_collider(cells: &[Vec2], cell: f32, fill: f32) -> Collider {
 }
 
 /// The physics parts of a brick: its collider, and the density that gives it
-/// `brick.mass` whatever its size.
+/// `brick.mass` times its scale, as in the original.
 pub fn brick_body(config: &GameConfig, brick: &Brick) -> (Collider, ColliderDensity) {
     let cell = config.cell_size * brick.scale;
     let fill = config.collider_scale;
@@ -1155,7 +1158,7 @@ pub fn brick_body(config: &GameConfig, brick: &Brick) -> (Collider, ColliderDens
     let area: f32 = brick_boxes(&brick.cells).iter().map(|&(_, w, h)| (w * cell - trim) * (h * cell - trim)).sum();
     (
         brick_collider(&brick.cells, cell, fill),
-        ColliderDensity(config.brick_mass * brick.mass / area.max(f32::EPSILON)),
+        ColliderDensity(config.brick_mass * brick.mass * brick.scale / area.max(f32::EPSILON)),
     )
 }
 
