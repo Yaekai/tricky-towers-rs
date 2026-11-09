@@ -76,7 +76,7 @@ differs, which keeps bots, replays and netplay simple. More in [`PLAN.md`](PLAN.
 
 ## Current progress
 
-Updated 8 November 2026.
+Updated 9 November 2026.
 
 The playable offline features are implemented. Comparisons with the original continue
 through headless regressions, local measurements and silent offscreen captures. The

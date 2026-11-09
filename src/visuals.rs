@@ -2758,7 +2758,7 @@ fn fit_backgrounds(
         sprite.custom_size = Some(view);
     }
     let view = if crate::lanes::splits(&config, &game, towers.iter().count(), menu_scene.0) {
-        crate::lanes::screen_box(window).size() * ortho.scale
+        Vec2::new(window.x, crate::lanes::screen_box(window).height()) * ortho.scale
     } else {
         view
     };
