@@ -1549,6 +1549,7 @@ fn spawn_cloud(
                 time: 0.0,
                 age: 0.0,
             },
+            crate::lanes::TowerBackdrop(tower),
             Transform::from_scale(Vec3::ZERO),
             Visibility::default(),
         ))

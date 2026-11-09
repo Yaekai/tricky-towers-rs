@@ -6,7 +6,12 @@ supersedes the older working notes below.
 
 ## Active backlog
 
-1. **Give multiplayer Puzzle fixed, centered viewports.** First slice merged
+1. **Finish the battle viewport comparisons.** Race and Survival now share Puzzle's
+   fitted world viewports and HUD path (2026-11-08). Wizards, spell clouds and collectors
+   use each tower's wider background camera. The shared Race flag stays behind the
+   tower cameras, and the scene's unit scale follows the fitted battle rectangle.
+   Remaining checks include background parity and real Windows scaling and resizing.
+   First Puzzle slice merged
    2026-11-05 (`src/lanes.rs`): a back camera draws the scene, one camera per tower
    draws its GamePositionHelper rectangle (`config::Lanes` margins and gaps), and the
    main camera draws DesertForeground's sand and the UI last. The zoom uses the
@@ -21,7 +26,7 @@ supersedes the older working notes below.
    Puzzle trial, solo Endless Puzzle, Race and Survival look unchanged. Wide stacks
    only zoom past ~30 cells (2 seats), ~19 (3) or ~13 (4) at 16:9, so the pass
    zoomed with a local test config (Puzzle laser 30, `large_scale` 4). Still open:
-   - Fixed 2026-11-05 (towers 400 cells apart in Puzzle battles, `gameplay::PUZZLE_BATTLE_SPACING`; every tower draws its copy of the laser): *Neighbours bleed in when zoomed out.* A lane camera sees `lane width x scale`
+   - Fixed 2026-11-05 for Puzzle, extended to Race and Survival 2026-11-08 (towers 400 cells apart, `gameplay::BATTLE_TOWER_SPACING`): *Neighbours bleed in when zoomed out.* A lane camera sees `lane width x scale`
      around its tower, but towers are only one lane spacing apart, so past a scale
      of about 1 + gap/lane width a wide neighbour's bricks show at the next lane's
      edge (seen with 4 seats). The original culls by layer instead: each tower's
@@ -29,44 +34,41 @@ supersedes the older working notes below.
      only that (`AbstractGameController` 257-284; spell collectors on
      `TowerBackground<n>`). Ours needs a render layer per tower on everything a tower
      owns (`lanes::follow_lanes` puts every lane camera on layer 0).
-   - Fixed 2026-11-05 for Puzzle battles (`lanes::screen_box`); Race and Survival still use the full screen: *16:9 rectangle.* The original fits every tower viewport into a 16:9 rectangle
+   - Fixed for all local battle modes (`lanes::screen_box`): *16:9 rectangle.* The original fits every tower viewport into a 16:9 rectangle
      (`GamePositionHelper._Initialize` / `ModifyGamePositionForRatio`), testing
      `Screen.width / Screen.height` with integer division: 3440x1440 (2) is
      pillarboxed to the middle 2560 px; 1280x1024 and 16:10 (1) are letterboxed to
-     width / 1.78. Ours always uses the full width and height (`lanes::lane_rect`,
-     `lanes::viewport`, the aspect in `visuals::frame_towers`), so at 5:4 each lane
-     is narrower in world space, the wizards are cut at the lane's right edge, and
-     the DRAW! banners are wider than their lanes and touch each other.
+     width / 1.78. The battle cameras and HUD now use that fitted rectangle.
    - *HUD in the box.* Each battle HUD (the next-brick card and its count) is built
      with its tower's viewport, the one GamePositionHelper fits in the 16:9 box, and
      its root is anchored to that rectangle's corners (`AbstractHUD`, the modes'
      `_CreateHud`). So when letterboxed the cards hang from the box's top, not the
-     screen's: done for split Puzzle screens (`hud::place_items`). Sizes: the HUD
+     screen's: done for all battle screens (`hud::place_items`). Sizes: the HUD
      canvas (`UI HUD` in the Game scene) is Screen Space - Camera with a CanvasScaler
      set to Scale With Screen Size, reference 1920x1080, screen match mode Expand, so
      one canvas unit is min(width/1920, height/1080) pixels: the 16:9 box's height /
      1080 on any screen. Its `Container` fills the canvas (HUDSafeZoneScaler adds
-     nothing at VISIBLE_SCREEN_RATIO 1). So split Puzzle HUD items now take their size
+     nothing at VISIBLE_SCREEN_RATIO 1). Battle HUD items now take their size
      from the box's height and the card's sideways offset from the box's width
      (`hud::fill_items`, `hud::place_items`): at 1280x1024 the card is drawn exactly as
      at 1280x720, at 3440x1440 as at 2560x1440.
-   - *Race and Survival battles* (read only, not changed): they keep the default
+   - *Race and Survival battles* (implemented 2026-11-08): they keep the default
      `GetGamePosition`, so they get the same 16:9-fitted lane viewports, one camera
      per tower (`camera.rect` = the viewport), and the same HUD anchoring and Expand
      scaling. Each tower also has a background and a foreground camera (its
      `TowerBackground<n>` / `TowerForeground<n>` layers) whose rect keeps the lane's
-     centre but is as wide as the screen allows around it. Ours draw those modes
-     with one full-screen camera and size their HUD from the full height.
+     centre but is as wide as the screen allows around it. Rust now has each tower's
+     world camera and wider background camera, with a shared foreground pass.
+     The foreground mirror comparison remains queued.
    - 125% scaling and window resizing need a windowed check by Max (offscreen runs
      always render at 1x).
-   - *Shakes in a split Puzzle battle.* Every original camera shake moves the camera
+   - *Shakes in a battle.* Every original camera shake moves the camera
      container of the tower whose effect fired it (AbstractGameController injects its
      own `_cameraContainer`; CollapseTowerEffect and LargeBrickModifier do the same).
      So only that tower's lane shakes: each lane camera now adds its own tower's
      `CameraShake::lane_offsets` (`lanes::follow_lanes`), the collapse blasts and
      rumble and a Large brick's held shake go to their tower's lane, and the post
-     shader's lane shift is off while split. Race and Survival keep the old way
-     (one camera, lanes shifted in post).
+     shader's lane shift is off while split. This now covers all three battle modes.
    - *Forcefield on Puzzle cuts.* Puzzle battles keep AbstractGameMode's brick effects
      (BrickClipper in GAME and ROOF), and BrickClipper measures against its own tower's
      ZoomableCamera edges. So a split Puzzle screen now draws the Forcefield at each

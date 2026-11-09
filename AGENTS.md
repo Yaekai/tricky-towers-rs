@@ -428,3 +428,7 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-08 (Codex): brick density now preserves initial mass multiplied by scale, including Mystery shapes and Ivy members. Added a headless physics check across normal, small and enlarged shapes.
 - 2026-11-08 (Codex): refreshed the README front page with the playable offline features, recent measured fixes, remaining parity and hardware checks, and the scope of Online Battle and Shop.
 - 2026-11-08 (Codex): the cup winner's exit emits the shared destruction poof on its own camera layer. The camera remains through the fade, which now covers its particles and the underlying UI together.
+- 2026-11-08 (Codex): Race and Survival use fitted battle viewports, HUD placement and separate camera shakes. Wider background cameras draw each wizard, cloud and spell collector. The shared Race flag draws behind the towers, and scene units follow the battle rectangle. Extended the centering matrix across modes and screen shapes.
+- 2026-11-08 (Codex): the four-lane capture exposed gaps in the Puzzle laser. It now draws once in the shared background pass, spanning the gaps and flashing for any tower's zap.
+- 2026-11-08 (Codex): the shared Puzzle laser's entrance and zap use the visible screen width. A regression checks its right-edge anchor and flash width across a resize.
+- 2026-11-09 (Codex): the battle scene keeps the full window width while scaling its units to the fitted battle height. This removes the hard water-band edges in ultrawide side margins.

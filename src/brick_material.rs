@@ -75,8 +75,8 @@ pub(crate) struct LaneDecoration(pub Entity);
 #[derive(Component)]
 struct DecorationQuad(Entity);
 
-fn fixed_lane_half(config: &crate::config::GameConfig, puzzle: bool, lanes: usize) -> Option<f32> {
-    (!puzzle && lanes > 1).then(|| config.cells(config.lanes.width(lanes)) * 0.5)
+fn fixed_lane_half(config: &crate::config::GameConfig, camera_clips: bool, lanes: usize) -> Option<f32> {
+    (!camera_clips && lanes > 1).then(|| config.cells(config.lanes.width(lanes)) * 0.5)
 }
 
 fn decoration_look(
@@ -112,6 +112,7 @@ fn clip_decorations(
     config: Res<crate::config::GameConfig>,
     game: Res<crate::gameplay::Match>,
     towers: Query<&crate::gameplay::Tower>,
+    lanes: Option<Res<crate::lanes::LaneViews>>,
     sprites: Query<(Entity, &Sprite, &bevy::sprite::Anchor, &LaneDecoration, Option<&DecorationQuad>, Option<&RenderLayers>)>,
     mut quads: Query<(&mut Transform, &MeshMaterial2d<ClippedDecoration>), Without<LaneDecoration>>,
     images: Res<Assets<Image>>,
@@ -119,8 +120,9 @@ fn clip_decorations(
     mut materials: ResMut<Assets<ClippedDecoration>>,
     mut unit: Local<Option<Handle<Mesh>>>,
 ) {
-    let puzzle = game.mode.rules() == crate::config::ModeKind::Puzzle;
-    let half = fixed_lane_half(&config, puzzle, towers.iter().count());
+    let camera_clips = game.mode.rules() == crate::config::ModeKind::Puzzle
+        || lanes.is_some_and(|lanes| lanes.split());
+    let half = fixed_lane_half(&config, camera_clips, towers.iter().count());
     for (entity, sprite, anchor, owner, quad, layers) in &sprites {
         let current = half.zip(towers.get(owner.0).ok()).and_then(|(half, tower)| {
             let origin = tower.origin_x;
@@ -948,7 +950,7 @@ pub fn lit_brick(
 #[allow(clippy::type_complexity)]
 fn follow_bricks(
     config: Res<crate::config::GameConfig>,
-    game: Option<Res<crate::gameplay::Match>>,
+    context: (Option<Res<crate::gameplay::Match>>, Option<Res<crate::lanes::LaneViews>>),
     sprites: Query<&Sprite>,
     lit: Query<(&MeshMaterial2d<LitBrick>, &GlobalTransform, &ChildOf), With<BrickQuad>>,
     galaxy: Query<(&MeshMaterial2d<GalaxyBrick>, &ChildOf), With<BrickQuad>>,
@@ -963,6 +965,7 @@ fn follow_bricks(
     bricks: Query<&crate::gameplay::Brick>,
     towers: Query<&crate::gameplay::Tower>,
 ) {
+    let (game, lanes) = context;
     // The original turns the bricks' water on in Race (and the single-player race modes).
     let look = &config.water;
     let on = game.as_ref().is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Race);
@@ -981,10 +984,9 @@ fn follow_bricks(
     };
     // The lane each tower's camera shows: its share of the screen around its centre
     // (`Lanes`). A lone tower's camera is the whole screen, so nothing is cut.
-    // Puzzle battles give each tower its own camera and viewport (crate::lanes), which cut
-    // it at its lane's edge, so the materials don't cut Puzzle.
-    let puzzle = game.as_ref().is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Puzzle);
-    let half = fixed_lane_half(&config, puzzle, towers.iter().count());
+    let camera_clips = game.as_ref().is_some_and(|g| g.mode.rules() == crate::config::ModeKind::Puzzle)
+        || lanes.is_some_and(|lanes| lanes.split());
+    let half = fixed_lane_half(&config, camera_clips, towers.iter().count());
     let clip = |of: &ChildOf| {
         parents
             .get(of.parent())
