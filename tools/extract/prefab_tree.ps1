@@ -19,7 +19,7 @@ foreach ($d in $docs) {
     $t = [pscustomobject]@{ id = $id; go = [regex]::Match($d, 'm_GameObject: \{fileID: (\d+)').Groups[1].Value
       parent = [regex]::Match($d, 'm_Father: \{fileID: (\d+)').Groups[1].Value
       x = (V $pos 'x'); y = (V $pos 'y'); sx = (V $sc 'x'); sy = (V $sc 'y')
-      turn = 2 * [Math]::Atan2((V $rot 'z'), (V $rot 'w')) }
+      rotation = @((V $rot 'x'), (V $rot 'y'), (V $rot 'z'), (V $rot 'w')) }
     $trByGo[$t.go] = $t; $trById[$id] = $t
   }
   elseif ($type -eq '212') {
@@ -38,7 +38,7 @@ if ($Transforms) {
   foreach ($node in $trById.Values) {
     $chain = @(Transform-Chain $node)
     $path = ($chain | Select-Object -Skip 1 | ForEach-Object { $goName[$_.go] }) -join '/'
-    [pscustomobject]@{ Path = $path; X = $node.x; Y = $node.y; SX = $node.sx; SY = $node.sy; Turn = $node.turn }
+    [pscustomobject]@{ Path = $path; X = $node.x; Y = $node.y; SX = $node.sx; SY = $node.sy; Rotation = $node.rotation }
   }
   return
 }

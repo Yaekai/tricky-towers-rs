@@ -117,9 +117,9 @@ outside the current plan.
    Large's headless size and collision shape now grow with its picture over 0.3 s.
    The cup winner plays its cheer on entrance. Its nudge afterimages recover and
    fade with out-quad easing and keep the facing from the start of the nudge.
-   The cup wizard plays voices as it starts queued actions. Its lightning and
-   sprite poses follow the same CastSelf clip for all 14 skins. Compare the blend
-   timing into that clip and the poses in the cup's other reactions.
+   The cup wizard plays voices as it starts queued actions. Its sprite poses
+   follow the staged Idle, Cheer, Laugh and CastSelf clips. The light bolt shares
+   the CastSelf clock. Compare the entry and exit blends between those states.
    Record the trigger, delay and outcome for each difference before editing.
    Then resolve the remaining `(?)` values in `casts`, `moments` and cup timing
    from clips or repeatable measurements. Use [PC tasks](pc-tasks.md) as evidence

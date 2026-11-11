@@ -1,4 +1,5 @@
-# Samples the CastSelf pose and its wand from the original's planar transform curves.
+# Samples the cup wizard's pose clips and the CastSelf wand from local animation curves.
+Add-Type -AssemblyName System.Numerics
 
 function Read-CastVector($value) {
   $culture = [Globalization.CultureInfo]::InvariantCulture
@@ -28,31 +29,31 @@ function Sample-CastCurve($keys, [double]$time, $fallback) {
   return ,$keys[-1].Value
 }
 
-function Combine-CastPose($parent, $child) {
-  $x = $child[0] * $parent[3]
-  $y = $child[1] * $parent[4]
-  $sin = [Math]::Sin($parent[2])
-  $cos = [Math]::Cos($parent[2])
-  ,@(($parent[0] + $x * $cos - $y * $sin), ($parent[1] + $x * $sin + $y * $cos),
-    ($parent[2] + $child[2]), ($parent[3] * $child[3]), ($parent[4] * $child[4]))
+function Combine-RigPose($parent, $child) {
+  $offset = [System.Numerics.Vector3]::Multiply($child.At, $parent.Scale)
+  @{
+    At = [System.Numerics.Vector3]::Add($parent.At, [System.Numerics.Vector3]::Transform($offset, $parent.Rotation))
+    Rotation = [System.Numerics.Quaternion]::Multiply($parent.Rotation, $child.Rotation)
+    Scale = [System.Numerics.Vector3]::Multiply($parent.Scale, $child.Scale)
+  }
 }
 
-function Read-CastRig($prefab, $clip, $spritePaths) {
-  if (!(Test-Path -LiteralPath $clip)) { return }
-  $culture = [Globalization.CultureInfo]::InvariantCulture
-  $inner = 'WizardObject/Wizard'
-  $wand = 'ArmBack/SpellCastContainer'
+function Read-RigNodes($prefab, $inner) {
   $nodes = @{}
   & (Join-Path $PSScriptRoot 'prefab_tree.ps1') -Prefab $prefab -Transforms | ForEach-Object {
-    if ($_.Path -eq $inner) { $nodes[''] = $_ }
-    elseif ($_.Path.StartsWith("$inner/")) { $nodes[$_.Path.Substring($inner.Length + 1)] = $_ }
+    if ($_.Path -eq $inner.TrimEnd('/')) { $nodes[''] = $_ }
+    elseif ($_.Path.StartsWith($inner)) { $nodes[$_.Path.Substring($inner.Length)] = $_ }
   }
-  if (!$nodes.ContainsKey('') -or !$nodes.ContainsKey($wand)) { return }
+  $nodes
+}
+
+function Read-RigPose($nodes, $clip, $spritePaths, [bool]$stageWand) {
+  if (!(Test-Path -LiteralPath $clip) -or !$nodes.ContainsKey('')) { return }
+  $culture = [Globalization.CultureInfo]::InvariantCulture
+  $wand = 'ArmBack/SpellCastContainer'
   $poses = @{ '' = [System.Collections.Generic.List[string]]::new() }
   foreach ($path in $spritePaths) {
-    if ($path.StartsWith("$inner/")) {
-      $poses[$path.Substring($inner.Length + 1)] = [System.Collections.Generic.List[string]]::new()
-    }
+    $poses[$path] = [System.Collections.Generic.List[string]]::new()
   }
   $wandFrames = [System.Collections.Generic.List[string]]::new()
 
@@ -86,27 +87,33 @@ function Read-CastRig($prefab, $clip, $spritePaths) {
       $node = $nodes[$path]
       $pos = Sample-CastCurve $tracks["Position:$path"] $time @($node.X, $node.Y)
       $scale = Sample-CastCurve $tracks["Scale:$path"] $time @($node.SX, $node.SY)
-      $turn = $node.Turn
-      if ($tracks["Rotation:$path"]) {
-        $rotation = Sample-CastCurve $tracks["Rotation:$path"] $time $null
-        $turn = 2 * [Math]::Atan2($rotation[2], $rotation[3])
-      } elseif ($tracks["Euler:$path"]) {
-        $rotation = Sample-CastCurve $tracks["Euler:$path"] $time $null
-        $turn = $rotation[2] * [Math]::PI / 180
+      if ($tracks["Euler:$path"]) {
+        $angles = Sample-CastCurve $tracks["Euler:$path"] $time $null
+        $turn = [System.Numerics.Quaternion]::CreateFromAxisAngle([System.Numerics.Vector3]::UnitZ, $angles[2] * [Math]::PI / 180)
+      } else {
+        $q = Sample-CastCurve $tracks["Rotation:$path"] $time $node.Rotation
+        $turn = [System.Numerics.Quaternion]::Normalize([System.Numerics.Quaternion]::new($q[0], $q[1], $q[2], $q[3]))
       }
-      $pose = @($pos[0], $pos[1], $turn, $scale[0], $scale[1])
+      $pose = @{
+        At = [System.Numerics.Vector3]::new($pos[0], $pos[1], 0)
+        Rotation = $turn
+        Scale = [System.Numerics.Vector3]::new($scale[0], $scale[1], 1)
+      }
       $slash = $path.LastIndexOf('/')
-      if ($slash -ge 0) { $pose = Combine-CastPose $sample[$path.Substring(0, $slash)] $pose }
+      if ($slash -ge 0) { $pose = Combine-RigPose $sample[$path.Substring(0, $slash)] $pose }
       $sample[$path] = $pose
       if ($poses.ContainsKey($path)) {
-        $values = @($time) + $pose
+        $q = $pose.Rotation
+        $values = @($time, $pose.At.X, $pose.At.Y, $q.X, $q.Y, $q.Z, $q.W, $pose.Scale.X, $pose.Scale.Y)
         $poses[$path].Add([string]::Format($culture,
-          '({0:0.0######}, (at: ({1:0.0######}, {2:0.0######}), turn: {3:0.0######}, scale: ({4:0.0######}, {5:0.0######})))', $values))
+          '({0:0.0######}, (at: ({1:0.0######}, {2:0.0######}), rotation: ({3:0.0######}, {4:0.0######}, {5:0.0######}, {6:0.0######}), scale: ({7:0.0######}, {8:0.0######})))', $values))
       }
     }
-    $tip = Combine-CastPose $sample[''] $sample[$wand]
-    $wandFrames.Add([string]::Format($culture, '({0:0.0######}, ({1:0.0######}, {2:0.0######}))', $time, $tip[0], $tip[1]))
+    if ($stageWand -and $sample.ContainsKey($wand)) {
+      $tip = (Combine-RigPose $sample[''] $sample[$wand]).At
+      $wandFrames.Add([string]::Format($culture, '({0:0.0######}, ({1:0.0######}, {2:0.0######}))', $time, $tip.X, $tip.Y))
+    }
     if ([Math]::Round($time, 7) -ge $last) { break }
   }
-  [pscustomobject]@{ Wand = $wandFrames; Poses = $poses; Inner = "$inner/" }
+  [pscustomobject]@{ Wand = $wandFrames; Poses = $poses }
 }
