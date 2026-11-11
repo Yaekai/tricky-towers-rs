@@ -1591,14 +1591,14 @@ struct Flyer {
 }
 
 impl Flyer {
-    fn next_action(&mut self, clip: Clip, pressed: [bool; FLYER_ACTIONS.len()]) -> Option<Clip> {
+    fn next_action(&mut self, clip: Option<Clip>, pressed: [bool; FLYER_ACTIONS.len()]) -> Option<Clip> {
         for (pending, pressed) in self.pending.iter_mut().zip(pressed) {
             *pending |= pressed;
         }
         // Idle consumes triggers in controller order. Only CastSelf can cut in on a reaction.
         let eligible = match clip {
-            Clip::Idle => FLYER_ACTIONS.len(),
-            Clip::Cheer | Clip::Laugh | Clip::LaughEvil => 1,
+            Some(Clip::Idle) => FLYER_ACTIONS.len(),
+            Some(Clip::Cheer | Clip::Laugh | Clip::LaughEvil) => 1,
             _ => 0,
         };
         let index = self.pending[..eligible].iter().position(|&on| on)?;
@@ -1885,9 +1885,10 @@ fn fly_winner(
         );
         pop(&mut commands);
         // It cheers as it comes in (ControllableWizard.Init).
-        commands.entity(rig).queue(|mut e: EntityWorldMut| {
+        let blend = config.cup_panel.winner_pose_blend;
+        commands.entity(rig).queue(move |mut e: EntityWorldMut| {
             if let Some(mut w) = e.get_mut::<crate::wizards::Wizard>() {
-                w.act(Clip::Cheer);
+                w.act(Clip::Cheer, blend);
             }
         });
         say(&mut commands, art, wizard, "cheer", roll());
@@ -1984,8 +1985,8 @@ fn fly_winner(
     };
     let now = time.elapsed_secs();
     for (entity, mut flyer, mut transform, mut rig) in &mut flyers {
-        if let Some(clip) = flyer.next_action(rig.clip, [light, cheer, dark, overview]) {
-            rig.act(clip);
+        if let Some(clip) = flyer.next_action(rig.cup_input_clip(), [light, cheer, dark, overview]) {
+            rig.act(clip, config.cup_panel.winner_pose_blend);
             flyer.cast_at = (clip == Clip::CastSelf).then_some(now);
             let voice = if clip == Clip::Laugh { "laugh" } else { clip.name() };
             say(&mut commands, art, flyer.wizard, voice, roll());
@@ -2212,16 +2213,17 @@ mod tests {
         };
         let delay = GameConfig::default().magic.cast_self;
         assert!(!flyer.cast_ready(0.0, Clip::CastSelf, delay));
-        assert_eq!(flyer.next_action(Clip::CastSelf, [false, true, true, false]), None);
+        assert_eq!(flyer.next_action(Some(Clip::CastSelf), [false, true, true, false]), None);
         assert!(!flyer.cast_ready(delay / 2.0, Clip::CastSelf, delay));
         assert!(flyer.cast_ready(delay, Clip::CastSelf, delay));
         assert!(!flyer.cast_ready(delay + 1.0, Clip::CastSelf, delay), "one bolt per cast");
         let released = [false; FLYER_ACTIONS.len()];
-        assert_eq!(flyer.next_action(Clip::Idle, released), Some(Clip::Cheer));
-        assert_eq!(flyer.next_action(Clip::Cheer, released), None);
-        assert_eq!(flyer.next_action(Clip::Cheer, [true, false, false, false]), Some(Clip::CastSelf));
-        assert_eq!(flyer.next_action(Clip::Idle, released), Some(Clip::Laugh));
-        assert_eq!(flyer.next_action(Clip::Idle, released), None);
+        assert_eq!(flyer.next_action(Some(Clip::Idle), released), Some(Clip::Cheer));
+        assert_eq!(flyer.next_action(Some(Clip::Cheer), released), None);
+        assert_eq!(flyer.next_action(None, [true, false, false, false]), None);
+        assert_eq!(flyer.next_action(Some(Clip::Cheer), released), Some(Clip::CastSelf));
+        assert_eq!(flyer.next_action(Some(Clip::Idle), released), Some(Clip::Laugh));
+        assert_eq!(flyer.next_action(Some(Clip::Idle), released), None);
     }
 
     #[test]

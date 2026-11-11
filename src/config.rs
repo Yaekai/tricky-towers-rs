@@ -2501,6 +2501,11 @@ pub struct CupPanel {
     pub winner_fade: f32,
     /// ControllableWizard's light-cast AudioEffect delay after SPELL_CAST_SELF.
     pub winner_cast_sound_delay: f32,
+    /// Fixed transition into a cup reaction or light cast, in seconds.
+    pub winner_pose_blend: f32,
+    /// Normalized exit time and fixed blend duration for Cheer and Laugh.
+    pub winner_reaction_exit: f32,
+    pub winner_reaction_blend: f32,
 }
 
 impl Default for CupPanel {
@@ -2578,6 +2583,9 @@ impl Default for CupPanel {
             winner_close: 12.0,
             winner_fade: 3.0,
             winner_cast_sound_delay: 0.1,
+            winner_pose_blend: 0.25,
+            winner_reaction_exit: 0.9,
+            winner_reaction_blend: 0.1,
         }
     }
 }

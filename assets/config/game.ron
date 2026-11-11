@@ -251,6 +251,9 @@
         winner_close: 12.0,
         winner_fade: 3.0,
         winner_cast_sound_delay: 0.1,
+        winner_pose_blend: 0.25,
+        winner_reaction_exit: 0.9,
+        winner_reaction_blend: 0.1,
     ),
     intro: (
         title_wait: 0.6,

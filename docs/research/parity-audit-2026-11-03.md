@@ -59,7 +59,17 @@ sprites. The sprite transforms are relative to the inner root so the character's
 nonuniform squash composes with each part's turn. Clouds stay outside the inner
 root. The pose and bolt sample the same clip time. The same exporter and cup rig
 play Idle, Cheer and the shared Laugh/LaughEvil motion. Quaternion samples retain
-the hats' out-of-plane rotation in the Animal laugh clips. Entry blends remain to compare.
+the hats' out-of-plane rotation in the Animal laugh clips.
+
+Idle blends into the reactions and light cast over 0.25 seconds. Laugh and
+LaughEvil also blend into CastSelf over 0.25 seconds, while Cheer can switch
+straight to CastSelf. Reactions start returning to Idle at 90 percent of their
+clip, with a fixed 0.1-second blend. CastSelf returns to Idle at its end with
+zero blend. Input triggers wait through non-interruptible blends. The rig
+blends transforms while both clips advance. The exact frame at which the
+original swaps sprite references during a blend still needs comparison.
+
+Source: WizardAnimationController animator state transitions.
 
 Sources: ControllableWizard, WizardAnimationController and its animator transitions,
 the wizard state-entry speech trigger, and the CastSelf clip event timing.
