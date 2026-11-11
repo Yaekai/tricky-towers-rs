@@ -2060,7 +2060,12 @@ fn fly_winner(
             let to = Vec2::new(-18.0 * face, roll() * 30.0 - 15.0);
             crate::casts::spawn_bolt(
                 &mut commands,
-                crate::casts::BoltOrigin::Wand(entity, spot * WIN_UNIT),
+                crate::casts::BoltOrigin::Wand {
+                    wizard: entity,
+                    fallback: spot,
+                    path: art.entries.get(&format!("wizard{}", flyer.wizard + 1))
+                        .map_or_else(Vec::new, |entry| entry.cast_wand.clone()),
+                },
                 to * WIN_UNIT,
                 WIN_UNIT,
                 Some(layer.clone()),

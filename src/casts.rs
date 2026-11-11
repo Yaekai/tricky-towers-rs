@@ -128,10 +128,13 @@ struct Lightning {
 }
 
 /// Match bolts start at a fixed point. The cup winner's bolt follows its wizard.
-#[derive(Clone, Copy)]
 pub(crate) enum BoltOrigin {
     Fixed(Vec2),
-    Wand(Entity, Vec2),
+    Wand {
+        wizard: Entity,
+        fallback: Vec2,
+        path: Vec<(f32, (f32, f32))>,
+    },
 }
 
 /// A lightning bolt to `to` (pixels), drawn `cell` pixels a unit.
@@ -1301,6 +1304,18 @@ fn run_orbs(
 /// Number of pieces a lightning bolt is drawn with.
 const BOLT_PIECES: usize = 14;
 
+fn wand_position(path: &[(f32, (f32, f32))], time: f32) -> Option<Vec2> {
+    let next = path.partition_point(|&(at, _)| at <= time);
+    let last = path.get(next.saturating_sub(1))?;
+    let start = Vec2::from(last.1);
+    match path.get(next) {
+        Some(&(end, point)) if next > 0 => {
+            Some(start.lerp(point.into(), (time - last.0) / (end - last.0)))
+        }
+        _ => Some(start),
+    }
+}
+
 fn run_lightning(
     mut commands: Commands,
     time: Res<Time>,
@@ -1319,10 +1334,14 @@ fn run_lightning(
         if bolt.time < 0.0 {
             continue;
         }
-        let from = match bolt.origin {
-            BoltOrigin::Fixed(at) => Some(at),
-            BoltOrigin::Wand(wizard, local) => transforms.p0().get(wizard).ok()
-                .map(|transform| transform.transform_point(local.extend(0.0)).truncate()),
+        let from = match &bolt.origin {
+            BoltOrigin::Fixed(at) => Some(*at),
+            BoltOrigin::Wand { wizard, fallback, path } => {
+                let local = wand_position(path, config.magic.cast_self + bolt.time)
+                    .unwrap_or(*fallback) * bolt.cell;
+                transforms.p0().get(*wizard).ok()
+                    .map(|transform| transform.transform_point(local.extend(0.0)).truncate())
+            }
         };
         let Some(from) = from.filter(|_| bolt.time < look.lightning) else {
             for &piece in &bolt.segments {
@@ -2118,7 +2137,7 @@ mod tests {
             .add_systems(Update, run_lightning);
         let wizard = app.world_mut().spawn(Transform::default()).id();
         let bolt = app.world_mut().spawn(Lightning {
-            origin: BoltOrigin::Wand(wizard, Vec2::X),
+            origin: BoltOrigin::Wand { wizard, fallback: Vec2::X, path: Vec::new() },
             to: Vec2::new(140.0, 0.0),
             time: 0.0,
             segments: Vec::new(),
@@ -2133,6 +2152,19 @@ mod tests {
         app.world_mut().get_mut::<Transform>(wizard).unwrap().translation.x += 10.0;
         app.update();
         assert!(x(&app) > before + 9.0);
+
+        let start = app.world().resource::<GameConfig>().magic.cast_self;
+        if let BoltOrigin::Wand { path, .. } = &mut app.world_mut().get_mut::<Lightning>(bolt).unwrap().origin {
+            *path = vec![(start, (1.0, 0.0)), (start + 0.2, (5.0, 0.0))];
+        }
+        let moved = x(&app);
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs_f32(0.1));
+        app.update();
+        assert!(x(&app) > moved + 1.5, "the wand moves inside its rig during the bolt");
+        let animated = x(&app);
+        app.world_mut().get_mut::<Transform>(wizard).unwrap().scale.x = -1.0;
+        app.update();
+        assert!(x(&app) < animated - 5.0, "turning the rig reflects the animated wand");
 
         app.world_mut().despawn(wizard);
         app.update();

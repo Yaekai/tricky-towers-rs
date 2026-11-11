@@ -15,6 +15,7 @@ $texCache = @{}
 $entries = New-Object System.Collections.Generic.List[string]
 $stagedRows = New-Object System.Collections.Generic.List[string]
 $imageKey = @{}   # "<n>:<sprite>" -> staged key
+. (Join-Path $PSScriptRoot 'cast_wand.ps1')
 
 function Snake($s) {
   $s = [regex]::Replace($s, '([a-z0-9])([A-Z])', '$1_$2')
@@ -136,7 +137,10 @@ foreach ($n in 1..14) {
     $parts += [pscustomobject]@{ name = (Part-Name $c[0]); sprite = $c[1]; x = [double]::Parse($c[2], $inv); y = [double]::Parse($c[3], $inv); order = [int]$c[6] }
   }
   $parts = $parts | Sort-Object order
-  $entries.Add("    `"wizard$n`": (parts: [$((($parts | ForEach-Object { '"' + $_.name + '"' }) -join ', '))]),")
+  $rig = "    `"wizard$n`": (parts: [$((($parts | ForEach-Object { '"' + $_.name + '"' }) -join ', '))]"
+  $wand = Read-CastWand $prefab (Join-Path $A "AnimationClip\$($clipMap[$n]['cast_self']).anim")
+  if ($wand) { $rig += ", cast_wand: [$($wand -join ', ')]" }
+  $entries.Add($rig + '),')
   foreach ($p in $parts) { Stage-Image $n $p.sprite "wizard$($n)_$($p.name)" @($p.x, $p.y) | Out-Null }
 
   foreach ($clip in $clipMap[$n].Keys) {
