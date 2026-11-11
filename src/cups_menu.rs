@@ -1810,8 +1810,8 @@ fn fly_winner(
         ),
         Without<Ghost>,
     >,
-    mut ghosts: Query<(Entity, &Ghost, &mut Transform, &Children), Without<Flyer>>,
-    mut sprites: Query<&mut Sprite>,
+    mut ghosts: Query<(Entity, &Ghost, &mut Transform), Without<Flyer>>,
+    (mut sprites, children): (Query<&mut Sprite>, Query<&Children>),
     cameras: Query<Entity, With<FlyerCamera>>,
     main: Query<
         (&Camera, &bevy::camera::RenderTarget, Option<&Msaa>),
@@ -2036,7 +2036,7 @@ fn fly_winner(
             }
             let remaining = (1.0 - k).max(0.0).powi(2);
             flyer.nudge = (age < NUDGE_TIME).then_some((age, way));
-            for (entity, ghost, mut ghost_at, children) in &mut ghosts {
+            for (entity, ghost, mut ghost_at) in &mut ghosts {
                 if age >= NUDGE_TIME {
                     commands.entity(entity).despawn();
                     continue;
@@ -2044,7 +2044,7 @@ fn fly_winner(
                 let share = 1.0 - ghost.index as f32 / GHOSTS as f32;
                 let at = flyer.at - Vec2::new(way * NUDGE_TRAIL * share, 0.0);
                 *ghost_at = rig_transform(at, ghost.facing_left, 1.0 - 0.5 * remaining, 10.0 + share);
-                for child in children.iter() {
+                for child in children.iter_descendants(entity) {
                     if let Ok(mut sprite) = sprites.get_mut(child) {
                         sprite.color = Color::WHITE.with_alpha(share * 0.6 * remaining);
                     }

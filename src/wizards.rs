@@ -6,12 +6,15 @@ use bevy::math::curve::{Curve, EaseFunction};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use crate::art::Art;
+use crate::art::{Art, CastPose, sample_span};
 use crate::config::{GameConfig, ModeKind, WizardLook};
 use crate::gameplay::{Tower, TowerState, TowerStatus};
 use crate::spells::SpellLog;
 
 pub struct WizardsPlugin;
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct WizardPose;
 
 impl Plugin for WizardsPlugin {
     fn build(&self, app: &mut App) {
@@ -19,7 +22,9 @@ impl Plugin for WizardsPlugin {
             .add_systems(Update, update_blinks.in_set(WizardBlinking));
         app.add_systems(
             Update,
-            (spawn_wizards, react_wizards, move_wizards, pose_wizards, swoosh_turns, orbit_bricks)
+            (spawn_wizards, react_wizards, move_wizards,
+                pose_wizards.in_set(WizardPose).after(crate::cups_menu::CupFlyerMotion),
+                swoosh_turns, orbit_bricks)
                 .chain()
                 .after(WizardBlinking)
                 .run_if(crate::menu::presentation_running),
@@ -129,6 +134,8 @@ pub struct Wizard {
     enemy: bool,
     /// Pixels a unit its parts are drawn at (the cup winner's rig is bigger than a tower's).
     cell: f32,
+    /// The cup rig's animated inner root, below its facing and nudge transform.
+    pose_root: Option<Entity>,
     /// The winner's bask, once it starts.
     bask: Option<Bask>,
     /// Which way it faces outside the bask (+1 as spawned), seconds since its last turn,
@@ -315,6 +322,7 @@ fn spawn_wizards(
             rng: config.seed ^ ((tower.index as u64 + 1) * 0x9E37_79B9),
             enemy,
             cell,
+            pose_root: None,
             bask: None,
             facing: 1.0,
             turned: 1.0,
@@ -325,20 +333,22 @@ fn spawn_wizards(
             // It laughs hard in the trial's intro.
             wizard.clip = Clip::LaughHard;
         }
-        commands
+        let root = commands
             .spawn((
                 wizard,
                 crate::lanes::TowerForeground(tower_entity),
                 Transform::from_xyz(tower.origin_x, 0.0, 20.0),
                 Visibility::default(),
             ))
-            .with_children(|wizard| add_parts(wizard, &art, &key, &parts, cell, ()));
+            .id();
+        add_parts(&mut commands, (root, None), &art, &key, &parts, cell, ());
     }
 }
 
 /// A wizard's parts, each in its idle picture, carrying `extra` (a render layer).
 fn add_parts(
-    wizard: &mut ChildSpawnerCommands,
+    commands: &mut Commands,
+    (root, pose_root): (Entity, Option<Entity>),
     art: &Art,
     key: &str,
     parts: &[String],
@@ -355,12 +365,15 @@ fn add_parts(
         };
         let (anchor, mut transform) = part_transform(art, &name, &name, cell);
         transform.translation.z = i as f32 * 0.01;
-        wizard.spawn((
+        let parent = pose_root.filter(|_| art.entries.get(&name).is_some_and(|e| !e.cast_pose.is_empty()))
+            .unwrap_or(root);
+        commands.spawn((
             WizardPart(name),
             Sprite::from_image(image),
             anchor,
             transform,
             extra.clone(),
+            ChildOf(parent),
         ));
     }
 }
@@ -376,7 +389,11 @@ pub(crate) fn spawn_free_wizard(
     extra: impl Bundle + Clone,
 ) -> Option<Entity> {
     let key = format!("wizard{}", number + 1);
-    let parts = art.entries.get(&key).and_then(|e| e.parts.clone())?;
+    let entry = art.entries.get(&key)?;
+    let parts = entry.parts.as_deref()?;
+    let pose_root = (!entry.cast_pose.is_empty()).then(|| {
+        commands.spawn((Transform::default(), Visibility::default())).id()
+    });
     let wizard = Wizard {
         tower: Entity::PLACEHOLDER,
         lane: 0,
@@ -397,23 +414,29 @@ pub(crate) fn spawn_free_wizard(
         rng: 1,
         enemy: false,
         cell,
+        pose_root,
         bask: None,
         facing: 1.0,
         turned: 1.0,
         intro_seen: -1.0,
     };
-    Some(
-        commands
-            .spawn((wizard, Transform::default(), Visibility::default(), extra.clone()))
-            .with_children(|w| add_parts(w, art, &key, &parts, cell, extra))
-            .id(),
-    )
+    let mut rig = commands.spawn((wizard, Transform::default(), Visibility::default(), extra.clone()));
+    if let Some(pose) = pose_root {
+        rig.add_child(pose);
+    }
+    let root = rig.id();
+    add_parts(commands, (root, pose_root), art, &key, parts, cell, extra);
+    Some(root)
 }
 
 impl Wizard {
     /// Plays `clip` once, then idles.
     pub(crate) fn act(&mut self, clip: Clip) {
         play(self, clip, None);
+    }
+
+    pub(crate) fn cast_time(&self) -> Option<f32> {
+        (self.clip == Clip::CastSelf).then_some(self.clip_time)
     }
 }
 
@@ -1045,14 +1068,25 @@ fn bask(wizard: &mut Wizard, at: Vec2, height: f32, dt: f32, single: bool, puzzl
     here
 }
 
-/// Shows each part's frame for the current clip and moves on when it ends.
+fn sample_cast_pose(track: &[(f32, CastPose)], time: f32, cell: f32) -> Option<Transform> {
+    let (start, end, fraction) = sample_span(track, time)?;
+    Some(Transform {
+        translation: (Vec2::from(start.at).lerp(end.at.into(), fraction) * cell).extend(0.0),
+        rotation: Quat::from_rotation_z(start.turn).slerp(Quat::from_rotation_z(end.turn), fraction),
+        scale: Vec2::from(start.scale).lerp(end.scale.into(), fraction).extend(1.0),
+    })
+}
+
+/// Shows each part's frame and pose for the current clip and moves on when it ends.
 fn pose_wizards(
     time: Res<Time>,
     art: Res<Art>,
-    mut wizards: Query<(&mut Wizard, &Children)>,
+    mut wizards: Query<(Entity, &mut Wizard), With<Children>>,
+    children: Query<&Children>,
+    mut roots: Query<&mut Transform, Without<WizardPart>>,
     mut parts: Query<(&WizardPart, &mut Sprite, &mut Anchor, &mut Transform)>,
 ) {
-    for (mut wizard, children) in &mut wizards {
+    for (entity, mut wizard) in &mut wizards {
         // Each rig keeps the scale it was built at: the cup winner's parts shrank to a
         // tower's size as they animated while its cloud stayed big.
         let cell = wizard.cell;
@@ -1060,7 +1094,7 @@ fn pose_wizards(
         let clip = wizard.clip.name();
         // The clip lasts as long as its longest part animation.
         let length = children
-            .iter()
+            .iter_descendants(entity)
             .filter_map(|c| parts.get(c).ok())
             .filter_map(|(part, ..)| art.length(&format!("{}_{clip}", part.0)))
             .fold(0.0f32, f32::max);
@@ -1078,7 +1112,16 @@ fn pose_wizards(
         } else {
             wizard.clip_time
         };
-        for child in children.iter() {
+        let cast_time = wizard.cast_time();
+        if let Some(root) = wizard.pose_root
+            && let Ok(mut transform) = roots.get_mut(root)
+        {
+            *transform = cast_time.and_then(|time| {
+                let entry = art.entries.get(&wizard.key)?;
+                sample_cast_pose(&entry.cast_pose, time, cell)
+            }).unwrap_or_default();
+        }
+        for child in children.iter_descendants(entity) {
             let Ok((part, mut sprite, mut anchor, mut transform)) = parts.get_mut(child) else {
                 continue;
             };
@@ -1095,12 +1138,20 @@ fn pose_wizards(
             let Some(handle) = art.images.get(&image) else {
                 continue;
             };
-            if sprite.image != *handle {
+            let track = wizard.pose_root.and_then(|_| art.entries.get(&part.0))
+                .map(|entry| entry.cast_pose.as_slice()).filter(|track| !track.is_empty());
+            if sprite.image != *handle || track.is_some() {
                 sprite.image = handle.clone();
-                let (new_anchor, new_transform) = part_transform(&art, &image, &part.0, cell);
+                let (new_anchor, mut new_transform) = part_transform(&art, &image, &part.0, cell);
+                if let Some(pose) = cast_time.zip(track).and_then(|(time, track)| sample_cast_pose(track, time, cell)) {
+                    new_transform.translation = pose.translation;
+                    new_transform.rotation = pose.rotation;
+                    new_transform.scale *= pose.scale;
+                }
                 *anchor = new_anchor;
                 transform.translation.x = new_transform.translation.x;
                 transform.translation.y = new_transform.translation.y;
+                transform.rotation = new_transform.rotation;
                 transform.scale = new_transform.scale;
             }
         }
@@ -1110,6 +1161,59 @@ fn pose_wizards(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cup_cast_animates_the_inner_rig_and_returns_to_rest() {
+        let mut art = Art::default();
+        for (key, entry) in [
+            ("wizard1", "(parts: Some([\"arm_back\", \"cloud\"]), cast_pose: [
+                (0.0, (at: (0.0, 0.0), turn: 0.0, scale: (1.0, 1.0))),
+                (1.0, (at: (1.0, 0.0), turn: 0.0, scale: (1.0, 0.5)))])"),
+            ("wizard1_arm_back", "(position: Some((1.0, 0.0)), cast_pose: [
+                (0.0, (at: (1.0, 0.0), turn: 0.0, scale: (1.0, 1.0))),
+                (1.0, (at: (3.0, 0.0), turn: 1.0, scale: (1.0, 1.0)))])"),
+            ("wizard1_arm_back_cast_self", "(frames: Some([(0.0, \"wizard1_arm_back\")]), length: Some(1.0))"),
+            ("wizard1_cloud", "(position: Some((0.0, -1.0)))"),
+        ] {
+            art.entries.insert(key.into(), ron::from_str(entry).unwrap());
+        }
+        for key in ["wizard1_arm_back", "wizard1_cloud"] {
+            art.images.insert(key.into(), Handle::default());
+        }
+        let mut app = App::new();
+        app.add_plugins(TransformPlugin)
+            .insert_resource(art)
+            .init_resource::<Time>()
+            .add_systems(Startup, |mut commands: Commands, art: Res<Art>| {
+                spawn_free_wizard(&mut commands, &art, 0, 10.0, ()).unwrap();
+            })
+            .add_systems(Update, pose_wizards);
+        app.update();
+        let world = app.world_mut();
+        let (wizard, inner) = world.query::<(Entity, &Wizard)>().iter(world)
+            .find_map(|(entity, wizard)| wizard.pose_root.map(|pose| (entity, pose))).unwrap();
+        let find_part = |world: &mut World, name| world.query::<(Entity, &WizardPart)>().iter(world)
+            .find_map(|(entity, part)| (part.0 == name).then_some(entity)).unwrap();
+        let arm = find_part(world, "wizard1_arm_back");
+        let cloud = find_part(world, "wizard1_cloud");
+        assert_eq!(world.get::<ChildOf>(arm).unwrap().parent(), inner);
+        assert_eq!(world.get::<ChildOf>(cloud).unwrap().parent(), wizard);
+        world.get_mut::<Wizard>(wizard).unwrap().act(Clip::CastSelf);
+        world.resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(0.5));
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<Transform>(inner).unwrap().scale.y, 0.75);
+        assert_eq!(world.get::<GlobalTransform>(arm).unwrap().translation().x, 25.0);
+        assert!(world.get::<Transform>(arm).unwrap().rotation.z > 0.24);
+        assert_eq!(world.get::<GlobalTransform>(cloud).unwrap().translation().y, -10.0);
+        world.resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(0.6));
+        app.update();
+        let world = app.world();
+        assert_eq!(*world.get::<Transform>(inner).unwrap(), Transform::IDENTITY);
+        assert_eq!(world.get::<GlobalTransform>(arm).unwrap().translation().x, 10.0);
+        assert_eq!(world.get::<Transform>(arm).unwrap().rotation, Quat::IDENTITY);
+    }
 
     fn wizard_app() -> (App, Entity) {
         let config = GameConfig { mode: ModeKind::Survival, ..default() };

@@ -171,6 +171,26 @@ pub struct ArtEntry {
     /// CastSelf wand positions for a wizard, as `(seconds, (x, y))` in rig units.
     #[serde(default)]
     pub cast_wand: Vec<(f32, (f32, f32))>,
+    /// CastSelf transforms of the inner wizard root or one of its sprites.
+    #[serde(default)]
+    pub cast_pose: Vec<(f32, CastPose)>,
+}
+
+#[derive(Deserialize, Clone, Copy, Debug)]
+pub struct CastPose {
+    pub at: (f32, f32),
+    pub turn: f32,
+    pub scale: (f32, f32),
+}
+
+/// The two samples around `time` and the fraction between them, holding the endpoints.
+pub(crate) fn sample_span<T: Copy>(track: &[(f32, T)], time: f32) -> Option<(T, T, f32)> {
+    let next = track.partition_point(|&(at, _)| at <= time);
+    let &(at, start) = track.get(next.saturating_sub(1))?;
+    match track.get(next) {
+        Some(&(end_at, end)) if next > 0 => Some((start, end, (time - at) / (end_at - at))),
+        _ => Some((start, start, 0.0)),
+    }
 }
 
 /// Two values, written as a two-item list or a pair.
