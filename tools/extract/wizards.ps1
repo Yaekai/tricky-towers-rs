@@ -15,7 +15,7 @@ $texCache = @{}
 $entries = New-Object System.Collections.Generic.List[string]
 $stagedRows = New-Object System.Collections.Generic.List[string]
 $imageKey = @{}   # "<n>:<sprite>" -> staged key
-. (Join-Path $PSScriptRoot 'cast_wand.ps1')
+. (Join-Path $PSScriptRoot 'cast_pose.ps1')
 
 function Snake($s) {
   $s = [regex]::Replace($s, '([a-z0-9])([A-Z])', '$1_$2')
@@ -24,7 +24,7 @@ function Snake($s) {
 function F($v) { [string]::Format($inv, '{0:0.0###}', [double]$v) }
 
 # Crops a sprite from its atlas; returns its staged key (one per wizard and sprite).
-function Stage-Image($n, $sprite, $key, $position = $null) {
+function Stage-Image($n, $sprite, $key, $position = $null, $castPose = $null) {
   if ($imageKey.ContainsKey("${n}:$sprite") -and -not $position) { return $imageKey["${n}:$sprite"] }
   $t = [IO.File]::ReadAllText((Join-Path $A "Sprite\$sprite.asset"))
   $r = [regex]::Match($t, "textureRect:\s*\n\s*serializedVersion: 2\s*\n\s*x: $num\s*\n\s*y: $num\s*\n\s*width: $num\s*\n\s*height: $num")
@@ -42,6 +42,7 @@ function Stage-Image($n, $sprite, $key, $position = $null) {
   $crop.Save($out, [System.Drawing.Imaging.ImageFormat]::Png); $crop.Dispose()
   $line = "    `"$key`": (file: `"$($rel -replace '\\','/')`", pixels_per_unit: $(F $ppu), pivot: ($(F $pv.Groups[1].Value), $(F $pv.Groups[2].Value))"
   if ($position) { $line += ", position: ($(F $position[0]), $(F $position[1]))" }
+  if ($castPose) { $line += ", cast_pose: [$($castPose -join ', ')]" }
   $entries.Add($line + '),')
   $stagedRows.Add("sprite`t$sprite`t$key")
   if (-not $position) { $imageKey["${n}:$sprite"] = $key }
@@ -50,6 +51,8 @@ function Stage-Image($n, $sprite, $key, $position = $null) {
 
 function Part-Name($path) {
   $nodes = $path -split '/'
+  # Wizard03 has separate face and hat back sprites.
+  if ($nodes[-1] -eq 'SpriteBack' -and $nodes[-2] -eq 'Face') { return 'face_sprite_back' }
   $node = if ($nodes[-1] -eq 'Sprite') { $nodes[-2] } else { $nodes[-1] }
   switch ($node) { 'CloudBack' { 'cloud' } 'Cape' { 'cape' } default { Snake $node } }
 }
@@ -134,14 +137,19 @@ foreach ($n in 1..14) {
   $parts = @()
   foreach ($row in $rows) {
     $c = $row -split "`t"
-    $parts += [pscustomobject]@{ name = (Part-Name $c[0]); sprite = $c[1]; x = [double]::Parse($c[2], $inv); y = [double]::Parse($c[3], $inv); order = [int]$c[6] }
+    $parts += [pscustomobject]@{ path = $c[0]; name = (Part-Name $c[0]); sprite = $c[1]; x = [double]::Parse($c[2], $inv); y = [double]::Parse($c[3], $inv); order = [int]$c[6] }
   }
   $parts = $parts | Sort-Object order
   $rig = "    `"wizard$n`": (parts: [$((($parts | ForEach-Object { '"' + $_.name + '"' }) -join ', '))]"
-  $wand = Read-CastWand $prefab (Join-Path $A "AnimationClip\$($clipMap[$n]['cast_self']).anim")
-  if ($wand) { $rig += ", cast_wand: [$($wand -join ', ')]" }
+  $cast = Read-CastRig $prefab (Join-Path $A "AnimationClip\$($clipMap[$n]['cast_self']).anim") $parts.path
+  if ($cast) {
+    $rig += ", cast_wand: [$($cast.Wand -join ', ')], cast_pose: [$($cast.Poses[''] -join ', ')]"
+  }
   $entries.Add($rig + '),')
-  foreach ($p in $parts) { Stage-Image $n $p.sprite "wizard$($n)_$($p.name)" @($p.x, $p.y) | Out-Null }
+  foreach ($p in $parts) {
+    $pose = if ($cast -and $p.path.StartsWith($cast.Inner)) { $cast.Poses[$p.path.Substring($cast.Inner.Length)] }
+    Stage-Image $n $p.sprite "wizard$($n)_$($p.name)" @($p.x, $p.y) $pose | Out-Null
+  }
 
   foreach ($clip in $clipMap[$n].Keys) {
     $c = Read-Clip $clipMap[$n][$clip]

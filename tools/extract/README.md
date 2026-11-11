@@ -17,7 +17,7 @@ committed. They contain names and measured positions, no code or assets from the
 prefab uses and where, for measuring new layouts.
 
 Delete `extracted\` before re-running step 3 so stale entries don't linger.
-5. Wizards 1 to 14 (parts, pivots, clip frames, cup wand paths and voice lines), after step 3:
+5. Wizards 1 to 14 (parts, pivots, clip frames, cup cast poses and voice lines), after step 3:
    `powershell -File tools\extract\wizards.ps1 -Repo .` (run it before step 4).
 
 `stage.ps1` also runs `font.ps1`, which turns the original's distance-field letter atlas into

@@ -1,8 +1,9 @@
-param([string]$Prefab, [string]$GuidIndex)
+param([string]$Prefab, [string]$GuidIndex, [switch]$Transforms)
 # Prints every sprite in a prefab with its path from the root, its position summed through its
 # parents (scale applied, rotation ignored), its sorting order and the sprite name.
 # Output: path<TAB>sprite<TAB>x<TAB>y<TAB>scaleX<TAB>scaleY<TAB>order
-$idx = @{}; Get-Content $GuidIndex | ForEach-Object { $p = $_ -split "`t"; $idx[$p[0]] = $p[1] }
+$idx = @{}
+if (!$Transforms) { Get-Content $GuidIndex | ForEach-Object { $p = $_ -split "`t"; $idx[$p[0]] = $p[1] } }
 $inv = [Globalization.CultureInfo]::InvariantCulture
 $text = [IO.File]::ReadAllText($Prefab)
 $docs = [regex]::Split($text, '(?m)^--- ') | Where-Object { $_ -match '^!u!(\d+) &(\d+)' }
@@ -14,9 +15,11 @@ foreach ($d in $docs) {
   elseif ($type -eq '4') {
     $pos = [regex]::Match($d, 'm_LocalPosition: \{([^}]*)\}').Groups[1].Value
     $sc = [regex]::Match($d, 'm_LocalScale: \{([^}]*)\}').Groups[1].Value
+    $rot = [regex]::Match($d, 'm_LocalRotation: \{([^}]*)\}').Groups[1].Value
     $t = [pscustomobject]@{ id = $id; go = [regex]::Match($d, 'm_GameObject: \{fileID: (\d+)').Groups[1].Value
       parent = [regex]::Match($d, 'm_Father: \{fileID: (\d+)').Groups[1].Value
-      x = (V $pos 'x'); y = (V $pos 'y'); sx = (V $sc 'x'); sy = (V $sc 'y') }
+      x = (V $pos 'x'); y = (V $pos 'y'); sx = (V $sc 'x'); sy = (V $sc 'y')
+      turn = 2 * [Math]::Atan2((V $rot 'z'), (V $rot 'w')) }
     $trByGo[$t.go] = $t; $trById[$id] = $t
   }
   elseif ($type -eq '212') {
@@ -25,12 +28,24 @@ foreach ($d in $docs) {
       order = [regex]::Match($d, 'm_SortingOrder: (-?\d+)').Groups[1].Value }
   }
 }
+function Transform-Chain($start) {
+  $chain = @(); $cur = $start
+  while ($cur) { $chain += $cur; $cur = $trById[$cur.parent] }
+  [array]::Reverse($chain)
+  $chain
+}
+if ($Transforms) {
+  foreach ($node in $trById.Values) {
+    $chain = @(Transform-Chain $node)
+    $path = ($chain | Select-Object -Skip 1 | ForEach-Object { $goName[$_.go] }) -join '/'
+    [pscustomobject]@{ Path = $path; X = $node.x; Y = $node.y; SX = $node.sx; SY = $node.sy; Turn = $node.turn }
+  }
+  return
+}
 foreach ($r in $renderers) {
   $t = $trByGo[$r.go]; $names = @(); $x = 0.0; $y = 0.0; $sx = 1.0; $sy = 1.0
   # Walk up: world = parent.pos + parent.scale * child.pos.
-  $chain = @(); $cur = $t
-  while ($cur) { $chain += $cur; $cur = if ($cur.parent -and $cur.parent -ne '0') { $trById[$cur.parent] } else { $null } }
-  [array]::Reverse($chain)
+  $chain = @(Transform-Chain $t)
   foreach ($c in $chain) { $x = $x + $sx * $c.x; $y = $y + $sy * $c.y; $sx = $sx * $c.sx; $sy = $sy * $c.sy; $names += $goName[$c.go] }
   $path = ($names | Select-Object -Skip 1) -join '/'
   $sp = if ($r.sprite -and $idx[$r.sprite]) { [IO.Path]::GetFileNameWithoutExtension($idx[$r.sprite]) } else { '-' }

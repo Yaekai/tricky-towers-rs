@@ -31,7 +31,7 @@ impl Plugin for CastsPlugin {
                 stream_beams,
                 run_streams,
                 run_orbs,
-                run_lightning.after(crate::cups_menu::CupFlyerMotion),
+                run_lightning.after(crate::wizards::WizardPose),
                 track_clouds,
                 animate_clouds,
                 flick_hints,
@@ -1305,15 +1305,8 @@ fn run_orbs(
 const BOLT_PIECES: usize = 14;
 
 fn wand_position(path: &[(f32, (f32, f32))], time: f32) -> Option<Vec2> {
-    let next = path.partition_point(|&(at, _)| at <= time);
-    let last = path.get(next.saturating_sub(1))?;
-    let start = Vec2::from(last.1);
-    match path.get(next) {
-        Some(&(end, point)) if next > 0 => {
-            Some(start.lerp(point.into(), (time - last.0) / (end - last.0)))
-        }
-        _ => Some(start),
-    }
+    let (start, end, fraction) = crate::art::sample_span(path, time)?;
+    Some(Vec2::from(start).lerp(end.into(), fraction))
 }
 
 fn run_lightning(
@@ -1321,6 +1314,7 @@ fn run_lightning(
     time: Res<Time>,
     config: Res<GameConfig>,
     art: Res<Art>,
+    wizards: Query<&Wizard>,
     mut bolts: Query<(Entity, &mut Lightning)>,
     mut transforms: ParamSet<(
         Query<&Transform>,
@@ -1337,7 +1331,9 @@ fn run_lightning(
         let from = match &bolt.origin {
             BoltOrigin::Fixed(at) => Some(*at),
             BoltOrigin::Wand { wizard, fallback, path } => {
-                let local = wand_position(path, config.magic.cast_self + bolt.time)
+                let cast_time = wizards.get(*wizard).ok().and_then(Wizard::cast_time)
+                    .unwrap_or(config.magic.cast_self + bolt.time);
+                let local = wand_position(path, cast_time)
                     .unwrap_or(*fallback) * bolt.cell;
                 transforms.p0().get(*wizard).ok()
                     .map(|transform| transform.transform_point(local.extend(0.0)).truncate())
