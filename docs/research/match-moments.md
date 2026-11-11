@@ -146,3 +146,19 @@ prefabs and their clips). Values are `GameConfig::intro`.
 - **3-2-1.** Gold numbers 100 px above the centre: 3 at 0 s, 2 at 0.75 s, 1 at 1.5 s, each with
   the count sound (`054_Count_v3`) pitched up (1, 1.17, 1.33) and a small pop (scale 1.15 back to 1). Play starts
   at 2.25 s. In Race the word "RACE" then shows, scaling 1.2 back to 1, until 3.0 s.
+
+## Race finish flag cut
+
+RaceGameMode starts the flag fade when it decides the match. The leader's camera
+X is the fade origin. Each tile has its own duration based on its distance from
+that origin relative to the right-hand reference at 35 cells, which takes one
+second to fade. The opacity uses DOTween's exponential ease-in. [DOTween easing source](https://github.com/Demigiant/dotween/blob/develop/_DOTween.Assembly/DOTween/Core/Easing/EaseManager.cs)
+
+The shared FinishFlag prefab has 55 tiles spaced 1.2 cells apart, starting at
+−32.204063 cells. The two caps sit at −33.58 and 33.97 cells, with the right cap
+flipped horizontally and vertically. The fade applies to the caps as well.
+
+Sources from the local install are FinishLineLayer, RaceGameMode and
+MultiPlayerRaceGameModePlayController. The Rust lane centres use the reference
+screen layout so the fade origin follows the visible player despite the wider
+internal physics spacing.

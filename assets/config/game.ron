@@ -319,6 +319,9 @@
         title_fade: (0.2, 0.367),
     ),
     race_scene: (
+        finish_cut: (35.0, 1.0),
+        finish_tiles: (-32.204063, 1.2, 55),
+        finish_caps: (-33.58, 33.97),
         replaces: [
             "background_race_0",
             "background_race_1",

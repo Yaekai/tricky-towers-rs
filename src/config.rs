@@ -4009,6 +4009,11 @@ fn default_corona() -> Vec<CoronaPart> {
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct RaceScene {
+    /// FinishLineLayer's right-hand distance reference in cells, and fade seconds there.
+    pub finish_cut: (f32, f32),
+    /// FinishFlag's first tile, spacing and count, in the background camera's cells.
+    pub finish_tiles: (f32, f32, u32),
+    pub finish_caps: (f32, f32),
     /// Staged screen layers this scene draws itself (the fixed clouds staged before).
     pub replaces: Vec<String>,
     pub clouds: Vec<CloudRow>,
@@ -4139,6 +4144,9 @@ impl Default for RaceScene {
             line_z,
         };
         Self {
+            finish_cut: (35.0, 1.0),
+            finish_tiles: (-32.204_063, 1.2, 55),
+            finish_caps: (-33.58, 33.97),
             replaces: [
                 "background_race_0",
                 "background_race_1",
