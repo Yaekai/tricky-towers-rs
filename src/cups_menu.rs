@@ -1619,9 +1619,12 @@ fn play_cast_sounds(mut commands: Commands, time: Res<Time>, sounds: Query<(Enti
 
 /// One of the 8 ghosts a nudge leaves behind the wizard (ControllableWizard._NudgeWizard):
 /// ghost `i` sits (1 - i / 8) of 2.5 units back along the nudge, at (1 - i / 8) x 0.6 alpha,
-/// fading out over 0.3 s (TrailEffect).
+/// fading out and recovering its height with out-quad easing (TrailEffect).
 #[derive(Component)]
-struct Ghost(usize);
+struct Ghost {
+    index: usize,
+    facing_left: bool,
+}
 
 /// The nudge: a 3-unit jump, the wizard squashed to half height growing back over 0.3 s
 /// (out-expo), and its ghost trail.
@@ -1979,6 +1982,9 @@ fn fly_winner(
         if let Some(way) = nudge
             && flyer.nudge.is_none()
         {
+            if flyer.speed.x.abs() < 0.2 {
+                flyer.facing_left = way < 0.0;
+            }
             flyer.at.x += way * NUDGE_JUMP;
             flyer.nudge = Some((0.0, way));
             if let Some(sound) = art.sounds.get("sfx_nudge") {
@@ -1992,9 +1998,10 @@ fn fly_winner(
                     WIN_UNIT,
                     layer.clone(),
                 ) {
-                    commands
-                        .entity(ghost)
-                        .insert((Ghost(i), Visibility::Hidden));
+                    commands.entity(ghost).insert((
+                        Ghost { index: i, facing_left: flyer.facing_left },
+                        Visibility::Hidden,
+                    ));
                 }
             }
         }
@@ -2012,20 +2019,23 @@ fn fly_winner(
         let mut squash = 1.0;
         if let Some((age, way)) = flyer.nudge {
             let age = age + dt;
-            let k = (age / NUDGE_TIME).min(1.0);
-            squash = 0.5 + 0.5 * (1.0 - 2f32.powf(-10.0 * k));
+            let k = age / NUDGE_TIME;
+            if k < 1.0 {
+                squash = 1.0 - 0.5 * 2f32.powf(-10.0 * k);
+            }
+            let remaining = (1.0 - k).max(0.0).powi(2);
             flyer.nudge = (age < NUDGE_TIME).then_some((age, way));
             for (entity, ghost, mut ghost_at, children) in &mut ghosts {
                 if age >= NUDGE_TIME {
                     commands.entity(entity).despawn();
                     continue;
                 }
-                let share = 1.0 - ghost.0 as f32 / GHOSTS as f32;
+                let share = 1.0 - ghost.index as f32 / GHOSTS as f32;
                 let at = flyer.at - Vec2::new(way * NUDGE_TRAIL * share, 0.0);
-                *ghost_at = rig_transform(at, flyer.facing_left, squash, 10.0 - share);
+                *ghost_at = rig_transform(at, ghost.facing_left, 1.0 - 0.5 * remaining, 10.0 + share);
                 for child in children.iter() {
                     if let Ok(mut sprite) = sprites.get_mut(child) {
-                        sprite.color = Color::WHITE.with_alpha(share * 0.6 * (1.0 - k));
+                        sprite.color = Color::WHITE.with_alpha(share * 0.6 * remaining);
                     }
                 }
                 commands.entity(entity).insert(Visibility::Inherited);

@@ -62,8 +62,9 @@ moved with shape queries for crisp control; on contact it becomes dynamic.
    collapse blasts and shakes, wizard and brick-pack skins, Race Pro rain and lightning, Puzzle
    sandstorm and eclipse, Survival's wave sky, spawn puffs and landing dust, the Single Player,
    Endless, Trials and Settings screens. Recent PC work includes silent offscreen checks of
-   every mode and the title screen. Shared Race and Survival lanes clip attached decorations.
-   Puzzle's per-player framing remains incomplete.
+   every mode and the title screen. Local battles in all three modes use fitted per-player
+   world viewports and wider wizard cameras. The remaining comparisons and estimates are in
+   [What's next](docs/WHATS_NEXT.md).
    Continue checking effects against the original and measuring the remaining `(?)` values.
 6. **Trials** (implemented, further comparisons needed): the original's 50 trials in 5 tiers opened by
    medals (`src/trial_list.rs`, also editable in `game.ron`), with goals, fixed brick orders,
