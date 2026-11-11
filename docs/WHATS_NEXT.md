@@ -117,7 +117,8 @@ outside the current plan.
    Large's headless size and collision shape now grow with its picture over 0.3 s.
    The cup winner plays its cheer on entrance. Its nudge afterimages recover and
    fade with out-quad easing and keep the facing from the start of the nudge.
-   Check the cup wizard's animated wand position and input voice timing.
+   The cup wizard plays voices as it starts queued actions. Check the blend timing
+   between reactions and the animated wand position.
    Record the trigger, delay and outcome for each difference before editing.
    Then resolve the remaining `(?)` values in `casts`, `moments` and cup timing
    from clips or repeatable measurements. Use [PC tasks](pc-tasks.md) as evidence

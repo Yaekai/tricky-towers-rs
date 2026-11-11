@@ -12,6 +12,7 @@ use crate::gameplay::{MAX_TOWERS, Tower, TowerSkin};
 use crate::letters::{TextLook, UiOpacity};
 use crate::popup::{Popup, px};
 use crate::select::{SCREEN, label_with, shown};
+use crate::wizards::Clip;
 
 pub struct CupsMenuPlugin;
 
@@ -1569,6 +1570,8 @@ fn celebrate(
 /// The winner's wizard and the confetti come this long after the trophy is in.
 const WIN_WIZARD_AFTER: f32 = 0.92;
 
+const FLYER_ACTIONS: [Clip; 4] = [Clip::CastSelf, Clip::Cheer, Clip::Laugh, Clip::LaughEvil];
+
 /// The cup winner's wizard (ControllableWizard): it pops in at WizardSpawnPosition, 650 px
 /// right of and 380 px under the screen's middle, and the winner flies it about: its speed
 /// eases towards 10 units a second in the held direction (3 x the frame time each frame),
@@ -1582,14 +1585,30 @@ struct Flyer {
     wizard: usize,
     /// A nudge under way: seconds since, and its way (+1 right, -1 left).
     nudge: Option<(f32, f32)>,
+    pending: [bool; FLYER_ACTIONS.len()],
     /// The light cast waits for the animation's SPELL_CAST_SELF event.
     cast_at: Option<f32>,
 }
 
 impl Flyer {
-    fn cast_ready(&mut self, now: f32, clip: crate::wizards::Clip, delay: f32) -> bool {
+    fn next_action(&mut self, clip: Clip, pressed: [bool; FLYER_ACTIONS.len()]) -> Option<Clip> {
+        for (pending, pressed) in self.pending.iter_mut().zip(pressed) {
+            *pending |= pressed;
+        }
+        // Idle consumes triggers in controller order. Only CastSelf can cut in on a reaction.
+        let eligible = match clip {
+            Clip::Idle => FLYER_ACTIONS.len(),
+            Clip::Cheer | Clip::Laugh | Clip::LaughEvil => 1,
+            _ => 0,
+        };
+        let index = self.pending[..eligible].iter().position(|&on| on)?;
+        self.pending[index] = false;
+        Some(FLYER_ACTIONS[index])
+    }
+
+    fn cast_ready(&mut self, now: f32, clip: Clip, delay: f32) -> bool {
         let Some(start) = self.cast_at else { return false };
-        if clip != crate::wizards::Clip::CastSelf {
+        if clip != Clip::CastSelf {
             self.cast_at = None;
             return false;
         }
@@ -1868,7 +1887,7 @@ fn fly_winner(
         // It cheers as it comes in (ControllableWizard.Init).
         commands.entity(rig).queue(|mut e: EntityWorldMut| {
             if let Some(mut w) = e.get_mut::<crate::wizards::Wizard>() {
-                w.act(crate::wizards::Clip::Cheer);
+                w.act(Clip::Cheer);
             }
         });
         say(&mut commands, art, wizard, "cheer", roll());
@@ -1878,6 +1897,7 @@ fn fly_winner(
             facing_left: true,
             wizard,
             nudge: None,
+            pending: [false; FLYER_ACTIONS.len()],
             cast_at: None,
         }, rig_transform(FLYER_SPAWN, true, 1.0, 20.0)));
         if cameras.is_empty() {
@@ -1943,7 +1963,6 @@ fn fly_winner(
     // light magic casts on itself (with its lightning), dark magic laughs, game info laughs
     // evilly, turning cheers, the nudges nudge.
     use crate::keybinding::Action;
-    use crate::wizards::Clip;
     let key = |action: Action| {
         let code = bindings
             .as_ref()
@@ -1965,19 +1984,11 @@ fn fly_winner(
     };
     let now = time.elapsed_secs();
     for (entity, mut flyer, mut transform, mut rig) in &mut flyers {
-        for (on, kind, clip) in [
-            (light, "cast_self", Clip::CastSelf),
-            // ACTIVATE_SPELL_DARK plays Laugh: the same WizardNNLaugh clip as LaughEvil
-            // (every override controller), with the plain laugh line.
-            (dark, "laugh", Clip::Laugh),
-            (overview, "laugh_evil", Clip::LaughEvil),
-            (cheer, "cheer", Clip::Cheer),
-        ] {
-            if on {
-                rig.act(clip);
-                flyer.cast_at = (clip == Clip::CastSelf).then_some(now);
-                say(&mut commands, art, flyer.wizard, kind, roll());
-            }
+        if let Some(clip) = flyer.next_action(rig.clip, [light, cheer, dark, overview]) {
+            rig.act(clip);
+            flyer.cast_at = (clip == Clip::CastSelf).then_some(now);
+            let voice = if clip == Clip::Laugh { "laugh" } else { clip.name() };
+            say(&mut commands, art, flyer.wizard, voice, roll());
         }
         if let Some(way) = nudge
             && flyer.nudge.is_none()
@@ -2189,20 +2200,23 @@ mod tests {
     }
 
     #[test]
-    fn the_flying_wizard_cast_waits_for_its_animation_and_cancels_if_interrupted() {
-        use crate::wizards::Clip;
+    fn cup_wizard_cast_finishes_before_pending_reactions_play() {
         let mut flyer = Flyer {
             at: Vec2::ZERO, speed: Vec2::ZERO, facing_left: true, wizard: 0,
-            nudge: None, cast_at: Some(0.0),
+            nudge: None, pending: [false; FLYER_ACTIONS.len()], cast_at: Some(0.0),
         };
         let delay = GameConfig::default().magic.cast_self;
         assert!(!flyer.cast_ready(0.0, Clip::CastSelf, delay));
+        assert_eq!(flyer.next_action(Clip::CastSelf, [false, true, true, false]), None);
         assert!(!flyer.cast_ready(delay / 2.0, Clip::CastSelf, delay));
         assert!(flyer.cast_ready(delay, Clip::CastSelf, delay));
         assert!(!flyer.cast_ready(delay + 1.0, Clip::CastSelf, delay), "one bolt per cast");
-        flyer.cast_at = Some(0.0);
-        assert!(!flyer.cast_ready(delay / 2.0, Clip::Cheer, delay));
-        assert!(!flyer.cast_ready(delay, Clip::CastSelf, delay), "an interrupted cast stays cancelled");
+        let released = [false; FLYER_ACTIONS.len()];
+        assert_eq!(flyer.next_action(Clip::Idle, released), Some(Clip::Cheer));
+        assert_eq!(flyer.next_action(Clip::Cheer, released), None);
+        assert_eq!(flyer.next_action(Clip::Cheer, [true, false, false, false]), Some(Clip::CastSelf));
+        assert_eq!(flyer.next_action(Clip::Idle, released), Some(Clip::Laugh));
+        assert_eq!(flyer.next_action(Clip::Idle, released), None);
     }
 
     #[test]

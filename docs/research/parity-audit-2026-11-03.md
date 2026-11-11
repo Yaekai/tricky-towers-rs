@@ -44,13 +44,16 @@ WizardAnimationController and AbstractWizard.
 Pressing light magic starts CastSelf. The bolt starts at the clip's cast-self
 event (0.4333 seconds, already recorded in `magic.cast_self`). The bolt follows
 the wizard's wand as it flies and faces either way, while the endpoint stays
-where the cast put it. A different animation interrupting the cast prevents
-that event. One of the two light-cast sounds follows the event by 0.1 seconds.
+where the cast put it. In the cup, the cast runs through its event before any
+queued reactions can play. Light magic can interrupt cheer or either laugh.
+Idle accepts actions in the order light magic, cheer, laugh and evil laugh.
+Speech starts when the wizard enters the corresponding animation state.
+One of the two light-cast sounds follows the cast event by 0.1 seconds.
 The popup only takes input from the controller assigned to the winning wizard.
 The Rust rig still uses its configured local wand offset for each skin.
 
-Sources: ControllableWizard and WizardAnimationController; the staged CastSelf
-clip event timing.
+Sources: ControllableWizard, WizardAnimationController and its animator transitions,
+the wizard state-entry speech trigger, and the CastSelf clip event timing.
 
 ## Pause and cup appearance follow-up, 2026-11-04
 
