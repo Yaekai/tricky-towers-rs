@@ -50,7 +50,10 @@ Idle accepts actions in the order light magic, cheer, laugh and evil laugh.
 Speech starts when the wizard enters the corresponding animation state.
 One of the two light-cast sounds follows the cast event by 0.1 seconds.
 The popup only takes input from the controller assigned to the winning wizard.
-The Rust rig still uses its configured local wand offset for each skin.
+The cup bolt follows the locally staged wand path. The exporter combines the
+arm and wand translation with the inner Wizard root's scale, translation and
+rotation. It samples the source curves at four times the clip rate for linear
+playback. Older manifests use the configured local wand offset for each skin.
 
 Sources: ControllableWizard, WizardAnimationController and its animator transitions,
 the wizard state-entry speech trigger, and the CastSelf clip event timing.

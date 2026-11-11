@@ -218,3 +218,6 @@ Each tower's wizard floats beside it (`wizards` in `game.ron` sets where; see
   pivots, so pose variants can sit differently on the joint. A clip lasts as long as its
   longest part animation; then the wizard goes back to idle (`dying` holds its last frame).
 - `wizard<n>_say_<clip>`: the voice line played when that clip starts (optional).
+- `cast_wand` on `wizard<n>`: optional `(seconds, (x, y))` samples in wizard-root
+  units. The cup winner's light bolt follows this path during CastSelf. Earlier
+  manifests use the configured cast position.

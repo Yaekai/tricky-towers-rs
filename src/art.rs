@@ -168,6 +168,9 @@ pub struct ArtEntry {
     /// Each part is the entry `<this name>_<part>`, its clips `<this name>_<part>_<clip>`.
     #[serde(default)]
     pub parts: Option<Vec<String>>,
+    /// CastSelf wand positions for a wizard, as `(seconds, (x, y))` in rig units.
+    #[serde(default)]
+    pub cast_wand: Vec<(f32, (f32, f32))>,
 }
 
 /// Two values, written as a two-item list or a pair.
