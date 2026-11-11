@@ -119,7 +119,8 @@ outside the current plan.
    fade with out-quad easing and keep the facing from the start of the nudge.
    The cup wizard plays voices as it starts queued actions. Its sprite poses
    follow the staged Idle, Cheer, Laugh and CastSelf clips. The light bolt shares
-   the CastSelf clock. Compare the entry and exit blends between those states.
+   the CastSelf clock. Pose blends use the measured entry and exit timings.
+   Compare sprite changes during blends against the original.
    Record the trigger, delay and outcome for each difference before editing.
    Then resolve the remaining `(?)` values in `casts`, `moments` and cup timing
    from clips or repeatable measurements. Use [PC tasks](pc-tasks.md) as evidence

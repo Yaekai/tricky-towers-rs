@@ -136,6 +136,7 @@ pub struct Wizard {
     cell: f32,
     /// The cup rig's animated inner root, below its facing and nudge transform.
     pose_root: Option<Entity>,
+    pose_blend: Option<PoseBlend>,
     /// The winner's bask, once it starts.
     bask: Option<Bask>,
     /// Which way it faces outside the bask (+1 as spawned), seconds since its last turn,
@@ -143,6 +144,13 @@ pub struct Wizard {
     facing: f32,
     turned: f32,
     intro_seen: f32,
+}
+
+#[derive(Clone, Copy)]
+struct PoseBlend {
+    from: Clip,
+    from_time: f32,
+    seconds: f32,
 }
 
 /// The winner's bask (WizardMovementBaskController): it sinks to its bask height over 1 s,
@@ -323,6 +331,7 @@ fn spawn_wizards(
             enemy,
             cell,
             pose_root: None,
+            pose_blend: None,
             bask: None,
             facing: 1.0,
             turned: 1.0,
@@ -415,6 +424,7 @@ pub(crate) fn spawn_free_wizard(
         enemy: false,
         cell,
         pose_root,
+        pose_blend: None,
         bask: None,
         facing: 1.0,
         turned: 1.0,
@@ -430,9 +440,19 @@ pub(crate) fn spawn_free_wizard(
 }
 
 impl Wizard {
-    /// Plays `clip` once, then idles.
-    pub(crate) fn act(&mut self, clip: Clip) {
+    /// Plays a cup action, blending out of the old state as the new clip begins.
+    pub(crate) fn act(&mut self, clip: Clip, seconds: f32) {
+        let immediate = self.clip == Clip::Cheer && clip == Clip::CastSelf;
+        self.pose_blend = (!immediate && seconds > 0.0).then_some(PoseBlend {
+            from: self.clip,
+            from_time: self.clip_time,
+            seconds,
+        });
         play(self, clip, None);
+    }
+
+    pub(crate) fn cup_input_clip(&self) -> Option<Clip> {
+        self.pose_blend.is_none().then_some(self.clip)
     }
 
     pub(crate) fn cast_time(&self) -> Option<f32> {
@@ -1085,10 +1105,30 @@ fn sample_rig_pose(entry: &ArtEntry, clip: &str, mut time: f32, cell: f32) -> Op
     })
 }
 
+fn blended_rig_pose(
+    entry: &ArtEntry,
+    clip: &str,
+    time: f32,
+    cell: f32,
+    blend: Option<PoseBlend>,
+    rest: Transform,
+) -> Transform {
+    let to = sample_rig_pose(entry, clip, time, cell).unwrap_or(rest);
+    let Some(blend) = blend else { return to };
+    let from = sample_rig_pose(entry, blend.from.name(), blend.from_time + time, cell).unwrap_or(rest);
+    let weight = (time / blend.seconds).clamp(0.0, 1.0);
+    Transform {
+        translation: from.translation.lerp(to.translation, weight),
+        rotation: from.rotation.slerp(to.rotation, weight),
+        scale: from.scale.lerp(to.scale, weight),
+    }
+}
+
 /// Shows each part's frame and pose for the current clip and moves on when it ends.
 fn pose_wizards(
     time: Res<Time>,
     art: Res<Art>,
+    config: Res<GameConfig>,
     mut wizards: Query<(Entity, &mut Wizard), With<Children>>,
     children: Query<&Children>,
     mut roots: Query<&mut Transform, Without<WizardPart>>,
@@ -1107,7 +1147,19 @@ fn pose_wizards(
                 .filter_map(|c| parts.get(c).ok())
                 .filter_map(|(part, ..)| art.length(&format!("{}_{clip}", part.0)))
                 .fold(0.0f32, f32::max));
-        if wizard.clip != Clip::Idle && wizard.clip_time > length.max(0.3) {
+        let exit = length.max(0.3) * config.cup_panel.winner_reaction_exit;
+        if wizard.tower == Entity::PLACEHOLDER
+            && matches!(wizard.clip, Clip::Cheer | Clip::Laugh | Clip::LaughEvil)
+            && wizard.clip_time >= exit
+        {
+            wizard.pose_blend = Some(PoseBlend {
+                from: wizard.clip,
+                from_time: exit,
+                seconds: config.cup_panel.winner_reaction_blend,
+            });
+            wizard.clip = Clip::Idle;
+            wizard.clip_time -= exit;
+        } else if wizard.clip != Clip::Idle && wizard.clip_time > length.max(0.3) {
             if wizard.clip == Clip::Dying {
                 wizard.clip_time = length;
             } else {
@@ -1115,6 +1167,10 @@ fn pose_wizards(
                 wizard.clip_time = 0.0;
             }
         }
+        if wizard.pose_blend.is_some_and(|blend| wizard.clip_time >= blend.seconds) {
+            wizard.pose_blend = None;
+        }
+        let blend = wizard.pose_blend;
         let clip = wizard.clip.name();
         let t = if wizard.clip == Clip::Idle && wizard.tower != Entity::PLACEHOLDER {
             wizard.time
@@ -1124,7 +1180,9 @@ fn pose_wizards(
         if let Some(root) = wizard.pose_root
             && let Ok(mut transform) = roots.get_mut(root)
         {
-            *transform = rig.and_then(|entry| sample_rig_pose(entry, clip, t, cell)).unwrap_or_default();
+            *transform = rig.map_or(Transform::IDENTITY, |entry| {
+                blended_rig_pose(entry, clip, t, cell, blend, Transform::IDENTITY)
+            });
         }
         for child in children.iter_descendants(entity) {
             let Ok((part, mut sprite, mut anchor, mut transform)) = parts.get_mut(child) else {
@@ -1147,7 +1205,13 @@ fn pose_wizards(
             if sprite.image != *handle || staged_part.is_some() {
                 sprite.image = handle.clone();
                 let (new_anchor, mut new_transform) = part_transform(&art, &image, &part.0, cell);
-                if let Some(pose) = staged_part.and_then(|entry| sample_rig_pose(entry, clip, t, cell)) {
+                if let Some(entry) = staged_part {
+                    let rest = Transform {
+                        translation: new_transform.translation,
+                        rotation: new_transform.rotation,
+                        scale: Vec3::ONE,
+                    };
+                    let pose = blended_rig_pose(entry, clip, t, cell, blend, rest);
                     new_transform.translation = pose.translation;
                     new_transform.rotation = pose.rotation;
                     new_transform.scale *= pose.scale;
@@ -1182,9 +1246,13 @@ mod tests {
     fn cup_cast_animates_the_inner_rig_and_returns_to_rest() {
         let mut art = Art::default();
         for (key, entry) in [
-            ("wizard1", "(parts: Some([\"arm_back\", \"cloud\"]), cast_pose: [
+            ("wizard1", r#"(parts: Some(["arm_back", "cloud"]), cast_pose: [
                 (0.0, (at: (0.0, 0.0), turn: 0.0, scale: (1.0, 1.0))),
-                (1.0, (at: (1.0, 0.0), turn: 0.0, scale: (1.0, 0.5)))])"),
+                (1.0, (at: (1.0, 0.0), turn: 0.0, scale: (1.0, 0.5)))],
+                poses: {"cheer": [
+                    (0.0, (at: (1.0, 0.0), turn: 0.0, scale: (1.0, 1.0))),
+                    (1.0, (at: (1.0, 0.0), turn: 0.0, scale: (1.0, 1.0)))
+                ]})"#),
             ("wizard1_arm_back", "(position: Some((1.0, 0.0)), cast_pose: [
                 (0.0, (at: (1.0, 0.0), turn: 0.0, scale: (1.0, 1.0))),
                 (1.0, (at: (3.0, 0.0), turn: 1.0, scale: (1.0, 1.0)))])"),
@@ -1200,6 +1268,7 @@ mod tests {
         app.add_plugins(TransformPlugin)
             .insert_resource(art)
             .init_resource::<Time>()
+            .init_resource::<GameConfig>()
             .add_systems(Startup, |mut commands: Commands, art: Res<Art>| {
                 spawn_free_wizard(&mut commands, &art, 0, 10.0, ()).unwrap();
             })
@@ -1214,8 +1283,13 @@ mod tests {
         let cloud = find_part(world, "wizard1_cloud");
         assert_eq!(world.get::<ChildOf>(arm).unwrap().parent(), inner);
         assert_eq!(world.get::<ChildOf>(cloud).unwrap().parent(), wizard);
-        world.get_mut::<Wizard>(wizard).unwrap().act(Clip::CastSelf);
-        world.resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(0.5));
+        world.get_mut::<Wizard>(wizard).unwrap().act(Clip::CastSelf, 0.25);
+        world.resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(0.125));
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(world.get::<Wizard>(wizard).unwrap().cup_input_clip(), None);
+        assert_eq!(world.get::<GlobalTransform>(arm).unwrap().translation().x, 11.875);
+        world.resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(0.375));
         app.update();
 
         let world = app.world_mut();
@@ -1229,6 +1303,22 @@ mod tests {
         assert_eq!(*world.get::<Transform>(inner).unwrap(), Transform::IDENTITY);
         assert_eq!(world.get::<GlobalTransform>(arm).unwrap().translation().x, 10.0);
         assert_eq!(world.get::<Transform>(arm).unwrap().rotation, Quat::IDENTITY);
+
+        let world = app.world_mut();
+        world.get_mut::<Wizard>(wizard).unwrap().act(Clip::Cheer, 0.25);
+        world.resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(0.95));
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(world.get::<Wizard>(wizard).unwrap().cup_input_clip(), None);
+        assert!((world.get::<Transform>(inner).unwrap().translation.x - 5.0).abs() < 1e-5);
+        world.resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(0.06));
+        app.update();
+        assert_eq!(app.world().get::<Wizard>(wizard).unwrap().cup_input_clip(), Some(Clip::Idle));
+
+        let mut rig = app.world_mut().get_mut::<Wizard>(wizard).unwrap();
+        rig.act(Clip::Cheer, 0.0);
+        rig.act(Clip::CastSelf, 0.25);
+        assert_eq!(rig.cup_input_clip(), Some(Clip::CastSelf));
     }
 
     fn wizard_app() -> (App, Entity) {
