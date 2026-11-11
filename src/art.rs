@@ -173,13 +173,19 @@ pub struct ArtEntry {
     pub cast_wand: Vec<(f32, (f32, f32))>,
     /// CastSelf transforms of the inner wizard root or one of its sprites.
     #[serde(default)]
-    pub cast_pose: Vec<(f32, CastPose)>,
+    pub cast_pose: Vec<(f32, RigPose)>,
+    /// Cup pose tracks for this root or sprite, keyed by clip name.
+    #[serde(default)]
+    pub poses: HashMap<String, Vec<(f32, RigPose)>>,
 }
 
 #[derive(Deserialize, Clone, Copy, Debug)]
-pub struct CastPose {
+pub struct RigPose {
     pub at: (f32, f32),
+    #[serde(default)]
     pub turn: f32,
+    #[serde(default)]
+    pub rotation: Option<(f32, f32, f32, f32)>,
     pub scale: (f32, f32),
 }
 
@@ -213,6 +219,16 @@ impl<T: Clone> Pair<T> {
 }
 
 impl ArtEntry {
+    pub(crate) fn has_poses(&self) -> bool {
+        !self.poses.is_empty() || !self.cast_pose.is_empty()
+    }
+
+    pub(crate) fn pose_track(&self, clip: &str) -> Option<&[(f32, RigPose)]> {
+        self.poses.get(clip).map(Vec::as_slice).or_else(|| {
+            (clip == "cast_self" && !self.cast_pose.is_empty()).then_some(self.cast_pose.as_slice())
+        })
+    }
+
     /// `colors` as Bevy colours.
     pub fn colors(&self) -> Vec<Color> {
         self.colors

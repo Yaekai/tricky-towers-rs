@@ -92,7 +92,7 @@ remaining work is tracked in [WHATS_NEXT](docs/WHATS_NEXT.md), with observations
 | Controls and physics | Fixed-step shared gameplay for every tower, rotation, nudges, accelerated drop, bases, Ivy clusters and per-part bounds | Further stacking and collision comparisons |
 | Spells | All 17 spell kinds, compound curses, award rules and per-difficulty behavior | Remaining measured timings and estimated values |
 | Battle cameras and HUD | Centered viewports for Race, Survival and Puzzle, aspect-ratio fitting, lane clipping, HUD placement and independent camera shakes. Wider camera passes put wizards in front of the towers and spell clouds behind them | Remaining background comparisons, Windows scaling and resize checks on hardware |
-| Wizards | All 14 characters, animated parts, reactions, per-character voices and controller hints. The cup's light cast moves the sprites and bolt together | Poses in other cup reactions and animation blend comparisons |
+| Wizards | All 14 characters, animated parts, reactions, per-character voices and controller hints. Cup poses cover idle, cheer, laugh and light magic | Animation blend comparisons |
 | Brick packs | All eight packs, their effects, masks and material variants | Further visual comparisons |
 | Backgrounds and effects | Mode-specific layers, weather, water, wind, flashes, curse skies, splashes and spell effects | Remaining sizes, colors and timings marked `(?)` |
 | Match results | Finish countdowns, roofs, collapse, winner and loser effects, trial results and cup celebrations | Remaining effect and timing comparisons |

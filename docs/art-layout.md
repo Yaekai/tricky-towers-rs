@@ -221,7 +221,8 @@ Each tower's wizard floats beside it (`wizards` in `game.ron` sets where; see
 - `cast_wand` on `wizard<n>`: optional `(seconds, (x, y))` samples in wizard-root
   units. The cup winner's light bolt follows this path during CastSelf. Earlier
   manifests use the configured cast position.
-- `cast_pose`: optional `(seconds, (at: (x, y), turn: radians, scale: (x, y)))`
-  samples. On the wizard entry they move the inner rig during the cup cast. On
-  sprite entries they move parts relative to that rig. Cloud sprites stay under
-  the outer root and keep their usual position.
+- `poses`: optional cup pose tracks keyed by clip. Each sample is
+  `(seconds, (at: (x, y), rotation: (x, y, z, w), scale: (x, y)))`. The wizard
+  entry moves the inner rig. Sprite entries move parts relative to it. Cloud
+  sprites stay under the outer root. Older `cast_pose` tracks still work with
+  `turn` in radians in place of the quaternion.

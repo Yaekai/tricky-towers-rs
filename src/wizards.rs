@@ -6,7 +6,7 @@ use bevy::math::curve::{Curve, EaseFunction};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use crate::art::{Art, CastPose, sample_span};
+use crate::art::{Art, ArtEntry, RigPose, sample_span};
 use crate::config::{GameConfig, ModeKind, WizardLook};
 use crate::gameplay::{Tower, TowerState, TowerStatus};
 use crate::spells::SpellLog;
@@ -365,7 +365,7 @@ fn add_parts(
         };
         let (anchor, mut transform) = part_transform(art, &name, &name, cell);
         transform.translation.z = i as f32 * 0.01;
-        let parent = pose_root.filter(|_| art.entries.get(&name).is_some_and(|e| !e.cast_pose.is_empty()))
+        let parent = pose_root.filter(|_| art.entries.get(&name).is_some_and(ArtEntry::has_poses))
             .unwrap_or(root);
         commands.spawn((
             WizardPart(name),
@@ -391,7 +391,7 @@ pub(crate) fn spawn_free_wizard(
     let key = format!("wizard{}", number + 1);
     let entry = art.entries.get(&key)?;
     let parts = entry.parts.as_deref()?;
-    let pose_root = (!entry.cast_pose.is_empty()).then(|| {
+    let pose_root = entry.has_poses().then(|| {
         commands.spawn((Transform::default(), Visibility::default())).id()
     });
     let wizard = Wizard {
@@ -1068,11 +1068,19 @@ fn bask(wizard: &mut Wizard, at: Vec2, height: f32, dt: f32, single: bool, puzzl
     here
 }
 
-fn sample_cast_pose(track: &[(f32, CastPose)], time: f32, cell: f32) -> Option<Transform> {
+fn sample_rig_pose(entry: &ArtEntry, clip: &str, mut time: f32, cell: f32) -> Option<Transform> {
+    let track = entry.pose_track(clip)?;
+    if clip == "idle" && let Some(&(length, _)) = track.last() && length > 0.0 {
+        time = time.rem_euclid(length);
+    }
     let (start, end, fraction) = sample_span(track, time)?;
+    let rotation = |pose: RigPose| pose.rotation.map_or_else(
+        || Quat::from_rotation_z(pose.turn),
+        |(x, y, z, w)| Quat::from_xyzw(x, y, z, w).normalize(),
+    );
     Some(Transform {
         translation: (Vec2::from(start.at).lerp(end.at.into(), fraction) * cell).extend(0.0),
-        rotation: Quat::from_rotation_z(start.turn).slerp(Quat::from_rotation_z(end.turn), fraction),
+        rotation: rotation(start).slerp(rotation(end), fraction),
         scale: Vec2::from(start.scale).lerp(end.scale.into(), fraction).extend(1.0),
     })
 }
@@ -1092,12 +1100,13 @@ fn pose_wizards(
         let cell = wizard.cell;
         wizard.clip_time += time.delta_secs();
         let clip = wizard.clip.name();
-        // The clip lasts as long as its longest part animation.
-        let length = children
-            .iter_descendants(entity)
-            .filter_map(|c| parts.get(c).ok())
-            .filter_map(|(part, ..)| art.length(&format!("{}_{clip}", part.0)))
-            .fold(0.0f32, f32::max);
+        let rig = wizard.pose_root.and_then(|_| art.entries.get(&wizard.key));
+        let length = rig.and_then(|entry| entry.pose_track(clip))
+            .and_then(|track| track.last()).map(|&(at, _)| at)
+            .unwrap_or_else(|| children.iter_descendants(entity)
+                .filter_map(|c| parts.get(c).ok())
+                .filter_map(|(part, ..)| art.length(&format!("{}_{clip}", part.0)))
+                .fold(0.0f32, f32::max));
         if wizard.clip != Clip::Idle && wizard.clip_time > length.max(0.3) {
             if wizard.clip == Clip::Dying {
                 wizard.clip_time = length;
@@ -1107,19 +1116,15 @@ fn pose_wizards(
             }
         }
         let clip = wizard.clip.name();
-        let t = if wizard.clip == Clip::Idle {
+        let t = if wizard.clip == Clip::Idle && wizard.tower != Entity::PLACEHOLDER {
             wizard.time
         } else {
             wizard.clip_time
         };
-        let cast_time = wizard.cast_time();
         if let Some(root) = wizard.pose_root
             && let Ok(mut transform) = roots.get_mut(root)
         {
-            *transform = cast_time.and_then(|time| {
-                let entry = art.entries.get(&wizard.key)?;
-                sample_cast_pose(&entry.cast_pose, time, cell)
-            }).unwrap_or_default();
+            *transform = rig.and_then(|entry| sample_rig_pose(entry, clip, t, cell)).unwrap_or_default();
         }
         for child in children.iter_descendants(entity) {
             let Ok((part, mut sprite, mut anchor, mut transform)) = parts.get_mut(child) else {
@@ -1138,12 +1143,11 @@ fn pose_wizards(
             let Some(handle) = art.images.get(&image) else {
                 continue;
             };
-            let track = wizard.pose_root.and_then(|_| art.entries.get(&part.0))
-                .map(|entry| entry.cast_pose.as_slice()).filter(|track| !track.is_empty());
-            if sprite.image != *handle || track.is_some() {
+            let staged_part = rig.and_then(|_| art.entries.get(&part.0)).filter(|entry| entry.has_poses());
+            if sprite.image != *handle || staged_part.is_some() {
                 sprite.image = handle.clone();
                 let (new_anchor, mut new_transform) = part_transform(&art, &image, &part.0, cell);
-                if let Some(pose) = cast_time.zip(track).and_then(|(time, track)| sample_cast_pose(track, time, cell)) {
+                if let Some(pose) = staged_part.and_then(|entry| sample_rig_pose(entry, clip, t, cell)) {
                     new_transform.translation = pose.translation;
                     new_transform.rotation = pose.rotation;
                     new_transform.scale *= pose.scale;
@@ -1161,6 +1165,18 @@ fn pose_wizards(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cup_idle_pose_loops_and_interpolates_a_tilted_sprite() {
+        let entry = ron::from_str::<ArtEntry>(r#"(poses: {"idle": [
+            (0.0, (at: (0.0, 0.0), rotation: Some((0.0, 0.0, 0.0, 1.0)), scale: (1.0, 1.0))),
+            (1.0, (at: (2.0, 0.0), rotation: Some((0.7071068, 0.0, 0.0, 0.7071068)), scale: (1.0, 1.0)))
+        ]})"#).unwrap();
+        let pose = sample_rig_pose(&entry, "idle", 1.5, 10.0).unwrap();
+        assert_eq!(pose.translation.x, 10.0);
+        assert!(((pose.rotation * Vec3::Y).z - std::f32::consts::FRAC_1_SQRT_2).abs() < 1e-5);
+        assert!(sample_rig_pose(&entry, "cheer", 0.5, 10.0).is_none());
+    }
 
     #[test]
     fn cup_cast_animates_the_inner_rig_and_returns_to_rest() {

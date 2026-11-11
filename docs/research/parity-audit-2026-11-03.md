@@ -57,7 +57,9 @@ playback. Older manifests use the configured local wand offset for each skin.
 The cup rig also plays the sampled CastSelf transforms for its inner root and
 sprites. The sprite transforms are relative to the inner root so the character's
 nonuniform squash composes with each part's turn. Clouds stay outside the inner
-root. The pose and bolt sample the same clip time. Entry blends remain to compare.
+root. The pose and bolt sample the same clip time. The same exporter and cup rig
+play Idle, Cheer and the shared Laugh/LaughEvil motion. Quaternion samples retain
+the hats' out-of-plane rotation in the Animal laugh clips. Entry blends remain to compare.
 
 Sources: ControllableWizard, WizardAnimationController and its animator transitions,
 the wizard state-entry speech trigger, and the CastSelf clip event timing.
