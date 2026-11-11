@@ -26,9 +26,10 @@ outside the current plan.
 ## Active backlog
 
 1. **Finish the battle viewport comparisons.** Race and Survival now share Puzzle's
-   fitted world viewports and HUD path (2026-11-08). Wizards, spell clouds and collectors
-   use each tower's wider background camera. The shared Race flag stays behind the
-   tower cameras, and the scene's unit scale follows the fitted battle rectangle.
+   fitted world viewports and HUD path (2026-11-08). Wizards use each tower's wider
+   foreground camera, and spell clouds and collectors use its background camera.
+   The shared Race flag stays behind the tower cameras, and the scene's unit scale
+   follows the fitted battle rectangle.
    Remaining checks include background parity and real Windows scaling and resizing.
    First Puzzle slice merged
    2026-11-05 (`src/lanes.rs`): a back camera draws the scene, one camera per tower
@@ -76,9 +77,10 @@ outside the current plan.
      per tower (`camera.rect` = the viewport), and the same HUD anchoring and Expand
      scaling. Each tower also has a background and a foreground camera (its
      `TowerBackground<n>` / `TowerForeground<n>` layers) whose rect keeps the lane's
-     centre but is as wide as the screen allows around it. Rust now has each tower's
-     world camera and wider background camera, with a shared foreground pass.
-     The foreground mirror comparison remains queued.
+     centre but is as wide as the screen allows around it. The background mirrors
+     draw the spell clouds and collectors before the tower cameras. The foreground
+     mirrors draw the wizards after the tower cameras (2026-11-11). The shared
+     scenery foreground and UI draw after these passes.
    - 125% scaling and window resizing need a windowed check by Max (offscreen runs
      always render at 1x).
    - *Shakes in a battle.* Every original camera shake moves the camera

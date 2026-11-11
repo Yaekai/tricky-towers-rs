@@ -433,3 +433,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-08 (Codex): the shared Puzzle laser's entrance and zap use the visible screen width. A regression checks its right-edge anchor and flash width across a resize.
 - 2026-11-09 (Codex): the battle scene keeps the full window width while scaling its units to the fitted battle height. This removes the hard water-band edges in ultrawide side margins.
 - 2026-11-11 (Codex): corrected the cup winner's nudge afterimage easing, facing and draw order. Added offline and online milestone estimates to What's next and updated the battle viewport status in PLAN.md.
+- 2026-11-11 (Codex): battle wizards draw through their own wider foreground cameras. Clouds and collectors stay on the background cameras. Added a regression for pass order and restoring render layers on exit.

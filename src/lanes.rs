@@ -1,8 +1,9 @@
 //! Battles' split screen. Each tower has a camera centred in its own share of the screen.
 //! Puzzle fits the widest tower, while Race and Survival share the height framing.
 //! A back camera draws the scene full screen, one camera per tower draws the game
-//! world in that tower's viewport (so a wide tower is cut at its own lane's edge), and the
-//! main camera, now last, draws the foreground and the UI over them. Solo modes and trials
+//! world in that tower's viewport (so a wide tower is cut at its own lane's edge).
+//! Wider cameras draw spell effects behind the world and wizards in front of it. The
+//! main camera draws the shared foreground and the UI last. Solo modes and trials
 //! keep the one main camera.
 //!
 //! Screen positions worked out from the main camera (HUD, scores, banners) add the
@@ -14,7 +15,7 @@ use bevy::camera::{ClearColorConfig, RenderTarget, Viewport};
 use bevy::prelude::*;
 
 use crate::config::GameConfig;
-use crate::gameplay::{Match, Phase, Tower};
+use crate::gameplay::{MAX_TOWERS, Match, Phase, Tower};
 use crate::visuals::{FramedCamera, MainCamera, MenuScene, SCENE_LAYER, ViewSize};
 
 /// Scene pieces that lay on the game world's layer, moved off it while the screen is split
@@ -31,16 +32,41 @@ pub struct FrontScene;
 #[derive(Component)]
 pub(crate) struct SharedBattleLine;
 
-/// Wizards, spell clouds and collectors use the tower's wider background camera.
+/// Spell clouds and collectors use the tower's wider background camera.
 #[derive(Component)]
 pub(crate) struct TowerBackdrop(pub Entity);
 
-const TOWER_BACKDROP_LAYER: usize = 10;
+/// Wizards use the tower's equally wide foreground camera.
+#[derive(Component)]
+pub(crate) struct TowerForeground(pub Entity);
+
+#[derive(Clone, Copy)]
+enum MirrorPass {
+    Background,
+    Foreground,
+}
+
+impl MirrorPass {
+    fn layer(self, tower: usize) -> RenderLayers {
+        RenderLayers::layer(10 + self as usize * MAX_TOWERS + tower)
+    }
+
+    fn order(self, index: usize, count: usize) -> isize {
+        let first = match self {
+            Self::Background => 1,
+            Self::Foreground => 2 * count + 1,
+        };
+        (first + index) as isize
+    }
+}
 
 #[derive(Component)]
-struct BackdropCamera(usize);
+struct MirrorCamera {
+    tower: usize,
+    pass: MirrorPass,
+}
 
-fn backdrop_rect(rect: Rect) -> Rect {
+fn mirror_rect(rect: Rect) -> Rect {
     let centre = rect.center().x;
     let half = centre.min(1.0 - centre);
     Rect::new(centre - half, rect.min.y, centre + half, rect.max.y)
@@ -252,8 +278,8 @@ fn follow_lanes(
         (Entity, &mut Projection),
         (With<BackCamera>, Without<MainCamera>, Without<LaneCamera>),
     >,
-    mut backdrops: Query<
-        (Entity, &BackdropCamera, &mut Camera, &mut Transform, &mut Projection),
+    mut mirrors: Query<
+        (Entity, &MirrorCamera, &mut Camera, &mut Transform, &mut Projection),
         (Without<MainCamera>, Without<LaneCamera>, Without<BackCamera>),
     >,
     shake: Option<Res<crate::effects::CameraShake>>,
@@ -266,7 +292,7 @@ fn follow_lanes(
         return;
     };
     if !lanes.split() {
-        if lane_cameras.is_empty() && back.is_empty() && backdrops.is_empty() {
+        if lane_cameras.is_empty() && back.is_empty() && mirrors.is_empty() {
             return;
         }
         for (entity, ..) in &lane_cameras {
@@ -275,7 +301,7 @@ fn follow_lanes(
         for (entity, _) in &back {
             commands.entity(entity).despawn();
         }
-        for (entity, ..) in &backdrops {
+        for (entity, ..) in &mirrors {
             commands.entity(entity).despawn();
         }
         camera.order = 0;
@@ -285,8 +311,8 @@ fn follow_lanes(
         return;
     }
     let count = lanes.lanes.len();
-    if camera.order != count as isize * 2 + 1 {
-        camera.order = count as isize * 2 + 1;
+    if camera.order != count as isize * 3 + 1 {
+        camera.order = count as isize * 3 + 1;
         camera.clear_color = ClearColorConfig::None;
         commands
             .entity(eye)
@@ -357,38 +383,40 @@ fn follow_lanes(
             lane.insert(target.clone());
         }
     }
-    let mut seen = [false; crate::gameplay::MAX_TOWERS];
-    for (entity, backdrop, mut camera, mut transform, mut p) in &mut backdrops {
-        let Some((i, view)) = lanes.lanes.iter().enumerate().find(|(_, v)| v.tower == backdrop.0) else {
+    let mut seen = [[false; 2]; MAX_TOWERS];
+    for (entity, mirror, mut camera, mut transform, mut p) in &mut mirrors {
+        let Some((i, view)) = lanes.lanes.iter().enumerate().find(|(_, v)| v.tower == mirror.tower) else {
             commands.entity(entity).despawn();
             continue;
         };
-        seen[i] = true;
+        seen[i][mirror.pass as usize] = true;
         transform.translation = Vec3::new(view.centre_x, at.translation.y + off(view.tower).y, at.translation.z);
         transform.rotation = at.rotation;
         *p = projection.clone();
-        camera.order = 1 + i as isize;
-        camera.viewport = size.map(|s| viewport(s, backdrop_rect(view.rect)));
+        camera.order = mirror.pass.order(i, count);
+        camera.viewport = size.map(|s| viewport(s, mirror_rect(view.rect)));
     }
     for (i, view) in lanes.lanes.iter().enumerate() {
-        if seen[i] {
-            continue;
-        }
-        let mut backdrop = commands.spawn((
-            Camera2d,
-            Camera {
-                order: 1 + i as isize,
-                clear_color: ClearColorConfig::None,
-                viewport: size.map(|s| viewport(s, backdrop_rect(view.rect))),
-                ..default()
-            },
-            projection.clone(),
-            Transform::from_xyz(view.centre_x, at.translation.y + off(view.tower).y, at.translation.z),
-            RenderLayers::layer(TOWER_BACKDROP_LAYER + view.tower),
-            BackdropCamera(view.tower),
-        ));
-        if let Some(target) = target {
-            backdrop.insert(target.clone());
+        for pass in [MirrorPass::Background, MirrorPass::Foreground] {
+            if seen[i][pass as usize] {
+                continue;
+            }
+            let mut mirror = commands.spawn((
+                Camera2d,
+                Camera {
+                    order: pass.order(i, count),
+                    clear_color: ClearColorConfig::None,
+                    viewport: size.map(|s| viewport(s, mirror_rect(view.rect))),
+                    ..default()
+                },
+                projection.clone(),
+                Transform::from_xyz(view.centre_x, at.translation.y + off(view.tower).y, at.translation.z),
+                pass.layer(view.tower),
+                MirrorCamera { tower: view.tower, pass },
+            ));
+            if let Some(target) = target {
+                mirror.insert(target.clone());
+            }
         }
     }
 }
@@ -424,6 +452,7 @@ fn relayer_scene(
     moved: Query<(Entity, &Relayered)>,
     shared_lines: Query<Entity, With<SharedBattleLine>>,
     backdrops: Query<(Entity, &TowerBackdrop)>,
+    foregrounds: Query<(Entity, &TowerForeground)>,
     towers: Query<&Tower>,
 ) {
     if !lanes.split() {
@@ -466,13 +495,15 @@ fn relayer_scene(
             }
         }
     }
-    for (root, backdrop) in &backdrops {
-        let Ok(tower) = towers.get(backdrop.0) else { continue };
+    let mirrors = backdrops.iter().map(|(root, part)| (root, part.0, MirrorPass::Background))
+        .chain(foregrounds.iter().map(|(root, part)| (root, part.0, MirrorPass::Foreground)));
+    for (root, owner, pass) in mirrors {
+        let Ok(tower) = towers.get(owner) else { continue };
         for entity in std::iter::once(root).chain(children.iter_descendants(root)) {
             let Ok((layers, _, _, done)) = pieces.get(entity) else { continue };
             if !done {
                 commands.entity(entity).insert((
-                    RenderLayers::layer(TOWER_BACKDROP_LAYER + tower.index),
+                    pass.layer(tower.index),
                     Relayered(layers.cloned()),
                 ));
             }
@@ -486,17 +517,70 @@ mod tests {
     use crate::config::ModeKind;
 
     #[test]
-    fn backdrop_view_keeps_its_lane_centre_and_uses_the_available_screen_width() {
+    fn mirror_view_keeps_its_lane_centre_and_uses_the_available_screen_width() {
         for (lane, expected) in [
             (Rect::new(0.1, 0.2, 0.3, 0.8), Rect::new(0.0, 0.2, 0.4, 0.8)),
             (Rect::new(0.4, 0.2, 0.6, 0.8), Rect::new(0.0, 0.2, 1.0, 0.8)),
             (Rect::new(0.7, 0.2, 0.9, 0.8), Rect::new(0.6, 0.2, 1.0, 0.8)),
         ] {
-            let wider = backdrop_rect(lane);
+            let wider = mirror_rect(lane);
             assert!((wider.min - expected.min).length() < 1e-6);
             assert!((wider.max - expected.max).length() < 1e-6);
             assert_eq!(wider.center(), lane.center());
         }
+    }
+
+    #[test]
+    fn battle_mirrors_draw_wizards_in_front_and_restore_layers_after_the_match() {
+        let mut app = App::new();
+        app.init_resource::<MenuScene>()
+            .insert_resource(LaneViews {
+                lanes: (0..2)
+                    .map(|tower| LaneView {
+                        tower,
+                        centre_x: tower as f32 * 400.0,
+                        half_width: 10.0,
+                        shift: 0.0,
+                        rect: Rect::new(tower as f32 * 0.5, 0.0, (tower + 1) as f32 * 0.5, 1.0),
+                    })
+                    .collect(),
+            })
+            .add_systems(Update, (follow_lanes, relayer_scene).chain());
+        let world = app.world_mut();
+        let main = world.spawn((Camera2d, MainCamera)).id();
+        let tower = world.spawn(Tower { index: 0, origin_x: 0.0, human: true, player: Some(0) }).id();
+        let cloud = world.spawn(TowerBackdrop(tower)).id();
+        let wizard = world.spawn(TowerForeground(tower)).id();
+        let part = world.spawn(ChildOf(wizard)).id();
+        app.update();
+
+        let world = app.world_mut();
+        let lane_order = world.query::<(&LaneCamera, &Camera)>().iter(world)
+            .find_map(|(lane, camera)| (lane.0 == 0).then_some(camera.order)).unwrap();
+        let main_order = world.get::<Camera>(main).unwrap().order;
+        let mut mirrors = world.query::<(&MirrorCamera, &Camera, &RenderLayers)>();
+        assert_eq!(mirrors.iter(world).count(), 4);
+        for (mirror, camera, layers) in mirrors.iter(world).filter(|(m, _, _)| m.tower == 0) {
+            let owner = match mirror.pass {
+                MirrorPass::Background => {
+                    assert!(camera.order < lane_order);
+                    cloud
+                }
+                MirrorPass::Foreground => {
+                    assert!(lane_order < camera.order && camera.order < main_order);
+                    part
+                }
+            };
+            assert_eq!(world.get::<RenderLayers>(owner), Some(layers));
+        }
+        assert_ne!(world.get::<RenderLayers>(cloud), world.get::<RenderLayers>(part));
+
+        world.resource_mut::<LaneViews>().lanes.clear();
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(mirrors.iter(world).count(), 0);
+        assert!(world.get::<RenderLayers>(cloud).is_none());
+        assert!(world.get::<RenderLayers>(part).is_none());
     }
 
     #[test]

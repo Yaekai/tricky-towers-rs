@@ -328,7 +328,7 @@ fn spawn_wizards(
         commands
             .spawn((
                 wizard,
-                crate::lanes::TowerBackdrop(tower_entity),
+                crate::lanes::TowerForeground(tower_entity),
                 Transform::from_xyz(tower.origin_x, 0.0, 20.0),
                 Visibility::default(),
             ))
