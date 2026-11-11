@@ -76,7 +76,7 @@ differs, which keeps bots, replays and netplay simple. More in [`PLAN.md`](PLAN.
 
 ## Current progress
 
-Updated 9 November 2026.
+Updated 12 November 2026.
 
 The playable offline features are implemented. Comparisons with the original continue
 through headless regressions, local measurements and silent offscreen captures. The
@@ -91,8 +91,8 @@ remaining work is tracked in [WHATS_NEXT](docs/WHATS_NEXT.md), with observations
 | Trials | All 50 trials across five tiers, fixed brick orders, enemy curses, rival towers, floors, medals and tier unlocks | Reproduce the exact earlier Trial 9 input sequence and compare remaining trials |
 | Controls and physics | Fixed-step shared gameplay for every tower, rotation, nudges, accelerated drop, bases, Ivy clusters and per-part bounds | Further stacking and collision comparisons |
 | Spells | All 17 spell kinds, compound curses, award rules and per-difficulty behavior | Remaining measured timings and estimated values |
-| Battle cameras and HUD | Centered viewports for Race, Survival and Puzzle, aspect-ratio fitting, lane clipping, HUD placement and independent camera shakes. Wider background cameras draw the wizards and spell clouds | Remaining background comparisons, Windows scaling and resize checks on hardware |
-| Wizards | All 14 characters, animated parts, reactions, per-character voices and controller hints | Animated wand positions, input voice timing and remaining pose comparisons |
+| Battle cameras and HUD | Centered viewports for Race, Survival and Puzzle, aspect-ratio fitting, lane clipping, HUD placement and independent camera shakes. Wider camera passes put wizards in front of the towers and spell clouds behind them | Remaining background comparisons, Windows scaling and resize checks on hardware |
+| Wizards | All 14 characters, animated parts, reactions, per-character voices and controller hints. The cup bolt follows each skin's staged wand path | Remaining pose and animation blend comparisons |
 | Brick packs | All eight packs, their effects, masks and material variants | Further visual comparisons |
 | Backgrounds and effects | Mode-specific layers, weather, water, wind, flashes, curse skies, splashes and spell effects | Remaining sizes, colors and timings marked `(?)` |
 | Match results | Finish countdowns, roofs, collapse, winner and loser effects, trial results and cup celebrations | Remaining effect and timing comparisons |
@@ -106,8 +106,8 @@ Recent work has closed several specific gaps.
 
 - Multiplayer Puzzle now keeps every tower centered in its own lane as the camera zooms.
   Captures cover two to four seats at 16:9, 21:9 and 5:4, including HUD, lasers and results.
-  Race and Survival now use the same fitted viewport and HUD path, with wider background
-  cameras for wizards, spell clouds and collected spell effects.
+  Race and Survival use the same fitted viewport and HUD path. Wider cameras draw the
+  wizards in front of the towers and spell clouds and collected spells behind them.
   Puzzle's shared background laser spans the spaces between the viewports.
 - Tilted brick bounds and Puzzle zaps now measure the individual collider parts. A Trial 9
   regression reproduces the old false 2.47-cell top and measures 2.20 after the fix. A known
@@ -122,8 +122,9 @@ Recent work has closed several specific gaps.
   under the black transition. The final trial leads into Credits and back to the Start screen.
 - Pause and Game Completed selection bars fit translated text, and mouse input follows
   the displayed bounds. Front-end captures include Russian, Arabic and Japanese at 21:9.
-- The cup winner takes input from the winning seat, its bolt follows the moving wand anchor,
-  its entrance plays the character's cheer, and its exit emits the wizard destruction burst.
+- The cup winner takes input from the winning seat. Light casts finish before queued reactions,
+  and the bolt follows the skin's animated wand. The entrance plays the character's cheer,
+  and the exit emits the wizard destruction burst.
   Its close fades music and the picture together, including the exit particles.
 
 The next priorities are remaining camera comparisons, the earlier Trial 9 reproduction,
