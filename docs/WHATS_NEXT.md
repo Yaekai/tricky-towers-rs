@@ -4,12 +4,32 @@ Start with the [Claude handover](handoff-2026-11-05-claude.md) and the
 [behavior audit](research/parity-audit-2026-11-03.md). The ordered list here
 supersedes the older working notes below.
 
+## Milestones and estimates
+
+Planning ranges as of 2026-11-11 for one developer with access to the original
+PC build. These are cumulative focused workdays from the current build.
+
+| Milestone | Estimate | Exit criteria |
+| --- | --- | --- |
+| Offline release candidate | 8–15 days | Run the offline mode, display and controller checks, fix release blockers, and verify a clean setup with placeholder and locally staged art. |
+| Offline parity pass | 20–35 days | Compare all 50 trials and all three Endless modes, then close measured differences in battle framing, spell timing, cup effects, text and sound. |
+| Connected Online Battle | 45–80 days | Complete the offline pass and ship the connected lobby, invites, matchmaking and synchronized matches, with disconnect, latency and desync checks across machines. |
+
+Start with the battle capture matrix and the remaining spell and cup comparisons.
+Replay Trial 9 once the input sequence for the reported stack is available.
+Batch the Windows scaling, resizing, controller and audio checks into one hands-on
+session, then run the release checklist. Online work starts with a two-machine
+match and a choice of service for lobbies, invites and matchmaking. The online
+estimate assumes independent services and a second test machine. The Shop is
+outside the current plan.
+
 ## Active backlog
 
 1. **Finish the battle viewport comparisons.** Race and Survival now share Puzzle's
-   fitted world viewports and HUD path (2026-11-08). Wizards, spell clouds and collectors
-   use each tower's wider background camera. The shared Race flag stays behind the
-   tower cameras, and the scene's unit scale follows the fitted battle rectangle.
+   fitted world viewports and HUD path (2026-11-08). Wizards use each tower's wider
+   foreground camera, and spell clouds and collectors use its background camera.
+   The shared Race flag stays behind the tower cameras, and the scene's unit scale
+   follows the fitted battle rectangle.
    Remaining checks include background parity and real Windows scaling and resizing.
    First Puzzle slice merged
    2026-11-05 (`src/lanes.rs`): a back camera draws the scene, one camera per tower
@@ -57,9 +77,10 @@ supersedes the older working notes below.
      per tower (`camera.rect` = the viewport), and the same HUD anchoring and Expand
      scaling. Each tower also has a background and a foreground camera (its
      `TowerBackground<n>` / `TowerForeground<n>` layers) whose rect keeps the lane's
-     centre but is as wide as the screen allows around it. Rust now has each tower's
-     world camera and wider background camera, with a shared foreground pass.
-     The foreground mirror comparison remains queued.
+     centre but is as wide as the screen allows around it. The background mirrors
+     draw the spell clouds and collectors before the tower cameras. The foreground
+     mirrors draw the wizards after the tower cameras (2026-11-11). The shared
+     scenery foreground and UI draw after these passes.
    - 125% scaling and window resizing need a windowed check by Max (offscreen runs
      always render at 1x).
    - *Shakes in a battle.* Every original camera shake moves the camera
@@ -94,8 +115,9 @@ supersedes the older working notes below.
    can pop before the bricks touch. Slow's tether now stretches and reels back
    on Down. Large now grows the balloon without jumping the tether length.
    Large's headless size and collision shape now grow with its picture over 0.3 s.
-   The cup winner plays its cheer on entrance. Check the cup wizard's animated
-   wand position and input voice timing.
+   The cup winner plays its cheer on entrance. Its nudge afterimages recover and
+   fade with out-quad easing and keep the facing from the start of the nudge.
+   Check the cup wizard's animated wand position and input voice timing.
    Record the trigger, delay and outcome for each difference before editing.
    Then resolve the remaining `(?)` values in `casts`, `moments` and cup timing
    from clips or repeatable measurements. Use [PC tasks](pc-tasks.md) as evidence
