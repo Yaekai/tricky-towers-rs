@@ -10,7 +10,7 @@ use bevy::sprite::Anchor;
 use crate::art::{Animated, Art};
 use crate::config::{GameConfig, ModeKind};
 use crate::gameplay::{
-    ActiveBrick, Brick, FloorBlock, FloorPart, Match, Phase, Platform, Tower, TowerState,
+    ActiveBrick, Brick, FloorBlock, FloorPart, Match, Phase, Platform, Tower, TowerState, TowerStatus,
 };
 use crate::gameplay::{Placed, piece_def};
 use crate::spells::{Bubbled, Grassy, LifeOrb, SpellLog, Stone, Vined, Zapped};
@@ -1282,24 +1282,81 @@ fn show_vines(
 
 /// A tile of the race finish line.
 #[derive(Component)]
-struct FinishTile;
+struct FinishTile {
+    opacity: f32,
+    wave: bool,
+}
+
+#[derive(Default)]
+struct FinishCut {
+    round: u64,
+    leader_x: f32,
+    began: Option<f32>,
+}
+
+fn finish_cut_opacity(x: f32, leader: f32, elapsed: f32, (right, seconds): (f32, f32)) -> f32 {
+    let duration = seconds * (x - leader).abs() / (right - leader).abs().max(f32::EPSILON);
+    if elapsed >= duration {
+        0.0
+    } else if elapsed <= 0.0 {
+        1.0
+    } else {
+        1.0 - (10.0 * (elapsed / duration - 1.0)).exp2()
+    }
+}
 
 /// Custom/FinishLine's vertex wave: each tile rises and falls by 1% of the view's half height
 /// along sin(2 x + 2 t), x being its place across the view (-1 to 1).
 fn wave_finish_tiles(
     time: Res<Time>,
     view: Res<ViewSize>,
+    game: Res<Match>,
+    config: Res<GameConfig>,
+    towers: Query<(&Tower, &TowerState)>,
     camera: Query<(&GlobalTransform, &Projection), With<MainCamera>>,
-    mut tiles: Query<(&mut Transform, &GlobalTransform), With<FinishTile>>,
+    shared: Query<(), With<crate::lanes::SharedBattleLine>>,
+    mut tiles: Query<(&FinishTile, &ChildOf, &mut Transform, &GlobalTransform, &mut Sprite)>,
+    mut cut: Local<FinishCut>,
 ) {
     let Ok((eye, Projection::Orthographic(ortho))) = camera.single() else {
         return;
     };
     let half = view.0 * 0.5 * ortho.scale;
     let t = time.elapsed_secs();
-    for (mut transform, at) in &mut tiles {
-        let x = (at.translation().x - eye.translation().x) / half.x.max(1.0);
-        transform.translation.y = 0.01 * half.y * (2.0 * x + 2.0 * t).sin();
+    if cut.round != game.round {
+        *cut = FinishCut { round: game.round, ..default() };
+    }
+    if game.mode == ModeKind::Race && game.players > 1 && config.trial.is_none() {
+        let lane_x = |tower| (tower as f32 - (game.players as f32 - 1.0) * 0.5)
+            * config.lanes.spacing(game.players);
+        if game.phase == Phase::Playing {
+            cut.began = None;
+            if let Some((tower, _)) = towers.iter()
+                .filter(|(_, state)| state.status == TowerStatus::Building)
+                .max_by(|(a, sa), (b, sb)| sa.height.total_cmp(&sb.height).then(a.index.cmp(&b.index)))
+            {
+                cut.leader_x = lane_x(tower.index);
+            }
+        } else if game.phase == Phase::Over && cut.began.is_none() {
+            if let Some(winner) = game.winner { cut.leader_x = lane_x(winner); }
+            cut.began = Some(t);
+        }
+    }
+    for (tile, parent, mut transform, at, mut sprite) in &mut tiles {
+        if tile.wave {
+            let x = (at.translation().x - eye.translation().x) / half.x.max(1.0);
+            transform.translation.y = 0.01 * half.y * (2.0 * x + 2.0 * t).sin();
+        }
+        if shared.contains(parent.parent()) {
+            let fade = cut.began.filter(|_| game.phase == Phase::Over).map_or(1.0, |start| {
+                finish_cut_opacity(
+                    at.translation().x / config.cell_size, cut.leader_x, t - start,
+                    config.race_scene.finish_cut,
+                )
+            });
+            let opacity = tile.opacity * fade;
+            if sprite.color.alpha() != opacity { sprite.color.set_alpha(opacity); }
+        }
     }
 }
 
@@ -3205,6 +3262,7 @@ fn dress_platforms(
             if let Some((height, name, color)) = line {
                 let shared_laser = name == "laser" && game.mode == ModeKind::Puzzle
                     && config.trial.is_none() && lanes > 1;
+                let shared_finish = name == "finish_line" && lanes > 1 && config.trial.is_none() && first;
                 // The platform's centre is half a cell below its top.
                 let mut line = parent.spawn((
                     FinishLine {
@@ -3216,7 +3274,7 @@ fn dress_platforms(
                     ),
                     Visibility::default(),
                 ));
-                if (name == "finish_line" && lanes > 1 && config.trial.is_none()) || (shared_laser && first) {
+                if shared_finish || (shared_laser && first) {
                     line.insert(crate::lanes::SharedBattleLine);
                 }
                 // A battle's Puzzle laser rests as the plain (off) laser; the bright one
@@ -3257,18 +3315,31 @@ fn dress_platforms(
                 } else if name == "finish_line" {
                     // FinishFlag: tiles 1.2 cells apart at 0.7 alpha, each one bobbing on the
                     // Custom/FinishLine wave (`wave_finish_tiles`).
-                    let step = c * 1.2;
-                    let count = (line_width / step).ceil() as i32;
+                    let (first_x, spacing, count) = if shared_finish {
+                        let (first, step, count) = config.race_scene.finish_tiles;
+                        (line_x + c * first, c * step, count)
+                    } else {
+                        let step = c * 1.2;
+                        (line_x - line_width * 0.5 + step * 0.5, step, (line_width / step).ceil() as u32)
+                    };
+                    let art = art_sprite(&art, rest, c);
+                    let wave = art.is_some();
                     let mut any = None;
                     for i in 0..count {
-                        let x = line_x - line_width * 0.5 + step * (i as f32 + 0.5);
-                        if let Some((mut sprite, anchor, transform)) = art_sprite(&art, rest, c) {
-                            sprite.color = Color::WHITE.with_alpha(0.7);
+                        let x = first_x + spacing * i as f32;
+                        let fallback = || (
+                            Sprite::from_color(color, Vec2::new(spacing, 3.0)),
+                            Anchor::CENTER,
+                            Transform::default(),
+                        );
+                        if let Some((mut sprite, anchor, transform)) = art.clone().or_else(|| shared_finish.then(fallback)) {
+                            if wave { sprite.color = Color::WHITE.with_alpha(0.7); }
+                            let tile = FinishTile { opacity: sprite.color.alpha(), wave };
                             any = Some(line.with_child((
                                 sprite,
                                 anchor,
                                 transform.with_translation(Vec3::new(x, 0.0, 0.0)),
-                                FinishTile,
+                                tile,
                             )).id());
                         }
                     }
@@ -3276,7 +3347,7 @@ fn dress_platforms(
                 } else {
                     art_strip(&art, rest, c, line_width, Vec3::X * line_x).map(|strip| line.with_child(strip).id())
                 };
-                if rest_strip.is_none() && !other_laser {
+                if rest_strip.is_none() && !other_laser && line_width > 0.0 {
                     line.with_child((
                         Sprite::from_color(color, Vec2::new(line_width, 3.0)),
                         Transform::from_xyz(line_x, 0.0, 0.0),
@@ -3284,25 +3355,22 @@ fn dress_platforms(
                 }
                 // The finish line's tiles end in a cap at each side, the right one turned
                 // 180° (docs/research/trials-obstacles-roofs.md, "Finish line").
-                // The flag's end caps sit 33.6 / 34 cells out, past a shared screen's lanes:
-                // only a lone tower's view reaches them.
-                if name == "finish_line" && lanes == 1 {
-                    for side in [-1.0f32, 1.0] {
+                if name == "finish_line" && (shared_finish || lanes == 1) {
+                    let caps = config.race_scene.finish_caps;
+                    for (side, cap) in [(-1.0, caps.0), (1.0, caps.1)] {
                         if let Some((mut sprite, anchor, transform)) =
                             art_sprite(&art, "finish_line_end", c)
                         {
                             sprite.flip_x = side > 0.0;
                             sprite.flip_y = side > 0.0;
-                            let lane = line_width;
-                            line.with_child((
-                                sprite,
-                                anchor,
-                                transform.with_translation(Vec3::new(
-                                    side * (lane * 0.5 - c * 0.7),
-                                    0.0,
-                                    0.5,
-                                )),
-                            ));
+                            let x = if shared_finish { line_x + c * cap } else { side * (line_width * 0.5 - c * 0.7) };
+                            let transform = transform.with_translation(Vec3::new(x, 0.0, 0.5));
+                            if shared_finish {
+                                sprite.color = Color::WHITE.with_alpha(0.7);
+                                line.with_child((sprite, anchor, transform, FinishTile { opacity: 0.7, wave: true }));
+                            } else {
+                                line.with_child((sprite, anchor, transform));
+                            }
                         }
                     }
                 }
@@ -4167,13 +4235,13 @@ fn update_lines(
     towers: Query<&TowerState>,
     art: Res<Art>,
     mut lines: Query<(&SpellLine, &Children, &mut Transform, &mut Visibility), Without<FinishLine>>,
-    mut finish: Query<(&FinishLine, &ChildOf, &mut Transform, &mut Visibility), Without<SpellLine>>,
+    mut finish: Query<(&FinishLine, &ChildOf, &mut Transform, &mut Visibility, Has<crate::lanes::SharedBattleLine>), Without<SpellLine>>,
     raised: Query<(&crate::gameplay::Raised, &Transform), (Without<FinishLine>, Without<SpellLine>)>,
     mut diamonds: Query<(&mut Sprite, &Transform), (With<SpellDiamond>, Without<SpellLine>, Without<FinishLine>)>,
     time: Res<Time>,
 ) {
     let c = config.cell_size;
-    // Once a match is decided, the finish line and spell lines go at once.
+    // Race battles fade their shared flag from the winning lane. Other lines hide here.
     let over = game.phase == Phase::Over && game.mode.rules() != ModeKind::Puzzle;
     let _ = &art;
     let colors: Vec<Color> = config
@@ -4184,8 +4252,8 @@ fn update_lines(
         .collect();
     // How far the colours have run (a colour a step).
     let run = time.elapsed_secs() / config.hud.line_color_seconds.max(0.01);
-    for (line, parent, mut transform, mut visibility) in &mut finish {
-        visibility.set_if_neq(if over {
+    for (line, parent, mut transform, mut visibility, shared) in &mut finish {
+        visibility.set_if_neq(if over && !(shared && game.mode == ModeKind::Race) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
@@ -4343,6 +4411,57 @@ fn update_mist(
 mod tests {
     use super::top_cells;
     use bevy::prelude::Vec2;
+
+    #[test]
+    fn shared_race_flag_fades_outward_from_the_winning_lane() {
+        use super::{Art, FinishLine, FinishTile, GameConfig, MainCamera, Match, ModeKind, Phase, ViewSize, update_lines, wave_finish_tiles};
+        use crate::lanes::SharedBattleLine;
+        use bevy::prelude::*;
+        use std::time::Duration;
+
+        let config = GameConfig::default();
+        let winner = -config.lanes.spacing(2) * 0.5;
+        let cell = config.cell_size;
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<ViewSize>()
+            .init_resource::<Art>()
+            .insert_resource(config)
+            .insert_resource(Match { mode: ModeKind::Race, phase: Phase::Over, players: 2, winner: Some(0), ..default() })
+            .add_systems(Update, (wave_finish_tiles, update_lines));
+        let world = app.world_mut();
+        world.spawn((MainCamera, GlobalTransform::IDENTITY, Projection::Orthographic(OrthographicProjection::default_2d())));
+        let platform = world.spawn_empty().id();
+        let flag = world.spawn((
+            FinishLine { tower: Entity::PLACEHOLDER }, SharedBattleLine,
+            ChildOf(platform), Transform::default(), Visibility::Inherited,
+        )).id();
+        let [near, far] = [winner + 2.0, 35.0].map(|x| world.spawn((
+            FinishTile { opacity: 0.7, wave: false }, ChildOf(flag),
+            Sprite::from_color(Color::WHITE.with_alpha(0.7), Vec2::ONE),
+            Transform::default(), GlobalTransform::from_translation(Vec3::X * x * cell),
+        )).id());
+        let alpha = |app: &App, tile| app.world().get::<Sprite>(tile).unwrap().color.alpha();
+        let tick = |app: &mut App, seconds| {
+            app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs_f32(seconds));
+            app.update();
+        };
+        tick(&mut app, 0.0);
+        assert_eq!(app.world().get::<Visibility>(flag), Some(&Visibility::Inherited));
+        assert_eq!(alpha(&app, near), 0.7);
+        tick(&mut app, 0.5);
+        assert_eq!(alpha(&app, near), 0.0);
+        assert!((alpha(&app, far) - 0.7 * (1.0 - 0.03125)).abs() < 1e-5);
+        tick(&mut app, 0.5);
+        assert_eq!(alpha(&app, far), 0.0);
+
+        let mut game = app.world_mut().resource_mut::<Match>();
+        game.phase = Phase::Playing;
+        game.round += 1;
+        tick(&mut app, 0.1);
+        assert_eq!(alpha(&app, near), 0.7);
+        assert_eq!(alpha(&app, far), 0.7);
+    }
 
     #[test]
     fn shared_puzzle_laser_sweeps_from_the_screen_edge_and_flashes_at_full_width() {

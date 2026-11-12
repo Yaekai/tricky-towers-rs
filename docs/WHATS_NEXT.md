@@ -30,6 +30,7 @@ outside the current plan.
    foreground camera, and spell clouds and collectors use its background camera.
    The shared Race flag stays behind the tower cameras, and the scene's unit scale
    follows the fitted battle rectangle.
+   The Race flag fades tile by tile from the winner's lane at the end of a match.
    Remaining checks include background parity and real Windows scaling and resizing.
    First Puzzle slice merged
    2026-11-05 (`src/lanes.rs`): a back camera draws the scene, one camera per tower

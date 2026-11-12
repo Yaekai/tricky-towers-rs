@@ -109,6 +109,7 @@ Recent work has closed several specific gaps.
   Race and Survival use the same fitted viewport and HUD path. Wider cameras draw the
   wizards in front of the towers and spell clouds and collected spells behind them.
   Puzzle's shared background laser spans the spaces between the viewports.
+  Race's finish flag fades outward from the winning lane as the match ends.
 - Tilted brick bounds and Puzzle zaps now measure the individual collider parts. A Trial 9
   regression reproduces the old false 2.47-cell top and measures 2.20 after the fix. A known
   six-brick solution clears with zero extra slack. The shipped 0.3-cell allowance stays until
