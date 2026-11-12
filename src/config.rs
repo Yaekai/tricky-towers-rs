@@ -2616,6 +2616,8 @@ pub struct IntroRules {
     pub survival_count: f32,
     pub survival_count_short: f32,
     pub survival_after: f32,
+    /// HUD show time in seconds and hidden offset at the 1080p reference size.
+    pub survival_hud_show: (f32, f32),
     /// Puzzle: the waits before and after the laser comes in, and the laser's
     /// entrance: the bright laser sweeps across, then thins away as the plain one shows.
     pub puzzle_wait: f32,
@@ -2694,6 +2696,7 @@ impl Default for IntroRules {
             survival_count: 2.0,
             survival_count_short: 1.0,
             survival_after: 0.3,
+            survival_hud_show: (0.5, 150.0),
             puzzle_wait: 0.5,
             puzzle_after: 0.5,
             laser_sweep: 0.3,
@@ -2825,6 +2828,7 @@ impl IntroRules {
                     } else {
                         self.survival_count
                     };
+                    at += self.survival_hud_show.0;
                     count_up = Some((at, long));
                     at += long + self.survival_after;
                 }
@@ -4340,7 +4344,7 @@ mod tests {
         let survival = intro.plan(ModeKind::Survival, false, false, 33);
         assert_eq!(
             (survival.count_up, survival.countdown_at),
-            (Some((0.0, 1.0)), 1.3)
+            (Some((0.5, 1.0)), 1.8)
         );
         assert!((curve(&intro.count_scale, 0.125) - 1.035).abs() < 1e-6);
     }

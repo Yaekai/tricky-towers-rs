@@ -135,9 +135,13 @@ prefabs and their clips). Values are `GameConfig::intro`.
 - **The mode's own intro** (skipped by Rematch and Retry): Race waits 0.5 s, raises the camera's
   top and bottom together by the finish height less 17 cells over 0.8 s (in-out quad), holds
   0.5 s, comes back down in 0.386 s, and the countdown starts 0.2 s after it starts down.
-  Survival counts each brick count up from 0, linear over 2 s (1 s with 33 bricks), with a
-  count-up sound, then waits 0.3 s; the next-brick card flips through random bricks meanwhile
-  (not done yet). Puzzle waits 0.5 s, brings the laser in, waits 0.5 s. Until it comes in there is no laser.
+  Survival slides the empty card and zero count in from 150 reference pixels above the HUD
+  over 0.5 s with out-quad easing. The real next brick appears when the count-up starts.
+  Separate linear tweens round the count and the preview index to the nearest integer, with
+  ties to even. Each preview index change draws from a separate bag. The count lasts 2 s
+  (1 s with 33 bricks), then the real preview returns, the sound stops and the countdown
+  waits 0.3 s. [DOTween integer tween source](https://github.com/Demigiant/dotween/blob/develop/_DOTween.Assembly/DOTween/Plugins/IntPlugin.cs)
+  Puzzle waits 0.5 s, brings the laser in, waits 0.5 s. Until it comes in there is no laser.
   It has two pictures: the plain (off) laser it rests as, and a bright (on) laser that sweeps
   in from the lane's right edge to full width over 0.3 s, shrinking from 2.5 times its height,
   then thins to nothing over 0.5 s as the plain one shows (DOTween's default out-quad), with the

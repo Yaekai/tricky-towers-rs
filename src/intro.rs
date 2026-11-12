@@ -17,6 +17,9 @@ use crate::popup::{px, sliced};
 
 pub struct IntroPlugin;
 
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct IntroPresentation;
+
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(IntroOn)
@@ -27,7 +30,7 @@ impl Plugin for IntroPlugin {
             .init_resource::<EclipseIn>()
             .init_resource::<IntroClock>()
             .add_systems(Startup, spawn_intro)
-            .add_systems(Update, (run_intro, show_title, show_countdown).chain());
+            .add_systems(Update, (run_intro.in_set(IntroPresentation), show_title, show_countdown).chain());
     }
 }
 
@@ -35,9 +38,31 @@ impl Plugin for IntroPlugin {
 #[derive(Resource, Default)]
 pub struct CameraLift(pub f32);
 
-/// The Survival brick count shown while it counts up, instead of the real one.
+/// The Survival HUD override until its count-up finishes.
 #[derive(Resource, Default)]
-pub struct IntroCount(pub Option<u32>);
+pub struct IntroCount(pub Option<SurvivalIntroHud>);
+
+#[derive(Clone, Copy, Default)]
+pub struct SurvivalIntroHud {
+    pub bricks: u32,
+    /// Empty during the slide, the real brick at zero, then a draw from the preview bag.
+    pub preview: Option<u32>,
+    pub slide: f32,
+    preview_step: u32,
+}
+
+impl SurvivalIntroHud {
+    fn count(bricks: u32, share: f32, previous: Option<Self>) -> Self {
+        let previous = previous.unwrap_or_default();
+        let preview_step = ((bricks / 2) as f32 * share).round_ties_even() as u32;
+        Self {
+            bricks: (bricks as f32 * share).round_ties_even() as u32,
+            preview: Some(previous.preview.unwrap_or(0) + u32::from(preview_step != previous.preview_step)),
+            preview_step,
+            slide: 0.0,
+        }
+    }
+}
 
 /// Seconds since Puzzle's laser started coming in (below 0 while it waits); `None`
 /// shows the laser as it is.
@@ -59,6 +84,7 @@ struct Intro {
     round: u64,
     clock: f32,
     plan: Option<IntroPlan>,
+    count_sound: Option<Entity>,
     /// 0 Easy, 1 Normal, 2 Special.
     difficulty: usize,
     overtime: bool,
@@ -283,6 +309,10 @@ fn run_intro(
         intro.round = game.round;
         intro.clock = 0.0;
         intro.plan = None;
+        count.0 = None;
+        if let Some(entity) = intro.count_sound.take() {
+            commands.entity(entity).try_despawn();
+        }
         if game.phase == Phase::Intro || game.phase == Phase::Menu {
             let mode = game.mode.rules();
             intro.overtime = cup.overtime(&config.cups);
@@ -316,19 +346,18 @@ fn run_intro(
     let now = intro.clock;
     let crossed = |at: f32| before < at && now >= at;
     let sound = |commands: &mut Commands, name: &str, speed: f32| {
-        if let Some(handle) = art.as_deref().and_then(|a| a.sounds.get(name)) {
-            commands.spawn((
-                AudioPlayer(handle.clone()),
-                PlaybackSettings::DESPAWN.with_speed(speed),
-            ));
-        }
+        let handle = art.as_deref()?.sounds.get(name)?;
+        Some(commands.spawn((
+            AudioPlayer(handle.clone()),
+            PlaybackSettings::DESPAWN.with_speed(speed),
+        )).id())
     };
     if plan.title_at.is_some_and(crossed) {
-        sound(&mut commands, "sfx_countdown", 1.0);
+        let _ = sound(&mut commands, "sfx_countdown", 1.0);
     }
     for (k, pitch) in look.count_pitch.iter().enumerate().filter(|_| plan.count) {
         if crossed(plan.countdown_at + look.count_step * k as f32) {
-            sound(&mut commands, "sfx_count_v3", *pitch);
+            let _ = sound(&mut commands, "sfx_count_v3", *pitch);
         }
     }
     laser.0 = plan
@@ -336,7 +365,7 @@ fn run_intro(
         .map(|at| now - at)
         .filter(|&t| t < look.laser_sweep + look.laser_fade);
     if plan.laser_at.is_some_and(crossed) {
-        sound(&mut commands, "sfx_spawn_laser", 1.0);
+        let _ = sound(&mut commands, "sfx_spawn_laser", 1.0);
     }
     eclipse.0 = plan.eclipse_at.map(|at| now - at);
     clock.0 = Some(now);
@@ -363,22 +392,29 @@ fn run_intro(
             height * (1.0 - quad((t - up - hold) / down.max(0.01)))
         }
     });
-    // Survival: 0 until the count-up, then up to the bricks to place.
+    // The count-up starts only after the empty Survival card and zero count slide in.
     count.0 = match plan.count_up {
+        Some((at, _)) if game.phase == Phase::Intro && now < at => {
+            let slide = ((at - now) / look.survival_hud_show.0.max(f32::EPSILON)).clamp(0.0, 1.0).powi(2);
+            Some(SurvivalIntroHud { slide, ..default() })
+        }
         Some((at, long)) if game.phase == Phase::Intro && now < at + long => {
             if crossed(at) {
-                let name = if long < look.survival_count {
+                let name = if config.survival.bricks_to_place == 33 {
                     "sfx_count_up_short"
                 } else {
                     "sfx_count_up_long"
                 };
-                sound(&mut commands, name, 1.0);
+                intro.count_sound = sound(&mut commands, name, 1.0);
             }
-            let share = ((now - at) / long.max(0.01)).clamp(0.0, 1.0);
-            Some((config.survival.bricks_to_place as f32 * share) as u32)
+            let share = ((now - at) / long.max(f32::EPSILON)).clamp(0.0, 1.0);
+            Some(SurvivalIntroHud::count(config.survival.bricks_to_place, share, count.0))
         }
         _ => None,
     };
+    if count.0.is_none() && let Some(entity) = intro.count_sound.take() {
+        commands.entity(entity).try_despawn();
+    }
 }
 
 /// The mode title: opens to full height, its width bouncing to size, stays, then
@@ -528,5 +564,22 @@ fn show_countdown(
         if matches!(part, Part::CountBack | Part::CountFace) && text.0 != words {
             text.0 = words.to_string();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn survival_count_and_preview_round_independently() {
+        let start = SurvivalIntroHud::count(33, 0.0, None);
+        assert_eq!((start.bricks, start.preview), (0, Some(0)));
+        let tie = SurvivalIntroHud::count(33, 0.03125, Some(start));
+        assert_eq!((tie.bricks, tie.preview), (1, Some(0)));
+        let first_flip = SurvivalIntroHud::count(33, 0.04, Some(tie));
+        assert_eq!(first_flip.preview, Some(1));
+        let dropped_frames = SurvivalIntroHud::count(33, 0.5, Some(first_flip));
+        assert_eq!((dropped_frames.bricks, dropped_frames.preview), (16, Some(2)));
     }
 }
