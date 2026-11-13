@@ -181,3 +181,7 @@ best keeps its position. Race limits each pulse to one per second while the
 numbers still update; Survival and Puzzle have no cooldown. Sources are the
 leaderboard HUD constructors, HighscoreView and both BrickView override
 controllers.
+
+Endless Puzzle plays its eclipse cue when the eclipse starts, after the laser
+entrance and the second half-second wait. Retry shows the eclipse immediately
+and skips the sound. Source is EndlessPuzzleGameModeIntroController.
