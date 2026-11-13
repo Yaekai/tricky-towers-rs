@@ -459,6 +459,51 @@ fn two_towers_touching_the_laser_at_once_each_count_and_the_round_ends() {
 }
 
 #[test]
+fn puzzle_battle_waits_for_every_tower_and_ranks_the_bricks_still_standing() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.opponents = 1;
+    let first_points = config.cups.points[0];
+    let second_points = config.cups.points[1];
+    let count_seconds = config.puzzle.count_seconds;
+    let mut app = headless_app(config);
+    {
+        let mut cup = app.world_mut().resource_mut::<tricky_towers::cups::Cup>();
+        cup.pick = Some(0);
+        cup.begin();
+    }
+    {
+        let world = app.world_mut();
+        for (tower, mut state) in world.query::<(&Tower, &mut TowerState)>().iter_mut(world) {
+            if tower.index == 0 {
+                state.bricks_placed = 6;
+                state.tower_losses = 5;
+                state.status = TowerStatus::Out;
+                state.laser_count = Some(count_seconds);
+            }
+        }
+    }
+    run_seconds(&mut app, 0.1, |_| {});
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Playing);
+    {
+        let world = app.world_mut();
+        for (tower, mut state) in world.query::<(&Tower, &mut TowerState)>().iter_mut(world) {
+            if tower.index == 1 {
+                state.bricks_placed = 3;
+                state.status = TowerStatus::Out;
+                state.laser_count = Some(count_seconds);
+            }
+        }
+    }
+    run_seconds(&mut app, 0.1, |_| {});
+    let game = app.world().resource::<Match>();
+    assert_eq!(game.phase, Phase::Over);
+    assert_eq!(game.winner, Some(1));
+    let cup = app.world().resource::<tricky_towers::cups::Cup>();
+    assert_eq!(cup.points, vec![second_points, first_points]);
+}
+
+#[test]
 fn a_base_rise_that_lifts_a_brick_onto_the_line_ends_the_round() {
     // The base rises with each brick that fell off, and the bricks on it are carried
     // up. A rise that lifts the highest brick onto the laser must stop the tower, zap

@@ -72,6 +72,10 @@ impl Plugin for GameplayPlugin {
                     .chain()
                     .in_set(GameplaySystems),
             )
+            .add_systems(
+                FixedUpdate,
+                finish_match.after(place_obstacles).before(drain_water).in_set(GameplaySystems),
+            )
             .add_systems(Update, pause_physics_outside_play);
     }
 }
@@ -587,7 +591,7 @@ pub struct TowerState {
     pub wave_bricks: u32,
     /// Bricks that fell out of the tower after being placed.
     pub tower_losses: u32,
-    /// Endless Puzzle bricks removed from the tower by the laser.
+    /// Puzzle bricks removed from the tower by the laser.
     pub(crate) laser_zaps: u32,
     /// Endless Puzzle: the level, the bricks used when it ends, and the time into
     /// a level-up while one runs.
@@ -806,6 +810,11 @@ impl TowerState {
 
     /// Endless Survival and Endless Puzzle score: the bricks in the tower.
     pub fn endless_score(&self) -> u32 {
+        self.standing_bricks()
+    }
+
+    /// Placed bricks still in the tower after drops, Undo and laser zaps.
+    pub(crate) fn standing_bricks(&self) -> u32 {
         self.bricks_placed.saturating_sub(self.tower_losses).saturating_sub(self.laser_zaps)
     }
 }
@@ -2332,7 +2341,7 @@ fn track_towers(
         state.all_settled = true;
     }
     for (entity, brick, position, velocity, collider, rotation, bubbled, ghosted, cursed, spin, in_ivy, zapped) in &bricks {
-        if zapped && game.mode == ModeKind::EndlessPuzzle {
+        if zapped && game.mode.rules() == ModeKind::Puzzle && config.trial.is_none() {
             continue;
         }
         let Ok((_, tower, mut state)) = towers.get_mut(brick.tower) else {
@@ -2510,7 +2519,7 @@ fn zap_over_laser(
     >,
 ) {
     let battle = game.mode == ModeKind::Puzzle && config.trial.is_none();
-    if !battle && (game.mode != ModeKind::EndlessPuzzle || game.phase != Phase::Playing) {
+    if game.phase != Phase::Playing || (!battle && game.mode != ModeKind::EndlessPuzzle) {
         return;
     }
     for (entity, brick, collider, position, rotation) in &bricks {
@@ -2528,10 +2537,8 @@ fn zap_over_laser(
         let top = brick_bounds(collider, position.0, *rotation).max.y / config.cell_size;
         let margin = if battle { 0.05 } else { 0.0 };
         if top > state.laser(&config) + margin {
-            if !battle {
-                state.laser_zaps += 1;
-                commands.entity(entity).insert(Sensor);
-            }
+            state.laser_zaps += 1;
+            commands.entity(entity).insert(Sensor);
             commands.entity(entity).insert(crate::spells::Zapped {
                 timer: config.puzzle.zap_seconds,
                 length: config.puzzle.zap_seconds,
@@ -2850,21 +2857,30 @@ fn judge_match(
         }
     }
 
-    // A Puzzle round is counted once every touched tower's 3-2-1 has run.
+}
+
+/// Publish results after the last fixed step's laser zaps have been counted.
+fn finish_match(
+    config: Res<GameConfig>,
+    mut game: ResMut<Match>,
+    time: Res<Time>,
+    mut towers: Query<(&Tower, &mut TowerState)>,
+) {
+    if game.phase != Phase::Playing {
+        return;
+    }
     let counting = game.mode.rules() == ModeKind::Puzzle
         && towers.iter().any(|(_, s)| s.laser_count.is_some_and(|t| t < config.puzzle.count_seconds));
-    for (_, mut state) in &mut towers {
-        if let Some(t) = state.laser_count.as_mut() {
-            *t += dt;
-        }
-    }
     let mut winner = None;
     let mut building = Vec::new();
     let mut humans_building = 0;
     let mut humans = 0;
     let mut count = 0;
-    for (tower, state) in &towers {
+    for (tower, mut state) in &mut towers {
         count += 1;
+        if let Some(t) = state.laser_count.as_mut() {
+            *t += time.delta_secs();
+        }
         match state.status {
             TowerStatus::Won => {
                 winner = Some(winner.map_or(tower.index, |w: usize| w.min(tower.index)))
@@ -2877,15 +2893,16 @@ fn judge_match(
             humans_building += (state.status == TowerStatus::Building) as usize;
         }
     }
-    if game.mode.rules() == ModeKind::Puzzle && count > 1 {
-        // Everyone plays out their bricks; the tallest pile of bricks wins.
+    let battle_puzzle = game.mode == ModeKind::Puzzle && config.trial.is_none() && count > 1;
+    if battle_puzzle {
+        // Everyone plays out their bricks; the most bricks still standing wins.
         winner = None;
         // A tie for the most bricks is a draw: no winner, and both lanes say DRAW.
-        if building.is_empty() {
-            let most = towers.iter().map(|(_, s)| s.bricks_placed).max().unwrap_or(0);
+        if building.is_empty() && !counting {
+            let most = towers.iter().map(|(_, s)| s.standing_bricks()).max().unwrap_or(0);
             let leaders: Vec<usize> = towers
                 .iter()
-                .filter(|(_, s)| s.bricks_placed == most)
+                .filter(|(_, s)| s.standing_bricks() == most)
                 .map(|(t, _)| t.index)
                 .collect();
             if leaders.len() == 1 {
@@ -2897,9 +2914,9 @@ fn judge_match(
         // other gets its roof and WINNER! (Max's Survival clips); with more it goes on.
         winner = Some(building[0]);
     }
-    // Over when someone wins, nobody is left, or every human is out (a Puzzle round
-    // waits for its count).
-    if !counting && (winner.is_some() || building.is_empty() || (humans > 0 && humans_building == 0)) {
+    let humans_out = humans > 0 && humans_building == 0;
+    // A Puzzle battle waits for every tower's countdown, including bots.
+    if !counting && (winner.is_some() || building.is_empty() || (!battle_puzzle && humans_out)) {
         game.phase = Phase::Over;
         game.winner = winner;
     }
@@ -3227,10 +3244,14 @@ pub struct TowerSkin {
 /// height in Endless), then towers that went out, the last to go out first.
 pub fn placings(game: &Match, towers: &[(usize, &TowerState)]) -> Vec<usize> {
     let mut order: Vec<(usize, &TowerState)> = towers.to_vec();
+    if game.mode == ModeKind::Puzzle {
+        order.sort_by_key(|(index, state)| (std::cmp::Reverse(state.standing_bricks()), *index));
+        return order.into_iter().map(|(index, _)| index).collect();
+    }
     let score = |s: &TowerState| match game.mode {
         ModeKind::Race => s.height,
         ModeKind::Survival => s.lives.unwrap_or(0) as f32 * 1000.0 + s.bricks_placed as f32,
-        ModeKind::Puzzle | ModeKind::EndlessPuzzle => s.bricks_placed as f32,
+        ModeKind::Puzzle | ModeKind::EndlessPuzzle => s.standing_bricks() as f32,
         ModeKind::EndlessSurvival => s.bricks_placed as f32,
         ModeKind::Endless => s.best_height,
     };

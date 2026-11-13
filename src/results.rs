@@ -799,13 +799,6 @@ fn show_puzzle_scores(
     }
     let rules = &config.puzzle;
     let over = game.phase == Phase::Over;
-    // Each brick still in a tower (placed and not zapped away), counted one by one.
-    let mut standing: HashMap<Entity, u32> = HashMap::default();
-    for (_, brick, placed, zapped) in &bricks {
-        if placed.is_some() && !zapped {
-            *standing.entry(brick.tower).or_insert(0) += 1;
-        }
-    }
     if over {
         let since = match *counted {
             Some((round, t)) if round == game.round => t,
@@ -817,7 +810,7 @@ fn show_puzzle_scores(
     }
     let counts: Vec<u32> = towers
         .iter()
-        .map(|(entity, _, _)| standing.get(&entity).copied().unwrap_or(0))
+        .map(|(_, _, state)| state.standing_bricks())
         .collect();
     let most = counts.iter().copied().max().unwrap_or(0);
     match *counted {
@@ -832,7 +825,7 @@ fn show_puzzle_scores(
     clock.tied = if draw {
         towers
             .iter()
-            .filter(|(entity, ..)| standing.get(entity).copied().unwrap_or(0) == most)
+            .filter(|(_, _, state)| state.standing_bricks() == most)
             .map(|(entity, ..)| entity)
             .collect()
     } else {
@@ -854,7 +847,7 @@ fn show_puzzle_scores(
         }
     };
     for (entity, _tower, state) in &towers {
-        let total = standing.get(&entity).copied().unwrap_or(0);
+        let total = state.standing_bricks();
         let shown = if over {
             ticks.map(|(raw, since)| {
                 let n = raw.min(total);

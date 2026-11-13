@@ -293,7 +293,7 @@ fn score_cup(
     let order = placings(&game, &all);
     // A Puzzle round ranks by bricks, so towers with as many bricks share a place.
     let places: Vec<usize> = if game.mode.rules() == ModeKind::Puzzle {
-        let bricks = |t: usize| all.iter().find(|(i, _)| *i == t).map_or(0, |(_, s)| s.bricks_placed);
+        let bricks = |t: usize| all.iter().find(|(i, _)| *i == t).map_or(0, |(_, s)| s.standing_bricks());
         order
             .iter()
             .map(|&t| order.iter().filter(|&&o| bricks(o) > bricks(t)).count())
