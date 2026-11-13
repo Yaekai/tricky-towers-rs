@@ -178,7 +178,7 @@ fn wanted(
                             let mut flips = BrickBag::new(seed, config.pieces.len());
                             (0..flip).map(|_| flips.draw()).last().unwrap()
                         }),
-                        None => Some(bag.peek()),
+                        None => Some(state.next_trial_piece(config).unwrap_or_else(|| bag.peek())),
                     };
                     Shows::Card(preview, pack)
                 }
@@ -1403,6 +1403,33 @@ fn show_scores(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn trial_card_previews_the_same_fixed_order_as_the_dealer() {
+        use super::*;
+        let mut config = GameConfig::default();
+        config.trial = Some(0);
+        config.trials[0].order = vec!["I".into(), "T".into(), "L".into()];
+        let game = Match { phase: Phase::Playing, mode: ModeKind::Race, ..default() };
+        let mut state = TowerState::new(&config, 1);
+        let pack = crate::config::BrickPack::default();
+        let mut bag = BrickBag::new(config.seed, config.pieces.len());
+        let random = bag.peek();
+        for (used, name) in ["I", "T", "L"].into_iter().enumerate() {
+            state.bricks_placed = used as u32;
+            let expected = config.pieces.iter().position(|piece| piece.name == name).unwrap();
+            assert_eq!(
+                wanted(Kind::Card, &config, &game, None, &state, Some(&mut bag), pack, None, 0),
+                Shows::Card(Some(expected), pack),
+            );
+        }
+        state.bricks_placed = 3;
+        assert_eq!(
+            wanted(Kind::Card, &config, &game, None, &state, Some(&mut bag), pack, None, 0),
+            Shows::Card(Some(random), pack),
+        );
+        assert_eq!(bag.draw(), random);
+    }
+
     #[test]
     fn endless_score_pulse_uses_the_race_cooldown_and_the_score_drops() {
         use super::*;
