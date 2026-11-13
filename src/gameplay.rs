@@ -587,6 +587,8 @@ pub struct TowerState {
     pub wave_bricks: u32,
     /// Bricks that fell out of the tower after being placed.
     pub tower_losses: u32,
+    /// Endless Puzzle bricks removed from the tower by the laser.
+    pub(crate) laser_zaps: u32,
     /// Endless Puzzle: the level, the bricks used when it ends, and the time into
     /// a level-up while one runs.
     pub puzzle_level: u32,
@@ -671,6 +673,7 @@ impl TowerState {
             auto_cast_light: false,
             wave_bricks: 0,
             tower_losses: 0,
+            laser_zaps: 0,
             puzzle_level: 1,
             level_end: config.endless_play.level_bricks(1),
             level_up: None,
@@ -798,7 +801,7 @@ impl TowerState {
 
     /// Endless Survival and Endless Puzzle score: the bricks in the tower.
     pub fn endless_score(&self) -> u32 {
-        self.bricks_placed.saturating_sub(self.tower_losses)
+        self.bricks_placed.saturating_sub(self.tower_losses).saturating_sub(self.laser_zaps)
     }
 }
 
@@ -2300,6 +2303,7 @@ fn track_towers(
             Option<&Cursed>,
             Option<&AngularVelocity>,
             Has<ChildOf>,
+            Has<crate::spells::Zapped>,
         ),
         (Without<ActiveBrick>, Without<FloorBlock>),
     >,
@@ -2326,9 +2330,10 @@ fn track_towers(
         state.half_width = 0.0;
         state.all_settled = true;
     }
-    for (entity, brick, position, velocity, collider, rotation, bubbled, ghosted, cursed, spin, in_ivy) in
-        &bricks
-    {
+    for (entity, brick, position, velocity, collider, rotation, bubbled, ghosted, cursed, spin, in_ivy, zapped) in &bricks {
+        if zapped && game.mode == ModeKind::EndlessPuzzle {
+            continue;
+        }
         let Ok((_, tower, mut state)) = towers.get_mut(brick.tower) else {
             continue;
         };
@@ -2493,7 +2498,7 @@ fn zap_over_laser(
     mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,
-    towers: Query<&TowerState>,
+    mut towers: Query<&mut TowerState>,
     bricks: Query<
         (Entity, &Brick, &Collider, &Position, &Rotation),
         (
@@ -2504,11 +2509,11 @@ fn zap_over_laser(
     >,
 ) {
     let battle = game.mode == ModeKind::Puzzle && config.trial.is_none();
-    if !battle && game.mode != ModeKind::EndlessPuzzle {
+    if !battle && (game.mode != ModeKind::EndlessPuzzle || game.phase != Phase::Playing) {
         return;
     }
     for (entity, brick, collider, position, rotation) in &bricks {
-        let Ok(state) = towers.get(brick.tower) else {
+        let Ok(mut state) = towers.get_mut(brick.tower) else {
             continue;
         };
         let crossed = if battle {
@@ -2520,7 +2525,12 @@ fn zap_over_laser(
             continue;
         }
         let top = brick_bounds(collider, position.0, *rotation).max.y / config.cell_size;
-        if top > state.laser(&config) + 0.05 {
+        let margin = if battle { 0.05 } else { 0.0 };
+        if top > state.laser(&config) + margin {
+            if !battle {
+                state.laser_zaps += 1;
+                commands.entity(entity).insert(Sensor);
+            }
             commands.entity(entity).insert(crate::spells::Zapped {
                 timer: config.puzzle.zap_seconds,
                 length: config.puzzle.zap_seconds,
@@ -2739,11 +2749,32 @@ fn judge_match(
                 }
             }
             ModeKind::EndlessPuzzle => {
-                // Levels of bricks, the laser rising between them; a brick over
-                // the laser or a lost one ends the run.
+                // Levels of bricks with a rising laser between them. A tower
+                // that reaches the laser starts the finish countdown.
                 state.best_height = state.best_height.max(state.height);
                 let rules = &config.endless_play;
-                if let Some(t) = state.level_up.as_mut() {
+                let laser = state.laser(&config);
+                if state.hold_timer > 0.0 || state.height > laser || state.base_shown >= laser {
+                    // A zap cancels the next level. A laser rise already underway finishes.
+                    if let Some(t) = state.level_up {
+                        let wait = rules.level_wait.0;
+                        let step = if state.hold_timer > 0.0 { dt } else { 0.0 };
+                        if t >= wait && t + step < wait + rules.rise_seconds {
+                            state.level_up = Some(t + step);
+                        } else {
+                            if t >= wait {
+                                state.laser_base += rules.laser_rise;
+                                state.level_end += rules.level_bricks(state.puzzle_level + 1);
+                            }
+                            state.level_up = None;
+                            state.obstacle_spots = None;
+                        }
+                    }
+                    state.hold_timer += dt;
+                    if state.hold_timer >= config.race.hold_seconds {
+                        state.status = TowerStatus::Won;
+                    }
+                } else if let Some(t) = state.level_up.as_mut() {
                     *t += dt;
                     if *t >= rules.level_up_seconds() {
                         state.level_up = None;
@@ -2755,15 +2786,6 @@ fn judge_match(
                             state.light_spell = rules.level_spell;
                             state.dark_spell = None;
                         }
-                    }
-                } else if state.hold_timer > 0.0 || state.height > state.laser(&config) + 0.05 {
-                    // A brick over the laser is zapped (MaximumHeightGamePlayRule): no more
-                    // bricks come and a 3-2-1 runs (CountDownEffect, as a race's hold); then
-                    // the run is over, a win for the leaderboard: PuzzleRoofController puts no
-                    // roof on but makes the wizard the winner, so the bask says FINISH.
-                    state.hold_timer += dt;
-                    if state.hold_timer >= config.race.hold_seconds {
-                        state.status = TowerStatus::Won;
                     }
                 } else if state.bricks_used() >= state.level_end && state.active.is_none() {
                     // EndlessPuzzleGameModePlayController levels up as soon as the level's
@@ -2896,6 +2918,9 @@ fn place_obstacles(
     let rules = &config.endless_play;
     for (entity, tower, mut state) in &mut towers {
         let Some(t) = state.level_up else { continue };
+        if state.hold_timer > 0.0 {
+            continue;
+        }
         let since = t - rules.level_wait.0 - rules.rise_seconds;
         if since < 0.0 {
             continue;
@@ -3353,5 +3378,41 @@ mod obstacle_tests {
         for spot in &expected[..2] {
             assert!(placed.contains(&((*spot + Vec2::Y * rise) * cell)));
         }
+    }
+}
+
+#[cfg(test)]
+mod endless_zap_tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn laser_contact_starts_the_count_during_a_level_up() {
+        let config = GameConfig { mode: ModeKind::EndlessPuzzle, ..default() };
+        let mut state = TowerState::new(&config, 1);
+        state.level_up = Some(config.endless_play.level_wait.0 + config.endless_play.rise_seconds * 0.5);
+        let laser = state.laser(&config);
+        let target = state.laser_base + config.endless_play.laser_rise;
+        state.height = laser + 0.01;
+        let mut app = App::new();
+        app.insert_resource(config)
+            .insert_resource(Match { mode: ModeKind::EndlessPuzzle, phase: Phase::Playing, ..default() })
+            .init_resource::<Time>()
+            .add_systems(Update, judge_match);
+        let entity = app.world_mut().spawn((
+            Tower { index: 0, origin_x: 0.0, human: true, player: Some(0) },
+            state,
+        )).id();
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_millis(20));
+        app.update();
+        assert!(app.world().get::<TowerState>(entity).unwrap().hold_timer > 0.0);
+        for _ in 0..50 {
+            app.update();
+        }
+        let world = app.world();
+        let state = world.get::<TowerState>(entity).unwrap();
+        assert_eq!(state.level_up, None);
+        assert_eq!(state.laser(&world.resource::<GameConfig>()), target);
+        assert_eq!(state.puzzle_level, 1);
     }
 }

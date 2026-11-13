@@ -196,3 +196,9 @@ After the rise, the original draws four obstacle positions together in the
 tower's frame, accounting for height gained from drops. It places the blocks
 one by one and then resumes dealing bricks. Sources are
 EndlessPuzzleGameModePlayController and PuzzleObstaclePositionGenerator.
+
+Endless Puzzle removes zapped bricks from the score as soon as they leave the
+tower. Crossing the laser or raising the base to it starts the finish count,
+even during a level-up. A rise that already started can finish, while the
+remaining level-up actions are skipped. Each later zap flashes the line again.
+Sources are MaximumHeightGamePlayRule, Tower and EndlessPuzzleGameModePlayController.
