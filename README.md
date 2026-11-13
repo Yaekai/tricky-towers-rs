@@ -116,7 +116,8 @@ Recent work has closed several specific gaps.
   change, and Endless Race records the tower height when the pacer catches it.
 - Endless Puzzle plays the eclipse cue at the start of the effect, updates the next brick
   quota as the laser rises, and draws each level's obstacle positions together. The laser
-  starts the finish count at contact and removes zapped bricks from the score.
+  starts the finish count at contact and removes zapped bricks from the score. The HUD
+  counts bricks as they are dealt, and level progression counts placements and discards.
 - Endless Survival shows the numbered curse wave banner and plays its gong at each wave.
   The first wave and subsequent gaps use the original 15–28 second range.
 - Tilted brick bounds and Puzzle zaps now measure the individual collider parts. A Trial 9

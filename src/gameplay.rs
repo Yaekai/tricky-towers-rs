@@ -748,6 +748,11 @@ impl TowerState {
         self.bricks_placed + self.bricks_dropped
     }
 
+    /// Endless Puzzle spends a brick on placement or an in-hand discard.
+    pub(crate) fn endless_puzzle_bricks_used(&self) -> u32 {
+        self.placed_count + self.bricks_dropped.saturating_sub(self.tower_losses)
+    }
+
     /// The fixed trial order entry for the next normal draw, if it exists.
     pub(crate) fn next_trial_piece(&self, config: &GameConfig) -> Option<usize> {
         let name = config.trial.and_then(|index| config.trials.get(index))?
@@ -1544,26 +1549,22 @@ fn spawn_next_brick(
         if state.status != TowerStatus::Building || state.active.is_some() || state.pacer_end.is_some() {
             continue;
         }
-        // The Endless modes have no brick limit.
-        let limit = match game.mode {
+        let quota_reached = match game.mode {
             // A Puzzle battle has no brick limit: a round ends with the laser.
-            ModeKind::Puzzle if config.trial.is_some() => Some(config.puzzle.bricks),
-            ModeKind::Puzzle => None,
-            ModeKind::Survival => Some(config.survival.bricks_to_place),
+            ModeKind::Puzzle if config.trial.is_some() => state.bricks_used() >= config.puzzle.bricks,
+            ModeKind::Survival => state.bricks_used() >= config.survival.bricks_to_place,
             // Endless Puzzle stops at the end of each level until the level-up.
-            ModeKind::EndlessPuzzle => Some(state.level_end),
-            _ => None,
+            ModeKind::EndlessPuzzle => {
+                state.endless_puzzle_bricks_used() >= state.level_end || state.hold_timer > 0.0
+            }
+            _ => false,
         };
-        if limit.is_some_and(|n| state.bricks_used() >= n) {
+        if quota_reached {
             continue;
         }
         // A single-player run stops dealing bricks while its finish countdown runs, and deals
         // again if the countdown aborts (AbstractSinglePlayerGameMode's brickSpawningActive).
         if config.trial.is_some() && game.mode == ModeKind::Race && state.hold_timer > 0.0 {
-            continue;
-        }
-        // Endless Puzzle deals no more once a brick crossed the laser.
-        if game.mode == ModeKind::EndlessPuzzle && state.hold_timer > 0.0 {
             continue;
         }
         let respawn = state.respawn.take();
@@ -2787,9 +2788,9 @@ fn judge_match(
                             state.dark_spell = None;
                         }
                     }
-                } else if state.bricks_used() >= state.level_end && state.active.is_none() {
+                } else if state.endless_puzzle_bricks_used() >= state.level_end && state.active.is_none() {
                     // EndlessPuzzleGameModePlayController levels up as soon as the level's
-                    // bricks are used (placed or lost).
+                    // bricks are used (placed or discarded from hand).
                     state.level_up = Some(0.0);
                     state.obstacles_placed = 0;
                 }
@@ -3385,6 +3386,22 @@ mod obstacle_tests {
 mod endless_zap_tests {
     use super::*;
     use std::time::Duration;
+
+    #[test]
+    fn a_fallen_or_undone_tower_brick_does_not_change_the_level_quota() {
+        let config = GameConfig { mode: ModeKind::EndlessPuzzle, ..default() };
+        let mut state = TowerState::new(&config, 1);
+        state.placed_count = 3;
+        state.bricks_placed = 3;
+        state.bricks_dropped = 1; // In-hand discard.
+        assert_eq!(state.endless_puzzle_bricks_used(), 4);
+        state.bricks_dropped += 1; // Later fall.
+        state.tower_losses = 1;
+        assert_eq!(state.endless_puzzle_bricks_used(), 4);
+        state.bricks_placed -= 1; // Undo.
+        assert_eq!(state.endless_puzzle_bricks_used(), 4);
+        assert_eq!(state.endless_score(), 1);
+    }
 
     #[test]
     fn laser_contact_starts_the_count_during_a_level_up() {
