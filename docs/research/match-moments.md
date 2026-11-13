@@ -190,3 +190,9 @@ use that height. Source is EndlessRaceGameModePlayController.
 Endless Puzzle plays its eclipse cue when the eclipse starts, after the laser
 entrance and the second half-second wait. Retry shows the eclipse immediately
 and skips the sound. Source is EndlessPuzzleGameModeIntroController.
+
+In Endless Puzzle, the HUD receives the next quota as the laser starts rising.
+After the rise, the original draws four obstacle positions together in the
+tower's frame, accounting for height gained from drops. It places the blocks
+one by one and then resumes dealing bricks. Sources are
+EndlessPuzzleGameModePlayController and PuzzleObstaclePositionGenerator.

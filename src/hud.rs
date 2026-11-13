@@ -190,7 +190,12 @@ fn wanted(
             if state.status == TowerStatus::Out || game.phase == Phase::Over {
                 Shows::Nothing
             } else {
-                let left = state.level_end.saturating_sub(state.bricks_used());
+                let level_end = if state.level_up.is_some_and(|t| t >= config.endless_play.level_wait.0) {
+                    state.level_end + config.endless_play.level_bricks(state.puzzle_level + 1)
+                } else {
+                    state.level_end
+                };
+                let left = level_end.saturating_sub(state.bricks_used());
                 Shows::Text(left.to_string(), rgb(look.place_first))
             }
         }
@@ -1403,6 +1408,25 @@ fn show_scores(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn endless_puzzle_shows_the_new_quota_when_the_laser_starts_rising() {
+        let config = GameConfig { mode: ModeKind::EndlessPuzzle, ..default() };
+        let game = Match { mode: config.mode, phase: Phase::Playing, ..default() };
+        let mut state = TowerState::new(&config, 1);
+        state.bricks_placed = state.level_end;
+        let count = |state: &TowerState| wanted(Kind::Count, &config, &game, None, state, None, default(), None, 0);
+        let color = rgb(config.hud.place_first);
+        state.level_up = Some(0.0);
+        assert_eq!(count(&state), Shows::Text("0".into(), color));
+        let quota = config.endless_play.level_bricks(2);
+        state.level_up = Some(config.endless_play.level_wait.0);
+        assert_eq!(count(&state), Shows::Text(quota.to_string(), color));
+        state.level_up = None;
+        state.puzzle_level += 1;
+        state.level_end += quota;
+        assert_eq!(count(&state), Shows::Text(quota.to_string(), color));
+    }
+
     #[test]
     fn trial_card_previews_the_same_fixed_order_as_the_dealer() {
         use super::*;
