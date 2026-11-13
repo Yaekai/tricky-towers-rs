@@ -206,3 +206,7 @@ Sources are MaximumHeightGamePlayRule, Tower and EndlessPuzzleGameModePlayContro
 Endless Puzzle's eleven obstacle prefabs all use a centred full-cell collision box.
 Three share the unflipped Pro ledge graphics, three flip horizontally, three flip
 vertically and two flip both ways. Source is HousePuzzleProPiece01–11.
+
+Puzzle battles rank towers by the brick count after every player finishes.
+Fallen or zapped bricks have left that count. The results and cup standings
+use the same totals. Source is MultiPlayerPuzzleGameModePlayController.

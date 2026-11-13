@@ -109,6 +109,7 @@ Recent work has closed several specific gaps.
   Race and Survival use the same fitted viewport and HUD path. Wider cameras draw the
   wizards in front of the towers and spell clouds and collected spells behind them.
   Puzzle's shared background laser spans the spaces between the viewports.
+  Puzzle battles rank towers by the bricks still standing after all towers finish.
   Race's finish flag fades outward from the winning lane as the match ends.
   Survival's next-brick card slides in and previews a separate bag during the count-up.
 - All 50 Trials start and deal a first brick in the headless sweep. Fixed-order Trials
@@ -118,6 +119,7 @@ Recent work has closed several specific gaps.
   quota as the laser rises, and draws each level's obstacle positions together. The laser
   starts the finish count at contact and removes zapped bricks from the score. The HUD
   counts bricks as they are dealt, and level progression counts placements and discards.
+  Obstacles use the full-cell collision boxes and all eleven sprite orientations.
 - Endless Survival shows the numbered curse wave banner and plays its gong at each wave.
   The first wave and subsequent gaps use the original 15–28 second range.
 - Tilted brick bounds and Puzzle zaps now measure the individual collider parts. A Trial 9
