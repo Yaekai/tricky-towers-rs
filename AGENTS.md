@@ -447,3 +447,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-13 (Codex): Endless Race now scores the live tower with the original one-cell cutoff, then preserves the height at pacer catch for the result and leaderboard.
 - 2026-11-13 (Codex): wired the staged Endless Puzzle eclipse sound to the intro's eclipse event. A regression checks the one-shot cue and silent Retry.
 - 2026-11-13 (Codex): Endless Puzzle chooses one set of obstacle positions per level-up and uses the raised tower's frame for its rows. The next quota appears when the laser starts moving, and the dealer still waits until the level-up ends.
+- 2026-11-13 (Codex): Endless Puzzle uses the strict laser threshold, interrupts level-ups on contact and deducts zapped bricks from the score as they leave. New zaps restart the flash.

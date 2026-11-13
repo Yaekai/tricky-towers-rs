@@ -562,6 +562,7 @@ struct LaserSweep {
     flash: Option<f32>,
     /// Endless Puzzle: the bricks used and whether a level-up ran, last frame.
     seen: (u32, bool),
+    zaps: u32,
 }
 #[derive(Component)]
 struct LaserRest;
@@ -607,13 +608,17 @@ fn sweep_lasers(
             // EndlessPuzzleGameModePlayController flashes the laser (AnimateZap) at every
             // brick used, every brick zapped and each level-up's end.
             let now = state.map_or((0, false), |s| (s.bricks_used(), s.level_up.is_some()));
-            let zapped = state.is_some_and(|s| s.hold_timer > 0.0) && sweep.flash.is_none();
-            if now.0 > sweep.seen.0 || (sweep.seen.1 && !now.1) || zapped {
+            let zaps = state.map_or(0, |s| s.laser_zaps);
+            let counted_out = state.is_some_and(|s| s.hold_timer > 0.0);
+            let finished_level = sweep.seen.1 && !now.1 && !counted_out;
+            let zapped = zaps > sweep.zaps || (counted_out && sweep.flash.is_none());
+            if now.0 > sweep.seen.0 || finished_level || zapped {
                 sweep.flash = Some(0.0);
             } else if let Some(flash) = sweep.flash.as_mut() {
                 *flash += time.delta_secs();
             }
             sweep.seen = now;
+            sweep.zaps = zaps;
         } else {
             // The one battle laser flashes whenever a tower goes out over it.
             let out = towers
@@ -3296,6 +3301,7 @@ fn dress_platforms(
                                 tower: platform.tower,
                                 flash: None,
                                 seen: (0, false),
+                                zaps: 0,
                             },
                             Transform::from_xyz(0.0, 0.0, 0.2),
                             Visibility::Hidden,
@@ -4480,7 +4486,7 @@ mod tests {
         app.world_mut().spawn(TowerState::new(&config, 2));
         app.world_mut().spawn((MainCamera, Projection::Orthographic(OrthographicProjection::default_2d())));
         let beam = app.world_mut().spawn((
-            LaserSweep { width: strip_width, tower, flash: None, seen: (0, false) },
+            LaserSweep { width: strip_width, tower, flash: None, seen: (0, false), zaps: 0 },
             Transform::default(), Visibility::Hidden,
         )).id();
         for width in [1280.0, 1920.0] {
