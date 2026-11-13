@@ -463,8 +463,15 @@ fn puzzle_battle_waits_for_every_tower_and_ranks_the_bricks_still_standing() {
     let mut config = fast_config();
     config.mode = ModeKind::Puzzle;
     config.opponents = 1;
+    let first_points = config.cups.points[0];
+    let second_points = config.cups.points[1];
     let count_seconds = config.puzzle.count_seconds;
     let mut app = headless_app(config);
+    {
+        let mut cup = app.world_mut().resource_mut::<tricky_towers::cups::Cup>();
+        cup.pick = Some(0);
+        cup.begin();
+    }
     {
         let world = app.world_mut();
         for (tower, mut state) in world.query::<(&Tower, &mut TowerState)>().iter_mut(world) {
@@ -492,6 +499,8 @@ fn puzzle_battle_waits_for_every_tower_and_ranks_the_bricks_still_standing() {
     let game = app.world().resource::<Match>();
     assert_eq!(game.phase, Phase::Over);
     assert_eq!(game.winner, Some(1));
+    let cup = app.world().resource::<tricky_towers::cups::Cup>();
+    assert_eq!(cup.points, vec![second_points, first_points]);
 }
 
 #[test]
