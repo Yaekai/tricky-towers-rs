@@ -705,6 +705,12 @@
             1,
             0,
         ],
+        obstacle_flips: [
+            (false, false), (false, false), (false, false),
+            (true, false), (true, false), (true, false),
+            (false, true), (false, true), (false, true),
+            (true, true), (true, true),
+        ],
     ),
     trials: [
         (

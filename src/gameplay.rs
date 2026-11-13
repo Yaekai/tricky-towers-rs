@@ -2938,9 +2938,8 @@ fn place_obstacles(
         while (state.obstacles_placed as usize) < due
             && let Some(&spot) = state.obstacle_spots.as_ref().and_then(|spots| spots.get(state.obstacles_placed as usize))
         {
-            let look = rules
-                .obstacle_looks
-                .get(state.random() as usize % rules.obstacle_looks.len().max(1));
+            let variant = state.random() as usize % rules.obstacle_looks.len().max(1);
+            let look = rules.obstacle_looks.get(variant).copied().unwrap_or(0);
             let block = Brick {
                 tower: entity,
                 piece: 0,
@@ -2950,14 +2949,14 @@ fn place_obstacles(
                 mass: 1.0,
                 ice: false,
             };
-            let (collider, _) = brick_body(&config, &block);
+            let collider = Collider::rectangle(config.cell_size, config.cell_size);
             let at = Vec2::new(tower.origin_x + config.cells(spot.x), config.cells(spot.y + state.base_shown));
             commands.spawn((
                 block,
                 FloorBlock {
-                    part: FloorPart::Ledge(look.copied().unwrap_or(0)),
+                    part: FloorPart::Ledge(look),
                 },
-                Obstacle,
+                Obstacle(variant),
                 RigidBody::Static,
                 collider,
                 Friction::new(config.brick_friction),
@@ -2978,7 +2977,7 @@ pub struct RivalLane {
 
 /// An Endless Puzzle block put down at a level-up.
 #[derive(Component, Debug)]
-pub struct Obstacle;
+pub struct Obstacle(pub(crate) usize);
 
 /// True while this tower won and its roof isn't on yet: the match moments and
 /// the popup wait for it.
@@ -3372,8 +3371,13 @@ mod obstacle_tests {
         state.level_up = Some(second);
         app.update();
         let world = app.world_mut();
-        let placed: Vec<_> = world.query_filtered::<&Transform, With<Obstacle>>()
-            .iter(world).map(|at| at.translation.truncate()).collect();
+        let placed: Vec<_> = world.query_filtered::<(&Transform, &Collider), With<Obstacle>>()
+            .iter(world).map(|(at, collider)| {
+                let at = at.translation.truncate();
+                let bounds = collider.aabb(at, Rotation::IDENTITY);
+                assert!((bounds.max - bounds.min).abs_diff_eq(Vec2::splat(cell), 0.001));
+                at
+            }).collect();
         assert_eq!(placed.len(), 2);
         for spot in &expected[..2] {
             assert!(placed.contains(&((*spot + Vec2::Y * rise) * cell)));

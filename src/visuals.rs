@@ -700,10 +700,10 @@ fn dress_floor(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
-    blocks: Query<(Entity, &FloorBlock, &Brick), Or<(Added<FloorBlock>, Changed<Brick>)>>,
+    blocks: Query<(Entity, &FloorBlock, &Brick, Option<&crate::gameplay::Obstacle>), Or<(Added<FloorBlock>, Changed<Brick>)>>,
 ) {
     let c = config.cell_size;
-    for (entity, block, brick) in &blocks {
+    for (entity, block, brick, obstacle) in &blocks {
         let name = match block.part {
             FloorPart::Column(0) => "puzzle_piece_1".to_string(),
             FloorPart::Column(_) => "puzzle_piece_3".to_string(),
@@ -712,9 +712,15 @@ fn dress_floor(
             FloorPart::Ledge(n) => format!("puzzle_pro_ledge_{}", n + 1),
             FloorPart::TopLedge => "puzzle_pro_ledge_top".to_string(),
         };
-        let Some((sprite, anchor, mut transform)) = art_sprite(&art, &name, c) else {
+        let Some((mut sprite, anchor, mut transform)) = art_sprite(&art, &name, c) else {
             continue;
         };
+        if let Some(obstacle) = obstacle
+            && let Some(&(x, y)) = config.endless_play.obstacle_flips.get(obstacle.0)
+        {
+            sprite.flip_x = x;
+            sprite.flip_y = y;
+        }
         let half = brick.cells.len() as f32 * 0.5;
         let mut node = commands.entity(entity);
         // Its pictures are children, so it needs visibility of its own.
@@ -4417,6 +4423,36 @@ fn update_mist(
 mod tests {
     use super::top_cells;
     use bevy::prelude::Vec2;
+
+    #[test]
+    fn puzzle_obstacle_uses_the_selected_prefab_flips() {
+        use super::{Art, Brick, FloorBlock, FloorPart, GameConfig, dress_floor};
+        use crate::gameplay::Obstacle;
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        let mut art = Art::default();
+        let name = "puzzle_pro_ledge_2";
+        art.entries.insert(name.into(), ron::from_str("(pixels_per_unit: Some(26.0))").unwrap());
+        art.images.insert(name.into(), Handle::default());
+        app.insert_resource(art)
+            .init_resource::<GameConfig>()
+            .add_systems(Update, dress_floor);
+        let block = app.world_mut().spawn((
+            FloorBlock { part: FloorPart::Ledge(1) },
+            Obstacle(9),
+            Brick {
+                tower: Entity::PLACEHOLDER, piece: 0, cells: vec![Vec2::ZERO],
+                color: Color::WHITE, scale: 1.0, mass: 1.0, ice: false,
+            },
+            Transform::default(),
+        )).id();
+        app.update();
+        let world = app.world();
+        let child = world.get::<Children>(block).unwrap()[0];
+        let sprite = world.get::<Sprite>(child).unwrap();
+        assert!(sprite.flip_x && sprite.flip_y);
+    }
 
     #[test]
     fn shared_race_flag_fades_outward_from_the_winning_lane() {

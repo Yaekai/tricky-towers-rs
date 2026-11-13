@@ -435,6 +435,8 @@ pub struct EndlessPlay {
     pub obstacle_columns: Vec<(f32, f32)>,
     /// The Pro ledge look (0-2) of each of the original's 11 block pieces.
     pub obstacle_looks: Vec<u32>,
+    /// Horizontal and vertical flips of each block's graphic.
+    pub obstacle_flips: Vec<(bool, bool)>,
 }
 
 impl Default for EndlessPlay {
@@ -515,6 +517,12 @@ impl Default for EndlessPlay {
                 (0.5, 0.01),
             ],
             obstacle_looks: vec![0, 1, 2, 0, 1, 2, 2, 1, 0, 1, 0],
+            obstacle_flips: vec![
+                (false, false), (false, false), (false, false),
+                (true, false), (true, false), (true, false),
+                (false, true), (false, true), (false, true),
+                (true, true), (true, true),
+            ],
         }
     }
 }
