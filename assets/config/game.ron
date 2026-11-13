@@ -269,6 +269,7 @@
         survival_count: 2.0,
         survival_count_short: 1.0,
         survival_after: 0.3,
+        survival_hud_show: (0.5, 150.0),
         puzzle_wait: 0.5,
         puzzle_after: 0.5,
         laser_sweep: 0.3,

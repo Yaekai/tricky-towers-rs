@@ -14,6 +14,7 @@ use crate::config::{GameConfig, HudLook, ModeKind};
 use crate::gameplay::{
     Brick, BrickBag, Match, Phase, RoofPiece, RoofStage, Tower, TowerState, TowerStatus, placings,
 };
+use crate::intro::{IntroCount, IntroPresentation, SurvivalIntroHud};
 use crate::visuals::{FramedCamera, ViewSize};
 use crate::wizards::Wizard;
 
@@ -27,7 +28,7 @@ impl Plugin for HudPlugin {
             Update,
             (
                 spawn_items,
-                fill_items,
+                fill_items.after(IntroPresentation),
                 place_items,
                 pop_ranks,
                 pop_counts,
@@ -67,7 +68,7 @@ const KINDS: [Kind; 4] = [Kind::Card, Kind::Count, Kind::Place, Kind::Hearts];
 enum Shows {
     Nothing,
     /// The next brick, drawn with the tower's brick pack.
-    Card(usize, crate::config::BrickPack),
+    Card(Option<usize>, crate::config::BrickPack),
     Text(String, Color),
     /// A place, 0 for the leader: the number and its suffix.
     Rank(usize),
@@ -149,7 +150,7 @@ fn wanted(
     state: &TowerState,
     bag: Option<&mut BrickBag>,
     pack: crate::config::BrickPack,
-    count_up: Option<u32>,
+    count_up: Option<SurvivalIntroHud>,
     tower: usize,
 ) -> Shows {
     let look = &config.hud;
@@ -165,17 +166,20 @@ fn wanted(
                 && game.mode == ModeKind::Survival
                 && config.trial.is_none()
                 && state.status == TowerStatus::Out;
-            // While Survival's count counts up the card flips through random bricks
-            // from its own bag, once per two counted (AnimateBrickCountEffect), then
-            // lands on the real next brick.
-            let flip = count_up.filter(|_| intro).map(|counted| {
-                let mut flips = BrickBag::new(config.seed ^ (tower as u64 + 1) * 0x9E37, config.pieces.len());
-                (0..=counted / 2).map(|_| flips.draw()).last().unwrap_or(0)
-            });
             match bag {
                 Some(bag) if (playing || intro || kept) && !finished_puzzle => {
-                    let piece = flip.or_else(|| state.next_trial_piece(config)).unwrap_or_else(|| bag.peek());
-                    Shows::Card(piece, pack)
+                    let preview = match count_up.filter(|_| intro) {
+                        Some(sample) => sample.preview.map(|flip| {
+                            if flip == 0 {
+                                return bag.peek();
+                            }
+                            let seed = config.seed ^ game.round.rotate_left(32) ^ (tower as u64 + 1) * 0x9E37;
+                            let mut flips = BrickBag::new(seed, config.pieces.len());
+                            (0..flip).map(|_| flips.draw()).last().unwrap()
+                        }),
+                        None => Some(state.next_trial_piece(config).unwrap_or_else(|| bag.peek())),
+                    };
+                    Shows::Card(preview, pack)
                 }
                 _ => Shows::Nothing,
             }
@@ -190,7 +194,7 @@ fn wanted(
             }
         }
         Kind::Count if game.mode == ModeKind::Survival && game.phase != Phase::Menu => {
-            let left = count_up.unwrap_or(
+            let left = count_up.map(|count| count.bricks).unwrap_or(
                 config
                     .survival
                     .bricks_to_place
@@ -262,7 +266,7 @@ fn fill_items(
         Has<crate::letters::MirroredBy>,
         &Node,
     )>,
-    count_up: Option<Res<crate::intro::IntroCount>>,
+    count_up: Option<Res<IntroCount>>,
     time: Res<Time>,
     popping: Query<(), With<CountPop>>,
     mut steady: Local<HashMap<usize, (Option<usize>, Option<usize>, f32)>>,
@@ -579,6 +583,13 @@ fn build(
                 }
             }
             // The brick, fitted inside the white part.
+            let layout = Node {
+                width: Val::Px(card_w),
+                height: Val::Px(card_h),
+                top: Val::Px(0.0),
+                ..base
+            };
+            let Some(piece) = piece else { return layout };
             let def = &config.pieces[*piece];
             let cells = def.centered_cells();
             let min = cells.iter().fold(Vec2::MAX, |a, &b| a.min(b));
@@ -643,12 +654,7 @@ fn build(
                     }
                 }
             });
-            Node {
-                width: Val::Px(card_w),
-                height: Val::Px(card_h),
-                top: Val::Px(0.0),
-                ..base
-            }
+            layout
         }
     }
 }
@@ -683,6 +689,7 @@ fn place_items(
     mut items: Query<(&HudItem, &mut Node, &ComputedNode, Option<&crate::letters::MirroredBy>)>,
     twins: Query<&ComputedNode, Without<HudItem>>,
     game: Res<Match>,
+    intro: Option<Res<IntroCount>>,
     lanes: Option<Res<crate::lanes::LaneViews>>,
 ) {
     let lanes = lanes.as_deref().cloned().unwrap_or_default();
@@ -722,7 +729,8 @@ fn place_items(
         } else {
             Rect::from_corners(Vec2::ZERO, view.0)
         };
-        let top = frame.min.y;
+        let slide = intro.as_ref().and_then(|count| count.0).map_or(0.0, |count| count.slide);
+        let top = frame.min.y - config.intro.survival_hud_show.1 * slide * frame.height() / 1080.0;
         let card_h = look.card_height * frame.height();
         let card_w = card_h * look.card_aspect;
         let column = screen(tower.index, Vec2::new(tower.origin_x, 0.0)).map(|p| p.x);
@@ -1379,15 +1387,37 @@ mod tests {
             let expected = config.pieces.iter().position(|piece| piece.name == name).unwrap();
             assert_eq!(
                 wanted(Kind::Card, &config, &game, None, &state, Some(&mut bag), pack, None, 0),
-                Shows::Card(expected, pack),
+                Shows::Card(Some(expected), pack),
             );
         }
         state.bricks_placed = 3;
         assert_eq!(
             wanted(Kind::Card, &config, &game, None, &state, Some(&mut bag), pack, None, 0),
-            Shows::Card(random, pack),
+            Shows::Card(Some(random), pack),
         );
         assert_eq!(bag.draw(), random);
+    }
+
+    #[test]
+    fn survival_preview_starts_empty_then_preserves_the_real_bag() {
+        use super::*;
+        let config = GameConfig::default();
+        let game = Match { phase: Phase::Intro, mode: ModeKind::Survival, ..default() };
+        let state = TowerState::new(&config, 1);
+        let pack = crate::config::BrickPack::default();
+        let mut bag = BrickBag::new(config.seed, config.pieces.len());
+        let actual = bag.peek();
+        let card = |bag: &mut BrickBag, sample| wanted(
+            Kind::Card, &config, &game, None, &state, Some(bag), pack, sample, 0,
+        );
+        let mut sample = SurvivalIntroHud::default();
+        assert_eq!(card(&mut bag, Some(sample)), Shows::Card(None, pack));
+        sample.preview = Some(0);
+        assert_eq!(card(&mut bag, Some(sample)), Shows::Card(Some(actual), pack));
+        sample.preview = Some(3);
+        assert!(matches!(card(&mut bag, Some(sample)), Shows::Card(Some(_), _)));
+        assert_eq!(card(&mut bag, None), Shows::Card(Some(actual), pack));
+        assert_eq!(bag.draw(), actual);
     }
 
     use super::*;
