@@ -442,3 +442,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-12 (Codex): matched the Race battle finish flag's 55 tiles and two caps. Both staged art and placeholder segments fade from the winning lane and reset on rematch.
 - 2026-11-13 (Codex): matched the Survival intro HUD slide and separate rounded count and preview tweens. The preview starts empty, uses a separate bag, and returns to the real brick when the count sound stops.
 - 2026-11-13 (Codex): restored the two distinct brick-count update turns and the original scale curve. The Survival count and the Endless Puzzle bricks-left label share the same clips.
+- 2026-11-13 (Codex): added the Endless score and personal-best pulses, with the score dip and Race's one-second cooldown. The displayed values still update through the cooldown.

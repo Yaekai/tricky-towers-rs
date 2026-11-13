@@ -174,3 +174,10 @@ use the same BrickViewOverrideController. Its two update clips share a scale
 curve that reaches 1.8 at 0.05 seconds and returns to one at 0.35 seconds.
 Their turns use separate tracks. Rust samples the turns at the exported
 frame positions and uses the scale curve with its original slopes.
+
+The three Endless modes pulse the score and personal best when their values
+change. The score dips 22.16 reference pixels during the pulse. The personal
+best keeps its position. Race limits each pulse to one per second while the
+numbers still update; Survival and Puzzle have no cooldown. Sources are the
+leaderboard HUD constructors, HighscoreView and both BrickView override
+controllers.
