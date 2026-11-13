@@ -973,24 +973,24 @@ fn wave_messages(
     images: Option<Res<Assets<Image>>>,
     game: Res<Match>,
     towers: Query<(&Tower, &TowerState)>,
-    mut seen: Local<(u64, bool, u32)>,
+    mut seen: Local<(u64, u32)>,
     old: Query<Entity, With<WaveMessage>>,
 ) {
     // A new match starts the count again. (The pause menu is the Menu phase too: resetting
     // there made every paused frame start another banner, smeared over the pause screen.)
     if seen.0 != game.round {
-        *seen = (game.round, false, 0);
+        *seen = (game.round, 0);
         // A banner left from the last match (it waits while paused) goes.
         for entity in &old {
             commands.entity(entity).despawn();
         }
     }
-    let wave = towers
+    let number = towers
         .iter()
-        .any(|(t, s)| t.is_first_player() && s.wave_left > 0.0);
-    if wave && !seen.1 {
-        seen.2 += 1;
-        let number = seen.2;
+        .find(|(t, _)| t.is_first_player())
+        .map_or(0, |(_, state)| state.wave_number);
+    if number > seen.1 {
+        seen.1 = number;
         // SharedAgonyLayer.WaveActivated: the gong, then the message.
         if let Some(gong) = art.sounds.get("sfx_gong_v2") {
             commands.spawn((AudioPlayer(gong.clone()), PlaybackSettings::DESPAWN));
@@ -1063,7 +1063,6 @@ fn wave_messages(
             cloud(row, "wave_cloud_1", -1.35 + 8.86, 5.28, Some(2));
         });
     }
-    seen.1 = wave;
 }
 
 fn fade_wave_messages(
@@ -1102,6 +1101,41 @@ fn fade_wave_messages(
         }
     }
 }
+
+#[cfg(test)]
+mod wave_tests {
+    use super::*;
+
+    #[test]
+    fn a_counted_wave_announces_once_even_if_it_ends_before_rendering() {
+        let mut app = App::new();
+        app.init_resource::<Art>()
+            .init_resource::<GameConfig>()
+            .insert_resource(Match { mode: ModeKind::EndlessSurvival, phase: Phase::Playing, round: 1, ..default() })
+            .add_systems(Update, wave_messages);
+        let world = app.world_mut();
+        world.resource_mut::<Art>().sounds.insert("sfx_gong_v2".into(), Handle::default());
+        let config = world.resource::<GameConfig>().clone();
+        let tower = world.spawn((
+            Tower { index: 0, origin_x: 0.0, human: true, player: Some(0) },
+            TowerState::new(&config, 1),
+        )).id();
+
+        for number in [1, 2] {
+            app.world_mut().get_mut::<TowerState>(tower).unwrap().wave_number = number;
+            app.update();
+            app.update();
+            let world = app.world_mut();
+            assert_eq!(world.query::<&WaveMessage>().iter(world).count(), number as usize);
+            assert_eq!(world.query::<&AudioPlayer>().iter(world).count(), number as usize);
+            assert_eq!(
+                world.query::<&Text>().iter(world).filter(|text| text.0 == number.to_string()).count(),
+                2,
+            );
+        }
+    }
+}
+
 /// BrickClipper: while a brick on a shared screen sticks out of its tower's lane (its own
 /// camera's edge in the original), the Forcefield (BRICK_CLIP_PARTICLE) sits on the cut, as
 /// tall as the brick, turned to stream into the lane.

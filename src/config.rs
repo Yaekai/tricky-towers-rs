@@ -399,7 +399,7 @@ impl EndlessRules {
 
 /// Endless Survival and Endless Puzzle, read from the original (EndlessSurvival and
 /// EndlessPuzzle game modes; the curse waves from SharedAgonyLeaderboardHelper: 15 to
-/// 29 s apart, two waves a level from AbstractWorldCurseSpawner).
+/// 28 s apart, two waves a level from AbstractWorldCurseSpawner).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct EndlessPlay {
@@ -409,7 +409,7 @@ pub struct EndlessPlay {
     pub survival_drop_speed: f32,
     /// Spell lines give one of these at random, light only.
     pub survival_light: Vec<SpellKind>,
-    /// Curse waves 15 to 29 s apart, each lasting a number of bricks.
+    /// Curse waves 15 to 28 s apart, each lasting a number of bricks.
     pub survival_waves: WaveRules,
     /// Endless Puzzle: no health (a lost brick lifts the tower), drop speed 2, the laser
     /// starts at 6.2.
@@ -446,7 +446,7 @@ impl Default for EndlessPlay {
             survival_drop_speed: 4.0,
             survival_light: vec![SpellKind::Ivy, SpellKind::Minibase, SpellKind::Petrify],
             survival_waves: WaveRules {
-                gap: (15, 30),
+                gap: (15, 29),
                 levels: vec![
                     vec![
                         w(&[Large], 2),
