@@ -210,3 +210,6 @@ vertically and two flip both ways. Source is HousePuzzleProPiece01–11.
 Puzzle battles rank towers by the brick count after every player finishes.
 Fallen or zapped bricks have left that count. The results and cup standings
 use the same totals. Source is MultiPlayerPuzzleGameModePlayController.
+
+A laser-zapped brick stops in place and loses collision as the dissolve starts.
+Sources are MaximumHeightGamePlayRule, TowerPart and Brick.
