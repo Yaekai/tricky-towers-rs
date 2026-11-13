@@ -607,7 +607,7 @@ fn sweep_lasers(
         if endless {
             // EndlessPuzzleGameModePlayController flashes the laser (AnimateZap) at every
             // brick used, every brick zapped and each level-up's end.
-            let now = state.map_or((0, false), |s| (s.bricks_used(), s.level_up.is_some()));
+            let now = state.map_or((0, false), |s| (s.endless_puzzle_bricks_used(), s.level_up.is_some()));
             let zaps = state.map_or(0, |s| s.laser_zaps);
             let counted_out = state.is_some_and(|s| s.hold_timer > 0.0);
             let finished_level = sweep.seen.1 && !now.1 && !counted_out;
