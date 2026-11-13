@@ -1357,7 +1357,7 @@ pub(crate) fn record_endless_scores(
             && let Some(index) = board_index
         {
             let score = match game.mode {
-                ModeKind::Endless => config.endless.score(state.best_height),
+                ModeKind::Endless => state.endless_race_score(&config.endless),
                 _ => state.endless_score(),
             };
             board.add(index, score);

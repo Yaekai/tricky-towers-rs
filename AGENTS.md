@@ -444,4 +444,5 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-13 (Codex): the trial next-brick card now uses the dealer's fixed order. Added a roster smoke test covering the first deal, floor reference and rival lane for all 50 stock trials.
 - 2026-11-13 (Codex): restored the two distinct brick-count update turns and the original scale curve. The Survival count and the Endless Puzzle bricks-left label share the same clips.
 - 2026-11-13 (Codex): added the Endless score and personal-best pulses, with the score dip and Race's one-second cooldown. The displayed values still update through the cooldown.
+- 2026-11-13 (Codex): Endless Race now scores the live tower with the original one-cell cutoff, then preserves the height at pacer catch for the result and leaderboard.
 - 2026-11-13 (Codex): wired the staged Endless Puzzle eclipse sound to the intro's eclipse event. A regression checks the one-shot cue and silent Retry.

@@ -333,6 +333,8 @@ pub struct EndlessRules {
     pub wait_seconds: f32,
     /// Score per cell of tower height (rounded up).
     pub score_per_cell: f32,
+    /// Heights at or below this many cells score zero.
+    pub score_min_height: f32,
     /// Base drop speed, in cells/s (the original's Endless Race: 4).
     pub drop_speed: f32,
     /// The end sweep once the pacer catches the tower: it rises to this many cells over the
@@ -362,6 +364,7 @@ impl Default for EndlessRules {
             ease_seconds: 1.0,
             wait_seconds: 2.0,
             score_per_cell: 10.0,
+            score_min_height: 1.0,
             drop_speed: 4.0,
             end_over: 5.0,
             end_under: 1.0,
@@ -386,7 +389,11 @@ impl EndlessRules {
 
     /// Score for a tower this tall.
     pub fn score(&self, height: f32) -> u32 {
-        (height.max(0.0) * self.score_per_cell).ceil() as u32
+        if height <= self.score_min_height {
+            0
+        } else {
+            (height * self.score_per_cell).ceil() as u32
+        }
     }
 }
 
@@ -4347,6 +4354,14 @@ mod tests {
             (Some((0.5, 1.0)), 1.8)
         );
         assert!((curve(&intro.count_scale, 0.125) - 1.035).abs() < 1e-6);
+    }
+
+    #[test]
+    fn endless_race_ignores_the_first_cell_and_rounds_the_full_height_up() {
+        let rules = EndlessRules::default();
+        assert_eq!(rules.score(1.0), 0);
+        assert_eq!(rules.score(1.001), 11);
+        assert_eq!(rules.score(3.11), 32);
     }
 
     #[test]
