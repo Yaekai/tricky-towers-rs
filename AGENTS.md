@@ -440,3 +440,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-12 (Codex): staged cup idle, cheer and laugh poses alongside CastSelf, including quaternion rotation for animal hats. Cup idle advances on its own clip clock and loops. Earlier CastSelf manifests still load.
 - 2026-11-12 (Codex): blended cup poses using the original controller's entry and exit timings. Inputs wait through non-interruptible transitions, then resume in controller order. Added checks for the half-blend pose and the immediate Cheer-to-CastSelf transition.
 - 2026-11-12 (Codex): matched the Race battle finish flag's 55 tiles and two caps. Both staged art and placeholder segments fade from the winning lane and reset on rematch.
+- 2026-11-13 (Codex): matched the Survival intro HUD slide and separate rounded count and preview tweens. The preview starts empty, uses a separate bag, and returns to the real brick when the count sound stops.
