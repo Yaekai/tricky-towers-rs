@@ -114,6 +114,9 @@ Recent work has closed several specific gaps.
 - All 50 Trials start and deal a first brick in the headless sweep. Fixed-order Trials
   show their actual next brick. Endless score and personal-best labels animate when values
   change, and Endless Race records the tower height when the pacer catches it.
+- Endless Puzzle plays the eclipse cue at the start of the effect, updates the next brick
+  quota as the laser rises, and draws each level's obstacle positions together. The laser
+  starts the finish count at contact and removes zapped bricks from the score.
 - Tilted brick bounds and Puzzle zaps now measure the individual collider parts. A Trial 9
   regression reproduces the old false 2.47-cell top and measures 2.20 after the fix. A known
   six-brick solution clears with zero extra slack. The shipped 0.3-cell allowance stays until

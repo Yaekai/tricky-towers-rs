@@ -2290,7 +2290,10 @@ fn endless_puzzle_ends_with_a_count_once_a_brick_crosses_the_laser() {
     let mut app = headless_app(config);
     // The first brick crosses the laser: no more bricks come and a 3-2-1 runs.
     assert!(run_until(&mut app, 20.0, |app| tower(app, 0).hold_timer > 0.0));
-    let used = tower(&mut app, 0).bricks_used();
+    let first_zap = tower(&mut app, 0);
+    let used = first_zap.bricks_used();
+    assert_eq!(used, 1);
+    assert_eq!(first_zap.endless_score(), 0, "the zapped brick left the tower");
     run_seconds(&mut app, 2.5, |_| {});
     let state = tower(&mut app, 0);
     assert_eq!(state.status, TowerStatus::Building, "still counting");

@@ -1111,7 +1111,7 @@ fn level_up_sounds(
                 &format!("sfx_laser_move_0{}", roll() % 3 + 1),
             );
         }
-        if !rising && was && state.level_up.is_none() {
+        if !rising && was && state.level_up.is_none() && state.hold_timer == 0.0 {
             play(&mut commands, "sfx_spawn_laser");
         }
         seen.retain(|s| s.0 != tower);
