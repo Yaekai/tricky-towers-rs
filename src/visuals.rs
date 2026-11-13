@@ -701,12 +701,13 @@ fn dress_floor(
     config: Res<GameConfig>,
     art: Res<Art>,
     blocks: Query<
-        (Entity, &FloorBlock, &Brick, Option<&crate::gameplay::Obstacle>),
+        (Entity, &FloorBlock, &Brick, Option<&crate::gameplay::Obstacle>, Option<&Children>),
         Or<(Added<FloorBlock>, Changed<Brick>)>,
     >,
+    graphics: Query<(), With<FloorGraphic>>,
 ) {
     let c = config.cell_size;
-    for (entity, block, brick, obstacle) in &blocks {
+    for (entity, block, brick, obstacle, children) in &blocks {
         let name = match block.part {
             FloorPart::Column(0) => "puzzle_piece_1".to_string(),
             FloorPart::Column(_) => "puzzle_piece_3".to_string(),
@@ -715,13 +716,17 @@ fn dress_floor(
             FloorPart::Ledge(n) => format!("puzzle_pro_ledge_{}", n + 1),
             FloorPart::TopLedge => "puzzle_pro_ledge_top".to_string(),
         };
+        for &child in children.into_iter().flatten() {
+            if graphics.contains(child) {
+                commands.entity(child).despawn();
+            }
+        }
         let mut node = commands.entity(entity);
-        // Its pictures are children, so it needs visibility of its own.
-        node.despawn_children().insert(Visibility::default());
+        node.insert(Visibility::default());
         let Some((mut sprite, anchor, mut transform)) = art_sprite(&art, &name, c) else {
             let width = if block.part == FloorPart::Wide { 2.0 } else { 1.0 };
             let size = Vec2::new(width, brick.cells.len() as f32) * c;
-            node.with_child((Sprite::from_color(brick.color, size), Transform::default()));
+            node.with_child((FloorGraphic, Sprite::from_color(brick.color, size), Transform::default()));
             continue;
         };
         if let Some(obstacle) = obstacle
@@ -737,22 +742,26 @@ fn dress_floor(
             let left = if block.part == FloorPart::Wide { -1.0 } else { -0.5 };
             transform.translation = Vec3::new(c * (left - 0.03), c * (half + 0.03), 0.0);
         }
-        node.with_child((sprite, anchor, transform));
+        node.with_child((FloorGraphic, sprite, anchor, transform));
         if matches!(block.part, FloorPart::Column(_)) {
             // Tiles behind the column every 2 cells down, and a cap on the stack.
             for k in 0..6 {
                 if let Some((sprite, anchor, mut t)) = art_sprite(&art, "puzzle_piece_base", c) {
                     t.translation = Vec3::new(0.0, c * (half - 1.0 - 2.0 * k as f32), -0.1);
-                    node.with_child((sprite, anchor, t));
+                    node.with_child((FloorGraphic, sprite, anchor, t));
                 }
             }
             if let Some((sprite, anchor, mut t)) = art_sprite(&art, "puzzle_piece_base_top", c) {
                 t.translation = Vec3::new(0.0, c * (half + 0.37), -0.1);
-                node.with_child((sprite, anchor, t));
+                node.with_child((FloorGraphic, sprite, anchor, t));
             }
         }
     }
 }
+
+/// A floor sprite owned by the art loader. Other children include grass tufts.
+#[derive(Component)]
+struct FloorGraphic;
 
 /// Draws each brick: the original's sprite when one is staged (untinted, with its
 /// stone or ice version when the brick is petrified or iced), else coloured cells.
@@ -4432,7 +4441,7 @@ mod tests {
 
     #[test]
     fn puzzle_obstacle_uses_the_selected_prefab_flips() {
-        use super::{Art, Brick, FloorBlock, FloorPart, GameConfig, dress_floor};
+        use super::{Art, Brick, FloorBlock, FloorGraphic, FloorPart, GameConfig, dress_floor};
         use crate::gameplay::Obstacle;
         use bevy::prelude::*;
 
@@ -4460,13 +4469,15 @@ mod tests {
         assert!(sprite.flip_x && sprite.flip_y);
 
         let world = app.world_mut();
+        let tuft = world.spawn((Transform::default(), ChildOf(block))).id();
         world.resource_mut::<Art>().images.remove(name);
         world.get_mut::<Brick>(block).unwrap().set_changed();
         app.update();
-        let world = app.world();
-        let child = world.get::<Children>(block).unwrap()[0];
+        let world = app.world_mut();
+        assert!(world.get::<ChildOf>(tuft).is_some());
         let cell = world.resource::<GameConfig>().cell_size;
-        assert_eq!(world.get::<Sprite>(child).unwrap().custom_size, Some(Vec2::splat(cell)));
+        let sprite = world.query_filtered::<&Sprite, With<FloorGraphic>>().single(world).unwrap();
+        assert_eq!(sprite.custom_size, Some(Vec2::splat(cell)));
     }
 
     #[test]
