@@ -202,3 +202,7 @@ tower. Crossing the laser or raising the base to it starts the finish count,
 even during a level-up. A rise that already started can finish, while the
 remaining level-up actions are skipped. Each later zap flashes the line again.
 Sources are MaximumHeightGamePlayRule, Tower and EndlessPuzzleGameModePlayController.
+
+Endless Puzzle's eleven obstacle prefabs all use a centred full-cell collision box.
+Three share the unflipped Pro ledge graphics, three flip horizontally, three flip
+vertically and two flip both ways. Source is HousePuzzleProPiece01–11.
