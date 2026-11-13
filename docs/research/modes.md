@@ -140,7 +140,9 @@ wait 1 s, shake off, control back.
   Puzzle floor `FLOOR_PUZZLE`. Camera zoomed 1.2× closer than battle Puzzle; bricks more than
   4 cells above the camera's top are removed. The drop guide is cream (1, 0.92, 0.74, 80%).
 - The laser starts at height 6.2. The run comes in **levels**: level 1 allows 6 bricks. When
-  you've used all the bricks of the level and none was zapped, a level-up runs:
+  you've used all the bricks of the level and none was zapped, a level-up runs. Placement and
+  in-hand discards spend quota. Undo and bricks falling from the tower do not change it.
+  The HUD shows the bricks still to be dealt, excluding the one in hand.
   1. Brick spawning stops, the guide hides, wait 0.3 s.
   2. The laser and the height limit both rise by 4 cells over 0.5 s, with one of 3 "move
      laser" sounds.
@@ -149,6 +151,7 @@ wait 1 s, shake off, control back.
      Then wait 0.3 s.
   4. The laser zaps (laser start sound), spawning resumes, and you're given one Undo spell.
   5. The next level allows min(26, 6 + 2 × level) more bricks (8, 10, 12, … up to 26).
+     The new quota appears as the rise begins.
 - **Failing:** a brick over the laser is zapped and starts the end countdown (3-2-1, as a
   race's hold); no more bricks come, and its end is the run's end. A lost brick only lifts
   the tower (re-read 2026-10-23 from EndlessPuzzleGameModePlayController, TowerMoveController,

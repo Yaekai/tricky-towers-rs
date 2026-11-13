@@ -195,7 +195,8 @@ fn wanted(
                 } else {
                     state.level_end
                 };
-                let left = level_end.saturating_sub(state.bricks_used());
+                let dealt = state.endless_puzzle_bricks_used() + u32::from(state.active.is_some());
+                let left = level_end.saturating_sub(dealt);
                 Shows::Text(left.to_string(), rgb(look.place_first))
             }
         }
@@ -1413,7 +1414,7 @@ mod tests {
         let config = GameConfig { mode: ModeKind::EndlessPuzzle, ..default() };
         let game = Match { mode: config.mode, phase: Phase::Playing, ..default() };
         let mut state = TowerState::new(&config, 1);
-        state.bricks_placed = state.level_end;
+        state.placed_count = state.level_end;
         let count = |state: &TowerState| wanted(Kind::Count, &config, &game, None, state, None, default(), None, 0);
         let color = rgb(config.hud.place_first);
         state.level_up = Some(0.0);
@@ -1425,6 +1426,8 @@ mod tests {
         state.puzzle_level += 1;
         state.level_end += quota;
         assert_eq!(count(&state), Shows::Text(quota.to_string(), color));
+        state.active = Some(Entity::PLACEHOLDER);
+        assert_eq!(count(&state), Shows::Text((quota - 1).to_string(), color));
     }
 
     #[test]
