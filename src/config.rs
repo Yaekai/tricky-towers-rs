@@ -689,6 +689,8 @@ pub struct PuzzleRules {
     pub count_over_laser: f32,
     pub count_under_top: f32,
     pub count_curve: f32,
+    /// How strongly the shared tick's pitch follows the count's height curve.
+    pub count_pitch: f32,
     /// Each counted brick tips the number this many degrees, easing back in `count_tip_time`
     /// (also the time it takes to rise to its new height).
     pub count_tip: f32,
@@ -765,6 +767,7 @@ impl Default for PuzzleRules {
             count_over_laser: 4.0,
             count_under_top: 6.0,
             count_curve: 0.7,
+            count_pitch: 0.5,
             count_tip: 10.0,
             count_tip_time: 0.1,
             count_flash: 0.3,
