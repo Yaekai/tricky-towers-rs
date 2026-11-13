@@ -1370,7 +1370,7 @@ fn show_scores(
         .iter()
         .find(|(t, _)| t.human)
         .map_or(0, |(_, state)| match game.mode {
-            ModeKind::Endless => config.endless.score(state.best_height),
+            ModeKind::Endless => state.endless_race_score(&config.endless),
             _ => state.endless_score(),
         });
     let best = board_best(index).max(score);

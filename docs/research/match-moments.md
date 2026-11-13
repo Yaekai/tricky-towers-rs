@@ -181,3 +181,8 @@ best keeps its position. Race limits each pulse to one per second while the
 numbers still update; Survival and Puzzle have no cooldown. Sources are the
 leaderboard HUD constructors, HighscoreView and both BrickView override
 controllers.
+
+Endless Race scores the current tower height. A height of one cell or less
+scores zero. Above that, it rounds the full height times ten up. The pacer
+stops the tower when it catches it, so the visible result and leaderboard
+use that height. Source is EndlessRaceGameModePlayController.
