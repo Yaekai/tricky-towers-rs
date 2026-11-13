@@ -741,6 +741,13 @@ impl TowerState {
         self.bricks_placed + self.bricks_dropped
     }
 
+    /// The fixed trial order entry for the next normal draw, if it exists.
+    pub(crate) fn next_trial_piece(&self, config: &GameConfig) -> Option<usize> {
+        let name = config.trial.and_then(|index| config.trials.get(index))?
+            .order.get(self.bricks_used() as usize)?;
+        config.pieces.iter().position(|piece| &piece.name == name)
+    }
+
     /// Puzzle laser height for this tower: each dropped brick brings it lower.
     pub fn laser(&self, config: &GameConfig) -> f32 {
         if config.mode == ModeKind::EndlessPuzzle {
@@ -1560,16 +1567,8 @@ fn spawn_next_brick(
                 if let Some(wave) = &state.wave_mod {
                     modifier.merge(wave);
                 }
-                let mut piece = bag.draw();
-                // A trial with a fixed brick order deals exactly that order.
-                if let Some(name) = config
-                    .trial
-                    .and_then(|i| config.trials.get(i))
-                    .and_then(|t| t.order.get(state.bricks_used() as usize))
-                    && let Some(fixed) = config.pieces.iter().position(|p| &p.name == name)
-                {
-                    piece = fixed;
-                }
+                let random = bag.draw();
+                let mut piece = state.next_trial_piece(&config).unwrap_or(random);
                 if modifier.mystery
                     && let Some(shape) = state.draw_mystery(config.magic.mystery_pieces.len())
                 {
