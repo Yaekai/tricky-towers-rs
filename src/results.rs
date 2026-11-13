@@ -777,6 +777,7 @@ fn show_puzzle_scores(
     mut counted: Local<Option<(u64, f32)>>,
     mut clock: ResMut<PuzzleCountClock>,
     mut labels: Local<HashMap<Entity, (String, Entity)>>,
+    mut sounded: Local<u32>,
     camera: Query<&Projection, With<crate::visuals::MainCamera>>,
 ) {
     let cell_px = config.cell_size
@@ -802,7 +803,10 @@ fn show_puzzle_scores(
     if over {
         let since = match *counted {
             Some((round, t)) if round == game.round => t,
-            _ => 0.0,
+            _ => {
+                *sounded = 0;
+                0.0
+            }
         };
         *counted = Some((game.round, since + time.delta_secs()));
     } else {
@@ -846,6 +850,16 @@ fn show_puzzle_scores(
             (rules.count_curve * n as f32 / most as f32).exp() - 1.0
         }
     };
+    if let Some((tick, _)) = ticks
+        && tick > *sounded
+    {
+        // The first winner alone plays the cue, once per shared tick.
+        *sounded = tick;
+        if let Some(sound) = art.sounds.get("sfx_count") {
+            let pitch = 1.0 + height(tick) * rules.count_pitch;
+            commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN.with_speed(pitch)));
+        }
+    }
     for (entity, _tower, state) in &towers {
         let total = state.standing_bricks();
         let shown = if over {
@@ -1172,6 +1186,52 @@ pub fn puzzle_tie(counts: &[u32]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{puzzle_ticks, puzzle_tie};
+
+    #[test]
+    fn tied_puzzle_winners_share_one_pitched_sound_per_count() {
+        use super::{Art, GameConfig, Match, ModeKind, Phase, PuzzleCountClock, Tower, TowerState, show_puzzle_scores};
+        use bevy::prelude::*;
+        use std::time::Duration;
+
+        let mut app = App::new();
+        let config = GameConfig::default();
+        let mut art = Art::default();
+        art.sounds.insert("sfx_count".into(), Handle::default());
+        app.insert_resource(art)
+            .insert_resource(Match { mode: ModeKind::Puzzle, phase: Phase::Over, round: 1, ..default() })
+            .init_resource::<Time>()
+            .init_resource::<Assets<Image>>()
+            .init_resource::<PuzzleCountClock>()
+            .add_systems(Update, show_puzzle_scores);
+        for index in 0..2 {
+            let mut state = TowerState::new(&config, 1);
+            state.bricks_placed = 2;
+            app.world_mut().spawn((Tower { index, origin_x: 0.0, human: true, player: Some(index) }, state));
+        }
+        let rules = &config.puzzle;
+        let delay = rules.count_delay + rules.count_step + 0.01;
+        let step = rules.count_step;
+        let curve = rules.count_curve;
+        let pitch = rules.count_pitch;
+        app.insert_resource(config);
+        let mut tick = |seconds| {
+            let world = app.world_mut();
+            world.resource_mut::<Time>().advance_by(Duration::from_secs_f32(seconds));
+            app.update();
+            let world = app.world_mut();
+            let mut speeds: Vec<_> = world.query_filtered::<&PlaybackSettings, With<AudioPlayer>>()
+                .iter(world).map(|settings| settings.speed).collect();
+            speeds.sort_by(f32::total_cmp);
+            speeds
+        };
+        assert!(tick(delay).is_empty());
+        let first = 1.0 + ((curve * 0.5).exp() - 1.0) * pitch;
+        assert_eq!(tick(0.0), vec![first]);
+        assert_eq!(tick(step), vec![first]);
+        let second = 1.0 + (curve.exp() - 1.0) * pitch;
+        assert_eq!(tick(0.0), vec![first, second]);
+        assert_eq!(tick(0.0), vec![first, second]);
+    }
 
     #[test]
     fn the_count_waits_at_each_towers_total_and_stops_at_the_most() {
