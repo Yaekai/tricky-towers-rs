@@ -166,3 +166,11 @@ Sources from the local install are FinishLineLayer, RaceGameMode and
 MultiPlayerRaceGameModePlayController. The Rust lane centres use the reference
 screen layout so the fade origin follows the visible player despite the wider
 internal physics spacing.
+
+## Brick count pulse
+
+The Survival bricks-to-place label and the Endless Puzzle bricks-left label
+use the same BrickViewOverrideController. Its two update clips share a scale
+curve that reaches 1.8 at 0.05 seconds and returns to one at 0.35 seconds.
+Their turns use separate tracks. Rust samples the turns at the exported
+frame positions and uses the scale curve with its original slopes.

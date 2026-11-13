@@ -342,9 +342,9 @@ fn fill_items(
             && before.parse::<u32>().is_ok()
             && !popping.contains(entity)
         {
-            let big = if game.mode == ModeKind::Survival { 1.8 } else { 1.3 };
-            let way = if (time.elapsed_secs() * 1000.0) as u32 % 2 == 0 { 1.0 } else { -1.0 };
-            commands.entity(entity).insert(CountPop(0.0, way, big));
+            let mut seed = config.seed ^ entity.to_bits() ^ u64::from(time.elapsed_secs().to_bits());
+            let second = crate::gameplay::xorshift(&mut seed) & 1 != 0;
+            commands.entity(entity).insert(CountPop { elapsed: 0.0, second });
         }
         let mut node = commands.entity(entity);
         node.despawn_children();
@@ -997,40 +997,35 @@ fn blink_last_heart(
 #[derive(Component)]
 struct RankPop(f32);
 
-/// A count's UpdateVar01/02 clip as its number changes (LabelViewInt; BricksToPlaceView's
-/// BricksViewUpdateVar for the Survival count): seconds since, which way it tips, and how
-/// big it grows (1.8 for the Survival count, 1.3 for the others).
+/// The BricksViewUpdateVar01/02 clip on a brick-count label.
 #[derive(Component)]
-struct CountPop(f32, f32, f32);
-
-/// UpdateVar01's turn in degrees (02 tips the other way) and the scale's keys as a share of
-/// the growth.
-const COUNT_TURN: [(f32, f32); 8] = [
-    (0.0, 0.0),
-    (0.05, 12.0),
-    (0.1, 13.1),
-    (0.15, 13.5),
-    (0.2, 12.6),
-    (0.25, 9.8),
-    (0.3, 5.0),
-    (0.35, 0.0),
-];
-const COUNT_GROW: [(f32, f32); 4] = [(0.0, 0.0), (0.05, 1.0), (0.217, 1.0), (0.35, 0.0)];
+struct CountPop {
+    elapsed: f32,
+    second: bool,
+}
 
 fn pop_counts(
     mut commands: Commands,
     time: Res<Time>,
+    config: Res<GameConfig>,
     mut pops: Query<(Entity, &mut CountPop, &mut UiTransform)>,
 ) {
+    let look = &config.hud;
+    let duration = look.count_pop_scale.last().map_or(0.0, |key| key.0);
+    let turns = &look.count_pop_turn;
     for (entity, mut pop, mut transform) in &mut pops {
-        pop.0 += time.delta_secs();
-        let t = pop.0;
-        transform.scale = Vec2::splat(1.0 + (pop.2 - 1.0) * keyed(&COUNT_GROW, t));
-        transform.rotation = Rot2::degrees(-pop.1 * keyed(&COUNT_TURN, t));
-        if t >= 0.35 {
+        pop.elapsed += time.delta_secs();
+        if pop.elapsed >= duration {
             *transform = UiTransform::default();
             commands.entity(entity).remove::<CountPop>();
+            continue;
         }
+        let at = pop.elapsed / duration * turns.len().saturating_sub(1) as f32;
+        let angle = |i| turns.get(i).map_or(0.0, |&(first, second)| if pop.second { second } else { first });
+        let before = angle(at.floor() as usize);
+        let after = angle(at.ceil() as usize);
+        transform.rotation = Rot2::degrees(-(before + (after - before) * at.fract()));
+        transform.scale = Vec2::splat(crate::config::curve(&look.count_pop_scale, pop.elapsed));
     }
 }
 
@@ -1371,6 +1366,30 @@ fn show_scores(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn brick_count_pulses_use_distinct_turns_and_return_to_rest() {
+        use super::*;
+        use std::time::Duration;
+
+        let mut app = App::new();
+        app.init_resource::<Time>().init_resource::<GameConfig>().add_systems(Update, pop_counts);
+        let variants = [false, true].map(|second| app.world_mut().spawn((
+            CountPop { elapsed: 0.0, second }, UiTransform::default(),
+        )).id());
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs_f32(0.15));
+        app.update();
+        let [first, second] = variants.map(|entity| *app.world().get::<UiTransform>(entity).unwrap());
+        assert!(first.scale.x > 1.79 && first.scale == second.scale);
+        assert!((first.rotation.as_degrees() + 13.4623).abs() < 1e-3);
+        assert!((first.rotation.as_degrees() + second.rotation.as_degrees()).abs() > 0.2);
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs_f32(0.21));
+        app.update();
+        for entity in variants {
+            assert!(app.world().get::<CountPop>(entity).is_none());
+            assert_eq!(*app.world().get::<UiTransform>(entity).unwrap(), UiTransform::default());
+        }
+    }
+
     #[test]
     fn survival_preview_starts_empty_then_preserves_the_real_bag() {
         use super::*;

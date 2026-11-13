@@ -4500,6 +4500,9 @@ pub struct HudLook {
     /// the view height, width over height, its top bar's share of its height, and
     /// how far left of the lane's drop column its centre sits (share of view width).
     pub card_height: f32,
+    /// BricksViewUpdateVar01/02 label scale, and both turn angles sampled across the clip.
+    pub count_pop_scale: Vec<(f32, f32, f32, f32)>,
+    pub count_pop_turn: Vec<(f32, f32)>,
     pub card_aspect: f32,
     /// With the card art: the brick icon's cell size and its centre, as shares of the
     /// card's height, width and height (NextBrickView: 18.3 px a cell, icon box 1.4 px
@@ -4570,6 +4573,36 @@ impl Default for HudLook {
         Self {
             // NextBrickView's Background, 126x101 px of a 1080 px screen.
             card_height: 101.0 / 1080.0,
+            count_pop_scale: vec![
+                (0.0, 1.0, 0.0, 15.999999),
+                (0.05, 1.8, 0.0484417, 0.0484406),
+                (0.2166667, 1.8, 0.1195328, 0.1195328),
+                (0.35, 1.0, -7.7489815, 0.0),
+            ],
+            count_pop_turn: vec![
+                (0.0, 0.0),
+                (4.8004055, -4.977374),
+                (9.6008114, -9.9547467),
+                (12.0000007, -12.0000007),
+                (12.3900267, -11.7449769),
+                (12.7496702, -11.7303323),
+                (13.0578246, -11.8871773),
+                (13.293379, -12.146624),
+                (13.435224, -12.4397773),
+                (13.4622528, -12.6977488),
+                (13.353354, -12.8516483),
+                (13.0874183, -12.8325821),
+                (12.6433373, -12.5716644),
+                (12.0000007, -12.0000007),
+                (11.0742199, -11.0742199),
+                (9.843751, -9.843751),
+                (8.3789063, -8.3789063),
+                (6.7499974, -6.7499974),
+                (5.0273395, -5.0273395),
+                (3.2812436, -3.2812436),
+                (1.5820237, -1.5820237),
+                (0.0, 0.0),
+            ],
             card_aspect: 126.0 / 101.0,
             card_icon: [18.3 / 101.0, 1.4 / 126.0, 55.4 / 101.0],
             card_bar: 0.2,
