@@ -72,6 +72,10 @@ impl Plugin for GameplayPlugin {
                     .chain()
                     .in_set(GameplaySystems),
             )
+            .add_systems(
+                FixedUpdate,
+                finish_match.after(place_obstacles).before(drain_water).in_set(GameplaySystems),
+            )
             .add_systems(Update, pause_physics_outside_play);
     }
 }
@@ -2853,21 +2857,30 @@ fn judge_match(
         }
     }
 
-    // A Puzzle round is counted once every touched tower's 3-2-1 has run.
+}
+
+/// Publish results after the last fixed step's laser zaps have been counted.
+fn finish_match(
+    config: Res<GameConfig>,
+    mut game: ResMut<Match>,
+    time: Res<Time>,
+    mut towers: Query<(&Tower, &mut TowerState)>,
+) {
+    if game.phase != Phase::Playing {
+        return;
+    }
     let counting = game.mode.rules() == ModeKind::Puzzle
         && towers.iter().any(|(_, s)| s.laser_count.is_some_and(|t| t < config.puzzle.count_seconds));
-    for (_, mut state) in &mut towers {
-        if let Some(t) = state.laser_count.as_mut() {
-            *t += dt;
-        }
-    }
     let mut winner = None;
     let mut building = Vec::new();
     let mut humans_building = 0;
     let mut humans = 0;
     let mut count = 0;
-    for (tower, state) in &towers {
+    for (tower, mut state) in &mut towers {
         count += 1;
+        if let Some(t) = state.laser_count.as_mut() {
+            *t += time.delta_secs();
+        }
         match state.status {
             TowerStatus::Won => {
                 winner = Some(winner.map_or(tower.index, |w: usize| w.min(tower.index)))
