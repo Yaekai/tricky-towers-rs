@@ -23,7 +23,8 @@ pub struct HudPlugin;
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HeartSpots>();
-        app.add_systems(Startup, spawn_scores).add_systems(Update, show_scores);
+        app.add_systems(Startup, spawn_scores)
+            .add_systems(Update, show_scores.before(pop_counts));
         app.add_systems(
             Update,
             (
@@ -342,9 +343,7 @@ fn fill_items(
             && before.parse::<u32>().is_ok()
             && !popping.contains(entity)
         {
-            let mut seed = config.seed ^ entity.to_bits() ^ u64::from(time.elapsed_secs().to_bits());
-            let second = crate::gameplay::xorshift(&mut seed) & 1 != 0;
-            commands.entity(entity).insert(CountPop { elapsed: 0.0, second });
+            commands.entity(entity).insert(CountPop::new(&config, entity, time.elapsed_secs()));
         }
         let mut node = commands.entity(entity);
         node.despawn_children();
@@ -1004,16 +1003,37 @@ struct CountPop {
     second: bool,
 }
 
+impl CountPop {
+    fn new(config: &GameConfig, entity: Entity, now: f32) -> Self {
+        let mut seed = config.seed ^ entity.to_bits() ^ u64::from(now.to_bits());
+        let second = crate::gameplay::xorshift(&mut seed) & 1 != 0;
+        Self { elapsed: 0.0, second }
+    }
+}
+
+#[derive(Component, Default)]
+struct ScorePulse(Option<(u64, f32)>);
+
+impl ScorePulse {
+    fn changed(&mut self, round: u64, now: f32, cooldown: f32) -> bool {
+        if self.0.is_some_and(|(last_round, before)| last_round == round && before + cooldown >= now) {
+            return false;
+        }
+        self.0 = Some((round, now));
+        true
+    }
+}
+
 fn pop_counts(
     mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
-    mut pops: Query<(Entity, &mut CountPop, &mut UiTransform)>,
+    mut pops: Query<(Entity, &mut CountPop, &mut UiTransform, Option<&ScorePart>)>,
 ) {
     let look = &config.hud;
     let duration = look.count_pop_scale.last().map_or(0.0, |key| key.0);
     let turns = &look.count_pop_turn;
-    for (entity, mut pop, mut transform) in &mut pops {
+    for (entity, mut pop, mut transform, score) in &mut pops {
         pop.elapsed += time.delta_secs();
         if pop.elapsed >= duration {
             *transform = UiTransform::default();
@@ -1026,6 +1046,10 @@ fn pop_counts(
         let after = angle(at.ceil() as usize);
         transform.rotation = Rot2::degrees(-(before + (after - before) * at.fract()));
         transform.scale = Vec2::splat(crate::config::curve(&look.count_pop_scale, pop.elapsed));
+        if score == Some(&ScorePart::Score) {
+            let offset = crate::config::curve(&look.score_pop_drop, pop.elapsed);
+            transform.translation.y = Val::Vh(offset / 10.8);
+        }
     }
 }
 
@@ -1262,6 +1286,7 @@ fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
                 b.spawn((
                     label_with(75.0 / 10.8, "0", TextLook::GOLD),
                     ScorePart::Score,
+                    ScorePulse::default(),
                     crate::letters::LetterSpacing(-4.0),
                 ));
             });
@@ -1282,6 +1307,7 @@ fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
                 b.spawn((
                     label_with(60.0 / 10.8, "0", TextLook::GOLD),
                     ScorePart::Best,
+                    ScorePulse::default(),
                     crate::letters::LetterSpacing(-4.0),
                 ));
             });
@@ -1302,13 +1328,14 @@ fn spawn_scores(mut commands: Commands, art: Option<Res<Art>>) {
 /// leaderboard (HighscoreView).
 #[allow(clippy::too_many_arguments)]
 fn show_scores(
+    mut commands: Commands,
     time: Res<Time>,
     config: Res<GameConfig>,
     game: Res<Match>,
     board: Option<Res<crate::single::Leaderboard>>,
     towers: Query<(&Tower, &TowerState)>,
     mut parts: Query<(&ScorePart, &mut Visibility)>,
-    mut texts: Query<(&ScorePart, &mut Text)>,
+    mut texts: Query<(Entity, &ScorePart, &mut Text, &mut ScorePulse, &mut UiTransform)>,
     mut before: Local<(u64, u32, f32)>,
 ) {
     let index = game.mode.endless_index();
@@ -1316,7 +1343,8 @@ fn show_scores(
     // The best before this run, and how long FINISH has been in (it comes once the roof is
     // done; NEW HIGHSCORE! shows at the end of its move in, SinglePlayerLeaderboardBask).
     let board_best = |i: usize| board.as_ref().and_then(|b| b.scores[i].first().copied()).unwrap_or(0);
-    if before.0 != game.round || game.phase == Phase::Playing {
+    let new_round = before.0 != game.round;
+    if new_round || game.phase == Phase::Playing {
         *before = (game.round, index.map_or(0, board_best), 0.0);
     }
     // Endless Puzzle gets no roof (PuzzleRoofController), so FINISH comes at once.
@@ -1352,7 +1380,11 @@ fn show_scores(
             visibility.set_if_neq(if new_high { Visibility::Inherited } else { Visibility::Hidden });
         }
     }
-    for (part, mut text) in &mut texts {
+    for (entity, part, mut text, mut pulse, mut transform) in &mut texts {
+        if new_round {
+            *transform = UiTransform::default();
+            commands.entity(entity).remove::<CountPop>();
+        }
         let words = match part {
             ScorePart::Score => score.to_string(),
             ScorePart::Best => best.to_string(),
@@ -1360,6 +1392,11 @@ fn show_scores(
         };
         if text.0 != words {
             text.0 = words;
+            let now = time.elapsed_secs();
+            let cooldown = if game.mode == ModeKind::Endless { config.hud.race_score_pop_cooldown } else { 0.0 };
+            if !new_round && pulse.changed(game.round, now, cooldown) {
+                commands.entity(entity).insert(CountPop::new(&config, entity, now));
+            }
         }
     }
 }
@@ -1391,6 +1428,31 @@ mod tests {
             Shows::Card(Some(random), pack),
         );
         assert_eq!(bag.draw(), random);
+    }
+
+    #[test]
+    fn endless_score_pulse_uses_the_race_cooldown_and_the_score_drops() {
+        use super::*;
+        use std::time::Duration;
+
+        let mut pulse = ScorePulse::default();
+        assert!(pulse.changed(1, 0.0, 1.0));
+        assert!(!pulse.changed(1, 1.0, 1.0));
+        assert!(pulse.changed(1, 1.01, 1.0));
+        assert!(pulse.changed(2, 1.02, 1.0));
+        assert!(pulse.changed(2, 1.03, 0.0));
+
+        let mut app = App::new();
+        app.init_resource::<Time>().init_resource::<GameConfig>().add_systems(Update, pop_counts);
+        let [score, best] = [ScorePart::Score, ScorePart::Best].map(|part| {
+            app.world_mut().spawn((part, CountPop { elapsed: 0.0, second: false }, UiTransform::default())).id()
+        });
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs_f32(0.05));
+        app.update();
+        let transform = |entity| app.world().get::<UiTransform>(entity).unwrap();
+        assert_eq!(transform(score).translation.y, Val::Vh(22.16 / 10.8));
+        assert_eq!(transform(best).translation.y, UiTransform::default().translation.y);
+        assert_eq!(transform(score).scale, transform(best).scale);
     }
 
     #[test]

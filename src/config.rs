@@ -4503,6 +4503,9 @@ pub struct HudLook {
     /// BricksViewUpdateVar01/02 label scale, and both turn angles sampled across the clip.
     pub count_pop_scale: Vec<(f32, f32, f32, f32)>,
     pub count_pop_turn: Vec<(f32, f32)>,
+    /// Leaderboard score label's extra downward travel at the 1080p reference size.
+    pub score_pop_drop: Vec<(f32, f32, f32, f32)>,
+    pub race_score_pop_cooldown: f32,
     pub card_aspect: f32,
     /// With the card art: the brick icon's cell size and its centre, as shares of the
     /// card's height, width and height (NextBrickView: 18.3 px a cell, icon box 1.4 px
@@ -4603,6 +4606,13 @@ impl Default for HudLook {
                 (1.5820237, -1.5820237),
                 (0.0, 0.0),
             ],
+            score_pop_drop: vec![
+                (0.0, 0.0, 0.0, 0.0),
+                (0.05, 22.16, 0.0000776, 0.0),
+                (0.21666667, 22.16, 0.0, 0.0),
+                (0.35, 0.0, 0.0000708, 0.0),
+            ],
+            race_score_pop_cooldown: 1.0,
             card_aspect: 126.0 / 101.0,
             card_icon: [18.3 / 101.0, 1.4 / 126.0, 55.4 / 101.0],
             card_bar: 0.2,
