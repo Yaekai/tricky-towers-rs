@@ -164,7 +164,9 @@ wait 1 s, shake off, control back.
   in the scripts; Survival battle uses 3). Drop speed starts at 4. Random bricks. Floor
   `FLOOR_LWS` at 12.5 (the Survival base).
 - Spell lines give a random spell from Ivy, Minibase and Petrify (light spells only).
-- **Curse waves** ("shared agony"): the first wave and each following one come 15 to 29 s apart.
+- **Curse waves** ("shared agony"): the first wave starts after 15–28 whole seconds, and the next
+  uses the same wait from the previous wave's end. Each activation plays a gong and shows its
+  wave number. Sources are SharedAgonyLeaderboardHelper, WorldCurseSpawner and SharedAgonyLayer.
   A wave lasts a number of bricks, not seconds. There are 4 difficulty levels of waves (the
   game moves up through them as the run goes on). Each wave curses that many bricks with its
   curse(s):
