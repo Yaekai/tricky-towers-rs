@@ -2304,6 +2304,65 @@ fn trial_config(trial: tricky_towers::config::TrialDef) -> GameConfig {
 }
 
 #[test]
+fn all_fifty_stock_trials_start_and_deal_a_brick() {
+    use tricky_towers::debug::{DebugCommand, DebugQueue};
+    use tricky_towers::gameplay::RivalLane;
+
+    let config = GameConfig::from_ron(include_str!("../assets/config/game.ron"))
+        .expect("shipped config parses");
+    let trials = config.trials.clone();
+    assert_eq!(trials.len(), 50);
+    let mut app = headless_app(config);
+    for (index, trial) in trials.iter().enumerate() {
+        let round = app.world().resource::<Match>().round;
+        app.world_mut().resource_mut::<DebugQueue>().0.push(DebugCommand::Start {
+            mode: trial.mode,
+            difficulty: None,
+            players: Some(1),
+            opponents: Some(0),
+            trial: Some(index),
+            cup: None,
+            pack: None,
+            wizards: None,
+        });
+        let first = |app: &mut App| {
+            let world = app.world_mut();
+            world
+                .query_filtered::<&Brick, With<ActiveBrick>>()
+                .iter(world)
+                .next()
+                .map(|brick| brick.piece)
+        };
+        assert!(run_until(&mut app, 1.0, |app| {
+            app.world().resource::<Match>().round > round && first(app).is_some()
+        }), "{} did not deal its first brick", trial.name);
+        let piece = first(&mut app).unwrap();
+        let world = app.world_mut();
+        let game = world.resource::<Match>();
+        assert_eq!(
+            (game.mode, game.players, game.phase),
+            (trial.mode, 1, Phase::Playing),
+            "{}",
+            trial.name
+        );
+        let config = world.resource::<GameConfig>();
+        assert_eq!(config.trial, Some(index));
+        if let Some(name) = trial.order.first() {
+            assert_eq!(&config.pieces[piece].name, name, "{}", trial.name);
+        }
+        if trial.floor.is_some() {
+            assert!(config.trial_floor().is_some(), "missing floor for {}", trial.name);
+        }
+        let rivals: Vec<_> = world
+            .query::<&RivalLane>()
+            .iter(world)
+            .map(|lane| lane.rival)
+            .collect();
+        assert_eq!(rivals, [trial.rival], "{}", trial.name);
+    }
+}
+
+#[test]
 fn a_race_trial_is_lost_when_its_clock_runs_out() {
     use tricky_towers::config::TrialDef;
     let mut app = headless_app(trial_config(TrialDef {
