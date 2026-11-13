@@ -570,6 +570,7 @@ pub struct TowerState {
     /// A curse wave's effect on every new brick, and seconds it still lasts.
     pub wave_mod: Option<BrickMod>,
     pub wave_left: f32,
+    pub(crate) wave_number: u32,
     /// The wave holds Ghost: each new brick carries off the last placed one.
     pub wave_ghost: bool,
     /// Ghost hits the curse wave still owes this tower.
@@ -661,6 +662,7 @@ impl TowerState {
             respawn: None,
             wave_mod: None,
             wave_left: 0.0,
+            wave_number: 0,
             wave_ghost: false,
             ghosts_due: 0,
             placed_count: 0,

@@ -529,6 +529,7 @@ pub(crate) fn run_curse_waves(
             continue;
         }
         state.wave_left = length;
+        state.wave_number += 1;
         state.wave_bricks = wave.bricks.saturating_sub(1);
         // The brick in hand rises to a little under the top of the view, passing
         // through everything on the way, and is held there.
