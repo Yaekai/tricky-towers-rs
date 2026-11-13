@@ -202,3 +202,7 @@ tower. Crossing the laser or raising the base to it starts the finish count,
 even during a level-up. A rise that already started can finish, while the
 remaining level-up actions are skipped. Each later zap flashes the line again.
 Sources are MaximumHeightGamePlayRule, Tower and EndlessPuzzleGameModePlayController.
+
+Puzzle battles rank towers by the brick count after every player finishes.
+Fallen or zapped bricks have left that count. The results and cup standings
+use the same totals. Source is MultiPlayerPuzzleGameModePlayController.

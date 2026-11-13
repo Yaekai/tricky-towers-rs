@@ -450,3 +450,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-13 (Codex): Endless Puzzle uses the strict laser threshold, interrupts level-ups on contact and deducts zapped bricks from the score as they leave. New zaps restart the flash.
 - 2026-11-13 (Codex): Endless Survival now shows the original numbered curse wave banner and emits its gong cue when a wave starts. The measured gap is 15–28 whole seconds.
 - 2026-11-13 (Codex): Endless Puzzle level quotas count placement and in-hand discards. Undo and later falls only affect the tower, and the HUD counts down when bricks are dealt.
+- 2026-11-13 (Codex): Puzzle battles wait for all towers and use surviving bricks for the winner, the count animation and cup standings.
