@@ -367,6 +367,9 @@ fn run_intro(
     if plan.laser_at.is_some_and(crossed) {
         let _ = sound(&mut commands, "sfx_spawn_laser", 1.0);
     }
+    if plan.eclipse_at.is_some_and(crossed) {
+        let _ = sound(&mut commands, "sfx_eclipse", 1.0);
+    }
     eclipse.0 = plan.eclipse_at.map(|at| now - at);
     clock.0 = Some(now);
     let go = if plan.count { look.count_go } else { 0.0 };
@@ -570,6 +573,43 @@ fn show_countdown(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn endless_puzzle_plays_the_eclipse_sound_once_and_skips_it_on_retry() {
+        use std::time::Duration;
+
+        let mut app = App::new();
+        app.init_resource::<Time>().init_resource::<GameConfig>().init_resource::<Cup>()
+            .init_resource::<Art>().init_resource::<Intro>().init_resource::<CameraLift>()
+            .init_resource::<IntroCount>().init_resource::<LaserIn>().init_resource::<EclipseIn>()
+            .init_resource::<IntroClock>()
+            .insert_resource(Match { mode: ModeKind::EndlessPuzzle, phase: Phase::Intro, round: 1, ..default() })
+            .add_systems(Update, run_intro);
+        app.world_mut().resource_mut::<Art>().sounds.insert("sfx_eclipse".into(), Handle::default());
+
+        let sounds = |app: &mut App| {
+            let world = app.world_mut();
+            world.query::<&AudioPlayer>().iter(world).count()
+        };
+        let tick = |app: &mut App, seconds| {
+            app.world_mut().resource_mut::<Time>().advance_by(Duration::from_secs_f32(seconds));
+            app.update();
+        };
+        tick(&mut app, 0.75);
+        assert_eq!(sounds(&mut app), 0);
+        tick(&mut app, 0.3);
+        assert_eq!(sounds(&mut app), 1);
+        tick(&mut app, 0.3);
+        assert_eq!(sounds(&mut app), 1);
+        {
+            let mut game = app.world_mut().resource_mut::<Match>();
+            game.round += 1;
+            game.retry = true;
+            game.phase = Phase::Intro;
+        }
+        tick(&mut app, 1.05);
+        assert_eq!(sounds(&mut app), 1);
+    }
 
     #[test]
     fn survival_count_and_preview_round_independently() {

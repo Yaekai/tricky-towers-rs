@@ -769,6 +769,7 @@ Add-Audio 'sfx_line_collect' '006_Pickup_spell'  'Spell line collected'
 Add-Audio 'sfx_cast_light' '013_Cast_lightning_level_01' 'Light magic cast'
 Add-Audio 'sfx_cast_dark'  '064_Cast_dark_magic' 'Dark magic cast'
 Add-Audio 'sfx_countdown'  '093_Countdown'       'Countdown tick'
+Add-Audio 'sfx_eclipse'    '503_eclipse'         'Endless Puzzle eclipse entrance'
 Add-Audio 'sfx_win'        '046_Win_game_stinger' 'Win'
 Add-Audio 'sfx_lose'       '045_Lose_game_stinger' 'Lose'
 
