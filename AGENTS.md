@@ -452,3 +452,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-13 (Codex): Endless Puzzle level quotas count placement and in-hand discards. Undo and later falls only affect the tower, and the HUD counts down when bricks are dealt.
 - 2026-11-13 (Codex): matched Endless Puzzle's full-cell obstacle colliders and eleven sprite orientations. Puzzle floor pieces use solid placeholder graphics when art is unavailable.
 - 2026-11-13 (Codex): Puzzle battles wait for all towers and use surviving bricks for the winner, the count animation and cup standings.
+- 2026-11-13 (Codex): refreshed the offline release checklist against the current debug entry points and added a long-run Endless comparison to the roadmap.
