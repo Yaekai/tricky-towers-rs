@@ -186,3 +186,7 @@ Endless Race scores the current tower height. A height of one cell or less
 scores zero. Above that, it rounds the full height times ten up. The pacer
 stops the tower when it catches it, so the visible result and leaderboard
 use that height. Source is EndlessRaceGameModePlayController.
+
+Endless Puzzle plays its eclipse cue when the eclipse starts, after the laser
+entrance and the second half-second wait. Retry shows the eclipse immediately
+and skips the sound. Source is EndlessPuzzleGameModeIntroController.
