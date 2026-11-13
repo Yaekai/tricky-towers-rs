@@ -1422,10 +1422,10 @@ pub(crate) fn loosen_ivy(
             }
             continue;
         }
-        for (child, (p, r, _, stone, ..)) in kids {
+        for (child, (p, r, _, stone, zapped, ..)) in kids {
             let offset = p.0 - centre.0;
             commands.entity(child).remove::<ChildOf>().insert((
-                if stone {
+                if stone || zapped {
                     RigidBody::Static
                 } else {
                     RigidBody::Dynamic
