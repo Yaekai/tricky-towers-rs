@@ -3933,7 +3933,7 @@ fn update_hud(
                 ModeKind::Puzzle => "PUZZLE FAILED. Press R to try again".into(),
                 ModeKind::Endless => format!(
                     "CAUGHT! Score {}. Press R to try again",
-                    config.endless.score(you.best_height)
+                    you.endless_race_score(&config.endless)
                 ),
                 ModeKind::EndlessSurvival | ModeKind::EndlessPuzzle => format!(
                     "RUN OVER! Score {}. Press R to try again",

@@ -108,6 +108,9 @@ outside the current plan.
    clears without slack. The input sequence from the 2.47-cell run remains open.
    Keep `puzzle.trial_laser_slack` at 0.3 until the same stack clears the original
    threshold with a demonstrated fix. Rerun stacking, Ivy and cup regressions.
+   The 2026-11-13 sweep captured all 50 openings, and the headless roster test
+   checks each first deal, configured floor and rival lane. Full trial replays
+   and side-by-side comparisons remain.
 3. **Compare spell and results timing in play.** The headless tests cover Slow's
    catch and release, Bubble's targeting of stuck bricks, Extra Life's motion
    and pickup, and No Rotate's fixed shake window. The cup winner's bolt now

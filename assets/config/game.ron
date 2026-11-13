@@ -648,6 +648,7 @@
         ease_seconds: 1.0,
         wait_seconds: 2.0,
         score_per_cell: 10.0,
+        score_min_height: 1.0,
         drop_speed: 4.0,
         end_over: 5.0,
         end_under: 1.0,

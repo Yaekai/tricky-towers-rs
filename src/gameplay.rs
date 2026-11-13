@@ -787,6 +787,11 @@ impl TowerState {
         }
     }
 
+    /// Endless Race scores the current tower until the pacer freezes it.
+    pub(crate) fn endless_race_score(&self, rules: &crate::config::EndlessRules) -> u32 {
+        rules.score(self.pacer_end.map_or(self.height, |end| end.caught_height))
+    }
+
     /// Endless Survival and Endless Puzzle score: the bricks in the tower.
     pub fn endless_score(&self) -> u32 {
         self.bricks_placed.saturating_sub(self.tower_losses)
@@ -2571,6 +2576,7 @@ pub struct AutoBuilt;
 pub struct PacerEnd {
     /// Seconds since the pacer caught the tower.
     pub clock: f32,
+    caught_height: f32,
     from: f32,
     high: f32,
     low: f32,
@@ -2589,6 +2595,7 @@ impl PacerEnd {
             .min(top - look.camera_height);
         Self {
             clock: 0.0,
+            caught_height: state.height,
             from: state.pacer,
             high: state.height + rules.end_over,
             low: bottom - rules.end_under,
@@ -3277,5 +3284,22 @@ mod tests {
         let edge = -config.camera_floor() + config.lost_puzzle_offset - config.lost_reach;
         assert!(out_of_view(&config, &puzzle, view, Vec2::new(0.0, edge - 0.1), 0.0, 1.0, false));
         assert!(!out_of_view(&config, &puzzle, view, Vec2::new(0.0, edge + 0.1), 0.0, 1.0, false));
+    }
+}
+
+#[cfg(test)]
+mod endless_score_tests {
+    use super::*;
+
+    #[test]
+    fn endless_race_scores_the_live_tower_then_freezes_the_caught_height() {
+        let config = GameConfig::default();
+        let mut tower = TowerState::new(&config, 1);
+        tower.best_height = 12.0;
+        tower.height = 6.25;
+        assert_eq!(tower.endless_race_score(&config.endless), 63);
+        tower.pacer_end = Some(PacerEnd::new(&config, &tower));
+        tower.height = 8.0;
+        assert_eq!(tower.endless_race_score(&config.endless), 63);
     }
 }
