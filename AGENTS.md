@@ -441,4 +441,5 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-12 (Codex): blended cup poses using the original controller's entry and exit timings. Inputs wait through non-interruptible transitions, then resume in controller order. Added checks for the half-blend pose and the immediate Cheer-to-CastSelf transition.
 - 2026-11-12 (Codex): matched the Race battle finish flag's 55 tiles and two caps. Both staged art and placeholder segments fade from the winning lane and reset on rematch.
 - 2026-11-13 (Codex): matched the Survival intro HUD slide and separate rounded count and preview tweens. The preview starts empty, uses a separate bag, and returns to the real brick when the count sound stops.
+- 2026-11-13 (Codex): the trial next-brick card now uses the dealer's fixed order. Added a roster smoke test covering the first deal, floor reference and rival lane for all 50 stock trials.
 - 2026-11-13 (Codex): restored the two distinct brick-count update turns and the original scale curve. The Survival count and the Endless Puzzle bricks-left label share the same clips.
