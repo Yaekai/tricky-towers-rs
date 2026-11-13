@@ -2254,6 +2254,11 @@ fn endless_puzzle_levels_raise_the_laser_and_a_lost_brick_lifts_the_tower() {
         tower(&mut app, 0).active.is_none(),
         "no brick during a level-up"
     );
+    assert!(run_until(&mut app, 5.0, |app| {
+        let state = tower(app, 0);
+        state.level_up.is_some_and(|t| t >= rules.level_wait.0)
+    }));
+    assert!(tower(&mut app, 0).active.is_none(), "the next level waits through the laser rise");
     assert!(run_until(&mut app, 5.0, |app| tower(app, 0).puzzle_level == 2));
     let state = tower(&mut app, 0);
     assert_eq!(laser(&mut app), 30.0 + rules.laser_rise);
@@ -2715,6 +2720,11 @@ fn endless_puzzle_level_ups_put_down_four_blocks_by_the_original_rule() {
     rules.laser_start = 30.0;
     rules.first_bricks = 2;
     let mut app = headless_app(config);
+    assert!(run_until(&mut app, 30.0, |app| count::<With<Obstacle>>(app) == 1));
+    let first = {
+        let world = app.world_mut();
+        world.query_filtered::<&Transform, With<Obstacle>>().single(world).unwrap().translation
+    };
     assert!(run_until(&mut app, 30.0, |app| count::<With<Obstacle>>(
         app
     ) == 4));
@@ -2726,6 +2736,7 @@ fn endless_puzzle_level_ups_put_down_four_blocks_by_the_original_rule() {
         .map(|t| t.translation.truncate())
         .collect();
     let config = app.world().resource::<GameConfig>().clone();
+    assert!(spots.contains(&first.truncate()));
     for (i, a) in spots.iter().enumerate() {
         let x = a.x / config.cell_size;
         assert!(

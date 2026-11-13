@@ -186,3 +186,9 @@ Endless Race scores the current tower height. A height of one cell or less
 scores zero. Above that, it rounds the full height times ten up. The pacer
 stops the tower when it catches it, so the visible result and leaderboard
 use that height. Source is EndlessRaceGameModePlayController.
+
+In Endless Puzzle, the HUD receives the next quota as the laser starts rising.
+After the rise, the original draws four obstacle positions together in the
+tower's frame, accounting for height gained from drops. It places the blocks
+one by one and then resumes dealing bricks. Sources are
+EndlessPuzzleGameModePlayController and PuzzleObstaclePositionGenerator.

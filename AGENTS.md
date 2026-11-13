@@ -445,3 +445,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-13 (Codex): restored the two distinct brick-count update turns and the original scale curve. The Survival count and the Endless Puzzle bricks-left label share the same clips.
 - 2026-11-13 (Codex): added the Endless score and personal-best pulses, with the score dip and Race's one-second cooldown. The displayed values still update through the cooldown.
 - 2026-11-13 (Codex): Endless Race now scores the live tower with the original one-cell cutoff, then preserves the height at pacer catch for the result and leaderboard.
+- 2026-11-13 (Codex): Endless Puzzle chooses one set of obstacle positions per level-up and uses the raised tower's frame for its rows. The next quota appears when the laser starts moving, and the dealer still waits until the level-up ends.

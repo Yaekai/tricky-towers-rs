@@ -593,6 +593,7 @@ pub struct TowerState {
     pub level_up: Option<f32>,
     /// Blocks placed so far in the running level-up.
     pub obstacles_placed: u32,
+    obstacle_spots: Option<Vec<Vec2>>,
     /// The winner's roof.
     pub roof: RoofStage,
     pub wave_lift: (f32, f32),
@@ -672,6 +673,7 @@ impl TowerState {
             level_end: config.endless_play.level_bricks(1),
             level_up: None,
             obstacles_placed: 0,
+            obstacle_spots: None,
             roof: RoofStage::None,
             wave_lift: (0.0, 0.0),
             pacer: config.endless.intro_from,
@@ -2743,6 +2745,7 @@ fn judge_match(
                     *t += dt;
                     if *t >= rules.level_up_seconds() {
                         state.level_up = None;
+                        state.obstacle_spots = None;
                         state.laser_base += rules.laser_rise;
                         state.puzzle_level += 1;
                         state.level_end += rules.level_bricks(state.puzzle_level);
@@ -2892,21 +2895,21 @@ fn place_obstacles(
     for (entity, tower, mut state) in &mut towers {
         let Some(t) = state.level_up else { continue };
         let since = t - rules.level_wait.0 - rules.rise_seconds;
-        let due = ((since / rules.obstacle_delay.max(0.001)).floor() as i64)
-            .clamp(0, rules.obstacles as i64) as u32;
-        if since < 0.0 || state.obstacles_placed >= due {
+        if since < 0.0 {
             continue;
         }
-        // Every spot is drawn at the first block, so none repeats.
-        let laser = state.laser_base + rules.laser_rise;
-        let height = state.height;
-        let spots = rules.obstacle_spots(height, laser, || {
-            (state.random() % 10_000) as f32 / 10_000.0
-        });
-        for spot in spots
-            .iter()
-            .skip(state.obstacles_placed as usize)
-            .take((due - state.obstacles_placed) as usize)
+        if state.obstacle_spots.is_none() {
+            // Pick the whole set once, in the original's tower-relative coordinates.
+            let rise = state.base_shown;
+            let spots = rules.obstacle_spots(
+                state.height - rise, state.laser_base + rules.laser_rise - rise,
+                || (state.random() % 10_000) as f32 / 10_000.0,
+            );
+            state.obstacle_spots = Some(spots);
+        }
+        let due = (since / rules.obstacle_delay.max(0.001)).floor() as usize;
+        while (state.obstacles_placed as usize) < due
+            && let Some(&spot) = state.obstacle_spots.as_ref().and_then(|spots| spots.get(state.obstacles_placed as usize))
         {
             let look = rules
                 .obstacle_looks
@@ -2921,7 +2924,7 @@ fn place_obstacles(
                 ice: false,
             };
             let (collider, _) = brick_body(&config, &block);
-            let at = Vec2::new(tower.origin_x + config.cells(spot.x), config.cells(spot.y));
+            let at = Vec2::new(tower.origin_x + config.cells(spot.x), config.cells(spot.y + state.base_shown));
             commands.spawn((
                 block,
                 FloorBlock {
@@ -2933,8 +2936,8 @@ fn place_obstacles(
                 Friction::new(config.brick_friction),
                 Transform::from_translation(at.extend(0.0)),
             ));
+            state.obstacles_placed += 1;
         }
-        state.obstacles_placed = due;
     }
 }
 
@@ -3301,5 +3304,52 @@ mod endless_score_tests {
         tower.pacer_end = Some(PacerEnd::new(&config, &tower));
         tower.height = 8.0;
         assert_eq!(tower.endless_race_score(&config.endless), 63);
+    }
+}
+
+#[cfg(test)]
+mod obstacle_tests {
+    use super::*;
+
+    #[test]
+    fn a_level_keeps_one_obstacle_draw_in_the_raised_tower_frame() {
+        let mut config = GameConfig { mode: ModeKind::EndlessPuzzle, ..default() };
+        config.endless_play.obstacle_columns = vec![(0.5, 1.0)];
+        let rules = &config.endless_play;
+        let rise = 0.5;
+        let height = 2.0;
+        let laser = 5.6;
+        let sample = rules.level_wait.0 + rules.rise_seconds + rules.obstacle_delay * 1.5;
+        let mut state = TowerState::new(&config, 42);
+        state.base_shown = rise;
+        state.height = height;
+        state.laser_base = laser - rules.laser_rise;
+        state.level_up = Some(sample);
+        let mut original = state.clone();
+        let expected = rules.obstacle_spots(height - rise, laser - rise, || {
+            (original.random() % 10_000) as f32 / 10_000.0
+        });
+        assert_eq!(expected.len(), 4);
+        let second = sample + rules.obstacle_delay;
+        let cell = config.cell_size;
+        let mut app = App::new();
+        app.insert_resource(config)
+            .insert_resource(Match { mode: ModeKind::EndlessPuzzle, phase: Phase::Playing, ..default() })
+            .add_systems(Update, place_obstacles);
+        let tower = app.world_mut().spawn((Tower { index: 0, origin_x: 0.0, human: true, player: Some(0) }, state)).id();
+        app.update();
+        let world = app.world_mut();
+        let mut state = world.get_mut::<TowerState>(tower).unwrap();
+        assert_eq!(state.obstacle_spots.as_deref(), Some(expected.as_slice()));
+        state.height = 4.0;
+        state.level_up = Some(second);
+        app.update();
+        let world = app.world_mut();
+        let placed: Vec<_> = world.query_filtered::<&Transform, With<Obstacle>>()
+            .iter(world).map(|at| at.translation.truncate()).collect();
+        assert_eq!(placed.len(), 2);
+        for spot in &expected[..2] {
+            assert!(placed.contains(&((*spot + Vec2::Y * rise) * cell)));
+        }
     }
 }
