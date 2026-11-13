@@ -700,7 +700,10 @@ fn dress_floor(
     mut commands: Commands,
     config: Res<GameConfig>,
     art: Res<Art>,
-    blocks: Query<(Entity, &FloorBlock, &Brick, Option<&crate::gameplay::Obstacle>), Or<(Added<FloorBlock>, Changed<Brick>)>>,
+    blocks: Query<
+        (Entity, &FloorBlock, &Brick, Option<&crate::gameplay::Obstacle>),
+        Or<(Added<FloorBlock>, Changed<Brick>)>,
+    >,
 ) {
     let c = config.cell_size;
     for (entity, block, brick, obstacle) in &blocks {
@@ -712,7 +715,13 @@ fn dress_floor(
             FloorPart::Ledge(n) => format!("puzzle_pro_ledge_{}", n + 1),
             FloorPart::TopLedge => "puzzle_pro_ledge_top".to_string(),
         };
+        let mut node = commands.entity(entity);
+        // Its pictures are children, so it needs visibility of its own.
+        node.despawn_children().insert(Visibility::default());
         let Some((mut sprite, anchor, mut transform)) = art_sprite(&art, &name, c) else {
+            let width = if block.part == FloorPart::Wide { 2.0 } else { 1.0 };
+            let size = Vec2::new(width, brick.cells.len() as f32) * c;
+            node.with_child((Sprite::from_color(brick.color, size), Transform::default()));
             continue;
         };
         if let Some(obstacle) = obstacle
@@ -722,9 +731,6 @@ fn dress_floor(
             sprite.flip_y = y;
         }
         let half = brick.cells.len() as f32 * 0.5;
-        let mut node = commands.entity(entity);
-        // Its pictures are children, so it needs visibility of its own.
-        node.despawn_children().insert(Visibility::default());
         if matches!(block.part, FloorPart::Column(_) | FloorPart::Pillar | FloorPart::Wide) {
             // Pivot on the top-left, a hair left of and above the block's corner (two cells
             // wide for the wide piece).
@@ -4452,6 +4458,15 @@ mod tests {
         let child = world.get::<Children>(block).unwrap()[0];
         let sprite = world.get::<Sprite>(child).unwrap();
         assert!(sprite.flip_x && sprite.flip_y);
+
+        let world = app.world_mut();
+        world.resource_mut::<Art>().images.remove(name);
+        world.get_mut::<Brick>(block).unwrap().set_changed();
+        app.update();
+        let world = app.world();
+        let child = world.get::<Children>(block).unwrap()[0];
+        let cell = world.resource::<GameConfig>().cell_size;
+        assert_eq!(world.get::<Sprite>(child).unwrap().custom_size, Some(Vec2::splat(cell)));
     }
 
     #[test]
