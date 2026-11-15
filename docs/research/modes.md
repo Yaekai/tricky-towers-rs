@@ -30,7 +30,9 @@ Plain-language notes from Max's installed copy. Units are brick cells.
   up to 4 lower. Pro is a 3-wide pillar with random 1-cell side ledges (70% per row).
 - The lane is 1.2× wider. The steering limit is the larger of the usual limit × 1.2 and the
   tower's half width plus 1.5, measured from the widest settled brick either side of the centre.
-- A brick above the laser is zapped and that player's round ends.
+- A brick whose top is strictly above the laser is zapped and starts that player's
+  finish countdown. An empty tower also finishes if its raised base reaches the
+  laser. Source is MaximumHeightGamePlayRule.
 - A dropped brick costs no life; the laser effectively moves 0.5 lower.
 - When everyone has finished, the most bricks in the tower wins.
 

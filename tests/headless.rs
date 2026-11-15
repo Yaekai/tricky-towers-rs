@@ -507,6 +507,48 @@ fn puzzle_battle_waits_for_every_tower_and_ranks_the_bricks_still_standing() {
 }
 
 #[test]
+fn a_puzzle_battle_finishes_when_the_empty_base_reaches_the_laser() {
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.puzzle.line_height = 3.0;
+    let mut app = headless_app(config);
+    let world = app.world_mut();
+    let mut state = world.query::<&mut TowerState>().single_mut(world).unwrap();
+    state.base_shown = state.laser_base;
+    run_seconds(&mut app, 0.06, |_| {});
+    let state = tower(&mut app, 0);
+    assert_eq!(state.bricks_placed, 0);
+    assert_eq!(state.status, TowerStatus::Out);
+    assert!(state.laser_count.is_some());
+}
+
+#[test]
+fn a_puzzle_battle_zaps_a_brick_just_above_the_laser() {
+    use avian2d::prelude::{Collider, Position, RigidBody};
+    use tricky_towers::spells::Zapped;
+
+    let mut config = fast_config();
+    config.mode = ModeKind::Puzzle;
+    config.puzzle.line_height = 3.0;
+    let cell = config.cell_size;
+    let mut app = headless_app(config);
+    let world = app.world_mut();
+    let (owner, tower_info) = world.query::<(Entity, &Tower)>().single(world).unwrap();
+    let at = Vec2::new(tower_info.origin_x, 2.5 * cell);
+    let brick = world.spawn((
+        Brick { tower: owner, piece: 0, cells: vec![Vec2::ZERO], color: Color::WHITE, scale: 1.0, mass: 1.0, ice: false },
+        RigidBody::Static, Collider::rectangle(cell, cell), Transform::from_translation(at.extend(0.0)),
+    )).id();
+    run_seconds(&mut app, 0.06, |_| {});
+    assert_eq!(tower(&mut app, 0).status, TowerStatus::Building);
+    let above = at + Vec2::Y * (0.01 * cell);
+    app.world_mut().entity_mut(brick).insert((Position(above), Transform::from_translation(above.extend(0.0))));
+    run_seconds(&mut app, 0.06, |_| {});
+    assert_eq!(tower(&mut app, 0).status, TowerStatus::Out);
+    assert!(app.world().get::<Zapped>(brick).is_some());
+}
+
+#[test]
 fn a_base_rise_that_lifts_a_brick_onto_the_line_ends_the_round() {
     // The base rises with each brick that fell off, and the bricks on it are carried
     // up. A rise that lifts the highest brick onto the laser must stop the tower, zap
