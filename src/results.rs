@@ -1209,7 +1209,7 @@ mod tests {
             app.world_mut().spawn((Tower { index, origin_x: 0.0, human: true, player: Some(index) }, state));
         }
         let rules = &config.puzzle;
-        let delay = rules.count_delay + rules.count_step + 0.01;
+        let delay = rules.count_delay;
         let step = rules.count_step;
         let curve = rules.count_curve;
         let pitch = rules.count_pitch;
@@ -1226,10 +1226,10 @@ mod tests {
         };
         assert!(tick(delay).is_empty());
         let first = 1.0 + ((curve * 0.5).exp() - 1.0) * pitch;
+        assert_eq!(tick(step + 0.01), vec![first]);
         assert_eq!(tick(0.0), vec![first]);
-        assert_eq!(tick(step), vec![first]);
         let second = 1.0 + (curve.exp() - 1.0) * pitch;
-        assert_eq!(tick(0.0), vec![first, second]);
+        assert_eq!(tick(step), vec![first, second]);
         assert_eq!(tick(0.0), vec![first, second]);
     }
 
