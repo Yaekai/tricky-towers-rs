@@ -2329,8 +2329,7 @@ fn track_towers(
     };
     let by_view = lost_out_of_view(&game);
 
-    let settled_speed = config.cells(0.5);
-    let mut tops: Vec<(Entity, f32, bool)> = Vec::new();
+    let settled_speed_sq = config.cells(config.settled_speed).powi(2);
     // Each counted part's tower, left and right edge (from the lane centre) and top, in cells.
     let mut spans: Vec<(Entity, f32, f32, f32)> = Vec::new();
 
@@ -2396,13 +2395,14 @@ fn track_towers(
             }
             continue;
         }
+        let settled = velocity.0.length_squared() <= settled_speed_sq;
+        state.all_settled &= settled;
         let on_tower = (position.0.x - tower.origin_x).abs()
             <= config.cells(config.base_half_width(config.mode) + 2.0);
         // Bricks held up by a bubble or a ghost don't count toward the height.
         if !on_tower || aabb.min.y <= -config.cell_size || bubbled || ghosted {
             continue;
         }
-        let settled = velocity.0.x.abs() < settled_speed && velocity.0.y.abs() < settled_speed;
         if settled {
             let reach = (aabb.max.x - tower.origin_x).max(tower.origin_x - aabb.min.x);
             state.half_width = state.half_width.max(reach / config.cell_size);
@@ -2411,23 +2411,16 @@ fn track_towers(
         if config.trial.is_some() && aabb.max.y / config.cell_size > state.laser_base + 0.05 {
             info!("trial brick over laser: piece {:?} at ({:.2}, {:.2}) top {:.2} settled {}", brick.piece, position.0.x / config.cell_size, position.0.y / config.cell_size, aabb.max.y / config.cell_size, settled);
         }
-        tops.push((brick.tower, aabb.max.y, settled));
         let c = config.cell_size;
+        let top = aabb.max.y / c;
+        state.stack_top = state.stack_top.max(top);
+        state.height = state.stack_top;
         spans.push((
             brick.tower,
             (aabb.min.x - tower.origin_x) / c,
             (aabb.max.x - tower.origin_x) / c,
-            aabb.max.y / c,
+            top,
         ));
-    }
-    for (tower, top, settled) in tops {
-        if let Ok((_, _, mut state)) = towers.get_mut(tower) {
-            // Like the original, the height is the top of any placed brick,
-            // settled or not.
-            state.stack_top = state.stack_top.max(top / config.cell_size);
-            state.height = state.stack_top;
-            state.all_settled &= settled;
-        }
     }
     // The top of each tower: its parts within `auto_build_top` of its height, the base too.
     let near = config.magic.auto_build_top;
@@ -3465,5 +3458,40 @@ mod endless_zap_tests {
         assert_eq!(state.level_up, None);
         assert_eq!(state.laser(&world.resource::<GameConfig>()), target);
         assert_eq!(state.puzzle_level, 1);
+    }
+}
+
+#[cfg(test)]
+mod stability_tests {
+    use super::*;
+
+    #[test]
+    fn puzzle_trial_checks_the_full_speed_of_bricks_below_the_floor_top() {
+        let config = GameConfig { mode: ModeKind::Puzzle, trial: Some(2), ..default() };
+        let cell = config.cell_size;
+        let speed = config.cells(config.settled_speed);
+        let mut app = App::new();
+        let state = TowerState::new(&config, 1);
+        app.insert_resource(config)
+            .insert_resource(Match { mode: ModeKind::Puzzle, phase: Phase::Playing, ..default() })
+            .add_message::<BrickLost>()
+            .add_systems(Update, track_towers);
+        let world = app.world_mut();
+        let tower = world.spawn((Tower { index: 0, origin_x: 0.0, human: true, player: Some(0) }, state)).id();
+        let brick = world.spawn((
+            Brick { tower, piece: 0, cells: vec![Vec2::ZERO], color: Color::WHITE, scale: 1.0, mass: 1.0, ice: false },
+            Position(Vec2::NEG_Y * (3.0 * cell)),
+            LinearVelocity(Vec2::splat(speed * 0.8)),
+            Collider::rectangle(cell, cell),
+            Rotation::IDENTITY,
+        )).id();
+        app.update();
+        let state = app.world().get::<TowerState>(tower).unwrap();
+        assert_eq!(state.height, 0.0);
+        assert!(!state.all_settled);
+
+        app.world_mut().entity_mut(brick).insert(LinearVelocity(Vec2::X * speed));
+        app.update();
+        assert!(app.world().get::<TowerState>(tower).unwrap().all_settled);
     }
 }

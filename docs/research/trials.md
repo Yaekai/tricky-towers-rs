@@ -14,6 +14,10 @@ Values are as the install defines them; units are cells and seconds.
 - **Goal.** Race: reach the height within the time limit. Survival: place that many bricks
   without losing all lives (the brick supply is exactly that many). Puzzle: place exactly that
   many bricks, all staying under the laser at the given height, with 1 life.
+  The finish countdown starts after the tower has the required number of bricks and
+  they remain stable for 0.3 s. Stability checks each placed brick's full speed
+  against 0.5 cells/s, including bricks in the well below the floor top.
+  Source is SinglePlayerPuzzleGameModePlayController.
 - **Drop.** The starting drop speed, when the trial sets one ("-" = the mode's default).
 - **Base.** Survival and Puzzle name the floor piece and its height. Race trials use the race
   floor plus a pre-built **enemy tower** picture beside yours (ENEMY_TOWER_LEVEL_01..13). At the
