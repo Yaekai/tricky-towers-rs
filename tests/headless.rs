@@ -684,6 +684,15 @@ fn rookie_overhang_trial_clears_without_slack() {
     );
 }
 
+#[test]
+fn rookie_puzzle_trial_seven_clears_without_slack() {
+    // The guide's outside hooks brace against the two ledges.
+    play_puzzle_trial_without_slack(
+        "SP_15",
+        &[("O", 0, 0), ("Z", -2, 1), ("S", 2, 1), ("L", 6, -1), ("S", 2, 1), ("J", -6, 1), ("Z", -2, 1)],
+    );
+}
+
 fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
     let mut config = GameConfig::from_ron(include_str!("../assets/config/game.ron")).unwrap();
     config.mode = ModeKind::Puzzle;
