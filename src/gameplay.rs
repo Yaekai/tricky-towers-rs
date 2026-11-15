@@ -2535,8 +2535,7 @@ fn zap_over_laser(
             continue;
         }
         let top = brick_bounds(collider, position.0, *rotation).max.y / config.cell_size;
-        let margin = if battle { 0.05 } else { 0.0 };
-        if top > state.laser(&config) + margin {
+        if top > state.laser(&config) {
             state.laser_zaps += 1;
             let mut brick = commands.entity(entity);
             brick.insert((ColliderDisabled, crate::spells::Zapped {
@@ -2809,19 +2808,25 @@ fn judge_match(
             ModeKind::Puzzle => {
                 let rules = &config.puzzle;
                 // In a puzzle trial a dropped brick fails it (1 life, trials.md).
-                let trial_drop = config.trial.is_some() && state.bricks_dropped > 0;
+                let trial = config.trial.is_some();
+                let trial_drop = trial && state.bricks_dropped > 0;
                 // A brick touching the laser stops that player's bricks at once; the
                 // round's 3-2-1 runs, then the bricks are counted (judge_match).
-                let slack = if config.trial.is_some() { rules.trial_laser_slack } else { 0.0 };
+                let laser = state.laser(&config);
+                let crossed = if trial {
+                    state.height > laser + 0.05 + rules.trial_laser_slack
+                } else {
+                    state.height > laser || state.base_shown >= laser
+                };
                 if state.laser_count.is_none()
                     && !trial_drop
-                    && state.height > state.laser(&config) + 0.05 + slack
+                    && crossed
                 {
                     state.laser_count = Some(0.0);
                     info!(
-                        "puzzle: a brick touched the laser (height {:.2}, laser {:.2}, {} placed, settled {})",
+                        "puzzle: tower reached the laser (height {:.2}, laser {:.2}, {} placed, settled {})",
                         state.height,
-                        state.laser(&config),
+                        laser,
                         state.bricks_placed,
                         state.all_settled
                     );
