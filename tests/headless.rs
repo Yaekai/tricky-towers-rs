@@ -693,6 +693,38 @@ fn rookie_puzzle_trial_seven_clears_without_slack() {
     );
 }
 
+#[test]
+fn apprentice_overhang_puzzle_clears_without_slack() {
+    play_puzzle_trial_without_slack(
+        "SP_21",
+        &[("I", -2, 0), ("L", 4, -1), ("Z", -2, 0), ("T", 4, 0), ("J", -2, 0), ("I", 5, 0)],
+    );
+}
+
+#[test]
+fn apprentice_spare_unit_puzzle_clears_without_slack() {
+    play_puzzle_trial_without_slack(
+        "SP_24",
+        &[("T", -3, 1), ("L", 2, 0), ("S", 4, 0), ("I", -1, 0), ("I", 3, 0), ("J", -5, 1), ("J", -4, 0)],
+    );
+}
+
+#[test]
+fn apprentice_uneven_floor_puzzle_clears_without_slack() {
+    play_puzzle_trial_without_slack(
+        "SP_29",
+        &[("L", 6, -1), ("T", -6, 1), ("Z", -5, 0), ("L", 0, -1), ("Z", 0, 0), ("S", 6, 0), ("I", -7, 0)],
+    );
+}
+
+#[test]
+fn apprentice_large_intro_puzzle_clears_without_slack() {
+    play_puzzle_trial_without_slack(
+        "SP_12",
+        &[("L", 5, -1), ("J", -5, 1), ("Z", -2, 0), ("O", -3, 0), ("T", 5, 2), ("Z", 0, 0), ("O", 9, 0), ("I", -6, 1)],
+    );
+}
+
 fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
     let mut config = GameConfig::from_ron(include_str!("../assets/config/game.ron")).unwrap();
     config.mode = ModeKind::Puzzle;
@@ -732,7 +764,12 @@ fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
             "{name} did not land"
         );
         run_seconds(&mut app, 0.75, |_| {});
-        assert_ne!(tower(&mut app, 0).status, TowerStatus::Out, "{trial} after brick {} ({name})", i + 1);
+        let state = tower(&mut app, 0);
+        assert_ne!(
+            state.status, TowerStatus::Out,
+            "{trial} after brick {} ({name}): {} placed, {} dropped, top {:.3}",
+            i + 1, state.bricks_placed, state.bricks_dropped, state.height,
+        );
     }
     assert!(run_until(&mut app, 10.0, |app| tower(app, 0).status == TowerStatus::Won));
     assert!(app.world().resource::<tricky_towers::trials::TrialProgress>().is_done(trial));
