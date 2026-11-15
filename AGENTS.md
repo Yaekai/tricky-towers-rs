@@ -459,3 +459,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-15 (Codex): matched the Puzzle battle laser's strict brick threshold and the countdown when an empty base reaches the line.
 - 2026-11-15 (Codex): Puzzle trial stability now measures full velocity and includes bricks below the floor top. The settled-width check uses the same measured speed threshold.
 - 2026-11-15 (Codex): Endless Puzzle obstacles now emit the measured flash, star and cloud bursts as they appear. The effect reuses the staged circle, star and cloud textures.
+- 2026-11-15 (Codex): the published Trial 7 stack clears with zero extra laser slack and awards its medal. This completes the Rookie Puzzle replay coverage.
