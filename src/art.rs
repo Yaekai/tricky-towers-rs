@@ -443,7 +443,11 @@ impl Plugin for ArtPlugin {
                     light_bricks,
                     play_animations,
                     apply_font,
-                    (match_end_stingers, play_music, duck_music.after(crate::menu::MenuSystems)).chain(),
+                    (
+                        match_end_stingers.after(crate::results::show_puzzle_scores),
+                        play_music,
+                        duck_music.after(crate::menu::MenuSystems),
+                    ).chain(),
                     play_sounds.after(crate::menu::MenuSystems),
                     menu_cursor_sound.after(crate::menu::MenuSystems),
                     auto_rotate_sounds,
@@ -892,7 +896,9 @@ fn match_end_stingers(
         Some(true)
     } else if single && !end.finish_tower {
         Some(towers.iter().any(|(t, s)| t.is_first_player() && s.status == crate::gameplay::TowerStatus::Won))
-    } else if game.mode.rules() == ModeKind::Puzzle && game.winner.is_some() {
+    } else if game.mode == ModeKind::Puzzle
+        && (game.winner.is_some() || puzzle.as_ref().is_some_and(|p| !p.tied.is_empty()))
+    {
         // A Puzzle battle's win music waits for the count (_DoBaskEnd).
         if puzzle.as_ref().is_some_and(|p| p.counting()) {
             return;
@@ -1495,6 +1501,35 @@ fn auto_rotate_sounds(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_puzzle_draw_plays_the_win_stinger_once_after_the_count() {
+        use crate::results::PuzzleCountClock;
+
+        let mut art = Art::default();
+        art.sounds.insert("sfx_win".into(), Handle::default());
+        let mut app = App::new();
+        app.insert_resource(art)
+            .insert_resource(Match { mode: ModeKind::Puzzle, phase: Phase::Over, round: 1, ..default() })
+            .insert_resource(PuzzleCountClock {
+                since: 0.0,
+                end: Some(1.0),
+                tied: vec![Entity::PLACEHOLDER],
+            })
+            .init_resource::<Time>()
+            .init_resource::<crate::config::GameConfig>()
+            .init_resource::<MatchEnd>()
+            .add_message::<crate::gameplay::RoofPlaced>()
+            .add_systems(Update, match_end_stingers);
+        app.update();
+        assert!(app.world().resource::<MatchEnd>().stinger.is_none());
+        app.world_mut().resource_mut::<PuzzleCountClock>().since = 1.0;
+        app.update();
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(world.resource::<MatchEnd>().stinger, Some((0.0, true)));
+        assert_eq!(world.query_filtered::<Entity, With<Stinger>>().iter(world).count(), 1);
+    }
 
     #[test]
     fn pause_keys_play_navigation_sounds_without_playing_brick_control_sounds() {
