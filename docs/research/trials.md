@@ -18,6 +18,8 @@ Values are as the install defines them; units are cells and seconds.
   they remain stable for 0.3 s. Stability checks each placed brick's full speed
   against 0.5 cells/s, including bricks in the well below the floor top.
   Source is SinglePlayerPuzzleGameModePlayController.
+  Replay coverage includes full runs of Rookie Puzzle Trials 3, 4, 7 and 9.
+  Trial 7's two outer hooks follow the [community solution](https://www.speedrun.com/tricky_towers/guides/ciy29).
 - **Drop.** The starting drop speed, when the trial sets one ("-" = the mode's default).
 - **Base.** Survival and Puzzle name the floor piece and its height. Race trials use the race
   floor plus a pre-built **enemy tower** picture beside yours (ENEMY_TOWER_LEVEL_01..13). At the

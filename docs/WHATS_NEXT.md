@@ -110,9 +110,9 @@ outside the current plan.
    threshold with a demonstrated fix. Rerun stacking, Ivy and cup regressions.
    The 2026-11-13 sweep captured all 50 openings, and the headless roster test
    checks each first deal, configured floor and rival lane. The 2026-11-15
-   replays also clear Trials 3 and 4 through the normal controls with zero extra
-   laser slack and verify each medal. Continue with the remaining full trial
-   replays and side-by-side comparisons.
+   replays clear all four Rookie Puzzle Trials through the normal controls with
+   zero extra laser slack and verify each medal. Continue with the later Puzzle
+   trials and the Race and Survival playthroughs.
 3. **Compare spell and results timing in play.** The headless tests cover Slow's
    catch and release, Bubble's targeting of stuck bricks, Extra Life's motion
    and pickup, and No Rotate's fixed shake window. The cup winner's bolt now
