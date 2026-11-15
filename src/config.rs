@@ -439,6 +439,37 @@ pub struct EndlessPlay {
     pub obstacle_looks: Vec<u32>,
     /// Horizontal and vertical flips of each block's graphic.
     pub obstacle_flips: Vec<(bool, bool)>,
+    pub obstacle_spawn: ObstacleSpawnLook,
+}
+
+/// The three simultaneous bursts at an Endless Puzzle obstacle's top edge.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct ObstacleSpawnLook {
+    pub radius: f32,
+    pub flash: ObstacleSpawnLayer,
+    pub clouds: ObstacleSpawnLayer,
+    pub stars: ObstacleSpawnLayer,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+pub struct ObstacleSpawnLayer {
+    pub count: u32,
+    pub life: f32,
+    pub speed: (f32, f32),
+    pub size: (f32, f32),
+    pub dampen: f32,
+}
+
+impl Default for ObstacleSpawnLook {
+    fn default() -> Self {
+        Self {
+            radius: 0.01,
+            flash: ObstacleSpawnLayer { count: 2, life: 0.07, speed: (0.0, 0.0), size: (3.0, 4.0), dampen: 0.0 },
+            clouds: ObstacleSpawnLayer { count: 4, life: 0.5, speed: (10.0, 30.0), size: (0.4, 1.0), dampen: 0.28 },
+            stars: ObstacleSpawnLayer { count: 3, life: 0.5, speed: (50.0, 60.0), size: (0.4, 0.6), dampen: 0.6 },
+        }
+    }
 }
 
 impl Default for EndlessPlay {
@@ -525,6 +556,7 @@ impl Default for EndlessPlay {
                 (false, true), (false, true), (false, true),
                 (true, true), (true, true),
             ],
+            obstacle_spawn: ObstacleSpawnLook::default(),
         }
     }
 }
