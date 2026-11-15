@@ -222,3 +222,8 @@ When every Puzzle tower finishes with zero bricks, they share first place.
 The zero count appears at the finalist height and the draw banner waits one
 count interval. Tied winners also hear the win stinger after the count.
 Sources are PuzzleGameMode and PuzzleGameBaskController.
+
+An Endless Puzzle obstacle spawns two circle flashes, three stars and four
+clouds at its top edge. The flash lasts 0.07 s and the other particles last
+0.5 s. Stars and clouds spread, slow to 0.5 cells/s and turn as they fade.
+Sources are PuzzlePieceSpawn and SpawnPuzzleObstacleEffect.

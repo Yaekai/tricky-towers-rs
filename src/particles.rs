@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use crate::art::Art;
 use crate::config::{GameConfig, ModeKind};
-use crate::gameplay::{ActiveBrick, BrickLost, Match, Phase, Placed, Tower, TowerState};
+use crate::gameplay::{ActiveBrick, BrickLost, Match, Obstacle, Phase, Placed, Tower, TowerState};
 use crate::visuals::ViewSize;
 
 pub struct ParticlesPlugin;
@@ -27,6 +27,7 @@ impl Plugin for ParticlesPlugin {
             Update,
             (
                 spawn_poofs,
+                spawn_obstacle_poofs,
                 landing_dust,
                 gravel,
                 lost_bricks,
@@ -168,6 +169,59 @@ fn spawn_poofs(
         let at = transform.translation.truncate();
         let mut seed = (entity.to_bits() as u32) | 1;
         brick_poof(&mut commands, &art, c, at, &mut seed);
+    }
+}
+
+/// PuzzlePieceSpawn puts a flash, stars and clouds at the obstacle's top edge.
+fn spawn_obstacle_poofs(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    art: Res<Art>,
+    obstacles: Query<(Entity, &Transform), Added<Obstacle>>,
+) {
+    const FLASH: &[(f32, [f32; 3])] = &[
+        (0.4912, [255.0, 255.0, 255.0]), (0.5, [255.0, 129.0, 32.0]),
+    ];
+    const CLOUDS: &[(f32, [f32; 3])] = &[
+        (0.0, [242.0, 246.0, 255.0]), (1.0, [241.0, 245.0, 255.0]),
+    ];
+    const STARS: &[(f32, [f32; 3])] = &[
+        (0.0, [255.0, 255.0, 255.0]), (0.2118, [255.0, 47.0, 0.0]),
+        (0.4206, [253.0, 255.0, 101.0]), (0.5824, [255.0, 121.0, 0.0]),
+        (0.7147, [255.0, 219.0, 101.0]),
+    ];
+    const CLOUD_SIZE: (&[(f32, f32)], &[(f32, f32)]) = (
+        &[(0.0, 0.9045), (0.5932, 0.4388), (1.0, 0.0)],
+        &[(0.0, 1.0), (0.5612, 0.2261), (1.0, 0.0)],
+    );
+    const STAR_SIZE: &[(f32, f32)] = &[(0.0, 1.0), (0.688, 1.0), (1.0, 0.0)];
+    let look = &config.endless_play.obstacle_spawn;
+    let layer = |data: &crate::config::ObstacleSpawnLayer, image, sizes, colour, alpha, spin| ShapedKind {
+        image,
+        count: data.count,
+        life: (data.life, data.life),
+        size: data.size,
+        speed: data.speed,
+        clamp: (0.5, data.dampen),
+        spin,
+        sizes,
+        colours: (colour, colour),
+        alpha,
+        drift: 0.0,
+    };
+    let kinds = [
+        layer(&look.flash, "fx_white_circle", (FLAT, FLAT), FLASH, &[(0.0, 0.7255), (0.5, 0.6784)], false),
+        layer(&look.stars, "spark_star", (STAR_SIZE, STAR_SIZE), STARS, &[(0.0, 1.0), (0.6265, 1.0), (1.0, 0.0)], true),
+        layer(&look.clouds, "fx_cast_effect3_blob04", CLOUD_SIZE, CLOUDS, &[(0.0, 1.0), (0.8559, 1.0), (1.0, 0.0)], true),
+    ];
+    let cell = config.cell_size;
+    for (entity, transform) in &obstacles {
+        let at = transform.translation.truncate() + Vec2::Y * cell * 0.5;
+        let mut seed = (entity.to_bits() as u32) | 1;
+        for (index, kind) in kinds.iter().enumerate() {
+            let depth = 8.0 + index as f32 * 0.01;
+            spawn_shaped(&mut commands, &art, cell, at, &Emit::Ring(look.radius), depth, kind, &mut seed);
+        }
     }
 }
 
@@ -1132,6 +1186,45 @@ mod wave_tests {
                 world.query::<&Text>().iter(world).filter(|text| text.0 == number.to_string()).count(),
                 2,
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod obstacle_tests {
+    use super::*;
+
+    #[test]
+    fn puzzle_obstacles_emit_three_bursts_at_the_top_edge_once() {
+        let config = GameConfig::default();
+        let cell = config.cell_size;
+        let look = config.endless_play.obstacle_spawn.clone();
+        let mut art = Art::default();
+        let keys = ["fx_white_circle", "spark_star", "fx_cast_effect3_blob04"];
+        let textures = [1, 2, 3].map(|n| {
+            Handle::<Image>::Uuid(bevy::asset::uuid::Uuid::from_u128(n), Default::default())
+        });
+        for (key, handle) in keys.into_iter().zip(&textures) {
+            art.images.insert(key.into(), handle.clone());
+        }
+        let mut app = App::new();
+        app.insert_resource(config).insert_resource(art).add_systems(Update, spawn_obstacle_poofs);
+        let position = Vec2::new(4.0, 10.0) * cell;
+        app.world_mut().spawn((Obstacle(0), Transform::from_translation(position.extend(0.0))));
+        app.update();
+        app.update();
+        let world = app.world_mut();
+        let particles: Vec<_> = world.query::<(&Sprite, &Shaped, &Transform)>().iter(world).collect();
+        let top = position + Vec2::Y * cell * 0.5;
+        for (handle, kind) in textures.iter().zip([look.flash, look.stars, look.clouds]) {
+            let drawn = particles.iter().filter(|(sprite, _, _)| sprite.image == *handle);
+            let mut count = 0;
+            for (_, particle, transform) in drawn {
+                assert_eq!(particle.life, kind.life);
+                assert!(transform.translation.truncate().distance(top) <= look.radius * cell + 0.001);
+                count += 1;
+            }
+            assert_eq!(count, kind.count);
         }
     }
 }
