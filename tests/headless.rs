@@ -614,35 +614,57 @@ fn trial_9_laser_ignores_the_empty_corner_of_a_tilted_brick() {
 
 #[test]
 fn trial_9_guide_route_clears_without_slack() {
+    // The guide's solved stack, as half-cell taps and quarter turns.
+    play_puzzle_trial_without_slack(
+        "SP_10",
+        &[("T", 3, 1), ("J", -5, 1), ("L", 5, -1), ("I", 0, 1), ("L", -1, -1), ("O", -1, 0)],
+    );
+}
+
+#[test]
+fn rookie_puzzle_trial_three_clears_without_slack() {
+    // Build up through the well, cap the sides, then bridge the middle.
+    play_puzzle_trial_without_slack(
+        "SP_20",
+        &[
+            ("O", 0, 0), ("Z", -2, 1), ("S", 2, 1),
+            ("T", -2, 1), ("T", 2, -1), ("O", 0, 0),
+            ("T", -5, 2), ("T", 5, 2), ("I", 0, 0),
+        ],
+    );
+}
+
+#[test]
+fn rookie_overhang_trial_clears_without_slack() {
+    play_puzzle_trial_without_slack(
+        "SP_16",
+        &[("J", 3, 0), ("I", -1, 1), ("S", 5, 0), ("Z", 2, 1), ("L", -1, 0), ("J", 7, 0)],
+    );
+}
+
+fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
     let mut config = GameConfig::from_ron(include_str!("../assets/config/game.ron")).unwrap();
     config.mode = ModeKind::Puzzle;
-    config.trial = config.trials.iter().position(|trial| trial.name == "SP_10");
+    config.trial = Some(config.trials.iter().position(|def| def.name == trial).unwrap());
     config.opponents = 0;
     config.players = 1;
     config.puzzle.trial_laser_slack = 0.0;
     let mut app = headless_app(config);
-    // The guide's solved stack, expressed as half-cell taps and quarter turns.
-    let moves = [
-        ("T", 3_i32, 1),
-        ("J", -5, 1),
-        ("L", 5, -1),
-        ("I", 0, 1),
-        ("L", -1, -1),
-        ("O", -1, 0),
-    ];
-    for (i, (name, steps, turn)) in moves.into_iter().enumerate() {
+    for (i, &(name, steps, turn)) in moves.iter().enumerate() {
         assert!(run_until(&mut app, 10.0, |app| tower(app, 0).active.is_some()), "waiting for {name}");
         let entity = tower(&mut app, 0).active.unwrap();
         let piece = app.world().get::<Brick>(entity).unwrap().piece;
         assert_eq!(app.world().resource::<GameConfig>().pieces[piece].name, name);
         // Give the first brick time to start falling before sending its turn.
         run_seconds(&mut app, 1.0, |_| {});
-        {
-            let mut input = human_input(&mut app);
-            input.rotate_ccw_pressed = turn > 0;
-            input.rotate_pressed = turn < 0;
+        for _ in 0..turn.abs() {
+            {
+                let mut input = human_input(&mut app);
+                input.rotate_ccw_pressed = turn > 0;
+                input.rotate_pressed = turn < 0;
+            }
+            run_seconds(&mut app, 0.04, |_| {});
         }
-        run_seconds(&mut app, 0.04, |_| {});
         for _ in 0..steps.abs() {
             {
                 let mut input = human_input(&mut app);
@@ -659,9 +681,10 @@ fn trial_9_guide_route_clears_without_slack() {
             "{name} did not land"
         );
         run_seconds(&mut app, 0.75, |_| {});
-        assert_ne!(tower(&mut app, 0).status, TowerStatus::Out, "after {name}");
+        assert_ne!(tower(&mut app, 0).status, TowerStatus::Out, "{trial} after brick {} ({name})", i + 1);
     }
     assert!(run_until(&mut app, 10.0, |app| tower(app, 0).status == TowerStatus::Won));
+    assert!(app.world().resource::<tricky_towers::trials::TrialProgress>().is_done(trial));
 }
 
 #[test]

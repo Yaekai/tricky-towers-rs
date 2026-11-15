@@ -109,8 +109,10 @@ outside the current plan.
    Keep `puzzle.trial_laser_slack` at 0.3 until the same stack clears the original
    threshold with a demonstrated fix. Rerun stacking, Ivy and cup regressions.
    The 2026-11-13 sweep captured all 50 openings, and the headless roster test
-   checks each first deal, configured floor and rival lane. Full trial replays
-   and side-by-side comparisons remain.
+   checks each first deal, configured floor and rival lane. The 2026-11-15
+   replays also clear Trials 3 and 4 through the normal controls with zero extra
+   laser slack and verify each medal. Continue with the remaining full trial
+   replays and side-by-side comparisons.
 3. **Compare spell and results timing in play.** The headless tests cover Slow's
    catch and release, Bubble's targeting of stuck bricks, Extra Life's motion
    and pickup, and No Rotate's fixed shake window. The cup winner's bolt now
