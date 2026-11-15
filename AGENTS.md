@@ -455,3 +455,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-13 (Codex): refreshed the offline release checklist against the current debug entry points and added a long-run Endless comparison to the roadmap.
 - 2026-11-13 (Codex): Puzzle laser zaps stop the brick's movement and disable its collider for the dissolve.
 - 2026-11-15 (Codex): Puzzle results play the rising-pitch brick-count cue once per tick, then the win stinger on wins and draws. Empty towers tied for first display a draw after the first count interval.
+- 2026-11-15 (Codex): replayed the full stock Puzzle Trials 3 and 4 through normal controls. Both clear and award their medal at the configured laser height with zero extra slack. Rechecked the existing Trial 9 route.
