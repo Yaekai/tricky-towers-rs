@@ -76,7 +76,7 @@ differs, which keeps bots, replays and netplay simple. More in [`PLAN.md`](PLAN.
 
 ## Current progress
 
-Updated 13 November 2026.
+Updated 15 November 2026.
 
 The playable offline features are implemented. Comparisons with the original continue
 through headless regressions, local measurements and silent offscreen captures. The
@@ -110,10 +110,12 @@ Recent work has closed several specific gaps.
   wizards in front of the towers and spell clouds and collected spells behind them.
   Puzzle's shared background laser spans the spaces between the viewports.
   Puzzle battles rank towers by the bricks still standing after all towers finish.
+  The results play the rising-pitch brick count and give tied towers a draw, even at zero.
   Race's finish flag fades outward from the winning lane as the match ends.
   Survival's next-brick card slides in and previews a separate bag during the count-up.
 - All 50 Trials start and deal a first brick in the headless sweep. Fixed-order Trials
-  show their actual next brick. Endless score and personal-best labels animate when values
+  show their actual next brick. Full replays clear Puzzle Trials 3 and 4 at their original
+  laser heights and award their medals. Endless score and personal-best labels animate when values
   change, and Endless Race records the tower height when the pacer catches it.
 - Endless Puzzle plays the eclipse cue at the start of the effect, updates the next brick
   quota as the laser rises, and draws each level's obstacle positions together. The laser
