@@ -98,6 +98,8 @@ pub struct GameConfig {
     /// `lost_puzzle_offset` higher and needs no fall (TowerPartRemoveCheckerPuzzle).
     pub lost_reach: f32,
     pub lost_fall_speed: f32,
+    /// Maximum full speed of a settled tower brick, in cells per second.
+    pub settled_speed: f32,
     pub lost_puzzle_offset: f32,
     /// Fraction of a cell used for the physics collider of each cell. Slightly
     /// under 1.0 so neighbouring bricks do not start in contact.
@@ -3697,6 +3699,7 @@ impl Default for GameConfig {
             kill_depth: 8.5,
             lost_reach: 2.237,
             lost_fall_speed: 3.0,
+            settled_speed: 0.5,
             lost_puzzle_offset: 4.0,
             collider_scale: 0.99,
             drop_speed_default: 2.0,
