@@ -374,6 +374,7 @@ fn puzzle_battle_has_no_brick_limit() {
 
 #[test]
 fn puzzle_round_stops_the_tower_then_ends_after_the_count() {
+    use avian2d::prelude::{ColliderDisabled, RigidBody};
     // Once a brick touches the laser, that tower takes no more bricks, and the
     // round ends when its 3-2-1 has run (the original counts before the popup).
     let mut config = fast_config();
@@ -410,9 +411,11 @@ fn puzzle_round_stops_the_tower_then_ends_after_the_count() {
     let zapped = run_until(&mut app, 3.0, |app| {
         let world = app.world_mut();
         world
-            .query::<(&Brick, &tricky_towers::spells::Zapped)>()
+            .query::<(&Brick, &tricky_towers::spells::Zapped, &RigidBody, Has<ColliderDisabled>)>()
             .iter(world)
-            .any(|(brick, _)| brick.tower == owner)
+            .any(|(brick, _, body, collision_disabled)| {
+                brick.tower == owner && *body == RigidBody::Static && collision_disabled
+            })
     });
     assert!(zapped, "the brick touching the line was not zapped");
     let placed = tower(&mut app, 0).bricks_placed;

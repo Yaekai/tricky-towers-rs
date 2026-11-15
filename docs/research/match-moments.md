@@ -211,6 +211,9 @@ Puzzle battles rank towers by the brick count after every player finishes.
 Fallen or zapped bricks have left that count. The results and cup standings
 use the same totals. Source is MultiPlayerPuzzleGameModePlayController.
 
+A laser-zapped brick stops in place and loses collision as the dissolve starts.
+Sources are MaximumHeightGamePlayRule, TowerPart and Brick.
+
 The Puzzle results play one tick for each counted brick, sourced from the first
 winning tower even in a draw. The pitch is 1 plus half of the count's rise curve.
 Sources are PuzzleGameBaskController and InitAudioResourcesCommand.

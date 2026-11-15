@@ -76,7 +76,7 @@ differs, which keeps bots, replays and netplay simple. More in [`PLAN.md`](PLAN.
 
 ## Current progress
 
-Updated 13 November 2026.
+Updated 15 November 2026.
 
 The playable offline features are implemented. Comparisons with the original continue
 through headless regressions, local measurements and silent offscreen captures. The
@@ -110,6 +110,7 @@ Recent work has closed several specific gaps.
   wizards in front of the towers and spell clouds and collected spells behind them.
   Puzzle's shared background laser spans the spaces between the viewports.
   Puzzle battles rank towers by the bricks still standing after all towers finish.
+  The results play the rising-pitch brick count and give tied towers a draw, even at zero.
   Race's finish flag fades outward from the winning lane as the match ends.
   Survival's next-brick card slides in and previews a separate bag during the count-up.
 - All 50 Trials start and deal a first brick in the headless sweep. Fixed-order Trials

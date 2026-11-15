@@ -2510,7 +2510,7 @@ fn zap_over_laser(
     game: Res<Match>,
     mut towers: Query<&mut TowerState>,
     bricks: Query<
-        (Entity, &Brick, &Collider, &Position, &Rotation),
+        (Entity, &Brick, &Collider, &Position, &Rotation, Has<ChildOf>),
         (
             Without<ActiveBrick>,
             Without<FloorBlock>,
@@ -2522,7 +2522,7 @@ fn zap_over_laser(
     if game.phase != Phase::Playing || (!battle && game.mode != ModeKind::EndlessPuzzle) {
         return;
     }
-    for (entity, brick, collider, position, rotation) in &bricks {
+    for (entity, brick, collider, position, rotation, in_ivy) in &bricks {
         let Ok(mut state) = towers.get_mut(brick.tower) else {
             continue;
         };
@@ -2538,12 +2538,16 @@ fn zap_over_laser(
         let margin = if battle { 0.05 } else { 0.0 };
         if top > state.laser(&config) + margin {
             state.laser_zaps += 1;
-            commands.entity(entity).insert(Sensor);
-            commands.entity(entity).insert(crate::spells::Zapped {
+            let mut brick = commands.entity(entity);
+            brick.insert((ColliderDisabled, crate::spells::Zapped {
                 timer: config.puzzle.zap_seconds,
                 length: config.puzzle.zap_seconds,
                 edge: config.puzzle.zap_edge,
-            });
+            }));
+            // Ivy members get their own body when loosen_ivy detaches them.
+            if !in_ivy {
+                brick.insert(RigidBody::Static);
+            }
         }
     }
 }
