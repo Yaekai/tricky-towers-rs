@@ -768,7 +768,7 @@ pub fn puzzle_count_end(totals: &[u32], delay: f32, step: f32, pause: f32) -> f3
 /// tower's bricks counted together, one at a time, each number riding up its lane. A tie
 /// for the most bricks says DRAW.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-fn show_puzzle_scores(
+pub(crate) fn show_puzzle_scores(
     mut commands: Commands,
     config: Res<GameConfig>,
     game: Res<Match>,

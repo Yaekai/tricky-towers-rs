@@ -217,4 +217,5 @@ Sources are PuzzleGameBaskController and InitAudioResourcesCommand.
 
 When every Puzzle tower finishes with zero bricks, they share first place.
 The zero count appears at the finalist height and the draw banner waits one
-count interval. Sources are PuzzleGameMode and PuzzleGameBaskController.
+count interval. Tied winners also hear the win stinger after the count.
+Sources are PuzzleGameMode and PuzzleGameBaskController.
