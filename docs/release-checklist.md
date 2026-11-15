@@ -1,8 +1,7 @@
 # Release checklist
 
-Things in the code that are not in the original game. They stay for now as development and
-test tools; remove them (or switch them off) before the final build. Every one is marked in
-the code with a `DEBUG-TOOL` comment, so `grep -rn DEBUG-TOOL src` finds them all.
+Development controls and diagnostics to remove or switch off before the final
+build. Use `rg -n DEBUG-TOOL Cargo.toml src tests` to find their entry points.
 
 | Tool | Where | Why it exists |
 |---|---|---|
@@ -13,16 +12,25 @@ the code with a `DEBUG-TOOL` comment, so `grep -rn DEBUG-TOOL src` finds them al
 | Debug commands and `--script` files | `src/debug.rs`, `--script` in `src/main.rs`, picture hook in `src/offscreen.rs`; docs/debug-tools.md | Set up rare moments exactly in tests and offscreen pictures. |
 | F1 debug panel | `src/debug_panel.rs`, the `debug-panel` feature and `bevy_egui` in `Cargo.toml` | Try things by hand while playing. Build with `--no-default-features` to leave it out. |
 | Command-line options | `src/main.rs` (`--play`, `--difficulty`, `--offscreen`, `--shots`, `--menu`, config path) | Scripted checks and offscreen pictures on the PC. |
-| Frame-time probe | `tests/perf.rs` (ignored test) | Times one frame per mode with four AI towers, to check speed work. Delete the file. |
-
-Not tagged, decide before release:
-- The `mods/` folder (`src/mods.rs`, `docs/modding.md`): not in the original, but "easy to mod"
-  is one of this project's goals.
-- The next-brick preview (`src/visuals.rs`): not yet confirmed in the original (queued for the PC).
 | Galaxy frame switch | `src/packs.rs` (`GalaxyDebug`), `src/debug.rs` (`GalaxyFrame`) | Pauses the Galaxy starfield's scroll, for a still picture of one piece. |
 | Start with a brick pack | `src/debug.rs` (`Start`, `pack`) | Every tower uses one brick pack in a scripted match, so Galaxy and the others can be pictured without Select Players. |
 | Start with chosen wizards | `src/debug.rs` (`Start`, `wizards`) | Each tower's wizard in a scripted match, so the Animal and Indie wizards' beams can be pictured without Select Players. |
 | Pack line | `src/debug.rs` (`PackLine`) | Spawns one static brick of each shape in a row, in one brick pack (iced with `ice: true`), for side-by-side pictures against a reference. |
 | Language command | `src/debug.rs` (`Language`) | Sets the menu language from a script, for pictures of the translated menus. |
-| TT_LOG_ASSETS asset lookup log | src/art.rs (Lookup, USED), src/debug.rs (Quit), src/main.rs | Remove with the debug tools |
-- Trial brick log (gameplay.rs track_towers, `DEBUG-TOOL`): remove with the trial 9 investigation.
+| Asset lookup log | `src/art.rs`, `src/debug.rs`, `src/main.rs` | Lists loaded assets with `TT_LOG_ASSETS` or the executable's `log_assets.txt` switch. |
+| Trial brick log | `src/gameplay.rs` (`track_towers`) | Records the height of bricks crossing the trial laser for the Trial 9 investigation. |
+
+The frame-time probe in `tests/perf.rs` and pause automation in
+`tests/pause_script.rs` run from the test suite. Keep their checks available
+while preparing the release.
+
+## Offline release checks
+
+- Run the full test suite. Smoke-test the release build with placeholder art,
+  then with locally staged art and sound.
+- Verify scaling and resize behavior on Windows and check the controller glyphs,
+  rumble and pause audio mix on hardware.
+- Review the [remaining parity work](WHATS_NEXT.md) and record open release
+  decisions for local AI seats and mod tooling.
+- Check that the distribution excludes locally staged art, research exports,
+  and personal settings or save files.

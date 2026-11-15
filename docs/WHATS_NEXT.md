@@ -141,6 +141,10 @@ outside the current plan.
    `DEBUG-TOOL` entries and the release build with [the checklist](release-checklist.md).
    Carry forward the existing decision about AI seats and mod tooling, or record
    it as a release decision if still open. List any remaining measured gaps.
+6. **Compare long runs across the three Endless modes.** Use stock settings to
+   compare Race's caught score, Survival's numbered wave cues and Puzzle's
+   level-up, obstacle placement, laser zaps and final score. Verify the result
+   is the same in play, on the finish screen and on the saved leaderboard.
 
 Online Battle's connected lobby, invites, matchmaking and network play are a
 separate workstream. The initial menus exist. The Shop is outside the current
