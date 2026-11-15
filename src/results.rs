@@ -752,6 +752,9 @@ impl PuzzleCountClock {
 /// count that is some tower's total.
 pub fn puzzle_count_end(totals: &[u32], delay: f32, step: f32, pause: f32) -> f32 {
     let most = totals.iter().copied().max().unwrap_or(0);
+    if most == 0 && !totals.is_empty() {
+        return delay + step;
+    }
     let mut at = delay;
     let mut wait = step;
     for tick in 1..=most {
@@ -1176,11 +1179,10 @@ fn show_hold_counts(
     }
 }
 
-/// Whether a Puzzle round is a draw: the most bricks are shared by two or more towers
-/// (a round with no bricks at all is not).
+/// A Puzzle round is a draw when two or more towers share the highest count.
 pub fn puzzle_tie(counts: &[u32]) -> bool {
     let most = counts.iter().copied().max().unwrap_or(0);
-    most > 0 && counts.iter().filter(|&&n| n == most).count() > 1
+    counts.iter().filter(|&&n| n == most).count() > 1
 }
 
 #[cfg(test)]
@@ -1250,7 +1252,7 @@ mod tests {
         // 1.5 s, then 0.15 to 1, 0.15 to 2 (a total: 0.8 to wait), 0.8 to 3, 0.15 to 4.
         let end = super::puzzle_count_end(&[2, 4], 1.5, 0.15, 0.8);
         assert!((end - 2.75).abs() < 1e-4, "{end}");
-        assert_eq!(super::puzzle_count_end(&[0, 0], 1.5, 0.15, 0.8), 1.5);
+        assert_eq!(super::puzzle_count_end(&[0, 0], 1.5, 0.15, 0.8), 1.65);
     }
 
     #[test]
@@ -1258,7 +1260,7 @@ mod tests {
         assert!(puzzle_tie(&[4, 4]));
         assert!(puzzle_tie(&[2, 5, 5]));
         assert!(!puzzle_tie(&[4, 3]), "one tower has the most");
-        assert!(!puzzle_tie(&[0, 0]), "no bricks is not a draw");
+        assert!(puzzle_tie(&[0, 0]), "all towers tied at zero");
         assert!(!puzzle_tie(&[]));
     }
 }
