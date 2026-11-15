@@ -114,8 +114,9 @@ Recent work has closed several specific gaps.
   Race's finish flag fades outward from the winning lane as the match ends.
   Survival's next-brick card slides in and previews a separate bag during the count-up.
 - All 50 Trials start and deal a first brick in the headless sweep. Fixed-order Trials
-  show their actual next brick. Full replays clear all four Rookie Puzzle Trials at their
-  original laser heights and award their medals. Endless score and personal-best labels animate when values
+  show their actual next brick. Full replays clear all four Rookie Puzzle Trials and
+  Apprentice Trials 11, 15, 17 and 20 at their original laser heights and award their medals.
+  Endless score and personal-best labels animate when values
   change, and Endless Race records the tower height when the pacer catches it.
 - Endless Puzzle plays the eclipse cue at the start of the effect, updates the next brick
   quota as the laser rises, and draws each level's obstacle positions together. The laser
