@@ -3086,6 +3086,54 @@ fn a_survival_roof_straddles_a_square_brick_a_little_off_the_grid() {
 }
 
 #[test]
+fn puzzle_trial_nudges_snap_to_the_grid_and_use_the_wider_lane() {
+    use avian2d::prelude::Position;
+
+    // Trial nudges can reach 15 cells out, and stop short of the 15.5-cell boundary.
+    for (trial, start_x, start_y, end_x, snapped_y) in [
+        (true, 6.0, 12.25, 7.0, 12.0),
+        (true, 6.0, 12.5, 7.0, 12.0),
+        (true, 6.0, 12.75, 7.0, 12.75),
+        (true, 6.0, -4.75, 7.0, -5.0),
+        (true, 14.0, 12.25, 15.0, 12.0),
+        (true, 14.5, 12.25, 14.5, 12.25),
+        (false, 6.0, 12.25, 7.0, 12.25),
+    ] {
+        let mut config = fast_config();
+        config.mode = ModeKind::Puzzle;
+        config.puzzle.drop_speed = 2.0;
+        if trial {
+            config.trial = Some(config.trials.iter().position(|t| t.name == "SP_10").unwrap());
+        }
+        let mut app = headless_app(config);
+        run_seconds(&mut app, 0.1, |_| {});
+        let brick = tower(&mut app, 0).active.unwrap();
+        let world = app.world_mut();
+        let origin = world.query::<&Tower>().single(world).unwrap().origin_x;
+        let cell = world.resource::<GameConfig>().cell_size;
+        let x = origin + start_x * cell;
+        world.entity_mut(brick).insert((
+            Position(Vec2::new(x, start_y * cell)),
+            Transform::from_xyz(x, start_y * cell, 0.0),
+        ));
+        human_input(&mut app).nudge_right_pressed = true;
+        let before = app.world().resource::<Time<Fixed>>().elapsed();
+        assert!(run_until(&mut app, 0.1, |app| {
+            app.world().resource::<Time<Fixed>>().elapsed() > before
+        }));
+        let position = app.world().get::<Position>(brick).unwrap().0;
+        let reached_x = (position.x - origin) / cell;
+        assert!(
+            (reached_x - end_x).abs() < 0.001,
+            "trial {trial}, start {start_x}, reached {reached_x}"
+        );
+        let y = position.y / cell;
+        // One 50 Hz step also applies the ordinary fall after the nudge.
+        assert!((snapped_y - 0.09..=snapped_y).contains(&y), "trial {trial}, start {start_y}, landed at {y}");
+    }
+}
+
+#[test]
 fn a_nudge_into_something_places_the_brick_and_kicks_it_back() {
     use avian2d::prelude::*;
     let mut config = fast_config();

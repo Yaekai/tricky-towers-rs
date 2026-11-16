@@ -744,6 +744,10 @@ pub struct PuzzleRules {
     /// (a guess: Max's trial 9 failed with every brick under the drawn line, 0.27 over the
     /// number).
     pub trial_laser_slack: f32,
+    /// Puzzle-trial nudges can snap the brick down by up to this many cells.
+    pub trial_nudge_snap: f32,
+    /// Fixed horizontal reach of a Puzzle trial, in cells on either side of its centre.
+    pub trial_lane_reach: f32,
     pub base_rise_time: f32,
     /// The floor each round is built on, in place of a flat base.
     pub floor: PuzzleFloor,
@@ -809,6 +813,8 @@ impl Default for PuzzleRules {
             laser_heights: (1.2, 1.48),
             trial_laser_height: 1.02,
             trial_laser_slack: 0.3,
+            trial_nudge_snap: 0.5,
+            trial_lane_reach: 15.5,
             floor: PuzzleFloor::Normal,
             floor_depth: 6.0,
             easy_floor: (5, 0, 2),
@@ -3839,9 +3845,10 @@ impl GameConfig {
 
     /// How far either side of its lane centre a steered brick may go in the current
     /// mode, in cells, for a tower whose widest settled brick reaches `tower_half_width`
-    /// from the centre. Puzzle lanes are wider and grow with the tower.
+    /// from the centre. Puzzle trials have a fixed lane. Other Puzzle lanes grow with the tower.
     pub fn lane_reach(&self, tower_half_width: f32) -> f32 {
         match self.mode.rules() {
+            ModeKind::Puzzle if self.trial.is_some() => self.puzzle.trial_lane_reach,
             ModeKind::Puzzle => (self.lane_half_width * self.puzzle.lane_scale)
                 .max(tower_half_width + self.puzzle.lane_margin),
             _ => self.lane_half_width,

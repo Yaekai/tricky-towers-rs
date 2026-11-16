@@ -6,9 +6,14 @@ Plain-language notes from Max's installed copy. Units are brick cells; the game 
 Each player has eight actions: move left/right, nudge left/right, rotate left/right, drop, light
 spell and dark spell.
 - **Move:** 0.5 cells per step. The first step is immediate, the second after 0.2 s, then one every
-  0.05 s. The brick's centre stays within 7 cells of the lane centre (lanes are 16 wide).
+  0.05 s. The default limit is 7 cells either side of the lane centre. Puzzle trials let the
+  brick move or nudge to positions strictly within 15.5 cells of the tower's centre.
+  Source for the trial limit is SinglePlayerPuzzleGameMode.
 - **Nudge:** its own button, moves 1 cell at once. If it hits a brick, both get a 4.5 impulse and
   the brick is placed.
+  Puzzle trials first snap the brick's origin down to the integer grid when it is within
+  half a cell of the grid below. The snap uses the ordinary downward collision check without
+  a kick. The sideways nudge follows. Sources are BrickControl and SinglePlayerPuzzleGameMode.
 - A move blocked by more than 0.25 cells bumps: 0.6 impulse on the brick, 1.2 on the one it hits,
   and the brick is placed.
 - **Drop:** holding speeds up by 60 cells/s² to at most 60. Letting go slows down by 100 cells/s²
