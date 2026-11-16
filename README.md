@@ -119,7 +119,8 @@ Recent work has closed several specific gaps.
   All five Pro Puzzle Trials (22, 23, 25, 27 and 29) also clear and award medals. Their
   replays place bricks under ledges, build a bridge and account for rotation locks.
   Puzzle trials use the original's wider steering range and snap a nudge down to the grid
-  when the brick is within half a cell of it.
+  when the brick is within half a cell of it. The trial laser sweeps in, pulses when a brick
+  lands, and wobbles at the emitter.
   Endless score and personal-best labels animate when values
   change. The Endless Race pacer freezes loose bricks and Ivy clusters when it
   catches the tower and records its height at that moment.

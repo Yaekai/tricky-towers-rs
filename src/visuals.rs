@@ -56,7 +56,7 @@ impl Plugin for VisualsPlugin {
             )
             .add_systems(Update, twinkle_stars.before(fit_backgrounds))
             .add_systems(Update, fade_eclipse)
-            .add_systems(Update, sweep_lasers)
+            .add_systems(Update, (sweep_lasers.after(crate::intro::IntroPresentation), wobble_trial_laser_ball).chain())
             .add_systems(Update, place_pillar_bases.after(frame_towers))
             .add_systems(Update, drop_stars.before(twinkle_stars))
             .add_systems(Update, (dress_tower_pieces, show_vines.before(dress_bricks), wave_finish_tiles))
@@ -553,12 +553,13 @@ fn art_strip_tall(art: &Art, name: &str, cell: f32, width: f32, height: f32, at:
     ))
 }
 
-/// The bright Puzzle laser that sweeps in at a battle's start, and the plain one.
+/// The bright Puzzle laser that sweeps in over the plain beam.
 #[derive(Component)]
 struct LaserSweep {
     width: f32,
+    centre_x: f32,
     tower: Entity,
-    /// Seconds since a zap flashed it.
+    /// Seconds since a zap or placement flashed it.
     flash: Option<f32>,
     /// Endless Puzzle: the bricks used and whether a level-up ran, last frame.
     seen: (u32, bool),
@@ -566,6 +567,12 @@ struct LaserSweep {
 }
 #[derive(Component)]
 struct LaserRest;
+
+#[derive(Component)]
+struct TrialLaserBall {
+    sweep: Entity,
+    rest: Vec3,
+}
 
 /// The bright laser grows in from the right edge, from 2.5 times its height, then
 /// thins to nothing while the plain laser shows (out-quad, DOTween's default). A zap
@@ -594,8 +601,10 @@ fn sweep_lasers(
             Visibility::Hidden
         });
     }
-    let endless = config.mode == crate::config::ModeKind::EndlessPuzzle;
-    let shared = config.mode == ModeKind::Puzzle && config.trial.is_none() && towers.iter().count() > 1;
+    let endless = config.mode == ModeKind::EndlessPuzzle;
+    let trial = config.mode == ModeKind::Puzzle && config.trial.is_some();
+    let shared = config.mode == ModeKind::Puzzle && !trial && towers.iter().count() > 1;
+    let flash_seconds = if trial { config.puzzle.trial_laser_flash } else { 1.0 };
     let shared_width = match camera.single() {
         Ok(Projection::Orthographic(ortho)) if shared => Some(view.0.x * ortho.scale),
         _ => None,
@@ -604,7 +613,16 @@ fn sweep_lasers(
         let width = shared_width.unwrap_or(sweep.width);
         let width_scale = width / sweep.width.max(0.001);
         let state = towers.get(sweep.tower).ok();
-        if endless {
+        if trial {
+            // The trial glow pulses on every placement. A miss leaves the beam alone.
+            let placed = state.map_or(0, |s| s.bricks_placed);
+            if placed > sweep.seen.0 {
+                sweep.flash = Some(0.0);
+            } else if let Some(flash) = sweep.flash.as_mut() {
+                *flash += time.delta_secs();
+            }
+            sweep.seen.0 = placed;
+        } else if endless {
             // EndlessPuzzleGameModePlayController flashes the laser (AnimateZap) at every
             // brick used, every brick zapped and each level-up's end.
             let now = state.map_or((0, false), |s| (s.endless_puzzle_bricks_used(), s.level_up.is_some()));
@@ -632,10 +650,11 @@ fn sweep_lasers(
             }
             sweep.seen.0 = out;
         }
-        if let Some(flash) = sweep.flash.filter(|&f| f < 1.0) {
+        if let Some(flash) = sweep.flash.filter(|&f| f < flash_seconds) {
             visibility.set_if_neq(Visibility::Inherited);
-            transform.translation.x = 0.0;
-            transform.scale = Vec3::new(width_scale, (2.0 * (1.0 - out_quad(flash))).max(0.001), 1.0);
+            transform.translation.x = sweep.centre_x;
+            let height = 2.0 * (1.0 - out_quad(flash / flash_seconds));
+            transform.scale = Vec3::new(width_scale, height.max(0.001), 1.0);
             continue;
         }
         let Some(t) = t.filter(|&t| t >= 0.0) else {
@@ -650,8 +669,29 @@ fn sweep_lasers(
             let k = out_quad((t - look.laser_sweep) / look.laser_fade.max(0.01));
             (0.0, 1.0, 1.0 - k)
         };
-        transform.translation.x = x;
+        transform.translation.x = sweep.centre_x + x;
         transform.scale = Vec3::new(w.max(0.001) * width_scale, h.max(0.001), 1.0);
+    }
+}
+
+fn wobble_trial_laser_ball(
+    time: Res<Time>,
+    config: Res<GameConfig>,
+    intro: Option<Res<crate::intro::LaserIn>>,
+    sweeps: Query<&LaserSweep>,
+    mut balls: Query<(&TrialLaserBall, &mut Transform)>,
+) {
+    let (seconds, amount, (x_rate, y_rate)) = config.puzzle.trial_laser_wobble;
+    let entrance = intro.and_then(|l| l.0).filter(|&t| t >= 0.0);
+    let phase = time.elapsed_secs();
+    for (ball, mut transform) in &mut balls {
+        let age = sweeps.get(ball.sweep).ok().and_then(|sweep| sweep.flash).or(entrance);
+        let gain = age.map_or(0.0, |t| amount * (1.0 - t / seconds.max(f32::EPSILON)).max(0.0));
+        transform.scale = ball.rest * Vec3::new(
+            1.0 + gain * (phase * x_rate).sin(),
+            1.0 + gain * (phase * y_rate).sin(),
+            1.0,
+        );
     }
 }
 
@@ -3303,42 +3343,44 @@ fn dress_platforms(
                 if shared_finish || (shared_laser && first) {
                     line.insert(crate::lanes::SharedBattleLine);
                 }
-                // A battle's Puzzle laser rests as the plain (off) laser; the bright one
-                // only sweeps in at the start (PuzzleMultiplayerLaserLayer).
-                // The battle's single background laser spans the spaces between viewports.
-                let battle_laser = name == "laser" && !trial_laser && (!shared_laser || first);
+                // The battle laser spans the fitted screen. A trial beam uses its own
+                // shorter strip starting at the emitter.
+                let swept_laser = name == "laser" && (!shared_laser || first);
                 let other_laser = shared_laser && !first;
-                let rest = if battle_laser && art.image("fx_laser_off").is_some() {
+                let rest = if swept_laser && art.image("fx_laser_off").is_some() {
                     "fx_laser_off"
                 } else {
                     name
                 };
-                let (off_h, on_h) = config.puzzle.laser_heights;
-                if battle_laser && let Some(bright) = art_strip_tall(&art, name, c, line_width, config.cells(on_h), Vec3::ZERO) {
-                    line.with_children(|line| {
-                        line.spawn((
-                            LaserSweep {
-                                width: line_width,
-                                tower: platform.tower,
-                                flash: None,
-                                seen: (0, false),
-                                zaps: 0,
-                            },
-                            Transform::from_xyz(0.0, 0.0, 0.2),
-                            Visibility::Hidden,
-                        ))
-                        .with_child(bright);
-                    });
-                }
-                let rest_strip = if battle_laser {
+                let (off_h, on_h) = if trial_laser {
+                    let height = config.puzzle.trial_laser_height;
+                    (height, height)
+                } else {
+                    config.puzzle.laser_heights
+                };
+                let sweep = if swept_laser && let Some(bright) = art_strip_tall(&art, name, c, line_width, config.cells(on_h), Vec3::ZERO) {
+                    let glow = line.commands().spawn((
+                        LaserSweep {
+                            width: line_width,
+                            centre_x: line_x,
+                            tower: platform.tower,
+                            flash: None,
+                            seen: (0, false),
+                            zaps: 0,
+                        },
+                        Transform::from_xyz(line_x, 0.0, 0.2),
+                        Visibility::Hidden,
+                    )).with_child(bright).id();
+                    line.add_child(glow);
+                    Some(glow)
+                } else {
+                    None
+                };
+                let rest_strip = if swept_laser {
                     art_strip_tall(&art, rest, c, line_width, config.cells(off_h), Vec3::X * line_x)
                         .map(|strip| line.with_child((strip, LaserRest)).id())
                 } else if other_laser {
                     Some(line.id())
-                } else if trial_laser && name == "laser" {
-                    // A Puzzle trial's laser is on all the time (PuzzleSinglePlayerLaserLayer).
-                    art_strip_tall(&art, rest, c, line_width, config.cells(config.puzzle.trial_laser_height), Vec3::X * line_x)
-                        .map(|strip| line.with_child(strip).id())
                 } else if name == "finish_line" {
                     // FinishFlag: tiles 1.2 cells apart at 0.7 alpha, each one bobbing on the
                     // Custom/FinishLine wave (`wave_finish_tiles`).
@@ -3424,7 +3466,19 @@ fn dress_platforms(
                         piece("fx_laser_pillar_tile", Vec2::new(0.0, y), -0.2, false, &mut line);
                     }
                     piece("fx_laser_pillar_top", Vec2::new(0.0, -5.2), -0.1, false, &mut line);
-                    piece("fx_laserball", Vec2::ZERO, 0.6, false, &mut line);
+                    if let Some((sprite, anchor, transform)) = art_sprite(&art, "fx_laserball", c) {
+                        let ball = {
+                            let mut commands = line.commands();
+                            let mut ball = commands.spawn((
+                                sprite, anchor, transform.with_translation(Vec3::new(x, 0.0, 0.6)),
+                            ));
+                            if let Some(sweep) = sweep {
+                                ball.insert(TrialLaserBall { sweep, rest: transform.scale });
+                            }
+                            ball.id()
+                        };
+                        line.add_child(ball);
+                    }
                     let mut parts = Vec::new();
                     for (key, at, z, flip) in [
                         ("bg_race_cactus_right", Vec2::new(1.6, 9.21), -0.1, false),
@@ -4286,9 +4340,10 @@ fn update_lines(
             Visibility::Inherited
         });
         let height = match game.mode.rules() {
-            ModeKind::Puzzle => towers
-                .get(line.tower)
-                .map_or(config.puzzle.line_height, |s| s.laser(&config)),
+            ModeKind::Puzzle => {
+                let height = towers.get(line.tower).map_or(config.puzzle.line_height, |s| s.laser(&config));
+                if config.trial.is_some() { height + config.puzzle.trial_laser_visual_offset } else { height }
+            }
             ModeKind::Endless => towers
                 .get(line.tower)
                 .map_or(config.endless.intro_from, |s| s.pacer),
@@ -4548,7 +4603,7 @@ mod tests {
         app.world_mut().spawn(TowerState::new(&config, 2));
         app.world_mut().spawn((MainCamera, Projection::Orthographic(OrthographicProjection::default_2d())));
         let beam = app.world_mut().spawn((
-            LaserSweep { width: strip_width, tower, flash: None, seen: (0, false), zaps: 0 },
+            LaserSweep { width: strip_width, centre_x: 0.0, tower, flash: None, seen: (0, false), zaps: 0 },
             Transform::default(), Visibility::Hidden,
         )).id();
         for width in [1280.0, 1920.0] {
@@ -4565,6 +4620,67 @@ mod tests {
         let at = app.world().get::<Transform>(beam).unwrap();
         assert!((strip_width * at.scale.x - 1920.0).abs() < 0.001);
         assert_eq!(at.scale.y, 2.0);
+    }
+
+    #[test]
+    fn trial_laser_sweeps_then_flashes_and_wobbles_on_placement() {
+        use super::{
+            GameConfig, LaserRest, LaserSweep, ModeKind, TowerState, TrialLaserBall, ViewSize,
+            sweep_lasers, wobble_trial_laser_ball,
+        };
+        use bevy::prelude::*;
+        use std::time::Duration;
+
+        let config = GameConfig { mode: ModeKind::Puzzle, trial: Some(0), ..default() };
+        let mut app = App::new();
+        app.insert_resource(config.clone())
+            .init_resource::<Time>()
+            .init_resource::<ViewSize>()
+            .insert_resource(crate::intro::LaserIn(Some(-0.1)))
+            .add_systems(Update, (sweep_lasers, wobble_trial_laser_ball).chain());
+        let tower = app.world_mut().spawn(TowerState::new(&config, 1)).id();
+        let width = 450.0;
+        let centre_x = -15.0;
+        let beam = app.world_mut().spawn((
+            LaserSweep { width, centre_x, tower, flash: None, seen: (0, false), zaps: 0 },
+            Transform::default(), Visibility::Hidden,
+        )).id();
+        let rest_strip = app.world_mut().spawn((LaserRest, Visibility::Hidden)).id();
+        let rest = Vec3::splat(3.0);
+        let ball = app.world_mut().spawn((
+            TrialLaserBall { sweep: beam, rest }, Transform::from_scale(rest)
+        )).id();
+        let visible = |app: &App, entity| app.world().get::<Visibility>(entity) == Some(&Visibility::Inherited);
+
+        app.update();
+        assert!(!visible(&app, beam) && !visible(&app, rest_strip));
+        app.world_mut().resource_mut::<crate::intro::LaserIn>().0 = Some(config.intro.laser_sweep * 0.5);
+        app.update();
+        let at = app.world().get::<Transform>(beam).unwrap();
+        assert!((at.scale.x - 0.75).abs() < 1e-5);
+        assert!((at.translation.x + width * at.scale.x * 0.5 - (centre_x + width * 0.5)).abs() < 1e-5);
+        assert!(visible(&app, beam) && !visible(&app, rest_strip));
+
+        // The retry path has no entrance and starts with the plain laser showing.
+        app.world_mut().resource_mut::<crate::intro::LaserIn>().0 = None;
+        app.world_mut().get_mut::<TowerState>(tower).unwrap().bricks_dropped = 1;
+        app.update();
+        assert!(!visible(&app, beam) && visible(&app, rest_strip));
+
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_millis(70));
+        app.world_mut().get_mut::<TowerState>(tower).unwrap().bricks_placed = 1;
+        app.update();
+        let at = app.world().get::<Transform>(beam).unwrap();
+        assert_eq!(at.translation.x, centre_x);
+        assert_eq!(at.scale, Vec3::new(1.0, 2.0, 1.0));
+        assert!((app.world().get::<Transform>(ball).unwrap().scale.x - rest.x).abs() > 0.01);
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_millis(710));
+        app.update();
+        assert_eq!(app.world().get::<Transform>(ball).unwrap().scale, rest);
+        assert!(visible(&app, beam));
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_millis(300));
+        app.update();
+        assert!(!visible(&app, beam) && visible(&app, rest_strip));
     }
 
     #[test]

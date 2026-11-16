@@ -740,6 +740,12 @@ pub struct PuzzleRules {
     pub laser_heights: (f32, f32),
     /// A trial's laser (always on), measured from Max's trial 7 screenshot.
     pub trial_laser_height: f32,
+    /// The trial beam is drawn this far above the gameplay laser height.
+    pub trial_laser_visual_offset: f32,
+    /// Trial beam glow decay after a placement.
+    pub trial_laser_flash: f32,
+    /// Seconds, amplitude, and horizontal and vertical rates of the emitter wobble.
+    pub trial_laser_wobble: (f32, f32, (f32, f32)),
     /// How far above a trial's laser height a brick's top may go before it counts as touching
     /// (a guess: Max's trial 9 failed with every brick under the drawn line, 0.27 over the
     /// number).
@@ -812,6 +818,9 @@ impl Default for PuzzleRules {
             base_rise_time: 0.4,
             laser_heights: (1.2, 1.48),
             trial_laser_height: 1.02,
+            trial_laser_visual_offset: 0.2,
+            trial_laser_flash: 1.0,
+            trial_laser_wobble: (0.7, 0.05, (30.0, 25.0)),
             trial_laser_slack: 0.3,
             trial_nudge_snap: 0.5,
             trial_lane_reach: 15.5,
