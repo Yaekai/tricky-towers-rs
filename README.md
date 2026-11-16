@@ -129,7 +129,8 @@ Recent work has closed several specific gaps.
 - Endless Survival shows the numbered curse wave banner and plays its gong at each wave.
   The first wave and subsequent gaps use the original 15–28 second range.
 - Tilted brick bounds and Puzzle zaps now measure the individual collider parts. A Trial 9
-  regression reproduces the old false 2.47-cell top and measures 2.20 after the fix. A known
+  regression reproduces the old false 2.47-cell top and measures 2.20 after the fix. A brick
+  that crosses a Puzzle trial laser now dissolves, even at the side of the tower. A known
   six-brick solution clears with zero extra slack. The shipped 0.3-cell allowance stays until
   the earlier reported input sequence is reproduced against the original.
 - Slow now follows the measured catch, shake, inflation, stretch and release sequence.

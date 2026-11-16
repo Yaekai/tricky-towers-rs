@@ -2511,25 +2511,32 @@ fn zap_over_laser(
         ),
     >,
 ) {
-    let battle = game.mode == ModeKind::Puzzle && config.trial.is_none();
-    if game.phase != Phase::Playing || (!battle && game.mode != ModeKind::EndlessPuzzle) {
+    let puzzle = game.mode == ModeKind::Puzzle;
+    let trial = puzzle && config.trial.is_some();
+    if game.phase != Phase::Playing || (!puzzle && game.mode != ModeKind::EndlessPuzzle) {
         return;
     }
     for (entity, brick, collider, position, rotation, in_ivy) in &bricks {
         let Ok(mut state) = towers.get_mut(brick.tower) else {
             continue;
         };
-        let crossed = if battle {
-            state.status == TowerStatus::Out
-        } else {
-            state.hold_timer > 0.0
-        };
-        if !crossed {
+        let mut laser = state.laser(&config);
+        if trial {
+            laser += config.puzzle.trial_laser_slack;
+        } else if (puzzle && state.status != TowerStatus::Out)
+            || (!puzzle && state.hold_timer <= 0.0)
+        {
             continue;
         }
         let top = brick_bounds(collider, position.0, *rotation).max.y / config.cell_size;
-        if top > state.laser(&config) {
+        if top > laser {
             state.laser_zaps += 1;
+            // In a trial the first zap fails the player immediately. Finish the scan
+            // so every other brick crossing the laser in this step zaps too.
+            if trial {
+                state.status = TowerStatus::Out;
+                state.out_at.get_or_insert(game.elapsed);
+            }
             let mut brick = commands.entity(entity);
             brick.insert((ColliderDisabled, crate::spells::Zapped {
                 timer: config.puzzle.zap_seconds,
@@ -2814,17 +2821,11 @@ fn judge_match(
                 // In a puzzle trial a dropped brick fails it (1 life, trials.md).
                 let trial = config.trial.is_some();
                 let trial_drop = trial && state.bricks_dropped > 0;
-                // A brick touching the laser stops that player's bricks at once; the
-                // round's 3-2-1 runs, then the bricks are counted (judge_match).
+                // In a battle, touching the laser starts the 3-2-1 before counting
+                // the bricks. A trial ends directly in zap_over_laser on the first zap.
                 let laser = state.laser(&config);
-                let crossed = if trial {
-                    state.height > laser + 0.05 + rules.trial_laser_slack
-                } else {
-                    state.height > laser || state.base_shown >= laser
-                };
-                if state.laser_count.is_none()
-                    && !trial_drop
-                    && crossed
+                if !trial && state.laser_count.is_none()
+                    && (state.height > laser || state.base_shown >= laser)
                 {
                     state.laser_count = Some(0.0);
                     info!(
