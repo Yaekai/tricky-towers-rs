@@ -793,10 +793,10 @@ impl TowerState {
         Some((length - self.hold_timer).max(0.0))
     }
 
-    /// Puzzle and Endless Puzzle (TowerMoveController): how far the base has risen, in
-    /// cells, for the bricks that fell off.
+    /// Puzzle battles and Endless Puzzle raise the base when bricks fall off.
+    /// Puzzle trials end on a drop with the floor still in place.
     pub fn base_rise(&self, config: &GameConfig) -> f32 {
-        if matches!(config.mode, ModeKind::Puzzle | ModeKind::EndlessPuzzle) {
+        if config.trial.is_none() && matches!(config.mode, ModeKind::Puzzle | ModeKind::EndlessPuzzle) {
             config.puzzle.drop_penalty * self.bricks_dropped as f32
         } else {
             0.0

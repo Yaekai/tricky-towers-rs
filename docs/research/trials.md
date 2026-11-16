@@ -19,6 +19,8 @@ Values are as the install defines them; units are cells and seconds.
   against 0.5 cells/s, including bricks in the well below the floor top.
   A brick whose top crosses the laser is zapped and fails the run, even away from the
   tower's centre. A laser failure skips the finish countdown and awards no medal.
+  A dropped brick fails the run with the original floor still in place. The tower-rise
+  controller is wired in Puzzle battles and Endless Puzzle.
   Sources are SinglePlayerPuzzleGameModePlayController, MaximumHeightGamePlayRule and Tower.
   Replay coverage includes full runs of Rookie Puzzle Trials 3, 4, 7 and 9.
   Trial 7's two outer hooks follow the [community solution](https://www.speedrun.com/tricky_towers/guides/ciy29).
