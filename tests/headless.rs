@@ -732,6 +732,32 @@ fn apprentice_large_intro_puzzle_clears_without_slack() {
 }
 
 #[test]
+fn pro_puzzle_trial_22_clears_with_late_nudges() {
+    use avian2d::prelude::Position;
+
+    replay_puzzle_trial("SP_18", &[
+        ("Z", -5, 0), ("O", -4, 0), ("S", 5, 0), ("Z", -5, 0),
+        ("O", 4, 0), ("O", -4, 0), ("O", 4, 0),
+    ], |app, i, entity| {
+        let (y, right) = match i {
+            0 => (-6.85, true),
+            2 => (-4.85, false),
+            _ => return,
+        };
+        let cell = app.world().resource::<GameConfig>().cell_size;
+        assert!(run_until(app, 15.0, |app| {
+            let world = app.world();
+            world.get::<ActiveBrick>(entity).is_none()
+                || world.get::<Position>(entity).unwrap().0.y < y * cell
+        }), "brick {i} never reached the nudge point");
+        assert!(app.world().get::<ActiveBrick>(entity).is_some(), "brick {i} hit something before the nudge");
+        let mut input = human_input(app);
+        input.nudge_right_pressed = right;
+        input.nudge_left_pressed = !right;
+    });
+}
+
+#[test]
 fn pro_puzzle_trial_23_clears_without_slack() {
     use avian2d::prelude::Position;
 
