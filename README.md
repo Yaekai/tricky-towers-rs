@@ -116,8 +116,8 @@ Recent work has closed several specific gaps.
 - All 50 Trials start and deal a first brick in the headless sweep. Fixed-order Trials
   show their actual next brick. Full replays clear all four Rookie Puzzle Trials and
   Apprentice Trials 11, 15, 17 and 20 at their original laser heights and award their medals.
-  Pro Trials 22 and 23 also clear and award medals. Their replays use late nudges to fit
-  bricks under ledges.
+  Pro Trials 22, 23 and 25 also clear and award medals. Their replays use late nudges to fit
+  bricks under ledges and build a bridge.
   Puzzle trials use the original's wider steering range and snap a nudge down to the grid
   when the brick is within half a cell of it.
   Endless score and personal-best labels animate when values
@@ -136,6 +136,7 @@ Recent work has closed several specific gaps.
   that crosses a Puzzle trial laser now dissolves, even at the side of the tower. A known
   six-brick solution clears with zero extra slack. The shipped 0.3-cell allowance stays until
   the earlier reported input sequence is reproduced against the original.
+- S and Z use the original's slightly shorter collision boxes while falling and after landing.
 - Slow now follows the measured catch, shake, inflation, stretch and release sequence.
   Large resizes its balloon and grows the brick's collision shape with its picture.
   Enlarged bricks also gain mass in proportion to their scale.

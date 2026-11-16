@@ -466,3 +466,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-16 (PC): Puzzle trial laser crossings now dissolve the placed brick and fail the run immediately. The Trial 9 regression checks a strict edge at zero configured slack, including a brick outside the tower-height sample. The shipped setting stays at 0.3.
 - 2026-11-16 (PC): Puzzle trials use the original's strict 15.5-cell steering reach and half-cell downward snap before a nudge. The test covers both edges of the snap window, negative height, rejected nudges at the reach boundary and ordinary battle nudges.
   The full Pro Trial 22 replay now clears and records its medal with zero extra laser slack.
+- 2026-11-16 (PC): S and Z use the prefab's 0.98-cell-high boxes at normal and Large scales. The revised replays wait out Trial 15's Large curse and nudge Trial 23's final J slightly later. A full Trial 25 bridge replay clears at zero extra slack.

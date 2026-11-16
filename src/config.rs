@@ -3644,6 +3644,9 @@ pub struct PieceDef {
     /// Mass relative to a normal brick.
     #[serde(default = "one")]
     pub mass: f32,
+    /// Height removed from each box in the prefab, before the normal collider inset.
+    #[serde(default)]
+    pub collider_trim_y: f32,
 }
 
 fn one() -> f32 {
@@ -3657,11 +3660,17 @@ impl PieceDef {
             color,
             cells: cells.to_vec(),
             mass: 1.0,
+            collider_trim_y: 0.0,
         }
     }
 
     pub fn with_mass(mut self, mass: f32) -> Self {
         self.mass = mass;
+        self
+    }
+
+    fn with_collider_trim_y(mut self, trim: f32) -> Self {
+        self.collider_trim_y = trim;
         self
     }
 
@@ -3689,8 +3698,10 @@ pub fn default_pieces() -> Vec<PieceDef> {
         PieceDef::new("I", [0.30, 0.80, 0.95], &[(0, 0), (1, 0), (2, 0), (3, 0)]),
         PieceDef::new("O", [0.95, 0.85, 0.30], &[(0, 0), (1, 0), (0, 1), (1, 1)]),
         PieceDef::new("T", [0.70, 0.40, 0.90], &[(0, 1), (1, 1), (2, 1), (1, 0)]),
-        PieceDef::new("S", [0.45, 0.85, 0.40], &[(0, 0), (1, 0), (1, 1), (2, 1)]),
-        PieceDef::new("Z", [0.95, 0.40, 0.40], &[(0, 1), (1, 1), (1, 0), (2, 0)]),
+        PieceDef::new("S", [0.45, 0.85, 0.40], &[(0, 0), (1, 0), (1, 1), (2, 1)])
+            .with_collider_trim_y(0.02),
+        PieceDef::new("Z", [0.95, 0.40, 0.40], &[(0, 1), (1, 1), (1, 0), (2, 0)])
+            .with_collider_trim_y(0.02),
         PieceDef::new("J", [0.35, 0.50, 0.95], &[(0, 1), (1, 1), (2, 1), (2, 0)]),
         PieceDef::new("L", [0.95, 0.60, 0.25], &[(0, 1), (1, 1), (2, 1), (0, 0)]),
     ]

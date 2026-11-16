@@ -1001,14 +1001,15 @@ struct SlowTether {
 }
 
 impl SlowTether {
-    fn rest_for(brick: &Brick, rotation: Rotation) -> f32 {
-        let collider = brick_collider(&brick.cells, brick.scale, 1.0);
+    fn rest_for(config: &GameConfig, brick: &Brick, rotation: Rotation) -> f32 {
+        let collider = brick_collider(config, brick, 1.0);
         let bounds = brick_bounds(&collider, Vec2::ZERO, rotation);
-        (bounds.max - bounds.min).max_element()
+        (bounds.max - bounds.min).max_element() / config.cell_size
     }
 
-    fn new(brick: &Brick, rotation: Rotation, size: f32, inflate: f32) -> Self {
-        let rest = Self::rest_for(brick, rotation);
+    fn new(config: &GameConfig, brick: &Brick, rotation: Rotation, size: f32) -> Self {
+        let inflate = config.magic.slow_inflate;
+        let rest = Self::rest_for(config, brick, rotation);
         Self {
             shape: (brick.piece, brick.scale),
             rest,
@@ -1045,7 +1046,7 @@ impl SlowTether {
         // Large changes the limit at the end of the scale tween, keeping the current length.
         if self.shape != shape && (self.size_left == 0.0 || self.shape.1 == brick.scale) {
             self.shape = shape;
-            self.rest = Self::rest_for(brick, rotation);
+            self.rest = Self::rest_for(config, brick, rotation);
         }
     }
 }
@@ -1163,19 +1164,22 @@ fn brick_boxes(cells: &[Vec2]) -> Vec<(Vec2, f32, f32)> {
         .collect()
 }
 
-/// Builds a brick collider from its cells, as the original's solid boxes. `fill` is the
-/// fraction of each cell left after trimming `1 - fill` of a cell off every box's width and
-/// height (the original's shrink amount).
-pub fn brick_collider(cells: &[Vec2], cell: f32, fill: f32) -> Collider {
+/// Builds the prefab's solid boxes, then trims `1 - fill` cells from both axes.
+pub fn brick_collider(config: &GameConfig, brick: &Brick, fill: f32) -> Collider {
+    let cell = config.cell_size * brick.scale;
     let trim = (1.0 - fill) * cell;
+    let trim_y = trim + piece_def(config, brick.piece).collider_trim_y * cell;
     Collider::compound(
-        brick_boxes(cells)
+        brick_boxes(&brick.cells)
             .into_iter()
             .map(|(c, w, h)| {
                 (
                     c * cell,
                     Rotation::IDENTITY,
-                    Collider::rectangle((w * cell - trim).max(0.01), (h * cell - trim).max(0.01)),
+                    Collider::rectangle(
+                        (w * cell - trim).max(0.01),
+                        (h * cell - trim_y).max(0.01),
+                    ),
                 )
             })
             .collect(),
@@ -1185,12 +1189,10 @@ pub fn brick_collider(cells: &[Vec2], cell: f32, fill: f32) -> Collider {
 /// The physics parts of a brick: its collider, and the density that gives it
 /// `brick.mass` times its scale, as in the original.
 pub fn brick_body(config: &GameConfig, brick: &Brick) -> (Collider, ColliderDensity) {
-    let cell = config.cell_size * brick.scale;
-    let fill = config.collider_scale;
-    let trim = (1.0 - fill) * cell;
-    let area: f32 = brick_boxes(&brick.cells).iter().map(|&(_, w, h)| (w * cell - trim) * (h * cell - trim)).sum();
+    let collider = brick_collider(config, brick, config.collider_scale);
+    let area = collider.mass(1.0);
     (
-        brick_collider(&brick.cells, cell, fill),
+        collider,
         ColliderDensity(config.brick_mass * brick.mass * brick.scale / area.max(f32::EPSILON)),
     )
 }
@@ -1214,7 +1216,7 @@ pub(crate) fn brick_bounds(collider: &Collider, position: Vec2, rotation: Rotati
 /// The shrunk shape a steered brick uses.
 pub fn steer_shape(config: &GameConfig, brick: &Brick) -> Collider {
     let fill = (1.0 - 2.0 * config.steer_inset).clamp(0.1, 1.0);
-    brick_collider(&brick.cells, config.cell_size * brick.scale, fill)
+    brick_collider(config, brick, fill)
 }
 
 /// Shape and colour of a piece, by index into the normal pieces and then the
@@ -1798,7 +1800,7 @@ fn control_active_brick(
         if control.mods.slow {
             let size = 1.0 + control.mods.large as f32;
             let tether = control.slow_tether.get_or_insert_with(|| {
-                SlowTether::new(brick, *rotation, size, magic.slow_inflate)
+                SlowTether::new(&config, brick, *rotation, size)
             });
             if !input.fast_fall_held {
                 tether.growing = false;
@@ -1820,7 +1822,7 @@ fn control_active_brick(
                 control.mods.slow = true;
                 control.slow_cap = magic.slow_fast_fall_speed;
                 let size = 1.0 + control.mods.large as f32;
-                control.slow_tether = Some(SlowTether::new(brick, *rotation, size, magic.slow_inflate));
+                control.slow_tether = Some(SlowTether::new(&config, brick, *rotation, size));
                 control.speed = drop_speed;
                 balloon_cues.write(SlowBalloonCue::Down);
             }
@@ -3367,6 +3369,37 @@ mod tests {
         let edge = -config.camera_floor() + config.lost_puzzle_offset - config.lost_reach;
         assert!(out_of_view(&config, &puzzle, view, Vec2::new(0.0, edge - 0.1), 0.0, 1.0, false));
         assert!(!out_of_view(&config, &puzzle, view, Vec2::new(0.0, edge + 0.1), 0.0, 1.0, false));
+    }
+}
+
+#[cfg(test)]
+mod brick_collider_tests {
+    use super::*;
+
+    #[test]
+    fn zigzag_boxes_match_the_prefab_at_both_scales() {
+        let config = GameConfig::default();
+        for (piece, def) in config.pieces.iter().enumerate().filter(|(_, p)| matches!(p.name.as_str(), "S" | "Z")) {
+            for scale in [1.0, config.magic.large_scale] {
+                let brick = Brick {
+                    tower: Entity::PLACEHOLDER,
+                    piece,
+                    cells: def.centered_cells(),
+                    color: Color::WHITE,
+                    scale,
+                    mass: def.mass,
+                    ice: false,
+                };
+                let extent = |collider: &Collider| {
+                    let bounds = brick_bounds(collider, Vec2::ZERO, Rotation::IDENTITY);
+                    (bounds.max - bounds.min) / (config.cell_size * scale)
+                };
+                let (body, density) = brick_body(&config, &brick);
+                assert!((extent(&body) - Vec2::new(2.99, 1.97)).length() < 1e-5);
+                assert!((extent(&steer_shape(&config, &brick)) - Vec2::new(2.70, 1.68)).length() < 1e-5);
+                assert!((body.mass(density.0) - config.brick_mass * brick.mass * scale).abs() < 1e-5);
+            }
+        }
     }
 }
 

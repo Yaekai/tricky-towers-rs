@@ -28,7 +28,8 @@ spell and dark spell.
 
 ## Bricks
 - T, J and L spawn with the three-cell bar on top and the extra cell below (centre, right end,
-  left end). S and Z boxes are 0.98 tall.
+  left end). S and Z each use two boxes 2 cells wide and 0.98 tall, before the usual
+  collider inset. Steering and placement use those same boxes at the brick's current scale.
 - Every brick has mass 1, whatever its shape or size. Mystery bricks are 1.5 or 1.75.
 - A 7-bag randomizer per player; Race Pro gives everyone the same seed.
 - **Drop guide:** a translucent column the brick's width over the whole visible lane, colour
