@@ -467,3 +467,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-16 (PC): Puzzle trials use the original's strict 15.5-cell steering reach and half-cell downward snap before a nudge. The test covers both edges of the snap window, negative height, rejected nudges at the reach boundary and ordinary battle nudges.
   The full Pro Trial 22 replay now clears and records its medal with zero extra laser slack.
 - 2026-11-16 (PC): S and Z use the prefab's 0.98-cell-high boxes at normal and Large scales. The revised replays wait out Trial 15's Large curse and nudge Trial 23's final J slightly later. A full Trial 25 bridge replay clears at zero extra slack.
+- 2026-11-16 (PC): Full input replays clear Trials 27 and 29 and award medals with zero extra laser slack, completing the Pro Puzzle tier's five replays. Trial 27 waits out the No Rotate cast and fits three bricks into the ledges with late nudges.

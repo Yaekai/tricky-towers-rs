@@ -28,7 +28,9 @@ Values are as the install defines them; units are cells and seconds.
   Pro Trial 22 clears by lowering the first Z and the S beside the floor and nudging them
   into the shelves. Pro Trial 23 clears after two late nudges fit the final J under the two I
   bricks. Pro Trial 25 fits the sideways stacks on both ledges before adding the bridging I.
-  All three replays record the medal with zero extra laser slack.
+  Trial 27 waits for the two No Rotate curses before steering the locked I bricks into
+  their ledges. Trial 29 drops beside its narrow tower and nudges in the two left hooks.
+  All five Pro Puzzle replays record their medals with zero extra laser slack.
 - **Drop.** The starting drop speed, when the trial sets one ("-" = the mode's default).
 - **Base.** Survival and Puzzle name the floor piece and its height. Race trials use the race
   floor plus a pre-built **enemy tower** picture beside yours (ENEMY_TOWER_LEVEL_01..13). At the
