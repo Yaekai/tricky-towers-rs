@@ -732,14 +732,7 @@ fn apprentice_large_intro_puzzle_clears_without_slack() {
         if i == 4 {
             // Let the Large cast release the T before turning it upside down.
             run_seconds(app, 0.5, |_| {});
-            for _ in 0..2 {
-                human_input(app).rotate_ccw_pressed = true;
-                run_seconds(app, 0.04, |_| {});
-            }
-            for _ in 0..5 {
-                human_input(app).right_pressed = true;
-                run_seconds(app, 0.04, |_| {});
-            }
+            steer_trial_brick(app, 5, 2);
         }
     });
 }
@@ -802,14 +795,79 @@ fn nudge_puzzle_brick_at(app: &mut App, entity: Entity, height: f32, right: bool
         world.get::<ActiveBrick>(entity).is_none()
             || world.get::<Position>(entity).unwrap().0.y < y
     }), "the brick never reached the nudge point at {height}");
-    assert!(app.world().get::<ActiveBrick>(entity).is_some(), "the brick landed before its nudge at {height}");
+    assert!(
+        app.world().get::<ActiveBrick>(entity).is_some(),
+        "the brick landed before its nudge at {height}, at {:?}",
+        app.world().get::<Position>(entity).map(|p| p.0 / app.world().resource::<GameConfig>().cell_size)
+    );
     let mut input = human_input(app);
     input.nudge_right_pressed = right;
     input.nudge_left_pressed = !right;
 }
 
+#[test]
+fn pro_puzzle_trial_27_clears_with_locked_i_bricks() {
+    replay_puzzle_trial("SP_17", &[
+        ("T", -6, 0), ("I", 0, 0), ("L", -8, 0), ("I", 7, 0),
+        ("J", 6, 0), ("I", 0, 0), ("L", 6, 1),
+    ], |app, i, entity| {
+        if matches!(i, 1 | 5) {
+            // Wait for the No Rotate cast to release each I before steering it.
+            run_seconds(app, 0.5, |_| {});
+            steer_trial_brick(app, if i == 1 { -7 } else { 7 }, 0);
+        }
+        match i {
+            0 => {
+                nudge_puzzle_brick_at(app, entity, -2.85, true);
+                run_seconds(app, 0.04, |_| {});
+                human_input(app).nudge_right_pressed = true;
+            }
+            1 => nudge_puzzle_brick_at(app, entity, -1.435, true),
+            3 => {
+                nudge_puzzle_brick_at(app, entity, -4.85, false);
+                run_seconds(app, 0.04, |_| {});
+                nudge_puzzle_brick_at(app, entity, -5.435, false);
+            }
+            _ => {}
+        }
+    });
+}
+
+#[test]
+fn pro_puzzle_trial_29_clears_with_two_left_hooks() {
+    replay_puzzle_trial("SP_28", &[
+        ("L", -3, 0), ("J", 0, 1), ("Z", -5, 0), ("J", -8, 1),
+        ("S", -7, 0), ("T", 3, 0), ("I", -6, 0), ("I", -4, 0),
+    ], |app, i, entity| {
+        match i {
+            2 => nudge_puzzle_brick_at(app, entity, -1.85, true),
+            3 => nudge_puzzle_brick_at(app, entity, -3.435, true),
+            _ => {}
+        }
+    });
+}
+
 fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
     replay_puzzle_trial(trial, moves, |_, _, _| {});
+}
+
+fn steer_trial_brick(app: &mut App, steps: i32, turn: i32) {
+    for _ in 0..turn.abs() {
+        {
+            let mut input = human_input(app);
+            input.rotate_ccw_pressed = turn > 0;
+            input.rotate_pressed = turn < 0;
+        }
+        run_seconds(app, 0.04, |_| {});
+    }
+    for _ in 0..steps.abs() {
+        {
+            let mut input = human_input(app);
+            input.left_pressed = steps < 0;
+            input.right_pressed = steps > 0;
+        }
+        run_seconds(app, 0.04, |_| {});
+    }
 }
 
 fn replay_puzzle_trial(
@@ -831,22 +889,7 @@ fn replay_puzzle_trial(
         assert_eq!(app.world().resource::<GameConfig>().pieces[piece].name, name);
         // Give the first brick time to start falling before sending its turn.
         run_seconds(&mut app, 1.0, |_| {});
-        for _ in 0..turn.abs() {
-            {
-                let mut input = human_input(&mut app);
-                input.rotate_ccw_pressed = turn > 0;
-                input.rotate_pressed = turn < 0;
-            }
-            run_seconds(&mut app, 0.04, |_| {});
-        }
-        for _ in 0..steps.abs() {
-            {
-                let mut input = human_input(&mut app);
-                input.left_pressed = steps < 0;
-                input.right_pressed = steps > 0;
-            }
-            run_seconds(&mut app, 0.04, |_| {});
-        }
+        steer_trial_brick(&mut app, steps, turn);
         steer_late(&mut app, i, entity);
         assert!(
             run_until(&mut app, 18.0, |app| {

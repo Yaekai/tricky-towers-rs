@@ -116,8 +116,9 @@ outside the current plan.
    Apprentice Trials 11, 15, 17 and 20 also clear with zero extra slack. The
    published Trial 18 stack is still open. The replay loses a brick while
    building the outer overhangs, so compare its placement timing and contacts.
-   Pro Trials 22, 23 and 25 pass with zero extra slack. They use nudges under
-   ledges after dropping beside the tower. Continue with Pro Trials 27 and 29.
+   All five Pro Puzzle Trials (22, 23, 25, 27 and 29) pass with zero extra slack.
+   Their routes cover late nudges, bridges and rotation locks. Continue with the
+   Expert and Master tiers.
 3. **Compare spell and results timing in play.** The headless tests cover Slow's
    catch and release, Bubble's targeting of stuck bricks, Extra Life's motion
    and pickup, and No Rotate's fixed shake window. The cup winner's bolt now

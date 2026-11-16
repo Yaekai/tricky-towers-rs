@@ -116,8 +116,8 @@ Recent work has closed several specific gaps.
 - All 50 Trials start and deal a first brick in the headless sweep. Fixed-order Trials
   show their actual next brick. Full replays clear all four Rookie Puzzle Trials and
   Apprentice Trials 11, 15, 17 and 20 at their original laser heights and award their medals.
-  Pro Trials 22, 23 and 25 also clear and award medals. Their replays use late nudges to fit
-  bricks under ledges and build a bridge.
+  All five Pro Puzzle Trials (22, 23, 25, 27 and 29) also clear and award medals. Their
+  replays place bricks under ledges, build a bridge and account for rotation locks.
   Puzzle trials use the original's wider steering range and snap a nudge down to the grid
   when the brick is within half a cell of it.
   Endless score and personal-best labels animate when values
