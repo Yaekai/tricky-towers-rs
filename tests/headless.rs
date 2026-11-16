@@ -634,24 +634,30 @@ fn trial_9_laser_ignores_the_empty_corner_of_a_tilted_brick() {
     let (collider, density) = tricky_towers::gameplay::brick_body(config, &brick);
     let angle = std::f32::consts::PI + 0.27_f32.asin();
     let rotation = Rotation::radians(angle);
-    let y = 2.47 * cell - collider.aabb(Vec2::ZERO, rotation).max.y;
-    let pose = |y: f32| {
-        Transform::from_xyz(origin, y, 0.0).with_rotation(Quat::from_rotation_z(angle))
+    let y = 2.465 * cell - collider.aabb(Vec2::ZERO, rotation).max.y;
+    let pose = |x: f32, y: f32| {
+        Transform::from_xyz(x, y, 0.0).with_rotation(Quat::from_rotation_z(angle))
     };
     let entity = world
-        .spawn((brick, RigidBody::Static, collider, density, pose(y)))
+        .spawn((brick, RigidBody::Static, collider, density, pose(origin, y)))
         .id();
     run_seconds(&mut app, 0.06, |_| {});
     let state = tower(&mut app, 0);
-    assert!((state.height - 2.20).abs() < 1e-3, "height was {}", state.height);
+    assert!((state.height - 2.195).abs() < 1e-3, "height was {}", state.height);
     assert_eq!(state.status, TowerStatus::Building);
 
-    let higher = y + 0.12 * cell;
+    // The laser covers the whole tower, including bricks past its central height sample.
+    let x = origin + 8.0 * cell;
+    let higher = y + 0.02 * cell;
     app.world_mut()
         .entity_mut(entity)
-        .insert((Position(Vec2::new(origin, higher)), pose(higher)));
+        .insert((Position(Vec2::new(x, higher)), pose(x, higher)));
     run_seconds(&mut app, 0.06, |_| {});
     assert_eq!(tower(&mut app, 0).status, TowerStatus::Out);
+    assert_eq!(app.world().resource::<Match>().phase, Phase::Over);
+    assert!(app.world().get::<tricky_towers::spells::Zapped>(entity).is_some());
+    assert!(app.world().get::<ColliderDisabled>(entity).is_some());
+    assert!(!app.world().resource::<tricky_towers::trials::TrialProgress>().is_done("SP_10"));
 }
 
 #[test]
