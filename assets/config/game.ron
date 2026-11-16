@@ -627,6 +627,8 @@
         laser_heights: (1.2, 1.48),
         trial_laser_height: 1.02,
         trial_laser_slack: 0.3,
+        trial_nudge_snap: 0.5,
+        trial_lane_reach: 15.5,
         floor: Normal,
         floor_depth: 6.0,
         easy_floor: (5, 0, 2),

@@ -732,6 +732,32 @@ fn apprentice_large_intro_puzzle_clears_without_slack() {
 }
 
 #[test]
+fn pro_puzzle_trial_22_clears_with_late_nudges() {
+    use avian2d::prelude::Position;
+
+    replay_puzzle_trial("SP_18", &[
+        ("Z", -5, 0), ("O", -4, 0), ("S", 5, 0), ("Z", -5, 0),
+        ("O", 4, 0), ("O", -4, 0), ("O", 4, 0),
+    ], |app, i, entity| {
+        let (y, right) = match i {
+            0 => (-6.85, true),
+            2 => (-4.85, false),
+            _ => return,
+        };
+        let cell = app.world().resource::<GameConfig>().cell_size;
+        assert!(run_until(app, 15.0, |app| {
+            let world = app.world();
+            world.get::<ActiveBrick>(entity).is_none()
+                || world.get::<Position>(entity).unwrap().0.y < y * cell
+        }), "brick {i} never reached the nudge point");
+        assert!(app.world().get::<ActiveBrick>(entity).is_some(), "brick {i} hit something before the nudge");
+        let mut input = human_input(app);
+        input.nudge_right_pressed = right;
+        input.nudge_left_pressed = !right;
+    });
+}
+
+#[test]
 fn pro_puzzle_trial_23_clears_without_slack() {
     use avian2d::prelude::Position;
 
@@ -3083,6 +3109,54 @@ fn a_survival_roof_straddles_a_square_brick_a_little_off_the_grid() {
     let world = app.world_mut();
     let roof = world.query_filtered::<&Position, With<RoofPiece>>().single(world).unwrap().0;
     assert!(roof.y - 9.38 * cell < top - 0.5 * cell, "roof feet at {} over a brick top at {}", (roof.y - 9.38 * cell) / cell, top / cell);
+}
+
+#[test]
+fn puzzle_trial_nudges_snap_to_the_grid_and_use_the_wider_lane() {
+    use avian2d::prelude::Position;
+
+    // Trial nudges can reach 15 cells out, and stop short of the 15.5-cell boundary.
+    for (trial, start_x, start_y, end_x, snapped_y) in [
+        (true, 6.0, 12.25, 7.0, 12.0),
+        (true, 6.0, 12.5, 7.0, 12.0),
+        (true, 6.0, 12.75, 7.0, 12.75),
+        (true, 6.0, -4.75, 7.0, -5.0),
+        (true, 14.0, 12.25, 15.0, 12.0),
+        (true, 14.5, 12.25, 14.5, 12.25),
+        (false, 6.0, 12.25, 7.0, 12.25),
+    ] {
+        let mut config = fast_config();
+        config.mode = ModeKind::Puzzle;
+        config.puzzle.drop_speed = 2.0;
+        if trial {
+            config.trial = Some(config.trials.iter().position(|t| t.name == "SP_10").unwrap());
+        }
+        let mut app = headless_app(config);
+        run_seconds(&mut app, 0.1, |_| {});
+        let brick = tower(&mut app, 0).active.unwrap();
+        let world = app.world_mut();
+        let origin = world.query::<&Tower>().single(world).unwrap().origin_x;
+        let cell = world.resource::<GameConfig>().cell_size;
+        let x = origin + start_x * cell;
+        world.entity_mut(brick).insert((
+            Position(Vec2::new(x, start_y * cell)),
+            Transform::from_xyz(x, start_y * cell, 0.0),
+        ));
+        human_input(&mut app).nudge_right_pressed = true;
+        let before = app.world().resource::<Time<Fixed>>().elapsed();
+        assert!(run_until(&mut app, 0.1, |app| {
+            app.world().resource::<Time<Fixed>>().elapsed() > before
+        }));
+        let position = app.world().get::<Position>(brick).unwrap().0;
+        let reached_x = (position.x - origin) / cell;
+        assert!(
+            (reached_x - end_x).abs() < 0.001,
+            "trial {trial}, start {start_x}, reached {reached_x}"
+        );
+        let y = position.y / cell;
+        // One 50 Hz step also applies the ordinary fall after the nudge.
+        assert!((snapped_y - 0.09..=snapped_y).contains(&y), "trial {trial}, start {start_y}, landed at {y}");
+    }
 }
 
 #[test]

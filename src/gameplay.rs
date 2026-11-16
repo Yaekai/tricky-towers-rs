@@ -1916,7 +1916,11 @@ fn control_active_brick(
                 })
         };
         let reach = config.cells(config.lane_reach(state.half_width));
-        let in_lane = |x: f32| (x - tower.origin_x).abs() <= reach;
+        let puzzle_trial = game.mode == ModeKind::Puzzle && config.trial.is_some();
+        let in_lane = |x: f32| {
+            let distance = (x - tower.origin_x).abs();
+            if puzzle_trial { distance < reach } else { distance <= reach }
+        };
         let mut placed = false;
         let mut shoves: Vec<Shove> = Vec::new();
 
@@ -1978,6 +1982,20 @@ fn control_active_brick(
             let along = if nudge > 0 { Dir2::X } else { Dir2::NEG_X };
             if in_lane(position.0.x + sign * want) {
                 nudged.write(BrickNudged { brick: entity, dir: sign });
+                if puzzle_trial {
+                    // Puzzle trials snap down before the sideways nudge (BrickControl).
+                    let y = position.0.y / config.cell_size;
+                    let snap = y - y.floor();
+                    if snap > 0.0 && snap <= config.puzzle.trial_nudge_snap {
+                        let distance = config.cells(snap);
+                        if let Some(hit) = cast(position.0, rotation, Dir2::NEG_Y, distance) {
+                            position.0.y -= hit.distance;
+                            placed = true;
+                        } else {
+                            position.0.y -= distance;
+                        }
+                    }
+                }
                 match cast(position.0, rotation, along, want) {
                     None => position.0.x += sign * want,
                     Some(hit) => {
