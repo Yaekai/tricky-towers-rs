@@ -76,7 +76,7 @@ differs, which keeps bots, replays and netplay simple. More in [`PLAN.md`](PLAN.
 
 ## Current progress
 
-Updated 15 November 2026.
+Updated 16 November 2026.
 
 The playable offline features are implemented. Comparisons with the original continue
 through headless regressions, local measurements and silent offscreen captures. The
@@ -117,7 +117,8 @@ Recent work has closed several specific gaps.
   show their actual next brick. Full replays clear all four Rookie Puzzle Trials and
   Apprentice Trials 11, 15, 17 and 20 at their original laser heights and award their medals.
   Endless score and personal-best labels animate when values
-  change, and Endless Race records the tower height when the pacer catches it.
+  change. The Endless Race pacer freezes loose bricks and Ivy clusters when it
+  catches the tower and records its height at that moment.
 - Endless Puzzle plays the eclipse cue at the start of the effect, updates the next brick
   quota as the laser rises, and draws each level's obstacle positions together. The laser
   starts the finish count at contact and removes zapped bricks from the score. The HUD
