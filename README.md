@@ -116,6 +116,7 @@ Recent work has closed several specific gaps.
 - All 50 Trials start and deal a first brick in the headless sweep. Fixed-order Trials
   show their actual next brick. Full replays clear all four Rookie Puzzle Trials and
   Apprentice Trials 11, 15, 17 and 20 at their original laser heights and award their medals.
+  The Pro Trial 23 replay also clears and tests nudging the last brick under an overhang.
   Endless score and personal-best labels animate when values
   change. The Endless Race pacer freezes loose bricks and Ivy clusters when it
   catches the tower and records its height at that moment.

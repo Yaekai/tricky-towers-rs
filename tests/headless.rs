@@ -725,7 +725,38 @@ fn apprentice_large_intro_puzzle_clears_without_slack() {
     );
 }
 
+#[test]
+fn pro_puzzle_trial_23_clears_without_slack() {
+    use avian2d::prelude::Position;
+
+    replay_puzzle_trial("SP_11", &[
+        ("J", -4, 1), ("S", 0, 1), ("J", 3, 0), ("T", 1, 2), ("Z", 5, 0), ("T", -3, 0),
+        ("I", -3, 0), ("I", 5, 0), ("J", -10, 1),
+    ], |app, i, entity| {
+        if i != 8 {
+            return;
+        }
+        // The last J drops outside the stack and nudges in underneath the two I bricks.
+        let cell = app.world().resource::<GameConfig>().cell_size;
+        assert!(run_until(app, 15.0, |app| {
+            app.world().get::<Position>(entity).unwrap().0.y < 0.75 * cell
+        }));
+        for _ in 0..2 {
+            human_input(app).nudge_right_pressed = true;
+            run_seconds(app, 0.04, |_| {});
+        }
+    });
+}
+
 fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
+    replay_puzzle_trial(trial, moves, |_, _, _| {});
+}
+
+fn replay_puzzle_trial(
+    trial: &str,
+    moves: &[(&str, i32, i32)],
+    mut steer_late: impl FnMut(&mut App, usize, Entity),
+) {
     let mut config = GameConfig::from_ron(include_str!("../assets/config/game.ron")).unwrap();
     config.mode = ModeKind::Puzzle;
     config.trial = Some(config.trials.iter().position(|def| def.name == trial).unwrap());
@@ -756,6 +787,7 @@ fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
             }
             run_seconds(&mut app, 0.04, |_| {});
         }
+        steer_late(&mut app, i, entity);
         assert!(
             run_until(&mut app, 18.0, |app| {
                 let state = tower(app, 0);
