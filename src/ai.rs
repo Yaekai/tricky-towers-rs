@@ -141,7 +141,7 @@ fn plan(
     let filter = crate::gameplay::tower_filter(tower.index).with_excluded_entities([entity]);
     // Plan with the brick's real size: the shrunk steering shape would happily
     // squeeze it into spots where it overlaps its neighbours once placed.
-    let probe = brick_collider(&brick.cells, cell, config.collider_scale);
+    let probe = brick_collider(config, brick, config.collider_scale);
     let mut best = (f32::MAX, 0, tower.origin_x);
 
     for turns in 0..4u32 {

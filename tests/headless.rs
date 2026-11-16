@@ -725,16 +725,27 @@ fn apprentice_uneven_floor_puzzle_clears_without_slack() {
 
 #[test]
 fn apprentice_large_intro_puzzle_clears_without_slack() {
-    play_puzzle_trial_without_slack(
-        "SP_12",
-        &[("L", 5, -1), ("J", -5, 1), ("Z", -2, 0), ("O", -3, 0), ("T", 5, 2), ("Z", 0, 0), ("O", 9, 0), ("I", -6, 1)],
-    );
+    replay_puzzle_trial("SP_12", &[
+        ("L", 5, -1), ("J", -5, 1), ("Z", -2, 0), ("O", -3, 0),
+        ("T", 0, 0), ("Z", 0, 0), ("O", 9, 0), ("I", -6, 1),
+    ], |app, i, _| {
+        if i == 4 {
+            // Let the Large cast release the T before turning it upside down.
+            run_seconds(app, 0.5, |_| {});
+            for _ in 0..2 {
+                human_input(app).rotate_ccw_pressed = true;
+                run_seconds(app, 0.04, |_| {});
+            }
+            for _ in 0..5 {
+                human_input(app).right_pressed = true;
+                run_seconds(app, 0.04, |_| {});
+            }
+        }
+    });
 }
 
 #[test]
 fn pro_puzzle_trial_22_clears_with_late_nudges() {
-    use avian2d::prelude::Position;
-
     replay_puzzle_trial("SP_18", &[
         ("Z", -5, 0), ("O", -4, 0), ("S", 5, 0), ("Z", -5, 0),
         ("O", 4, 0), ("O", -4, 0), ("O", 4, 0),
@@ -744,23 +755,12 @@ fn pro_puzzle_trial_22_clears_with_late_nudges() {
             2 => (-4.85, false),
             _ => return,
         };
-        let cell = app.world().resource::<GameConfig>().cell_size;
-        assert!(run_until(app, 15.0, |app| {
-            let world = app.world();
-            world.get::<ActiveBrick>(entity).is_none()
-                || world.get::<Position>(entity).unwrap().0.y < y * cell
-        }), "brick {i} never reached the nudge point");
-        assert!(app.world().get::<ActiveBrick>(entity).is_some(), "brick {i} hit something before the nudge");
-        let mut input = human_input(app);
-        input.nudge_right_pressed = right;
-        input.nudge_left_pressed = !right;
+        nudge_puzzle_brick_at(app, entity, y, right);
     });
 }
 
 #[test]
 fn pro_puzzle_trial_23_clears_without_slack() {
-    use avian2d::prelude::Position;
-
     replay_puzzle_trial("SP_11", &[
         ("J", -4, 1), ("S", 0, 1), ("J", 3, 0), ("T", 1, 2), ("Z", 5, 0), ("T", -3, 0),
         ("I", -3, 0), ("I", 5, 0), ("J", -10, 1),
@@ -769,15 +769,43 @@ fn pro_puzzle_trial_23_clears_without_slack() {
             return;
         }
         // The last J drops outside the stack and nudges in underneath the two I bricks.
-        let cell = app.world().resource::<GameConfig>().cell_size;
-        assert!(run_until(app, 15.0, |app| {
-            app.world().get::<Position>(entity).unwrap().0.y < 0.75 * cell
-        }));
-        for _ in 0..2 {
-            human_input(app).nudge_right_pressed = true;
-            run_seconds(app, 0.04, |_| {});
-        }
+        nudge_puzzle_brick_at(app, entity, 0.7, true);
+        run_seconds(app, 0.04, |_| {});
+        human_input(app).nudge_right_pressed = true;
+        run_seconds(app, 0.04, |_| {});
     });
+}
+
+#[test]
+fn pro_puzzle_trial_25_clears_the_bridge() {
+    replay_puzzle_trial("SP_30", &[
+        ("L", -8, -1), ("S", -7, 0), ("T", -3, 0), ("J", 8, 1),
+        ("Z", 7, 0), ("T", 3, 0), ("I", 0, 0),
+    ], |app, i, entity| {
+        let (y, right) = match i {
+            1 => (-0.85, false),
+            2 => (-1.85, false),
+            4 => (-0.85, true),
+            5 => (-1.85, true),
+            _ => return,
+        };
+        nudge_puzzle_brick_at(app, entity, y, right);
+    });
+}
+
+fn nudge_puzzle_brick_at(app: &mut App, entity: Entity, height: f32, right: bool) {
+    use avian2d::prelude::Position;
+
+    let y = app.world().resource::<GameConfig>().cells(height);
+    assert!(run_until(app, 15.0, |app| {
+        let world = app.world();
+        world.get::<ActiveBrick>(entity).is_none()
+            || world.get::<Position>(entity).unwrap().0.y < y
+    }), "the brick never reached the nudge point at {height}");
+    assert!(app.world().get::<ActiveBrick>(entity).is_some(), "the brick landed before its nudge at {height}");
+    let mut input = human_input(app);
+    input.nudge_right_pressed = right;
+    input.nudge_left_pressed = !right;
 }
 
 fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
@@ -835,7 +863,10 @@ fn replay_puzzle_trial(
             i + 1, state.bricks_placed, state.bricks_dropped, state.height,
         );
     }
-    assert!(run_until(&mut app, 10.0, |app| tower(app, 0).status == TowerStatus::Won));
+    assert!(
+        run_until(&mut app, 10.0, |app| tower(app, 0).status == TowerStatus::Won),
+        "{trial} state: {:?}", tower(&mut app, 0)
+    );
     assert!(app.world().resource::<tricky_towers::trials::TrialProgress>().is_done(trial));
 }
 

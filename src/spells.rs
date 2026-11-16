@@ -1278,10 +1278,9 @@ pub(crate) fn grow_ivy(
             continue;
         }
         commands.entity(entity).remove::<IvyPending>();
-        let cell = config.cell_size * brick.scale;
         let reach = brick_collider(
-            &brick.cells,
-            cell,
+            &config,
+            brick,
             config.collider_scale + config.magic.ivy_reach / brick.scale,
         );
         let filter = SpatialQueryFilter::from_mask(
