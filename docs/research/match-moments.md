@@ -189,6 +189,15 @@ use that height. Both loose bricks and Ivy's shared rigid bodies stop while the
 pacer sweeps away. Sources are EndlessRaceGameModePlayController, Tower and
 IvyBrickModifier.
 
+The Puzzle trial laser draws 0.2 cells above its gameplay threshold. Its bright
+beam sweeps left from the emitter over 0.3 seconds with the laser cue. The
+plain beam shows once the sweep ends, and the glow thins for another 0.5 seconds.
+Retry starts with the plain beam visible. Each placement pulses the bright
+beam at twice its height, thinning over one second. The emitter wobbles up to
+five percent at 30 and 25 radians per second on the two axes, fading to rest
+over 0.7 seconds after the entrance or a placement. Sources are
+PuzzleSinglePlayerLaserLayer, PuzzleLaserLayer and the Laser prefab.
+
 Endless Puzzle plays its eclipse cue when the eclipse starts, after the laser
 entrance and the second half-second wait. Retry shows the eclipse immediately
 and skips the sound. Source is EndlessPuzzleGameModeIntroController.
