@@ -2077,6 +2077,37 @@ fn endless_race_ends_when_the_line_catches_the_tower() {
 }
 
 #[test]
+fn endless_race_freezes_ivy_clusters_when_caught() {
+    use avian2d::prelude::{AngularVelocity, LinearVelocity, Position, RigidBody};
+
+    let mut config = magic_config(SpellKind::Ivy, &[]);
+    config.mode = ModeKind::Endless;
+    let mut app = headless_app(config);
+    assert!(run_until(&mut app, 5.0, |app| {
+        let state = tower(app, 0);
+        state.bricks_placed >= 1 && state.active.is_some()
+    }));
+    cast_now(&mut app, SpellKind::Ivy, None);
+    assert!(run_until(&mut app, 5.0, |app| count::<With<IvyCluster>>(app) == 1));
+    let cluster = app
+        .world_mut()
+        .query_filtered::<Entity, With<IvyCluster>>()
+        .single(app.world())
+        .unwrap();
+    assert_eq!(app.world().get::<RigidBody>(cluster), Some(&RigidBody::Dynamic));
+
+    let height = tower(&mut app, 0).height;
+    your_tower_mut(&mut app).pacer = height + 1.0;
+    assert!(run_until(&mut app, 0.1, |app| tower(app, 0).pacer_end.is_some()));
+    assert_eq!(app.world().get::<RigidBody>(cluster), Some(&RigidBody::Static));
+    assert_eq!(app.world().get::<LinearVelocity>(cluster), Some(&LinearVelocity::ZERO));
+    assert_eq!(app.world().get::<AngularVelocity>(cluster), Some(&AngularVelocity::ZERO));
+    let caught_at = *app.world().get::<Position>(cluster).unwrap();
+    run_seconds(&mut app, 0.6, |_| {});
+    assert_eq!(app.world().get::<Position>(cluster), Some(&caught_at));
+}
+
+#[test]
 fn race_pro_wind_blows_one_way_and_puzzle_lanes_are_wider() {
     use tricky_towers::config::Difficulty;
     let mut config = fast_config();

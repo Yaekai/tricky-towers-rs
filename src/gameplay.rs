@@ -2639,19 +2639,30 @@ impl PacerEnd {
     }
 }
 
-/// The tower the Endless Race pacer caught stands still for the end sweep (Tower.StopPhysics),
-/// the brick in hand too.
+/// The caught tower stands still for the pacer's end sweep, including Ivy clusters
+/// and the brick in hand (Tower.StopPhysics).
+#[allow(clippy::type_complexity)]
 fn still_caught_towers(
     mut commands: Commands,
     towers: Query<(Entity, &TowerState)>,
-    mut bricks: Query<(Entity, &Brick, &RigidBody, &mut LinearVelocity, &mut AngularVelocity)>,
+    bricks: Query<&Brick>,
+    mut bodies: Query<
+        (Entity, Option<&Brick>, Option<&Children>, &RigidBody, &mut LinearVelocity, &mut AngularVelocity),
+        Or<(With<Brick>, With<crate::spells::IvyCluster>)>,
+    >,
 ) {
     for (tower, state) in &towers {
         if state.pacer_end.is_none() {
             continue;
         }
-        for (entity, brick, body, mut linear, mut angular) in &mut bricks {
-            if brick.tower == tower && *body != RigidBody::Static {
+        for (entity, brick, children, body, mut linear, mut angular) in &mut bodies {
+            if *body == RigidBody::Static {
+                continue;
+            }
+            let owner = brick.or_else(|| {
+                children?.iter().find_map(|member| bricks.get(member).ok())
+            });
+            if owner.is_some_and(|brick| brick.tower == tower) {
                 commands.entity(entity).insert(RigidBody::Static);
                 linear.0 = Vec2::ZERO;
                 angular.0 = 0.0;
