@@ -133,8 +133,9 @@ Recent work has closed several specific gaps.
   The first wave and subsequent gaps use the original 15–28 second range.
 - Tilted brick bounds and Puzzle zaps now measure the individual collider parts. A Trial 9
   regression reproduces the old false 2.47-cell top and measures 2.20 after the fix. A brick
-  that crosses a Puzzle trial laser now dissolves, even at the side of the tower. A known
-  six-brick solution clears with zero extra slack. The shipped 0.3-cell allowance stays until
+  that crosses a Puzzle trial laser now dissolves, even at the side of the tower. A dropped
+  brick fails the trial and the floor stays in place. The known six-brick solution clears
+  with zero extra slack. The shipped 0.3-cell allowance stays until
   the earlier reported input sequence is reproduced against the original.
 - S and Z use the original's slightly shorter collision boxes while falling and after landing.
 - Slow now follows the measured catch, shake, inflation, stretch and release sequence.

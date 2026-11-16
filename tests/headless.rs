@@ -268,6 +268,32 @@ fn a_dropped_puzzle_brick_raises_the_base_not_the_laser() {
 }
 
 #[test]
+fn a_dropped_puzzle_trial_brick_fails_without_raising_the_floor() {
+    use tricky_towers::gameplay::Raised;
+    use tricky_towers::trials::TrialProgress;
+
+    let mut config = GameConfig::from_ron(include_str!("../assets/config/game.ron")).unwrap();
+    config.mode = ModeKind::Puzzle;
+    config.trial = Some(config.trials.iter().position(|trial| trial.name == "SP_10").unwrap());
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 1.0, |app| human_input(app).left_held = true);
+    assert!(run_until(&mut app, 8.0, |app| {
+        human_input(app).fast_fall_held = true;
+        app.world().resource::<Match>().phase == Phase::Over
+    }));
+    run_seconds(&mut app, 0.5, |_| {});
+    let state = tower(&mut app, 0);
+    assert_eq!(state.status, TowerStatus::Out);
+    assert_eq!(state.bricks_dropped, 1);
+    assert!(!app.world().resource::<TrialProgress>().is_done("SP_10"));
+    assert_eq!(state.base_shown, 0.0);
+    let world = app.world_mut();
+    let floor: Vec<_> = world.query::<(&Raised, &Transform)>().iter(world).collect();
+    assert!(!floor.is_empty());
+    assert!(floor.iter().all(|(raised, transform)| (raised.rest - transform.translation.y).abs() < 1e-4));
+}
+
+#[test]
 fn a_puzzle_base_rises_as_far_as_it_says() {
     // The laser line hangs from the platform and takes the base's shown rise back out, so
     // the platform must really move by that rise or the laser copies drift apart.
