@@ -116,6 +116,8 @@ outside the current plan.
    Apprentice Trials 11, 15, 17 and 20 also clear with zero extra slack. The
    published Trial 18 stack is still open. The replay loses a brick while
    building the outer overhangs, so compare its placement timing and contacts.
+   In Pro Trial 23, a replay passes after the final J falls beside the stack
+   and nudges underneath. Continue with the other Pro Puzzle trials.
 3. **Compare spell and results timing in play.** The headless tests cover Slow's
    catch and release, Bubble's targeting of stuck bricks, Extra Life's motion
    and pickup, and No Rotate's fixed shake window. The cup winner's bolt now

@@ -23,6 +23,8 @@ Values are as the install defines them; units are cells and seconds.
   The same guide's layouts clear Apprentice Puzzle Trials 11, 15, 17 and 20.
   Trial 18's overhang route loses a piece before the large I is dealt. Faster
   drops get through four placements, so input timing matters for the comparison.
+  Pro Trial 23 clears with the pictured layout and two late nudges to fit the final J
+  under the two I bricks.
 - **Drop.** The starting drop speed, when the trial sets one ("-" = the mode's default).
 - **Base.** Survival and Puzzle name the floor piece and its height. Race trials use the race
   floor plus a pre-built **enemy tower** picture beside yours (ENEMY_TOWER_LEVEL_01..13). At the

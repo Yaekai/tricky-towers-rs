@@ -462,3 +462,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-15 (Codex): the published Trial 7 stack clears with zero extra laser slack and awards its medal. This completes the Rookie Puzzle replay coverage.
 - 2026-11-15 (Codex): Apprentice Puzzle Trials 11, 15, 17 and 20 clear with zero extra laser slack and award medals. Trial 18's guide route still loses a brick before the large I.
 - 2026-11-16 (PC): Endless Race now freezes an Ivy cluster's shared body when the pacer catches its tower. A headless cast and catch test checks that the cluster holds still through the sweep.
+- 2026-11-16 (PC): Pro Puzzle Trial 23's complete replay clears and awards its medal with zero extra laser slack. A late double-nudge tucks its last brick under the overhang.
