@@ -118,6 +118,7 @@ Recent work has closed several specific gaps.
   Apprentice Trials 11, 15, 17 and 20 at their original laser heights and award their medals.
   All five Pro Puzzle Trials (22, 23, 25, 27 and 29) also clear and award medals. Their
   replays place bricks under ledges, build a bridge and account for rotation locks.
+  Expert Trials 31, 34 and 39 have full clearing replays too.
   Puzzle trials use the original's wider steering range and snap a nudge down to the grid
   when the brick is within half a cell of it. The trial laser sweeps in, pulses when a brick
   lands, and wobbles at the emitter.
