@@ -1007,6 +1007,30 @@ fn master_puzzle_trial_49_clears_the_split_stack() {
     });
 }
 
+#[test]
+fn master_puzzle_trial_47_clears_with_two_large_bricks() {
+    replay_puzzle_trial("SP_19", &[
+        ("S", 0, 0), ("L", -3, 2), ("O", -4, 0), ("O", -4, 0), ("T", -5, 2),
+        ("J", 0, 1), ("T", -1, 0), ("L", 8, -1), ("T", 0, 0),
+    ], |app, i, entity| {
+        if matches!(i, 0 | 8) {
+            let scale = app.world().resource::<GameConfig>().magic.large_scale;
+            assert!(run_until(app, 5.0, |app| {
+                let world = app.world();
+                world.get::<Brick>(entity).is_some_and(|brick| brick.scale >= scale)
+                    && world.get::<ActiveBrick>(entity).is_some_and(|control| {
+                        control.hold == 0.0 && control.rise.is_none()
+                    })
+            }), "the Large cast on brick {i} did not finish");
+            if i == 0 {
+                steer_trial_brick(app, 4, 1);
+            } else {
+                steer_trial_brick(app, 8, 0);
+            }
+        }
+    });
+}
+
 fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
     replay_puzzle_trial(trial, moves, |_, _, _| {});
 }
