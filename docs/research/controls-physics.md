@@ -15,6 +15,10 @@ spell and dark spell.
   a 31.5-cell limit for moves and nudges, including the steerable roofs. Their view width is
   65.846 cells. Game setup rounds that width down, halves it, and subtracts one cell.
   Sources are AbstractEndlessGameMode, the game type controller, BrickControl and LocalRoofController.
+  During play, Puzzle battles use 7 cells or the settled tower's reach plus 1.5 cells, whichever
+  is larger. The floor counts too. Each brick contributes its centre offset plus half its
+  collider width, including the shrink allowance. Bricks whose linear speed exceeds 0.5 cells/s
+  do not widen the range. Sources are PuzzleLocalGamePlayController, Tower and TowerPart.
 - **Nudge:** its own button, moves 1 cell at once. If it hits a brick, both get a 4.5 impulse and
   the brick is placed.
   Puzzle trials first snap the brick's origin down to the integer grid when it is within
