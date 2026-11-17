@@ -919,6 +919,48 @@ fn expert_puzzle_trial_39_clears_with_three_locked_bricks() {
     });
 }
 
+#[test]
+fn expert_puzzle_trial_33_clears_both_wells() {
+    replay_puzzle_trial("SP_25", &[
+        ("S", -9, 1), ("L", -7, -1), ("T", 6, 2), ("J", -3, 1), ("O", 0, 0),
+        ("T", 11, -1), ("O", 9, 0), ("J", 10, 0), ("O", 5, 0),
+    ], |app, i, entity| {
+        if i == 4 {
+            let scale = app.world().resource::<GameConfig>().magic.large_scale;
+            assert!(run_until(app, 5.0, |app| {
+                let world = app.world();
+                world.get::<Brick>(entity).is_some_and(|brick| brick.scale >= scale)
+                    && world.get::<ActiveBrick>(entity).is_some_and(|control| {
+                        control.hold == 0.0 && control.rise.is_none()
+                    })
+            }));
+            steer_trial_brick(app, -9, 0);
+        }
+    });
+}
+
+#[test]
+fn expert_puzzle_trial_37_clears_the_gap() {
+    replay_puzzle_trial("SP_31", &[
+        ("S", 11, 0), ("T", -8, 0), ("J", -13, 1), ("T", -2, 0), ("I", 4, 0),
+        ("T", 17, 0), ("I", 4, 0), ("S", 6, 0), ("I", 0, 0),
+    ], |app, i, entity| {
+        if i == 4 {
+            nudge_puzzle_brick_at(app, entity, 0.60, true);
+            run_seconds(app, 0.04, |_| {});
+        }
+        let (y, right) = match i {
+            2 => (0.565, true),
+            3 => (1.12, false),
+            4 => (-0.44, true),
+            5 => (1.12, false),
+            6 => (0.565, true),
+            _ => return,
+        };
+        nudge_puzzle_brick_at(app, entity, y, right);
+    });
+}
+
 fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
     replay_puzzle_trial(trial, moves, |_, _, _| {});
 }
