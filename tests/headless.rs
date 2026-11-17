@@ -873,6 +873,52 @@ fn pro_puzzle_trial_29_clears_with_two_left_hooks() {
     });
 }
 
+#[test]
+fn expert_puzzle_trial_31_clears_the_well() {
+    play_puzzle_trial_without_slack("SP_13", &[
+        ("L", 2, 1), ("T", -2, 1), ("S", -2, 1), ("I", 3, 1),
+        ("T", -1, 0), ("O", 0, 0), ("J", -2, 1), ("L", 2, -1),
+    ]);
+}
+
+#[test]
+fn expert_puzzle_trial_34_clears_the_overhang() {
+    replay_puzzle_trial("SP_23", &[
+        ("J", -2, 1), ("I", -2, 0), ("L", 4, -1), ("Z", 3, 0), ("T", -3, 2),
+        ("J", -6, 1), ("I", -3, 0), ("J", 5, 0), ("J", 5, 0),
+    ], |app, i, entity| {
+        match i {
+            2 => nudge_puzzle_brick_at(app, entity, -0.435, false),
+            7 => nudge_puzzle_brick_at(app, entity, 3.13, false),
+            _ => {}
+        }
+    });
+}
+
+#[test]
+fn expert_puzzle_trial_39_clears_with_three_locked_bricks() {
+    replay_puzzle_trial("SP_14", &[
+        ("L", 0, 0), ("L", -8, 0), ("O", -3, 0), ("I", 0, 1),
+        ("S", -6, 0), ("L", 0, 0), ("I", -5, 0), ("T", 0, 0),
+    ], |app, i, entity| {
+        let steps = match i {
+            0 => -6,
+            5 => 2,
+            7 => -12,
+            _ => return,
+        };
+        assert!(run_until(app, 5.0, |app| {
+            app.world().get::<ActiveBrick>(entity).is_some_and(|control| {
+                control.mods.no_rotate && control.hold == 0.0 && control.rise.is_none()
+            })
+        }), "the rotation lock on brick {i} did not finish");
+        steer_trial_brick(app, steps, 0);
+        if i == 7 {
+            nudge_puzzle_brick_at(app, entity, 4.13, true);
+        }
+    });
+}
+
 fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
     replay_puzzle_trial(trial, moves, |_, _, _| {});
 }

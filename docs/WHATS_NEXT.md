@@ -117,8 +117,8 @@ outside the current plan.
    published Trial 18 stack is still open. The replay loses a brick while
    building the outer overhangs, so compare its placement timing and contacts.
    All five Pro Puzzle Trials (22, 23, 25, 27 and 29) pass with zero extra slack.
-   Their routes cover late nudges, bridges and rotation locks. Continue with the
-   Expert and Master tiers.
+   Their routes cover late nudges, bridges and rotation locks. Expert Trials 31,
+   34 and 39 also pass. Continue with Expert Trials 33 and 37 and the Master tier.
 3. **Compare spell and results timing in play.** The headless tests cover Slow's
    catch and release, Bubble's targeting of stuck bricks, Extra Life's motion
    and pickup, and No Rotate's fixed shake window. The cup winner's bolt now
