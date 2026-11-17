@@ -1917,12 +1917,8 @@ fn control_active_brick(
                     hit
                 })
         };
-        let reach = config.cells(config.lane_reach(state.half_width));
         let puzzle_trial = game.mode == ModeKind::Puzzle && config.trial.is_some();
-        let in_lane = |x: f32| {
-            let distance = (x - tower.origin_x).abs();
-            if puzzle_trial { distance < reach } else { distance <= reach }
-        };
+        let in_lane = |x: f32| config.can_steer_to(x - tower.origin_x, state.half_width);
         let mut placed = false;
         let mut shoves: Vec<Shove> = Vec::new();
 
@@ -3166,7 +3162,6 @@ fn steer_roofs(
                         .filter(|hit| hit.distance <= max)
                 };
                 let mut at = position.0;
-                let reach = config.cells(config.lane_reach(state.half_width));
                 // Moves: a step on press, repeating while held; nudges a full cell.
                 let dir = (input.right_held || right) as i32 - (input.left_held || left) as i32;
                 let mut step = left || right;
@@ -3192,7 +3187,7 @@ fn steer_roofs(
                     (nudge != 0, nudge as f32, config.nudge_distance),
                 ] {
                     let want = config.cells(want);
-                    if go && (at.x + sign * want - tower.origin_x).abs() <= reach {
+                    if go && config.can_steer_to(at.x + sign * want - tower.origin_x, state.half_width) {
                         let along = if sign > 0.0 { Dir2::X } else { Dir2::NEG_X };
                         at.x += sign * cast(at, along, want).map_or(want, |hit| hit.distance);
                     }

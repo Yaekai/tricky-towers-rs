@@ -125,7 +125,8 @@ Recent work has closed several specific gaps.
   lands, and wobbles at the emitter.
   Endless score and personal-best labels animate when values
   change. The Endless Race pacer freezes loose bricks and Ivy clusters when it
-  catches the tower and records its height at that moment.
+  catches the tower and records its height at that moment. All three solo Endless modes
+  allow the original wider steering range.
 - Endless Puzzle plays the eclipse cue at the start of the effect, updates the next brick
   quota as the laser rises, and draws each level's obstacle positions together. The laser
   starts the finish count at contact and removes zapped bricks from the score. The HUD
