@@ -27,6 +27,7 @@
         screen_width: 73.85,
         margin: 3.42,
         gap: 1.0,
+        steering_inset: 1.0,
         endless_reach: 31.5,
     ),
     menu: (

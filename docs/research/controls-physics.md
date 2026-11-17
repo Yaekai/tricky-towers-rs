@@ -6,9 +6,12 @@ Plain-language notes from Max's installed copy. Units are brick cells; the game 
 Each player has eight actions: move left/right, nudge left/right, rotate left/right, drop, light
 spell and dark spell.
 - **Move:** 0.5 cells per step. The first step is immediate, the second after 0.2 s, then one every
-  0.05 s. The default limit is 7 cells either side of the lane centre. Puzzle trials let the
-  brick move or nudge to positions strictly within 15.5 cells of the tower's centre.
-  Source for the trial limit is SinglePlayerPuzzleGameMode. The solo Endless modes use
+  0.05 s. Race and Survival take half the rounded-down lane width and leave one cell at each
+  edge. The limits are 32.5, 15.5, 9.5 and 7 cells on each side for one through four battle lanes.
+  Race and Survival trials set up two lanes for the player and enemy wizard, giving 15.5 cells.
+  Puzzle trials set 15.5 directly. Moves and nudges must end strictly inside those limits.
+  Sources are GamePositionHelper, AbstractGameTypeController, SinglePlayerGameTypeController,
+  SinglePlayerPuzzleGameMode, BrickControl and LocalRoofController. The solo Endless modes use
   a 31.5-cell limit for moves and nudges, including the steerable roofs. Their view width is
   65.846 cells. Game setup rounds that width down, halves it, and subtracts one cell.
   Sources are AbstractEndlessGameMode, the game type controller, BrickControl and LocalRoofController.

@@ -1348,13 +1348,8 @@ fn start_match(
     } else {
         Vec::new()
     };
-    let humans = config.players.clamp(1, MAX_TOWERS as u32) as usize;
-    let mut count = (humans + config.opponents as usize).min(MAX_TOWERS);
-    // A trial is one player against the enemy wizard, who has no tower.
-    let humans = if config.trial.is_some() { 1 } else { humans };
-    if config.trial.is_some() {
-        count = 1;
-    }
+    let count = config.tower_count();
+    let humans = (config.players as usize).clamp(1, count);
     let c = config.cell_size;
     for index in 0..count {
         // The screen is shared out into equal lanes, wider with fewer towers.
@@ -1634,7 +1629,8 @@ fn spawn_next_brick(
         // Auto Build (AutoBuildBrickModifier): over a random spot across the tower's top, as
         // stone, falling at `auto_build_speed`.
         let auto_x = modifier.auto_build.then(|| {
-            let (range, limit) = (config.magic.auto_build_range, config.lane_half_width);
+            let range = config.magic.auto_build_range;
+            let limit = config.lane_reach(state.half_width).max(0.0);
             let (lo, hi) = state.top_span.map_or((0.0, 0.0), |(lo, hi)| {
                 let (lo, hi) = (lo.max(-range), hi.min(range));
                 (lo.clamp(-limit, limit), hi.max(lo).clamp(-limit, limit))

@@ -2376,29 +2376,67 @@ fn endless_pacer_stops_eases_down_and_speeds_up_at_checkpoints() {
 
 #[test]
 fn solo_endless_modes_steer_to_their_full_lane_boundary() {
-    use avian2d::prelude::Position;
-
     for mode in [ModeKind::Endless, ModeKind::EndlessSurvival, ModeKind::EndlessPuzzle] {
         let mut config = GameConfig::from_ron(include_str!("../assets/config/game.ron")).unwrap();
         config.mode = mode;
         config.players = 1;
         config.opponents = 0;
-        let mut app = headless_app(config);
-        run_seconds(&mut app, 0.1, |_| {});
-        let brick = tower(&mut app, 0).active.unwrap();
-        let cell = app.world().resource::<GameConfig>().cell_size;
+        check_steering_edges(config, 31.5);
+    }
+}
+
+#[test]
+fn race_and_survival_steer_within_each_players_lane() {
+    let shipped = GameConfig::from_ron(include_str!("../assets/config/game.ron")).unwrap();
+    for (mode, trial) in [(ModeKind::Race, 0), (ModeKind::Survival, 1)] {
+        for (opponents, reach) in [(0, 32.5), (1, 15.5), (2, 9.5), (3, 7.0)] {
+            check_steering_edges(
+                GameConfig { mode, players: 1, opponents, ..shipped.clone() },
+                reach,
+            );
+        }
+        check_steering_edges(
+            GameConfig { mode, trial: Some(trial), players: 1, opponents: 0, ..shipped.clone() },
+            15.5,
+        );
+    }
+}
+
+fn check_steering_edges(config: GameConfig, reach: f32) {
+    use avian2d::prelude::Position;
+
+    let mode = config.mode;
+    let mut app = headless_app(config);
+    run_seconds(&mut app, 0.1, |_| {});
+    let brick = tower(&mut app, 0).active.unwrap();
+    let cell = app.world().resource::<GameConfig>().cell_size;
+    let world = app.world_mut();
+    let origin = world
+        .query::<&Tower>()
+        .iter(world)
+        .find(|tower| tower.index == 0)
+        .unwrap()
+        .origin_x;
+    for sign in [-1.0, 1.0] {
+        let start = origin + sign * (reach - 2.0) * cell;
         app.world_mut().entity_mut(brick).insert((
-            Position(Vec2::new(29.5 * cell, 15.0 * cell)),
-            Transform::from_xyz(29.5 * cell, 15.0 * cell, 0.0),
+            Position(Vec2::new(start, 15.0 * cell)),
+            Transform::from_xyz(start, 15.0 * cell, 0.0),
         ));
 
-        for (nudge, target) in [(true, 30.5), (false, 31.0), (false, 31.0), (true, 31.0)] {
+        for (nudge, setback) in [(true, 1.0), (false, 0.5), (false, 0.5), (true, 0.5)] {
             let mut input = human_input(&mut app);
-            input.right_pressed = !nudge;
-            input.nudge_right_pressed = nudge;
+            input.left_pressed = !nudge && sign < 0.0;
+            input.right_pressed = !nudge && sign > 0.0;
+            input.nudge_left_pressed = nudge && sign < 0.0;
+            input.nudge_right_pressed = nudge && sign > 0.0;
             run_seconds(&mut app, 0.04, |_| {});
-            let position = app.world().get::<Position>(brick).unwrap().0.x / cell;
-            assert_eq!(position, target, "{mode:?}");
+            let actual = app.world().get::<Position>(brick).unwrap().0.x;
+            let expected = origin + sign * (reach - setback) * cell;
+            assert!(
+                (actual - expected).abs() < 1e-3,
+                "{mode:?} reach {reach}, side {sign}, nudge {nudge}: want {expected}, got {actual}"
+            );
         }
     }
 }
