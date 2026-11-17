@@ -125,7 +125,8 @@ Recent work has closed several specific gaps.
   clear and award their medals.
   Puzzle trials use the original's wider steering range and snap a nudge down to the grid
   when the brick is within half a cell of it. The trial laser sweeps in, pulses when a brick
-  lands, and wobbles at the emitter.
+  lands, and wobbles at the emitter. Both beam layers flicker with the original's
+  independently shifting textures.
   Endless score and personal-best labels animate when values
   change. The Endless Race pacer freezes loose bricks and Ivy clusters when it
   catches the tower and records its height at that moment. All three solo Endless modes

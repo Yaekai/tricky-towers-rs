@@ -36,3 +36,11 @@ should match: widths of 1 and 2, the gap chance, one removed piece and the drops
   The bricks keep their contacts. We draw all lanes with one camera, so we move the whole tower
   (floor, bricks and the brick in hand) up together instead; pushing only the floor up under
   the bricks threw ones resting near an edge off.
+
+## Laser texture motion
+
+PuzzleLaserLayer assigns a new independent horizontal texture offset from 0 to 1 to
+each of the plain and bright beam materials every frame. The texture wraps once along
+each quad. The trial emitter's sphere uses a separate noise texture repeated 1.5 times
+and offset by elapsed seconds divided by seven. The current emitter sprite covers
+the wobble of the mesh, with the sphere's internal texture motion still open.

@@ -501,8 +501,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
 
 const SCROLL_SHADER: Handle<Shader> = uuid_handle!("8d1e47b2-6a3c-4f90-b5e1-2c7a9d0f3e64");
 
-const SCROLL_WGSL: &str = r#"// Custom/BeamAnimalBackground, the Animal and Indie wizards' beam columns: the picture
-// repeated `scroll.x` times up the quad, shifted by `scroll.y` (Unity's v runs up), times the tint.
+const SCROLL_WGSL: &str = r#"// The wizard beams scroll vertically. Puzzle's laser wraps horizontally.
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> tint: vec4<f32>;
@@ -513,12 +512,13 @@ const SCROLL_WGSL: &str = r#"// Custom/BeamAnimalBackground, the Animal and Indi
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let v = (1.0 - mesh.uv.y) * scroll.x + scroll.y;
-    return textureSample(picture, picture_sampler, vec2(mesh.uv.x, 1.0 - fract(v))) * tint;
+    let u = select(mesh.uv.x, fract(mesh.uv.x + scroll.w), scroll.z > 0.0);
+    return textureSample(picture, picture_sampler, vec2(u, 1.0 - fract(v))) * tint;
 }
 "#;
 
-/// A beam column that scrolls its picture (BeamBackgroundBehaviour on BeamAnimalBackground):
-/// tint, and (repeats up the quad, offset).
+/// A textured beam with scrolling UVs. The four scroll values are vertical repeats,
+/// vertical offset, horizontal wrapping flag and horizontal offset.
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 pub struct ScrollBeam {
     #[uniform(0)]
