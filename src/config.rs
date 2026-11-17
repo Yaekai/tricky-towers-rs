@@ -49,7 +49,7 @@ pub struct GameConfig {
     /// Bump impulse on the moving brick, and on the brick it hits, in cells/s.
     pub bump_impulse: f32,
     pub bump_impulse_other: f32,
-    /// How far either side of the lane centre a steered brick's centre may go.
+    /// Base steering reach for Puzzle battles and multi-tower Endless debug runs.
     pub lane_half_width: f32,
     /// A turn is tried in this many steps; if one is blocked, the brick is
     /// placed at the last free angle.
@@ -3577,6 +3577,8 @@ pub struct Lanes {
     pub screen_width: f32,
     pub margin: f32,
     pub gap: f32,
+    /// Space left between the steering limit and the edge of a Race or Survival lane.
+    pub steering_inset: f32,
     /// Horizontal steering reach of the original solo Endless modes, in cells.
     pub endless_reach: f32,
 }
@@ -3587,6 +3589,7 @@ impl Default for Lanes {
             screen_width: 73.85,
             margin: 3.42,
             gap: 1.0,
+            steering_inset: 1.0,
             endless_reach: 31.5,
         }
     }
@@ -3874,11 +3877,26 @@ impl GameConfig {
             return self.lanes.endless_reach;
         }
         match self.mode.rules() {
+            ModeKind::Race | ModeKind::Survival if !self.mode.is_endless() => {
+                // The enemy wizard takes the other lane in a trial.
+                let lanes = if self.trial.is_some() { 2 } else { self.tower_count() };
+                self.lanes.width(lanes).floor() * 0.5 - self.lanes.steering_inset
+            }
             ModeKind::Puzzle if self.trial.is_some() => self.puzzle.trial_lane_reach,
             ModeKind::Puzzle => (self.lane_half_width * self.puzzle.lane_scale)
                 .max(tower_half_width + self.puzzle.lane_margin),
             _ => self.lane_half_width,
         }
+    }
+
+    pub(crate) fn tower_count(&self) -> usize {
+        if self.trial.is_some() {
+            return 1;
+        }
+        self.players
+            .max(1)
+            .saturating_add(self.opponents)
+            .min(crate::gameplay::MAX_TOWERS as u32) as usize
     }
 
     fn solo_endless(&self) -> bool {
@@ -3888,7 +3906,10 @@ impl GameConfig {
     pub(crate) fn can_steer_to(&self, offset: f32, tower_half_width: f32) -> bool {
         let reach = self.cells(self.lane_reach(tower_half_width));
         let distance = offset.abs();
-        if self.solo_endless() || (self.mode == ModeKind::Puzzle && self.trial.is_some()) {
+        if self.solo_endless()
+            || matches!(self.mode, ModeKind::Race | ModeKind::Survival)
+            || (self.mode == ModeKind::Puzzle && self.trial.is_some())
+        {
             distance < reach
         } else {
             distance <= reach

@@ -475,3 +475,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-17 (PC): Master Trials 44 and 49 now have full clearing replays at zero extra laser slack. Both use successive nudges below ledges, and Trial 49's last J waits a little longer to clear the lower edge.
 - 2026-11-17 (PC): Master Puzzle Trial 47 clears and records its medal with zero extra laser slack after both Large casts finish. Trial 43 remains open: its published route loses the first O while setting up the next brick.
 - 2026-11-17 (PC): Solo Endless Race, Survival and Puzzle use the original 31.5-cell exclusive steering limit. Held bricks and steerable roofs share it. The headless input test checks both shifts and nudges in all three modes.
+- 2026-11-17 (PC): Race and Survival use the original seat-dependent steering limits, with two lanes for trials. The headless regression uses moves and nudges at both edges for one to four battle lanes and both trial modes.
