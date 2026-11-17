@@ -118,8 +118,8 @@ outside the current plan.
    building the outer overhangs, so compare its placement timing and contacts.
    All five Pro Puzzle Trials (22, 23, 25, 27 and 29) pass with zero extra slack.
    Their routes cover late nudges, bridges and rotation locks. All five Expert
-   Puzzle Trials (31, 33, 34, 37 and 39) also clear at zero extra slack. Continue
-   with the Master tier.
+   Puzzle Trials (31, 33, 34, 37 and 39) also clear at zero extra slack. Master
+   Trials 44 and 49 now pass too. Continue with Master Trials 43 and 47.
 3. **Compare spell and results timing in play.** The headless tests cover Slow's
    catch and release, Bubble's targeting of stuck bricks, Extra Life's motion
    and pickup, and No Rotate's fixed shake window. The cup winner's bolt now

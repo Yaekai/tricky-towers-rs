@@ -961,6 +961,52 @@ fn expert_puzzle_trial_37_clears_the_gap() {
     });
 }
 
+#[test]
+fn master_puzzle_trial_44_clears_around_the_shelves() {
+    replay_puzzle_trial("SP_27", &[
+        ("L", 4, -1), ("I", -10, 0), ("S", 5, 0), ("Z", -9, 0),
+        ("I", 10, 0), ("T", -12, 1), ("T", 8, 1),
+    ], |app, i, entity| {
+        let (right, heights): (bool, &[f32]) = match i {
+            0 => (false, &[-5.435]),
+            1 => (true, &[-1.85, -2.435]),
+            2 => (false, &[-0.85]),
+            3 => (true, &[-0.85]),
+            4 => (false, &[-2.85, -3.03, -3.435]),
+            5 => (true, &[-1.435]),
+            _ => return,
+        };
+        for &height in heights {
+            nudge_puzzle_brick_at(app, entity, height, right);
+            run_seconds(app, 0.04, |_| {});
+        }
+    });
+}
+
+#[test]
+fn master_puzzle_trial_49_clears_the_split_stack() {
+    replay_puzzle_trial("SP_26", &[
+        ("O", -10, 0), ("I", -12, 0), ("L", 6, -1), ("T", 7, 2),
+        ("L", 7, 0), ("T", 7, 2), ("Z", -11, 0), ("J", -12, 1),
+    ], |app, i, entity| {
+        let (right, heights): (bool, &[f32]) = match i {
+            0 => (true, &[-3.86, -4.01, -4.05, -4.1]),
+            1 => (true, &[-1.85, -2.85, -3.435]),
+            2 => (false, &[-6.435]),
+            3 => (false, &[-2.85]),
+            4 => (false, &[-1.85]),
+            5 => (false, &[-0.85]),
+            6 => (true, &[-1.85, -2.02]),
+            7 => (true, &[-3.49]),
+            _ => return,
+        };
+        for &height in heights {
+            nudge_puzzle_brick_at(app, entity, height, right);
+            run_seconds(app, 0.04, |_| {});
+        }
+    });
+}
+
 fn play_puzzle_trial_without_slack(trial: &str, moves: &[(&str, i32, i32)]) {
     replay_puzzle_trial(trial, moves, |_, _, _| {});
 }
