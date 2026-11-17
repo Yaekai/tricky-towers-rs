@@ -13,6 +13,7 @@ use crate::gameplay::{
     ActiveBrick, Brick, FloorBlock, FloorPart, Match, Phase, Platform, Tower, TowerState, TowerStatus,
 };
 use crate::gameplay::{Placed, piece_def};
+use crate::scene_material::ScrollBeam;
 use crate::spells::{Bubbled, Grassy, LifeOrb, SpellLog, Stone, Vined, Zapped};
 
 pub struct VisualsPlugin;
@@ -57,6 +58,7 @@ impl Plugin for VisualsPlugin {
             .add_systems(Update, twinkle_stars.before(fit_backgrounds))
             .add_systems(Update, fade_eclipse)
             .add_systems(Update, (sweep_lasers.after(crate::intro::IntroPresentation), wobble_trial_laser_ball).chain())
+            .add_systems(Update, scroll_laser_textures.after(dress_platforms))
             .add_systems(Update, place_pillar_bases.after(frame_towers))
             .add_systems(Update, drop_stars.before(twinkle_stars))
             .add_systems(Update, (dress_tower_pieces, show_vines.before(dress_bricks), wave_finish_tiles))
@@ -547,10 +549,50 @@ fn art_strip_tall(art: &Art, name: &str, cell: f32, width: f32, height: f32, at:
     let (sprite, anchor, transform) = art_sprite(art, name, cell)?;
     Some((
         Strip { width, height: Some(height) },
+        LaserTexture,
         sprite,
         anchor,
         transform.with_translation(at),
     ))
+}
+
+#[derive(Component)]
+struct LaserTexture;
+
+/// Both of Puzzle's laser quads choose their own new horizontal offset every frame.
+fn scroll_laser_textures(
+    mut commands: Commands,
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials: Option<ResMut<Assets<ScrollBeam>>>,
+    mut new: Query<(Entity, &Strip, &Sprite, &Anchor, &mut Transform), Added<LaserTexture>>,
+    existing: Query<&MeshMaterial2d<ScrollBeam>, With<LaserTexture>>,
+    mut rng: Local<u64>,
+) {
+    let (Some(mut meshes), Some(mut materials)) = (meshes, materials) else {
+        return;
+    };
+    *rng = (*rng).max(1);
+    let mut offset = || (crate::gameplay::xorshift(&mut rng) >> 40) as f32 / (1 << 24) as f32;
+    for (entity, strip, sprite, anchor, mut transform) in &mut new {
+        let size = Vec2::new(strip.width, strip.height.unwrap_or_default());
+        let scale = transform.scale.truncate().max(Vec2::splat(f32::EPSILON));
+        transform.translation -= (anchor.0 * size).extend(0.0);
+        let mesh = meshes.add(Rectangle::from_size(size / scale));
+        let material = materials.add(ScrollBeam {
+            tint: Vec4::ONE,
+            scroll: Vec4::new(1.0, 0.0, 1.0, offset()),
+            picture: sprite.image.clone(),
+        });
+        commands
+            .entity(entity)
+            .remove::<(Sprite, Strip, Anchor)>()
+            .insert((Mesh2d(mesh), MeshMaterial2d(material)));
+    }
+    for material in &existing {
+        if let Some(mut beam) = materials.get_mut(material.id()) {
+            beam.scroll.w = offset();
+        }
+    }
 }
 
 /// The bright Puzzle laser that sweeps in over the plain beam.
@@ -4620,6 +4662,45 @@ mod tests {
         let at = app.world().get::<Transform>(beam).unwrap();
         assert!((strip_width * at.scale.x - 1920.0).abs() < 0.001);
         assert_eq!(at.scale.y, 2.0);
+    }
+
+    #[test]
+    fn puzzle_laser_quads_wrap_with_independent_offsets() {
+        use super::{LaserTexture, ScrollBeam, Strip, scroll_laser_textures};
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<ScrollBeam>>()
+            .add_systems(Update, scroll_laser_textures);
+        let quads = [1.0, 2.0].map(|width| {
+            app.world_mut()
+                .spawn((
+                    LaserTexture,
+                    Strip { width, height: Some(1.0) },
+                    Sprite::default(),
+                    Transform::default(),
+                ))
+                .id()
+        });
+        let offsets = |app: &App| {
+            let world = app.world();
+            let materials = world.resource::<Assets<ScrollBeam>>();
+            quads.map(|quad| {
+                let handle = world.get::<MeshMaterial2d<ScrollBeam>>(quad).unwrap();
+                let material = materials.get(&handle.0).unwrap();
+                assert_eq!((material.scroll.x, material.scroll.y, material.scroll.z), (1.0, 0.0, 1.0));
+                assert!((0.0..1.0).contains(&material.scroll.w));
+                material.scroll.w
+            })
+        };
+        app.update();
+        let initial = offsets(&app);
+        app.update();
+        let next = offsets(&app);
+        assert_ne!(initial[0], initial[1]);
+        assert_ne!(next[0], next[1]);
+        assert!(initial.into_iter().zip(next).all(|(before, after)| before != after));
     }
 
     #[test]

@@ -477,3 +477,4 @@ o_rotate_jump). Race Pro's dark islands weren't found by name.
 - 2026-11-17 (PC): Solo Endless Race, Survival and Puzzle use the original 31.5-cell exclusive steering limit. Held bricks and steerable roofs share it. The headless input test checks both shifts and nudges in all three modes.
 - 2026-11-17 (PC): Race and Survival use the original seat-dependent steering limits, with two lanes for trials. The headless regression uses moves and nudges at both edges for one to four battle lanes and both trial modes.
 - 2026-11-17 (PC): Puzzle battle steering uses the original seven-cell minimum and extends 1.5 cells beyond the settled tower. The floor and off-centre resting bricks count toward the width. The headless test checks widening and narrowing with a moving outer brick.
+- 2026-11-17 (PC): Both Puzzle beam textures wrap to independent horizontal offsets every frame as in the original. The material test covers plain and bright layers over successive frames.
