@@ -3577,6 +3577,8 @@ pub struct Lanes {
     pub screen_width: f32,
     pub margin: f32,
     pub gap: f32,
+    /// Horizontal steering reach of the original solo Endless modes, in cells.
+    pub endless_reach: f32,
 }
 
 impl Default for Lanes {
@@ -3585,6 +3587,7 @@ impl Default for Lanes {
             screen_width: 73.85,
             margin: 3.42,
             gap: 1.0,
+            endless_reach: 31.5,
         }
     }
 }
@@ -3865,13 +3868,30 @@ impl GameConfig {
 
     /// How far either side of its lane centre a steered brick may go in the current
     /// mode, in cells, for a tower whose widest settled brick reaches `tower_half_width`
-    /// from the centre. Puzzle trials have a fixed lane. Other Puzzle lanes grow with the tower.
+    /// from the centre. Solo Endless and Puzzle trials use fixed limits.
     pub fn lane_reach(&self, tower_half_width: f32) -> f32 {
+        if self.solo_endless() {
+            return self.lanes.endless_reach;
+        }
         match self.mode.rules() {
             ModeKind::Puzzle if self.trial.is_some() => self.puzzle.trial_lane_reach,
             ModeKind::Puzzle => (self.lane_half_width * self.puzzle.lane_scale)
                 .max(tower_half_width + self.puzzle.lane_margin),
             _ => self.lane_half_width,
+        }
+    }
+
+    fn solo_endless(&self) -> bool {
+        self.mode.is_endless() && self.players <= 1 && self.opponents == 0
+    }
+
+    pub(crate) fn can_steer_to(&self, offset: f32, tower_half_width: f32) -> bool {
+        let reach = self.cells(self.lane_reach(tower_half_width));
+        let distance = offset.abs();
+        if self.solo_endless() || (self.mode == ModeKind::Puzzle && self.trial.is_some()) {
+            distance < reach
+        } else {
+            distance <= reach
         }
     }
 

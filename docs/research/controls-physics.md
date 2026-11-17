@@ -8,7 +8,10 @@ spell and dark spell.
 - **Move:** 0.5 cells per step. The first step is immediate, the second after 0.2 s, then one every
   0.05 s. The default limit is 7 cells either side of the lane centre. Puzzle trials let the
   brick move or nudge to positions strictly within 15.5 cells of the tower's centre.
-  Source for the trial limit is SinglePlayerPuzzleGameMode.
+  Source for the trial limit is SinglePlayerPuzzleGameMode. The solo Endless modes use
+  a 31.5-cell limit for moves and nudges, including the steerable roofs. Their view width is
+  65.846 cells. Game setup rounds that width down, halves it, and subtracts one cell.
+  Sources are AbstractEndlessGameMode, the game type controller, BrickControl and LocalRoofController.
 - **Nudge:** its own button, moves 1 cell at once. If it hits a brick, both get a 4.5 impulse and
   the brick is placed.
   Puzzle trials first snap the brick's origin down to the integer grid when it is within

@@ -2375,6 +2375,35 @@ fn endless_pacer_stops_eases_down_and_speeds_up_at_checkpoints() {
 }
 
 #[test]
+fn solo_endless_modes_steer_to_their_full_lane_boundary() {
+    use avian2d::prelude::Position;
+
+    for mode in [ModeKind::Endless, ModeKind::EndlessSurvival, ModeKind::EndlessPuzzle] {
+        let mut config = GameConfig::from_ron(include_str!("../assets/config/game.ron")).unwrap();
+        config.mode = mode;
+        config.players = 1;
+        config.opponents = 0;
+        let mut app = headless_app(config);
+        run_seconds(&mut app, 0.1, |_| {});
+        let brick = tower(&mut app, 0).active.unwrap();
+        let cell = app.world().resource::<GameConfig>().cell_size;
+        app.world_mut().entity_mut(brick).insert((
+            Position(Vec2::new(29.5 * cell, 15.0 * cell)),
+            Transform::from_xyz(29.5 * cell, 15.0 * cell, 0.0),
+        ));
+
+        for (nudge, target) in [(true, 30.5), (false, 31.0), (false, 31.0), (true, 31.0)] {
+            let mut input = human_input(&mut app);
+            input.right_pressed = !nudge;
+            input.nudge_right_pressed = nudge;
+            run_seconds(&mut app, 0.04, |_| {});
+            let position = app.world().get::<Position>(brick).unwrap().0.x / cell;
+            assert_eq!(position, target, "{mode:?}");
+        }
+    }
+}
+
+#[test]
 fn endless_race_ends_when_the_line_catches_the_tower() {
     let mut config = fast_config();
     config.mode = ModeKind::Endless;
