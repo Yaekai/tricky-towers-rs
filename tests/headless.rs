@@ -2497,7 +2497,7 @@ fn endless_race_freezes_ivy_clusters_when_caught() {
 }
 
 #[test]
-fn race_pro_wind_blows_one_way_and_puzzle_lanes_are_wider() {
+fn race_pro_wind_blows_one_way() {
     use tricky_towers::config::Difficulty;
     let mut config = fast_config();
     config.mode = ModeKind::Race;
@@ -2516,13 +2516,67 @@ fn race_pro_wind_blows_one_way_and_puzzle_lanes_are_wider() {
     assert!(drift.iter().all(|v| v.is_finite()));
 
     config.difficulty = Some(Difficulty::Normal);
-    let app = headless_app(config.clone());
+    let app = headless_app(config);
     assert_eq!(app.world().resource::<Match>().wind, 0.0);
+}
 
-    // Puzzle: 1.2x the normal limit, or the tower's widest brick plus 1.5.
+#[test]
+fn puzzle_battles_steer_wider_only_when_the_stack_settles() {
+    use avian2d::prelude::{GravityScale, LinearVelocity, Position, RigidBody};
+    use tricky_towers::config::PuzzleFloor;
+    use tricky_towers::gameplay::{Placed, brick_body};
+
+    let mut config = fast_config();
     config.mode = ModeKind::Puzzle;
-    assert!((config.lane_reach(0.0) - 8.4).abs() < 1e-4);
-    assert_eq!(config.lane_reach(10.0), 11.5);
+    config.players = 1;
+    config.opponents = 0;
+    config.puzzle.floor = PuzzleFloor::Easy;
+    config.puzzle.line_height = 30.0;
+    let cell = config.cell_size;
+    let piece = config.pieces.iter().position(|piece| piece.name == "O").unwrap();
+    let cells = config.pieces[piece].centered_cells();
+    let mut app = headless_app(config);
+    wait_for_next_brick(&mut app);
+    let held = tower(&mut app, 0).active.unwrap();
+    assert_eq!(tower(&mut app, 0).half_width, 2.5);
+    let set_held_x = |app: &mut App, x: f32| {
+        let at = Vec2::new(x, 15.0) * cell;
+        app.world_mut().entity_mut(held).insert((
+            Position(at),
+            Transform::from_translation(at.extend(0.0)),
+        ));
+    };
+    let move_right = |app: &mut App, expected: f32| {
+        human_input(app).right_pressed = true;
+        run_seconds(app, 0.04, |_| {});
+        let x = app.world().get::<Position>(held).unwrap().0.x / cell;
+        assert!((x - expected).abs() < 1e-4, "wanted x {expected}, got {x}");
+    };
+    set_held_x(&mut app, 6.0);
+    move_right(&mut app, 6.5);
+    move_right(&mut app, 6.5);
+
+    let world = app.world_mut();
+    let owner = world.get::<Brick>(held).unwrap().tower;
+    let brick = Brick {
+        tower: owner, piece, cells, color: Color::WHITE, scale: 1.0, mass: 1.0, ice: false,
+    };
+    let (collider, density) = brick_body(world.resource::<GameConfig>(), &brick);
+    let wide = world.spawn((
+        brick, collider, density, Placed(1), RigidBody::Dynamic, GravityScale(0.0),
+        Transform::from_xyz(7.0 * cell, 5.0 * cell, 0.0),
+    )).id();
+    run_seconds(&mut app, 0.08, |_| {});
+    assert!((tower(&mut app, 0).half_width - 8.0).abs() < 1e-4);
+    set_held_x(&mut app, 8.5);
+    move_right(&mut app, 9.0);
+    move_right(&mut app, 9.0);
+
+    app.world_mut().entity_mut(wide).insert(LinearVelocity(Vec2::X * cell));
+    run_seconds(&mut app, 0.08, |_| {});
+    assert_eq!(tower(&mut app, 0).half_width, 2.5);
+    set_held_x(&mut app, 6.5);
+    move_right(&mut app, 6.5);
 }
 
 #[test]
@@ -3448,7 +3502,8 @@ fn puzzle_trial_nudges_snap_to_the_grid_and_use_the_wider_lane() {
         (true, 6.0, -4.75, 7.0, -5.0),
         (true, 14.0, 12.25, 15.0, 12.0),
         (true, 14.5, 12.25, 14.5, 12.25),
-        (false, 6.0, 12.25, 7.0, 12.25),
+        (false, 5.5, 12.25, 6.5, 12.25),
+        (false, 6.0, 12.25, 6.0, 12.25),
     ] {
         let mut config = fast_config();
         config.mode = ModeKind::Puzzle;

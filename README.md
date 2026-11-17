@@ -115,6 +115,7 @@ Recent work has closed several specific gaps.
   Survival's next-brick card slides in and previews a separate bag during the count-up.
   Race and Survival steering limits scale with the number of battle lanes. Their trials
   use the original two-lane limit with one lane reserved for the enemy wizard.
+  Puzzle battles extend steering as the settled stack widens, with a seven-cell minimum.
 - All 50 Trials start and deal a first brick in the headless sweep. Fixed-order Trials
   show their actual next brick. Full replays clear all four Rookie Puzzle Trials and
   Apprentice Trials 11, 15, 17 and 20 at their original laser heights and award their medals.

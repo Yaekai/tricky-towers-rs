@@ -620,7 +620,9 @@ pub struct TowerState {
     /// How far left and right of the lane centre the tower's top `auto_build_top` cells reach
     /// (Tower.GetTowerRect), in cells; `None` with nothing there.
     pub top_span: Option<(f32, f32)>,
-    /// How far the widest settled brick reaches from the lane centre, in cells.
+    /// How far the floor of a Puzzle battle tower reaches from its centre, in cells.
+    floor_half_width: f32,
+    /// How far the settled tower reaches from the lane centre, in cells.
     pub half_width: f32,
     /// The tallest this tower has been, in cells (Endless Race's score).
     pub best_height: f32,
@@ -695,6 +697,7 @@ impl TowerState {
             pacer_end: None,
             top_span: None,
             best_height: 0.0,
+            floor_half_width: 0.0,
             half_width: 0.0,
             mystery_bag: Vec::new(),
             rng: seed.max(1),
@@ -1348,6 +1351,29 @@ fn start_match(
     } else {
         Vec::new()
     };
+    let floor_half_width = if config.mode == ModeKind::Puzzle && config.trial.is_none() {
+        // The original measures the span of the floor's colliders around its origin.
+        let (left, right) = if floor.is_empty() {
+            config
+                .base_boxes(config.mode)
+                .iter()
+                .map(|b| b.x)
+                .fold((f32::INFINITY, f32::NEG_INFINITY), |(left, right), (lo, hi)| {
+                    (left.min(lo), right.max(hi))
+                })
+        } else {
+            floor.iter().fold(
+                (f32::INFINITY, f32::NEG_INFINITY),
+                |(left, right), &(x, _, _, wide)| {
+                    let half = wide as f32 * 0.5;
+                    (left.min(x - half), right.max(x + half))
+                },
+            )
+        };
+        (right - left).max(0.0) * 0.5
+    } else {
+        0.0
+    };
     let count = config.tower_count();
     let humans = (config.players as usize).clamp(1, count);
     let c = config.cell_size;
@@ -1394,6 +1420,8 @@ fn start_match(
             },
             TowerState {
                 laser_base: laser,
+                floor_half_width,
+                half_width: floor_half_width,
                 ..TowerState::new(config, match_seed.wrapping_add(index as u64 * 7919))
             },
             // Everyone shares one brick order on Pro and in Puzzle, else each their own.
@@ -2340,6 +2368,7 @@ fn track_towers(
         tower_view(&config, &game, low, high, n)
     };
     let by_view = lost_out_of_view(&game);
+    let puzzle_battle = game.mode == ModeKind::Puzzle && config.trial.is_none();
 
     let settled_speed_sq = config.cells(config.settled_speed).powi(2);
     // Each counted part's tower, left and right edge (from the lane centre) and top, in cells.
@@ -2348,7 +2377,7 @@ fn track_towers(
     for (_, _, mut state) in &mut towers {
         state.height = 0.0;
         state.stack_top = 0.0;
-        state.half_width = 0.0;
+        state.half_width = state.floor_half_width;
         state.all_settled = true;
     }
     for (entity, brick, position, velocity, collider, rotation, bubbled, ghosted, cursed, spin, in_ivy, zapped) in &bricks {
@@ -2409,13 +2438,18 @@ fn track_towers(
         }
         let settled = velocity.0.length_squared() <= settled_speed_sq;
         state.all_settled &= settled;
+        if puzzle_battle && settled {
+            let offset = (position.0.x - tower.origin_x).abs() / config.cell_size;
+            let width = (aabb.max.x - aabb.min.x) / config.cell_size + (1.0 - config.collider_scale);
+            state.half_width = state.half_width.max(offset + width * 0.5);
+        }
         let on_tower = (position.0.x - tower.origin_x).abs()
             <= config.cells(config.base_half_width(config.mode) + 2.0);
         // Bricks held up by a bubble or a ghost don't count toward the height.
         if !on_tower || aabb.min.y <= -config.cell_size || bubbled || ghosted {
             continue;
         }
-        if settled {
+        if settled && !puzzle_battle {
             let reach = (aabb.max.x - tower.origin_x).max(tower.origin_x - aabb.min.x);
             state.half_width = state.half_width.max(reach / config.cell_size);
         }

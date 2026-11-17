@@ -766,10 +766,10 @@ pub struct PuzzleRules {
     /// Pro floor (ProRandomPuzzleFloor): the original's floor height (13) and the
     /// chance (%) of a ledge on each side of each row (`Next(100) > 30`: 69).
     pub pro_floor: (u32, u32),
-    /// The lane is this much wider than in the other modes...
+    /// Initial Puzzle steering scale, kept for multi-tower Endless debug runs.
     #[serde(default = "default_puzzle_lane_scale")]
     pub lane_scale: f32,
-    /// ...and a tower wider than that steers out to its widest settled brick plus this.
+    /// Puzzle battle steering extends this many cells beyond the settled tower.
     #[serde(default = "default_puzzle_lane_margin")]
     pub lane_margin: f32,
 }
@@ -3883,6 +3883,9 @@ impl GameConfig {
                 self.lanes.width(lanes).floor() * 0.5 - self.lanes.steering_inset
             }
             ModeKind::Puzzle if self.trial.is_some() => self.puzzle.trial_lane_reach,
+            ModeKind::Puzzle if !self.mode.is_endless() => self
+                .lane_half_width
+                .max(tower_half_width + self.puzzle.lane_margin),
             ModeKind::Puzzle => (self.lane_half_width * self.puzzle.lane_scale)
                 .max(tower_half_width + self.puzzle.lane_margin),
             _ => self.lane_half_width,
@@ -3906,10 +3909,7 @@ impl GameConfig {
     pub(crate) fn can_steer_to(&self, offset: f32, tower_half_width: f32) -> bool {
         let reach = self.cells(self.lane_reach(tower_half_width));
         let distance = offset.abs();
-        if self.solo_endless()
-            || matches!(self.mode, ModeKind::Race | ModeKind::Survival)
-            || (self.mode == ModeKind::Puzzle && self.trial.is_some())
-        {
+        if !self.mode.is_endless() || self.solo_endless() {
             distance < reach
         } else {
             distance <= reach
