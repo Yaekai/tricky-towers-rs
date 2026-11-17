@@ -35,7 +35,9 @@ Values are as the install defines them; units are cells and seconds.
   All five Pro Puzzle replays record their medals with zero extra laser slack.
   Expert Trial 31 fills the well, Trial 34 keeps its upper I half a cell further left than
   the guide for stability, and Trial 39 waits for each of its three rotation-lock casts.
-  All three clear and record their medals with zero extra laser slack.
+  Trial 33 clears both wells after the Large cast on the fifth brick. Trial 37 uses
+  late nudges around the ledges on both sides of its bridge. All five Expert Puzzle
+  replays clear and record their medals with zero extra laser slack.
 - **Drop.** The starting drop speed, when the trial sets one ("-" = the mode's default).
 - **Base.** Survival and Puzzle name the floor piece and its height. Race trials use the race
   floor plus a pre-built **enemy tower** picture beside yours (ENEMY_TOWER_LEVEL_01..13). At the
