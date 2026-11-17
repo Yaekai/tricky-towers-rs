@@ -3502,7 +3502,8 @@ fn puzzle_trial_nudges_snap_to_the_grid_and_use_the_wider_lane() {
         (true, 6.0, -4.75, 7.0, -5.0),
         (true, 14.0, 12.25, 15.0, 12.0),
         (true, 14.5, 12.25, 14.5, 12.25),
-        (false, 6.0, 12.25, 7.0, 12.25),
+        (false, 5.5, 12.25, 6.5, 12.25),
+        (false, 6.0, 12.25, 6.0, 12.25),
     ] {
         let mut config = fast_config();
         config.mode = ModeKind::Puzzle;
